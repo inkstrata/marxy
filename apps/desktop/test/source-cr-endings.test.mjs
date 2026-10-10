@@ -108,24 +108,24 @@ test('an edit in a CR-only file changes only the typed byte', () =>
     assert.equal(written, want);
   }));
 
-test('Jump to source on a CR-only Markdown file lands on the clicked line', () =>
+test('Jump to source on a CR-only Markdown file brings the clicked late paragraph into view', () =>
   withPage(async (page) => {
-    const md = '# Title\r\rfirst para\r\rsecond para\r';
+    const md = Array.from({ length: 80 }, (_, i) => `paragraph number ${i}`).join('\r\r') + '\r';
     await open(page, md, '/doc/mac.md');
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
-    await page.click('#doc p >> nth=1');
+    const target = page.locator('#doc p', { hasText: 'paragraph number 70' });
+    await target.scrollIntoViewIfNeeded();
+    await target.click();
     await page.waitForFunction(() => window.marxySelection?.getSelectionState().selection.kind !== 'none');
     await page.evaluate(() => window.marxyRunCommand?.('view.jump-to-source'));
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-line'));
-    await page.waitForTimeout(300);
-    assert.ok((await page.locator('#marxy-source .cm-line').count()) >= 5);
-    const head = await page.evaluate(() => {
-      const sel = getSelection();
-      return sel?.anchorNode?.parentElement?.closest('.cm-line')?.textContent ?? null;
+    const line = page.locator('#marxy-source .cm-line', { hasText: /^paragraph number 70$/ });
+    await line.first().waitFor({ state: 'attached', timeout: 5000 });
+    const inView = await line.first().evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= window.innerHeight;
     });
-    assert.ok(head === null || head.includes('second') || head === '', `caret line was ${JSON.stringify(head)}`);
-    const lines = await page.locator('#marxy-source .cm-line').allTextContents();
-    assert.deepEqual(lines.slice(0, 5), ['# Title', '', 'first para', '', 'second para']);
+    assert.ok(inView, 'the clicked paragraph is a visible Source line');
   }));
 
 test('a mixed-ending file keeps its bytes: CRLF lines split, a lone CR stays a mark inside its line', () =>
