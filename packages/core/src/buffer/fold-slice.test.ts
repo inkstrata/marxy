@@ -7,6 +7,7 @@ import { parseMarkdown } from '../parse/parse.ts';
 import { blockEditRange } from '../sourcemap/index.ts';
 import { contentHash, createBuffer, splice, textOf, type Buffer } from './buffer.ts';
 import { foldSlice } from './fold-slice.ts';
+import { sourceTextOfRange } from './source-text.ts';
 
 const enc = new TextEncoder();
 const bytesOf = (s: string): Uint8Array => enc.encode(s);
@@ -53,7 +54,9 @@ const rows: Row[] = [
   row('edit next to a surrogate pair', `x\n${SURR} a ${SURR}\ny\n`, [2, 13], `${SURR} b ${SURR}`, `x\n${SURR} b ${SURR}\ny\n`),
   row('replace one astral char with one sharing its high surrogate', `${SURR}`, [0, 4], SURR2, SURR2),
   row('insert a char between two astral chars', `${SURR}${SURR2}`, [0, 8], `${SURR}-${SURR2}`, `${SURR}-${SURR2}`),
-  row('invalid UTF-8 outside the edit stays', new Uint8Array([0x61, 0xff, 0x0a, 0x62, 0x0a]), [0, 4], 'a\u{fffd}\nc', new Uint8Array([0x61, 0xff, 0x0a, 0x63, 0x0a])),
+  row('a stray byte outside the edit stays (its code unit is the byte)', new Uint8Array([0x61, 0xff, 0x0a, 0x62, 0x0a]), [0, 4], 'a\udcff\nc', new Uint8Array([0x61, 0xff, 0x0a, 0x63, 0x0a])),
+  row('a typed U+FFFD is EF BF BD, and the stray beside it keeps its byte', new Uint8Array([0x61, 0xff, 0x0a, 0x62, 0x0a]), [0, 4], 'a\udcff\u{fffd}b', new Uint8Array([0x61, 0xff, 0xef, 0xbf, 0xbd, 0x62, 0x0a])),
+  row('a U+FFFD the file holds stays EF BF BD beside a stray', new Uint8Array([0x61, 0xef, 0xbf, 0xbd, 0xff, 0x0a]), [0, 6], 'b\u{fffd}\udcff\n', new Uint8Array([0x62, 0xef, 0xbf, 0xbd, 0xff, 0x0a])),
   row('BOM before the slice is untouched', new Uint8Array([0xef, 0xbb, 0xbf, ...bytesOf('a\r\nb\r\n')]), [3, 7], 'a\nc', new Uint8Array([0xef, 0xbb, 0xbf, ...bytesOf('a\r\nc\r\n')])),
   row('CR-only slice takes CR for new lines', 'a\rb\rc', [0, 5], 'a\nb\nX\nc'.replace(/\n/g, '\r'), 'a\rb\rX\rc'),
 ];
@@ -203,4 +206,62 @@ test('property: folding an edited slice leaves every byte outside the edit range
     }
   }
   assert.ok(folds > 1000, `only ${folds} folds ran`);
+});
+
+// F-34.2: the block editor's text is the slice's Source text, so an edit either side of a stray byte keeps it.
+const hexOf = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join(' ');
+const bytes = (...parts: Array<string | number[]>): Uint8Array => Uint8Array.from(parts.flatMap((p) => (typeof p === 'string' ? [...enc.encode(p)] : p)));
+const applied = (buffer: Buffer, slice: Source, text: string): string => {
+  const fold = foldSlice(buffer, slice, text);
+  return hexOf(fold === null ? buffer.bytes : splice(buffer, fold.range, fold.replacement).bytes);
+};
+
+test('foldSlice: two edits either side of a stray byte in one block keep its byte (red on main: EF BF BD)', () => {
+  const buffer = buf(bytes('head\n\nalpha ', [0xff], ' omega\n\ntail\n'));
+  const slice = src(6, 6 + bytes('alpha ', [0xff], ' omega').length);
+  assert.equal(sourceTextOfRange(buffer, slice), 'alpha \udcff omega');
+  assert.equal(applied(buffer, slice, 'ALPHA \udcff OMEGA'), hexOf(bytes('head\n\nALPHA ', [0xff], ' OMEGA\n\ntail\n')));
+});
+
+test('foldSlice: every kind of byte that is not UTF-8 survives two edits around it', () => {
+  const strays: Record<string, number[]> = {
+    'lone FF': [0xff],
+    'lone continuation': [0x80],
+    'cut-off three-byte': [0xe2, 0x82],
+    'cut-off four-byte': [0xf0, 0x9f, 0x98],
+    'overlong': [0xc0, 0xaf],
+    'encoded surrogate': [0xed, 0xa0, 0x80],
+    'beyond U+10FFFF': [0xf4, 0x90, 0x80, 0x80],
+  };
+  for (const [name, stray] of Object.entries(strays)) {
+    const buffer = buf(bytes('x\n\none two ', stray, ' three four\n\ny\n'));
+    const slice = src(3, 3 + bytes('one two ', stray, ' three four').length);
+    const text = sourceTextOfRange(buffer, slice);
+    assert.equal(applied(buffer, slice, text.replace('one', 'ONE').replace('four', 'FOUR')), hexOf(bytes('x\n\nONE two ', stray, ' three FOUR\n\ny\n')), name);
+  }
+});
+
+test('foldSlice: a stray moved or copied inside the block is its own byte, and a line of twins keeps each', () => {
+  const buffer = buf(bytes('a ', [0xff], '\na ', [0xfe], '\na ', [0xc3], '\n'));
+  const slice = src(0, buffer.bytes.length - 1);
+  const lines = sourceTextOfRange(buffer, slice).split('\n');
+  assert.equal(applied(buffer, slice, [lines[2], lines[0], lines[1]].join('\n')), hexOf(bytes('a ', [0xc3], '\na ', [0xff], '\na ', [0xfe], '\n')));
+  assert.equal(applied(buffer, slice, [lines[1], ...lines].join('\n')), hexOf(bytes('a ', [0xfe], '\na ', [0xff], '\na ', [0xfe], '\na ', [0xc3], '\n')));
+});
+
+test('foldSlice: the slice may begin or end beside a stray byte; one inside a character still throws', () => {
+  const buffer = buf(bytes('ab', [0xe2, 0x82], 'cd\n'));
+  // [3, 5) is the second stray byte and "c": a boundary between the two strays, which belong to no character.
+  assert.equal(sourceTextOfRange(buffer, src(3, 5)), '\udc82c');
+  assert.equal(applied(buffer, src(3, 5), 'Xc'), hexOf(bytes('ab', [0xe2], 'Xcd\n')));
+  assert.throws(() => foldSlice(buf('日'), src(1, 3), 'x'));
+});
+
+test('foldSlice: text that names the bytes already there folds to nothing, though the file reads them as a character', () => {
+  // C3 A9 are é: the file's Source text is "xéy", and the editor's text "x" + two stray units names the same bytes.
+  const buffer = buf(bytes('x', [0xc3, 0xa9], 'y'));
+  const slice = src(0, buffer.bytes.length);
+  assert.equal(foldSlice(buffer, slice, 'x\udcc3\udca9y'), null);
+  // And one byte more is only that byte.
+  assert.equal(applied(buffer, slice, 'x\udcc3\udca9yz'), hexOf(bytes('x', [0xc3, 0xa9], 'yz')));
 });

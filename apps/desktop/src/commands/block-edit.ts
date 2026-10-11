@@ -9,7 +9,7 @@
 // before Mod+E toggles, and closes it before the page under it is set again. This module owns the session,
 // the target resolution and the commands; the editor itself is `source/block-editor.ts`, loaded with CodeMirror.
 
-import { blockEditRange, foldSlice, textOf, type Buffer, type Node as AstNode, type Source } from '@marxy/core';
+import { blockEditRange, encodeSourceText, foldSlice, readableText, sourceTextOfRange, type Buffer, type Node as AstNode, type Source } from '@marxy/core';
 import type { BlockEdit, RenderedView } from '../view/rendered-view.ts';
 import type { DocumentSnapshot, DocumentStore, Transition } from '../document/store.ts';
 import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
@@ -24,7 +24,8 @@ export const TOO_LARGE_FOR_BLOCK_EDIT = 'Too large to edit in place; Mod+E opens
 const NO_BLOCK_TO_EDIT = 'Select one block to edit in place; Mod+E opens Source';
 /** Names the block by the start of the reader's text, so the notice can never be about another block. */
 const changedUnderneath = (text: string): string => {
-  const head = text.replace(/\s+/g, ' ').trim().slice(0, 40);
+  // The text is the block's Source text: a stray byte is a lone surrogate there, and never reaches the page.
+  const head = readableText(text).replace(/\s+/g, ' ').trim().slice(0, 40);
   return `The block you were editing ("${head}") was changed or removed elsewhere; your text was kept and added as a new block where it stood. Undo takes it out.`;
 };
 const COULD_NOT_KEEP = 'Your edit to a block could not be put back into the document.';
@@ -111,7 +112,7 @@ function insertionFor(snapshot: DocumentSnapshot, at: number, text: string): { s
 
 function slice(buffer: Buffer, range: Source): string | null {
   try {
-    return range.end <= buffer.bytes.length ? textOf(buffer, range) : null;
+    return range.end <= buffer.bytes.length ? sourceTextOfRange(buffer, range) : null;
   } catch {
     return null;
   }
@@ -208,7 +209,8 @@ async function openResolved(ctx: AppContext): Promise<void> {
     ctx.showNotice(NO_BLOCK_TO_EDIT, { transient: true });
     return;
   }
-  const original = textOf(snapshot.buffer, range);
+  // The block's Source text (ADR-0069): each byte that is not UTF-8 is a code unit of its own, so the fold is exact (F-34.2).
+  const original = sourceTextOfRange(snapshot.buffer, range);
   const { openBlockEditor } = await import('../source/block-editor.ts');
   const host = document.createElement('div');
   host.className = 'marxy-block-editor';
@@ -262,13 +264,13 @@ async function openResolved(ctx: AppContext): Promise<void> {
           // The block is not there to fold into: add the reader's text beside it, replace nothing, say which text it is.
           const place = insertionFor(snap, at.start, text);
           const range = { file: snap.path, start: place.start, end: place.start };
-          if (await store.apply({ range, replacement: place.replacement, label: LABEL })) notify({ kind: 'info', text: changedUnderneath(text) });
+          if (await store.apply({ range, replacement: encodeSourceText(place.replacement), label: LABEL })) notify({ kind: 'info', text: changedUnderneath(text) });
           else notify({ kind: 'info', text: COULD_NOT_KEEP });
           return;
         }
         const fold = foldSlice(snap.buffer, at, text);
         if (fold === null) return;
-        if (!(await store.apply({ range: fold.range, replacement: fold.text, label: LABEL }))) notify({ kind: 'info', text: COULD_NOT_KEEP });
+        if (!(await store.apply({ range: fold.range, replacement: fold.replacement, label: LABEL }))) notify({ kind: 'info', text: COULD_NOT_KEEP });
       } catch (e) {
         console.warn(`marxy: a block edited in place could not be put back: ${String(e)}`);
         notify({ kind: 'info', text: COULD_NOT_KEEP });
@@ -314,7 +316,7 @@ async function openResolved(ctx: AppContext): Promise<void> {
           const delta = fold.replacement.length - (fold.range.end - fold.range.start);
           let applied = false;
           try {
-            applied = await store.apply({ range: fold.range, replacement: fold.text, label: LABEL, baseVersion: self.version });
+            applied = await store.apply({ range: fold.range, replacement: fold.replacement, label: LABEL, baseVersion: self.version });
           } catch (e) {
             console.warn(`marxy: a block edited in place could not be applied: ${String(e)}`);
           }

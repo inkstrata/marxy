@@ -8,7 +8,7 @@
 
 import { readableText, strayByteOf } from '@marxy/core';
 import { SearchQuery, search, setSearchQuery } from '@codemirror/search';
-import { EditorState, type Extension, Transaction } from '@codemirror/state';
+import { Annotation, EditorState, type Extension, Transaction } from '@codemirror/state';
 import { EditorView, ViewPlugin, highlightSpecialChars } from '@codemirror/view';
 
 /** A stray byte's code unit, alone: an astral character's low surrogate is not one (the `u` flag). */
@@ -70,14 +70,29 @@ export function textOut(text: string): string {
 }
 
 /**
- * Text entering the editor (paste, drop): the exact text the same pasteboard item carries, when it reads as `text`;
- * otherwise `text` with U+FFFD for each lone surrogate, so a paste from anywhere else never names a stray byte.
+ * Text entering the editor (paste, drop): the exact text the same pasteboard item carries, when it reads as `text` and
+ * holds no lone surrogate but stray bytes' (`holdsOnlyStrayLones`); otherwise `text` with U+FFFD for each lone
+ * surrogate, so a paste from anywhere else never names a stray byte.
  */
 export function textIn(text: string): string {
   const held = incoming;
   incoming = null;
-  if (held !== null && readableText(held) === text) return held;
+  if (held !== null && holdsOnlyStrayLones(held) && readableText(held) === text) return held;
   return readableText(text);
+}
+
+/** Any lone surrogate, high or low; a valid pair (an astral character) is one code point and never matches (`u`). */
+const LONE_UNITS = /[\uD800-\uDFFF]/gu;
+
+/**
+ * Whether every lone surrogate in `text` is a stray byte's code unit (U+DC80 to U+DCFF). The private type is the only
+ * way a lone surrogate enters the editor, so it may name stray bytes and nothing else. A lone high surrogate (or a lone
+ * low one outside the range) would join a stray byte already in the text and make a valid pair: a forged `\ud800`
+ * pasted before a stray `\udcff` encodes as F0 90 83 BF, not FF (the review of #584).
+ */
+export function holdsOnlyStrayLones(text: string): boolean {
+  for (const m of text.matchAll(LONE_UNITS)) if (strayByteOf(m[0].charCodeAt(0)) < 0) return false;
+  return true;
 }
 
 /** The exact text a pasteboard item carries for the editor, or null. Exported for tests. */
@@ -86,7 +101,7 @@ export function heldTextOf(data: DataTransfer | null | undefined): string | null
   if (!raw) return null;
   try {
     const held: unknown = JSON.parse(raw);
-    return typeof held === 'string' ? held : null;
+    return typeof held === 'string' && holdsOnlyStrayLones(held) ? held : null;
   } catch {
     return null;
   }
@@ -129,6 +144,13 @@ const writeHeldText = ViewPlugin.fromClass(
 );
 
 const LONE = /[\uD800-\uDFFF]/u;
+
+/**
+ * Marks the one change that reads the editor's own fold back (`replaceBuffer`): bytes the text already named, now
+ * decoded as the file would be opened. The history joins it to the reader's last edit, so undoing that edit undoes the
+ * read-back with it and the text it leaves is the text the reader had, byte for byte (F-34.2, ADR-0069).
+ */
+export const readBack = Annotation.define<boolean>();
 
 /**
  * CodeMirror's find panel seeds its query from the selection, and announces each match with the text around it in a
@@ -174,26 +196,21 @@ const readableFind = EditorState.transactionFilter.of((tr) => {
 /**
  * The editor's special characters (control characters, bidi and zero-width marks, as CodeMirror marks them) plus
  * stray bytes, the clipboard filters, and the find panel's. Replaces a bare `highlightSpecialChars()`: its options are
- * one per editor. `restore: false` (the block editor, whose text is the reading decode and folds through `foldSlice`)
- * never takes a stray byte from a paste: everything coming in is read with U+FFFD.
+ * one per editor. The Source editor and the block editor (whose text is the block's Source text, F-34.2) both take it.
  */
-export function strayBytes({ restore = true }: { restore?: boolean } = {}): Extension {
+export function strayBytes(): Extension {
   return [
     highlightSpecialChars({
       addSpecialChars: STRAY_UNIT,
       render: (code, description, placeholder) => strayByteMarker(code) ?? specialCharMarker(description, placeholder),
     }),
     EditorView.clipboardOutputFilter.of((text) => textOut(text)),
-    restore ? EditorView.clipboardInputFilter.of((text) => textIn(text)) : EditorView.clipboardInputFilter.of((text) => readableText(text)),
-    ...(restore
-      ? [
-          writeHeldText,
-          EditorView.domEventObservers({
-            paste: (event) => takeHeldText(event.clipboardData),
-            drop: (event) => takeHeldText(event.dataTransfer),
-          }),
-        ]
-      : []),
+    EditorView.clipboardInputFilter.of((text) => textIn(text)),
+    writeHeldText,
+    EditorView.domEventObservers({
+      paste: (event) => takeHeldText(event.clipboardData),
+      drop: (event) => takeHeldText(event.dataTransfer),
+    }),
     // The search state exists from the start, so opening the panel seeds its query through an effect the filter sees.
     search(),
     readableFind,

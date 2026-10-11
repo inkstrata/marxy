@@ -7,6 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createBuffer } from '../../../../packages/core/src/buffer/buffer.ts';
+import { encodeSourceText } from '../../../../packages/core/src/buffer/source-text.ts';
 import { cmDocText, leaveSourceMode } from './buffer-commit.ts';
 
 const enc = new TextEncoder();
@@ -296,4 +297,24 @@ test('Copy table at caret as CSV in Source writes U+FFFD for a stray byte, never
   const csv = tableCsvAt(state, '/t.md');
   assert.ok(csv !== null && csv.includes('caf\uFFFD'), JSON.stringify(csv));
   assert.ok(!/[\uD800-\uDFFF]/u.test(csv));
+});
+
+// The second review of #584: the private pasteboard type may name stray bytes and nothing else. A lone high surrogate
+// in it fused with a stray byte already in the text (a valid pair) and rewrote FF as F0 90 83 BF.
+test('a pasted private item may hold stray bytes and no other lone surrogate; anything else is refused', async () => {
+  const { heldTextOf, holdsOnlyStrayLones, SOURCE_TEXT_TYPE } = await import('./stray-bytes.ts');
+  const item = (json) => ({ getData: (type) => (type === SOURCE_TEXT_TYPE ? json : '') });
+  // What the editor itself writes is accepted: strays, astral characters (a valid pair), ordinary text.
+  assert.equal(heldTextOf(item('"a\\udcff\\udc80b\\ud83d\\ude00"')), 'a\udcff\udc80b\u{1F600}');
+  // The reviewer's forgery, and every other lone surrogate outside U+DC80 to U+DCFF.
+  for (const forged of ['"\\ud800"', '"\\udbff"', '"x\\ud83d"', '"\\udc00"', '"\\udc7f"', '"\\udcff\\ud800"', '"\\ud800\\u0041\\ud800"']) {
+    assert.equal(heldTextOf(item(forged)), null, forged);
+  }
+  assert.equal(holdsOnlyStrayLones('ab\udcff\udc80'), true);
+  assert.equal(holdsOnlyStrayLones('ab\ud800'), false, 'a lone high surrogate');
+  assert.equal(holdsOnlyStrayLones('\udc00'), false, 'a lone low surrogate below the range');
+  assert.equal(holdsOnlyStrayLones('\u{1F600}\udcff'), true, 'a valid pair, then a stray');
+  // The effect on the bytes: a forged high surrogate beside a stray byte made a valid pair.
+  const fused = encodeSourceText('𐃿');
+  assert.equal(hex(fused), 'f0 90 83 bf', 'the fusion this guards against');
 });

@@ -8,10 +8,12 @@ import { headingsFromMarkdown } from '../index-model/entry.ts';
 import { renderSafeHtml } from '../render/pipeline.ts';
 import { createBuffer, foldText, splice } from './buffer.ts';
 import {
+  byteToSourceOffset,
   encodeSourceText,
   holdsStrayBytes,
   readableText,
   sourceTextOf,
+  sourceTextOfRange,
   sourceToTextOffset,
   strayByteOf,
   textToSourceOffset,
@@ -145,4 +147,19 @@ test('the Source text of 1 MB with strays is built in well under the fold\'s own
   assert.equal(hex(encodeSourceText(text).subarray(0, 64)), hex(buffer.bytes.subarray(0, 64)));
   // Recorded, not a budget (ADR-0032): the number is in the PR.
   console.log(`# Source text of ${buffer.bytes.length} bytes with 30000 strays: ${ms.toFixed(1)} ms`);
+});
+
+test('byteToSourceOffset and sourceTextOfRange: a byte is the unit that begins there, whole pairs and stray runs included (F-34.2)', () => {
+  // "a", an astral character (4 bytes, two units), a cut-off E2 82 (two stray units), "é" (2 bytes), "b".
+  const buffer = createBuffer('/r.md', Uint8Array.from([0x61, 0xf0, 0x9f, 0x98, 0x80, 0xe2, 0x82, 0xc3, 0xa9, 0x62]));
+  const text = sourceTextOf(buffer).text;
+  assert.equal(text, 'a\u{1F600}\udce2\udc82éb');
+  // Boundaries: before "a", before the pair, after the pair (never between its halves), between the two strays, ...
+  const expected = new Map([[0, 0], [1, 1], [5, 3], [6, 4], [7, 5], [9, 6], [10, 7]]);
+  for (const [byte, unit] of expected) assert.equal(byteToSourceOffset(buffer, byte), unit, `byte ${byte}`);
+  // Inside a character: no unit begins there.
+  for (const byte of [2, 3, 4, 8]) assert.equal(byteToSourceOffset(buffer, byte), -1, `byte ${byte}`);
+  assert.equal(sourceTextOfRange(buffer, { file: '/r.md', start: 1, end: 5 }), '\u{1F600}');
+  assert.equal(sourceTextOfRange(buffer, { file: '/r.md', start: 6, end: 9 }), '\udc82é');
+  assert.throws(() => sourceTextOfRange(buffer, { file: '/r.md', start: 2, end: 5 }), RangeError);
 });

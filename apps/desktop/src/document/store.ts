@@ -85,7 +85,7 @@ export interface DocumentStore {
    * apply against whatever the buffer is at that turn. A range outside the buffer or cutting a UTF-8
    * code point rejects with `splice`'s RangeError, also with the store untouched.
    */
-  apply(input: { range: Edit['range']; replacement: string; label: string; baseVersion?: number }): Promise<boolean>;
+  apply(input: { range: Edit['range']; replacement: string | Uint8Array; label: string; baseVersion?: number }): Promise<boolean>;
   /**
    * Leaving Source: one history entry, labelled `edit in Source`. Never writes. Resolves false when
    * nothing changed, or on a stale `baseVersion` (as for `apply`).
@@ -321,7 +321,7 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array, 
       return transition(() => {
         if (stale(input.baseVersion)) return false;
         const range = { file: state.path, start: input.range.start, end: input.range.end };
-        const after = encoder.encode(input.replacement);
+        const after = typeof input.replacement === 'string' ? encoder.encode(input.replacement) : input.replacement;
         const next = splice(state.buffer, range, after);
         const before = state.buffer.bytes.slice(range.start, range.end);
         if (sameBytes(before, after)) return false;

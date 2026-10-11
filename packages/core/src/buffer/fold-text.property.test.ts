@@ -11,7 +11,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Source } from '../contracts/ast.ts';
 import { createBuffer, foldText, splice, type Buffer } from './buffer.ts';
-import { sourceTextOf } from './source-text.ts';
+import { foldSlice } from './fold-slice.ts';
+import { sourceTextOf, sourceTextOfRange } from './source-text.ts';
 
 const enc = new TextEncoder();
 const strict = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
@@ -120,6 +121,54 @@ function runsOf(like: Buffer): Run[] {
 /** A piece of the edited file: an original cell (its slice of the Source text) or typed text. */
 type Piece = { cell: Cell; text: string } | { typed: string };
 
+/**
+ * The reader's edits on a list of runs: deleting, typing (`fix` makes the typed text fit the file's line endings),
+ * moving and duplicating runs, swapping two, replacing a run with typed text. Counts what it did.
+ */
+function editPieces(r: ReturnType<typeof rng>, pieces: Piece[][], fix: (typed: string) => string): { moved: number; copied: number; typedFffd: number } {
+  const done = { moved: 0, copied: 0, typedFffd: 0 };
+  const edits = 1 + r.int(6);
+  for (let e = 0; e < edits; e++) {
+    const n = pieces.length;
+    const from = r.int(n + 1);
+    const to = Math.min(n, from + r.int(6));
+    switch (r.int(6)) {
+      case 0: // delete
+        pieces.splice(from, to - from);
+        break;
+      case 1: { // type
+        const typed = fix(r.pick(TYPED));
+        if (typed.includes('\uFFFD')) done.typedFffd++;
+        pieces.splice(from, to - from, [{ typed }]);
+        break;
+      }
+      case 2: { // move
+        const cut = pieces.splice(from, to - from);
+        pieces.splice(r.int(pieces.length + 1), 0, ...cut);
+        if (cut.length) done.moved++;
+        break;
+      }
+      case 3: { // duplicate
+        const copy = pieces.slice(from, to);
+        pieces.splice(r.int(pieces.length + 1), 0, ...copy);
+        if (copy.length) done.copied++;
+        break;
+      }
+      case 4: { // swap two runs
+        if (n < 2) break;
+        const i = r.int(n);
+        const j = r.int(n);
+        [pieces[i], pieces[j]] = [pieces[j]!, pieces[i]!];
+        break;
+      }
+      default: { // replace a run with typed text
+        pieces.splice(from, to - from, [{ typed: fix(r.pick(['', 'W', '\uFFFD'])) }]);
+      }
+    }
+  }
+  return done;
+}
+
 test(`a Source fold writes exactly the bytes the edited text names: ${CASES} random files, moves, copies, typed U+FFFD`, () => {
   let withStrays = 0;
   let moved = 0;
@@ -150,46 +199,10 @@ test(`a Source fold writes exactly the bytes the edited text names: ${CASES} ran
     if (runs.some((run) => run.some((c) => c.char === undefined))) withStrays++;
 
     // The reader's edits, on runs.
-    const edits = 1 + r.int(6);
-    for (let e = 0; e < edits; e++) {
-      const n = pieces.length;
-      const from = r.int(n + 1);
-      const to = Math.min(n, from + r.int(6));
-      switch (r.int(6)) {
-        case 0: // delete
-          pieces.splice(from, to - from);
-          break;
-        case 1: { // type
-          let typed = r.pick(TYPED);
-          if (like.eol === 'crlf') typed = typed.replace(/\r\n|\r|\n/g, '\r\n');
-          if (typed.includes('\uFFFD')) typedFffd++;
-          pieces.splice(from, to - from, [{ typed }]);
-          break;
-        }
-        case 2: { // move
-          const cut = pieces.splice(from, to - from);
-          pieces.splice(r.int(pieces.length + 1), 0, ...cut);
-          if (cut.length) moved++;
-          break;
-        }
-        case 3: { // duplicate
-          const copy = pieces.slice(from, to);
-          pieces.splice(r.int(pieces.length + 1), 0, ...copy);
-          if (copy.length) copied++;
-          break;
-        }
-        case 4: { // swap two runs
-          if (n < 2) break;
-          const i = r.int(n);
-          const j = r.int(n);
-          [pieces[i], pieces[j]] = [pieces[j]!, pieces[i]!];
-          break;
-        }
-        default: { // replace a run with typed text
-          pieces.splice(from, to - from, [{ typed: r.pick(['', 'W', '\uFFFD']) }]);
-        }
-      }
-    }
+    const done = editPieces(r, pieces, (typed) => (like.eol === 'crlf' ? typed.replace(/\r\n|\r|\n/g, '\r\n') : typed));
+    moved += done.moved;
+    copied += done.copied;
+    typedFffd += done.typedFffd;
     const flat = pieces.flat();
     const text = flat.map((p) => ('typed' in p ? p.typed : p.text)).join('');
     const expected = [
@@ -210,6 +223,70 @@ test(`a Source fold writes exactly the bytes the edited text names: ${CASES} ran
   }
   assert.ok(withStrays > CASES / 2, `only ${withStrays} files held a stray byte`);
   assert.ok(moved > CASES / 4 && copied > CASES / 4 && typedFffd > CASES / 10, `moved ${moved}, copied ${copied}, typed U+FFFD ${typedFffd}`);
+});
+
+// The block editor's fold (F-34.2, ADR-0048): the same files, edited inside one slice of them (a block: whole runs, from a
+// line start), through the slice's Source text. The bytes outside the slice are untouched and the slice becomes exactly
+// the bytes its edited text names. Line endings are uniform here (the slice fold converts a typed line break to the
+// slice's own first ending, which is its documented rule and not what this test is about).
+test(`a slice fold writes exactly the bytes the edited slice text names: ${CASES} random files, slices, moves, copies, typed U+FFFD`, () => {
+  let withStrays = 0;
+  let inSlice = 0;
+  for (let seed = 1; seed <= CASES; seed++) {
+    const r = rng(seed * 17 + 3);
+    const ending = r.pick(['\n', '\r\n']);
+    const fix = (typed: string): string => typed.replace(/\r\n|\r|\n/g, ending);
+    const out: number[] = [];
+    if (r.chance(0.1)) out.push(0xef, 0xbb, 0xbf);
+    for (let n = r.int(40); n > 0; n--) {
+      const x = r.int(10);
+      if (x < 3) out.push(...r.pick(STRAYS));
+      else if (x < 4) out.push(0x80 + r.int(0x80));
+      else out.push(...enc.encode(fix(r.pick(PIECES))));
+    }
+    const like = createBuffer('/s.md', Uint8Array.from(out));
+    const where = `case ${seed}: ${hex(like.bytes)}`;
+    const runs = runsOf(like);
+    const first = r.int(runs.length + 1);
+    const last = Math.min(runs.length, first + r.int(12));
+    const bom = like.bom ? 3 : 0;
+    const byteLength = (rs: Run[]): number => rs.reduce((n, run) => n + run.reduce((m, c) => m + c.bytes.length, 0), 0);
+    const start = bom + byteLength(runs.slice(0, first));
+    const end = start + byteLength(runs.slice(first, last));
+    const slice: Source = { file: like.path, start, end };
+    const old = sourceTextOfRange(like, slice);
+
+    const pieces: Piece[][] = [];
+    let at = 0;
+    for (const run of runs.slice(first, last)) {
+      const row: Piece[] = [];
+      for (const cell of run) {
+        const text = old.slice(at, at + cell.units);
+        if (cell.char !== undefined) assert.equal(text, cell.char, `${where}: a character`);
+        else assert.equal(text.charCodeAt(0), 0xdc00 + cell.bytes[0]!, `${where}: the stray byte`);
+        row.push({ cell, text });
+        at += cell.units;
+      }
+      pieces.push(row);
+    }
+    assert.equal(at, old.length, `${where}: the cells cover the slice's Source text`);
+    if (runs.slice(first, last).some((run) => run.some((c) => c.char === undefined))) withStrays++;
+    editPieces(r, pieces, fix);
+    const flat = pieces.flat();
+    const text = flat.map((p) => ('typed' in p ? p.typed : p.text)).join('');
+    const inside = flat.flatMap((p) => ('typed' in p ? [...enc.encode(p.typed)] : [...p.cell.bytes]));
+    const expected = Uint8Array.from([...like.bytes.subarray(0, start), ...inside, ...like.bytes.subarray(end)]);
+
+    const fold = foldSlice(like, slice, text);
+    if (fold !== null) {
+      assert.ok(fold.range.start >= start && fold.range.end <= end, `${where}: the edit stays inside the slice`);
+      inSlice++;
+    }
+    const got = fold === null ? like.bytes : splice(like, fold.range, fold.replacement).bytes;
+    assert.equal(hex(got), hex(expected), `${where}\n slice ${start}..${end}, text ${JSON.stringify(text)}`);
+    assert.equal(fold === null, hex(expected) === hex(like.bytes), `${where}: null`);
+  }
+  assert.ok(withStrays > CASES / 3 && inSlice > CASES / 2, `strays in ${withStrays} slices, ${inSlice} folds`);
 });
 
 test('the same, on 1 MB files: a stray line every few hundred lines, lines moved, copied and rewritten', () => {

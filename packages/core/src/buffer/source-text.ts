@@ -8,6 +8,7 @@
 // types stays EF BF BD. Only the Source editor holds this text: what leaves it (the clipboard, Copy as) goes
 // through `readableText`, which shows each stray as U+FFFD, the way Rendered and the index read the file.
 
+import type { Source } from '../contracts/ast.ts';
 import type { ByteOffsets } from '../parse/byte-offsets.ts';
 import { byteToUtf16, type Buffer } from './buffer.ts';
 
@@ -99,6 +100,35 @@ export function textToSourceOffset(buffer: Buffer, cu: number): number {
   // The runs of several bytes at or before `cu` each add their length less one.
   const k = lastAtOrBefore(runs.textAt, clamped);
   return clamped + (k < 0 ? 0 : runs.extraThrough[k]! - (runs.textAt[k] === clamped ? runs.bytes[k]! - 1 : 0));
+}
+
+/**
+ * The offset in the Source text of `buffer` at which byte `byte` begins, or -1 when it is inside a character (so no
+ * code unit begins there). Where several units share one byte offset (the low half of a surrogate pair sits at the
+ * pair's end), the last: the offset after the pair, never between its halves.
+ */
+export function byteToSourceOffset(buffer: Buffer, byte: number): number {
+  const { text, offsets } = sourceTextOf(buffer);
+  const target = byte < 0 ? 0 : byte > offsets.byteLength ? offsets.byteLength : byte;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (offsets.at(mid) <= target) lo = mid;
+    else hi = mid - 1;
+  }
+  return offsets.at(lo) === target ? lo : -1;
+}
+
+/**
+ * The Source text of the bytes in `range` (a block, a line): the part of `sourceTextOf(buffer).text` they decode to, in
+ * which each stray byte is its own code unit. Throws, as `textOf` does, when an end of the range is inside a character.
+ */
+export function sourceTextOfRange(buffer: Buffer, range: Source): string {
+  const from = byteToSourceOffset(buffer, range.start);
+  const to = byteToSourceOffset(buffer, range.end);
+  if (from < 0 || to < 0) throw new RangeError(`byte offset ${from < 0 ? range.start : range.end} is a UTF-8 continuation byte`);
+  return sourceTextOf(buffer).text.slice(from, to);
 }
 
 /**
