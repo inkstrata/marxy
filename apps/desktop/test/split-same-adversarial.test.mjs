@@ -417,3 +417,32 @@ for (let seed = from; seed <= (to ?? from); seed++) {
     }, { extra });
   });
 }
+
+// Following a link to the file already open checks the target exists. That look must not arm the
+// stale-write guard (it would then expect what another program just wrote, and a save would overwrite it).
+const SELF = '# Doc\n\nfirst para\n\n- [ ] one\n- [ ] two\n\nlast para [self](./D.md)\n';
+for (const [name, modifiers] of [['Cmd-click', ['ControlOrMeta']], ['plain click', []]]) {
+  test(`a ${name} on a link to the same file does not re-arm the guard: a save after an outside write is still refused`, async () => {
+    await withPanes(['/r/D.md', '/r/D.md'], async (page, mod) => {
+      await page.evaluate(() => {
+        const a = window.__marxyHandle.panes().panes[0].article;
+        a.querySelector('input[type=checkbox]').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      });
+      await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].view.store().snapshot().dirty === true);
+      await outside(page, '/r/D.md', `${SELF}OUTSIDE\n`);
+      await page.waitForTimeout(500);
+      await focusPane(page, 0);
+      await page.locator('#doc-2 a[href="./D.md"]').click({ modifiers });
+      await page.waitForTimeout(700);
+      // A plain click over unsaved edits may ask first: keep them.
+      await page.evaluate(() => {
+        for (const b of document.querySelectorAll('.marxy-notice button')) if (b.textContent === 'Dismiss') b.click();
+      });
+      await focusPane(page, 0);
+      await page.keyboard.press(`${mod}+s`);
+      await page.waitForTimeout(500);
+      assert.ok((await disk(page, '/r/D.md')).includes('OUTSIDE'), 'the other program\'s write is still on disk');
+      assert.deepEqual((await appWrites(page)).map((w) => w.path), [], 'nothing was written');
+    }, { extra: { '/r/D.md': SELF } });
+  });
+}

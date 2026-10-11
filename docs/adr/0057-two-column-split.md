@@ -41,6 +41,8 @@ in the same page is now construction rather than a rewrite.
    asked of every view (Source text typed in either keeps it out) and mapped to each view's own place;
    "removed", "changed on disk", blocked content and a failed save are said in the pane that shows the
    file, and opening a document clears that pane's notices only.
+   Stores are keyed by the path as opened: case is not folded (on a case-insensitive disk `./d.md` and
+   `D.md` are two stores) and a symlink is not resolved; the stale-write guard stands behind both.
 
 ## Consequences
 
