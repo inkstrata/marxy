@@ -6,7 +6,8 @@ import { commands } from '../commands/index.ts';
 import { MODE_CHOICES, TOOLBAR_ITEMS, visibleItems } from './toolbar.ts';
 
 const ids = (items: readonly { readonly id: string }[]): string[] => items.map((item) => item.id);
-const real = commands().map((c) => c.id);
+// The panel toggles are registered now (W-03); the tests below add them on purpose, to say when they are drawn.
+const real = commands().map((c) => c.id).filter((id) => id !== 'view.toggle-sidebar' && id !== 'view.toggle-inspector');
 
 test('the items are in the toolbar order, and a mode choice is a command of its item', () => {
   assert.deepEqual(ids(TOOLBAR_ITEMS), [

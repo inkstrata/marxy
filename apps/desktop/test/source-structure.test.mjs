@@ -403,6 +403,8 @@ test('registry: no chord is bound twice, and the new chords do not touch a pane 
     for (const spec of [cmd.key, ...(cmd.keys ?? [])].filter(Boolean)) {
       const chord = registryChord(spec, MAC);
       if (chord === null) continue;
+      // `Esc` is shared by the two commands whose `when`s are never both true (W-03; keys-table.test.mjs proves it).
+      if (chord === 'escape' && ['selection.clear', 'view.fold-workspace'].includes(cmd.id)) continue;
       assert.equal(owner.get(chord), undefined, `${spec} is bound by both ${owner.get(chord)} and ${cmd.id}`);
       owner.set(chord, cmd.id);
     }

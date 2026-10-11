@@ -4,6 +4,7 @@
 // composition root is not touched again. The fills are registered at launch and cost nothing: they run only
 // when the window unfolds, and are taken out when it folds (workspace/state.ts), so a folded page has none.
 import type { AppHandle } from '../app.ts';
+import { installPeek } from './peek.ts';
 import { createDocumentSignal, mountToolbar } from './toolbar.ts';
 
 export function installWorkspaceFills(handle: AppHandle): void {
@@ -11,4 +12,6 @@ export function installWorkspaceFills(handle: AppHandle): void {
   // Seen from launch, so Back knows about the documents opened while the window was still folded.
   const signal = createDocumentSignal(handle);
   workspace.fill('toolbar', (el) => mountToolbar(el, handle, signal));
+  // Folded, the pointer resting at an edge shows that edge's panel (W-03); the listeners exist only while folded.
+  installPeek(workspace);
 }
