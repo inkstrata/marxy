@@ -197,3 +197,27 @@ test('the notice for a changed file names both commands by their palette titles,
   }
   assert.ok(DISK_CHANGED_CHOOSE.startsWith('The file changed on disk; your edits were kept.'));
 });
+
+test('Take theirs also counts Source text unfolded in the OTHER pane: the fold reaches every view, and Undo is not promised (V-07)', async () => {
+  const { store, files } = conflictStore();
+  assert.equal(await store.reload(enc.encode('# Theirs\n'), { holds: () => true }), 'kept');
+  files.set('/d/a.md', enc.encode('# Theirs\n'));
+  let otherPaneText = true;
+  const said: string[] = [];
+  await runWith(
+    store,
+    TAKE,
+    {
+      // The focused pane holds nothing; the other pane's text is folded by the app's all-views fold.
+      hasUnfoldedSource: () => false,
+      async foldSource() {
+        if (otherPaneText) await store.commitSource('# Typed in the other pane\n');
+        otherPaneText = false;
+      },
+    },
+    said,
+  );
+  assert.equal(dec.decode(store.snapshot().buffer.bytes), '# Theirs\n');
+  assert.equal(store.snapshot().canUndo, false);
+  assert.match(said.join(' '), /discarded and cannot be brought back with Undo/);
+});

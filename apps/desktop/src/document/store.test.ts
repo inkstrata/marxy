@@ -839,3 +839,23 @@ test('a Save as elsewhere ends the pending choice about the old file', async () 
   assert.equal((await store.save({ to: '/repo/other.md' })).result, 'saved');
   assert.equal(store.conflict(), null);
 });
+
+test('the file deleted while a choice is pending: Take theirs refuses and keeps the edits; stale bytes are never adopted (V-07)', async () => {
+  const { files, store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
+  files.delete(PATH);
+  const before = store.snapshot();
+  const outcome = await store.resolveConflict('theirs');
+  assert.equal(outcome.result, 'failed');
+  assert.equal(store.snapshot(), before, 'buffer, history and disk untouched');
+  assert.ok(store.conflict(), 'still pending');
+});
+
+test('the file deleted while a choice is pending: Keep mine saves the copy and keeps the buffer, adopting nothing (V-07)', async () => {
+  const { files, store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
+  files.delete(PATH);
+  const outcome = await store.resolveConflict('mine');
+  assert.deepEqual(outcome, { result: 'resolved', copy: '/repo/doc (mine).md' });
+  assert.equal(dec.decode(files.get('/repo/doc (mine).md')!), 'two\n');
+  assert.equal(dec.decode(store.snapshot().buffer.bytes), 'two\n');
+  assert.equal(store.snapshot().canUndo, true);
+});

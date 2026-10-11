@@ -368,26 +368,30 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
         // What is on disk now, if it can be read: the choice is about the file as it is, not as it was when
         // the conflict was noticed. A file that cannot be read is taken as the bytes that were refused.
         let theirs = pending;
+        let gone = false;
         if (io.peekFile) {
           try {
             theirs = await io.peekFile(state.path);
           } catch {
-            // Gone or unreadable: the held bytes stand.
+            // Gone or unreadable: the held bytes are stale, never "theirs". Nothing is adopted.
+            gone = true;
           }
+        }
+        if (gone) {
+          if (choice === 'theirs') {
+            return { result: 'failed', error: new Error('The file is no longer on disk, so there is no version to take.') };
+          }
+          // A copy of the buffer is still safe to make; the buffer stays, and saving it would recreate the file.
+          const copy = await writeCopy();
+          if (typeof copy !== 'string') return copy;
+          pending = null;
+          return { result: 'resolved', copy };
         }
         let copy: string | undefined;
         if (choice === 'mine' && !sameBytes(state.buffer.bytes, theirs)) {
-          if (!io.exists) return { result: 'failed', error: new Error('cannot tell whether a copy would overwrite a file') };
-          try {
-            for (let n = 1; copy === undefined; n++) {
-              if (n > 999) throw new Error('no free name for a copy');
-              const candidate = conflictCopyPath(state.path, n);
-              if (!(await io.exists(candidate))) copy = candidate;
-            }
-            await io.writeFileAtomic(copy, state.buffer.bytes);
-          } catch (error) {
-            return { result: 'failed', error };
-          }
+          const made = await writeCopy();
+          if (typeof made !== 'string') return made;
+          copy = made;
         }
         adopt(theirs);
         return copy === undefined ? { result: 'resolved' } : { result: 'resolved', copy };
@@ -446,6 +450,22 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
 
     serially,
   };
+
+  /** The buffer, byte for byte, at the first free `(mine)` name beside the file: its path, or the failure. Never over a file. */
+  async function writeCopy(): Promise<string | { readonly result: 'failed'; readonly error: unknown }> {
+    if (!io.exists) return { result: 'failed', error: new Error('cannot tell whether a copy would overwrite a file') };
+    try {
+      for (let n = 1; n <= 999; n++) {
+        const candidate = conflictCopyPath(state.path, n);
+        if (await io.exists(candidate)) continue;
+        await io.writeFileAtomic(candidate, state.buffer.bytes);
+        return candidate;
+      }
+      throw new Error('no free name for a copy');
+    } catch (error) {
+      return { result: 'failed', error };
+    }
+  }
 
   /**
    * `bytes`, read from disk, become the buffer and `disk`. A new document: undoing across it would splice

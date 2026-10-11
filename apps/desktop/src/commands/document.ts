@@ -101,8 +101,8 @@ async function resolveDiskConflict(ctx: AppContext, choice: 'mine' | 'theirs'): 
   clearDiskChangedChooseNotices();
   ctx.showNotice(
     outcome.copy !== undefined
-      ? `Your version was saved as ${basename(outcome.copy)}. This file now shows what is on disk.`
-      : 'Your unsaved edits were discarded. This file now shows what is on disk.',
+      ? `Your version was saved as ${basename(outcome.copy)}. ${store.snapshot().dirty ? 'The file is gone from disk; your text is still open here.' : 'This file now shows what is on disk.'}`
+      : 'Your unsaved edits were discarded and cannot be brought back with Undo. This file now shows what is on disk.',
   );
 }
 
