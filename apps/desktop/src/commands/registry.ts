@@ -9,9 +9,11 @@ import { apply } from '../selection/apply.ts';
 export interface AppContext {
   /**
    * `clipboardWrite` is the fallback where the shell has no native pasteboard; `writeCopy` writes through
-   * `clipboardWriteItem` (J-04). `readFile` and `configPaths` let Copy as read `copy_format`.
+   * `clipboardWriteItem` (J-04). `readFile` and `configPaths` let Copy as read `copy_format`. `clipboardTypes` and
+   * `clipboardRead` are for a paste, and only a paste (J-05, ADR-0065 §3).
    */
-  readonly shell: Pick<Shell, 'clipboardWrite'> & Partial<Pick<Shell, 'clipboardWriteItem' | 'readFile' | 'configPaths'>>;
+  readonly shell: Pick<Shell, 'clipboardWrite'> &
+    Partial<Pick<Shell, 'clipboardWriteItem' | 'clipboardTypes' | 'clipboardRead' | 'readFile' | 'configPaths'>>;
   readonly selection: Selection;
   /** The open document's store (ADR-0037), or null: operations, undo and save are its transitions. */
   readonly document: DocumentStore | null;
