@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   FRAMES_BEFORE_PAINT,
+  FRAMES_ONLY_SIGNAL,
+  PAINT_FALLBACK_MS,
   PAINT_SIGNAL_NAMES,
   isDocVisible,
   readPaintSignal,
@@ -138,4 +140,83 @@ test('criterion 5: paint-signal contract and the MARXY-72 frames verdict stay wi
   assert.match(verdict, /frames >= MIN_FRAMES_AFTER_RENDER/);
   assert.match(verdict, /export function paintVerdict\(/);
   assert.match(verdict, /if \(!paintedFramesOk\(frames\)\)/);
+});
+
+test('F-31 paint path: an engine paint entry resolves with its own name, never frames-only', async () => {
+  const result = await waitForEnginePaint({
+    performance: { getEntriesByType: () => [{ name: 'first-paint', startTime: 1 }] },
+    PerformanceObserver: silentObserver,
+    requestAnimationFrame: rafShim,
+    getComputedStyle: visible,
+    doc: {},
+    fallbackMs: 10_000,
+    timeoutMs: 500,
+  });
+  assert.equal(result.signal, 'first-paint');
+  assert.notEqual(result.signal, FRAMES_ONLY_SIGNAL);
+});
+
+test('F-31 fallback path: frames but no paint entry resolve as frames-only instead of hanging', async () => {
+  assert.equal(PAINT_FALLBACK_MS, 2000, 'about 2 s, below the shell deadline of 2.5 s');
+  const raced = await waitOrTimeout(waitForEnginePaint({
+    performance: { getEntriesByType: () => [] },
+    PerformanceObserver: silentObserver,
+    requestAnimationFrame: rafShim,
+    getComputedStyle: visible,
+    doc: {},
+    fallbackMs: 30,
+    timeoutMs: 500,
+  }), 400);
+  assert.equal(raced.ok, true, 'the wait must end once the fallback is due');
+  assert.equal(raced.value.signal, FRAMES_ONLY_SIGNAL);
+  assert.equal(FRAMES_ONLY_SIGNAL, 'frames-only');
+});
+
+test('F-31 fallback path: a late paint entry inside the window still wins, and the fallback needs two frames', async () => {
+  let entries = [];
+  setTimeout(() => { entries = [{ name: 'first-contentful-paint', startTime: 1 }]; }, 10);
+  const late = await waitForEnginePaint({
+    performance: { getEntriesByType: () => entries },
+    PerformanceObserver: silentObserver,
+    requestAnimationFrame: rafShim,
+    getComputedStyle: visible,
+    doc: {},
+    fallbackMs: 200,
+    timeoutMs: 500,
+  });
+  assert.equal(late.signal, 'first-contentful-paint');
+
+  // No frames at all (a display asleep): the fallback must not mint a result out of nothing.
+  const raced = await waitOrTimeout(waitForEnginePaint({
+    performance: { getEntriesByType: () => [] },
+    PerformanceObserver: silentObserver,
+    requestAnimationFrame: () => 0,
+    getComputedStyle: visible,
+    doc: {},
+    fallbackMs: 20,
+    timeoutMs: 100,
+  }), 150);
+  assert.equal(raced.ok, false, 'no frames, no result');
+});
+
+test('F-31 fallback path: a hidden #doc never falls back to a result', async () => {
+  const raced = await waitOrTimeout(waitForEnginePaint({
+    performance: { getEntriesByType: () => [] },
+    PerformanceObserver: silentObserver,
+    requestAnimationFrame: rafShim,
+    getComputedStyle: hidden,
+    doc: {},
+    fallbackMs: 20,
+    timeoutMs: 100,
+  }), 150);
+  assert.equal(raced.ok, false);
+});
+
+test('F-31 marker: a frames-only boot says so on MARK painted and prints no first_text', () => {
+  const measureSrc = stripComments(readFileSync(join(desktop, 'src', 'startup', 'measure.ts'), 'utf8'));
+  assert.match(measureSrc, /signal === FRAMES_ONLY_SIGNAL\) return 'frames_only';/);
+  const painted = measureSrc.indexOf("shell.mark('painted'");
+  const guard = measureSrc.indexOf("signal === FRAMES_ONLY_SIGNAL");
+  const firstText = measureSrc.indexOf("shell.mark('first_text'");
+  assert.ok(painted > 0 && painted < guard && guard < firstText, 'the frames-only return sits between painted and first_text');
 });

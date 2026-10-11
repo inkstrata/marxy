@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { waitForEnginePaint } from '../src/paint-signal.mjs';
+import { FRAMES_ONLY_SIGNAL, waitForEnginePaint } from '../src/paint-signal.mjs';
 import { fileURLToPath } from 'node:url';
 import {
   FRAME_ASSERTION_NOT_WRONG,
@@ -22,6 +22,7 @@ import {
   framesFromPaintedLine,
   killLaunch,
   launchSpawnOptions,
+  framesOnlyVerdict,
   paintedFramesOk,
   paintVerdict,
   smokeIsRequired,
@@ -207,8 +208,15 @@ const signal = /signal=(\S+)/.exec(painted)?.[1] ?? '';
 // is kept strictly apart from "frames arrived but too few", which is always a defect: see the verdict
 // at the bottom.
 const noPaint = open.mark('no_paint') >= 0 || open.watchdogFired;
+// F-31: frames arrived, the engine gave no paint entry, and the app went on after about 2 s. The line says
+// so (`signal=frames-only`); it is reported as that and never as a paint, and it is no first_text sample.
+const framesOnly = !noPaint && signal === FRAMES_ONLY_SIGNAL;
 
-if (noPaint) {
+if (framesOnly) {
+  check(open.code === 0, `a frames-only boot must still open the document and exit 0, got ${open.code}`);
+  check(firstTextIndex < 0, 'first_text was printed by a frames-only boot: that is not a paint');
+  check(paintedFramesOk(frames), `a frames-only boot still needs at least 2 animation frames, got frames=${frames}`);
+} else if (noPaint) {
   // What the app owes even here is checkable, and none of it depends on a frame arriving.
   check(firstTextIndex < 0, 'first_text was printed by a launch that never painted');
   if (open.watchdogFired) {
@@ -282,6 +290,18 @@ if (failures.length) {
 // An environment that paints nothing cannot answer the question this check exists to ask, so it says so
 // instead of pretending either way: strict where the answer is required (CI verify:cli, MARXY_SMOKE_REQUIRED=1),
 // skipped with the reason named where it is not. The property under test is not the thing at fault.
+if (framesOnly) {
+  const { status, message } = framesOnlyVerdict({
+    required,
+    how: `${open.lines[paintedIndex]}; the app rendered ${blocks} blocks, ${chars} chars`,
+  });
+  if (status === 'fail') {
+    console.error(`smoke-cli-open failed: ${message}`);
+    process.exit(1);
+  }
+  console.log(`smoke-cli-open skipped: ${message}`);
+  process.exit(0);
+}
 if (noPaint) {
   const how = open.watchdogFired
     ? `it never reported a paint, and this harness ended it after ${PAINT_WATCHDOG_MS} ms (macOS App Nap suspends a window that cannot be seen, and a suspended process cannot run its own deadline)`
