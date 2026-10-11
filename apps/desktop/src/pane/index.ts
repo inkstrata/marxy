@@ -6,7 +6,9 @@ import { basename } from '@marxy/core/src/index-model/paths.ts';
 import type { AppShell } from '../app-types.ts';
 import type { AppContext } from '../commands/registry.ts';
 import { createOpenPath, type OpenPath, type OpenPathDeps } from '../document/open.ts';
+import { oneWatchPerStore, watchDocument } from '../document/live-reload.ts';
 import { createStoreRegistry } from '../document/registry.ts';
+import type { DocumentStore } from '../document/store.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { createRenderedView, type RenderedView, type RenderedViewDeps, type ViewHost } from '../view/rendered-view.ts';
@@ -26,7 +28,7 @@ export interface PanesDeps {
   /** What every pane's view shares: the trust controller, the asset roots, the launch measure, the root lookup. */
   readonly view: Pick<RenderedViewDeps, 'trust' | 'assetRoots' | 'measure' | 'rootFor'>;
   /** What every pane's open path shares. The first pane alone launches (`pieces`) and holds the selection. */
-  readonly open: Omit<OpenPathDeps, 'view' | 'stores' | 'selection' | 'shell'>;
+  readonly open: Omit<OpenPathDeps, 'view' | 'stores' | 'selection' | 'shell' | 'watches' | 'viewsOver'>;
   /** The selection on the first pane's article. */
   selection(): RenderedSelection | null;
   /** The registry context commands on the first pane's article run in. */
@@ -56,6 +58,44 @@ export function createPanes(deps: PanesDeps): AppPanes {
   /** Set once the set exists: the first pane's content is made while it is built. */
   let set: PaneSet<AppPane> | null = null;
 
+  /** The panes that show `store`, left to right: the views its one watch reloads (D-10). */
+  const showing = (store: DocumentStore): AppPane[] =>
+    (set?.panes ?? []).filter((pane) => pane.content.store() === store).map((pane) => pane.content);
+  const viewsOver = (store: DocumentStore): RenderedView[] => showing(store).map((pane) => pane.view);
+
+  /**
+   * One watch per store, the window's and not a pane's (D-10): the store is reloaded once however many panes
+   * show it, each pane is put at its own place, and a change is asked of every pane's Source before it is
+   * adopted. Its work runs on every view's queue of the store, left to right, so it cannot interleave with an
+   * open or a mode switch in either; it is not re-entered through a queue (`follow` does not queue).
+   */
+  const watches = oneWatchPerStore((store) =>
+    watchDocument(store, () => viewsOver(store), {
+      shell,
+      open: async (path, at, view) => {
+        const pane = showing(store).find((p) => p.view === view);
+        await pane?.follow(path, at);
+      },
+      serially<T>(fn: () => Promise<T>): Promise<T> {
+        const queues = viewsOver(store);
+        const run = (i: number): Promise<T> => (i >= queues.length ? fn() : queues[i]!.serially(() => run(i + 1)));
+        return run(0);
+      },
+      async foldSource() {
+        await showing(store)[0]?.foldSource();
+      },
+      async renamed(path) {
+        const focused = set?.focused;
+        if (focused?.content.store() === store) document.title = `${basename(path)} — Marxy`;
+        for (const pane of showing(store)) deps.selection()?.forArticle(pane.view.host.article)?.afterRender();
+        await focused?.content.refreshTitle();
+      },
+      changed(path) {
+        void deps.open.index.rootFor(path).then((root) => deps.open.index.refresh(root));
+      },
+    }),
+  );
+
   function content(parts: PaneParts, slot: Slot): AppPane {
     let openPath: OpenPath | null = null;
     let self: AppPane | null = null;
@@ -79,6 +119,8 @@ export function createPanes(deps: PanesDeps): AppPanes {
       shell,
       view,
       stores,
+      watches,
+      viewsOver,
       selection,
       pieces: slot === 0 ? deps.open.pieces : null,
       // The window title is the focused pane's document: a pane opening beside it does not take it (D-06

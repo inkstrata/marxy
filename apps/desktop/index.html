@@ -26,8 +26,6 @@
   #marxy-main[data-marxy-split] > .marxy-pane { position: relative; overflow-y: auto; height: 100vh; }
   #marxy-main[data-marxy-split] .marxy-source-mount:not([hidden]) { position: absolute; inset: 0; overflow: auto; }
   .marxy-pane[data-marxy-mode="source"] > [role="status"] { position: sticky; top: 0; z-index: 10; }
-  /* The first pane's mode is on the body element (until D-11): its notices sit over its own Source too (D-08). */
-  body[data-marxy-mode="source"] #marxy-main[data-marxy-split] > .marxy-pane[data-marxy-pane="0"] > [role="status"] { position: sticky; top: 0; z-index: 10; }
 </style>
 </head>
 <body data-marxy-mode="rendered" data-marxy-variant="dark">

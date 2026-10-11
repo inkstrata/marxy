@@ -55,7 +55,11 @@ export interface TrustController {
   policyFor(path: string): Policy;
   grantsFor(path: string): { html: boolean };
   /** The blocked-content (or grant-offering) notice and the truncation notices for one render. */
-  showNotices(removed: readonly RenderRemoval[], blockedImages: readonly BlockedImage[]): void;
+  showNotices(
+    removed: readonly RenderRemoval[],
+    blockedImages: readonly BlockedImage[],
+    at?: { readonly path: string; readonly buffer: Buffer; readonly pane?: HTMLElement },
+  ): void;
   grantHtml(): Promise<void>;
   revokeHtml(): Promise<void>;
   /** After first text: once trust.json is in, re-render if it grants the open document HTML. */
@@ -98,8 +102,8 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
     return loading;
   }
 
-  async function byteOffsetForLine(line: number): Promise<number> {
-    const buffer = deps.buffer();
+  async function byteOffsetForLine(line: number, from: Buffer | null = deps.buffer()): Promise<number> {
+    const buffer = from;
     if (!buffer) return 0;
     // Bytes, not UTF-16 units: a multi-byte character or a byte-order mark shifts every later offset.
     const bytes = buffer.bytes;
@@ -114,17 +118,27 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
     return byte;
   }
 
-  function showNotices(removed: readonly RenderRemoval[], allBlockedImages: readonly BlockedImage[]): void {
-    const path = deps.currentPath();
-    const buffer = deps.buffer();
+  /**
+   * The notices for one render. A view says which document and pane it rendered (`at`), so a render in an
+   * unfocused pane speaks in that pane about its own file (D-10); unset, the focused pane's.
+   */
+  function showNotices(
+    removed: readonly RenderRemoval[],
+    allBlockedImages: readonly BlockedImage[],
+    at?: { readonly path: string; readonly buffer: Buffer; readonly pane?: HTMLElement },
+  ): void {
+    const path = at?.path ?? deps.currentPath();
+    const buffer = at?.buffer ?? deps.buffer();
+    const pane = at?.pane;
     if (!path || !buffer) return;
     // Protocol-relative images are never loadable, so they are neither counted nor named.
     const blockedImages = grantableBlockedImages(allBlockedImages, removed);
-    clearBlockedNotices();
+    clearBlockedNotices(pane);
     if (blockedImages.length > 0 && !htmlGrantWouldChangeForNotice(removed)) {
-      blockedContentNotice(blockedImages);
+      blockedContentNotice(blockedImages, pane);
     } else {
       trustBlockedNotices({
+        pane,
         path,
         removed,
         blockedImages,
@@ -135,8 +149,9 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
     truncationNotices({
       buffer,
       removed,
+      pane,
       showSource: (line) => {
-        void byteOffsetForLine(line).then((b) => deps.showSource(b));
+        void byteOffsetForLine(line, buffer).then((b) => deps.showSource(b));
       },
     });
   }
