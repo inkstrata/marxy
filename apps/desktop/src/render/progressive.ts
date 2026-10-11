@@ -13,6 +13,7 @@
 // Under the threshold, which every corpus file but the long reference is, the HTML is assigned in one
 // step exactly as before and `complete` resolves at once.
 
+import { Abandoned } from '@marxy/core';
 import { whenIdle } from '../startup/idle-work.ts';
 
 export interface ProgressiveMount {
@@ -197,6 +198,7 @@ export async function parseInertInSlices(
   prepare: ((parsed: HTMLElement) => void) | undefined,
   yieldNow: () => Promise<void>,
   budgetMs = 3,
+  aborted?: () => boolean,
 ): Promise<HTMLElement> {
   const inert = document.implementation.createHTMLDocument('');
   const parsed = inert.body;
@@ -212,7 +214,10 @@ export async function parseInertInSlices(
     prepare?.(holder);
     parsed.append(...holder.childNodes);
     chars = Math.max(4_000, Math.min(400_000, Math.round(html.length * (budgetMs / Math.max(performance.now() - t0, 0.25)))));
-    if (at < pieces.length) await yieldNow();
+    if (at < pieces.length) {
+      await yieldNow();
+      if (aborted?.()) throw new Abandoned();
+    }
   }
   return parsed;
 }

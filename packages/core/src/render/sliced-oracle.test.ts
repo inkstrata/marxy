@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { checkEquivalent, type OracleVerdict, type SlicedRender } from '../parse/testing/oracle.ts';
-import { generatedHostile, random } from '../parse/testing/structured.ts';
+import { generated, generatedHostile, random } from '../parse/testing/structured.ts';
 
 const SEEDS = Math.max(200, Number(process.env.ORACLE_SEEDS ?? 300));
 const SMALLEST = 1e-9;
@@ -65,13 +65,16 @@ for (const [name, make] of large) {
 test('seeded fuzz documents with the hostile cases among them: the sliced roads equal the whole ones', async () => {
   const seen = { sliced: 0, declined: 0, cut: 0, whole: 0 };
   for (let seed = 1; seed <= SEEDS; seed++) {
-    const next = random(seed);
-    const verdict = await checkEquivalent(generatedHostile(next), `hostile seed ${seed}`, {
-      sliceBytes: 1 + Math.floor(next() * 200),
-      budgetMs: SMALLEST,
-    });
-    seen[verdict.render]++;
-    seen[verdict.parse === 'slices' ? 'cut' : 'whole']++;
+    // The hostile generator, and the plain one the parse's own tests use (its cut points are the other half of the fuzz).
+    for (const make of [generatedHostile, generated]) {
+      const next = random(seed);
+      const verdict = await checkEquivalent(make(next), `${make.name} seed ${seed}`, {
+        sliceBytes: 1 + Math.floor(next() * 200),
+        budgetMs: SMALLEST,
+      });
+      seen[verdict.render]++;
+      seen[verdict.parse === 'slices' ? 'cut' : 'whole']++;
+    }
   }
   // Not a vacuous pass: both roads were taken, in both ways, by a good share of the seeds.
   assert.ok(seen.sliced >= SEEDS / 10, `${JSON.stringify(seen)}: too few documents rendered in slices`);
@@ -80,7 +83,8 @@ test('seeded fuzz documents with the hostile cases among them: the sliced roads 
   assert.ok(seen.whole >= SEEDS / 10, `${JSON.stringify(seen)}: too few documents parsed whole`);
 });
 
-test('hostile documents written out: each is equal on both roads', async () => {
+/** The written-out hostile documents, as [label, text]. */
+function writtenOut(): [string, string][] {
   const pad = Array.from({ length: 40 }, (_, n) => `paragraph ${n}\n`).join('\n');
   const bigPad = Array.from({ length: 100 }, (_, n) => `paragraph ${n}\n`).join('\n');
   const cases: Record<string, string> = {
@@ -98,9 +102,24 @@ test('hostile documents written out: each is equal on both roads', async () => {
     'front matter that never closes': `---\na: 1\n\n${pad}\n`,
     'remote images in several blocks': `![a](https://example.com/a.png)\n\n${pad}\n\n![b](https://example.org/b.png)\n\n<img src="https://example.net/c.png">\n`,
     'scripts and handlers in several blocks': `<script>alert(1)</script>\n\n${pad}\n\n<img src=x onerror=y>\n\n[x](javascript:alert(1))\n\n<iframe src=x></iframe>\n`,
+    'a loose list whose items a slice must not part': `${pad}\n\n${Array.from({ length: 60 }, (_, n) => `- item ${n}`).join('\n\n')}\n\n${pad}\n`,
+    'a fence with blank lines inside': `${pad}\n\n\`\`\`\n${Array.from({ length: 40 }, (_, n) => `line ${n}`).join('\n\n')}\n\`\`\`\n\n${pad}\n`,
+    'indented code before a list marker': `    indented\n\n- x\n\n${pad}\n`,
+    'a list item continued after a blank line': `- a\n\n  b\n\n  c\n\n${pad}\n`,
+    'front matter closed after a blank line': `---\na: 1\n\nb: 2\n---\n\n${pad}\n`,
+    'plus front matter that never closes': `+++\na = 1\n\nb = 2\n\n${pad}\n`,
+    'front matter that never closes, with a rule far below': `---\ntitle: x\n\n${pad}\n\n---\n\n${pad}\n`,
+    'front matter that never closes, nothing below': `---\ntitle: x\n\n${pad}\n`,
+    'a loose list whose next item is far below': `- a\n\n${pad}\n\n- b\n`,
+    'a list interrupted and taken up again': `- a\n- b\n\nc\n\n- d\n\n${pad}\n\n- e\n`,
+    'a rule that looks like front matter': `---\n\n${pad}\n\n---\n\n${pad}\n`,
     'repeated headings far apart': `# Same\n\n${pad}\n\n# Same\n\n${pad}\n\n## Same\n\n${pad}\n\n# Same\n`,
   };
-  for (const [name, source] of Object.entries(cases)) {
+  return Object.entries(cases);
+}
+
+test('hostile documents written out: each is equal on both roads', async () => {
+  for (const [name, source] of writtenOut()) {
     await checkEquivalent(source, name, { sliceBytes: 64, budgetMs: SMALLEST });
     await checkEquivalent(source, `${name} (default sizes)`);
   }
@@ -136,6 +155,49 @@ for (const [name, [from, to]] of Object.entries(mutants)) {
         }
       }
       assert.ok(failures.length > 0, `the oracle passed all ${SEEDS} seeds against a slicer with ${name}`);
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
+}
+
+// The same for the parse (parse/chunked.ts): the guards that make a cut safe, each removed in turn. The check
+// on the last slice for front matter that never closes only moves a document that was never cut from `slices`
+// to `whole` in the stats (one slice is the whole parse), so it changes no byte; `chunked.test.ts` holds it.
+const parseMutants: Record<string, [from: string, to: string]> = {
+  'the fresh-line proof dropped': ['&& fresh(bytes, prior, at)', ''],
+  'the front matter opened check dropped': ["const opened = !frontmatter || restart > 0 || region.blocks[0]?.type === 'frontmatter';", 'const opened = true;'],
+};
+
+for (const [name, [from, to]] of Object.entries(parseMutants)) {
+  test(`the oracle fails a parse in slices with ${name}`, async () => {
+    const source = readFileSync(new URL('../parse/chunked.ts', import.meta.url), 'utf8');
+    assert.ok(source.includes(from), `chunked.ts no longer holds the line this mutant removes: ${from}`);
+    const file = new URL(`../parse/chunked.mutant-${process.pid}-${Math.abs(hash(name))}.ts`, import.meta.url);
+    writeFileSync(file, source.replace(from, to));
+    try {
+      const mutant = (await import(file.href)) as { parseMarkdownChunked: typeof import('../parse/chunked.ts').parseMarkdownChunked };
+      let failed = false;
+      for (const [label, document] of writtenOut()) {
+        for (const sliceBytes of [16, 64]) {
+          try {
+            await checkEquivalent(document, `${label} @${sliceBytes}`, { parse: mutant.parseMarkdownChunked, sliceBytes });
+          } catch {
+            failed = true;
+          }
+        }
+      }
+      for (let seed = 1; !failed && seed <= SEEDS; seed++) {
+        for (const make of [generated, generatedHostile]) {
+          const next = random(seed);
+          try {
+            await checkEquivalent(make(next), `${make.name} seed ${seed}`, { parse: mutant.parseMarkdownChunked, sliceBytes: 1 + Math.floor(next() * 200), budgetMs: SMALLEST });
+          } catch {
+            failed = true;
+          }
+        }
+      }
+      assert.ok(failed, `the oracle passed every document against a parse in slices with ${name}`);
     } finally {
       rmSync(file, { force: true });
     }

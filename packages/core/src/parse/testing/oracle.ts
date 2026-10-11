@@ -16,6 +16,8 @@ export type SlicedRender = (document: Document, options: { yieldNow: () => Promi
 export interface OracleOptions {
   /** The slicer under test; the real one by default, a mutant of it in the test that proves the oracle fails on one. */
   readonly render?: SlicedRender;
+  /** The parse in slices under test; the real one by default, a mutant of it in the tests that prove the oracle fails on one. */
+  readonly parse?: typeof parseMarkdownChunked;
   /** A fixed parse slice size, in bytes (many slices of a small file); unset, the parse sizes its own. */
   readonly sliceBytes?: number;
   /** The render's slice budget in milliseconds; a budget no slice can meet makes each slice the smallest. Unset, the default. */
@@ -44,7 +46,7 @@ export async function checkEquivalent(input: string | Uint8Array, where: string,
   const yieldNow = options.yieldNow ?? settle;
 
   const whole = parseMarkdown(bytes, { file: FILE });
-  const slicedParse = await parseMarkdownChunked(bytes, { file: FILE, yieldNow, sliceBytes: options.sliceBytes });
+  const slicedParse = await (options.parse ?? parseMarkdownChunked)(bytes, { file: FILE, yieldNow, sliceBytes: options.sliceBytes });
   const parse = lastChunkedParse().kind;
   const wholeJson = JSON.stringify(whole);
   const slicedJson = JSON.stringify(slicedParse);

@@ -5,7 +5,7 @@ export * from './contracts/position.ts';
 export { parseMarkdown } from './parse/parse.ts';
 export type { ParseOptions } from './parse/parse.ts';
 export { reparseMarkdown } from './parse/reparse.ts';
-export { lastChunkedParse, parseMarkdownChunked } from './parse/chunked.ts';
+export { Abandoned, lastChunkedParse, parseMarkdownChunked } from './parse/chunked.ts';
 export type { ChunkedParseOptions } from './parse/chunked.ts';
 export { checkInvariants } from './parse/invariants.ts';
 export type { Violation } from './parse/invariants.ts';

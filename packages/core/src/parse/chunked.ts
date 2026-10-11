@@ -21,8 +21,10 @@ import { documentOf, fresh, holdsDefinitionMark, lineEndAfter, opensLikeFrontmat
 export interface ChunkedParseOptions extends ParseOptions {
   /** Given back between slices: resolves once the event loop has had its turn. */
   readonly yieldNow: () => Promise<void>;
-  /** What one slice may cost, in milliseconds; the next slice is sized from the last one's cost. Default 6. */
+  /** What one slice may cost, in milliseconds; the next slice is sized from the last one's cost. Default 3. */
   readonly budgetMs?: number;
+  /** Asked after each yield: true abandons the parse (the pane it was for is gone) by throwing `Abandoned`. */
+  readonly aborted?: () => boolean;
   /** A fixed size for every slice, in bytes, instead of one sized by `budgetMs`: for a test that wants many slices of a small file. */
   readonly sliceBytes?: number;
 }
@@ -37,6 +39,14 @@ export interface ChunkedParseStats {
   readonly refused: number;
 }
 
+/** Thrown by a job done in slices when its `aborted()` says the work is no longer wanted (D-15). */
+export class Abandoned extends Error {
+  constructor() {
+    super('the work in slices was abandoned');
+    this.name = 'Abandoned';
+  }
+}
+
 let last: ChunkedParseStats = { kind: 'whole', slices: 0, refused: 0 };
 export const lastChunkedParse = (): ChunkedParseStats => last;
 
@@ -44,7 +54,7 @@ const FIRST_SLICE_BYTES = 4096;
 
 /** `parseMarkdown(bytes, options)`, in slices. Equal to it in every node and range (chunked.test.ts). */
 export async function parseMarkdownChunked(bytes: Uint8Array, options: ChunkedParseOptions): Promise<Document> {
-  const { yieldNow, budgetMs = 3, sliceBytes, ...parse } = options;
+  const { yieldNow, budgetMs = 3, sliceBytes, aborted, ...parse } = options;
   const file = parse.file ?? 'untitled';
   const whole = (reason: string): Document => {
     last = { kind: 'whole', reason, slices: 0, refused: 0 };
@@ -88,6 +98,7 @@ export async function parseMarkdownChunked(bytes: Uint8Array, options: ChunkedPa
     }
     if (!advanced) break;
     await yieldNow();
+    if (aborted?.()) throw new Abandoned();
   }
   // The last slice: from the last fresh line to the end of the file.
   const region = parseBlocksIn(bytes, restart, bytes.length, parse);

@@ -1529,23 +1529,34 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     pageStale = false;
     store = next;
     follow(next);
-    const { path: file, ast, nodeMap, buffer } = next.snapshot();
-    const policy = trust.policyFor(file);
+    let { path: file, ast, nodeMap, buffer } = next.snapshot();
+    const abandoned = (): boolean => store !== next;
     // A large document beside another pane: rendered, then parsed into the inert body, in slices. A document
     // the sliced render declines (a footnote, raw HTML left open) is rendered whole, as ever.
-    const slices = opts?.sliced === true ? await renderDocumentSafeHtmlInSlices(ast, { policy, yieldNow: yieldToEventLoop }) : null;
+    let slices =
+      opts?.sliced === true ? await renderDocumentSafeHtmlInSlices(ast, { policy: trust.policyFor(file), yieldNow: yieldToEventLoop, aborted: abandoned }) : null;
     if (store !== next) throw new Error('the document was replaced while it was rendered');
-    const { html, removed, blockedImages } = slices ?? renderDocumentSafeHtml(ast, policy);
-    const inert =
-      slices !== null && html.length >= DEFAULT_THRESHOLD
-        ? await parseInertInSlices(slices.pieces, (holder) => stripNonLocalImages(holder, file), yieldToEventLoop)
+    let inert =
+      slices !== null && slices.html.length >= DEFAULT_THRESHOLD
+        ? await parseInertInSlices(slices.pieces, (holder) => stripNonLocalImages(holder, file), yieldToEventLoop, undefined, abandoned)
         : undefined;
+    // A pane opening beside another gives the frame back between the stages that each take most of one.
+    if (opts?.sliced) await yieldToEventLoop();
     if (store !== next) throw new Error('the document was replaced while it was parsed');
+    // The last await is behind us, and the store went on while they ran (the other pane of a same-file pair
+    // edited it, or the file was read again): the page is made from the store as it is now, whole, so that
+    // `shown`, the page and the version the selection will stamp are one document. Slicing resumes with the
+    // next open; this one has nothing left to give the frame back for.
+    const latest = next.snapshot();
+    if (latest.ast !== ast) {
+      ({ path: file, ast, nodeMap, buffer } = latest);
+      slices = null;
+      inert = undefined;
+    }
+    const { html, removed, blockedImages } = slices ?? renderDocumentSafeHtml(ast, trust.policyFor(file));
     console.info(`marxy: sanitiser removed ${removed.length}`);
     shown = { ast, html, nodeMap, blocks: [], render: renderRecord(ast, removed, trust.grantsFor(file).html) };
     // Only the first screens go in now (A-02); images are checked before any block reaches the page.
-    // A pane opening beside another gives the frame back between the stages that each take most of one.
-    if (opts?.sliced) await yieldToEventLoop();
     mountDocument(html, file, opts?.at, opts?.start, inert);
     afterRender();
     opts?.onMounted?.();

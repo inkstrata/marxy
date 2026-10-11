@@ -328,10 +328,10 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     let preparsed: Preparsed | undefined;
     let cut = 0;
     if (slices && !(deps.stores?.held(file) ?? null)) {
-      const ast = await parseMarkdownChunked(bytes, { file, yieldNow: yieldToEventLoop });
+      const ast = await parseMarkdownChunked(bytes, { file, yieldNow: yieldToEventLoop, aborted: () => closed });
       const stats = lastChunkedParse();
       cut = stats.kind === 'slices' ? stats.slices : 0;
-      preparsed = { ast, nodeMap: await buildNodeMapInSlices(ast, yieldToEventLoop) };
+      preparsed = { ast, nodeMap: await buildNodeMapInSlices(ast, yieldToEventLoop, undefined, () => closed) };
       if (closed) throw new Error('closed while the document was read');
     }
     teardownDocument();
@@ -426,6 +426,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       await finishDocumentOpen(file, { at, sliced: openedInSlices });
     } catch (e) {
       chunks.release();
+      // The pane was closed under the open: nothing is shown, written or torn down for a page that is gone.
+      if (closed) return;
       // Nothing of the last document may outlive the page that showed it.
       teardownDocument();
       deps.selection()?.afterRender();

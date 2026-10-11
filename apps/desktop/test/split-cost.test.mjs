@@ -227,6 +227,107 @@ test('a large document opened beside another is read in slices and is the page i
   }
 });
 
+/** A task document of 120 lists of 12 lines, each exactly 60 bytes, so an edit of one line moves no byte after it. */
+function taskDocument() {
+  const line = (tag) => `${`- [ ] task ${tag}`.padEnd(59)}\n`;
+  let text = '# Tasks\n\n';
+  for (let l = 0; l < 120; l++) {
+    text += `Paragraph ${l} ${'text '.repeat(40)}\n\n`;
+    for (let t = 0; t < 12; t++) text += line(`L${String(l).padStart(3, '0')}T${String(t).padStart(2, '0')}`);
+    text += '\n';
+  }
+  return { text, line };
+}
+
+test('a store that changes while the second pane reads it in slices leaves a page that is the store as it is (D-15)', async () => {
+  const { text, line } = taskDocument();
+  assert.ok(text.length > 100 * 1024, 'the document is read in slices');
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files: { '/r/big.md': text }, open: ['/r/big.md'], guard: true });
+    await contentComplete(page);
+    const edit = line('NEWNEWNEW');
+    await page.evaluate(async ({ edit }) => {
+      const panes = window.__marxyHandle.panes();
+      const store = panes.panes[0].view.store();
+      const opening = panes.openIn('other', '/r/big.md');
+      // The other pane's edit lands while this pane's slices are still being read: one whole task line before the first list.
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const source = new TextDecoder().decode(store.snapshot().buffer.bytes);
+      const at = source.indexOf('- [ ] task L000T00');
+      await store.apply({ range: { file: '/r/big.md', start: at, end: at }, replacement: edit, label: 'edit' });
+      await opening;
+    }, { edit });
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].article.childElementCount > 100, null, { timeout: 60_000 });
+    await settle(page, 1500);
+    const seen = await page.evaluate(() => {
+      const [left, right] = window.__marxyHandle.panes().panes;
+      const starts = (article) => [...article.children].map((el) => el.getAttribute('data-marxy-s')).join(',');
+      return { same: starts(left.article) === starts(right.article), hasEdit: right.article.textContent.includes('NEWNEWNEW'), blocks: right.article.childElementCount };
+    });
+    assert.equal(seen.hasEdit, true, 'the second pane shows the edit the store has');
+    assert.equal(seen.same, true, 'both panes hold the same blocks at the same byte ranges');
+    // A click on a task in the second pane toggles the line it shows, not another one.
+    const target = await page.evaluate(() => {
+      const box = [...window.__marxyHandle.panes().panes[1].article.querySelectorAll('input[type="checkbox"][data-marxy-s]')][4];
+      box.scrollIntoView({ block: 'center' });
+      const r = box.getBoundingClientRect();
+      return { tag: /task (L\d+T\d+)/.exec(box.closest('li').textContent)[1], x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    const read = () => page.evaluate(() => new TextDecoder().decode(window.__marxyHandle.panes().panes[0].view.store().snapshot().buffer.bytes));
+    const before = (await read()).split('\n');
+    await page.mouse.click(target.x, target.y);
+    await page.waitForFunction((was) => new TextDecoder().decode(window.__marxyHandle.panes().panes[0].view.store().snapshot().buffer.bytes) !== was, before.join('\n'), { timeout: 10_000 });
+    const after = (await read()).split('\n');
+    const changed = before.map((l, i) => (l !== after[i] ? after[i] : null)).filter((l) => l !== null);
+    assert.equal(changed.length, 1, `one line changed: ${JSON.stringify(changed)}`);
+    assert.match(changed[0], new RegExp(`^- \\[x\\] task ${target.tag}\\b`), 'it is the line the click was on');
+  });
+});
+
+test('closing a pane while its document is read in slices stops the work and leaves nothing on the page (D-15)', async () => {
+  const body = toText(generateLarge(1024 * 1024));
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files: { '/r/small.md': SMALL, '/r/big.md': body }, open: ['/r/small.md'] });
+    await settle(page, 300);
+    const seen = await page.evaluate(async () => {
+      // Every turn the event loop is given back is a message on a port: count them.
+      let yields = 0;
+      const post = MessagePort.prototype.postMessage;
+      MessagePort.prototype.postMessage = function (...args) {
+        yields++;
+        return post.apply(this, args);
+      };
+      const panes = window.__marxyHandle.panes();
+      const opening = panes.openIn('other', '/r/big.md').then(() => 'resolved', () => 'rejected');
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      const closed = panes.panes[1];
+      const article = closed.article;
+      const yieldsBefore = yields;
+      await panes.close(closed);
+      const closedAt = performance.now();
+      const result = await opening;
+      const marks = window.__marxyHandle.shell.calls.filter((c) => c.method === 'mark').length;
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      MessagePort.prototype.postMessage = post;
+      return {
+        result,
+        settledAfterMs: performance.now() - closedAt - 1500,
+        yieldsBefore,
+        yieldsAfterClose: yields - yieldsBefore,
+        marksMoved: window.__marxyHandle.shell.calls.filter((c) => c.method === 'mark').length - marks,
+        panes: panes.panes.length,
+        articleText: article.textContent.slice(0, 80),
+      };
+    });
+    assert.equal(seen.panes, 1);
+    assert.ok(seen.yieldsBefore > 3, `the document was being read in slices (${seen.yieldsBefore} turns before the close)`);
+    // The slices stop at the next turn: a handful of turns to wind down, not the hundreds the rest of the file takes.
+    assert.ok(seen.yieldsAfterClose < 12, `${seen.yieldsAfterClose} turns after the close`);
+    assert.equal(seen.marksMoved, 0, 'nothing was marked as shown after the open settled');
+    assert.equal(seen.articleText, '', `nothing, not even an error, was written to the closed pane: ${seen.articleText}`);
+  });
+});
+
 /**
  * One measured open: a small document in the left pane, `other` opened beside it. Returns the numbers the
  * card asks for. The frame gap is the longest rAF-to-rAF interval from the command to two frames after the

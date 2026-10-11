@@ -9,6 +9,7 @@ import { DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, REMOTE_IMAGE_ATTR, withProvenanc
 import { sanitizeHtml, type Removal } from '../sanitize/sanitize-html.ts';
 import { blockedImagesFrom, type BlockedImage } from './images.ts';
 import { headingIdsForDocument } from './heading-ids.ts';
+import { Abandoned } from '../parse/chunked.ts';
 import { rawTagsBalanced } from './raw-tags.ts';
 import { renderToUnsanitisedHtml } from './render-html.ts';
 
@@ -103,8 +104,10 @@ export interface SliceOptions {
   readonly policy?: Policy;
   /** Given back between slices: resolves once the event loop has had its turn. */
   readonly yieldNow: () => Promise<void>;
-  /** What one slice may cost, in milliseconds; the next is sized from the last one's cost. Default 6. */
+  /** What one slice may cost, in milliseconds; the next is sized from the last one's cost. Default 3. */
   readonly budgetMs?: number;
+  /** Asked after each yield: true abandons the render by throwing `Abandoned` (the pane it was for is gone). */
+  readonly aborted?: () => boolean;
 }
 
 /**
@@ -117,7 +120,7 @@ export interface SliceOptions {
  * once for the document and handed to every run.
  */
 export async function renderDocumentSafeHtmlInSlices(document: Document, options: SliceOptions): Promise<SlicedRenderResult | null> {
-  const { yieldNow, budgetMs = 3 } = options;
+  const { yieldNow, budgetMs = 3, aborted } = options;
   const policy = options.policy ?? DEFAULT_POLICY;
   const blocks = document.children;
   if (blocks.some((block) => block.type === 'footnoteDefinition')) return null;
@@ -150,7 +153,10 @@ export async function renderDocumentSafeHtmlInSlices(document: Document, options
     islandRemoved.push(...islands);
     const spent = performance.now() - t0;
     count = Math.max(4, Math.min(4096, Math.round(count * (budgetMs / Math.max(spent, 0.25)))));
-    if (at < blocks.length) await yieldNow();
+    if (at < blocks.length) {
+      await yieldNow();
+      if (aborted?.()) throw new Abandoned();
+    }
   }
   const removed: RenderRemoval[] = [...islandRemoved, ...passRemoved];
   return { html: pieces.join('\n'), pieces, removed, blockedImages: blockedImagesFrom(removed) };
