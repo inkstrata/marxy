@@ -3,7 +3,9 @@
 // are read when the reader unfolds and written when they fold (or quit while unfolded), never at launch.
 //
 // This is the whole of it: it draws six empty regions in the page and says which are shown. Nothing here
-// puts content in a region, binds a key or reads the document (W-03 to W-11 and W-19 do).
+// puts content in a region, binds a key or reads the document. A story that has content for a region
+// registers it with `fill` (W-05; workspace/fill.ts is the one place that happens), and the content is made
+// whenever the region is, and let go when it is taken out.
 
 import { LAYOUT_MAX_BYTES } from '@marxy/core/src/layout/persistence.ts';
 import { WorkspacePersistence, type RememberedPanels } from '@marxy/core/src/layout/workspace-storage.ts';
@@ -71,6 +73,12 @@ export function workspaceStoreFor(shell: StateShell): WorkspaceStore | null {
   };
 }
 
+/**
+ * What fills a region: runs with the region's element whenever it is made (each unfold), and may return what
+ * takes the content out again, run when the region is removed (fold, destroy) or the fill is withdrawn.
+ */
+export type RegionFill = (el: HTMLElement) => (() => void) | void;
+
 export interface Workspace {
   readonly mode: WorkspaceMode;
   /** The panels shown now, or (folded) the ones that come back on the next unfold; null before the first unfold. */
@@ -84,6 +92,14 @@ export interface Workspace {
   setPanel(region: WorkspaceRegion, open: boolean): void;
   /** The region's element while unfolded, else null. */
   region(name: WorkspaceRegion): HTMLElement | null;
+  /**
+   * Registers `mount` as content for `region` (W-05). While unfolded it runs now; every unfold runs it again on
+   * the new element, and its disposer runs when the region goes (fold, destroy). Fills of one region run in the
+   * order they were registered. Returns the withdrawal: it disposes the content and forgets the fill.
+   */
+  fill(region: WorkspaceRegion, mount: RegionFill): () => void;
+  /** Whether anything is registered to fill `region`: what a control that lives in another region asks. */
+  hasFill(region: WorkspaceRegion): boolean;
   onChange(cb: (mode: WorkspaceMode) => void): () => void;
   /** Writes the panels if they changed since they were last written: quit while unfolded. */
   flush(): Promise<void>;
@@ -106,6 +122,9 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
   let arrangement: Arrangement | null = null;
   let remembered: RememberedPanels | null = null;
   let regions: ReadonlyMap<WorkspaceRegion, HTMLElement> = new Map();
+  /** What fills each region, and the disposer of the content now in the page (null while folded). */
+  interface Fill { readonly mount: RegionFill; dispose: (() => void) | null }
+  const fills = new Map<WorkspaceRegion, Fill[]>();
   /** The panels as last written, to tell whether quit has anything new to write. */
   let written = '';
   const listeners = new Set<(mode: WorkspaceMode) => void>();
@@ -126,6 +145,29 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
       }
     }
   };
+
+  function makeFill(entry: Fill, el: HTMLElement): void {
+    try {
+      entry.dispose = entry.mount(el) ?? null;
+    } catch (error) {
+      console.warn('marxy: a workspace region could not be filled', error);
+    }
+  }
+
+  function dropFill(entry: Fill): void {
+    const dispose = entry.dispose;
+    entry.dispose = null;
+    try {
+      dispose?.();
+    } catch (error) {
+      console.warn('marxy: a workspace region fill threw while it was taken out', error);
+    }
+  }
+
+  /** The content of every region goes first, so nothing outlives the element it was made in. */
+  function dropFills(): void {
+    for (const list of fills.values()) for (const entry of list) dropFill(entry);
+  }
 
   const key = (a: Arrangement): string => JSON.stringify(WORKSPACE_REGIONS.map((name) => a[name]));
 
@@ -152,6 +194,10 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     }
     arrangement = arrangementFor(remembered, deps.windowWidth());
     regions = mountRegions(body, main, arrangement);
+    for (const [name, list] of fills) {
+      const el = regions.get(name);
+      if (el) for (const entry of list) makeFill(entry, el);
+    }
     body.setAttribute('data-marxy-workspace', 'unfolded');
     mode = 'unfolded';
     emit();
@@ -159,6 +205,7 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
 
   async function foldNow(): Promise<void> {
     if (mode === 'folded') return;
+    dropFills();
     unmountRegions(regions);
     regions = new Map();
     body.removeAttribute('data-marxy-workspace');
@@ -191,6 +238,21 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
 
     region: (name) => regions.get(name) ?? null,
 
+    fill(name, mount) {
+      const entry: Fill = { mount, dispose: null };
+      fills.set(name, [...(fills.get(name) ?? []), entry]);
+      const el = regions.get(name);
+      if (mode === 'unfolded' && el) makeFill(entry, el);
+      return () => {
+        dropFill(entry);
+        const rest = (fills.get(name) ?? []).filter((e) => e !== entry);
+        if (rest.length > 0) fills.set(name, rest);
+        else fills.delete(name);
+      };
+    },
+
+    hasFill: (name) => (fills.get(name)?.length ?? 0) > 0,
+
     onChange(cb) {
       listeners.add(cb);
       return () => {
@@ -201,6 +263,8 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     flush: () => serial(async () => (mode === 'unfolded' ? persist() : undefined)),
 
     destroy() {
+      dropFills();
+      fills.clear();
       unmountRegions(regions);
       regions = new Map();
       body.removeAttribute('data-marxy-workspace');

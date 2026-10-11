@@ -120,7 +120,8 @@ test('unfolding puts the six regions in the page, in order, and nothing else out
     });
     assert.equal(got.attribute, 'unfolded');
     assert.deepEqual(got.names, ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar']);
-    assert.deepEqual(got.children, [0, 0, 0, 0, 0, 0], 'the regions hold no content');
+    // The toolbar is the one region with a fill (W-05; toolbar.test.mjs); the other five hold no content yet.
+    assert.deepEqual(got.children.map((n, i) => (got.names[i] === 'toolbar' ? n > 0 : n === 0)), [true, true, true, true, true, true], `only the toolbar holds content (${got.children})`);
     assert.deepEqual(got.parents, ['BODY']);
     assert.deepEqual(got.shown, [true, true, true, true, false, true], 'a 1280 px window docks everything but the inspector');
     assert.deepEqual(got.visible, [], 'a stray element outside the regions is what the gate would fail');
