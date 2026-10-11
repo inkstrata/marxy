@@ -51,6 +51,12 @@ export interface DocumentSnapshot {
   readonly dirty: boolean;
   readonly canUndo: boolean;
   readonly canRedo: boolean;
+  /**
+   * The bytes the last `reload` replaced: what Marxy had loaded when another program rewrote the file under a
+   * clean buffer (E-17). View state, held in memory only: never written, never persisted, null until a reload
+   * adopts a change, and dropped with the store on `close`. A reload kept over unsaved edits sets nothing.
+   */
+  readonly previousDisk: Uint8Array | null;
 }
 
 /** What a committed change was. `undo` and `redo` carry the history entry they stepped over. */
@@ -170,6 +176,8 @@ interface State {
   readonly past: readonly Edit[];
   readonly future: readonly Edit[];
   readonly version: number;
+  /** See `DocumentSnapshot.previousDisk`. */
+  readonly previousDisk: Uint8Array | null;
 }
 
 const encoder = new TextEncoder();
@@ -218,6 +226,7 @@ function freezeSnapshot(state: State): DocumentSnapshot {
     dirty: state.disk === null || !sameBytes(state.disk, state.buffer.bytes),
     canUndo: state.past.length > 0,
     canRedo: state.future.length > 0,
+    previousDisk: state.previousDisk,
   });
 }
 
@@ -243,6 +252,7 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
     future: [],
     version: 0,
     bytesVersion: 0,
+    previousDisk: null,
   };
   let snap = freezeSnapshot(state);
   let closed = false;
@@ -369,7 +379,8 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
           if (pending === null || !sameBytes(pending, bytes)) pending = bytes.slice();
           return 'kept';
         }
-        adopt(bytes);
+        // The buffer is clean here, so it is exactly what was on disk: the version the reader was reading.
+        adopt(bytes, state.buffer.bytes);
         return 'reloaded';
       });
     },
@@ -463,7 +474,7 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
     close() {
       if (closed) return;
       closed = true;
-      commit({ ...state }, { kind: 'close' });
+      commit({ ...state, previousDisk: null }, { kind: 'close' });
       subscribers.clear();
     },
 
@@ -491,7 +502,7 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
    * bytes the reader never saw, so history is cleared rather than mapped through the change (ADR-0037 §3).
    * The guard is armed on them, and any pending conflict is over.
    */
-  function adopt(bytes: Uint8Array): void {
+  function adopt(bytes: Uint8Array, replaced: Uint8Array | null = null): void {
     pending = null;
     if (sameBytes(bytes, state.buffer.bytes)) {
       io.recordRead?.(state.path, bytes);
@@ -501,7 +512,10 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
     const buffer = createBuffer(state.path, bytes);
     const ast = reparseMarkdown(state.ast, state.buffer.bytes, buffer.bytes, { file: state.path });
     io.recordRead?.(state.path, buffer.bytes);
-    commit({ ...state, disk: buffer.bytes, buffer, ast, nodeMap: buildNodeMap(ast), past: [], future: [] }, { kind: 'reload' });
+    commit(
+      { ...state, disk: buffer.bytes, buffer, ast, nodeMap: buildNodeMap(ast), past: [], future: [], previousDisk: replaced },
+      { kind: 'reload' },
+    );
   }
 
   /**

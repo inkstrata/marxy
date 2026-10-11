@@ -2,6 +2,7 @@
 import { OPERATIONS } from '@marxy/core/src/operations/index.ts';
 import { appearanceCommands } from './appearance.ts';
 import { collectionCommands } from './collection.ts';
+import { compareCommands } from './compare.ts';
 import { kindCommands } from './kind.ts';
 import { copyTextCommands } from './copy-text.ts';
 import { documentCommands } from './document.ts';
@@ -43,6 +44,7 @@ export function commands(): readonly Command[] {
     ...kindCommands(),
     ...copyTextCommands(),
     ...findCommands(),
+    ...compareCommands(),
     ...OPERATIONS.map(fromOperation),
   ];
 }
