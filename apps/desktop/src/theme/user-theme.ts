@@ -135,19 +135,25 @@ export async function startUserTheme(ctx: UserThemeContext, dir: string | null):
 
   if (gen !== generation) return { stop };
 
-  const handle = await ctx.shell.watch(dir, () => {
-    if (debounce !== undefined) clearTimeout(debounce);
-    debounce = setTimeout(() => {
-      void (async () => {
-        try {
-          await applyLoadedTheme(ctx, dir);
-        } catch {
-          /* keep the previous theme on reload failure */
-        }
-      })();
-    }, DEBOUNCE_MS);
-  });
-  watchClose = () => handle.close();
+  // The theme is applied; a folder that cannot be watched only means a later edit is not followed. The open
+  // this runs after must not fail for it (V-11).
+  try {
+    const handle = await ctx.shell.watch(dir, () => {
+      if (debounce !== undefined) clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        void (async () => {
+          try {
+            await applyLoadedTheme(ctx, dir);
+          } catch {
+            /* keep the previous theme on reload failure */
+          }
+        })();
+      }, DEBOUNCE_MS);
+    });
+    watchClose = () => handle.close();
+  } catch (e) {
+    console.warn(`marxy: the theme folder ${displayPath(dir)} is not watched: ${String(e)}`);
+  }
 
   return { stop };
 }
@@ -155,7 +161,13 @@ export async function startUserTheme(ctx: UserThemeContext, dir: string | null):
 /** Reads `theme` from config.toml when the shell exposes `configPaths`. */
 export async function themeDirFromConfig(shell: UserThemeShell): Promise<string | null> {
   if (shell.configPaths === undefined) return null;
-  const { config } = await shell.configPaths();
+  // No answer is no theme, not a failed open (V-11).
+  let config: string;
+  try {
+    ({ config } = await shell.configPaths());
+  } catch {
+    return null;
+  }
   let bytes: Uint8Array;
   try {
     bytes = await shell.readFile(config);

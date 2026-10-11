@@ -112,6 +112,8 @@ test('V-16: a tab-indented .go has one tab width in Rendered and Source, and its
     await openV16(page, '/repo/cmd/main.go');
     await page.waitForFunction(() => document.documentElement.style.getPropertyValue('--marxy-tab-size') === '8');
     // A code block as Rendered sets one (the code-file view itself arrives with V-09): the app reacts to it.
+    // A .go opens in Source with no page made (V-11), so the page is made first, by asking for Rendered.
+    await page.evaluate(() => window.__marxyHandle.panes().focused.view.toggleMode());
     await page.evaluate(() => {
       const pre = document.createElement('pre');
       pre.id = 'v16-pre';

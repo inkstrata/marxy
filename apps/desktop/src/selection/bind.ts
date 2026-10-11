@@ -243,6 +243,10 @@ export function installCommandKeys(handle: AppHandle): void {
     const cmd = commandForKey(event, commands(), appCtx, { inEditable: editable, mac: isMac() });
     if (!cmd) return;
     event.preventDefault();
-    void cmd.run(appCtx);
+    // A command that rejects is said, never an unhandled rejection that leaves the key doing nothing (V-11).
+    void Promise.resolve(cmd.run(appCtx)).catch((e: unknown) => {
+      console.warn(`marxy: ${cmd.title} did not run: ${String(e)}`);
+      notify({ kind: 'info', text: `${cmd.title} did not run: ${e instanceof Error ? e.message : String(e)}` });
+    });
   });
 }
