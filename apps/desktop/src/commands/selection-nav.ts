@@ -5,7 +5,7 @@ import { appHandle } from './app-handle.ts';
 
 function structured(ctx: AppContext): boolean {
   const kind = ctx.selection.kind;
-  return kind === 'node' || kind === 'section' || kind === 'document';
+  return kind === 'node' || kind === 'section' || kind === 'document' || kind === 'blocks';
 }
 
 export function selectionNavigationCommands(): readonly Command[] {
@@ -38,6 +38,16 @@ export function selectionNavigationCommands(): readonly Command[] {
       when: structured,
       run: async () => {
         appHandle()?.selection.moveUp();
+      },
+    },
+    {
+      id: 'selection.extend-block',
+      title: 'Extend selection to next block',
+      key: 'Alt+Shift+ArrowDown',
+      group: 'selection',
+      when: (ctx) => ctx.selection.kind === 'node' || ctx.selection.kind === 'blocks',
+      run: async () => {
+        appHandle()?.selection.extendDown();
       },
     },
     {

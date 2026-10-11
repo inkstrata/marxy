@@ -113,7 +113,11 @@ export function menuAnchorFor(ctx: AppContext): MenuAnchor | null {
   let rect: DOMRect | undefined;
   // A code block's provenance is on its `code`; the block the reader sees is the `pre` around it.
   if (sel.kind === 'node') rect = (sel.el.closest('pre') ?? sel.el).getBoundingClientRect();
-  else if (sel.kind === 'section') {
+  else if (sel.kind === 'blocks') {
+    const first = sel.els[0]?.getBoundingClientRect();
+    const last = sel.els.at(-1)?.getBoundingClientRect();
+    if (first && last) rect = new DOMRect(first.left, first.top, first.width, Math.max(last.bottom - first.top, 0));
+  } else if (sel.kind === 'section') {
     const { start, end } = sel.heading.src;
     rect = article?.querySelector(`[data-marxy-s="${start}"][data-marxy-e="${end}"]`)?.getBoundingClientRect();
   } else if (sel.kind === 'document') rect = article?.getBoundingClientRect();
