@@ -163,7 +163,11 @@ test('README beside the plan, the result and the source: open beside, follow a l
     await page.keyboard.press(`${mod}+KeyF`);
     await page.waitForSelector('#marxy-main > section[data-marxy-pane="0"] .marxy-find input:focus');
     await page.keyboard.type('lantern');
-    await page.waitForFunction(() => /\d+ of \d+/.test(document.querySelector('.marxy-find .marxy-find-count')?.textContent ?? ''));
+    // The count of the whole query, not of a prefix typed on the way: the field holds it and the count is settled on it.
+    await page.waitForFunction(() => {
+      const field = document.querySelector('.marxy-find');
+      return field?.querySelector('input')?.value === 'lantern' && /^\d+ of 27$/.test(field.querySelector('.marxy-find-count')?.textContent ?? '');
+    });
     const found = await page.evaluate(() => ({
       fields: [...document.querySelectorAll('#marxy-main > section.marxy-pane')].map((s) => s.querySelectorAll('.marxy-find').length),
       count: document.querySelector('.marxy-find .marxy-find-count').textContent,
