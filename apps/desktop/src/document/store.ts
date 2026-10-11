@@ -18,6 +18,12 @@ export interface StoreIo {
   writeFileAtomic(path: string, bytes: Uint8Array): Promise<void>;
   /** Tauri's stale-write guard (shell/tauri.ts recordRead); optional in tests. */
   recordRead?(path: string, bytes: Uint8Array): void;
+  /**
+   * Reads `path` without arming that guard. A save compares disk with the store's own `disk` through it, so
+   * the baseline is the store's (what it last loaded or wrote), not the shell's last look: Marxy's own reads
+   * and writes of a file the reader has open (a config key, `.editorconfig`, a link's target) cannot move it.
+   */
+  peekFile?(path: string): Promise<Uint8Array>;
 }
 
 /** One immutable reading of the store. `version` says whether a held snapshot is stale. */
@@ -320,6 +326,19 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
         if (target === state.path && !snap.dirty) return { result: 'unchanged' as const };
         const from = state.path;
         const bytes = state.buffer.bytes;
+        // The baseline is `disk`, the bytes this store last loaded or wrote: if the file is no longer them,
+        // another program wrote it (or Marxy did, for something else) and a save would overwrite that.
+        if (target === from && state.disk !== null && io.peekFile) {
+          let onDisk: Uint8Array | null = null;
+          try {
+            onDisk = await io.peekFile(target);
+          } catch {
+            // Gone, or unreadable: nothing there to overwrite, or the write itself will say why.
+          }
+          if (onDisk !== null && !sameBytes(onDisk, state.disk)) {
+            return { result: 'failed' as const, error: new Error(`${target}: changed on disk since it was opened; refusing to overwrite`) };
+          }
+        }
         // Parse under the new name before writing, so nothing after a successful write can throw.
         const moved = target === from ? null : { path: target, ...parsed(target, renamed(state.buffer, target)) };
         try {

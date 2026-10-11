@@ -266,6 +266,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         {
           writeFileAtomic: (path, written) => shell.writeFileAtomic(path, written),
           recordRead: shell.recordRead ? (path, read) => shell.recordRead?.(path, read) : undefined,
+          peekFile: shell.peekFile ? (path) => shell.peekFile!(path) : undefined,
         },
         file,
         bytes,

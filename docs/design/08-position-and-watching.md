@@ -129,6 +129,9 @@ A change on disk is handled once for the store and reaches every view:
   would commit (`reload(bytes, { holds })`), so a key typed in between cannot slip through. Either answer
   keeps the change out, says so in each pane that shows the file, and leaves the stale-write guard on the
   bytes the text came from: a save is then refused, never written over the other program's change.
+- **The baseline is the store's.** A save compares disk with the bytes the store last loaded or wrote
+  (`StoreIo.peekFile`), not with the shell's last look, so Marxy's own reads and writes of a file the
+  reader has open (a config key, `.editorconfig`, a link's target) cannot move it.
 - **Each view keeps its own place.** The reload maps each view's place through the change; an edit or fold
   from either view maps the other's anchor by the edit's delta (ADR-0037 §6). A Rendered view over a store
   the other pane folded Source text into is set again as for any edit, not sent to the top.
