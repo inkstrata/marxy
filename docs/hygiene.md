@@ -26,12 +26,14 @@ gates; neither triggers the other.
 
 ## Local precheck vs the real app
 
-`pnpm precheck` and `pnpm test` launch Playwright through `scripts/playwright-webkit.mjs`, which is
-headless unless `MARXY_BROWSER_HEADED=1` — browser tests, `gate:aesthetics` and the two engines of
-`gate:no-network` all go through it. They do not open the Marxy desktop window. A local
+Browser tests, `gate:aesthetics` and the two engines of `gate:no-network` launch Playwright through
+`scripts/playwright-webkit.mjs`, which is headless unless `MARXY_BROWSER_HEADED=1`. They do not open the
+Marxy desktop window. `pnpm precheck` runs none of them by default (it runs no browser; `--browser` and
+`--all` opt in) and neither does `pnpm test` on a machine without WebKit. A local
 `pnpm --filter @marxy/desktop build` still runs `smoke-cli-open.mjs` after the binary is built.
 Before merge when you changed shell, paint, or CLI paths, run
-`pnpm --filter @marxy/desktop verify:cli` — the same required smoke CI runs in the `rust` job.
+`pnpm --filter @marxy/desktop verify:cli` — the same required smoke the nightly `startup-macos` and
+`rust-linux` jobs run (it left the pull-request path in G-03).
 
 ## What is enforced, and by which tool
 
@@ -49,23 +51,24 @@ its `CHECKS` list and nowhere else. The commit hooks run the staged-file subset.
 | A font binary losing `binary` or gaining `eol` | `gate-font-attrs` | `pnpm check`, CI `fast` |
 | A bundled theme colour pair (any variant or kind scope) below ADR-0059's contrast floor, unrounded | `gate-contrast` | `pnpm check`, CI `fast` |
 | A workflow that is advisory, unpinned, unlocked, untimed or missing its Linux prerequisites | `check-workflows` (the one place workflow rules live) | `pnpm check`, CI `fast` |
-| A dependency with the wrong licence | `scripts/gate-licences.mjs` | precheck (when manifests change), CI `fast` and `rust` |
+| A dependency with the wrong licence | `scripts/gate-licences.mjs`; over `Cargo.lock` after a `cargo fetch` | precheck (when manifests change), CI `fast` and `rust` |
 | A byte the user did not ask to change, changed | `pnpm gate:fidelity`; `pnpm gate:golden` for AST and source map | precheck (core), CI `fast` |
-| Production JS reaching the memory shell or the harness | `pnpm gate:bundle` (the import graph; sizes only in the release workflow) | precheck (desktop), CI `fast` and `rust` |
-| Something reaching the network | `pnpm gate:no-network` | precheck, CI `browser-lite` |
-| A broken save, trust, close, reload, open, selection, persistence or index path in a real WebKit | the desktop lite suite, `pnpm --filter @marxy/desktop test:lite` | CI `browser-lite`; the full suite and `test:mutations` nightly |
-| A mechanical aesthetics regression (the page checks, not the baselines) | `node scripts/gate-aesthetics.mjs --mechanical`, with `pnpm gate:specimen` | precheck (theme, typeset), CI `typography`; baseline comparison nightly (ADR-0047) |
-| Rust formatting and warnings | `pnpm lint:rust` | precheck (`src-tauri`), CI `rust` |
+| Production JS reaching the memory shell or the harness | `pnpm gate:bundle` (the import graph; sizes only in the release workflow) | precheck (desktop), CI `fast` |
+| Something reaching the network | `pnpm gate:no-network` | CI `browser-lite` (shard 1); `precheck --all` |
+| A broken save, trust, data-loss, close, reload or operations-edit path, the first text of a 1 MB document, or a request made by the release CSP, an image or a theme, in a real WebKit | the desktop lite suite, `pnpm --filter @marxy/desktop test:lite` (two shards) | CI `browser-lite`; the full suite (selection, links, the index, persistence, the open path, the 1 MB reading position) and `test:mutations` nightly |
+| An aesthetics regression: the page checks (grid, measure, contrast, layout shift, overflow), the baselines, the specimen | `node scripts/gate-aesthetics.mjs`, with `pnpm gate:specimen` | nightly `aesthetics-determinism` only (ADR-0047, ADR-0056); `precheck --all` runs `gate:aesthetics` |
+| Rust formatting and warnings | `pnpm lint:rust` (macOS) | precheck (`src-tauri`: `cargo fmt --check`; clippy under `--all`), CI `rust`; nightly `rust-linux` on Linux |
 | A commit message off convention or carrying an attribution trailer | `.githooks/commit-msg` (commitlint plus a trailer strip) | commit |
 | A pull-request title that would not be a valid squash subject | `commitlint` over the title, through `orchestration/pr-mark.mjs --bare` | CI `conventions` |
-| A live document naming an orchestration file or `fleet.mjs` command that is not there | `orchestration/docs.test.mjs`, in `pnpm test:fleet` | CI `fast` when `fleet` changed, nightly `fleet` |
+| A live document naming an orchestration file or `fleet.mjs` command that is not there | `orchestration/docs.test.mjs`, in `pnpm test:fleet` | nightly `fleet` only (ADR-0051, ADR-0056) |
 | Skipping the gates a change needs | `scripts/precheck.mjs` with `scripts/gates-by-path.json` | before the pull request |
 | Starting a module, operation or command in a random shape | `pnpm new …` generators | at the start |
 
 Fleet-era tools, optional now: `scripts/check-story.mjs` (a story's paths from the board; the commit
 hook runs it on staged files and, with no `MARXY-nnn` in the branch name, only prints a note),
 `scripts/check-pr.mjs`, `scripts/open-pr.mjs`, `scripts/done.mjs`, `scripts/check-cards.mjs` (task
-cards against the board; precheck runs it) and everything under `orchestration/`, whose own tests
+cards against the board; run it as `node scripts/check-cards.mjs`, it is not a pnpm script, and precheck
+does not run it) and everything under `orchestration/`, whose own tests
 run as `pnpm test:fleet`.
 
 ## Rules the tools encode (so nobody re-derives them)
@@ -126,7 +129,10 @@ across the repository this removed, in order: the aesthetics CLS repeat passes (
 assertions in unit tests, a self-referential clause in `ci-changes --selftest`, the per-pull-request
 download of the CommonMark spec (cached on the script's hash), and then the dual-OS `gates` job
 with its `gates-skip` and `gates-record` companions and the perf gate, product tier and
-start-up measurement (A-03, A-09: measured nightly, `docs/ci-contract.md`). What stayed: the
+start-up measurement (A-03, A-09: measured nightly, `docs/ci-contract.md`), and then, because each
+of them guards no commitment, the `typography` job (the mechanical aesthetics gate and the specimen
+gate), the Linux build, the release-profile binary and CLI smoke, and `test:fleet` (G-03, ADR-0056:
+all nightly). What stayed: the
 sanitiser's ratio test (two timings on one machine, so machine speed cancels), `gate:bundle` (a byte
 count) and every measurement that is recorded and printed. A check wrapped in `|| true` or
 `|| echo` is a check whose failure nobody has read; that mistake hid a broken `check-story --strict`
@@ -137,15 +143,18 @@ Rules baked in:
 - **One required check.** Branch protection requires `ci` only, so job names can change without
   touching repository settings; `strict` is false (ADR-0040).
 - **Every job has `timeout-minutes`**, enforced by `check-workflows`. A hang costs minutes, never hours.
-- **Docs-only changes** run `changes`, `conventions` and `ci` only. Prose that a test reads
-  (`AGENTS.md`, `docs/{sdlc,hygiene,plan,ci-contract}.md`) is not docs-only.
-- **Path-filtered jobs** (`browser-lite`, `typography`, `rust`) run when the diff can affect them,
-  and a push to `main` runs `fast` only (`scripts/ci-changes.mjs`).
+- **Docs-only changes** run `changes`, `conventions` and `ci` only: prose under `docs/`, `orchestration/`,
+  `.claude/` and `changelog.d/`, and markdown outside `fixtures/`. Prose that a test in `fast` reads
+  (`AGENTS.md`, `docs/{sdlc,hygiene,plan,ci-contract}.md`, `docs/plan/jira-issues.csv`) is not docs-only.
+- **Path-filtered jobs** (`browser-lite`, `rust`) run when the diff can affect them, and a push to `main`
+  runs `fast` only (`scripts/ci-changes.mjs`).
+- **The pull-request path holds the five commitments and nothing else** (ADR-0056). Every other gate runs
+  nightly, where a red is a note for the next session.
 - **Caches:** mise tools, the pnpm store keyed on the lockfile, cargo via `Swatinem/rust-cache`
-  keyed on `Cargo.lock` and the `ci` profile. Browser binaries come with the
+  keyed on `Cargo.lock`; the macOS `rust` job restores the cache the nightly `startup-macos` job writes. Browser binaries come with the
   `mcr.microsoft.com/playwright` image, whose tag must equal the pinned `playwright` version in
   `package.json` (exact, no caret).
-- **The CI Cargo profile** (`[profile.ci]`, thin LTO, 16 codegen units) is what CI builds; tags and
+- **The CI Cargo profile** (`[profile.ci]`, thin LTO, 16 codegen units) is what the nightly builds use; tags and
   `pnpm bundle` use `release`. CI calls cargo directly and must pass `--features tauri/custom-protocol`,
   the switch `tauri build` sets implicitly; without it the app loads the dev-server URL and never
   paints. `MARXY_BIN` tells the smoke check which binary to launch.
