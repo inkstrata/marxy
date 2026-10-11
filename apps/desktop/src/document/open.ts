@@ -294,6 +294,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         writeFileAtomic: (path: string, written: Uint8Array) => shell.writeFileAtomic(path, written),
         recordRead: shell.recordRead ? (path: string, read: Uint8Array) => shell.recordRead?.(path, read) : undefined,
         peekFile: shell.peekFile ? (path: string) => shell.peekFile!(path) : undefined,
+        exists: async (path: string) => (await shell.stat(path)) !== null,
       };
       return untitled ? openUntitledStore(io, file, bytes) : openDocumentStore(io, file, bytes);
     };

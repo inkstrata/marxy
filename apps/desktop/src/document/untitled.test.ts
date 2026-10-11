@@ -117,6 +117,9 @@ test('a scratch store ignores a reload: there is no file to change under it', as
   assert.equal(await store.reload(enc.encode('two\n')), 'kept');
   assert.equal(dec.decode(store.snapshot().buffer.bytes), 'one\n');
   assert.deepEqual(io.reads, []);
+  // V-07: nothing is ever pending on a scratch, so no choice is offered and none does anything.
+  assert.equal(store.conflict(), null);
+  assert.deepEqual(await store.resolveConflict('theirs'), { result: 'none' });
 });
 
 test('an ordinary store is unchanged by the scratch guards', async () => {
