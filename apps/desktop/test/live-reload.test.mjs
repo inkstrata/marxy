@@ -41,6 +41,7 @@ nodeTest('main.rs has no watch placeholders (MARXY-194)', () => {
   assert.doesNotMatch(mainRs, /_root: String/);
 });
 
+const ATTEMPT_LIMIT = 15_000;
 const para = (word) =>
   `${word} runs long enough to wrap across several lines of the column, so that the typesetter has ` +
   'real paragraphs to break and the page is tall enough to scroll a heading to the reading line. ';
@@ -75,10 +76,40 @@ function b64(text) {
 }
 
 /** `lateWatch`: a watch on that folder registers only after a delay, as one on Tauri does (two round trips). */
-async function boot(page, files, argv, { lateWatch = null } = {}) {
+async function boot(page, files, argv, opts = {}) {
+  // F-30.1: on Linux CI about one run in twenty stalled here with no error: the page's load or the evaluate
+  // below never returned, and `page.evaluate` has no timeout of its own. Each attempt gets a deadline that
+  // names the stage it was in; a stalled attempt is retried on the same page (a new navigation drops the
+  // stuck one), and a second stall fails the test with the stage. The retry is logged, so a recurring stall
+  // stays visible.
+  const ATTEMPT_MS = ATTEMPT_LIMIT;
+  const attempts = 2;
+  for (let attempt = 1; ; attempt++) {
+    const stage = { name: 'starting' };
+    let timer;
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`boot stalled for ${ATTEMPT_MS} ms in: ${stage.name}`)), ATTEMPT_MS);
+    });
+    try {
+      await Promise.race([bootOnce(page, files, argv, opts, stage), deadline]);
+      return;
+    } catch (e) {
+      if (attempt >= attempts || !String(e?.message).startsWith('boot stalled')) throw e;
+      console.warn(`marxy test: ${e.message}; attempt ${attempt} of ${attempts}, retrying`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
+async function bootOnce(page, files, argv, { lateWatch = null }, stage) {
+  stage.name = 'starting the dev server';
   const base = await harnessBase();
-  await page.goto(`${base}app.html`);
-  await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+  stage.name = 'loading app.html';
+  await page.goto(`${base}app.html`, { timeout: ATTEMPT_LIMIT });
+  stage.name = 'waiting for window.marxyApp.start';
+  await page.waitForFunction(() => typeof window.marxyApp?.start === 'function', null, { timeout: ATTEMPT_LIMIT });
+  stage.name = 'starting the app in the page (page.evaluate)';
   await page.evaluate(
     async ({ files, argv, lateWatch }) => {
       const bin = atob;
@@ -110,7 +141,7 @@ async function boot(page, files, argv, { lateWatch = null } = {}) {
       // `ready` settles only once the engine reports a paint after the render, and a headless page that
       // never does leaves it pending forever (startup/measure.ts, by design). Bound it: every test goes on
       // to wait for its own condition, which has its own deadline.
-      await Promise.race([handle.ready, new Promise((r) => setTimeout(r, 15_000))]);
+      await Promise.race([handle.ready, new Promise((r) => setTimeout(r, 5_000))]);
     },
     { files, argv, lateWatch },
   );
@@ -541,17 +572,36 @@ const withCaret = async (page, from, to = from) => {
     ed.view.dispatch({ selection: { anchor: from, head: to } });
   }, { from, to });
 };
-const writeOutside = async (page, text) => {
+/** A bounded wait that says what it waited for, and what the editor held when it gave up. */
+const waitForEditor = async (page, what, predicate, arg) => {
+  try {
+    await page.waitForFunction(predicate, arg, { timeout: 15_000 });
+  } catch (cause) {
+    const held = await page
+      .evaluate(async () => {
+        const { activeSourceEditor } = await import('/src/source/editor.ts');
+        const { state } = activeSourceEditor(document.querySelector('#marxy-source')).view;
+        return { head: state.doc.sliceString(0, 80), selection: state.selection.main.toJSON(), scrollY: window.scrollY };
+      })
+      .catch((e) => `unreadable: ${e}`);
+    throw new Error(`timed out waiting for ${what}; the editor held ${JSON.stringify(held)}`, { cause });
+  }
+};
+const writeOutside = async (page, text, marker = '//') => {
   await page.evaluate(async (text) => {
     const path = window.__marxyHandle.currentPath();
     await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(text));
     window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
   }, text);
-  await page.waitForFunction(() => {
-    const t = document.querySelector('#marxy-source')?.textContent ?? '';
-    return t.includes('Changed') || !t.includes('value20 = 20');
-  });
-  await new Promise((r) => setTimeout(r, 300));
+  // Wait on the editor's own state, not on its rendered text: CodeMirror draws only the lines near the
+  // viewport, so a reload that moved the view could leave the changed line undrawn and this wait unmet (F-30.1).
+  await waitForEditor(page, 'the editor to take the outside write', async (marker) => {
+    const { activeSourceEditor } = await import('/src/source/editor.ts');
+    const ed = activeSourceEditor(document.querySelector('#marxy-source'));
+    return ed.view.state.doc.toString().includes(marker);
+  }, marker);
+  // The carried selection is dispatched in the same turn as the text; a short timer (not a frame: a headless page may deliver none) lets the view settle.
+  await page.evaluate(() => new Promise((r) => setTimeout(r, 100)));
 };
 const selectionNow = (page) =>
   page.evaluate(async () => {
