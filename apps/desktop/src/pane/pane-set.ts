@@ -10,7 +10,8 @@
 // right pane's document in slot 0, at the right pane's place and through the same store, and removes
 // slot 1: the survivor's article is `#doc` again without any element being renamed.
 
-import { createPaneElement, type PaneParts, type Slot } from './dom.ts';
+import type { Kind } from '@marxy/core/src/contracts/kinds.ts';
+import { createPaneElement, paneKind, type PaneParts, type Slot } from './dom.ts';
 import type { OpenOptions } from '../document/open.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
 
@@ -42,6 +43,8 @@ export interface Pane<C extends PaneContent = PaneContent> {
   readonly view: RenderedView;
   readonly content: C;
   path(): string | null;
+  /** The kind the pane's document was decided to be when it opened (`data-marxy-kind` on `host`), or null. */
+  kind(): Kind | null;
 }
 
 export type PaneChange<C extends PaneContent = PaneContent> = { readonly kind: 'open' | 'close' | 'focus' | 'ratio'; readonly pane?: Pane<C> };
@@ -115,6 +118,7 @@ export function createPaneSet<C extends PaneContent>(deps: PaneSetDeps<C>): Pane
       view: content.view,
       content,
       path: () => content.currentPath(),
+      kind: () => paneKind(parts.host),
     };
   };
 

@@ -91,7 +91,11 @@ test('window.marxyApp.start boots the real app and records one readFile', async 
       // in an order the idle queue decides; both are left out of the ordered list.
       const all = handle.shell.calls.filter((c) => c.method === 'readFile').map((c) => c.args[0]);
       // `.git` and `.git/HEAD` are the probes that tell checkouts of one repository apart (C-15).
-      const reads = all.filter((p) => !String(p).startsWith('/data/index-') && p !== '/collection.toml' && !/\/\.git(\/HEAD)?$/.test(String(p)));
+      // K-05a: after first text the launch decides its document's kind, reading config.toml's `[[kind]]` rules
+      // (a second `/config`; "read once before first_text" is pinned in persist-reading.test.mjs) and kinds.json.
+      const reads = all
+        .filter((p) => !String(p).startsWith('/data/index-') && p !== '/collection.toml' && p !== '/data/kinds.json' && !/\/\.git(\/HEAD)?$/.test(String(p)))
+        .filter((p, i, list) => !(p === '/config' && list.indexOf(p) !== i));
       return { heading, reads, collectionReads: all.filter((p) => p === '/collection.toml').length };
     }, { files: { '/docs/README.md': fixture.toString('base64') }, argv: ['/docs/README.md'] });
     assert.equal(result.heading, 'widgetlib');

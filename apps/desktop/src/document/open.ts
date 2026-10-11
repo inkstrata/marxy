@@ -3,7 +3,10 @@
 // `boot`, a launch's first open (or its frontispiece). The open store is a field of the object
 // `createOpenPath` returns, never module state, so a second app instance in one page starts clean
 // (ADR-0037). Every edit, save and fold of the open document goes through its store here.
-import { lastChunkedParse, parseMarkdownChunked, type Buffer } from '@marxy/core';
+import { KIND_HEAD_BYTES, lastChunkedParse, parseMarkdownChunked, type Buffer, type DetectResult, type KindRule } from '@marxy/core';
+import { detectFileKind, emptyKindsEnvelope, parseKindsFile, type KindsEnvelope } from '@marxy/core/src/kind/show-as.ts';
+import { joinPath } from '@marxy/core/src/index-model/paths.ts';
+import { parseConfig } from '@marxy/theme';
 import { buildNodeMapInSlices } from '../render/post.ts';
 import { dirname } from '@marxy/core/src/index-model/paths.ts';
 import type { AppShell, OpenDocumentState } from '../app.ts';
@@ -11,6 +14,7 @@ import { confirmLeaveDocument } from '../close.ts';
 import { setFrontispiece, showFrontispiece } from '../frontispiece/mount.ts';
 import type { PieceSource } from '../frontispiece/pieces.ts';
 import type { IndexService } from '../index/service.ts';
+import { setPaneKind } from '../pane/dom.ts';
 import { clearDismissForPath } from '../notices/blocked.ts';
 import { clearNotices, paneOf } from '../notices/index.ts';
 import type { ReadingPersistence } from '../position/reading-persistence.ts';
@@ -22,6 +26,7 @@ import { yieldToEventLoop } from '../startup/yield.ts';
 import { t0, type LaunchMeasure, type RenderEvidence } from '../startup/measure.ts';
 import type { AppConfig } from '../theme/app-config.ts';
 import { applyWeightOffset, platformOf } from '../theme/offset.ts';
+import { inferHomeFromConfig } from '../theme/user-theme.ts';
 // Static, as it was through save.ts before B-11: a lazy chunk here would put the first title (and the
 // late trust read queued after it) behind a fetch.
 import { updateTitle } from '../title.ts';
@@ -110,6 +115,11 @@ export interface OpenPath {
   currentPath(): string | null;
   /** The open document's store, or null. */
   store(): DocumentStore | null;
+  /**
+   * What the open document was decided to be when it opened (K-05a): the kind and every reason that fired.
+   * Decided once per open and kept through live reloads; null when nothing is open. The kind chip (K-07) reads it here.
+   */
+  detected(): DetectResult | null;
   openDocument(): OpenDocumentState | null;
   onDocumentChange(cb: (open: OpenDocumentState | null) => void): () => void;
   /** The store's buffer differs from disk, or Source holds text not yet folded into it. */
@@ -147,6 +157,12 @@ function byteChange(bytes: Uint8Array, next: Uint8Array): { start: number; end: 
 /** A document of at least this many bytes is read in slices while another pane is on screen (D-15); below it the work is a frame or less. */
 const SLICED_BYTES = 64 * 1024;
 
+/** What the reader decided about kinds, read as a file opens: the `[[kind]]` rules and `kinds.json`. */
+interface KindInputs {
+  readonly rules: readonly KindRule[];
+  readonly choices: KindsEnvelope;
+}
+
 /** Released once: a promise for a mount's `start`, and the call that settles it. */
 function gate(): { readonly promise: Promise<void>; release(): void } {
   let release!: () => void;
@@ -174,6 +190,52 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   let openedInSlices = false;
   /** The launch document's walk, so `ready` (and a harness quit) follows its `index_loaded` mark. */
   let indexing: Promise<void> = Promise.resolve();
+
+  /** The open document's kind and reasons, decided in `readAndShow` and not again until it is opened again (ADR-0060 item 6). */
+  let detected: DetectResult | null = null;
+
+  /**
+   * The reader's `[[kind]]` rules (config.toml) and *show as* choices (kinds.json), for the file about to open.
+   * Either missing, unreadable or unparsable is as if empty: the file opens by detection alone and the reader's
+   * other files are not held up. Never rejects.
+   */
+  async function readKindInputs(): Promise<KindInputs> {
+    const none: KindInputs = { rules: [], choices: emptyKindsEnvelope() };
+    if (!shell.configPaths) return none;
+    try {
+      const { config: configPath, data } = await shell.configPaths();
+      const [rules, choices] = await Promise.all([
+        configPath === ''
+          ? []
+          : shell.readFile(configPath).then(
+              (bytes) => parseConfig(bytes, { home: inferHomeFromConfig(configPath) }).config.kindRules,
+              () => [],
+            ),
+        data === ''
+          ? emptyKindsEnvelope()
+          : shell.readFile(joinPath(data, 'kinds.json')).then(
+              (bytes) => {
+                const loaded = parseKindsFile(bytes);
+                return loaded.envelope;
+              },
+              () => emptyKindsEnvelope(),
+            ),
+      ]);
+      return { rules, choices };
+    } catch {
+      return none;
+    }
+  }
+
+  /**
+   * Decides what `file` is, from its first bytes: the reader's *show as* beats a rule and a rule beats detection
+   * (`detectFileKind`), and the pane's root is given the result.
+   */
+  async function decideKind(file: string, bytes: Uint8Array, inputs: Promise<KindInputs> = readKindInputs()): Promise<void> {
+    const { rules, choices } = await inputs;
+    detected = detectFileKind({ path: file, head: bytes.subarray(0, KIND_HEAD_BYTES), rules, choices });
+    setPaneKind(doc.closest('section.marxy-pane'), detected.kind);
+  }
 
   const serially = <T>(fn: () => Promise<T>): Promise<T> => view.serially(fn);
   const ownsTitle = (): boolean => deps.ownsTitle?.() ?? true;
@@ -308,7 +370,10 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     at: number | undefined,
     start: Promise<unknown>,
     scratch?: OpenOptions['scratch'],
+    kind: 'now' | 'keep' | 'later' = 'now',
   ): Promise<RenderEvidence> {
+    // The reader's rules and choices are read beside the file, not after it.
+    const kindInputs = kind === 'now' ? readKindInputs() : null;
     // Shown in another pane: its store is the document, unsaved edits and all, and is not read again.
     const shown = deps.stores?.held(file) ?? null;
     const untitled = isUntitled(file);
@@ -339,6 +404,14 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       if (closed) throw new Error('closed while the document was read');
     }
     teardownDocument();
+    // The kind is decided here, once per open, from the file's own first bytes (`decideKind`). A reload of this
+    // document never comes back through here; only an open does. `rejoin` shows the same document again and
+    // keeps its kind; the launch's document is decided right after first text instead (`bootDocument`).
+    if (kindInputs) await decideKind(file, bytes, kindInputs);
+    else if (kind === 'later') {
+      detected = null;
+      setPaneKind(doc.closest('section.marxy-pane'), null);
+    }
     scratchLabel = untitled ? scratch?.label : undefined;
     clearDismissForPath(file);
     await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
@@ -424,7 +497,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     }
     const chunks = gate();
     try {
-      await readAndShow(file, at, chunks.promise, scratch);
+      await readAndShow(file, at, chunks.promise, scratch, again && detected !== null ? 'keep' : 'now');
       chunks.release();
       if (!isUntitled(file)) persistence.trackOpen(file, () => index.rootFor(file));
       await finishDocumentOpen(file, { at, sliced: openedInSlices });
@@ -434,6 +507,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       if (closed) return;
       // Nothing of the last document may outlive the page that showed it.
       teardownDocument();
+      detected = null;
+      setPaneKind(doc.closest('section.marxy-pane'), null);
       deps.selection()?.afterRender();
       view.showRenderedChrome();
       // A read error names the path, and a path is not markup.
@@ -464,7 +539,9 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
 
   /** The launch's document, through first text, then the rest of the open with its stored place. */
   async function bootDocument(file: string, after: number, chunks: ReturnType<typeof gate>): Promise<void> {
-    const evidence = await readAndShow(file, undefined, chunks.promise);
+    // The launch's kind waits for first text: the reader's rules and kinds.json are two more reads, and the
+    // first text never waits for a read it does not need (commitment 5; launch-reads tests pin the record).
+    const evidence = await readAndShow(file, undefined, chunks.promise, undefined, 'later');
     const renderedAt = Date.now();
     const outcome = await measure.waitForFirstText(doc, evidence, after, renderedAt);
     // F-17: a document with no text (only images) was not painted as text, and the measurement said so
@@ -475,6 +552,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     const textless = outcome === 'no_text' && hasSource;
     if (outcome !== 'painted' && outcome !== 'frames_only' && !textless) return measure.finish(1);
     chunks.release();
+    if (current) await decideKind(file, current.snapshot().buffer.bytes);
     await finishDocumentOpen(file, { firstOpen: true });
     setTimeout(() => void trust.load().then(() => trust.maybeRerenderForLateTrust()), 0);
     await indexing;
@@ -555,6 +633,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       }),
     currentPath,
     store: () => current,
+    detected: () => detected,
     openDocument: () => (current ? documentState(current.snapshot()) : null),
     onDocumentChange(cb) {
       let unsubscribe: (() => void) | null = null;
@@ -598,6 +677,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       followers.clear();
       if (current) release(current);
       current = null;
+      detected = null;
     },
   };
 }

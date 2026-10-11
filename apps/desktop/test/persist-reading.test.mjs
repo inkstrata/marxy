@@ -141,6 +141,10 @@ test('first launch without store files records only the document and config read
         .map((c) => c.args[0])
         // collection.toml is the reader's file, read for the index's deny list (C-10), not a store file.
         .filter((p) => p !== '/collection.toml')
+        // K-05a: after first text the launch reads kinds.json and config.toml's `[[kind]]` rules (a second `/config`
+        // read; the pre-paint read is pinned to once before first_text below) to decide its document's kind.
+        .filter((p) => p !== '/data/kinds.json')
+        .filter((p, i, list) => !(p === '/config' && list.indexOf(p) !== i))
         // `.git` and `.git/HEAD` are the probes that tell checkouts of one repository apart (C-15).
         .filter((p) => !/\/\.git(\/HEAD)?$/.test(String(p))),
     );
