@@ -9,7 +9,7 @@
 // before Mod+E toggles, and closes it before the page under it is set again. This module owns the session,
 // the target resolution and the commands; the editor itself is `source/block-editor.ts`, loaded with CodeMirror.
 
-import { blockEditRange, foldSlice, nodeAt, textOf, type Buffer, type Node as AstNode, type Source } from '@marxy/core';
+import { blockEditRange, foldSlice, textOf, type Buffer, type Node as AstNode, type Source } from '@marxy/core';
 import type { BlockEdit, RenderedView } from '../view/rendered-view.ts';
 import type { DocumentSnapshot, DocumentStore, Transition } from '../document/store.ts';
 import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
@@ -22,8 +22,11 @@ export const BLOCK_EDIT_CAP = 64 * 1024;
 
 export const TOO_LARGE_FOR_BLOCK_EDIT = 'Too large to edit in place; Mod+E opens Source';
 const NO_BLOCK_TO_EDIT = 'Select one block to edit in place; Mod+E opens Source';
-const CHANGED_UNDERNEATH =
-  'The block changed underneath your edit; your text replaced it. Undo brings the other version back.';
+/** Names the block by the start of the reader's text, so the notice can never be about another block. */
+const changedUnderneath = (text: string): string => {
+  const head = text.replace(/\s+/g, ' ').trim().slice(0, 40);
+  return `The block you were editing ("${head}") was changed or removed elsewhere; your text was kept and added as a new block where it stood. Undo takes it out.`;
+};
 const COULD_NOT_KEEP = 'Your edit to a block could not be put back into the document.';
 const LABEL = 'edit block';
 
@@ -87,11 +90,23 @@ function elementsFor(article: HTMLElement, range: Source): HTMLElement[] {
   return found;
 }
 
-/** The block the page's byte `at` is in after a change that cut across the one that was open, or just the place. */
-function blockAt(snapshot: DocumentSnapshot, at: number): Source {
-  const place = Math.min(at, snapshot.buffer.bytes.length);
-  const node = nodeAt(snapshot.ast, place);
-  return (node ? blockEditRange(snapshot.ast, node) : null) ?? { file: snapshot.path, start: place, end: place };
+/**
+ * Where the reader's text goes when its block no longer is what it was: before the first top-level block that
+ * starts at or after `at`, else at the end of the file. Nothing is replaced: a block neither side edited is
+ * never the one that gives way.
+ */
+function insertionFor(snapshot: DocumentSnapshot, at: number, text: string): { start: number; replacement: string } {
+  const { buffer, ast } = snapshot;
+  const eol = buffer.eol === 'crlf' ? '\r\n' : buffer.eol === 'cr' ? '\r' : '\n';
+  const next = ast.children.find((block) => block.src.start >= at);
+  if (next) {
+    const start = blockEditRange(ast, next)?.start ?? next.src.start;
+    return { start, replacement: `${text}${eol}${eol}` };
+  }
+  const bytes = buffer.bytes;
+  const last = bytes[bytes.length - 1];
+  const ended = bytes.length === 0 || last === 0x0a || last === 0x0d;
+  return { start: bytes.length, replacement: `${ended ? (bytes.length === 0 ? '' : eol) : `${eol}${eol}`}${text}${ended ? eol : ''}` };
 }
 
 function slice(buffer: Buffer, range: Source): string | null {
@@ -243,10 +258,16 @@ async function openResolved(ctx: AppContext): Promise<void> {
         let conflict = moved.conflict;
         // Where it should land is the block's bytes as they were opened; anything else is another change's block.
         if (!conflict && slice(snap.buffer, at) !== original) conflict = true;
-        if (conflict) at = blockAt(snap, at.start);
+        if (conflict) {
+          // The block is not there to fold into: add the reader's text beside it, replace nothing, say which text it is.
+          const place = insertionFor(snap, at.start, text);
+          const range = { file: snap.path, start: place.start, end: place.start };
+          if (await store.apply({ range, replacement: place.replacement, label: LABEL })) notify({ kind: 'info', text: changedUnderneath(text) });
+          else notify({ kind: 'info', text: COULD_NOT_KEEP });
+          return;
+        }
         const fold = foldSlice(snap.buffer, at, text);
         if (fold === null) return;
-        if (conflict) notify({ kind: 'info', text: CHANGED_UNDERNEATH });
         if (!(await store.apply({ range: fold.range, replacement: fold.text, label: LABEL }))) notify({ kind: 'info', text: COULD_NOT_KEEP });
       } catch (e) {
         console.warn(`marxy: a block edited in place could not be put back: ${String(e)}`);

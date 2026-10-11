@@ -376,8 +376,8 @@ const TWO = { width: 1470, height: 900 };
 const A = `# Alpha\n\n${para('Alpha').repeat(3)}\n\n${para('Second').repeat(2)}\n\n${para('Third').repeat(2)}\n`;
 
 /** Two panes on one file, an editor open in the left one with ' ZZ' typed at the end of the first paragraph. */
-async function withTwoPanes(fn) {
-  const first = firstBlock(A, 'paragraph');
+async function withTwoPanes(fn, nth = 0) {
+  const first = firstBlock(A, 'paragraph', nth);
   await withPage({ '/c/A.md': A }, ['/c/A.md', '/c/A.md'], async (page, mod) => {
     assert.equal(await page.evaluate(() => {
       const [a, b] = window.__marxyHandle.panes().panes;
@@ -412,7 +412,7 @@ test('two panes on one file stay consistent: leaving the editor in one shows the
     await page.waitForFunction(() => !window.__marxyHandle.document().snapshot().canUndo);
     for (const slot of [0, 1]) assert.ok(!(await paneText(page, slot)).includes('ZZ'), `pane ${slot} shows the undo`);
     assert.deepEqual(await bytesOf(page, 0), original);
-  }, TWO);
+  });
 });
 
 test('a press in the other pane leaves the editor first, so what was typed is in the document', async () => {
@@ -465,23 +465,55 @@ test('a change to the file made in the other pane while an editor holds an edit 
   });
 });
 
-test('a change to the open block made elsewhere is replaced by the reader\'s text, and the reader is told', async () => {
-  await withTwoPanes(async (page, mod, { first, original }) => {
-    // The other pane rewrites five bytes in the middle of the very block the editor has open.
-    await page.evaluate(async (range) => {
-      const store = window.__marxyHandle.panes().panes[1].content.store();
-      await store.apply({ range: { file: store.snapshot().path, start: range.start + 3, end: range.start + 8 }, replacement: 'ELSEWHERE', label: 'rewrite' });
-    }, first.range);
-    await page.waitForFunction(() => document.body.textContent.includes('changed underneath your edit'));
+/**
+ * The other pane changes the block the editor has open, in one of the ways that leave no block to fold into; the
+ * reader's text is added beside it, nothing is replaced, and the notice names the reader's text.
+ */
+async function conflictOutcome(change, expectedOf) {
+  await withTwoPanes(async (page, mod, { first }) => {
+    const third = firstBlock(A, 'paragraph', 2);
+    await page.evaluate(change, first.range);
+    await page.waitForFunction(() => document.body.textContent.includes('was changed or removed elsewhere'));
     await page.waitForFunction(() => new TextDecoder().decode(window.__marxyHandle.panes().panes[0].content.store().snapshot().buffer.bytes).includes('ZZ'));
     assert.equal(await editors(page), 0);
     const text = Buffer.from(await bytesOf(page, 0)).toString('utf8');
-    assert.equal(text, A.slice(0, first.range.start) + first.text + ' ZZ' + A.slice(first.range.end), 'the reader\'s text stands');
-    // And the other version is one undo away.
+    const ours = `${first.text} ZZ\n\n`;
+    assert.equal(text, expectedOf({ first, third, ours }));
+    // The block neither side edited is whole, and the notice is about the reader's text.
+    assert.ok(text.includes(third.text), 'the next block is intact');
+    assert.ok(await page.evaluate(() => document.body.textContent.includes('Second runs long')), 'the notice names the reader\'s text');
     await page.evaluate(() => window.__marxyHandle.dispatch({ type: 'undo' }));
-    await page.waitForFunction(() => new TextDecoder().decode(window.__marxyHandle.panes().panes[0].content.store().snapshot().buffer.bytes).includes('ELSEWHERE'));
-  });
-});
+    await page.waitForFunction(() => !new TextDecoder().decode(window.__marxyHandle.panes().panes[0].content.store().snapshot().buffer.bytes).includes('ZZ'));
+  }, 1);
+}
+
+test('another pane deletes the block being edited: the next block is not overwritten, the reader\'s text is kept', () =>
+  conflictOutcome(
+    async (range) => {
+      const store = window.__marxyHandle.panes().panes[1].content.store();
+      const end = range.end + 2;
+      await store.apply({ range: { file: store.snapshot().path, start: range.start, end }, replacement: '', label: 'delete block' });
+    },
+    ({ first, third, ours }) => A.slice(0, first.range.start) + ours + A.slice(third.range.start),
+  ));
+
+test('another pane replaces the block being edited: both versions stand, the reader\'s text where the block was', () =>
+  conflictOutcome(
+    async (range) => {
+      const store = window.__marxyHandle.panes().panes[1].content.store();
+      await store.apply({ range: { file: store.snapshot().path, start: range.start, end: range.end }, replacement: 'Replaced elsewhere.', label: 'replace block' });
+    },
+    ({ first, third, ours }) => `${A.slice(0, first.range.start)}${ours}Replaced elsewhere.\n\n${A.slice(third.range.start)}`,
+  ));
+
+test('another pane splits the block being edited in two: the reader\'s text is added where the block was, nothing is overwritten', () =>
+  conflictOutcome(
+    async (range) => {
+      const store = window.__marxyHandle.panes().panes[1].content.store();
+      await store.apply({ range: { file: store.snapshot().path, start: range.start + 20, end: range.start + 20 }, replacement: '\n\n', label: 'split block' });
+    },
+    ({ first, third, ours }) => `${A.slice(0, first.range.start)}${ours}${first.text.slice(0, 20)}\n\n${first.text.slice(20)}${A.slice(first.range.end, third.range.start)}${A.slice(third.range.start)}`,
+  ));
 
 
 const KINDS = `# Title
