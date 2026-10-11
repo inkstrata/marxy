@@ -28,7 +28,7 @@ export interface PanesDeps {
   /** What every pane's view shares: the trust controller, the asset roots, the launch measure, the root lookup. */
   readonly view: Pick<RenderedViewDeps, 'trust' | 'assetRoots' | 'measure' | 'rootFor'>;
   /** What every pane's open path shares. The first pane alone launches (`pieces`) and holds the selection. */
-  readonly open: Omit<OpenPathDeps, 'view' | 'stores' | 'selection' | 'shell' | 'watches' | 'viewsOver'>;
+  readonly open: Omit<OpenPathDeps, 'view' | 'stores' | 'selection' | 'shell' | 'watches' | 'viewsOver' | 'rejoin'>;
   /** The selection on the first pane's article. */
   selection(): RenderedSelection | null;
   /** The registry context commands on the first pane's article run in. */
@@ -130,6 +130,13 @@ export function createPanes(deps: PanesDeps): AppPanes {
       stores,
       watches,
       viewsOver,
+      rejoin: async (store) => {
+        const path = store.snapshot().path;
+        for (const pane of set?.panes ?? []) {
+          const shown = pane.content.store();
+          if (shown && shown !== store && shown.snapshot().path === path) await pane.content.rejoin();
+        }
+      },
       selection,
       pieces: slot === 0 ? deps.open.pieces : null,
       // The window title is the focused pane's document: a pane opening beside it does not take it (D-06
