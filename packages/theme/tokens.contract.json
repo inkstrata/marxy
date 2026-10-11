@@ -40,6 +40,16 @@
     "comment": true
   },
   {
+    "name": "--marxy-size-source",
+    "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-line-box-source",
+    "kind": "length",
+    "comment": true
+  },
+  {
     "name": "--marxy-size-caption",
     "kind": "length",
     "comment": false
