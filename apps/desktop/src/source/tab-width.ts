@@ -1,6 +1,7 @@
 // Async tab width for Source from `.editorconfig` under the indexed root (MARXY-239).
 
 import type { Shell } from '@marxy/shell-api';
+import { isUntitled } from '../document/untitled.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { indexedRootForDocument, resolveTabWidth } from './editorconfig.ts';
 
@@ -12,6 +13,7 @@ export interface TabWidthResolver {
 let resolver: TabWidthResolver | null = null;
 
 export async function updateTabWidthResolver(filePath: string, shell: Pick<Shell, 'readFile'>): Promise<void> {
+  if (isUntitled(filePath)) return;
   const indexedRoot = indexedRootForDocument(filePath);
   resolver = {
     indexedRoot,
@@ -27,6 +29,8 @@ export async function updateTabWidthResolver(filePath: string, shell: Pick<Shell
 }
 
 export async function tabSizeForFile(path: string): Promise<number> {
+  // No folder, no .editorconfig (E-13).
+  if (isUntitled(path)) return 4;
   if (!resolver && typeof window !== 'undefined') {
     // No document has been rendered yet (Source opened first): the running app's shell reads `.editorconfig`.
     const shell = appHandle()?.shell;

@@ -2,6 +2,7 @@
 // to collection.toml, and open collection.toml in Source. No dialog, no settings pane, no key.
 import { appendRoot, COLLECTION_TEMPLATE } from '@marxy/core/src/index-model/collection.ts';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
+import { isUntitled, NO_FOLDER_YET } from '../document/untitled.ts';
 import { collectionFile, isFilesystemRoot } from '../collection/load.ts';
 import { notify } from '../notices/index.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
@@ -19,6 +20,7 @@ async function addThisFolder(): Promise<void> {
   const handle = appHandle();
   const path = handle?.currentPath() ?? null;
   if (!handle || path === null) return;
+  if (isUntitled(path)) return say(NO_FOLDER_YET);
   const shell = handle.shell;
   const file = await collectionFile(shell);
   if (file === undefined || !shell.configPaths) {

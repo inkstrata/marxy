@@ -193,6 +193,7 @@ export function createPaneSet<C extends PaneContent>(deps: PaneSetDeps<C>): Pane
       const opened = pane;
       await opened.content.open(path, {
         at: opts?.at,
+        scratch: opts?.scratch,
         onLanded() {
           if (made) deps.mark('split_open', `ms=${(performance.now() - t0).toFixed(1)} blocks=${opened.article.childElementCount}`);
           emit({ kind: 'open', pane: opened });

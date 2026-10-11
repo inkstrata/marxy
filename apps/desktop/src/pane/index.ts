@@ -2,19 +2,19 @@
 // and for each pane a view on its own article and an open path that shows documents in it, through
 // the window's one store registry. Later stories append their pane wiring here, one line each.
 
-import { basename } from '@marxy/core/src/index-model/paths.ts';
 import type { AppShell } from '../app-types.ts';
 import type { AppContext } from '../commands/registry.ts';
 import { createOpenPath, type OpenPath, type OpenPathDeps } from '../document/open.ts';
 import { oneWatchPerStore, watchDocument } from '../document/live-reload.ts';
 import { createStoreRegistry } from '../document/registry.ts';
 import type { DocumentStore } from '../document/store.ts';
+import { createUntitledNamer, documentName } from '../document/untitled.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { createRenderedView, type RenderedView, type RenderedViewDeps, type ViewHost } from '../view/rendered-view.ts';
 import { createDivider } from './divider.ts';
 import { adoptFirstPane, type PaneParts, type Slot } from './dom.ts';
-import { createPaneSet, type PaneContent, type PaneSet } from './pane-set.ts';
+import { createPaneSet, type Pane, type PaneContent, type PaneSet } from './pane-set.ts';
 import { installScroll } from './scroll.ts';
 
 export { MAX_PANES, type Pane, type PaneContent, type PaneSet } from './pane-set.ts';
@@ -47,11 +47,20 @@ function hostFor(parts: PaneParts, slot: Slot): ViewHost {
 }
 
 /** The panes, and what every view they made and have not destroyed has running (the harness's leak check). */
-export type AppPanes = PaneSet<AppPane> & { debugCounts(): { typesetters: number; resizeObservers: number } };
+export type AppPanes = PaneSet<AppPane> & {
+  debugCounts(): { typesetters: number; resizeObservers: number };
+  /**
+   * Shows `bytes` as a scratch document (E-13): in the other pane when two are open (D's rule), else the
+   * focused one. Asks first over unsaved edits there, as any open does. The pane, or null when refused.
+   */
+  openScratch(bytes: Uint8Array, opts?: { readonly label?: string }): Promise<Pane<AppPane> | null>;
+};
 
 export function createPanes(deps: PanesDeps): AppPanes {
   const { shell } = deps;
   const stores = createStoreRegistry();
+  /** Scratch paths for this window: never one twice, so two scratch documents never share a history. */
+  const untitled = createUntitledNamer();
   /** Every view made and not yet destroyed: a pane that went without its view going shows up here. */
   const live = new Set<RenderedView>();
   const { main, parts: first } = adoptFirstPane();
@@ -86,7 +95,7 @@ export function createPanes(deps: PanesDeps): AppPanes {
       },
       async renamed(path) {
         const focused = set?.focused;
-        if (focused?.content.store() === store) document.title = `${basename(path)} — Marxy`;
+        if (focused?.content.store() === store) document.title = `${documentName(path)} — Marxy`;
         for (const pane of showing(store)) deps.selection()?.forArticle(pane.view.host.article)?.afterRender();
         await focused?.content.refreshTitle();
       },
@@ -153,10 +162,13 @@ export function createPanes(deps: PanesDeps): AppPanes {
   panes.onChange((e) => {
     if (e.kind !== 'focus') return;
     const path = panes.focused.content.currentPath();
-    if (path !== null) document.title = `${basename(path)} — Marxy`;
+    if (path !== null) document.title = `${documentName(path)} — Marxy`;
     void panes.focused.content.refreshTitle();
   });
   return Object.assign(panes, {
+    openScratch(bytes: Uint8Array, opts?: { readonly label?: string }) {
+      return panes.openIn(panes.panes.length > 1 ? 'other' : 'focused', untitled.next(), { scratch: { bytes, label: opts?.label } });
+    },
     debugCounts() {
       let typesetters = 0;
       let resizeObservers = 0;

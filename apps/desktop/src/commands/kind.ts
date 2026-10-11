@@ -3,6 +3,7 @@
 // `config.toml` without touching another byte. No dialog, no settings page, no key. Neither writes to the
 // document. A file's kind is decided once when it opens (item 6): the choice takes effect the next time the
 // file is opened (K-05 reads `kinds.json` and the rules at open; K-07's chip reopens it).
+import { isUntitled, NO_FOLDER_YET } from '../document/untitled.ts';
 import { KINDS } from '@marxy/core/src/contracts/kinds.ts';
 import type { Kind } from '@marxy/core/src/contracts/kinds.ts';
 import { dirname, joinPath } from '@marxy/core/src/index-model/paths.ts';
@@ -58,6 +59,7 @@ async function showAs(kind: Kind | undefined): Promise<void> {
   const handle = appHandle();
   const path = handle?.currentPath() ?? null;
   if (!handle || path === null) return;
+  if (isUntitled(path)) return say(NO_FOLDER_YET);
   const shell = handle.shell;
   if (!shell.configPaths) {
     say('This build keeps no data folder, so a choice of kind cannot be kept.');
@@ -103,6 +105,7 @@ async function alwaysOpenFolderAs(kind: Kind): Promise<void> {
   const handle = appHandle();
   const path = handle?.currentPath() ?? null;
   if (!handle || path === null) return;
+  if (isUntitled(path)) return say(NO_FOLDER_YET);
   const shell = handle.shell;
   if (!shell.configPaths) {
     say('This build keeps no configuration folder, so a rule cannot be added.');

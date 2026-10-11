@@ -1,0 +1,1 @@
+Marxy can now open text that is not a file as an untitled document you can read, tick and edit like any other; nothing is written until you choose Save As, and closing it asks only once you have changed it (E-13)

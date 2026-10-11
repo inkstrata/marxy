@@ -14,6 +14,7 @@ import {
   grantSummaryNotice,
   trustBlockedNotices,
 } from '../notices/blocked.ts';
+import { isUntitled } from '../document/untitled.ts';
 import { truncationNotices } from '../notices/truncation.ts';
 import { notify as showNotice, type NoticeInput } from '../notices/index.ts';
 import {
@@ -175,6 +176,11 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
   async function grantHtml(): Promise<void> {
     const path = deps.currentPath();
     if (!path || !deps.buffer()) return;
+    // A grant is kept by file path, and a scratch document has none: it stays blocked until it is saved (E-13).
+    if (isUntitled(path)) {
+      notify({ kind: 'info', text: 'Raw HTML in a document that is not saved yet stays blocked. Save it first, then allow it.' });
+      return;
+    }
     if (!store && loadFailed) {
       // The failure may have been transient (EMFILE, EAGAIN): read again, once, for this grant. A second
       // failure notifies again inside load() and the grant is dropped with nothing written.

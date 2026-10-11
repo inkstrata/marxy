@@ -15,7 +15,7 @@ therefore its own story, **MARXY-93**, which lands everything in this document e
 
 ```ts
 export interface Buffer {
-  readonly path: string;            // absolute; 'untitled' for a buffer with no file
+  readonly path: string;            // absolute; 'untitled', 'untitled:2'... for a buffer with no file (a scratch document, E-13)
   readonly bytes: Uint8Array;       // the file, exactly; never normalised
   readonly text: string;            // decoded with { ignoreBOM: true }: char 0 is U+FEFF when bom
   readonly bom: boolean;

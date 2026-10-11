@@ -20,6 +20,7 @@ import { appHandle } from '../commands/app-handle.ts';
 import { notify } from '../notices/index.ts';
 import { splitRefusal } from '../pane/fit.ts';
 import { defaultModeForPath } from '../source/default-mode.ts';
+import { isUntitled } from '../document/untitled.ts';
 import { pathsForDocument } from '../render/images.ts';
 import type { NodeMap } from '../render/post.ts';
 import {
@@ -190,6 +191,8 @@ export function localLinkTarget(
   /** A link followed beside (D-09): a file that opens in Source is a target too; whether it is text is for the caller. */
   opts?: { readonly allowSource?: boolean },
 ): { readonly target: string; readonly fragment: string | undefined } | { readonly refused: string } {
+  // A scratch document has no folder for a relative link to be relative to: refused, nothing read (E-13).
+  if (isUntitled(path)) return { refused: 'That link points outside this folder and was not opened.' };
   const hash = href.indexOf('#');
   const pathPart = hash === -1 ? href : href.slice(0, hash);
   const fragment = hash === -1 ? undefined : href.slice(hash + 1);

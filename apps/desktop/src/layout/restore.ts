@@ -12,6 +12,7 @@
 import { basename } from '@marxy/core/src/index-model/paths.ts';
 import { LAYOUT_FILE_VERSION, type LayoutColumn, type LayoutEnvelope } from '@marxy/core/src/layout/index.ts';
 import type { AppShell } from '../app-types.ts';
+import { isUntitled } from '../document/untitled.ts';
 import { notify } from '../notices/index.ts';
 import { canShowTwoColumns } from '../pane/fit.ts';
 import { clampToMain } from '../pane/divider.ts';
@@ -35,7 +36,8 @@ function layoutOf(panes: Pick<AppPanes, 'panes' | 'focused' | 'ratio'>): LayoutE
   let focused = 0;
   for (const pane of panes.panes) {
     const path = pane.path();
-    if (path === null) continue;
+    // A scratch document is never kept: layout.json names files, and a scratch is not one (E-13).
+    if (path === null || isUntitled(path)) continue;
     if (pane === panes.focused) focused = columns.length;
     columns.push({ path, mode: pane.view.mode });
   }

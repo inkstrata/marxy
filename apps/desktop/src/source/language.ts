@@ -1,6 +1,7 @@
 // CodeMirror language support by file extension; MIT @codemirror/lang-* only (§09).
 
 import type { Extension } from '@codemirror/state';
+import { isUntitled } from '../document/untitled.ts';
 import { extensionOf } from './default-mode.ts';
 
 /** Above this size, Source mode skips language and line wrapping (§09). */
@@ -32,7 +33,7 @@ const BY_EXT: Record<string, LangLoader> = {
 /** Language extension for `path`, or none when unknown or over the size threshold. */
 export async function languageExtension(path: string, byteLength: number): Promise<Extension | null> {
   if (byteLength > LARGE_FILE_BYTES) return null;
-  const ext = extensionOf(path);
+  const ext = isUntitled(path) ? '.md' : extensionOf(path);
   const loader = BY_EXT[ext];
   if (!loader) return null;
   return loader();

@@ -3,6 +3,7 @@
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import { LayoutPersistence, type LayoutEnvelope } from '@marxy/core/src/layout/index.ts';
 import type { AppShell } from '../app.ts';
+import { isUntitled } from '../document/untitled.ts';
 import {
   flushPaletteHistoryFromApp,
   loadPaletteHistory,
@@ -75,7 +76,11 @@ export function createReadingPersistence(
   /** History records opens in order even though each waits on its root (palette/history.ts). */
   let historyTracked: Promise<void> = Promise.resolve();
 
-  const pathOf = (view: RenderedView): string | null => view.store()?.snapshot().path ?? null;
+  /** The view's document path; null for none, and for a scratch document, which has no place to keep (E-13). */
+  const pathOf = (view: RenderedView): string | null => {
+    const path = view.store()?.snapshot().path ?? null;
+    return isUntitled(path) ? null : path;
+  };
 
   async function flushReading(only?: RenderedView): Promise<void> {
     if (closed || !positions) return;
@@ -186,8 +191,9 @@ export function createReadingPersistence(
         followed.delete(f);
       };
     },
-    storedFor: (path, length) => positions?.positionForOpen(path, length) ?? null,
+    storedFor: (path, length) => (isUntitled(path) ? null : (positions?.positionForOpen(path, length) ?? null)),
     trackOpen(path, root) {
+      if (isUntitled(path)) return;
       historyTracked = historyTracked
         .then(root)
         .then((r) => trackDocumentOpen(path, r))
