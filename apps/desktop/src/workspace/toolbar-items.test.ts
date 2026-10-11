@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { commands } from '../commands/index.ts';
-import { MODE_CHOICES, TOOLBAR_ITEMS, visibleItems } from './toolbar.ts';
+import { FOLD_ORDER, MODE_CHOICES, TOOLBAR_ITEMS, visibleItems } from './toolbar.ts';
 
 const ids = (items: readonly { readonly id: string }[]): string[] => items.map((item) => item.id);
 // The panel toggles are registered now (W-03); the tests below add them on purpose, to say when they are drawn.
@@ -25,8 +25,8 @@ test('with nothing registered the title alone is drawn', () => {
   assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, [], [])), ['title']);
 });
 
-test('the registry today draws back, forward, title, Read/Split/Source, Copy and Find, and nothing else', () => {
-  assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, real, [])), ['back', 'forward', 'title', 'mode', 'copy', 'find']);
+test('the registry today draws back, forward, title, Read/Split/Source, the kind chip (K-07), Copy and Find, and nothing else', () => {
+  assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, real, [])), ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'find']);
 });
 
 test('no Extract button and no theme switcher: the table names neither,', () => {
@@ -36,12 +36,17 @@ test('no Extract button and no theme switcher: the table names neither,', () => 
   }
 });
 
+// The kind chip's door was opened by K-07: `kind.chip` is registered and the chip is drawn.
+test('kind.chip is registered, and removing it removes the kind control', () => {
+  assert.ok(real.includes('kind.chip'));
+  assert.ok(!ids(visibleItems(TOOLBAR_ITEMS, real.filter((id) => id !== 'kind.chip'), [])).includes('kind'));
+});
+
 // The door: a story registers its command and its control appears, with no change to the toolbar.
 const DOORS: ReadonlyArray<readonly [string, string, string[]]> = [
-  ['transform.open', 'transform', ['back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']],
-  ['export.menu', 'export', ['back', 'forward', 'title', 'mode', 'copy', 'export', 'find']],
-  ['kind.chip', 'kind', ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'find']],
-  ['document.new-menu', 'new', ['back', 'forward', 'title', 'new', 'mode', 'copy', 'find']],
+  ['transform.open', 'transform', ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']],
+  ['export.menu', 'export', ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'export', 'find']],
+  ['document.new-menu', 'new', ['back', 'forward', 'title', 'new', 'mode', 'kind', 'copy', 'find']],
 ];
 
 for (const [command, item, expected] of DOORS) {
@@ -54,7 +59,7 @@ for (const [command, item, expected] of DOORS) {
 
 test('a panel toggle is drawn only when its command is registered and something fills its region', () => {
   const toggles = ['view.toggle-sidebar', 'view.toggle-inspector'];
-  const base = ['back', 'forward', 'title', 'mode', 'copy', 'find'];
+  const base = ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'find'];
   assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, [...real, ...toggles], [])), base, 'commands without content draw nothing');
   assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, real, ['sidebar', 'inspector'])), base, 'content without commands draws nothing');
   assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, [...real, ...toggles], ['sidebar'])), ['sidebar', ...base]);
@@ -63,4 +68,11 @@ test('a panel toggle is drawn only when its command is registered and something 
 
 test('the mode switch is drawn when any of its three commands is registered', () => {
   assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, ['view.mode-source'], [])), ['title', 'mode']);
+});
+
+test('the doors that fold into More are real button doors, each with its own place in the order', () => {
+  const byId = new Map(TOOLBAR_ITEMS.map((i) => [i.id, i]));
+  for (const id of Object.keys(FOLD_ORDER)) assert.equal(byId.get(id)?.kind, 'button', `${id} is a button door`);
+  const orders = Object.values(FOLD_ORDER);
+  assert.equal(new Set(orders).size, orders.length);
 });
