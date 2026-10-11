@@ -38,15 +38,29 @@ export function takeConfigNotices(): string[] {
   return out;
 }
 
-/** The parsed config, or the defaults on any failure (no path, no file, unreadable, unparsable). */
-export async function readReaderConfig(shell: ConfigShell): Promise<Config> {
+/** The bytes `readReaderConfig` read, kept in place: the launch's kind decision parses its `[[kind]]` rules from them (K-05a.1). */
+export function peekConfigRead(): { readonly path: string; readonly bytes: Uint8Array } | null {
+  return lastRead;
+}
+
+/**
+ * The parsed config, or the defaults on any failure (no path, no file, unreadable, unparsable). `onPaths` is told
+ * where config.toml and the data directory are as soon as the shell has said, before config.toml is read, so a
+ * caller can start a read of its own beside this one without asking the shell for the paths again (K-05a.1).
+ */
+export async function readReaderConfig(
+  shell: ConfigShell,
+  onPaths?: (paths: { readonly config: string; readonly data: string }) => void,
+): Promise<Config> {
   lastRead = null;
   pendingNotices = [];
   const fallback = parseConfig(new Uint8Array()).config;
   if (shell.configPaths === undefined) return fallback;
   let path: string;
   try {
-    path = (await shell.configPaths()).config;
+    const paths = await shell.configPaths();
+    path = paths.config;
+    onPaths?.(paths);
   } catch {
     return fallback;
   }

@@ -41,6 +41,52 @@ corpus renders exactly as on `main`).
 
 ---
 
+### K-05a.1 — Decide a launch document's kind before its first paint, without delaying first text
+
+**Model:** sonnet (medium) · **Size:** S · **Depends on:** K-05a (merged, #573) · **Parallel with:** K-05b (held; this lands
+first, or K-05b's profiles show a page that jumps once after first text) · *The follow-up K-05a's review carried to K-05b:
+"settling the kind attribute after first text".*
+
+**Outcome.** The pane root carries its `data-marxy-kind` before the first write to `#doc` of the launch document, and
+`first_text` is no later than on `main`. K-05a decided the launch document's kind just after first text because its
+deciding reads (the `[[kind]]` rules in `config.toml` and `kinds.json`) would otherwise sit on the first-text road. With K-05b's
+profiles on, that moved the page once, 35 to 130 ms after first text (cumulative layout shift 0.24 to 0.45 by
+`docs/taste-review/2026-10-k05b/cls-launch.mjs` on K-05b's branch).
+
+**Approach chosen, and the two weighed.**
+
+1. *Start the reads beside the document's, decide from what has arrived (chosen).* The pre-paint config read the launch makes
+   anyway (A-14) already holds the `[[kind]]` rules, so the second `/config` read goes: the seam in `theme/` keeps the parsed rules
+   (`AppConfig.launchKindInputs`) and starts the `kinds.json` read the moment the shell has given the data directory,
+   which is also before the document's bytes are back. The config read is started before the document's read, not after it.
+   The bytes of the document are in hand before the page is written, so the content sniff runs there too (at most 80 KiB, 0.4 ms
+   measured). A `kinds.json` still unread at that point is not waited for: the kind is decided without it, and decided again
+   when it arrives, only if the answer differs.
+2. *Path alone before paint, content and rules after first text (rejected).* On the 32 corpus files the path alone gives a different
+   kind from the full detection for 5 (16 per cent: `03-ai-plan`, `09-gfm-everything`, `23-task-openers` and `24-issue-thread`
+   are `report`, `27-alerts` is `docs`, all `article` by path), and a `report` is one of the three kinds K-05b gives a profile. The sniff costs 0.4 ms at most, so it does not earn a second step.
+3. *Share the config read* is part of (1), not an alternative to it; the reads of `[[kind]]` rules for later opens are unchanged
+   (an edit to `config.toml` still applies from the next open).
+
+**Paths.** `document/open.ts`; `theme/app-config.ts` and `theme/reader-config.ts` (the minimal config-read seam: `theme/` was outside
+K-05a's paths); `pane/dom.ts` (a repeated kind writes nothing); `test/launch-kind.test.mjs` (new); `test/app-harness.test.mjs`
+and `test/persist-reading.test.mjs` (the launch-reads counts); this card; `changelog.d/K-05a.1.md`. Not `app.ts`.
+
+**Acceptance.**
+
+1. A WebKit test: before the first write of `#doc` (one MutationObserver on the pane, so the order is the DOM's) the pane root
+   already has the kind, for a readme, an article and a report; red on `main`.
+2. `first_text` over 20 launches each of six corpus documents is no later than on `main` (medians in the PR).
+3. With K-05b's profiles applied to the test page only (not committed), the layout shift of a launch document is 0.01 or less by
+   `cls-launch.mjs`'s method.
+4. Reads asserted exactly: `/config` once, `kinds.json` once, `configPaths` once before `first_text`; a `kinds.json` that is slow
+   does not hold `first_text`, and a kind it changes is changed once, after.
+5. `pnpm gate:fidelity` and the aesthetics gate unchanged.
+
+**Do not.** Wait for a read before first text; add a stylesheet rule; re-detect on a live reload.
+
+---
+
 ### K-05b — The `article`, `readme` and `report` profiles
 
 **Model:** sonnet (medium) · **Size:** S · **Depends on:** K-05a, H-04 (#551, held for the author's taste) ·
