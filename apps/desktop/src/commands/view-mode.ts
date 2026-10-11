@@ -10,8 +10,8 @@ export const SPLIT_TWO_DOCUMENTS = 'Split shows one document twice; this window 
 
 function setMode(mode: 'rendered' | 'source'): Command['run'] {
   return async () => {
-    const view = appHandle()?.panes().focused.view;
-    if (view && view.mode !== mode) await view.toggleMode();
+    // Asked of the view, which knows the mode a press before this one is still on its way to (V-11).
+    await appHandle()?.panes().focused.view.setMode(mode);
   };
 }
 
@@ -44,12 +44,12 @@ export function viewModeCommands(): readonly Command[] {
             ctx.showNotice(SPLIT_TWO_DOCUMENTS);
             return;
           }
-          if (left.view.mode !== 'rendered') await left.view.toggleMode();
-          if (right.view.mode !== 'source') await right.view.toggleMode();
+          await left.view.setMode('rendered');
+          await right.view.setMode('source');
           return;
         }
         if (panes.focused.path() === null) return;
-        if (panes.focused.view.mode !== 'rendered') await panes.focused.view.toggleMode();
+        await panes.focused.view.setMode('rendered');
         const at = panes.focused.view.position().byteOffset;
         await splitSame(ctx);
         const right = panes.panes[1];

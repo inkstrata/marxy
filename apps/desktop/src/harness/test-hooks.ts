@@ -109,7 +109,10 @@ export function installReadinessFlags(): void {
     configurable: true,
     get: () => {
       const article = document.getElementById('doc');
-      return article !== null && article.querySelector('[data-marxy-s]') !== null && taskMarkersInstalled(article);
+      if (article === null) return false;
+      if (article.querySelector('[data-marxy-s]') !== null && taskMarkersInstalled(article)) return true;
+      // A file that opens in Source makes no page (V-11): it is on screen once its editor is.
+      return article.hidden && document.querySelector('.marxy-source-mount .cm-editor') !== null;
     },
   });
 }

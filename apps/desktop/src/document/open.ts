@@ -371,8 +371,11 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     const stored = persistence.storedFor(path, buffer.bytes.length);
     if (!stored) return;
     landing = stored.byteOffset;
-    // A file that opens in Source is put there by finishDocumentOpen, at this byte.
-    if (defaultModeForPath(path) === 'source') return;
+    // A file that opens in Source is already in Source (V-11); its stored place is a byte in it, not a block of a page.
+    if (defaultModeForPath(path) === 'source') {
+      if (view.mode === 'source') await view.showSource(stored.byteOffset);
+      return;
+    }
     // A place kept in Source is a line, not a fraction of a block: its block, at the top (S-08-0001).
     const position = stored.mode === 'source' ? { ...stored, fraction: 0, mode: 'rendered' as const } : stored;
     view.restore(position);
@@ -390,6 +393,9 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     scratch?: OpenOptions['scratch'],
     kind: 'now' | 'keep' | 'launch' = 'now',
   ): Promise<RenderEvidence> {
+    // A file that opens in Source loads Source's code while the file is read, not after it (V-11).
+    const opensInSource = defaultModeForPath(file) === 'source';
+    if (opensInSource) view.warmSource(file);
     // The reader's rules and choices are read beside the file, not after it.
     const kindInputs = kind === 'now' ? readKindInputs() : null;
     // config.toml is read beside the document, not after it (and, at launch, kinds.json starts with it).
@@ -458,6 +464,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       at: lands,
       start,
       sliced: slices,
+      source: opensInSource,
       onMounted: () => {
         for (const follow of [...followers]) follow(opened);
       },
@@ -472,15 +479,18 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
    * the mode, the watch and the title.
    */
   async function finishDocumentOpen(file: string, opts: { at?: number; firstOpen?: boolean; sliced?: boolean } = {}): Promise<void> {
+    // A file that opens in Source was shown there by `readAndShow`, with no page made (V-11): nothing is typeset
+    // and there is no page for images, math or highlighting; the Rendered pass waits for the reader's first ask.
+    const inSource = defaultModeForPath(file) === 'source';
     if (opts.firstOpen) await persistence.ensureLoaded(dirname(file));
     if (opts.sliced) await yieldToEventLoop();
-    await view.typeset();
+    if (!inSource) await view.typeset();
     if (opts.firstOpen) await restorePersistedPosition();
-    const deferred = view.deferredWork(file);
+    const deferred = inSource ? null : view.deferredWork(file);
     // A scratch document is in no repository: it is not indexed, watched or offered a theme beside it (E-13).
     const scratch = isUntitled(file);
     await whenIdle(async () => {
-      await deferred();
+      await deferred?.();
       if (!scratch) {
         indexing = index.ensureFor(file, current?.snapshot().buffer.bytes);
         void indexing;
@@ -488,11 +498,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       await config.startUserTheme();
     });
     await shell.mark('position_restored', Date.now());
-    if (defaultModeForPath(file) === 'source') {
-      await view.showSource(opts.at ?? landing ?? 0);
-    } else {
-      view.showRenderedChrome();
-    }
+    if (!inSource) view.showRenderedChrome();
     if (!scratch) {
       await config.offerThemeDocument(file);
       if (current) await watches.watch(current);
@@ -514,6 +520,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       return;
     }
     const chunks = gate();
+    // Until this open ends, a mode press is dropped: it meant the page the reader was looking at (V-11).
+    const endOpen = view.beginOpen();
     try {
       await readAndShow(file, at, chunks.promise, scratch, again && detected !== null ? 'keep' : 'now');
       chunks.release();
@@ -533,6 +541,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       const message = document.createElement('p');
       message.textContent = String(e);
       doc.replaceChildren(message);
+    } finally {
+      endOpen();
     }
   }
 
@@ -561,7 +571,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     // otherwise move the page after first text). Its inputs are the reads the launch makes anyway; none is waited for.
     const evidence = await readAndShow(file, undefined, chunks.promise, undefined, 'launch');
     const renderedAt = Date.now();
-    const outcome = await measure.waitForFirstText(doc, evidence, after, renderedAt);
+    // First text is what the reader sees: Source for a file that opened there, else the article (V-11).
+    const outcome = await measure.waitForFirstText(view.mode === 'source' ? view.host.sourceHost : doc, evidence, after, renderedAt);
     // F-17: a document with no text (only images) was not painted as text, and the measurement said so
     // with `no_text`, but it is a document: it opens like any other and ends with finish(0). F-17.1: what
     // makes it a document is its source (a byte that is not white space), not the rendered selector, which
@@ -607,10 +618,12 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     // A large document's idle chunks wait for first text: anything appended before the paint would be
     // styled and laid out in the frame first text is waiting for.
     const chunks = gate();
+    const endOpen = view.beginOpen();
     try {
       return await bootDocument(file, after, chunks);
     } finally {
       chunks.release();
+      endOpen();
     }
   }
 
