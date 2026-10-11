@@ -359,6 +359,12 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   let lastReadingByteOffset = 0;
   let lastReadingFraction = 0;
   let modeToggleBusy = false;
+  /**
+   * The hidden article is behind the store: a fold committed while Source showed (B-27) did not set it from
+   * the new bytes, since nobody can see it. Whatever shows Rendered again sets it first (`showRendered`).
+   * Any whole render, and a close or an open, make it current again.
+   */
+  let pageStale = false;
   /** This pane's Source text and the store went different ways under it (D-11; `holdApart`). */
   let heldApart = false;
   /** The line on the reading line just after Source was shown; leaving from it with no edit is exact. */
@@ -550,6 +556,15 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   async function showRendered(byteOffset: number, fraction: number): Promise<void> {
     setModeChrome('rendered');
     const path = openPathNow();
+    // Folds that came in while Source showed left the page as it was (B-27): set it from the store's bytes now.
+    if (pageStale && shown && path) {
+      try {
+        rerenderFromBuffer(byteOffset);
+      } catch (e) {
+        showRenderFailure(e);
+        return;
+      }
+    }
     if (shown && path) {
       mountThrough(byteOffset);
       // Block positions must be measured with the article laid out, not from whatever a hidden pass saw.
@@ -973,6 +988,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     unsubscribe = null;
     store = null;
     shown = null;
+    pageStale = false;
     releaseAnchor();
     destroyTypeset();
     disconnectResizeObserver();
@@ -1236,6 +1252,12 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
         // Leaving Source (or folding before a save or a rename): the caller restores the position. Another
         // view's fold reaches this view's editor too, or its next fold would write the old text back (D-11).
         if (sourceEditor) followFoldIn(sourceEditor, snapshot);
+        // A pane in Source shows no article, and a fold only moves text from the editor into the store:
+        // the page is set when Rendered next shows, not now, from every fold (B-27).
+        if (viewMode === 'source' && doc.hidden) {
+          pageStale = true;
+          return;
+        }
         try {
           rerenderFromBuffer();
         } catch (e) {
@@ -1339,6 +1361,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    */
   function rerenderFromBuffer(at?: number | Pick<ReadingPosition, 'byteOffset' | 'fraction'>): void {
     if (!store) return;
+    pageStale = false;
     const { path: file, ast, nodeMap } = store.snapshot();
     const byteOffset = typeof at === 'number' ? at : at?.byteOffset;
     const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
@@ -1433,6 +1456,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void },
   ): Promise<RenderEvidence> {
     if (store !== null) clear();
+    pageStale = false;
     store = next;
     follow(next);
     const { path: file, ast, nodeMap } = next.snapshot();
