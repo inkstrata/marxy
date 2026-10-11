@@ -472,3 +472,139 @@ test("two panes: wheeling one pane while the other is set again leaves the other
     }
   });
 });
+
+// F-27: a resize or a divider move keeps each pane's block under the reading line where it was.
+// The reading line is 40% down the scroller (ADR-0018). The reader's place is the block on it and how far
+// through that block the line is (a block that re-breaks at a new width changes height, so its top may
+// move; the point of it under the line may not). After the move, the same block must be under the line
+// and the line within 1 px of the same fraction of it.
+const lineState = () => {
+  const panes = window.__marxyHandle.panes().panes;
+  return panes.map((pane) => {
+    const s = pane.view.scroller;
+    const box = s === document.documentElement ? { top: 0, height: window.innerHeight } : s.getBoundingClientRect();
+    const line = box.top + box.height * 0.4;
+    const el = [...pane.article.children].find((c) => c.getBoundingClientRect().bottom > line);
+    const r = el.getBoundingClientRect();
+    return { start: el.getAttribute('data-marxy-s'), fraction: (line - r.top) / r.height, height: r.height };
+  });
+};
+/** What each pane has under its reading line. */
+const markReading = async (page) => {
+  const marks = await page.evaluate(`(${lineState})()`);
+  await page.evaluate((m) => { window.__f27 = m; }, marks);
+};
+/** Per pane: how many px the reading line has moved through its block, or the block that is there instead. */
+const readingDrift = async (page) => {
+  const was = await page.evaluate(() => window.__f27);
+  const now = await page.evaluate(`(${lineState})()`);
+  return now.map((n, i) => (n.start === was[i].start ? (n.fraction - was[i].fraction) * n.height : `block ${n.start}, was ${was[i].start}`));
+};
+
+/** Scrolls each pane to its 7th paragraph, a little off its top, and waits for the scroll to settle. */
+async function scrollBothPanes(page) {
+  await page.evaluate(() => {
+    for (const pane of window.__marxyHandle.panes().panes) {
+      const s = pane.view.scroller;
+      const p = pane.article.querySelectorAll(':scope > p')[6];
+      const top = s === document.documentElement ? 0 : s.getBoundingClientRect().top;
+      s.scrollTop = p.getBoundingClientRect().top - top + s.scrollTop - 120;
+    }
+  });
+  await page.waitForTimeout(500);
+  await scrollsSettled(page);
+}
+
+const assertHeld = async (page, what) => {
+  await settle(page);
+  await scrollsSettled(page);
+  const drift = await readingDrift(page);
+  drift.forEach((d, i) =>
+    assert.ok(typeof d === 'number' && Math.abs(d) <= 1, `${what}: pane ${i}'s reading line is on ${typeof d === 'number' ? `the same block, ${d.toFixed(1)} px off` : d}`));
+};
+
+test('F-27: a divider moved by the keyboard keeps each pane on its block', async () => {
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    await settle(page);
+    await scrollBothPanes(page);
+    await markReading(page);
+    await page.focus('.marxy-divider');
+    for (const key of ['ArrowLeft', 'ArrowLeft', 'ArrowRight', 'ArrowRight', 'ArrowRight']) {
+      await page.keyboard.press(key);
+      await assertHeld(page, `after ${key}`);
+    }
+  });
+});
+
+test('F-27: a divider moved through setRatio keeps each pane on its block', async () => {
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    await settle(page);
+    await scrollBothPanes(page);
+    await markReading(page);
+    for (const ratio of [0.35, 0.65, 0.5]) {
+      await page.evaluate((r) => window.__marxyHandle.panes().setRatio(r), ratio);
+      await assertHeld(page, `setRatio(${ratio})`);
+    }
+  });
+});
+
+test('F-27: a divider dragged with the pointer keeps each pane on its block', async () => {
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    await settle(page);
+    await scrollBothPanes(page);
+    await markReading(page);
+    const box = await page.locator('.marxy-divider').boundingBox();
+    const y = box.y + 200;
+    await page.mouse.move(box.x + box.width / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(430, y, { steps: 6 });
+    await page.mouse.move(980, y, { steps: 6 });
+    await page.mouse.up();
+    await assertHeld(page, 'a pointer drag');
+  });
+});
+
+test('F-27: a window resize keeps one pane, and each of two, on its block', async () => {
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/A.md'] });
+    await settle(page);
+    await scrollToSixth(page);
+    await page.waitForTimeout(500);
+    await scrollsSettled(page);
+    await markReading(page);
+    await page.setViewportSize({ width: 1100, height: 700 });
+    await assertHeld(page, 'one pane narrowed');
+    await page.evaluate(() => window.__marxyHandle.panes().openIn('other', '/r/B.md'));
+    await settle(page);
+    await scrollBothPanes(page);
+    await markReading(page);
+    await page.setViewportSize({ width: 1400, height: 700 });
+    await assertHeld(page, 'two panes widened');
+    await page.setViewportSize({ width: 1250, height: 700 });
+    await assertHeld(page, 'two panes narrowed');
+  });
+});
+
+// D-13's finding: in a split, a scroll made while the first pane was still being laid out at its new width
+// was reset to the top by the late relayout, which put back the place read before the scroll. The relayout of
+// a long document runs for a second or more after the split, so the reader has time to scroll in it.
+test('F-27: a scroll made just after the second pane opens is not reset by the late relayout', async () => {
+  await withPage(async (page) => {
+    const long = (word) => `# ${word}\n\n${Array.from({ length: 150 }, (_, i) => para(`${word} ${i + 1}`).repeat(2).trim()).join('\n\n')}\n`;
+    const pages = { '/r/L.md': long('Long'), '/r/M.md': long('More') };
+    for (const delay of [0, 60, 120]) {
+      // Booted with both panes: the second has only just opened when this resolves.
+      await bootTwoPanes(page, { files: pages, open: ['/r/L.md', '/r/M.md'] });
+      await page.waitForTimeout(delay);
+      // Made in the page so that its time is exact (a mouse wheel from here lands ~140 ms late, after the relayout).
+      await page.evaluate(() => { window.__marxyHandle.panes().panes[0].host.scrollTop = 900; });
+      await page.waitForTimeout(2500);
+      await settle(page);
+      const top = await page.evaluate(() => window.__marxyHandle.panes().panes[0].host.scrollTop);
+      assert.ok(top >= 700, `after ${delay} ms the left pane was at ${top}, not near the 900 px it was scrolled to`);
+    }
+  });
+});
