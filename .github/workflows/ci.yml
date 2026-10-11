@@ -196,6 +196,12 @@ jobs:
       # the sources, not a build (G-03).
       - name: Fetch the locked crates
         run: cd apps/desktop/src-tauri && cargo fetch --locked
+      # The gate also resolves every npm package's licence from node_modules/.pnpm.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       - name: Licence gate (every crate in Cargo.lock, read from the registry)
         run: node scripts/gate-licences.mjs --require-registry
 

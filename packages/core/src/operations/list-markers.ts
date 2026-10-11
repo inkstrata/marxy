@@ -116,9 +116,12 @@ function parentOf(root: Node, target: Node): Node | undefined {
   return undefined;
 }
 
-/** A list of kind `ordered` directly beside `list` (nothing between): converting `list` to that kind would merge the two. */
-export function mergesWithNeighbour(document: Document, list: List, ordered: boolean): boolean {
-  const siblings = (parentOf(document, list)?.children ?? []) as readonly Node[];
+/**
+ * A list of kind `ordered` directly beside `list` (nothing between): converting `list` to that kind would merge the two.
+ * A caller asking for many lists passes each one's `parent`, so the tree is not searched once per list.
+ */
+export function mergesWithNeighbour(document: Document, list: List, ordered: boolean, parent: Node | undefined = parentOf(document, list)): boolean {
+  const siblings = (parent?.children ?? []) as readonly Node[];
   const at = siblings.indexOf(list);
   return [siblings[at - 1], siblings[at + 1]].some((s) => isList(s) && s.ordered === ordered);
 }
