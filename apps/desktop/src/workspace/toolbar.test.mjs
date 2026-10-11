@@ -40,11 +40,11 @@ const mod = async (page) => ((await page.evaluate(() => navigator.platform)) ===
 /** Everything of the toolbar that is in the page. */
 const nodes = (page) =>
   page.evaluate(() => ({
-    toolbar: document.querySelectorAll('.marxy-toolbar, [role="toolbar"]').length,
-    items: document.querySelectorAll('[data-marxy-toolbar-item]').length,
-    buttons: document.querySelectorAll('[data-marxy-workspace-region="toolbar"] button').length,
+    toolbar: document.querySelectorAll('.marxy-toolbar:not(.marxy-strip), [role="toolbar"]:not(.marxy-strip)').length,
+    items: document.querySelectorAll('[data-marxy-toolbar-item]:not([data-marxy-toolbar-item="more"])').length,
+    buttons: document.querySelectorAll('.marxy-toolbar:not(.marxy-strip) button').length,
   }));
-const items = (page) => page.evaluate(() => [...document.querySelectorAll('[data-marxy-toolbar-item]')].map((el) => el.getAttribute('data-marxy-toolbar-item')));
+const items = (page) => page.evaluate(() => [...document.querySelectorAll('[data-marxy-toolbar-item]:not([data-marxy-toolbar-item="more"])')].map((el) => el.getAttribute('data-marxy-toolbar-item')));
 const radios = (page) =>
   page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-marxy-toolbar-item="mode"] [role="radio"]')].map((r) => [r.textContent, r.getAttribute('aria-checked')])));
 const control = (page, name) => page.locator(`[data-marxy-workspace-region="toolbar"] button[aria-label="${name}"]`);
@@ -75,24 +75,24 @@ test('a fill is made on unfold, disposed on fold and made again on the next unfo
     const got = await page.evaluate(async () => {
       const ws = window.__marxyHandle.workspace();
       const log = [];
-      const before = ws.hasFill('strip');
-      const withdraw = ws.fill('strip', (el) => {
+      const before = ws.hasFill('tabs');
+      const withdraw = ws.fill('tabs', (el) => {
         el.textContent = 'stub';
         log.push(`made ${el.getAttribute('data-marxy-workspace-region')}`);
         return () => log.push('disposed');
       });
-      const registered = ws.hasFill('strip');
+      const registered = ws.hasFill('tabs');
       log.push(`folded: ${document.querySelector('[data-marxy-workspace-region="strip"]') === null}`);
       await ws.unfold();
-      log.push(`text: ${ws.region('strip').textContent}`);
+      log.push(`text: ${ws.region('tabs').textContent}`);
       await ws.fold();
       await ws.unfold();
-      log.push(`again: ${ws.region('strip').textContent}`);
+      log.push(`again: ${ws.region('tabs').textContent}`);
       withdraw();
-      log.push(`withdrawn: ${ws.hasFill('strip')}`);
+      log.push(`withdrawn: ${ws.hasFill('tabs')}`);
       await ws.fold();
       await ws.unfold();
-      log.push(`after: ${JSON.stringify(ws.region('strip').textContent)}`);
+      log.push(`after: ${JSON.stringify(ws.region('tabs').textContent)}`);
       // Registered while unfolded, it is made at once.
       ws.fill('status-bar', (el) => void (el.textContent = 'late'));
       log.push(`late: ${ws.region('status-bar').textContent}`);
@@ -101,19 +101,19 @@ test('a fill is made on unfold, disposed on fold and made again on the next unfo
     assert.deepEqual(got, {
       before: false,
       registered: true,
-      log: ['folded: true', 'made strip', 'text: stub', 'disposed', 'made strip', 'again: stub', 'disposed', 'withdrawn: false', 'after: ""', 'late: late'],
+      log: ['folded: true', 'made tabs', 'text: stub', 'disposed', 'made tabs', 'again: stub', 'disposed', 'withdrawn: false', 'after: ""', 'late: late'],
     });
   });
 });
 
 // --- what is drawn ------------------------------------------------------------------------------------------------
 
-test('unfolded with a document open: back, forward, title, Read/Split/Source, Copy, Transform (W-21) and Find, in that order, and nothing else', async () => {
+test('unfolded with a document open: back, forward, title, Read/Split/Source, the kind chip, Copy, Transform (W-21) and Find, in that order, and nothing else', async () => {
   await withPage(1280, async (page) => {
     await unfold(page);
-    assert.deepEqual(await items(page), ['back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']);
-    const buttons = await page.evaluate(() => [...document.querySelectorAll('.marxy-toolbar button')].map((b) => b.getAttribute('aria-label')));
-    assert.deepEqual(buttons, ['Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Copy as Markdown', 'Copy as…', 'Transform', 'Find in this pane']);
+    assert.deepEqual(await items(page), ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
+    const buttons = await page.evaluate(() => [...document.querySelectorAll('.marxy-toolbar button')].filter((b) => !b.closest('[hidden]')).map((b) => b.getAttribute('aria-label')));
+    assert.deepEqual(buttons, ['Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Kind: article. How this file is read', 'Copy as Markdown', 'Copy as…', 'Transform', 'Find in this pane']);
     assert.deepEqual(await radios(page), { Read: 'true', Split: 'false', Source: 'false' });
     const wording = await page.evaluate(() => document.querySelector('[data-marxy-workspace-region="toolbar"]').textContent);
     assert.doesNotMatch(wording, /extract|theme/i);
@@ -128,9 +128,9 @@ test('the door: a registered command draws its control, the next mount draws it 
       const real = handle.commands.bind(handle);
       const ran = [];
       const stub = (id, title) => ({ id, title, group: 'view', when: () => true, async run() { ran.push(id); } });
-      const read = () => [...document.querySelectorAll('[data-marxy-toolbar-item]')].map((el) => el.getAttribute('data-marxy-toolbar-item'));
+      const read = () => [...document.querySelectorAll('[data-marxy-toolbar-item]:not([data-marxy-toolbar-item="more"])')].map((el) => el.getAttribute('data-marxy-toolbar-item'));
       const remount = async () => { await ws.fold(); await ws.unfold(); };
-      handle.commands = () => [...real(), stub('transform.open', 'Transform'), stub('export.menu', 'Export'), stub('kind.chip', 'Kind')];
+      handle.commands = () => [...real(), stub('transform.open', 'Transform'), stub('export.menu', 'Export')];
       await remount();
       const added = read();
       document.querySelector('[data-marxy-toolbar-item="transform"] button').click();
@@ -141,7 +141,7 @@ test('the door: a registered command draws its control, the next mount draws it 
     });
     assert.deepEqual(got.added, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'export', 'transform', 'find']);
     assert.deepEqual(got.ran, ['transform.open'], 'the control runs its command');
-    assert.deepEqual(got.removed, ['back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']);
+    assert.deepEqual(got.removed, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
   });
 });
 
@@ -152,7 +152,7 @@ test('a panel toggle waits for content in its region: a stub command alone draws
       const ws = handle.workspace();
       const real = handle.commands.bind(handle);
       const toggles = [{ id: 'view.toggle-sidebar', title: 'Sidebar', group: 'view', when: () => true, async run() { ws.setPanel('sidebar', !ws.arrangement.sidebar); } }];
-      const read = () => [...document.querySelectorAll('[data-marxy-toolbar-item]')].map((el) => el.getAttribute('data-marxy-toolbar-item'));
+      const read = () => [...document.querySelectorAll('[data-marxy-toolbar-item]:not([data-marxy-toolbar-item="more"])')].map((el) => el.getAttribute('data-marxy-toolbar-item'));
       handle.commands = () => [...real(), ...toggles];
       await ws.unfold();
       const without = read();
@@ -166,8 +166,8 @@ test('a panel toggle waits for content in its region: a stub command alone draws
       await new Promise((r) => setTimeout(r, 50));
       return { without, withFill, docked, undocked: pressed() };
     });
-    assert.deepEqual(got.without, ['back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']);
-    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']);
+    assert.deepEqual(got.without, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
+    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
     assert.deepEqual([got.docked, got.undocked], ['true', 'false']);
   });
 });
@@ -351,7 +351,7 @@ test('the reading column has the same left edge and width before and after the t
       const placed = await page.evaluate(() => {
         const region = document.querySelector('[data-marxy-workspace-region="toolbar"]').getBoundingClientRect();
         const bar = document.querySelector('.marxy-toolbar').getBoundingClientRect();
-        const outside = [...document.body.querySelectorAll('.marxy-toolbar, .marxy-toolbar *')].filter((el) => !el.closest('[data-marxy-workspace-region="toolbar"]')).length;
+        const outside = [...document.body.querySelectorAll('.marxy-toolbar:not(.marxy-strip), .marxy-toolbar:not(.marxy-strip) *')].filter((el) => !el.closest('[data-marxy-workspace-region="toolbar"]')).length;
         return { within: bar.left >= region.left - 0.5 && bar.right <= region.right + 0.5 && bar.top >= region.top - 0.5 && bar.bottom <= region.bottom + 0.5, outside };
       });
       assert.deepEqual(placed, { within: true, outside: 0 });
@@ -365,28 +365,76 @@ const fitOf = (page) =>
     const region = document.querySelector('[data-marxy-workspace-region="toolbar"]').getBoundingClientRect();
     const bar = document.querySelector('.marxy-toolbar');
     const clipped = [...bar.querySelectorAll('button')]
+      .filter((b) => !b.closest('[hidden]'))
       .map((b) => ({ name: b.getAttribute('aria-label'), r: b.getBoundingClientRect() }))
       .filter(({ r }) => r.left < region.left - 0.5 || r.right > region.right + 0.5 || r.top < region.top - 0.5 || r.bottom > region.bottom + 0.5)
       .map(({ name }) => name);
     return { clipped, overflow: bar.scrollWidth - bar.clientWidth, region: Math.round(region.width) };
   });
 
-test('the controls fit the toolbar region at the default chrome size from 1024 px up, and at chrome_size 26 from 1600 px (the title keeps five ems, W-04)', async () => {
-  // W-21: with the Transform door drawn the row needs about 510 px; the middle column of a 929 px window is 449, so
-  // the narrowest window now scrolls the row (next test) and the width where it fits moved from 929 to about 1010.
-  await withPage(1024, async (page) => {
+test('the controls fit the toolbar region at the default chrome size in the narrowest window, and at chrome_size 26 in a wide one (the title now keeps five ems, W-04)', async () => {
+  await withPage(929, async (page) => {
     await unfold(page);
     await page.waitForTimeout(100);
     const fit = await fitOf(page);
-    assert.deepEqual(fit.clipped, [], `default chrome at 1024 px: ${JSON.stringify(fit)}`);
+    assert.deepEqual(fit.clipped, [], `default chrome at 929 px: ${JSON.stringify(fit)}`);
     assert.ok(fit.overflow <= 0, JSON.stringify(fit));
   });
-  await withPage(1600, async (page) => {
+  await withPage(1440, async (page) => {
     await page.evaluate(() => document.documentElement.style.setProperty('--marxy-size-chrome', '26px'));
     await unfold(page);
     await page.waitForTimeout(100);
     const fit = await fitOf(page);
-    assert.deepEqual(fit.clipped, [], `chrome_size 26 at 1600 px: ${JSON.stringify(fit)}`);
+    assert.deepEqual(fit.clipped, [], `chrome_size 26 at 1440 px: ${JSON.stringify(fit)}`);
+  });
+});
+
+/** The doors a later story registers, stubbed, so the row is measured as it will be with every door in it. */
+const registerEveryDoor = (page) =>
+  page.evaluate(() => {
+    const handle = window.__marxyHandle;
+    const real = handle.commands.bind(handle);
+    const stub = (id, title) => ({ id, title, group: 'view', when: () => true, async run() { window.__ran = [...(window.__ran ?? []), id]; } });
+    handle.commands = () => [...real(), stub('transform.open', 'Transform'), stub('export.menu', 'Export'), stub('document.new-menu', 'New')];
+  });
+
+test('with every door registered the real row still fits at 929 px and at chrome_size 26 in a wide window; what does not fit is in More, and runs', async () => {
+  await withPage(929, async (page) => {
+    await registerEveryDoor(page);
+    await unfold(page);
+    await page.waitForTimeout(150);
+    const fit = await fitOf(page);
+    assert.deepEqual(fit.clipped, [], JSON.stringify(fit));
+    assert.ok(fit.overflow <= 0, JSON.stringify(fit));
+    const state = await page.evaluate(() => ({
+      more: !document.querySelector('[data-marxy-toolbar-item="more"]').hidden,
+      folded: [...document.querySelectorAll('.marxy-toolbar [data-marxy-toolbar-item][hidden]')].map((el) => el.getAttribute('data-marxy-toolbar-item')).filter((id) => id !== 'more'),
+    }));
+    assert.equal(state.more, true);
+    assert.ok(state.folded.includes('transform') && state.folded.includes('export'), `the lowest doors fold first: ${state.folded}`);
+    // Every folded door is reachable from More, by the keyboard, and runs its command.
+    await page.locator('[data-marxy-toolbar-item="more"] button').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.marxy-verb-menu');
+    const rows = await page.evaluate(() => [...document.querySelectorAll('.marxy-verb-menu [role="menuitem"]')].map((r) => r.dataset.rowKey));
+    assert.ok(rows.includes('transform.open') && rows.includes('export.menu'), rows.join());
+    await page.click('.marxy-verb-menu [data-row-key="transform.open"]');
+    assert.ok((await page.evaluate(() => window.__ran)).includes('transform.open'));
+  });
+  await withPage(1440, async (page) => {
+    await registerEveryDoor(page);
+    await page.evaluate(() => document.documentElement.style.setProperty('--marxy-size-chrome', '26px'));
+    await unfold(page);
+    await page.waitForTimeout(150);
+    const fit = await fitOf(page);
+    assert.deepEqual(fit.clipped, [], JSON.stringify(fit));
+    assert.ok(fit.overflow <= 0, JSON.stringify(fit));
+  });
+  await withPage(1440, async (page) => {
+    await registerEveryDoor(page);
+    await unfold(page);
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-toolbar-item="more"]').hidden), true, 'a wide window folds nothing');
   });
 });
 
@@ -405,7 +453,7 @@ test('at chrome_size 26 in the narrowest window the row is wider than its box, a
       const r = document.activeElement.getBoundingClientRect();
       return { name: document.activeElement.getAttribute('aria-label'), inside: r.left >= region.left - 0.5 && r.right <= region.right + 0.5 };
     });
-    assert.deepEqual(last, { name: 'Find in this pane', inside: true });
+    assert.deepEqual(last, { name: 'More tools', inside: true });
   });
 });
 
@@ -431,8 +479,7 @@ test('W-04: the title keeps its minimum at the narrowest window, at the default 
     const normal = await titleOf(page);
     assert.equal(normal.minimum, 5 * normal.em, 'the title declares five ems');
     assert.ok(normal.title >= normal.minimum - 0.5, `the title has its minimum at the default size: ${JSON.stringify(normal)}`);
-    // W-21: the Transform door makes the default row wider than the 929 px window's column (it fitted before): it scrolls, as at 26.
-    assert.ok(normal.overflow > 0 && normal.overflow < 120, `and the row scrolls by about the Transform control: ${JSON.stringify(normal)}`);
+    assert.ok(normal.overflow <= 0, `and the row fits: ${JSON.stringify(normal)}`);
     await page.evaluate(() => document.documentElement.style.setProperty('--marxy-size-chrome', '26px'));
     await page.waitForTimeout(100);
     const big = await titleOf(page);

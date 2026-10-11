@@ -1,11 +1,11 @@
 // The in-place block editor (E-04, ADR-0048): a CodeMirror 6 editor over one block's bytes, mounted where
 // the block was. It is built from the Source editor's own extensions (`baseExtensions`), so the code face,
-// the markdown grammar, the wrapping and the file's line separator are Source's, and it keeps its own
+// the markdown grammar, the wrapping, the file's line separator and its marked stray bytes are Source's, and it keeps its own
 // compartments and its own view: it never calls `createSourceEditor`, which holds one editor per mount and
 // would take the reader's full Source editor with it. It knows nothing about the store; the caller reads
 // `text()` and folds it back with `foldSlice` (commands/block-edit.ts). Lazy-loaded with CodeMirror.
 
-import { textOf, type Buffer, type Source } from '@marxy/core';
+import { sourceTextOfRange, type Buffer, type Source } from '@marxy/core';
 import { Compartment, EditorState, Prec } from '@codemirror/state';
 import { EditorView, keymap, type KeyBinding } from '@codemirror/view';
 import { SOURCE_EDIT_ENTRIES } from '../commands/source-edit.ts';
@@ -47,7 +47,9 @@ function structureKeymap(path: string): KeyBinding[] {
 }
 
 /**
- * Opens an editor in `host` over `range` of `buffer`. The doc is exactly the block's bytes, decoded.
+ * Opens an editor in `host` over `range` of `buffer`. The doc is exactly the block's bytes, decoded as Source decodes
+ * them (`sourceTextOfRange`: each byte that is not UTF-8 is a code unit of its own, shown as a marked byte), so a stray
+ * byte the reader does not edit keeps its bytes when the text is folded back (F-34.2).
  * `Escape` and `Mod-Enter` call `keys.leave()`; `Mod-s` and `Mod-Shift-s` stay Source's (they save, which
  * folds the block first).
  */
@@ -68,7 +70,7 @@ export async function openBlockEditor(
     return true;
   };
   const state = EditorState.create({
-    doc: textOf(buffer, range),
+    doc: sourceTextOfRange(buffer, range),
     extensions: [
       Prec.highest(
         keymap.of([

@@ -774,6 +774,7 @@ async function checkCodeVoice(page, { xHeight = false } = {}) {
 const WORKSPACE = {
   attribute: 'data-marxy-workspace', // on <body>: 'unfolded'; absent (or anything else) is folded
   regionAttribute: 'data-marxy-workspace-region',
+  peekAttribute: 'data-marxy-peek', // on <body>, folded only: the one region the window is peeking
   regions: ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar'],
 };
 
@@ -784,7 +785,9 @@ const WORKSPACE = {
  * html/body and the main landmark itself are the page, not chrome. Folded (what the corpus run sees) is the
  * at-rest window: nothing visible outside #marxy-main, whatever its name. Unfolded additionally allows the
  * workspace's named regions and their contents; any other visible element outside #marxy-main, and any
- * region with a name outside the list, still fails.
+ * region with a name outside the list, still fails. Folded and peeking (W-03: `data-marxy-peek` on <body>) shows
+ * exactly the one region the attribute names, once, and its contents; a second region, a region it does not
+ * name, a name outside the list and any stray element fail.
  */
 async function checkChrome(page) {
   return page.evaluate(({ ws }) => {
@@ -792,6 +795,9 @@ async function checkChrome(page) {
     const main = document.getElementById('marxy-main');
     const out = [];
     const regionSel = `[${ws.regionAttribute}]`;
+    const peek = state === 'folded' ? document.body.getAttribute(ws.peekAttribute) : null;
+    if (peek !== null && !ws.regions.includes(peek)) out.push(`peeking "${peek}", which is not one of ${ws.regions.join(', ')}`);
+    let peeked = 0;
     for (const el of document.querySelectorAll('*')) {
       if (el === document.documentElement || el === document.body || el === main) continue;
       if (main && main.contains(el)) continue;
@@ -800,6 +806,17 @@ async function checkChrome(page) {
         if (region) {
           const name = region.getAttribute(ws.regionAttribute);
           if (el === region && !ws.regions.includes(name)) out.push(`workspace region "${name}" is not one of ${ws.regions.join(', ')}`);
+          continue;
+        }
+      }
+      if (peek !== null) {
+        const region = el.closest(regionSel);
+        if (region) {
+          const name = region.getAttribute(ws.regionAttribute);
+          if (el === region) {
+            if (name !== peek) out.push(`workspace region "${name}" in a window that peeks "${peek}"`);
+            else if (++peeked > 1) out.push(`second workspace region "${name}" in a window that peeks it`);
+          }
           continue;
         }
       }
@@ -1033,6 +1050,15 @@ function craftedWorkspace(state, { stray = '', extraRegion = '' } = {}) {
     .join('');
   const attribute = state === null ? '' : ` ${WORKSPACE.attribute}="${state}"`;
   return crafted('<p>In</p>').replace('<body>', `<body${attribute}>${regions}${extraRegion}${stray}`);
+}
+
+/**
+ * A folded window that peeks (W-03): `data-marxy-peek="<peek>"` on <body> and one visible element per name in
+ * `names`, each as a region outside #marxy-main. A page that names one region and shows exactly it passes.
+ */
+function craftedPeek(peek, names, { stray = '' } = {}) {
+  const regions = names.map((r) => `<div ${WORKSPACE.regionAttribute}="${r}"><button>${r}</button></div>`).join('');
+  return crafted('<p>In</p>').replace('<body>', `<body ${WORKSPACE.peekAttribute}="${peek}">${regions}${stray}`);
 }
 
 /** Image swap that moves a following block, using the app harness's own layout-shift geometry. */
@@ -1490,6 +1516,30 @@ async function selftest(browser, origin) {
       name: 'chrome-other-state-is-folded',
       html: craftedWorkspace('open'),
       ok: crafted('<p>In</p>'),
+      run: checkChrome,
+    },
+    {
+      name: 'chrome-peek-second-region',
+      html: craftedPeek('toolbar', ['toolbar', 'sidebar']),
+      ok: craftedPeek('toolbar', ['toolbar']),
+      run: checkChrome,
+    },
+    {
+      name: 'chrome-peek-names-another-region',
+      html: craftedPeek('toolbar', ['sidebar']),
+      ok: craftedPeek('toolbar', ['toolbar']),
+      run: checkChrome,
+    },
+    {
+      name: 'chrome-peek-stray',
+      html: craftedPeek('toolbar', ['toolbar'], { stray: '<mark>out</mark>' }),
+      ok: craftedPeek('toolbar', ['toolbar']),
+      run: checkChrome,
+    },
+    {
+      name: 'chrome-peek-unknown-region',
+      html: craftedPeek('banner', ['banner']),
+      ok: craftedPeek('toolbar', ['toolbar']),
       run: checkChrome,
     },
     {

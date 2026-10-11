@@ -14,6 +14,7 @@ import type { AppContext, Command } from '../commands/registry.ts';
 import { documentName, isUntitled } from '../document/untitled.ts';
 import { keyLabel } from '../palette/commands.ts';
 import { buildAppContext } from '../selection/bind.ts';
+import { openVerbMenu, type VerbMenuRow } from '../selection/verb-menu.ts';
 import type { WorkspaceRegion } from './regions.ts';
 
 /** How an item is drawn: a button, a panel toggle (pressed while its region is docked), the title, the Read/Split/Source radios, or Copy and its chevron. */
@@ -45,6 +46,13 @@ export const TOOLBAR_ITEMS: readonly ToolbarItem[] = [
   { id: 'find', commands: ['view.find'], kind: 'button', label: 'Find' },
   { id: 'inspector', commands: ['view.toggle-inspector'], needsFill: 'inspector', kind: 'toggle', label: 'Inspector' },
 ];
+
+/**
+ * Which doors fold into the *More* menu when the row would overflow, and in what order: the lowest number goes first
+ * (the mockup's toolbar, right to left). A door not listed (back, forward, the title, the switch, Copy and the panel
+ * toggles) never folds. Kept apart from `TOOLBAR_ITEMS` so a story adding a door adds one line to each.
+ */
+export const FOLD_ORDER: Readonly<Record<string, number>> = { transform: 1, export: 2, new: 3, kind: 4, find: 5 };
 
 /** The switch's three choices, in order. */
 export const MODE_CHOICES: readonly { readonly command: string; readonly label: string }[] = [
@@ -317,7 +325,51 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
   }
 
   // One tab stop; arrows move within the row (the toolbar pattern). Disabled controls stay reachable.
-  const controls = (): HTMLButtonElement[] => [...root.querySelectorAll<HTMLButtonElement>('button')];
+  // When the row would overflow, the doors in `FOLD_ORDER` fold, lowest first, into one *More* button at its end, so every
+  // action stays reachable by mouse and keyboard and nothing is clipped. Measured on the element, so no frame shows both.
+  const more = document.createElement('span');
+  more.setAttribute('data-marxy-toolbar-item', 'more');
+  more.hidden = true;
+  const moreButton = button('…', 'More tools', 'More tools');
+  moreButton.setAttribute('aria-haspopup', 'menu');
+  moreButton.tabIndex = -1;
+  more.append(moreButton);
+  root.append(more);
+  let folded: Array<{ id: string; top: HTMLElement }> = [];
+  const foldable = [...root.querySelectorAll<HTMLElement>(':scope > [data-marxy-toolbar-item]')]
+    .map((top) => ({ id: top.getAttribute('data-marxy-toolbar-item')!, top }))
+    .filter((d) => d.id in FOLD_ORDER)
+    .sort((a, b) => FOLD_ORDER[a.id]! - FOLD_ORDER[b.id]!);
+  const overflows = (): boolean => root.scrollWidth > root.clientWidth + 0.5;
+  const layout = (): void => {
+    if (!root.isConnected) return;
+    for (const d of foldable) d.top.hidden = false;
+    more.hidden = true;
+    folded = [];
+    if (!overflows()) return;
+    more.hidden = false;
+    for (const d of foldable) {
+      if (!overflows()) break;
+      // A door that is out of the row (the chip with no document) has nothing to fold.
+      if (!d.top.isConnected) continue;
+      d.top.hidden = true;
+      folded.push(d);
+    }
+    // The one tab stop must not be a control that has just folded away.
+    if (!controls().some((b) => b.tabIndex === 0)) rove(controls()[0]);
+  };
+  bind(moreButton, 'more', async () => {
+    const ctx = buildAppContext(handle);
+    const rows: VerbMenuRow[] = folded.flatMap((d) => {
+      const id = TOOLBAR_ITEMS.find((i) => i.id === d.id)?.commands.find((c) => registry.has(c));
+      const command = id ? registry.get(id) : undefined;
+      return command && enabled(command.id, ctx) ? [{ command, title: command.title, chord: command.key }] : [];
+    });
+    const box = moreButton.getBoundingClientRect();
+    openVerbMenu({ x: Math.round(box.left), y: Math.round(box.bottom), top: Math.round(box.top) }, ctx, { registered: [], allActions: () => {}, rows, label: 'More tools' });
+  });
+
+  const controls = (): HTMLButtonElement[] => [...root.querySelectorAll<HTMLButtonElement>('button')].filter((b) => !b.closest('[hidden]'));
   const rove = (to: HTMLButtonElement | undefined): void => {
     if (!to) return;
     for (const c of controls()) c.tabIndex = c === to ? 0 : -1;
@@ -344,18 +396,26 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
     if (!root.isConnected) return;
     const ctx = buildAppContext(handle);
     for (const sync of syncs) sync(ctx);
+    layout();
   }
 
   el.append(root);
   rove(controls()[0]);
   refresh();
   const off = signal.onChange(refresh);
+  // A door changing its own width (the kind chip, a longer title) or the window changing size refolds the row.
+  const relayout = new ResizeObserver(layout);
+  relayout.observe(el);
+  const contents = new MutationObserver(layout);
+  contents.observe(root, { childList: true, subtree: true, characterData: true });
   // Each pane writes `<body data-marxy-mode>` while it has focus: the switch follows a mode change from any route (⌘E, ⌘1 to ⌘3).
   const observer = new MutationObserver(refresh);
   observer.observe(document.body, { attributes: true, attributeFilter: ['data-marxy-mode'] });
   return () => {
     off();
     observer.disconnect();
+    relayout.disconnect();
+    contents.disconnect();
     root.remove();
   };
 }

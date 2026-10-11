@@ -120,10 +120,11 @@ test('unfolding puts the six regions in the page, in order, and nothing else out
     });
     assert.equal(got.attribute, 'unfolded');
     assert.deepEqual(got.names, ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar']);
-    // The toolbar is the one region with a fill (W-05; toolbar.test.mjs); the other five hold no content yet.
+    // The toolbar is the one region with content here (W-05; toolbar.test.mjs); the strip (K-07) has a fill but nothing for an article.
     assert.deepEqual(got.children.map((n, i) => (got.names[i] === 'toolbar' ? n > 0 : n === 0)), [true, true, true, true, true, true], `only the toolbar holds content (${got.children})`);
     assert.deepEqual(got.parents, ['BODY']);
-    assert.deepEqual(got.shown, [true, true, true, true, false, true], 'a 1280 px window docks everything but the inspector');
+    // The strip is docked too (the arrangement says so) but holds nothing for an article, so its band is hidden (K-07).
+    assert.deepEqual(got.shown, [true, true, true, false, false, true], 'a 1280 px window docks everything but the inspector; an empty strip is hidden from what is on it');
     assert.deepEqual(got.visible, [], 'a stray element outside the regions is what the gate would fail');
     assert.deepEqual(got.order.slice(0, 6), ['sidebar', 'toolbar', 'tabs', 'strip', 'marxy-main', 'inspector']);
   });
@@ -395,7 +396,7 @@ test('a corrupt workspace file is kept beside itself, the window opens folded, a
     assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().mode), 'folded');
     await unfold(page);
     const shown = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-workspace-region]')].map((r) => !r.hidden));
-    assert.deepEqual(shown, [true, true, true, true, false, true]);
+    assert.deepEqual(shown, [true, true, true, false, false, true], 'the strip is docked and empty (K-07): hidden from what is on it');
     const kept = await page.evaluate(async () => {
       const shell = window.__marxyHandle.shell;
       const bad = [];

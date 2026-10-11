@@ -86,6 +86,26 @@ copies what was selected. State is exposed as `aria-disabled`, `aria-checked` an
 styles it: `base.css` has the layout (a flex row; the title takes what the controls leave and gives way first) and the
 look is W-04's.
 
+**The kind chip and the strip (K-07; ADR-0060 items 3 and 6).** Two more fills, both made on unfold and gone when folded
+(`workspace/kind-chip.ts`, installed in `fill.ts` after the toolbar's). The chip is the toolbar's `kind` door, drawn once
+`kind.chip` is registered: the kind's glyph (K-18) and name, following the focused pane's `data-marxy-kind` (so a kind
+decided late, or again by a reopen, shows at once). With no document the door is taken out of the row. In a row too narrow for it, the toolbar folds
+it into *More* (below). Pressing it runs `kind.chip`
+(`commands/kind-chip.ts`), a menu in the verb menu's chrome: first why the file is the kind it is (the `Reason`s
+`detectFileKind` returned at open, the decisive one first, as quiet rows that do nothing), then *Show as* each kind,
+*Show as detected* and *Always open this folder as…* (a second list). A choice runs K-04's command and then reopens the
+file, so the kind takes effect now (`AppHandle.open`: unsaved edits meet its own prompt); only `kinds.json` or
+`config.toml` is written, never the document. The `strip` region holds the focused kind's tools (`workspace/strip.ts`:
+`STRIP_TOOLS`, at most four per kind, each naming a command or `null`; `toolsFor` keeps those whose command is
+registered, or the reader's `[strip]` list). A kind with no tool puts nothing in the region and hides it from that
+emptiness, on the element, not through `setPanel`: the remembered arrangement is unchanged.
+
+**More (K-07).** When the toolbar row would overflow, the doors in `FOLD_ORDER` (`workspace/toolbar.ts`: Transform, Export,
+New, the kind chip, Find, lowest first) fold into one *More* button at its end, measured on the element so no frame shows
+both. Its menu lists each folded door's command in the verb menu's chrome, so every action stays reachable by mouse and
+keyboard and nothing is clipped. Back, Forward, the title, the switch and Copy never fold; where even they do not fit
+(`chrome_size` 26 in the narrowest column) the row scrolls as before.
+
 **Remembered panels.** Which regions are docked is `workspace.json` in the data directory beside `layout.json`
 (`{ version, panels: { sidebar, toolbar, tabs, strip, inspector, status-bar } }`; same version guard and quarantine).
 It is read when the reader unfolds (the first time in a session) and written when they fold or quit while unfolded,
@@ -93,7 +113,28 @@ never at launch. With nothing remembered every region is docked except the inspe
 a window of 1600 px or more (ADR-0058 item 6). The command `view.toggle-workspace` ("Fold or unfold the workspace")
 is on `Mod+\` (ADR-0058 item 1, the mockup), a pane chord in the table below; D-07's Open beside moved to
 `Mod+Alt+\` to make room (the lead's ruling, the author's to veto before merge), and stays in the palette as
-"Open beside…". `Esc` folding waits for W-03.
+"Open beside…". `Esc` folds the unfolded window (W-03, below).
+
+**Peeking (W-03; ADR-0058 item 5).** Folded, the pointer resting within 8 px of the left, right or top edge of the
+window for 150 ms shows that edge's panel (the sidebar, the inspector, the toolbar) as an overlay: one region at a
+time, `position: fixed` over the page with the theme's shadow, a fade of 150 ms and none under reduced motion. The
+panes and the reading column never move for it. Leaving both the edge and the panel hides it. A click inside it
+docks it: the window unfolds with that region and the toolbar shown (`Workspace.dock`), and folding again remembers
+that. The side bands win over the top band at a corner; the bottom edge never peeks. A region peeks only once
+something fills it (`Workspace.hasFill`), so today only the top edge works; the sidebar and inspector light up with
+their stories and no change here. No peek with a button held (a drag-select near the edge), with a dialog open, or
+while unfolded: the pointer is listened to only while the window is folded, and a folded window at rest has no peek
+element and draws nothing. `<body data-marxy-peek="<region>">` names the peeking region, and the aesthetics gate
+allows exactly that one region in a folded page that carries it. Unverified outside the built app: whether the
+webview receives pointer events in the last pixels of a window's edge, where macOS keeps the resize handle.
+There is no floating sidebar button and no first-run hint: either would put a control in the folded window at rest.
+
+`Mod+Ctrl+S` (the sidebar) and `Mod+Alt+I` (the inspector) dock from a folded window and toggle the panel when it is
+unfolded, from a Source editor too (pane chords, `Ctrl` honoured for the first). They do nothing until something
+fills the region. Off a Mac `Ctrl+Cmd+S` has no spelling; the palette command is the route. `Esc` folds when nothing
+else owns it: no selection (a selection clears first), no palette, outline, find or verb menu open, and not in an
+editable (a Source editor, a text field). `Esc` is therefore shared by `selection.clear` and `view.fold-workspace`,
+whose conditions are never both true; the keys table (`test/keys-table.test.mjs`) declares the pair.
 
 ## State
 
@@ -148,6 +189,7 @@ chrome.
 | `Mod+/` | palette on the transforms (`>Transform`) | W-19, W-21: one row per transform core can run (`Transform: <name>`), none that is `NOT_YET`; again closes it; in Source `Mod+/` opens the palette, it does not toggle a comment. A choice opens the result sheet (below) |
 | `Mod+1` / `Mod+2` / `Mod+3` | Read / Split / Source | W-19 (`commands/view-mode.ts`): Read and Source set the focused pane's mode and do nothing when it is already there (`Mod+E` flips). Split shows the document twice, Read left and Source right; with two panes over two files it refuses and says why |
 | `Mod+E` | toggle Rendered / Source | position kept (§08) |
+| `Ctrl+Mod+S` / `Mod+Alt+I` | dock or undock the sidebar / the inspector | W-03: from folded they unfold with that panel; physical keys, so they work from Source (§Peeking) |
 | `Mod+F` | find | `Enter` next, `Shift+Enter` previous, `Esc` closes and keeps the reading position |
 | `Mod+Shift+O` | outline | `↑/↓ Enter`, `Esc` |
 | `Mod+[` / `Mod+]` | back / forward | history stack (§07) |
@@ -159,7 +201,7 @@ chrome.
 | `Alt+←` / `Alt+→` | back / forward | the Linux browser convention; also `BrowserBack`/`BrowserForward` (MARXY-86 `keys.ts`) |
 | `Mod+Shift+S` | save as | §01 |
 | `Space` / `Shift+Space`, `PageDown/Up`, `Home/End`, arrows | scroll | native |
-| `Esc` | close overlay, else clear selection | |
+| `Esc` | close overlay, else clear selection, else fold the workspace | W-03: one at a time; never in an editable (§Peeking) |
 | `Mod+C` | copy | runs the selection's default copy verb, from the table in §03 (never a splice, never a string-prefix match); with no default verb, the DOM selection |
 | `Mod+Shift+C` | Copy as… | opens the Copy as menu at the pointer for the selection, else the block under the pointer, else the document, in Rendered and in Source, and not in the find field or over the open palette (§03, ADR-0065 item 1). The `copy_format` row (default Markdown) is first and has focus, so `Mod+Shift+C` then `Return` copies the exact source bytes, as the key did before |
 | `Mod+V` | paste | In Source, the editor's own paste, except that a paste carrying HTML is read through the shell, converted to Markdown (E-14) and inserted at every selection as one undo step, in the buffer's own line break, with one notice ("Pasted as Markdown (converted from HTML)"); a paste with no HTML is untouched. In Rendered it opens the clipboard, as Markdown, in a new scratch document (E-13; with two panes, in the other pane), and writes nothing until Save As. A concealed item (a password manager's copy) is refused before any read, with a notice. Not bound in the find field or the palette (ADR-0065 §3, J-05) |

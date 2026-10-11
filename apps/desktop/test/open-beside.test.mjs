@@ -302,7 +302,15 @@ plain('paneChordFor needs Mod (and only Mod) for every chord (D-06 review, M10)'
     const mod = mac ? { metaKey: true } : { ctrlKey: true };
     const other = mac ? { ctrlKey: true } : { metaKey: true };
     for (const chord of PANE_CHORDS) {
+      // A chord with `ctrl` (W-03) is Control and Command on a Mac, and has no spelling elsewhere.
       const keys = { code: chord.code, shiftKey: chord.shift ?? false, altKey: chord.alt ?? false };
+      if (chord.ctrl) {
+        assert.equal(paneChordFor(press({ ...keys, metaKey: true, ctrlKey: true }), true), chord, `${chord.command} with Control and Command`);
+        assert.equal(paneChordFor(press({ ...keys, metaKey: true }), true), null, `${chord.command} without Control`);
+        assert.equal(paneChordFor(press({ ...keys, ctrlKey: true }), true), null, `${chord.command} without Command`);
+        assert.equal(paneChordFor(press({ ...keys, ctrlKey: true }), false), null, `${chord.command} off a Mac`);
+        continue;
+      }
       assert.equal(paneChordFor(press({ ...keys, ...mod }), mac), chord, `${chord.command} with Mod`);
       assert.equal(paneChordFor(press(keys), mac), null, `${chord.command} without Mod`);
       assert.equal(paneChordFor(press({ ...keys, ...other }), mac), null, `${chord.command} with the other platform's Mod`);

@@ -95,11 +95,16 @@ export function fixtures() {
     [`${ROOT}/a.md`]: enc.encode(MARKDOWN.join('\n')),
     // CRLF throughout, with a byte-order mark.
     [`${ROOT}/b.md`]: cat(new Uint8Array([0xef, 0xbb, 0xbf]), enc.encode(MARKDOWN.join('\r\n'))),
-    // Mixed endings, a lone CR, a byte that is not UTF-8, and text that needs more than one byte.
+    // Mixed endings, a lone CR, bytes that are not UTF-8 (a lone FF, a lone continuation byte, a cut-off
+    // three-byte sequence), and text that needs more than one byte.
     [`${ROOT}/c.md`]: cat(
       enc.encode('# Mixed\r\n\r\nline one\nline two\r\nlone\rcarriage\r\n\r\n- a\n- b\r\n'),
       new Uint8Array([0xff]),
       enc.encode('\nlast é 漢 😀\r\n'),
+      new Uint8Array([0x80]),
+      enc.encode(' cut '),
+      new Uint8Array([0xe2, 0x82]),
+      enc.encode('\n'),
     ),
     // Short, and no ending after the last line.
     [`${ROOT}/d.md`]: enc.encode('# Tiny\n\nno trailing newline'),
@@ -612,6 +617,9 @@ function safeOffsets(model, bytes) {
 const RENDERED_PIECES = ['', '', ' ', '\n', '\r\n', '# ', '- [ ] ', '`', '|', 'é', '漢', '😀', '**', '> '];
 const SOURCE_PIECES = ['', '', ' ', '# ', '`', 'é', '**'];
 
+const isHigh = (code) => code >= 0xd800 && code < 0xdc00;
+const isLow = (code) => code >= 0xdc00 && code < 0xe000;
+
 /** An insertion of a new token into `text` (CodeMirror's text) at a safe place: its new text. */
 function insertIntoText(world, text, token, piece, typed) {
   const { model } = world;
@@ -623,8 +631,9 @@ function insertIntoText(world, text, token, piece, typed) {
   }
   const places = [];
   for (let i = 0; i <= text.length; i++) {
-    const code = text.charCodeAt(i);
-    if (i < text.length && code >= 0xdc00 && code < 0xe000) continue;
+    // Not between an astral character's two halves. A lone low surrogate is a byte that is not UTF-8 (F-34.1):
+    // typing just before it is fine, and the walk does.
+    if (i > 0 && i < text.length && isHigh(text.charCodeAt(i - 1)) && isLow(text.charCodeAt(i))) continue;
     if (i > 0 && i < text.length && text[i - 1] === '\r' && text[i] === '\n') continue;
     if (spans.some(([s, e]) => s < i && i < e)) continue;
     places.push(i);
@@ -632,24 +641,6 @@ function insertIntoText(world, text, token, piece, typed) {
   const at = model.d.pick(places);
   return text.slice(0, at) + token.text + piece + text.slice(at);
 }
-
-/**
- * OPEN FINDING (F-33, on main): a Source session with two typed changes either side of a byte that is not
- * UTF-8 folds as ONE splice (`foldText`), and the byte between them is rewritten as U+FFFD (ff -> ef bf bd).
- * The walk found it on seeds 57, 79, 108, ... The invariant (I6) is not weakened; the generator stops short of
- * it: a draft over such a file takes one typed change at a time. `MARXY_WALK_FINDINGS=1` lifts the
- * restriction, and the walk then fails on those seeds. Remove this when `foldText` keeps the byte.
- */
-const strayBytes = (bytes) => {
-  try {
-    new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-    return false;
-  } catch {
-    return true;
-  }
-};
-const holdsOpenFinding = (view) =>
-  process.env.MARXY_WALK_FINDINGS !== '1' && view.typed.length > 0 && strayBytes(view.doc.buf);
 
 const slotsWith = (model, test = () => true) => [0, 1].filter((slot) => model.views[slot] && test(model.views[slot]));
 const lastHolder = (model, view) => viewsOf(model, view.doc).length === 1;
@@ -722,14 +713,13 @@ function tableByteSpans(bytes) {
 const endingKinds = (bytes) => new Set(latin1(bytes).match(/\r\n|\r|\n/g) ?? []);
 const TABLE_TOOLS = ['alignTable', 'addTableRow', 'addTableColumn', 'sortTableRows'];
 
-/** A pane the table tools may act on: a Markdown file with a table, nothing held apart, no byte that is not UTF-8. */
+/** A pane the table tools may act on: a Markdown file with a table, nothing held apart (stray bytes too: F-34.1). */
 const tableToolSlots = (model) =>
   slotsWith(
     model,
     (v) =>
       /\.md$/.test(v.doc.path) &&
       viewsOf(model, v.doc).every((other) => !other.heldApart) &&
-      (process.env.MARXY_WALK_FINDINGS === '1' || !strayBytes(v.doc.buf)) &&
       tableByteSpans(v.doc.buf).length > 0,
   );
 
@@ -828,10 +818,10 @@ export const OPS = {
   sourceType: {
     name: 'sourceType',
     weight: 6,
-    applicable: (model) => slotsWith(model, (v) => !v.heldApart && !holdsOpenFinding(v)).length > 0,
+    applicable: (model) => slotsWith(model, (v) => !v.heldApart).length > 0,
     async run(world, model) {
       const d = model.d;
-      const slot = d.pick(slotsWith(model, (v) => !v.heldApart && !holdsOpenFinding(v)));
+      const slot = d.pick(slotsWith(model, (v) => !v.heldApart));
       const view = model.views[slot];
       if (view.mode === 'rendered') view.mode = 'source';
       const token = world.newToken();

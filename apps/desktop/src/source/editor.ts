@@ -137,12 +137,11 @@ export async function baseExtensions(
 ): Promise<Extension[]> {
   const { history, defaultKeymap, historyKeymap } = await import('@codemirror/commands');
   const { EditorState } = await import('@codemirror/state');
-  const { EditorView, drawSelection, highlightActiveLine, keymap, highlightSpecialChars } = await import(
-    '@codemirror/view'
-  );
+  const { EditorView, drawSelection, highlightActiveLine, keymap } = await import('@codemirror/view');
   const { searchKeymap } = await import('@codemirror/search');
   const { withoutRegistryChords } = await import('./structure.ts');
   const { pasteExtension } = await import('./paste.ts');
+  const { strayBytes, readBack } = await import('./stray-bytes.ts');
 
   const { lineSeparator } = editorDocConfig(buffer);
   const tabSize = await tabSizeForFile(buffer.path);
@@ -152,14 +151,17 @@ export async function baseExtensions(
   const tabComp = compartments?.tabSizeCompartment ?? tabSizeCompartment;
 
   const exts: Extension[] = [
-    history(),
+    // The read-back of a save joins the edit before it (stray-bytes.ts `readBack`); every other join is the default's.
+    history({ joinToEvent: (tr, adjacent) => adjacent || tr.annotation(readBack) === true }),
     // Several selections: next and all occurrences (V-01) add ranges, which a single-selection state drops.
     EditorState.allowMultipleSelections.of(true),
     // Paste with HTML on the pasteboard becomes Markdown (J-05); any other paste is the editor's own.
     pasteExtension(),
     drawSelection(),
     highlightActiveLine(),
-    highlightSpecialChars(),
+    // Special characters marked as before, and a byte that is not UTF-8 shown as its value; no lone surrogate
+    // the editor holds for one leaves it on a copy, a cut or a drag (F-34.1). The block editor has the same (F-34.2).
+    strayBytes(),
     // Save and Save as work from either mode (§01). The document-level chord handler leaves editable
     // targets alone, so the editor answers these two itself and nothing else of Rendered mode leaks in.
     keymap.of([

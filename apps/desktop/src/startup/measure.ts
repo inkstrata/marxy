@@ -130,7 +130,7 @@ export function createLaunchMeasure(
       // by the shell's deadline instead, because WebKit aligns in-page timers in a window that cannot
       // paint to about 15 s. A reader is left waiting and gets the document when the display wakes.
       const framesAtRender = observed;
-      const { signal } = await waitForEnginePaint({ after });
+      const { signal } = await waitForEnginePaint({ after, doc });
       // One timestamp for both marks: the paint detail costs an IPC round trip and `first_text` must not
       // be pushed later by the cost of reporting it.
       const paintedAt = Date.now();

@@ -10,13 +10,14 @@ import { fileURLToPath } from 'node:url';
 import { PANE_CHORDS } from '../src/pane/keys.ts';
 import { commands } from '../src/commands/index.ts';
 import { registryChord } from '../src/source/structure.ts';
+import { setAppHandle } from '../src/commands/app-handle.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MAC = true;
 
 const PHYSICAL = { Backslash: '\\', ArrowLeft: 'arrowleft', ArrowRight: 'arrowright', Slash: '/' };
 const physical = (code) => PHYSICAL[code] ?? code.replace(/^(Digit|Key)/, '').toLowerCase();
-const paneChord = (c) => registryChord(['Mod', c.alt ? 'Alt' : null, c.shift ? 'Shift' : null, physical(c.code)].filter(Boolean).join('+'), MAC);
+const paneChord = (c) => registryChord(['Mod', c.ctrl ? 'Ctrl' : null, c.alt ? 'Alt' : null, c.shift ? 'Shift' : null, physical(c.code)].filter(Boolean).join('+'), MAC);
 
 /** The palette's summoning chords (palette/view.ts): not registry commands. */
 const PALETTE_CHORDS = ['Mod+P', 'Mod+K', 'Mod+Shift+P', 'Mod+/'];
@@ -52,9 +53,20 @@ function table() {
   return owners;
 }
 
+/**
+ * Chords two commands may both spell because their `when`s are never both true (W-03): `Esc` clears a selection,
+ * and with none folds the workspace. Each entry is the owners that share it; `shared chords` below proves the `when`s.
+ */
+const SHARED_CHORDS = new Map([['escape', ['selection.clear', 'view.fold-workspace']]]);
+
 test('no chord has two owners across commands, pane chords, the palette and the native menu', () => {
   for (const [chord, claims] of table()) {
     const distinct = new Set(claims.map((c) => c.owner));
+    const shared = SHARED_CHORDS.get(chord);
+    if (shared) {
+      assert.deepEqual([...distinct].sort(), [...shared].sort(), `${chord} is shared by exactly the declared owners`);
+      continue;
+    }
     assert.equal(distinct.size, 1, `${chord} is claimed by ${claims.map((c) => `${c.owner} (${c.source})`).join(' and ')}`);
   }
 });
@@ -95,4 +107,33 @@ test('the native menu accelerators are all in the table', () => {
   for (const item of menuAccelerators()) {
     assert.ok(owners.get(item.chord)?.some((c) => c.source === 'menu'), item.id);
   }
+});
+
+test('shared chords: the two owners of Esc are never runnable together, in any state', () => {
+  const cmds = commands();
+  const clear = cmds.find((c) => c.id === 'selection.clear');
+  const fold = cmds.find((c) => c.id === 'view.fold-workspace');
+  assert.ok(clear && fold);
+  assert.equal(fold.global ?? false, false, 'Esc never folds from a Source editor or a text field');
+  const kinds = ['none', 'text', 'node', 'section', 'document', 'blocks'];
+  let foldable = 0;
+  for (const mode of ['folded', 'unfolded']) {
+    setAppHandle({ workspace: () => ({ mode }) });
+    for (const kind of kinds) {
+      const ctx = { selection: { kind } };
+      assert.ok(!(clear.when(ctx) && fold.when(ctx)), `${mode} with a ${kind} selection`);
+      if (fold.when(ctx)) foldable++;
+    }
+  }
+  assert.equal(foldable, 1, 'Esc folds only an unfolded window with no selection');
+  setAppHandle(null);
+});
+
+test('W-03 chords are in the table: the panel keys and the fold key', () => {
+  const owners = table();
+  const ownerOf = (spec) => [...new Set(owners.get(registryChord(spec, MAC))?.map((c) => c.owner))];
+  assert.deepEqual(ownerOf('Ctrl+Mod+S'), ['view.toggle-sidebar']);
+  assert.deepEqual(ownerOf('Mod+Alt+I'), ['view.toggle-inspector']);
+  assert.deepEqual(ownerOf('Escape').sort(), ['selection.clear', 'view.fold-workspace']);
+  assert.ok(!ownerOf('Mod+S').includes('view.toggle-sidebar'), 'Control+Command+S is not save');
 });

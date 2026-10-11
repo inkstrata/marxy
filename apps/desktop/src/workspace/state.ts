@@ -83,13 +83,29 @@ export interface Workspace {
   readonly mode: WorkspaceMode;
   /** The panels shown now, or (folded) the ones that come back on the next unfold; null before the first unfold. */
   readonly arrangement: Arrangement | null;
-  /** Reads the remembered panels (once), draws the regions. Resolves once the page is unfolded. */
-  unfold(): Promise<void>;
+  /**
+   * Reads the remembered panels (once), draws the regions. Resolves once the page is unfolded. `override` is
+   * applied over the arrangement for this unfold (a dock), and is remembered like any other at the next fold.
+   */
+  unfold(override?: Partial<Arrangement>): Promise<void>;
   /** Takes the regions out of the page and writes the panels. Resolves once they are written. */
   fold(): Promise<void>;
   toggle(): Promise<void>;
   /** Docks or undocks one region while unfolded (the way the W stories' panel keys will); no-op folded. */
   setPanel(region: WorkspaceRegion, open: boolean): void;
+  /** The region peeking now (W-03): folded only, one at a time; null when none. */
+  readonly peeked: WorkspaceRegion | null;
+  /**
+   * Folded only: shows `region` as an overlay (W-03), made, and filled, now and taken out again by `unpeek`. Refused
+   * (false) when unfolded, when nothing fills the region, or while a dialog is open. The panes do not move.
+   */
+  peek(region: WorkspaceRegion): boolean;
+  unpeek(): void;
+  /**
+   * Folded: unfolds with `region` and the toolbar docked, and drops the peek. Unfolded: docks the region, or
+   * undocks it when it is docked (the panel keys). Resolves once done.
+   */
+  dock(region: WorkspaceRegion): Promise<void>;
   /** The region's element while unfolded, else null. */
   region(name: WorkspaceRegion): HTMLElement | null;
   /**
@@ -182,7 +198,19 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     }
   }
 
-  async function unfoldNow(): Promise<void> {
+  /** The peek: its region, element and the content in it (the entries made for it, to take out again). */
+  let peeking: { region: WorkspaceRegion; el: HTMLElement; entries: Fill[] } | null = null;
+
+  function unpeekNow(): void {
+    if (!peeking) return;
+    const { el, entries } = peeking;
+    peeking = null;
+    for (const entry of entries) dropFill(entry);
+    el.remove();
+    body.removeAttribute('data-marxy-peek');
+  }
+
+  async function unfoldNow(override?: Partial<Arrangement>): Promise<void> {
     if (mode === 'unfolded') return;
     if (remembered === null) {
       try {
@@ -192,7 +220,8 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
         remembered = {};
       }
     }
-    arrangement = arrangementFor(remembered, deps.windowWidth());
+    unpeekNow();
+    arrangement = { ...arrangementFor(remembered, deps.windowWidth()), ...override };
     regions = mountRegions(body, main, arrangement);
     for (const [name, list] of fills) {
       const el = regions.get(name);
@@ -223,7 +252,7 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
       return arrangement;
     },
 
-    unfold: () => serial(unfoldNow),
+    unfold: (override) => serial(() => unfoldNow(override)),
 
     fold: () => serial(foldNow),
 
@@ -235,6 +264,37 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
       arrangement = { ...arrangement, [name]: open };
       setRegionOpen(regions, name, open);
     },
+
+    get peeked() {
+      return peeking?.region ?? null;
+    },
+
+    peek(name) {
+      if (mode !== 'folded' || document.querySelector('dialog[open]') !== null) return false;
+      const list = fills.get(name) ?? [];
+      if (list.length === 0) return false;
+      if (peeking?.region === name) return true;
+      unpeekNow();
+      const el = document.createElement('div');
+      el.setAttribute('data-marxy-workspace-region', name);
+      body.append(el);
+      body.setAttribute('data-marxy-peek', name);
+      peeking = { region: name, el, entries: list };
+      for (const entry of list) makeFill(entry, el);
+      return true;
+    },
+
+    unpeek: unpeekNow,
+
+    // Decided inside the queue, like `toggle`, so a press while a transition runs sees the state it left.
+    dock: (name) =>
+      serial(async () => {
+        if (mode === 'folded') {
+          await unfoldNow({ [name]: true, toolbar: true });
+        } else if (arrangement) {
+          workspace.setPanel(name, !arrangement[name]);
+        }
+      }),
 
     region: (name) => regions.get(name) ?? null,
 
@@ -263,6 +323,7 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     flush: () => serial(async () => (mode === 'unfolded' ? persist() : undefined)),
 
     destroy() {
+      unpeekNow();
       dropFills();
       fills.clear();
       unmountRegions(regions);

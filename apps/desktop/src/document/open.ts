@@ -4,8 +4,7 @@
 // `createOpenPath` returns, never module state, so a second app instance in one page starts clean
 // (ADR-0037). Every edit, save and fold of the open document goes through its store here.
 import { KIND_HEAD_BYTES, lastChunkedParse, parseMarkdownChunked, type Buffer, type DetectResult, type KindRule } from '@marxy/core';
-import { detectFileKind, emptyKindsEnvelope, parseKindsFile, type KindsEnvelope } from '@marxy/core/src/kind/show-as.ts';
-import { joinPath } from '@marxy/core/src/index-model/paths.ts';
+import { detectFileKind, emptyKindsEnvelope, type KindsEnvelope } from '@marxy/core/src/kind/show-as.ts';
 import { parseConfig } from '@marxy/theme';
 import { buildNodeMapInSlices } from '../render/post.ts';
 import { dirname } from '@marxy/core/src/index-model/paths.ts';
@@ -24,7 +23,7 @@ import { defaultModeForPath } from '../source/default-mode.ts';
 import { whenIdle } from '../startup/idle-work.ts';
 import { yieldToEventLoop } from '../startup/yield.ts';
 import { t0, type LaunchMeasure, type RenderEvidence } from '../startup/measure.ts';
-import type { AppConfig } from '../theme/app-config.ts';
+import { readKindsFile, type AppConfig } from '../theme/app-config.ts';
 import { applyWeightOffset, platformOf } from '../theme/offset.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
 // Static, as it was through save.ts before B-11: a lazy chunk here would put the first title (and the
@@ -193,6 +192,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
 
   /** The open document's kind and reasons, decided in `readAndShow` and not again until it is opened again (ADR-0060 item 6). */
   let detected: DetectResult | null = null;
+  /** The launch's kind when kinds.json was still being read as the page was first written: settled once it is decided again (K-05a.1). */
+  let launchRedecide: Promise<void> | null = null;
 
   /**
    * The reader's `[[kind]]` rules (config.toml) and *show as* choices (kinds.json), for the file about to open.
@@ -211,15 +212,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
               (bytes) => parseConfig(bytes, { home: inferHomeFromConfig(configPath) }).config.kindRules,
               () => [],
             ),
-        data === ''
-          ? emptyKindsEnvelope()
-          : shell.readFile(joinPath(data, 'kinds.json')).then(
-              (bytes) => {
-                const loaded = parseKindsFile(bytes);
-                return loaded.envelope;
-              },
-              () => emptyKindsEnvelope(),
-            ),
+        readKindsFile(shell, data),
       ]);
       return { rules, choices };
     } catch {
@@ -227,14 +220,39 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     }
   }
 
+  /** Detects what `file` is from its first bytes and the reader's rules and choices, and puts it on the pane's root. */
+  function applyKind(file: string, bytes: Uint8Array, inputs: KindInputs): DetectResult {
+    const result = detectFileKind({ path: file, head: bytes.subarray(0, KIND_HEAD_BYTES), rules: inputs.rules, choices: inputs.choices });
+    detected = result;
+    setPaneKind(doc.closest('section.marxy-pane'), result.kind);
+    return result;
+  }
+
   /**
    * Decides what `file` is, from its first bytes: the reader's *show as* beats a rule and a rule beats detection
    * (`detectFileKind`), and the pane's root is given the result.
    */
   async function decideKind(file: string, bytes: Uint8Array, inputs: Promise<KindInputs> = readKindInputs()): Promise<void> {
-    const { rules, choices } = await inputs;
-    detected = detectFileKind({ path: file, head: bytes.subarray(0, KIND_HEAD_BYTES), rules, choices });
-    setPaneKind(doc.closest('section.marxy-pane'), detected.kind);
+    applyKind(file, bytes, await inputs);
+  }
+
+  /**
+   * The launch document's kind (K-05a.1), decided before its first paint from what the pre-paint config read already
+   * holds: the rules from its bytes, and kinds.json if that read, started beside the document's own, has finished.
+   * A kinds.json still being read is not waited for (commitment 5): the kind is decided without it, and the
+   * returned promise redecides once it arrives, unless the answer is the same or another document has opened.
+   */
+  function decideLaunchKind(file: string, bytes: Uint8Array): Promise<void> | null {
+    const known = config.launchKindInputs();
+    const first = applyKind(file, bytes, { rules: known.rules, choices: known.choices ?? emptyKindsEnvelope() });
+    if (known.choices !== null) return null;
+    return known.later.then((choices) => {
+      if (detected !== first || closed) return;
+      const next = detectFileKind({ path: file, head: bytes.subarray(0, KIND_HEAD_BYTES), rules: known.rules, choices });
+      if (next.kind === first.kind) return;
+      detected = next;
+      setPaneKind(doc.closest('section.marxy-pane'), next.kind);
+    });
   }
 
   const serially = <T>(fn: () => Promise<T>): Promise<T> => view.serially(fn);
@@ -353,8 +371,11 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     const stored = persistence.storedFor(path, buffer.bytes.length);
     if (!stored) return;
     landing = stored.byteOffset;
-    // A file that opens in Source is put there by finishDocumentOpen, at this byte.
-    if (defaultModeForPath(path) === 'source') return;
+    // A file that opens in Source is already in Source (V-11); its stored place is a byte in it, not a block of a page.
+    if (defaultModeForPath(path) === 'source') {
+      if (view.mode === 'source') await view.showSource(stored.byteOffset);
+      return;
+    }
     // A place kept in Source is a line, not a fraction of a block: its block, at the top (S-08-0001).
     const position = stored.mode === 'source' ? { ...stored, fraction: 0, mode: 'rendered' as const } : stored;
     view.restore(position);
@@ -370,10 +391,15 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     at: number | undefined,
     start: Promise<unknown>,
     scratch?: OpenOptions['scratch'],
-    kind: 'now' | 'keep' | 'later' = 'now',
+    kind: 'now' | 'keep' | 'launch' = 'now',
   ): Promise<RenderEvidence> {
+    // A file that opens in Source loads Source's code while the file is read, not after it (V-11).
+    const opensInSource = defaultModeForPath(file) === 'source';
+    if (opensInSource) view.warmSource(file);
     // The reader's rules and choices are read beside the file, not after it.
     const kindInputs = kind === 'now' ? readKindInputs() : null;
+    // config.toml is read beside the document, not after it (and, at launch, kinds.json starts with it).
+    const applying = config.applyOnce(document.documentElement, { kinds: kind === 'launch' });
     // Shown in another pane: its store is the document, unsaved edits and all, and is not read again.
     const shown = deps.stores?.held(file) ?? null;
     const untitled = isUntitled(file);
@@ -384,7 +410,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       if (!scratch) throw new Error('That new document is no longer open.');
       bytes = scratch.bytes;
     } else bytes = await shell.readFile(file);
-    await config.applyOnce(document.documentElement);
+    await applying;
     let lands = at;
     if (lands === undefined && !untitled) {
       const stored = persistence.storedFor(file, bytes.length);
@@ -404,14 +430,12 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       if (closed) throw new Error('closed while the document was read');
     }
     teardownDocument();
-    // The kind is decided here, once per open, from the file's own first bytes (`decideKind`). A reload of this
-    // document never comes back through here; only an open does. `rejoin` shows the same document again and
-    // keeps its kind; the launch's document is decided right after first text instead (`bootDocument`).
+    // The kind is decided here, once per open, from the file's own first bytes (`decideKind`), before the page is
+    // touched. A reload of this document never comes back through here; only an open does. `rejoin` shows the same
+    // document again and keeps its kind. The launch's document is decided from the reads the pre-paint config
+    // read already made, without waiting for any that is still out (`decideLaunchKind`).
     if (kindInputs) await decideKind(file, bytes, kindInputs);
-    else if (kind === 'later') {
-      detected = null;
-      setPaneKind(doc.closest('section.marxy-pane'), null);
-    }
+    else if (kind === 'launch') launchRedecide = decideLaunchKind(file, bytes);
     scratchLabel = untitled ? scratch?.label : undefined;
     clearDismissForPath(file);
     await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
@@ -440,6 +464,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       at: lands,
       start,
       sliced: slices,
+      source: opensInSource,
       onMounted: () => {
         for (const follow of [...followers]) follow(opened);
       },
@@ -454,15 +479,18 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
    * the mode, the watch and the title.
    */
   async function finishDocumentOpen(file: string, opts: { at?: number; firstOpen?: boolean; sliced?: boolean } = {}): Promise<void> {
+    // A file that opens in Source was shown there by `readAndShow`, with no page made (V-11): nothing is typeset
+    // and there is no page for images, math or highlighting; the Rendered pass waits for the reader's first ask.
+    const inSource = defaultModeForPath(file) === 'source';
     if (opts.firstOpen) await persistence.ensureLoaded(dirname(file));
     if (opts.sliced) await yieldToEventLoop();
-    await view.typeset();
+    if (!inSource) await view.typeset();
     if (opts.firstOpen) await restorePersistedPosition();
-    const deferred = view.deferredWork(file);
+    const deferred = inSource ? null : view.deferredWork(file);
     // A scratch document is in no repository: it is not indexed, watched or offered a theme beside it (E-13).
     const scratch = isUntitled(file);
     await whenIdle(async () => {
-      await deferred();
+      await deferred?.();
       if (!scratch) {
         indexing = index.ensureFor(file, current?.snapshot().buffer.bytes);
         void indexing;
@@ -470,11 +498,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       await config.startUserTheme();
     });
     await shell.mark('position_restored', Date.now());
-    if (defaultModeForPath(file) === 'source') {
-      await view.showSource(opts.at ?? landing ?? 0);
-    } else {
-      view.showRenderedChrome();
-    }
+    if (!inSource) view.showRenderedChrome();
     if (!scratch) {
       await config.offerThemeDocument(file);
       if (current) await watches.watch(current);
@@ -496,6 +520,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       return;
     }
     const chunks = gate();
+    // Until this open ends, a mode press is dropped: it meant the page the reader was looking at (V-11).
+    const endOpen = view.beginOpen();
     try {
       await readAndShow(file, at, chunks.promise, scratch, again && detected !== null ? 'keep' : 'now');
       chunks.release();
@@ -515,6 +541,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       const message = document.createElement('p');
       message.textContent = String(e);
       doc.replaceChildren(message);
+    } finally {
+      endOpen();
     }
   }
 
@@ -539,11 +567,12 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
 
   /** The launch's document, through first text, then the rest of the open with its stored place. */
   async function bootDocument(file: string, after: number, chunks: ReturnType<typeof gate>): Promise<void> {
-    // The launch's kind waits for first text: the reader's rules and kinds.json are two more reads, and the
-    // first text never waits for a read it does not need (commitment 5; launch-reads tests pin the record).
-    const evidence = await readAndShow(file, undefined, chunks.promise, undefined, 'later');
+    // The kind is on the pane root before the first write (a profile that changes the face or the column would
+    // otherwise move the page after first text). Its inputs are the reads the launch makes anyway; none is waited for.
+    const evidence = await readAndShow(file, undefined, chunks.promise, undefined, 'launch');
     const renderedAt = Date.now();
-    const outcome = await measure.waitForFirstText(doc, evidence, after, renderedAt);
+    // First text is what the reader sees: Source for a file that opened there, else the article (V-11).
+    const outcome = await measure.waitForFirstText(view.mode === 'source' ? view.host.sourceHost : doc, evidence, after, renderedAt);
     // F-17: a document with no text (only images) was not painted as text, and the measurement said so
     // with `no_text`, but it is a document: it opens like any other and ends with finish(0). F-17.1: what
     // makes it a document is its source (a byte that is not white space), not the rendered selector, which
@@ -552,10 +581,11 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     const textless = outcome === 'no_text' && hasSource;
     if (outcome !== 'painted' && outcome !== 'frames_only' && !textless) return measure.finish(1);
     chunks.release();
-    if (current) await decideKind(file, current.snapshot().buffer.bytes);
     await finishDocumentOpen(file, { firstOpen: true });
     setTimeout(() => void trust.load().then(() => trust.maybeRerenderForLateTrust()), 0);
     await indexing;
+    // A kinds.json that was slower than the document's read has had its say by now (a no-op for nearly every launch).
+    await launchRedecide;
     return measure.finish(0);
   }
 
@@ -588,10 +618,12 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     // A large document's idle chunks wait for first text: anything appended before the paint would be
     // styled and laid out in the frame first text is waiting for.
     const chunks = gate();
+    const endOpen = view.beginOpen();
     try {
       return await bootDocument(file, after, chunks);
     } finally {
       chunks.release();
+      endOpen();
     }
   }
 

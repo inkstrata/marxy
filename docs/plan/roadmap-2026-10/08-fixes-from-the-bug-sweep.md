@@ -482,3 +482,69 @@ Proposed: fall back after two animation frames and about 2 s, and mark the resul
 stays honest and a frames-only boot is never reported as a paint. Acceptance: paint-signal tests for the paint path,
 the fallback path and the marker (red on main); the smoke verdict reads the marker; the author's ruling on ADR-0013
 recorded before the PR merges (ruled yes, 2026-10-11).
+
+### F-34.1 — The Source text holds every byte, so a Source fold writes exactly what the reader changed
+
+**Model:** opus (the card rule: three Sonnet attempts at F-34 were returned) · **Size:** M · **Depends on:** F-33
+(merged) · *From F-34 (PR #576, closed after its third return, 2026-10-11); true on main.* · **ADR:** 0069 (proposed,
+drafted in this story's PR; no contract changes). · **Paths:** `packages/core/src/buffer/*` and their tests,
+`apps/desktop/src/source/buffer-commit.ts` and the Source editor's decode and encode seam (`cm-position.ts`,
+`editor.ts`, `paste.ts`, `structure.ts`'s CSV copy, a new `stray-bytes.ts`, the Source harness and its tests), the
+one Source read in `apps/desktop/src/commands/copy-as.ts`, `apps/desktop/test/support/store-walk.mjs` (remove `holdsOpenFinding`),
+`apps/desktop/test/store-walk.test.mjs` (the `todo` becomes a test), an app-level WebKit test, the ADR, this card,
+`changelog.d/F-34.1.md`. Commitment 3, faithful to the bytes. Source edits fold back into bytes through text, and the
+editor's text was the reading decode, in which every byte that is not UTF-8 is the same U+FFFD: the text could not say
+which byte stood where, so two edits either side of one wrote it as `EF BF BD`, and each diff over that text in #576
+wrote a wrong or lost byte (a moved line, a deleted neighbour, twin lines with different bytes). **Decision
+(ADR-0069):** Source decodes for the bytes. Each byte of an invalid sequence is its own code unit, the lone surrogate
+U+DC00 + byte (PEP 383's surrogateescape), which valid UTF-8 never produces; encoding maps it back, and a real or typed
+U+FFFD stays `EF BF BD`. The fold is then exact by construction: the file is the bytes the edited text names, moves and
+copies included. Only the editor holds this text: Rendered, find, the outline and the index keep reading U+FFFD; a copy,
+cut, drag, Copy as or table CSV copy writes U+FFFD; the editor's own copy, cut or drag carries the exact text in a type of its own on the same pasteboard
+item and only a paste or drop of that item restores it (another program's copy replaces the item), and any other
+lone surrogate pasted in is U+FFFD; the find panel's query and announcements read U+FFFD; the table tools keep a stray; each stray byte is marked in Source with its value (`E9`, labelled for a screen reader).
+A continuation byte that belongs to no character is a splice boundary (this settles F-35's `RangeError`).
+**Acceptance:** the F-33 finding and every case from #576's reviews (moves, duplicates and swaps of lines with
+different strays, a typed U+FFFD beside a stray, a deleted neighbour, inserts around a stray line, 1 MB rewrites, each
+kind of invalid sequence, BOM and CRLF) are tests asserting exact bytes, red on main
+(`apps/desktop/src/source/stray-bytes.test.mjs`); a property test over random bytes with random deletes, typing
+(U+FFFD included), moves, duplicates and swaps asserts the fold writes exactly the bytes the edited text names
+(`fold-text.property.test.ts`); valid UTF-8 folds byte for byte as main's `foldText` did (the same file, against a copy
+of it); the walk with `holdsOpenFinding` removed passes at 2,000 seeds and with `MARXY_WALK_FINDINGS=1` (now a no-op)
+at 300; no lone surrogate reaches the page, the clipboard (Copy as included) or the index (WebKit and core tests);
+one edit in 1 MB within 1.5x of main; `gate:fidelity` and the goldens unchanged. **Left:** the block editor in Rendered
+(ADR-0048, `foldSlice`) still folds through the reading text; the same decoding applied there is a follow-up.
+
+### F-34.2 — Stray-byte follow-ups: a forged paste, the second undo after a save, and the block editor
+
+**Model:** opus · **Size:** M · **Depends on:** F-34.1 (merged, #584) · *From the two reviews of #584; true on main.* ·
+**ADR:** 0069 (amended; still proposed for the author to accept). **Paths:** `apps/desktop/src/source/stray-bytes.ts` and
+its tests, `editor.ts` and `editor-cm6.ts` (the history's join), `harness-entry.ts`, `block-editor.ts`,
+`apps/desktop/src/commands/block-edit.ts`, `packages/core/src/buffer/*` (the seam: `fold-slice.ts`, `source-text.ts`)
+and their tests, `apps/desktop/test/block-edit.test.mjs`, the ADR and its index row, this card, `changelog.d/F-34.2.md`;
+and, one line outside the card's list, `apps/desktop/src/document/store.ts` (`apply` takes bytes as well as text, which
+the block editor's fold needs to write a stray byte: the store encodes a string, and a lone surrogate would be
+`EF BF BD`). Commitment 3, faithful to the bytes. Three items:
+
+1. **A pasted private item may name stray bytes and nothing else.** A lone surrogate outside U+DC80 to U+DCFF in
+   `application/x-marxy-source-text` (a lone high surrogate fuses with a stray byte already in the text: the reviewer's
+   forged `"\ud800"` pasted before `FF` wrote `F0 90 83 BF`) makes the item be read as its plain text.
+2. **The second Mod+Z after a save is byte-exact.** When two stray bytes made neighbours spell a character (`C3`, `A9`),
+   the save's read-back replaced them with the character outside the history, and the undo of the line break between
+   them was mapped into the character. The read-back is now a step of the history, joined to the reader's last edit, so
+   undoing that edit restores the text the reader had. Left, and written in the ADR: when the caret moved after the typing
+   the read-back is a step of its own (the first Mod+Z shows the two bytes boxed again; no byte changes), and a read-back
+   ends a pending redo.
+3. **The Rendered block editor holds the Source text of its block.** `foldSlice` folds over `sourceTextOfRange`, each stray
+   byte its own code unit, and the store applies the bytes; the editor marks the byte as Source does, and its copy and
+   paste carry the private type. A stray byte the reader did not edit keeps its bytes, however many edits are made
+   around it.
+
+**Acceptance:** the forged item (a lone high surrogate, a lone low one below U+DC80, a mixed one) pasted before a stray
+byte pastes the readable text and leaves the byte (`stray-bytes.test.mjs`, and `strayClipboard` in
+`source-browser.test.mjs`; red without the check); after the save in the C3/A9 case every Mod+Z is byte-exact, with the
+caret moved and with a redo pending as well (`strayJoin`, `source-browser.test.mjs`; red without the join); a block edit
+beside a stray, and either side of one, keeps it exact, Esc keeps the edit, and one Mod+Z is exact (`block-edit.test.mjs`,
+`fold-slice.test.ts`; red on main), and a property test over random files, slices, moves, copies and typed U+FFFD asserts
+the slice fold writes exactly the bytes the edited slice text names (`fold-text.property.test.ts`); the walk at 2,000
+seeds and `MARXY_WALK_FINDINGS=1` at 300; `gate:fidelity` and the goldens unchanged.

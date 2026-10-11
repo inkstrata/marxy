@@ -62,6 +62,23 @@ reviewed, merge pending), H-03.1 (#523), B-24 (#521). **Not started**: D-14 (and
 
 ---
 
+### H-04.3 — Preload the Classic faces a kind profile sets text in
+
+**Model:** sonnet · **Size:** S · **Depends on:** H-04.1, K-05a.1 (merged) · **Parallel with:** K-05b
+**Outcome.** The roman faces the default theme's roles use on a launch screen are preloaded: Literata (book, the default), Source Serif 4 (article), Atkinson Hyperlegible Next (report, notes), Inter (README) and JetBrains Mono (code). Italics are not (nothing on a first screen sets in them unless it has emphasis, and Literata's italic was already unpreloaded).
+
+**Why now.** With K-05b's profiles a report's layout shift on launch was 0.337: Atkinson Hyperlegible Next arrived about 7 ms after first paint.
+
+**Paths.** `apps/desktop/src/fonts/files.mjs` (three flags), `apps/desktop/test/fonts.test.mjs` (the preload set), this card, `changelog.d/H-04.3.md`.
+
+**Measured** (headless WebKit, memory shell, dev server; 20 interleaved launches each, A/A noise on this machine about 8 ms). First text, median ms, main vs branch: readme 62 / 61, article 90 / 93, report 52 / 53, 195 KB reference 334 / 327; with fonts loaded, article 111 / 116, reference 358 / 347. All within the noise. Layout shift with K-05b's rules injected in the page only: report 0.337 on main, 0.000 here; readme and article 0.000 both; dark and light. Bytes newly preloaded: 1,604,636 (Source Serif 4 1,204,208; Inter 352,240; Atkinson 48,188), over 1,255,276 already (Literata, JetBrains Mono). Only one of the three kind faces is used per launch; the cost is read-ahead from the local bundle.
+
+**Do not.** Preload italics or the licence files; change the `@font-face` rules.
+
+**Risks.** `vite.config.ts` writes `type="font/ttf"` on every preload link, including the two woff2 faces; the fetch is shared with the later `@font-face` use regardless (one request per file), but the type should follow the file in a later change.
+
+---
+
 ### H-06 — Measure the average character width per face and size, in the app
 
 **Model:** opus · **Size:** M · **Depends on:** H-03 (merged) · **Parallel with:** H-04, V-01

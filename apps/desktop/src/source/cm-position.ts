@@ -3,8 +3,10 @@
 // A CodeMirror position counts every line break as one unit, and the editor's document leaves the BOM
 // out; a buffer offset counts the BOM and both characters of a `\r\n`. Anywhere one meets the other it
 // goes through this pair, so a CRLF file or one with a BOM does not drift a position per line above it.
+// The editor holds the Source text, where a stray sequence of several bytes is several code units and the
+// buffer's text has one U+FFFD for it (F-34.1): the pair crosses that too, through the bytes.
 
-import type { Buffer } from '@marxy/core';
+import { type Buffer, sourceToTextOffset, textToSourceOffset } from '@marxy/core';
 
 /** The part of an `EditorState` the conversion reads, so a test can stand one in. */
 export interface CmStateLike {
@@ -25,12 +27,12 @@ export function cmPosToUtf16(buffer: Buffer, state: CmStateLike, pos: number): n
   const p = Math.max(0, Math.min(pos, state.doc.length));
   const extra = state.lineBreak.length - 1;
   const lines = extra > 0 ? (state.doc.lineAt(p).number - 1) * extra : 0;
-  return p + lines + bomLength(buffer);
+  return sourceToTextOffset(buffer, p + lines + bomLength(buffer));
 }
 
 /** The CodeMirror position of a buffer UTF-16 offset (an offset inside a `\r\n` lands before it). */
 export function utf16ToCmPos(buffer: Buffer, state: CmStateLike, offset: number): number {
-  const off = Math.max(0, offset - bomLength(buffer));
+  const off = Math.max(0, textToSourceOffset(buffer, offset) - bomLength(buffer));
   const extra = state.lineBreak.length - 1;
   if (extra <= 0) return Math.min(off, state.doc.length);
   // The last line whose start, counted in buffer offsets, is at or before `off`.

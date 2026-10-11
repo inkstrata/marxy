@@ -7,6 +7,7 @@ import {
   COPY_TARGETS,
   copyAsFromOperation,
   copyAsFromText,
+  readableText,
   textOf,
   titleFor,
   type CopyAsInput,
@@ -62,7 +63,9 @@ async function sourceInput(): Promise<CopyAsInput | null> {
   const state = activeSourceEditor()?.view.state;
   if (!state) return null;
   const { from, to } = state.selection.main;
-  const text = from === to ? state.doc.sliceString(0, state.doc.length, state.lineBreak) : state.doc.sliceString(from, to, state.lineBreak);
+  const held = from === to ? state.doc.sliceString(0, state.doc.length, state.lineBreak) : state.doc.sliceString(from, to, state.lineBreak);
+  // A byte that is not UTF-8 is a lone surrogate in the editor's text; it is copied as U+FFFD (F-34.1).
+  const text = readableText(held);
   const path = pathOfOpen();
   return copyAsFromText(text, path === undefined ? {} : { path });
 }

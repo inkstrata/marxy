@@ -305,3 +305,14 @@ test('foldText fuzz: LF input on CRLF buffers yields no bare LF; CRLF input is u
   }
   assert.ok(checked > 500);
 });
+
+test('a continuation byte that belongs to no character is a boundary; one inside a character is not (F-34.1, F-35)', () => {
+  const stray = createBuffer('s.md', Uint8Array.from([0x80, 0x61, 0xbf, 0xe2, 0x82, 0x62, 0xe6, 0x9d, 0xb1]));
+  // A lone 80 at the start, a lone BF, and the 82 of a cut-off E2 82: each may start or end a splice.
+  assert.deepEqual([...splice(stray, range('s.md', 0, 1), '').bytes], [0x61, 0xbf, 0xe2, 0x82, 0x62, 0xe6, 0x9d, 0xb1]);
+  assert.deepEqual([...splice(stray, range('s.md', 2, 3), 'X').bytes], [0x80, 0x61, 0x58, 0xe2, 0x82, 0x62, 0xe6, 0x9d, 0xb1]);
+  assert.deepEqual([...splice(stray, range('s.md', 4, 5), '').bytes], [0x80, 0x61, 0xbf, 0xe2, 0x62, 0xe6, 0x9d, 0xb1]);
+  // The 9D and B1 of a whole 東 (E6 9D B1) are inside a character.
+  assert.throws(() => splice(stray, range('s.md', 7, 9), ''), RangeError);
+  assert.throws(() => splice(stray, range('s.md', 6, 8), ''), RangeError);
+});

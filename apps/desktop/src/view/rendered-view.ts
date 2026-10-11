@@ -14,6 +14,7 @@ import type { AppContext } from '../commands/registry.ts';
 import type { PieceSource } from '../frontispiece/pieces.ts';
 import { wireArticle } from '../commands/document.ts';
 import type { DocumentSnapshot, DocumentStore, Transition } from '../document/store.ts';
+import { documentName } from '../document/untitled.ts';
 import { currentPosition as positionOf, restoreScrollToPosition } from '../position/index.ts';
 import type { ScrollerGeometry } from '../position/position.ts';
 import { renderRecord, spliceRendered, type RenderRecord } from '../render/incremental.ts';
@@ -24,7 +25,7 @@ import { yieldToEventLoop } from '../startup/yield.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
 import { notify, paneOf, SOURCE_HELD_APART } from '../notices/index.ts';
-import { leaveSourceMode } from '../source/buffer-commit.ts';
+import { cmDocText, leaveSourceMode } from '../source/buffer-commit.ts';
 import { type CmStateLike, cmPosToUtf16, utf16ToCmPos } from '../source/cm-position.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from '../startup/idle-work.ts';
 import type { LaunchMeasure, RenderEvidence } from '../startup/measure.ts';
@@ -136,8 +137,23 @@ export interface RenderedView {
    * are in and the selection has been told, before the `rendered` mark. `sliced` (D-15) renders and parses a
    * large document a few milliseconds at a time with the event loop given back between slices, for a pane
    * opening beside another: the page it makes is the same, and first text comes a little later.
+   *
+   * `source` (V-11): the document opens in Source, so no page is made for it now. Source is mounted at `at`
+   * (a failed mount says so and shows the file as plain text), the Rendered page is made when the reader first
+   * asks for Rendered, and the evidence is Source's own text.
    */
-  show(store: DocumentStore, opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void; sliced?: boolean }): Promise<RenderEvidence>;
+  show(
+    store: DocumentStore,
+    opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void; sliced?: boolean; source?: boolean },
+  ): Promise<RenderEvidence>;
+  /**
+   * An open of a document begins in this view (V-11): until the returned function is called a mode press is
+   * dropped, as is one already queued behind it. A press means the document the reader was looking at; the
+   * one opening is not that, and a toggle applied after it opened would undo the mode it opened in.
+   */
+  beginOpen(): () => void;
+  /** Starts loading Source's code for `path`, so an open that ends in Source does not wait for it after the file is read. */
+  warmSource(path: string): void;
   /** The store shown, or null. */
   store(): DocumentStore | null;
   /** The page again from the shown store's snapshot (a trust change); `at` lands the mount and, given a fraction, is restored. */
@@ -163,8 +179,10 @@ export interface RenderedView {
   /** Resolves when the shown document is wholly in the article. */
   contentComplete(): Promise<void>;
   readonly mode: 'rendered' | 'source';
-  /** Rendered to Source or back, on the view's queue. */
+  /** Rendered to Source or back, on the view's queue: each call is a request against the mode the calls before it end in. */
   toggleMode(): Promise<void>;
+  /** `mode`, on the view's queue; a call for the mode the calls before it end in changes nothing (V-11). */
+  setMode(mode: 'rendered' | 'source'): Promise<void>;
   /** Source at `byteOffset` on the view's queue (Jump to source). */
   jumpToSource(byteOffset: number): Promise<void>;
   /** Source at `byteOffset`, now (the caller is already on the queue). */
@@ -392,7 +410,21 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   let activeSourceEditorIn: ((parent: HTMLElement) => MountedSourceEditor | null) | null = null;
   let lastReadingByteOffset = 0;
   let lastReadingFraction = 0;
-  let modeToggleBusy = false;
+  /**
+   * Mode requests not yet done (Mod+E, Read, Source, Jump to source), and the mode the last of them ends in
+   * (V-11). A press is a request against the mode the queue before it ends in, so ten presses end where ten
+   * flips would, and none is dropped for arriving while another is under way.
+   */
+  let modeRequests = 0;
+  let modeEndsIn: 'rendered' | 'source' = 'rendered';
+  /** Opens under way in this view, and a count of them started: see `beginOpen`. */
+  let opening = 0;
+  let openings = 0;
+  /**
+   * The file is shown as plain text in Rendered because Source could not be mounted and no page was ever made
+   * for it (K-R4): a reload sets that text again and does not render the file as Markdown in its place.
+   */
+  let plainText = false;
   /**
    * The hidden article is behind the store: a fold committed while Source showed (B-27) did not set it from
    * the new bytes, since nobody can see it. Whatever shows Rendered again sets it first (`showRendered`).
@@ -565,11 +597,13 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     return sourceEditor;
   }
 
-  async function showSource(byteOffset: number): Promise<void> {
+  /** Source at `byteOffset`; rejects when the editor cannot be made (`showSource` says so instead). */
+  async function mountSource(byteOffset: number): Promise<void> {
     releaseAnchor();
     lastReadingByteOffset = byteOffset;
     sourceEntryPlace = null;
     const editor = await ensureSourceEditor();
+    plainText = false;
     setModeChrome('source');
     editor.scrollToByte(byteOffset);
     // Where Source landed, as the reading line reads it: near either end of a document the window
@@ -585,6 +619,49 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
         }
       }),
     );
+  }
+
+  /**
+   * Source at `byteOffset`, now. A Source that cannot be mounted (its code did not load) never rejects and never
+   * loses the document: the reader is told what failed, and Rendered stays; a file that has no page yet is
+   * shown there as plain text (K-R4).
+   */
+  async function showSource(byteOffset: number): Promise<void> {
+    try {
+      await mountSource(byteOffset);
+    } catch (e) {
+      showSourceFailure(e);
+    }
+  }
+
+  function showSourceFailure(e: unknown): void {
+    const path = openPathNow();
+    const reason = (e instanceof Error ? e.message : String(e)).trim().replace(/\.$/, '');
+    console.warn(`marxy: Source could not be mounted: ${reason}`);
+    setModeChrome('rendered');
+    // No page was ever made for this file (it opens in Source): the reader still gets its text, as it is.
+    const bare = mount === null;
+    if (bare) showPlainText();
+    notify(
+      {
+        kind: 'info',
+        text: `Source could not open ${path ? documentName(path) : 'this file'}: ${reason}.${bare ? ' The file is shown here as plain text.' : ''}`,
+      },
+      { pane: paneOf(doc) },
+    );
+  }
+
+  /** The buffer's text, verbatim, in one monospace block: the page of a file whose Source would not mount. */
+  function showPlainText(): void {
+    const buffer = bufferNow();
+    if (!buffer) return;
+    const pre = document.createElement('pre');
+    const code = document.createElement('code');
+    code.textContent = cmDocText(buffer);
+    pre.append(code);
+    doc.replaceChildren(pre);
+    plainText = true;
+    afterRender();
   }
 
   async function showRendered(byteOffset: number, fraction: number): Promise<void> {
@@ -655,33 +732,67 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     await showRendered(byteOffset, fraction);
   }
 
-  async function toggleViewMode(): Promise<void> {
-    if (modeToggleBusy || !store) return;
-    // A block open in place leaves first, so Source shows what was typed there (E-04).
-    await blockEdit?.fold();
-    modeToggleBusy = true;
-    try {
-      await serially(async () => {
-        if (viewMode === 'rendered') await enterSourceFromRendered();
-        else await leaveSourceForRendered();
-      });
-    } finally {
-      modeToggleBusy = false;
-    }
+  /**
+   * A request for a mode, on the view's queue (V-11). `target` is the mode it asks for, fixed when it is made:
+   * against the mode the requests before it end in, or the mode in force when there are none. It is dropped
+   * while a document is opening here, and when a document opened after it was made: it meant the page the
+   * reader was looking at, not the one that replaced it. `run` is done on the queue, with the block open in
+   * place folded first, so Source shows what was typed there (E-04).
+   */
+  function requestMode(target: 'rendered' | 'source', run: () => Promise<void>): Promise<void> {
+    const made = openings;
+    modeRequests += 1;
+    modeEndsIn = target;
+    return serially(async () => {
+      if (made !== openings || !store) return;
+      await blockEdit?.fold();
+      await run();
+    }).finally(() => {
+      modeRequests -= 1;
+    });
   }
 
-  async function jumpToSource(byteOffset: number): Promise<void> {
-    if (modeToggleBusy || !store) return;
-    await blockEdit?.fold();
-    modeToggleBusy = true;
-    try {
-      await serially(async () => {
-        lastReadingFraction = 0;
-        await showSource(byteOffset);
-      });
-    } finally {
-      modeToggleBusy = false;
-    }
+  /** `target` for the requests so far: a request that would only ask for the mode the queue ends in changes nothing. */
+  function requestSwitchTo(target: 'rendered' | 'source'): Promise<void> {
+    if (!store || opening > 0) return Promise.resolve();
+    return requestMode(target, async () => {
+      if (viewMode === target) return;
+      if (target === 'source') await enterSourceFromRendered();
+      else await leaveSourceForRendered();
+    });
+  }
+
+  /** Mod+E: the other mode than the one the requests before it end in. */
+  function toggleViewMode(): Promise<void> {
+    return requestSwitchTo((modeRequests > 0 ? modeEndsIn : viewMode) === 'rendered' ? 'source' : 'rendered');
+  }
+
+  /** Read or Source (Mod+1, Mod+3): that mode, however many times it is asked for. */
+  function setViewMode(target: 'rendered' | 'source'): Promise<void> {
+    return requestSwitchTo(target);
+  }
+
+  function jumpToSource(byteOffset: number): Promise<void> {
+    if (!store || opening > 0) return Promise.resolve();
+    return requestMode('source', async () => {
+      lastReadingFraction = 0;
+      await showSource(byteOffset);
+    });
+  }
+
+  function beginOpen(): () => void {
+    opening += 1;
+    openings += 1;
+    let ended = false;
+    return () => {
+      if (ended) return;
+      ended = true;
+      opening -= 1;
+    };
+  }
+
+  function warmSource(path: string): void {
+    void import('../source/warm.ts').then((m) => m.warmSourceEditor(path)).catch(() => {});
   }
 
   function sourceHarness(): SourceHarness | null {
@@ -1028,6 +1139,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     store = null;
     shown = null;
     pageStale = false;
+    plainText = false;
     releaseAnchor();
     destroyTypeset();
     disconnectResizeObserver();
@@ -1106,10 +1218,19 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     }
     if (sourceEditor && !heldApart) replaceSourceBuffer(sourceEditor, snapshot.buffer);
     releaseAnchor();
+    // The file is on screen as plain text because Source would not mount (K-R4): its new bytes, as plain text.
+    if (plainText) {
+      showPlainText();
+      settlePage(Promise.resolve());
+      return;
+    }
     const t0 = performance.now();
+    // A file that opened in Source has no page yet (V-11): Source has the new bytes, and Rendered is made from
+    // them when the reader first asks for it, so nothing is made now for a page nobody sees.
+    const unmade = pageUnmade();
     // A reload replaces only the blocks it changed when it can show that the result is the whole render (B-24);
     // anything else sets the page whole, as every other transition does.
-    const fell = reload ? splicePage(snapshot) : 'not a reload';
+    const fell = unmade ? null : reload ? splicePage(snapshot) : 'not a reload';
     if (fell !== null) rerenderFromBuffer(landing ?? position.byteOffset);
     const typesetting = fell === null ? (typeset?.ready ?? Promise.resolve()) : typesetDocument();
     if (viewMode === 'source' && sourceEditor) {
@@ -1427,6 +1548,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    */
   function rerenderFromBuffer(at?: number | Pick<ReadingPosition, 'byteOffset' | 'fraction'>): void {
     if (!store) return;
+    if (plainText) return showPlainText();
+    if (pageUnmade()) return;
     pageStale = false;
     const { path: file, ast, nodeMap, buffer } = store.snapshot();
     // The page is about to go: a block open in place goes with it, its text kept (a trust change, a fold of
@@ -1441,6 +1564,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     trust.showNotices(removed, blockedImages, { path: file, buffer, pane: paneOf(doc) });
     snap(doc);
     startTypeset(doc);
+    // A page made here for the first time (a document that opened in Source, V-11) has no resize observer or
+    // font listener yet: `show` gives them to a page it makes.
+    if (resizeObserver === null) keepOnGrid(doc);
     if (at !== undefined && typeof at !== 'number') {
       mountThrough(at.byteOffset);
       restoreTo(shown.blocks, {
@@ -1520,15 +1646,56 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     void afterComplete(current, () => (generation === deferredGeneration ? whenIdle(deferredStartup(file)) : Promise.resolve()));
   }
 
+  /** A file that opened in Source (V-11) has made no page, and Source is showing: nothing sets a page now. */
+  function pageUnmade(): boolean {
+    return mount === null && pageStale && viewMode === 'source';
+  }
+
+  /**
+   * The open of a document whose mode is Source (V-11): Source first, and no page. The Rendered page is made
+   * when the reader first asks for Rendered (`showRendered` finds the page stale and renders it then), so
+   * nothing Markdown-shaped is made, let alone painted, for a Python file on its way to Source. The evidence
+   * first text is measured on is Source's text, or the plain text a failed mount fell back to.
+   */
+  async function showInSource(
+    next: DocumentStore,
+    opts: { at?: number; onMounted?: () => void },
+  ): Promise<RenderEvidence> {
+    const { path: file, ast, nodeMap } = next.snapshot();
+    // A page that is not on screen yet: `document()` still answers, from the parse, and the HTML is made when read.
+    shown = openDocumentOf(ast, nodeMap, [], null, () => renderDocumentSafeHtml(ast, trust.policyFor(file)).html);
+    pageStale = true;
+    await showSource(opts.at ?? 0);
+    if (store !== next) throw new Error('the document was replaced while Source was mounted');
+    // The page of whatever was open before is behind Source now, hidden; it goes. (A failed mount has put the
+    // file's plain text there instead.)
+    if (viewMode === 'source') doc.replaceChildren();
+    afterRender();
+    opts.onMounted?.();
+    await shell.mark('rendered', Date.now());
+    const evidence = sourceEvidence();
+    await shell.mark('render', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars} heading=${evidence.heading}`);
+    return evidence;
+  }
+
+  /** What first text is measured on when Source is what showed: its lines and the file's characters. */
+  function sourceEvidence(): RenderEvidence {
+    const buffer = bufferNow();
+    if (viewMode !== 'source' || !buffer) return deps.measure.renderEvidence(doc);
+    const text = buffer.text;
+    return { blocks: sourceHost.querySelectorAll('.cm-line').length, chars: text.length, hasText: /\S/.test(text), heading: '' };
+  }
+
   /** The render half of an open (MARXY-183): the store's snapshot into the article through the `render` mark. */
   async function show(
     next: DocumentStore,
-    opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void; sliced?: boolean },
+    opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void; sliced?: boolean; source?: boolean },
   ): Promise<RenderEvidence> {
     if (store !== null) clear();
     pageStale = false;
     store = next;
     follow(next);
+    if (opts?.source === true) return showInSource(next, opts);
     let { path: file, ast, nodeMap, buffer } = next.snapshot();
     const abandoned = (): boolean => store !== next;
     // A large document beside another pane: rendered, then parsed into the inert body, in slices. A document
@@ -1649,6 +1816,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       return viewMode;
     },
     toggleMode: toggleViewMode,
+    setMode: setViewMode,
+    beginOpen,
+    warmSource,
     jumpToSource,
     showSource,
     leaveSource: leaveSourceForRendered,
