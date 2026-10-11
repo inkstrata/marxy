@@ -90,7 +90,7 @@ async function drive(page, mod, log) {
       await page.waitForTimeout(250);
     },
     async focus(slot) {
-      await page.keyboard.press(`${mod}+${slot + 1}`);
+      await page.keyboard.press(`${mod}+Alt+${slot === 0 ? "ArrowLeft" : "ArrowRight"}`);
       log.push(`focus pane ${slot}`);
       await page.waitForTimeout(120);
     },

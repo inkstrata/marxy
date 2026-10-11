@@ -135,7 +135,7 @@ test('an edit above the right pane\'s place shifts its place by the edit\'s delt
     // Typed in the left pane's Source, folded when focus leaves the editor.
     await toSource(page, 0);
     await typeAtLineEnd(page, 0, 1, 'Qz');
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].view.store().snapshot().dirty === true);
     await page.waitForTimeout(400);
     assert.ok((await storeText(page, 1)).startsWith('# AlphaQz\n'));

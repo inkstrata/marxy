@@ -1,7 +1,7 @@
 // The phase's screen criterion, end to end (D-14; docs/plan/roadmap-2026-10/04-phase-d.md): a README
 // beside the plan and the source it documents, walked as a reader walks it. One test, one page, one
 // window of 1,470 px: open the plan; `Mod+Alt+\` Enter opens the most recent other document beside it;
-// Cmd-click a link in the plan lands result.md in the neighbour; each pane scrolls on its own; `Mod+2`
+// Cmd-click a link in the plan lands result.md in the neighbour; each pane scrolls on its own; `Mod+Alt+Right`
 // then `Mod+E` puts the right pane in Source; Cmd-click the README's link to src/lib.rs opens it in Source
 // beside; `Mod+F` finds in the focused pane only; `Mod+Shift+\` closes a pane; `view.split-same` shows
 // the one file twice; a window under 929 px says why it will not split. (`view.split-same` is offered
@@ -136,8 +136,8 @@ test('README beside the plan, the result and the source: open beside, follow a l
     assert.equal(after[1], now[1], 'the result did not move when the plan scrolled');
     now = after;
 
-    // 4. Mod+2 then Mod+E puts the right pane in Source, and only it.
-    await page.keyboard.press(`${mod}+2`);
+    // 4. Mod+Alt+Right then Mod+E puts the right pane in Source, and only it.
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     assert.equal(await focused(page), 1);
     await page.keyboard.press(`${mod}+e`);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].view.mode === 'source');
@@ -146,7 +146,7 @@ test('README beside the plan, the result and the source: open beside, follow a l
 
     // 5. Bring the README into the left pane from the palette, then Cmd-click its link to the source file:
     //    the file opens in Source in the neighbour, and the README keeps focus.
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     await page.keyboard.press(`${mod}+KeyP`);
     await page.fill('#marxy-palette .marxy-palette-query', 'Readme');
     await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length >= 1);
@@ -177,7 +177,7 @@ test('README beside the plan, the result and the source: open beside, follow a l
     await page.keyboard.press('Escape');
 
     // 7. Mod+Shift+\ closes the focused (right, the source) pane; the survivor fills the window as the one document.
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.keyboard.press(`${mod}+Shift+Backslash`);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 1);
     assert.deepEqual(await paths(page), ['/r/README.md']);

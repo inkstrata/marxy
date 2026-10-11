@@ -28,8 +28,6 @@ export const PANE_CHORDS: readonly PaneChord[] = [
   { code: 'Backslash', command: 'view.toggle-workspace' },
   { code: 'Backslash', alt: true, command: 'view.open-beside' },
   { code: 'Backslash', shift: true, command: 'view.close-pane' },
-  { code: 'Digit1', command: 'view.focus-left' },
-  { code: 'Digit2', command: 'view.focus-right' },
   { code: 'ArrowLeft', alt: true, command: 'view.focus-left' },
   { code: 'ArrowRight', alt: true, command: 'view.focus-right' },
 ];

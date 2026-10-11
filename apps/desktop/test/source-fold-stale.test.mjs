@@ -36,7 +36,7 @@ async function withPanes(open, fn) {
 
 /** Pane `slot` in Source (it was Rendered). */
 async function toSource(page, mod, slot) {
-  await page.keyboard.press(`${mod}+${slot + 1}`);
+  await page.keyboard.press(`${mod}+Alt+${slot === 0 ? "ArrowLeft" : "ArrowRight"}`);
   await page.keyboard.press(`${mod}+e`);
   await page.waitForFunction((slot) => window.__marxyHandle.panes().panes[slot].view.mode === 'source', slot);
 }
@@ -104,7 +104,7 @@ test('folds with both panes in Source set no page; each pane then shows the whol
 
     // Back to Rendered in pane 1, then pane 0: each page is the whole render of the folded bytes.
     for (const slot of [1, 0]) {
-      await page.keyboard.press(`${mod}+${slot + 1}`);
+      await page.keyboard.press(`${mod}+Alt+${slot === 0 ? "ArrowLeft" : "ArrowRight"}`);
       await page.keyboard.press(`${mod}+e`);
       await page.waitForFunction((slot) => window.__marxyHandle.panes().panes[slot].view.mode === 'rendered', slot);
       await page.waitForFunction((slot) => window.__marxyHandle.panes().panes[slot].article.querySelector('h1')?.textContent.includes('AlphaQzWx'), slot);
