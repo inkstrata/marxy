@@ -290,9 +290,7 @@ export async function resolveTabWidth(
   return tabSizeFromSection(merged);
 }
 
-/** Indexed root for harness documents: `/repo` for `/repo/pkg/file.rs`. */
-export function indexedRootForDocument(filePath: string): string {
-  const parts = normalizePath(filePath).split('/').filter(Boolean);
-  if (parts.length === 0) return '/';
-  return `/${parts[0]}`;
+/** The root when nothing can say where the project is (a shell with no `readDir`): the file's own folder. */
+export function fallbackRoot(filePath: string): string {
+  return dirname(filePath);
 }

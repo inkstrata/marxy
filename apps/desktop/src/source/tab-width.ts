@@ -4,7 +4,7 @@ import type { Shell } from '@marxy/shell-api';
 import { isUntitled } from '../document/untitled.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { rootFor } from '../index/walk.ts';
-import { createEditorConfigCache, dirname as dirnameOf, indexedRootForDocument, resolveTabWidth } from './editorconfig.ts';
+import { createEditorConfigCache, fallbackRoot, resolveTabWidth } from './editorconfig.ts';
 
 export interface TabWidthResolver {
   readonly indexedRoot: string;
@@ -23,6 +23,8 @@ const MARKDOWN = /\.(md|markdown|mdown|mkd|mdx)$/i;
 async function applyTabWidth(width: number | null): Promise<void> {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
+  // Nothing was set and nothing is: leave the document untouched (a Markdown page's layout is not disturbed).
+  if ((width === null || width === 4) && !root.style.getPropertyValue('--marxy-tab-size')) return;
   if (width === null || width === 4) root.style.removeProperty('--marxy-tab-size');
   else root.style.setProperty('--marxy-tab-size', String(width));
   // Loaded on demand: the highlighter stays out of the startup graph (MARXY-33).
@@ -36,13 +38,14 @@ export async function updateTabWidthResolver(filePath: string, shell: Pick<Shell
     await applyTabWidth(null);
     return;
   }
+  // Without readDir the root is the file's own folder: never walk up blind.
   // The indexed root is the nearest `.git` ancestor (ADR-0012): the walk never reads above it.
   let indexedRoot = roots.get(filePath);
   if (indexedRoot === undefined) {
     try {
-      indexedRoot = 'readDir' in shell ? await rootFor(shell as Parameters<typeof rootFor>[0], filePath) : indexedRootForDocument(filePath);
+      indexedRoot = 'readDir' in shell ? await rootFor(shell as Parameters<typeof rootFor>[0], filePath) : fallbackRoot(filePath);
     } catch {
-      indexedRoot = dirnameOf(filePath);
+      indexedRoot = fallbackRoot(filePath);
     }
     roots.set(filePath, indexedRoot);
   }

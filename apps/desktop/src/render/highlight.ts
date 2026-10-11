@@ -45,11 +45,12 @@ function indentColumns(text: string, TAB: number = currentTabWidth()): number {
 export function reindentLines(root: ParentNode): void {
   const tab = currentTabWidth();
   for (const line of root.querySelectorAll<HTMLElement>(`.${LINE}`)) {
-    // A diff line's hang is its marker column, not its whitespace.
+    // A diff line's hang is its marker column; only a tab in the leading whitespace depends on the width.
     if (line.classList.length > 1) continue;
-    const indent = indentColumns(line.textContent ?? '', tab);
-    if (indent > 0) line.style.setProperty('--marxy-indent', `${indent}ch`);
-    else line.style.removeProperty('--marxy-indent');
+    const text = line.textContent ?? '';
+    if (!/^ *\t/.test(text)) continue;
+    const value = `${indentColumns(text, tab)}ch`;
+    if (line.style.getPropertyValue('--marxy-indent') !== value) line.style.setProperty('--marxy-indent', value);
   }
 }
 

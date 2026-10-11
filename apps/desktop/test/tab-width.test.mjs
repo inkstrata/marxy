@@ -118,13 +118,40 @@ test('V-16: a tab-indented .go has one tab width in Rendered and Source, and its
       const code = document.createElement('code');
       const line = document.createElement('span');
       line.className = 'marxy-line';
-      line.textContent = '\tprintln("a")';
+      line.textContent = '\tprintln("a") ' + 'word '.repeat(60);
       code.append(line);
       pre.append(code);
       document.querySelector('article').append(pre);
     });
     await page.waitForFunction(() => document.querySelector('#v16-pre .marxy-line')?.style.getPropertyValue('--marxy-indent') === '8ch');
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#v16-pre')).tabSize), '8');
+    // Show Rendered and measure: the wrapped (second) row starts 8ch plus the block's hang from the line start.
+    const m = await page.evaluate(() => {
+      document.querySelector('article').hidden = false;
+      const pre = document.querySelector('#v16-pre');
+      const line = pre.querySelector('.marxy-line');
+      const probe = document.createElement('span');
+      probe.textContent = '0000000000';
+      pre.append(probe);
+      const ch = probe.getBoundingClientRect().width / 10;
+      probe.remove();
+      const text = line.firstChild;
+      const rows = new Map();
+      for (let i = 0; i < text.length; i++) {
+        const r = document.createRange();
+        r.setStart(text, i);
+        r.setEnd(text, i + 1);
+        const b = r.getBoundingClientRect();
+        if (b.width === 0) continue;
+        const top = Math.round(b.top);
+        if (!rows.has(top) || b.left < rows.get(top)) rows.set(top, b.left);
+      }
+      const lefts = [...rows.entries()].sort((a, b) => a[0] - b[0]).map((e) => e[1]);
+      return { ch, lefts };
+    });
+    assert.ok(m.lefts.length >= 2, 'the line wrapped');
+    // The wrapped row starts 8ch (the tab's columns) plus the block's 2ch hang in from where row one starts.
+    assert.ok(Math.abs(m.lefts[1] - m.lefts[0] - 10 * m.ch) < 1.5, JSON.stringify(m));
     await page.evaluate(() => window.marxyRefreshSourceTab?.());
     await page.waitForFunction(() => getComputedStyle(document.querySelector('.cm-content')).tabSize === '8');
   } finally {
