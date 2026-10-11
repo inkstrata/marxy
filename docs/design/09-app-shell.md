@@ -99,7 +99,7 @@ chrome.
 | `Space` / `Shift+Space`, `PageDown/Up`, `Home/End`, arrows | scroll | native |
 | `Esc` | close overlay, else clear selection | |
 | `Mod+C` | copy | runs the selection's default copy verb, from the table in §03 (never a splice, never a string-prefix match); with no default verb, the DOM selection |
-| `Mod+Shift+C` | copy as markdown | the exact source bytes of the selected block, or of the blocks a drag covers (§03) |
+| `Mod+Shift+C` | Copy as… | opens the Copy as menu at the pointer for the selection, else the block under the pointer, else the document, in Rendered and in Source (§03, ADR-0065 item 1). The `copy_format` row (default Markdown) is first and has focus, so `Mod+Shift+C` then `Return` copies the exact source bytes, as the key did before |
 | `Enter` | open the verb menu | with a `node`, `section`, `document` or `text` selection, outside editable fields and with no dialog open; anchored to the selection (§03, ADR-0054). On a selected link or heading anchor, Enter opens the verb menu, not the link; the link's default verb is "open link" (Enter again, or the first row) |
 | `ContextMenu` / `Shift+F10` | open the verb menu | same; right-click and Ctrl-click open it at the pointer |
 | `Mod+Enter` | edit the selected block in place | opens a CodeMirror editor over that block's bytes where the block was (E-04, ADR-0048); `Esc`, `Mod+Enter` again or a press outside leaves it and folds the text back as one undo step; `Mod+E`, `Mod+S`, undo, close and quit leave it first |

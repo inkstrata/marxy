@@ -14,7 +14,7 @@ import { focusOrigin } from '../pane/focus.ts';
 import { splitRefusal } from '../pane/fit.ts';
 import { buildAppContext, setPaletteCloser, setPaletteOpener } from '../selection/bind.ts';
 import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
-import { copyDefault, markdownCopy } from '../selection/verbs.ts';
+import { copyDefault } from '../selection/verbs.ts';
 import {
   contentQuery,
   createContentSearch,
@@ -455,12 +455,12 @@ function ownerDocumentOf(node: HTMLElement): Document {
  * The chords name the selection's own default verbs, from the written tables (ADR-0054). The selection
  * cannot change while the palette is up, so they are read once per summon, not on every keystroke.
  */
-let chordCache: { readonly copyId?: string; readonly markdownId?: string } | undefined;
-function selectionChords(): { readonly copyId?: string; readonly markdownId?: string } {
+let chordCache: { readonly copyId?: string } | undefined;
+function selectionChords(): { readonly copyId?: string } {
   if (chordCache === undefined) {
     const ctx = buildAppContext();
     const registered = commands();
-    chordCache = { copyId: copyDefault(ctx, registered)?.id, markdownId: markdownCopy(ctx, registered)?.id };
+    chordCache = { copyId: copyDefault(ctx, registered)?.id };
   }
   return chordCache;
 }
@@ -475,7 +475,7 @@ function paintOperationRows(
     'createDocumentFragment' in doc
       ? (doc as Document).createDocumentFragment()
       : document.createDocumentFragment();
-  const { copyId, markdownId } = selectionChords();
+  const { copyId } = selectionChords();
   for (let i = 0; i < cmds.length; i++) {
     const cmd = cmds[i]!;
     const row = doc.createElement('li') as HTMLLIElement;
@@ -486,7 +486,7 @@ function paintOperationRows(
     title.className = 'marxy-palette-title';
     title.textContent = cmd.title;
     row.appendChild(title);
-    const spec = cmd.key ?? (cmd.id === copyId ? 'Mod+C' : cmd.id === markdownId ? 'Mod+Shift+C' : undefined);
+    const spec = cmd.key ?? (cmd.id === copyId ? 'Mod+C' : undefined);
     if (spec !== undefined) {
       const key = doc.createElement('span') as HTMLSpanElement;
       key.className = 'marxy-palette-key';

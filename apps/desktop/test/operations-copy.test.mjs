@@ -91,7 +91,7 @@ test('Mod+C on the Install section copies markdown source and sanitised html', a
     const mod = modKey(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+KeyC`);
     const copies = await page.evaluate(() =>
-      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })),
     );
     assert.equal(copies.length, 1);
     const payload = copies[0].args[0];
@@ -120,7 +120,7 @@ test('Mod+C on a code block copies plain source without fences or highlight mark
     const mod = modKey(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+KeyC`);
     const copies = await page.evaluate(() =>
-      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })),
     );
     assert.equal(copies.length, 1);
     const payload = copies[0].args[0];
@@ -167,7 +167,7 @@ for (const [name, len] of [['a line over 1,000 characters', 1508], ['a line of 1
       const mod = modKey(await page.evaluate(() => navigator.platform));
       await page.keyboard.press(`${mod}+KeyC`);
       const copies = await page.evaluate(() =>
-        window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+        window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })),
       );
       assert.equal(copies.length, 1);
       assert.equal(copies[0].args[0].text, line);
@@ -192,7 +192,7 @@ test('Mod+C in the palette query copies the query text, not the selected section
     await query.selectText();
     await page.keyboard.press(`${mod}+KeyC`);
     const copies = await page.evaluate(() =>
-      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })),
     );
     assert.equal(copies.length, 0);
     const kind = await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind);
@@ -246,9 +246,9 @@ test('palette Copy code runs on Enter, closes, and says what it copied', async (
       { timeout: 5000 },
     );
     const notice = await page.locator('#marxy-notices .marxy-notice-text').textContent();
-    assert.equal(notice?.trim(), 'Copied code');
+    assert.match(notice?.trim() ?? '', /^Copied code, \d+(\.\d)? (B|KB)$/); // the notice carries the size (J-04)
     const copies = await page.evaluate(() =>
-      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })),
     );
     assert.ok(copies.length >= 1);
   } finally {
@@ -287,7 +287,7 @@ test('C-06: Mod+C on a drag across bold text and a link copies sanitised rich te
     const mod = modKey(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+KeyC`);
     const copies = await page.evaluate(() =>
-      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })),
     );
     assert.equal(copies.length, 1);
     const { text, html } = copies[0].args[0];
@@ -333,8 +333,11 @@ test('C-06: Mod+Shift+C on a drag inside one paragraph copies its exact source b
     assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'text');
     const mod = modKey(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+Shift+KeyC`);
+    // ⇧⌘C opens Copy as (J-04) with Markdown first and focused: Return is the old copy of the exact bytes.
+    await page.waitForSelector('.marxy-verb-menu');
+    await page.keyboard.press('Enter');
     const copies = await page.evaluate(() =>
-      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })),
     );
     assert.equal(copies.length, 1);
     assert.deepEqual(copies[0].args[0], { text: textOf(buffer, range) });
@@ -383,7 +386,7 @@ test('C-06: the drag\'s rich copy drops display marks, soft hyphens, image sourc
     const mod = modKey(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+KeyC`);
     const copies = await page.evaluate(() =>
-      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })),
     );
     assert.equal(copies.length, 1);
     const { html } = copies[0].args[0];
@@ -404,7 +407,7 @@ test('C-06: the drag\'s rich copy drops display marks, soft hyphens, image sourc
   }
 });
 
-test('C-06: the palette shows Mod+C on the selection\'s default verb and Mod+Shift+C on its markdown copy, and opens on a given query', async () => {
+test('C-06: the palette shows Mod+C on the selection\'s default verb and no chord on its markdown copy (Mod+Shift+C is Copy as, J-04), and opens on a given query', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const browser = await launchWebkit();
@@ -430,7 +433,7 @@ test('C-06: the palette shows Mod+C on the selection\'s default verb and Mod+Shi
     );
     const mac = (await page.evaluate(() => navigator.platform)) === 'MacIntel';
     assert.equal(keys['op.copy-rich'], mac ? '⌘C' : 'Ctrl+C');
-    assert.equal(keys['op.copy-source'], mac ? '⇧⌘C' : 'Ctrl+Shift+C');
+    assert.equal(keys['op.copy-source'], null, 'Mod+Shift+C no longer copies markdown directly (J-04)');
     assert.equal(keys['op.copy-plain'], null, 'only the default verbs carry a chord');
   } finally {
     await browser.close();
@@ -460,7 +463,7 @@ test('E-11: typing "strip" after > in the palette finds Copy as plain text (stri
 });
 
 async function clipboardWrites(page) {
-  return page.evaluate(() => window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite').map((c) => c.args[0]));
+  return page.evaluate(() => window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })).map((c) => c.args[0]));
 }
 
 /** Runs the palette row `rowKey` from a `> copy` query; the palette's input takes the DOM selection away. */
@@ -526,7 +529,7 @@ test('C-06 review: Copy as markdown from the palette copies the dragged paragrap
     await page.mouse.up();
     await runFromPalette(page, 'selection.copy-markdown');
     assert.deepEqual(await clipboardWrites(page), [{ text: textOf(buffer, range) }]);
-    assert.equal((await page.locator('#marxy-notices .marxy-notice-text').last().textContent())?.trim(), 'Copied as markdown');
+    assert.equal((await page.locator('#marxy-notices .marxy-notice-text').last().textContent())?.trim(), 'Copied as markdown, 28 B'); // the notice carries the size (J-04)
   } finally {
     await browser.close();
   }
@@ -547,6 +550,9 @@ test('C-06 review: Mod+A then Mod+Shift+C copies the bytes of every block of the
     await page.keyboard.press(`${mod}+KeyA`);
     await page.waitForFunction(() => window.marxySelection.getSelectionState().selection.kind === 'text');
     await page.keyboard.press(`${mod}+Shift+KeyC`);
+    // ⇧⌘C opens Copy as (J-04) with Markdown first and focused: Return is the old copy of the exact bytes.
+    await page.waitForSelector('.marxy-verb-menu');
+    await page.keyboard.press('Enter');
     assert.deepEqual(await clipboardWrites(page), [{ text: textOf(buffer, whole) }]);
     assert.equal(whole.start, 0);
   } finally {
@@ -580,6 +586,9 @@ test('C-06 review: a drag that starts in the space between blocks copies from th
     await page.waitForFunction(() => window.marxySelection.getSelectionState().selection.kind === 'text');
     const mod = modKey(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+Shift+KeyC`);
+    // ⇧⌘C opens Copy as (J-04) with Markdown first and focused: Return is the old copy of the exact bytes.
+    await page.waitForSelector('.marxy-verb-menu');
+    await page.keyboard.press('Enter');
     assert.deepEqual(await clipboardWrites(page), [{ text: textOf(buffer, { file, ...expected }) }]);
   } finally {
     await browser.close();
@@ -706,6 +715,11 @@ for (const [chord, label, wantHtml] of [['KeyC', 'Mod+C', true], ['Shift+KeyC', 
       assert.match(await page.evaluate(() => getSelection().toString()), /widgetlib authors/);
       const mod = modKey(await page.evaluate(() => navigator.platform));
       await page.keyboard.press(`${mod}+${chord}`);
+      if (chord.startsWith('Shift')) {
+        // ⇧⌘C opens Copy as (J-04); Markdown is first and focused, so Return is the exact bytes.
+        await page.waitForSelector('.marxy-verb-menu');
+        await page.keyboard.press('Enter');
+      }
       const writes = await clipboardWrites(page);
       assert.equal(writes.length, 1);
       assert.match(writes[0].text, /widgetlib authors/);

@@ -22,3 +22,5 @@ export { unifiedDiff } from './diff/unified.ts';
 export type { UnifiedDiff, UnifiedOptions } from './diff/unified.ts';
 export { CATALOGUE, NOT_YET, TRANSFORMS, transformById, runTransform } from './transforms/registry.ts';
 export type { CatalogueEntry, Transform, TransformContext, TransformGroup, TransformKind } from './transforms/registry.ts';
+export { COPY_TARGETS, copyTargets, copyAsFromOperation, copyAsFromText, titleFor } from './operations/copy-as.ts';
+export type { CopyAsInput, CopyAsRegistry, CopyAsResult, CopyTarget } from './operations/copy-as.ts';

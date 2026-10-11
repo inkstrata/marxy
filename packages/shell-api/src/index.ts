@@ -109,6 +109,7 @@ export interface Shell {
   repositoryRoot(path: string): Promise<string | null>;
   openDialog(opts: { readonly directory?: boolean; readonly multiple?: boolean }): Promise<readonly string[]>;
   revealInExternalEditor(path: string, line?: number): Promise<void>;
+  /** @deprecated J-04: copies go through `clipboardWriteItem` (one item, every representation); this stays as the fallback where the shell answers `unsupported`. */
   clipboardWrite(data: { readonly text: string; readonly html?: string }): Promise<void>;
   /**
    * The first pasteboard item's types; reads no data. Call only from a reader action (paste,

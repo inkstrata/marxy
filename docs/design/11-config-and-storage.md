@@ -22,6 +22,7 @@ typeset = true                  # the Knuth–Plass path; false = engine wrappin
 line_numbers = false            # Source mode; absent: on for code files, off for prose
 external_editor = "code --goto {file}:{line}"   # {file} {line} substituted; absent → the OS default opener
 resident = false                # stay running after the last window closes (ADR-0013)
+copy_format = "markdown"        # the Copy as row that is first and chosen by Return: markdown | plain | rich | html | slack | jira | json-string | quote (J-04)
 
 [linux]
 weight_offset = 75              # overrides the WebKitGTK-version table (§05)
