@@ -21,8 +21,8 @@ visible else. Everything below is summoned and dismissed.
 </body>
 ```
 
-No element outside `#marxy-main` is visible unless its state is open. There is no toolbar,
-tab bar, status bar or sidebar element in the DOM at all, so the "chrome at rest" gate is a DOM
+No element outside `#marxy-main` is visible unless its state is open. Folded, there is no toolbar,
+tab bar, status bar or sidebar element in the DOM at all (the workspace below puts them in only while unfolded), so the "chrome at rest" gate is a DOM
 assertion, not a screenshot judgement.
 
 **Two documents side by side** (ADR-0057). `#marxy-main` takes `data-marxy-split` and becomes a grid of
@@ -34,6 +34,31 @@ The first pane is permanent: its elements keep their ids, and closing the left p
 pane's document in it. Each pane is a size container, so an article's margins (`--marxy-room`) are
 measured against its own pane. With one document none of this is visible: one pane fills
 `#marxy-main`, and there is no divider element and no split attribute.
+
+**The workspace (W-02; ADR-0058).** The window is *folded* (the skeleton above, exactly) or *unfolded*. Unfolding
+(`AppHandle.workspace().unfold()`, from `workspace/state.ts`) sets `data-marxy-workspace="unfolded"` on `<body>` and
+puts six empty `div[data-marxy-workspace-region]` into `<body>`: `sidebar`, `toolbar`, `tabs`, `strip` before
+`#marxy-main`, `inspector` and `status-bar` after it. Folding takes them out and removes the attribute, so a folded
+page has neither: nothing is hidden by style, and a page with no attribute is the folded window (the aesthetics gate
+reads the attribute from the page and judges every other page as folded). A region the reader has not docked stays
+in the page, `hidden`, and takes no room. The regions hold no content; W-03 to W-11 fill them.
+
+The grid is `base.css`, under `[data-marxy-workspace="unfolded"]` only. `<body>` has three columns: the two side
+columns are the same width (the wider of the sidebar and the inspector, 252 and 300 px), so the middle column and the
+reading column in it stay centred on the window and do not move when a panel is docked or taken away. They give way
+only when the middle would fall below 45 characters and a gutter each side (twice that with two panes), so at the
+two-column floor (929 px at the default size) both panels together still leave the column its 45 characters. The
+bands above the panes and the status bar are sticky; the window is still the scroller. `#marxy-main` is the middle
+column, so `splitRefusal` measures it as it always did and, unfolded, names the window width that includes the panels.
+
+**Remembered panels.** Which regions are docked is `workspace.json` in the data directory beside `layout.json`
+(`{ version, panels: { sidebar, toolbar, tabs, strip, inspector, status-bar } }`; same version guard and quarantine).
+It is read when the reader unfolds (the first time in a session) and written when they fold or quit while unfolded,
+never at launch. With nothing remembered every region is docked except the inspector, which opens by default only in
+a window of 1600 px or more (ADR-0058 item 6). The command `view.toggle-workspace` ("Fold or unfold the workspace")
+is on `Mod+\` (ADR-0058 item 1, the mockup), a pane chord in the table below; D-07's Open beside moved to
+`Mod+Alt+\` to make room (the lead's ruling, the author's to veto before merge), and stays in the palette as
+"Open beside…". `Esc` folding waits for W-03.
 
 ## State
 
@@ -83,8 +108,9 @@ chrome.
 
 | Key | Action | Notes |
 | --- | --- | --- |
-| `Mod+P` | palette (documents) | with a selection: `Mod+P` again shows operations |
-| `Mod+Shift+P` | palette (operations) | |
+| `Mod+P` / `Mod+K` | palette (documents) | W-19: `Mod+K` is the same palette; either again closes it |
+| `Mod+Shift+P` / `Mod+/` | palette on commands (`>`) | W-19: the command list, including the operations; either again closes it; in Source `Mod+/` opens the palette, it does not toggle a comment |
+| `Mod+1` / `Mod+2` / `Mod+3` | Read / Split / Source | W-19 (`commands/view-mode.ts`): Read and Source set the focused pane's mode and do nothing when it is already there (`Mod+E` flips). Split shows the document twice, Read left and Source right; with two panes over two files it refuses and says why |
 | `Mod+E` | toggle Rendered / Source | position kept (§08) |
 | `Mod+F` | find | `Enter` next, `Shift+Enter` previous, `Esc` closes and keeps the reading position |
 | `Mod+Shift+O` | outline | `↑/↓ Enter`, `Esc` |
@@ -99,9 +125,10 @@ chrome.
 | `Space` / `Shift+Space`, `PageDown/Up`, `Home/End`, arrows | scroll | native |
 | `Esc` | close overlay, else clear selection | |
 | `Mod+C` | copy | runs the selection's default copy verb, from the table in §03 (never a splice, never a string-prefix match); with no default verb, the DOM selection |
-| `Mod+Shift+C` | copy as markdown | the exact source bytes of the selected block, or of the blocks a drag covers (§03) |
+| `Mod+Shift+C` | Copy as… | opens the Copy as menu at the pointer for the selection, else the block under the pointer, else the document, in Rendered and in Source (§03, ADR-0065 item 1). The `copy_format` row (default Markdown) is first and has focus, so `Mod+Shift+C` then `Return` copies the exact source bytes, as the key did before |
 | `Enter` | open the verb menu | with a `node`, `section`, `document` or `text` selection, outside editable fields and with no dialog open; anchored to the selection (§03, ADR-0054). On a selected link or heading anchor, Enter opens the verb menu, not the link; the link's default verb is "open link" (Enter again, or the first row) |
 | `ContextMenu` / `Shift+F10` | open the verb menu | same; right-click and Ctrl-click open it at the pointer |
+| `Mod+Enter` | edit the selected block in place | opens a CodeMirror editor over that block's bytes where the block was (E-04, ADR-0048); `Esc`, `Mod+Enter` again or a press outside leaves it and folds the text back as one undo step; `Mod+E`, `Mod+S`, undo, close and quit leave it first |
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
 
@@ -135,26 +162,25 @@ which select by syntax and by character, give way to expand and select block).
 **Pane chords (Phase D).** One table, `apps/desktop/src/pane/keys.ts`, matched on physical keys
 (`event.code`: `Mod+Shift+\` arrives as `|` on a US layout), run from a `window` capture-phase listener so
 they work from inside a Source editor too, and run once (the registry's dispatcher does not see them).
-They do nothing while a dialog is open, except `Mod+\`. A chord whose command is not registered yet, or
+They do nothing while a dialog is open, except `Mod+Alt+\`. A chord whose command is not registered yet, or
 whose `when` does not hold (one pane), does nothing.
 
 | Key | Action | Notes |
 | --- | --- | --- |
-| `Mod+\` | open beside (`view.open-beside`) | D-07: the palette in beside mode (below); works with the palette already open |
+| `Mod+\` | fold or unfold the workspace (`view.toggle-workspace`) | W-02, ADR-0058; held while a dialog is open; a held key counts once |
+| `Mod+Alt+\` | open beside (`view.open-beside`) | D-07, moved here by W-02: the palette in beside mode (below); works with the palette already open. Focus in a Source editor or another text field (the palette's query aside) leaves it to the field: CodeMirror's indent selection |
 | `Mod+Shift+\` | close the focused pane (`view.close-pane`) | D-08; never `Mod+W`, which is the native Close Window and quits |
-| `Mod+1` | focus the left pane (`view.focus-left`) | with two panes |
-| `Mod+2` | focus the right pane (`view.focus-right`) | with two panes |
-| `Mod+Alt+←` / `Mod+Alt+→` | focus the left / right pane | the same two commands; `Alt+←`/`→` without `Mod` stays history |
+| `Mod+Alt+←` / `Mod+Alt+→` | focus the left / right pane (`view.focus-left`, `view.focus-right`) | with two panes; moved here from `Mod+1`/`Mod+2` by W-19; `Alt+←`/`→` without `Mod` stays history |
 
-**Open beside.** `Mod+\` opens the palette in beside mode. With nothing typed it lists Recent alone, the
+**Open beside.** `Mod+Alt+\` opens the palette in beside mode. With nothing typed it lists Recent alone, the
 most recently used documents without those already on screen (`recentExcluding`, `palette/session.ts`), the
-first row selected, so `Mod+\` then `Enter` is "split with recent". Typed, it finds what the palette finds.
+first row selected, so `Mod+Alt+\` then `Enter` is "split with recent". Typed, it finds what the palette finds.
 `Enter` opens the row in the other pane, made if there is one pane; `Mod+Enter` on any row, in either mode,
 does the same. The notice line says "Open beside". The other pane's unsaved document is asked about in that
 pane (`beforeReplace`, D-08) before it is replaced, and focus moves to the pane that opened once its document
 is on screen; `Esc` gives it back to the pane the palette came from. When the window cannot hold two
 columns at the typography floor (`pane/fit.ts`, 929 px at the default text size) no second pane is made: with
-one pane `Mod+\` shows the notice "Marxy needs a window at least 929 px wide to show two documents side by
+one pane `Mod+Alt+\` shows the notice "Marxy needs a window at least 929 px wide to show two documents side by
 side." and opens no palette; with the palette already up, `Enter` keeps it open with that notice and then
 opens the document here. The number is worked out from the page's metrics, never typed.
 
@@ -272,7 +298,9 @@ semantics, smart typography applied as in the article.
 
 ## Notices (`#marxy-notices`)
 
-One region, in flow above the article, empty at rest. A notice is a single line with up to two
+One region per pane (D-10), in flow above its article, empty at rest. A notice about a file is said in the
+pane that shows it and in no other, one about the app in the focused pane; the same words twice in a pane
+are one line, and a document opened in a pane clears that pane's notices only. A notice is a single line with up to two
 actions, dismissible, and it never overlaps the text. Kinds in v1: blocked content (§02),
 external change while dirty (§08), file removed, save failed, theme warnings (§05), index
 truncated (§07), operation summary (transient, 4 s). Never a modal dialog.
@@ -296,7 +324,7 @@ does so in whichever pane it opens in. Commands that mean "the editor" (line num
 external editor's line) take the focused pane's (`activeSourceEditor()`).
 
 Two panes on one file, one Rendered and one Source: what is typed in Source reaches the other view
-when focus leaves the editor (a click or `Mod+1`/`Mod+2` into the other pane, the palette), not per
+when focus leaves the editor (a click or `Mod+Alt+←`/`→` into the other pane, the palette), not per
 keystroke. It is folded into the store then, one history entry, exactly as leaving Source folds it; a
 Source pane that is the only view of its store folds only on leaving Source, as before. Two views of one
 store never both hold unfolded Source text: a pane that comes to show a document another pane holds

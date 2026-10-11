@@ -28,8 +28,9 @@ function propsInBlock(css, needle) {
 }
 
 function readDarkTokens() {
-  const tokens = readFileSync(new URL('../src/tokens.css', import.meta.url), 'utf8');
-  return propsInBlock(tokens, ':root');
+  // Night: the default theme's :root (H-04). tokens.css keeps the contract's fallbacks, not the default's values.
+  const theme = readFileSync(new URL('../default/theme.css', import.meta.url), 'utf8');
+  return propsInBlock(theme, ':root');
 }
 
 function readLightBlock() {
@@ -65,6 +66,8 @@ test('MARXY-46: no light colour is the 255-complement of its dark counterpart', 
   const dark = readDarkTokens();
   const light = readLightBlock();
   for (const token of Object.keys(palettes.light)) {
+    // Text on an accent fill is black on Night's accent and white on Paper's by definition (Galley's own pair).
+    if (token === '--marxy-color-accent-fg') continue;
     const d = dark[token];
     const l = light[token];
     if (!d || !l || !/^#[0-9a-f]{6}$/i.test(d) || !/^#[0-9a-f]{6}$/i.test(l)) continue;
@@ -174,5 +177,20 @@ test('L-11: the find edge is 3:1 on page and code grounds, current differs from 
         assert.ok(r >= 4.5, `${label} ${fg} on ${fill}: ${r} < 4.5:1`);
       }
     }
+  }
+});
+
+test('H-04: Night is the default dark and Paper the default light; Ink keeps the warm ground; both speak contract 2', () => {
+  const night = readDarkTokens();
+  const paper = readLightBlock();
+  assert.equal(night['--marxy-color-bg'], '#000000');
+  assert.equal(night['--marxy-weight-body'], '370');
+  assert.equal(paper['--marxy-color-bg'], '#fbfaf8');
+  assert.equal(paper['--marxy-weight-body'], '400');
+  const ink = readFileSync(new URL('../ink/theme.css', import.meta.url), 'utf8');
+  assert.equal(propsInBlock(ink, ':root')['--marxy-color-bg'], '#151412');
+  assert.equal(propsInBlock(ink, ':root[data-marxy-variant="light"]')['--marxy-color-bg'], '#faf8f4');
+  for (const dir of ['default', 'ink']) {
+    assert.match(readFileSync(new URL(`../${dir}/theme.toml`, import.meta.url), 'utf8'), /^contract = 2$/m, dir);
   }
 });

@@ -215,8 +215,8 @@ test('closing the left pane leaves the survivor as #doc, unsplit, with one types
     );
     assert.equal(await page.evaluate(() => document.getElementById('marxy-main').hasAttribute('style')), false, 'the grid template is cleared');
     // Every way a pane goes: the left one (its store shared with the survivor for the swap), the right one
-    // over a different document, and either one over the same document (one store, two watches until
-    // D-10). A pane that lets go of a store the other still shows closes its own watch on it.
+    // over a different document, and either one over the same document (one store and, since D-10, one
+    // watch: it is the store's, so a pane that lets go of a store the other still shows leaves it running).
     const cycles = await page.evaluate(async () => {
       const handle = window.__marxyHandle;
       const panes = handle.panes();
@@ -254,7 +254,7 @@ test('closing the left pane leaves the survivor as #doc, unsplit, with one types
       counts: { typesetters: 1, resizeObservers: 1 },
       panes: 1,
       docs: 1,
-      watches: { mixed: 1, closeLeft: 1, closeRight: 1, sameFileSplit: 2, sameFile: 1 },
+      watches: { mixed: 1, closeLeft: 1, closeRight: 1, sameFileSplit: 1, sameFile: 1 },
     });
   });
 });

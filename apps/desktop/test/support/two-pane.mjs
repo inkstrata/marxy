@@ -87,14 +87,14 @@ async function routeSkeleton(page, base) {
  * number of its watches open now is `window.__marxyWatches`. Resolves
  * what the panes show: `[{ slot, path, article }]`, left to right.
  */
-export async function bootTwoPanes(page, { files, open }) {
+export async function bootTwoPanes(page, { files, open, guard = false }) {
   const base = await harnessBase();
   await routeSkeleton(page, base);
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   const encoded = Object.fromEntries(Object.entries(files).map(([path, text]) => [path, b64(text)]));
   return page.evaluate(
-    async ({ files, open }) => {
+    async ({ files, open, guard }) => {
       const bytes = {};
       for (const [path, encoded] of Object.entries(files)) {
         const raw = atob(encoded);
@@ -105,6 +105,38 @@ export async function bootTwoPanes(page, { files, open }) {
       const { createMemoryShell } = await import('/src/shell/memory.ts');
       const { startApp } = await import('/src/app.ts');
       const shell = createMemoryShell(bytes);
+      if (guard) {
+        // The stale-write guard of shell/tauri.ts (`lastRead`), over the memory shell: `readFile` and
+        // `recordRead` arm it, `peekFile` does not, and a write refuses when disk is no longer what was
+        // read. `window.__outside` is another program writing the file: it does not arm the guard.
+        const lastRead = new Map();
+        const readRaw = shell.readFile.bind(shell);
+        const writeRaw = shell.writeFileAtomic.bind(shell);
+        const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+        window.__appWrites = [];
+        shell.readFile = async (path) => {
+          const read = await readRaw(path);
+          lastRead.set(path, read.slice());
+          return read;
+        };
+        shell.peekFile = (path) => readRaw(path);
+        shell.recordRead = (path, read) => lastRead.set(path, read.slice());
+        shell.writeFileAtomic = async (path, written) => {
+          const expected = lastRead.get(path);
+          if (expected) {
+            const onDisk = await readRaw(path).catch(() => null);
+            if (onDisk && !same(expected, onDisk)) throw new Error(`${path}: changed on disk since it was opened; refusing to overwrite`);
+          }
+          await writeRaw(path, written);
+          lastRead.set(path, written.slice());
+          window.__appWrites.push({ path, text: new TextDecoder().decode(written) });
+        };
+        window.__outside = async (path, text, events) => {
+          await writeRaw(path, new TextEncoder().encode(text));
+          shell.emit(events ?? [{ kind: 'modified', path }]);
+        };
+        window.__disk = async (path) => new TextDecoder().decode(await readRaw(path));
+      }
       // The live `shell.watch` handles: one a pane's live reload started and never closed is a leak.
       window.__marxyWatches = 0;
       const watch = shell.watch.bind(shell);
@@ -126,6 +158,6 @@ export async function bootTwoPanes(page, { files, open }) {
       if (open[1] !== undefined) await handle.panes().openIn('other', open[1]);
       return handle.panes().panes.map((pane) => ({ slot: pane.slot, path: pane.path(), article: pane.article.id }));
     },
-    { files: encoded, open },
+    { files: encoded, open, guard },
   );
 }

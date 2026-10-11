@@ -30,7 +30,7 @@ let base;
 before(async () => {
   if (skip) return;
   await build({ root: fileURLToPath(new URL('..', import.meta.url)), logLevel: 'silent', build: { outDir, emptyOutDir: true } });
-  const types = { '.html': 'text/html', '.ttf': 'font/ttf', '.js': 'text/javascript', '.txt': 'text/plain' };
+  const types = { '.html': 'text/html', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.js': 'text/javascript', '.txt': 'text/plain' };
   server = createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     const path = join(outDir, pathname.endsWith('/') ? `${pathname}index.html` : pathname);
@@ -44,10 +44,41 @@ before(async () => {
 after(() => server?.close());
 
 test('each face ships with its OFL licence beside it', () => {
-  for (const file of ['Literata.ttf', 'Literata-Italic.ttf', 'JetBrainsMono.ttf', 'Literata-OFL.txt', 'JetBrainsMono-OFL.txt']) {
+  for (const file of ['Literata.ttf', 'Literata-Italic.ttf', 'JetBrainsMono.ttf', 'SourceSerif4.ttf', 'AtkinsonHyperlegibleNext.woff2', 'AtkinsonHyperlegibleNext-Italic.woff2', 'InterVariable.woff2', 'Literata-OFL.txt', 'JetBrainsMono-OFL.txt', 'SourceSerif4-OFL.txt', 'AtkinsonHyperlegibleNext-OFL.txt', 'Inter-OFL.txt']) {
     assert.ok(existsSync(join(outDir, 'fonts', file)), `dist/fonts/${file}`);
   }
-  assert.match(readFileSync(join(outDir, 'fonts', 'Literata-OFL.txt'), 'utf8'), /SIL OPEN FONT LICENSE/i);
+  for (const licence of ['Literata', 'AtkinsonHyperlegibleNext', 'Inter']) {
+    assert.match(readFileSync(join(outDir, 'fonts', `${licence}-OFL.txt`), 'utf8'), /SIL OPEN FONT LICENSE Version 1\.1/i, licence);
+  }
+});
+
+test('the sans faces of the Classic set load from the bundle and are not the platform face (H-04.1)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage();
+    await page.route('**/assets/*.js', (route) => route.abort());
+    await page.goto(base);
+    const result = await page.evaluate(async () => {
+      const text = 'Hamburgefonstiv';
+      const width = (family) => { const s = document.createElement('span'); s.style.cssText = `font: 17px ${family}; position: absolute; white-space: nowrap`; s.textContent = text; document.body.append(s); const w = s.getBoundingClientRect().width; s.remove(); return w; };
+      const faces = ['"Atkinson Hyperlegible Next"', '"Inter"'];
+      for (const f of faces) await document.fonts.load(`17px ${f}`, text);
+      await document.fonts.load('italic 17px "Atkinson Hyperlegible Next"', text);
+      const root = getComputedStyle(document.documentElement);
+      return {
+        loaded: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family.replace(/"/g, '')}/${f.style}`).sort(),
+        differs: faces.map((f) => Math.abs(width(`${f}, monospace`) - width('monospace')) > 1),
+        sans: root.getPropertyValue('--marxy-face-sans'),
+        readme: root.getPropertyValue('--marxy-face-readme'),
+      };
+    });
+    for (const want of ['Atkinson Hyperlegible Next/italic', 'Atkinson Hyperlegible Next/normal', 'Inter/normal']) assert.ok(result.loaded.includes(want), `${want} loaded`);
+    assert.deepEqual(result.differs, [true, true], 'each face is the bundled one, not a fallback');
+    assert.match(result.sans, /^"Atkinson Hyperlegible Next"/);
+    assert.match(result.readme, /^"Inter"/);
+  } finally {
+    await browser.close();
+  }
 });
 
 test('text is set in Literata and code in JetBrains Mono, and no frame shows a fallback face', async () => {

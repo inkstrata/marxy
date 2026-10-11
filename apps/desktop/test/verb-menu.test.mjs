@@ -91,7 +91,7 @@ function menuRows(page) {
 }
 
 const clipboard = (page) =>
-  page.evaluate(() => window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite').map((c) => c.args[0]));
+  page.evaluate(() => window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })).map((c) => c.args[0]));
 
 /** The point at the middle of the first occurrence of `words` in the article's text. */
 async function wordsPoint(page, words) {
@@ -136,7 +136,7 @@ test('C-13: nothing of the menu is in the DOM at rest, after it closes, or after
     assert.equal(await menuExists(page), false, 'after Escape');
     await page.locator('#doc pre[data-marxy-s]').first().click({ button: 'right' });
     await page.locator('.marxy-verb-menu [role="menuitem"]').first().click();
-    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWrite'));
+    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
     assert.equal(await menuExists(page), false, 'after running a verb');
     // A click outside, and a scroll, close it too.
     await page.locator('#doc pre[data-marxy-s]').first().click({ button: 'right' });
@@ -172,7 +172,7 @@ test("C-13: right-click a table cell offers the table's verbs, TSV first, and ch
     const label = await page.locator('.marxy-verb-menu').getAttribute('aria-label');
     assert.equal(label, 'Table');
     await page.locator('.marxy-verb-menu [role="menuitem"]').first().click();
-    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWrite'));
+    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
     const copies = await clipboard(page);
     assert.equal(copies.length, 1);
     assert.equal(copies[0].text, expected);
@@ -245,7 +245,7 @@ test('C-13: Enter on a clicked code block opens the menu with the first row focu
     rows = await menuRows(page);
     assert.equal(rows[1].focused, true);
     await page.keyboard.press('Enter');
-    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWrite'));
+    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
     const copies = await clipboard(page);
     assert.equal(copies.length, 1, 'one verb ran, once');
     assert.equal(copies[0].text, expected);
@@ -307,7 +307,7 @@ test('C-13.1: focus returns to the focused block after Escape and after a verb r
     await page.keyboard.press('Enter');
     assert.equal(await menuExists(page), true);
     await page.keyboard.press('Enter');
-    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWrite'));
+    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
     assert.equal(await menuExists(page), false);
     assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'PRE', 'after a verb runs');
   } finally {
@@ -350,7 +350,7 @@ test('C-13.1: a key the menu does not own closes it and goes on: Mod+P opens the
     assert.equal((await clipboard(page)).length, 0);
     await page.keyboard.press(`${mod}+KeyC`);
     assert.equal(await menuExists(page), false, 'the menu closed');
-    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWrite'));
+    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
     assert.equal((await clipboard(page)).length, 1, 'the selection was copied');
 
     // Escape stays the menu's: it closes the menu and does not also clear the selection.

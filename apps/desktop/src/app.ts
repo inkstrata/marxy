@@ -8,6 +8,7 @@ import { applyDocumentMutation, redoDocumentEdit, undoDocumentEdit } from './com
 import { buildAppContext, installCommandKeys } from './selection/bind.ts';
 import { createRenderedSelection, type RenderedSelection, type SelectionShell } from './selection/view.ts';
 import { guardPaneClose, installCloseGuard } from './close.ts';
+import { openScratchIn } from './document/scratch.ts';
 import { pathsForDocument } from './render/images.ts';
 import { resetDismissedNotices } from './notices/blocked.ts';
 import { commands as appCommands } from './commands/index.ts';
@@ -16,12 +17,14 @@ import { createTrustController } from './trust/controller.ts';
 import { createAppConfig } from './theme/app-config.ts';
 import { createLaunchMeasure } from './startup/measure.ts';
 import { createIndexService, indexShellFor } from './index/service.ts';
+import { createLayoutKeeper, launch, writerFor } from './layout/restore.ts';
 import { createReadingPersistence } from './position/reading-persistence.ts';
 import { pinDocumentOnPaletteSession } from './palette/history.ts';
 import { emptySession, type PaletteSession } from './palette/session.ts';
 import type { PieceSource } from './frontispiece/pieces.ts';
 import { splitRefusal } from './pane/fit.ts';
 import { createPanes, type AppPanes } from './pane/index.ts';
+import { createWorkspace, workspaceStoreFor } from './workspace/state.ts';
 import type { AppHandle, AppShell } from './app-types.ts';
 
 export type { AppAction, AppHandle, AppShell, OpenDocument, OpenDocumentState } from './app-types.ts';
@@ -97,6 +100,7 @@ export async function startApp(
     ...injected,
     quit: async (code) => {
       await persistence.flush();
+      await workspace.flush();
       return injected.quit(code);
     },
   };
@@ -143,7 +147,17 @@ export async function startApp(
   const first = panes.panes[0]!;
   const openPath = first.content;
   const view = first.view;
-  persistence.follow(view);
+  // Only the pane that writes a path's place keeps it: the focused pane if it shows the path, else the lowest slot (D-12).
+  const writes = (pane: typeof first) => (): boolean => {
+    const path = pane.path();
+    return path !== null && writerFor(panes, path) === pane;
+  };
+  persistence.follow(view, { writes: writes(first) });
+  panes.onSplit(() => persistence.follow(panes.panes[1]!.view, { writes: writes(panes.panes[1]!) }));
+  const layout = createLayoutKeeper(panes, persistence);
+  // Settles once the saved layout is back (the second pane opens after first text, never before).
+  let layoutSettled!: (done: Promise<void>) => void;
+  const layoutRestored = new Promise<void>((resolve) => { layoutSettled = resolve; });
   injected.onOpenFiles?.((paths) => {
     const file = paths.find((p) => p.length > 0 && !p.startsWith('-'));
     if (file) void panes.openIn('focused', file);
@@ -156,12 +170,19 @@ export async function startApp(
     store: () => openPath.store(),
     // AppShell narrows the real shell; clipboardWrite (and openExternal, where there is one) is on it.
     shell: shell as SelectionShell,
-    open: (path) => openPath.open(path),
+    open: (path, o) => openPath.open(path, o),
     currentPath: openPath.currentPath,
     mountThrough: (byteOffset) => view.mountThrough(byteOffset),
     imageRoot: imageRootFor,
   });
   selection = renderedSelection;
+  // Folded until the reader unfolds; the panels they last had are read then, never here (W-02).
+  const workspace = createWorkspace({
+    body: document.body,
+    main: first.host.parentElement ?? document.body,
+    store: workspaceStoreFor(shell),
+    windowWidth: () => window.innerWidth,
+  });
   const offPaneMode = followPaneModes(panes);
   // The open document is the focused pane's; with one pane that is the first pane, as it always was.
   const handle: AppHandle = {
@@ -183,7 +204,8 @@ export async function startApp(
     },
     commands() { return appCommands(); },
     shell,
-    ready: measure.ready.then(() => {}),
+    // The layout is waited for only briefly: `ready` is about the document, and never hangs on a stuck read.
+    ready: measure.ready.then(() => Promise.race([layoutRestored, new Promise<void>((r) => setTimeout(r, 5000))])),
     async open(path, opts) {
       const { target, focus, ...rest } = opts ?? {};
       if (target !== 'other') {
@@ -210,6 +232,7 @@ export async function startApp(
     openDocument: () => focused().openDocument(),
     document: () => focused().store(),
     save: (opts) => focused().save(opts),
+    openScratch: (text, opts) => openScratchIn(panes, text, opts),
     // The first pane's, as the selection is (D-06 moves both with focus).
     onDocumentChange: openPath.onDocumentChange,
     selection: renderedSelection,
@@ -229,9 +252,12 @@ export async function startApp(
     },
     index,
     panes: () => panes,
+    workspace: () => workspace,
     destroy() {
+      workspace.destroy();
       renderedSelection.destroy();
       offPaneMode();
+      layout.stop();
       panes.destroy();
       persistence.close();
       config.stop();
@@ -247,8 +273,11 @@ export async function startApp(
   installCloseGuard({ shell, panes: () => panes.panes });
   guardPaneClose(panes);
   try {
-    await openPath.boot(argv);
+    // The launch opens the first pane's document first; the rest of the saved layout follows it (D-12).
+    const { rest } = await launch({ shell, panes, persistence, keeper: layout, boot: (a) => openPath.boot(a), argv });
+    layoutSettled(rest.catch((e: unknown) => console.warn(`marxy: the saved layout could not be restored: ${String(e)}`)));
   } catch (e) {
+    layoutSettled(Promise.resolve());
     first.article.textContent = String(e);
     await shell.mark('error', Date.now(), String(e));
     await measure.finish(1);

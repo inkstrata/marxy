@@ -132,3 +132,7 @@ Context is unchanged.
 The first Phase B story implements the store as amended and acceptance includes the three reproduced
 failures above as tests; the next puts one view per pane with one pane. A single document behaves
 byte-for-byte as before.
+
+## Amendment 2 (V-07): a refused reload is a pending choice
+
+A `reload` that is 'kept' remembers the disk's bytes (`conflict()`, no transition, no new snapshot field); the reader resolves it with `resolveConflict`: 'mine' writes the buffer to a new file beside the original and adopts the disk's bytes, 'theirs' adopts them and discards the unsaved edits, and neither is ever the default, nor overwrites a file.

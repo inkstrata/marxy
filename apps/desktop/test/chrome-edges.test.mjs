@@ -92,7 +92,9 @@ test('a theme that sets the v2 roles repaints the palette and outline edges and 
   } finally { await browser.close(); }
 });
 
-test('with no theme override the edges resolve through the v1 fallbacks the default declares', async () => {
+// H-04 made the default theme set the v2 roles itself (Night's rule-strong, edge and accent-wash are
+// values of their own), so the edges now resolve to those, not through tokens.css's v1 fallbacks.
+test('with no theme override the edges resolve to the v2 roles the default theme declares', async () => {
   const browser = await launchWebkit();
   try {
     const page = await boot(browser);
@@ -101,10 +103,12 @@ test('with no theme override the edges resolve through the v1 fallbacks the defa
       const probe = document.createElement('i');
       document.body.append(probe);
       const of = (v) => { probe.style.color = `var(${v})`; return getComputedStyle(probe).color; };
-      return { rule: of('--marxy-color-rule'), secondary: of('--marxy-color-text-secondary'), selection: of('--marxy-color-selection') };
+      return { rule: of('--marxy-color-rule'), ruleStrong: of('--marxy-color-rule-strong'), edge: of('--marxy-color-edge'), wash: of('--marxy-color-accent-wash') };
     });
-    assert.equal(got.paletteOutline, roles.rule);
-    assert.equal(got.queryEdge, roles.secondary);
-    assert.equal(got.outlineWash, roles.selection);
+    assert.notEqual(roles.ruleStrong, roles.rule, 'the default declares a stronger rule of its own');
+    assert.equal(got.paletteOutline, roles.ruleStrong);
+    assert.equal(got.outlineOutline, roles.ruleStrong);
+    assert.equal(got.queryEdge, roles.edge);
+    assert.equal(got.outlineWash, roles.wash);
   } finally { await browser.close(); }
 });

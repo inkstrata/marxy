@@ -1,0 +1,136 @@
+// Shared helpers for the transform library (J-03). Pure: no DOM, no Node built-ins.
+//
+// Every transform body works on LF text (the registry's wrapper normalises line endings in and restores
+// them out), and reads structure from the parser, never from a regex over the whole text, so a fenced
+// block, a math block or front matter is a span the transform steps around.
+import type { Document, Heading, Node, Source } from '../contracts/ast.ts';
+import type { Operation } from '../contracts/operation.ts';
+import { parseMarkdown } from '../parse/parse.ts';
+import { textIndex } from '../operations/text-helpers.ts';
+
+const enc = new TextEncoder();
+
+/** A half-open range of UTF-16 indices into the text a transform is given. */
+export interface Span {
+  readonly start: number;
+  readonly end: number;
+}
+
+// The last parse is kept: a transform asks for the document more than once (the spans, then the nodes), and a
+// pipeline runs several steps over one text. The AST is read-only (ADR-0001), so sharing it is safe.
+let last: { text: string; doc: Document } | undefined;
+
+export function parseText(lf: string): Document {
+  if (last?.text === lf) return last.doc;
+  const doc = parseMarkdown(enc.encode(lf), { file: 'transform' });
+  last = { text: lf, doc };
+  return doc;
+}
+
+/** Depth-first, document order. */
+export function walk(node: Node, visit: (n: Node) => void): void {
+  visit(node);
+  for (const child of node.children ?? []) walk(child as Node, visit);
+}
+
+/** The spans (UTF-16) of every node whose type is in `types`, in document order, plus the node. */
+export function nodesOf<T extends Node = Node>(lf: string, doc: Document, types: readonly string[]): { node: T; span: Span }[] {
+  const index = textIndex(lf);
+  const out: { node: T; span: Span }[] = [];
+  walk(doc, (n) => {
+    if (n !== doc && types.includes(n.type)) {
+      out.push({ node: n as T, span: { start: index.toIndex(n.src.start), end: index.toIndex(n.src.end) } });
+    }
+  });
+  return out;
+}
+
+/** Code blocks, math blocks and front matter: the bytes a prose transform never touches. Sorted, merged. */
+export function protectedSpans(lf: string, doc: Document = parseText(lf)): Span[] {
+  const spans = nodesOf(lf, doc, ['codeBlock', 'mathBlock', 'frontmatter']).map((s) => s.span).sort((a, b) => a.start - b.start);
+  const merged: Span[] = [];
+  for (const s of spans) {
+    const last = merged[merged.length - 1];
+    if (last && s.start <= last.end) merged[merged.length - 1] = { start: last.start, end: Math.max(last.end, s.end) };
+    else merged.push(s);
+  }
+  return merged;
+}
+
+/** The text between protected spans, as `{ span, text }`, in order. Empty gaps are left out. */
+export function gapsOf(lf: string, doc?: Document): Span[] {
+  const gaps: Span[] = [];
+  let at = 0;
+  for (const p of protectedSpans(lf, doc)) {
+    if (p.start > at) gaps.push({ start: at, end: p.start });
+    at = Math.max(at, p.end);
+  }
+  if (at < lf.length) gaps.push({ start: at, end: lf.length });
+  return gaps;
+}
+
+/** `f` applied to every run of text outside code blocks, math blocks and front matter; the protected bytes pass through. */
+export function mapProse(lf: string, f: (prose: string) => string, doc?: Document): string {
+  let out = '';
+  let at = 0;
+  for (const g of gapsOf(lf, doc)) {
+    out += lf.slice(at, g.start) + f(lf.slice(g.start, g.end));
+    at = g.end;
+  }
+  return out + lf.slice(at);
+}
+
+/** An inline code span (the backtick run opens and closes it); the pieces between spans go to `f`. */
+const CODE_SPAN = /(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g;
+
+/** Like `mapProse`, and also steps around inline code spans. For rewrites that do not depend on a line start. */
+export function mapInline(lf: string, f: (piece: string) => string, doc?: Document): string {
+  return mapProse(lf, (prose) => {
+    let out = '';
+    let at = 0;
+    for (const m of prose.matchAll(CODE_SPAN)) {
+      out += f(prose.slice(at, m.index)) + m[0];
+      at = m.index + m[0].length;
+    }
+    return out + f(prose.slice(at));
+  }, doc);
+}
+
+/** The ATX headings of the document (setext headings have no `#` run to edit and are left out), with their spans. */
+export function atxHeadings(lf: string, doc: Document = parseText(lf)): { heading: Heading; span: Span }[] {
+  return nodesOf<Heading>(lf, doc, ['heading'])
+    .filter(({ span }) => lf[span.start] === '#')
+    .map(({ node, span }) => ({ heading: node, span }));
+}
+
+/** Apply non-overlapping edits to `lf`. */
+export function applyEdits(lf: string, edits: readonly { start: number; end: number; text: string }[]): string {
+  const sorted = [...edits].sort((a, b) => a.start - b.start);
+  let out = '';
+  let at = 0;
+  for (const e of sorted) {
+    out += lf.slice(at, e.start) + e.text;
+    at = e.end;
+  }
+  return out + lf.slice(at);
+}
+
+/** Lines of LF text, with the one final line break set aside: `['a', 'b']` and `true` for `'a\nb\n'`. */
+export function splitLinesLf(lf: string): { lines: string[]; finalEol: boolean } {
+  if (lf === '') return { lines: [], finalEol: false };
+  const finalEol = lf.endsWith('\n');
+  return { lines: (finalEol ? lf.slice(0, -1) : lf).split('\n'), finalEol };
+}
+
+export function joinLinesLf(lines: readonly string[], finalEol: boolean): string {
+  return lines.length === 0 ? '' : lines.join('\n') + (finalEol ? '\n' : '');
+}
+
+/** What `op` puts on the clipboard for `node`, or `undefined` when it does not apply there (E's operations, reused as text). */
+export function clipboardOf(op: Operation, doc: Document, lf: string, node: Node | undefined = undefined, range: Source = node?.src ?? doc.src): string | undefined {
+  const base = { document: doc, node, range };
+  if (!op.canApply(base)) return undefined;
+  const index = textIndex(lf);
+  const text = lf.slice(index.toIndex(range.start), index.toIndex(range.end));
+  return op.run({ ...base, text }).clipboard?.text;
+}

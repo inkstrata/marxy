@@ -37,3 +37,30 @@ test('a launch right after another finished counts each frame once: one loop at 
   assert.equal(second.framesObserved() - before, 5);
   second.stopObserving();
 });
+
+test('F-31: a wait that saw frames but no paint entry marks painted signal=frames-only and no first_text', async () => {
+  const marks: string[] = [];
+  const recording = { ...shell, async mark(name: string, _t: number, data?: string) { marks.push(data ? `${name} ${data}` : name); } };
+  const g = globalThis as Record<string, unknown>;
+  const realSetTimeout = globalThis.setTimeout;
+  g.getComputedStyle = () => ({ visibility: 'visible', display: 'block' });
+  // The fallback is due in 2 s; the test makes it due now.
+  g.setTimeout = (fn: () => void) => realSetTimeout(fn, 0);
+  try {
+    const measure = createLaunchMeasure(recording, []);
+    const evidence = { blocks: 1, chars: 5, hasText: true, heading: '' };
+    const pending = measure.waitForFirstText({} as HTMLElement, evidence, performance.now(), Date.now());
+    for (let i = 0; i < 6; i++) {
+      frame();
+      await new Promise((resolve) => realSetTimeout(resolve, 5));
+    }
+    const outcome = await Promise.race([pending, new Promise((resolve) => realSetTimeout(() => resolve('hung'), 500))]);
+    assert.equal(outcome, 'frames_only');
+    assert.ok(marks.some((m) => /^painted frames=\d+ since_render_ms=\d+ signal=frames-only$/.test(m)), marks.join(' | '));
+    assert.ok(!marks.some((m) => m.startsWith('first_text')), 'a frames-only boot is not a first_text sample');
+    measure.stopObserving();
+  } finally {
+    g.setTimeout = realSetTimeout;
+    delete g.getComputedStyle;
+  }
+});

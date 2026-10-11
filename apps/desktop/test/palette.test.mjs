@@ -173,6 +173,57 @@ test('bootApplication mounts dialog#marxy-palette; Mod+P summons input and list'
   }
 });
 
+test('Mod+K and Mod+P toggle the palette; Mod+Shift+P and Mod+/ open it on commands (W-19), from Rendered and from Source', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    await page.evaluate(async ({ doc, argv }) => {
+      await window.marxyPaletteBoot.start({ '/docs/readme.md': doc }, argv, []);
+    }, { doc: Buffer.from(HEADING_DOC).toString('base64'), argv: ['/docs/readme.md'] });
+    const mod = modChord(await page.evaluate(() => navigator.platform));
+    const state = () =>
+      page.evaluate(() => ({
+        open: document.querySelector('#marxy-palette')?.open === true,
+        query: document.querySelector('#marxy-palette .marxy-palette-query')?.value,
+        rows: document.querySelectorAll('#marxy-palette .marxy-palette-row').length,
+        mode: document.body.dataset.marxyMode,
+      }));
+    const press = async (chord) => { await page.keyboard.press(chord); await page.waitForTimeout(50); };
+
+    for (const where of ['rendered', 'source']) {
+      if (where === 'source') {
+        await press(`${mod}+KeyE`);
+        await page.waitForSelector('#marxy-source .cm-content');
+        await page.click('#marxy-source .cm-content');
+        assert.equal((await state()).mode, 'source');
+      }
+      for (const chord of [`${mod}+KeyK`, `${mod}+KeyP`]) {
+        await press(chord);
+        assert.equal((await state()).open, true, `${chord} opens in ${where}`);
+        await press(chord);
+        assert.equal((await state()).open, false, `${chord} again closes in ${where}`);
+      }
+      for (const chord of [`${mod}+Shift+KeyP`, `${mod}+Slash`]) {
+        await press(chord);
+        const opened = await state();
+        assert.equal(opened.open, true, `${chord} opens in ${where}`);
+        assert.equal(opened.query, '>', `${chord} types > in ${where}`);
+        assert.ok(opened.rows > 0, `${chord} lists commands in ${where}`);
+        await press(chord);
+        assert.equal((await state()).open, false, `${chord} again closes in ${where}`);
+      }
+    }
+    // In Source, Mod+/ opened the palette and did not toggle a comment: the document is unchanged.
+    const lines = await page.evaluate(() => [...document.querySelectorAll('#marxy-source .cm-line')].map((l) => l.textContent));
+    assert.equal(lines[0], '# Doc');
+    assert.ok(lines.every((l) => !l.includes('<!--')), 'no comment was toggled');
+  } finally {
+    await browser.close();
+  }
+});
+
 test('Tab toggles documents and headings; Enter on a heading scrolls to the reading line', async () => {
   const browser = await launchWebkit();
   try {

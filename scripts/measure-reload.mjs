@@ -10,12 +10,19 @@
 //   into `read` (the file read), `map` (the parse the watcher maps the place through, and the mapping),
 //   `store` (the store's reload transition: its parse and node map, then the page set synchronously:
 //   render, sanitise, the first screens) and `settle` (the typeset viewport after it);
+// - the view's own `marxy:repaint` measure (B-24): how long the page took to be set again, and whether
+//   only the blocks the reload changed were replaced (`replaced`) or the whole page was rendered
+//   (`whole`, with the reason);
 // - the wall time from the watch event to that mark, and whether the reader is still on the same text;
 // - in the same page, each stage alone on the same bytes: decode, full parse, the reparse the store
 //   now does, the place's mapping, the node map, render and sanitise.
 //
 // usage: node scripts/measure-reload.mjs [--runs N] [--size 1m|<bytes>] [--at top|end|both]
-//                                       [--shape transcript|dense] [--index-colon] [--json <path>]
+//                                       [--shape transcript|dense] [--index-colon] [--settled] [--json <path>]
+//   --settled   write only after the whole document is in the page (`contentComplete`) and the page has
+//               been quiet for a second, as a reader who has had the file open a while meets a reload; the
+//               default writes half a second after the first screens, with most of the document still
+//               waiting to be mounted
 //   --shape dense   the denser synthetic document the F-19.1 review measured, instead of the transcript
 //   --index-colon   the first turn also holds a Python fence with `if xs[0]:`, text that looks like a
 //                   definition's `]:` and is not one (before the review of #467 it sent every reload
@@ -72,7 +79,7 @@ export function insertionNearTop(bytes) {
 }
 
 export function parseArgs(argv) {
-  const opts = { runs: 3, size: 1024 * 1024, at: 'top', shape: 'transcript', indexColon: false, json: undefined };
+  const opts = { runs: 3, size: 1024 * 1024, at: 'top', shape: 'transcript', indexColon: false, settled: false, json: undefined };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const value = () => {
@@ -87,6 +94,7 @@ export function parseArgs(argv) {
     } else if (a === '--at') opts.at = value();
     else if (a === '--shape') opts.shape = value();
     else if (a === '--index-colon') opts.indexColon = true;
+    else if (a === '--settled') opts.settled = true;
     else if (a === '--json') opts.json = value();
     else throw new Error(`unknown argument ${a}`);
   }
@@ -159,7 +167,7 @@ async function warmUp(browser, base) {
 }
 
 /** One boot, one outside write, one reload: the app's numbers, then each stage alone in the same page. */
-async function runOnce(browser, base, bytes, at) {
+async function runOnce(browser, base, bytes, at, settled = false) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   if (process.env.MEASURE_VERBOSE) page.on('console', (m) => m.text().startsWith('measure:') && console.log(`  ${m.text()}`));
   try {
@@ -167,7 +175,7 @@ async function runOnce(browser, base, bytes, at) {
     await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
     const insertAt = at === 'top' ? insertionNearTop(bytes) : bytes.length;
     return await page.evaluate(
-      async ({ doc, insertAt, line, core }) => {
+      async ({ doc, insertAt, line, core, settled }) => {
         const raw = atob(doc);
         const before = new Uint8Array(raw.length);
         for (let i = 0; i < raw.length; i++) before[i] = raw.charCodeAt(i);
@@ -177,7 +185,12 @@ async function runOnce(browser, base, bytes, at) {
         // The reader a few screens in, below the line the outside write adds. Not the middle of the file:
         // the reload re-renders from the reader's place, and waiting for the whole first mount of a large
         // file is a different measurement (perf-harness's content_complete).
-        await new Promise((r) => setTimeout(r, 500));
+        if (settled) {
+          await Promise.race([handle.contentComplete(), new Promise((r) => setTimeout(r, 120_000))]);
+          await new Promise((r) => setTimeout(r, 1000));
+        } else {
+          await new Promise((r) => setTimeout(r, 500));
+        }
         window.scrollTo(0, window.innerHeight * 3);
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         const held = handle.sourceHarness().byteOffset;
@@ -196,6 +209,7 @@ async function runOnce(browser, base, bytes, at) {
         while (marks().length === seen && performance.now() < deadline) await new Promise((r) => setTimeout(r, 5));
         const mark = marks()[seen];
         console.log('measure: reloaded');
+        const repaint = performance.getEntriesByName('marxy:repaint').at(-1);
         const wall = mark ? mark.args[1] - emitted : NaN;
         const place = handle.sourceHarness().byteOffset;
         const expected = held + (insertAt <= held ? lineBytes.length : 0);
@@ -238,6 +252,7 @@ async function runOnce(browser, base, bytes, at) {
         walk(doc2);
         return {
           detail: mark?.args[2] ?? null,
+          repaint: repaint ? { ms: repaint.duration, ...(repaint.detail ?? {}) } : null,
           wall,
           held,
           place,
@@ -249,7 +264,7 @@ async function runOnce(browser, base, bytes, at) {
           html: result.html.length,
         };
       },
-      { doc: Buffer.from(bytes).toString('base64'), insertAt, line: LINE, core: ROOT },
+      { doc: Buffer.from(bytes).toString('base64'), insertAt, line: LINE, core: ROOT, settled },
     );
   } finally {
     await page.close();
@@ -274,13 +289,14 @@ async function main(argv) {
       const runs = [];
       for (let i = 0; i < opts.runs; i++) {
         const load = loadavg()[0];
-        const r = await runOnce(browser, base, bytes, at);
+        const r = await runOnce(browser, base, bytes, at, opts.settled);
         r.load = load;
         runs.push(r);
         const d = reloadDetail(r.detail);
         console.log(
           `${at} run ${i + 1}: load ${load.toFixed(1)}; ${r.bytes} bytes, ${r.nodes} nodes, ${r.blocks} blocks; ` +
             `reload ${f1(d.ms)} ms (read ${f1(d.read)}, map ${f1(d.map)}, store ${f1(d.store)}, settle ${f1(d.settle)}); ` +
+            `repaint ${r.repaint ? `${f1(r.repaint.ms)} ms ${r.repaint.how ?? 'whole'}${r.repaint.reason ? ` (${r.repaint.reason})` : ''}` : '—'}; ` +
             `watch event to mark ${f1(r.wall)} ms; place ${r.held} → ${r.place} (expected ${r.expected})`,
         );
         if (r.detail === null) missing = true;
@@ -289,12 +305,13 @@ async function main(argv) {
       const med = (pick) => median(runs.map(pick));
       const d = (k) => med((r) => reloadDetail(r.detail)[k]);
       const s = (k) => med((r) => r.stages[k]);
-      console.log(`\n${opts.shape}${opts.indexColon ? " with `if xs[0]:`" : ""}, ${at}: medians of ${runs.length} runs, ms (WebKit ${browser.version()}, load ${runs.map((r) => r.load.toFixed(1)).join('/')})\n`);
+      console.log(`\n${opts.shape}${opts.indexColon ? " with `if xs[0]:`" : ""}${opts.settled ? ', settled' : ''}, ${at}: medians of ${runs.length} runs, ms (WebKit ${browser.version()}, load ${runs.map((r) => r.load.toFixed(1)).join('/')})\n`);
       console.log('| Stage | ms |');
       console.log('| --- | ---: |');
       console.log(`| read (memory shell) | ${f1(d('read'))} |`);
       console.log(`| map: the watcher's parse and the place | ${f1(d('map'))} |`);
-      console.log(`| store: reparse, node map, render, sanitise, first screens | ${f1(d('store'))} |`);
+      console.log(`| store: reparse, node map, then the page set again (below), first screens | ${f1(d('store'))} |`);
+      console.log(`| repaint: the page set again (${runs.filter((r) => r.repaint?.how === 'replaced').length}/${runs.length} runs replaced only the changed blocks) | ${f1(med((r) => r.repaint?.ms))} |`);
       console.log(`| settle: typeset viewport | ${f1(d('settle'))} |`);
       console.log(`| **watch event to the reader's place** | **${f1(d('ms'))}** |`);
       console.log(`| (wall: event to mark) | ${f1(med((r) => r.wall))} |`);

@@ -3,13 +3,15 @@
 import type { Buffer } from '@marxy/core';
 import { lineOf } from '@marxy/core';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
-import { ensureNoticesRegion } from './index.ts';
+import { ensureNoticesRegion, focusedPane } from './index.ts';
 import { truncationNoticeText } from './trust-copy.ts';
 
 export interface TruncationNoticeOpts {
   readonly buffer: Buffer;
   readonly removed: readonly RenderRemoval[];
   showSource?(line: number): void;
+  /** The pane that shows the buffer (`section.marxy-pane`): the notice is said there. The focused pane when unset. */
+  readonly pane?: HTMLElement;
 }
 
 function countLinesFrom(byteOffset: number, buffer: Buffer): number {
@@ -27,7 +29,7 @@ export function truncationNotices(opts: TruncationNoticeOpts): void {
     if (removal.what !== 'truncation' || removal.src === undefined) continue;
     const line = lineOf(opts.buffer, removal.src.start);
     const remaining = countLinesFrom(removal.src.start, opts.buffer);
-    const region = ensureNoticesRegion();
+    const region = ensureNoticesRegion(opts.pane ?? focusedPane());
     const row = document.createElement('div');
     row.className = 'marxy-notice';
     row.dataset.noticeKind = 'blocked';

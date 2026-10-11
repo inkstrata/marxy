@@ -54,6 +54,11 @@ export interface UnsanitisedRenderOptions {
    * public pair, for tests that look at the render before the boundary.
    */
   readonly provenance?: ProvenanceNames;
+  /**
+   * The heading ids of the whole document, when `document` is a run of its blocks rendered on their own
+   * (D-15): the slugger numbers a repeated heading by what came before it, which a run alone does not know.
+   */
+  readonly headingIds?: Map<string, string>;
 }
 
 /** ` s="…" e="…"` for a node's own bytes: the attributes every element made for a node carries. */
@@ -72,7 +77,7 @@ export function renderToUnsanitisedHtml(document: Document, options: Unsanitised
   const ctx: Context = {
     footnotes: collectFootnotes(document),
     names: options.provenance ?? PROVENANCE_ATTRIBUTES,
-    headingIds: headingIdsForDocument(document),
+    headingIds: options.headingIds ?? headingIdsForDocument(document),
   };
   const parts: string[] = [];
   for (const child of document.children) {

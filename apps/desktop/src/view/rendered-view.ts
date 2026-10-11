@@ -6,7 +6,7 @@
 
 import { byteToUtf16, contentHash, utf16ToByte, type Buffer, type Document } from '@marxy/core';
 import { offsetThroughEdit } from '@marxy/core/src/position/restore.ts';
-import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
+import { blockedImagesFrom, renderDocumentSafeHtml, renderDocumentSafeHtmlInSlices } from '@marxy/core/src/render/index.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { AppShell } from '../app.ts';
@@ -14,13 +14,16 @@ import type { AppContext } from '../commands/registry.ts';
 import type { PieceSource } from '../frontispiece/pieces.ts';
 import { wireArticle } from '../commands/document.ts';
 import type { DocumentSnapshot, DocumentStore, Transition } from '../document/store.ts';
-import { currentPosition, restoreScrollToPosition } from '../position/index.ts';
+import { currentPosition as positionOf, restoreScrollToPosition } from '../position/index.ts';
+import type { ScrollerGeometry } from '../position/position.ts';
+import { renderRecord, spliceRendered, type RenderRecord } from '../render/incremental.ts';
 import { resolveImageRoot, stripNonLocalImages } from '../render/images.ts';
 import { buildBlocks, nodeFor, type BlockList, type NodeMap } from '../render/post.ts';
-import { mountProgressively, type ProgressiveMount } from '../render/progressive.ts';
+import { DEFAULT_THRESHOLD, mountProgressively, parseInertInSlices, type ProgressiveMount } from '../render/progressive.ts';
+import { yieldToEventLoop } from '../startup/yield.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
-import { notify, SOURCE_HELD_APART } from '../notices/index.ts';
+import { notify, paneOf, SOURCE_HELD_APART } from '../notices/index.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
 import { type CmStateLike, cmPosToUtf16, utf16ToCmPos } from '../source/cm-position.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from '../startup/idle-work.ts';
@@ -44,13 +47,38 @@ interface MountedSourceEditor {
   };
 }
 
+/**
+ * One block open for editing in place (E-04, commands/block-edit.ts): a CodeMirror editor where the block's
+ * element was. The view asks it before it lets the reader's text go, as it asks Source: it counts as unsaved
+ * text the store does not have, folds into the store on every route that folds Source, and is closed before
+ * the page under it is set again. At most one at a time, in the one view whose article holds it.
+ */
+export interface BlockEdit {
+  /** The reader's text differs from the block it was opened on: the store does not have it. */
+  dirty(): boolean;
+  /** That text into the store as one history entry, then the editor closes; true when the store changed. */
+  fold(): Promise<boolean>;
+  /** Whether `change` is this editor's own commit (its `fold`), not another view's or the disk's. */
+  owns(change: Transition): boolean;
+  /**
+   * The page under the editor is about to be set again, by `change` (null: with no change to the bytes). It
+   * closes at once; text it held that the store does not have is put back over the new bytes.
+   */
+  release(before: DocumentSnapshot | null, snapshot: DocumentSnapshot, change: Transition | null): void;
+  /** Closes it and keeps nothing: the document is being closed or replaced. */
+  discard(): void;
+}
+
 export interface OpenDocument {
   readonly ast: Document;
+  /** The sanitised HTML of the whole document. After a reload that replaced only some blocks it is rendered when first read. */
   readonly html: string;
   /** Rendered element → AST node, through its byte range (ADR-0023). */
   readonly nodeMap: NodeMap;
   /** Refreshed whenever layout moves them; built once here for now (MARXY-38 reads them). */
   blocks: BlockList;
+  /** What the page was rendered from, for the next reload to replace only what it changed (B-24); null when none. */
+  readonly render: RenderRecord | null;
 }
 
 /**
@@ -105,9 +133,11 @@ export interface RenderedView {
    * Shows `store` in the article: subscribes to it, renders its snapshot through the one mount (the
    * first screens from `at` down now, the rest in idle chunks once `start` settles), sets the grid and
    * lands on `at`. Whatever was shown before is cleared first. `onMounted` runs once the first screens
-   * are in and the selection has been told, before the `rendered` mark.
+   * are in and the selection has been told, before the `rendered` mark. `sliced` (D-15) renders and parses a
+   * large document a few milliseconds at a time with the event loop given back between slices, for a pane
+   * opening beside another: the page it makes is the same, and first text comes a little later.
    */
-  show(store: DocumentStore, opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void }): Promise<RenderEvidence>;
+  show(store: DocumentStore, opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void; sliced?: boolean }): Promise<RenderEvidence>;
   /** The store shown, or null. */
   store(): DocumentStore | null;
   /** The page again from the shown store's snapshot (a trust change); `at` lands the mount and, given a fraction, is restored. */
@@ -146,6 +176,13 @@ export interface RenderedView {
   /** Source text into the store as one history entry; true when it changed the store. */
   foldSource(): Promise<boolean>;
   sourceHasUnfoldedEdits(): boolean;
+  /** The block open for editing in place in this view's article, or null (E-04). The block-edit command sets and clears it. */
+  blockEdit: BlockEdit | null;
+  /**
+   * Runs `change`, which alters the page's layout at or above the reader's place (a block opened in place
+   * takes more or less room than the block did), and puts the reader back on the block they were reading.
+   */
+  holdPlace(change: () => void): void;
   /** The typesetter for the shown page, including the `typeset_viewport` and `typeset_done` marks. */
   typeset(): Promise<void>;
   /** Images, KaTeX and highlighting for the page as mounted now: run the result at idle. */
@@ -191,6 +228,14 @@ const READER_INPUT = ['wheel', 'touchstart', 'mousedown', 'keydown'] as const;
 const SNAP_INTERVAL_MS = 250;
 
 const ISLANDS = 'pre, table, img, .marxy-math-block, .marxy-math';
+
+/**
+ * A reload replaces only the blocks it changed (B-24) in a document of at least this many bytes. Under it a
+ * whole render costs a few milliseconds and is the one path with nothing to prove.
+ */
+const INCREMENTAL_MIN_BYTES = 64 * 1024;
+/** The grid pass below a replaced block runs at once when at most this many blocks follow it, else at idle. */
+const SYNC_SNAP_BLOCKS = 300;
 
 /** What a launch with no document and no Commonplace piece shows. */
 const EMPTY_HINT = '<p class="marxy-empty">Open a markdown file: <code>marxy README.md</code></p>';
@@ -250,6 +295,26 @@ function spliceOf(change: Transition): { start: number; removed: number; inserte
   return { start: edit.range.start, removed, inserted };
 }
 
+/** An `OpenDocument` whose `html` is made when first read. */
+function openDocumentOf(
+  ast: Document,
+  nodeMap: NodeMap,
+  blocks: BlockList,
+  render: RenderRecord | null,
+  html: () => string,
+): OpenDocument {
+  let made: string | undefined;
+  return {
+    ast,
+    nodeMap,
+    blocks,
+    render,
+    get html() {
+      return (made ??= html());
+    },
+  };
+}
+
 export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): RenderedView {
   const { article: doc, sourceHost, modeHost } = host;
   const { shell, trust } = deps;
@@ -265,11 +330,41 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * has been clamped.
    */
   let seen = { scrollTop: scroller.scrollTop, clientHeight: scroller.clientHeight };
+  /**
+   * How far the article's top sits below the top of the scroller's content (a pane's padding, the page's
+   * margin). The block list measures from the article, the scroll offset from the content, so a block's
+   * place in the scroller is its `top` and this. Left out, a position read at one width and put back at
+   * another was off by this much of every block's change in height (F-27).
+   */
+  const contentOffset = (): number => {
+    // The window scroller (one pane) is left as it was: its blocks are measured as before.
+    if (scroller === document.documentElement) return 0;
+    const offset = doc.getBoundingClientRect().top - (scroller.getBoundingClientRect().top + scroller.clientTop) + scroller.scrollTop;
+    return Number.isFinite(offset) ? offset : 0;
+  };
+  let seenOffset = contentOffset();
   const scrollListeners = new Set<() => void>();
   const noteScroll = (): void => {
     seen = { scrollTop: scroller.scrollTop, clientHeight: scroller.clientHeight };
+    seenOffset = contentOffset();
   };
+  /** `blocks` with their tops measured from the scroller's content, as its scroll offset is. */
+  const inScroller = (blocks: BlockList, offset: number): BlockList =>
+    offset === 0 ? blocks : blocks.map((block) => ({ ...block, top: block.top + offset }));
+  /** The reading position on `geometry` (the scroller, or what it last was), over `blocks`. */
+  const currentPosition = (
+    geometry: ScrollerGeometry,
+    blocks: BlockList,
+    path: string,
+    mode: ReadingPosition['mode'],
+  ): ReadingPosition =>
+    positionOf(geometry, inScroller(blocks, geometry === seen ? seenOffset : contentOffset()), path, mode);
   const onScrollerScroll = (): void => {
+    // A scroll nobody here made (every restore notes its own, and the event finds nothing moved) is the
+    // reader's or a script's, and releases whatever this view is holding the place with, as the reader's
+    // input does: a hold put back after it would undo it (F-27, from the D-13 review: a scroll made just
+    // after a pane opened was reset to the top).
+    if (scroller !== document.documentElement && scroller.scrollTop !== seen.scrollTop) releaseAnchor();
     noteScroll();
     for (const cb of [...scrollListeners]) cb();
   };
@@ -278,8 +373,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   scrollTarget(scroller).addEventListener('scroll', onScrollerScroll, { passive: true });
 
   /** Puts `p` on the reading line of this view's scroller, and notes where that left it. */
-  function restoreTo(blocks: BlockList, p: ReadingPosition): void {
-    restoreScrollToPosition(scroller, blocks, p);
+  function restoreTo(blocks: BlockList, p: ReadingPosition, offset: number = contentOffset()): void {
+    restoreScrollToPosition(scroller, inScroller(blocks, offset), p);
     noteScroll();
   }
 
@@ -290,12 +385,20 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   let shown: OpenDocument | null = null;
 
   let viewMode: 'rendered' | 'source' = 'rendered';
+  /** The block open for editing in place (E-04); closed before the page under it is set again. */
+  let blockEdit: BlockEdit | null = null;
   let sourceEditor: MountedSourceEditor | null = null;
   /** The accessor for the editor in a Source mount, once the editor module has loaded (it stays off the start-up path). */
   let activeSourceEditorIn: ((parent: HTMLElement) => MountedSourceEditor | null) | null = null;
   let lastReadingByteOffset = 0;
   let lastReadingFraction = 0;
   let modeToggleBusy = false;
+  /**
+   * The hidden article is behind the store: a fold committed while Source showed (B-27) did not set it from
+   * the new bytes, since nobody can see it. Whatever shows Rendered again sets it first (`showRendered`).
+   * Any whole render, and a close or an open, make it current again.
+   */
+  let pageStale = false;
   /** This pane's Source text and the store went different ways under it (D-11; `holdApart`). */
   let heldApart = false;
   /** The line on the reading line just after Source was shown; leaving from it with no edit is exact. */
@@ -329,6 +432,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * at 1 MB they run for seconds after the render returns.
    */
   let heldPosition: ReadingPosition | null = null;
+  /**
+   * The place a burst of resizes holds (F-27): taken when the first resize is noticed, ended when its
+   * relayout has set the page. Reader input in between releases it (`releaseAnchor`), and the relayout
+   * then leaves the reader where they put themselves instead of putting back the place read before.
+   */
+  let resizeHold: ReadingPosition | null = null;
+  /** Each resize hold's place, until its relayout ends: whether the reader released it. */
+  const resizeReleased = new WeakMap<ReadingPosition, boolean>();
 
   let lastSnapAt = 0;
   let snapTimer = 0;
@@ -479,6 +590,15 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   async function showRendered(byteOffset: number, fraction: number): Promise<void> {
     setModeChrome('rendered');
     const path = openPathNow();
+    // Folds that came in while Source showed left the page as it was (B-27): set it from the store's bytes now.
+    if (pageStale && shown && path) {
+      try {
+        rerenderFromBuffer(byteOffset);
+      } catch (e) {
+        showRenderFailure(e);
+        return;
+      }
+    }
     if (shown && path) {
       mountThrough(byteOffset);
       // Block positions must be measured with the article laid out, not from whatever a hidden pass saw.
@@ -506,7 +626,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (!sourceEditor || !open) return;
     // Held apart from the other pane's fold (D-11): leaving would fold this text over it. Stay, and say why.
     if (stillHeldApart()) {
-      notify({ kind: 'info', text: SOURCE_HELD_APART });
+      notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: paneOf(doc) });
       return;
     }
     // Leaving Source is one history entry (`commitSource`): Mod+Z in Rendered undoes what was typed there.
@@ -537,6 +657,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   async function toggleViewMode(): Promise<void> {
     if (modeToggleBusy || !store) return;
+    // A block open in place leaves first, so Source shows what was typed there (E-04).
+    await blockEdit?.fold();
     modeToggleBusy = true;
     try {
       await serially(async () => {
@@ -550,6 +672,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   async function jumpToSource(byteOffset: number): Promise<void> {
     if (modeToggleBusy || !store) return;
+    await blockEdit?.fold();
     modeToggleBusy = true;
     try {
       await serially(async () => {
@@ -582,13 +705,47 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     };
   }
 
+  /** Holds `p` until the resize burst it was read for has been laid out, or the reader scrolls. */
+  function holdThroughResize(p: ReadingPosition): void {
+    if (anchor !== null || (heldPosition !== null && heldPosition !== resizeHold)) return;
+    resizeHold = p;
+    resizeReleased.set(p, false);
+    heldPosition = p;
+    listenForReaderScroll();
+  }
+
+  function releaseResizeHold(): void {
+    if (resizeHold === null) return;
+    resizeReleased.set(resizeHold, true);
+    if (heldPosition === resizeHold) heldPosition = null;
+    resizeHold = null;
+  }
+
+  /** True when `p` should be put back: false when it was a resize hold that a scroll released. */
+  function endResizeHold(p: ReadingPosition | null): boolean {
+    const released = p === null ? undefined : resizeReleased.get(p);
+    if (p === null || released === undefined) return true;
+    resizeReleased.delete(p);
+    if (resizeHold === p) {
+      resizeHold = null;
+      if (heldPosition === p) {
+        heldPosition = null;
+        if (anchor === null) stopListeningForReaderScroll();
+      }
+    }
+    return !released;
+  }
+
   /** A change of variant, size or window width: same position, new layout (A-14, S-02-0001). */
   async function relayoutKeepingReader(
     reason: 'theme' | 'resize' = 'theme',
     from: ReadingPosition | null = null,
   ): Promise<void> {
     const path = openPathNow();
-    if (!path || !shown || viewMode !== 'rendered') return;
+    if (!path || !shown || viewMode !== 'rendered') {
+      endResizeHold(from);
+      return;
+    }
     const pos = from?.path === path ? from : currentPosition(scroller, shown.blocks, path, 'rendered');
     if (typeset) {
       typeset.relayout(reason);
@@ -596,7 +753,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     } else {
       snap(doc);
     }
-    if (!shown) return;
+    if (!endResizeHold(from) || !shown) return;
     restoreTo(shown.blocks, { ...pos, path, mode: 'rendered' });
   }
 
@@ -606,10 +763,13 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const openPath = openPathNow();
     const blocks = shown?.blocks ?? null;
     if (!set || !openPath || !blocks) return;
-    const pos = currentPosition(scroller, blocks, openPath, 'rendered');
+    // The offset is read with the place and put back with it: what sits above the article (a notice that
+    // comes or goes while the page is set) is not the reader's place, and the page leaves it where it was.
+    const offset = contentOffset();
+    const pos = positionOf(scroller, inScroller(blocks, offset), openPath, 'rendered');
     set.relayout('theme');
     await set.ready;
-    restoreTo(blocks, { ...pos, path: openPath, mode: 'rendered' });
+    restoreTo(blocks, { ...pos, path: openPath, mode: 'rendered' }, offset);
   }
 
   function snap(article: HTMLElement, from?: HTMLElement): void {
@@ -623,6 +783,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   function releaseAnchor(): void {
     anchor = null;
     heldPosition = null;
+    releaseResizeHold();
     stopListeningForReaderScroll();
   }
 
@@ -824,6 +985,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       const path = openPathNow();
       if (before === null && path && shown) {
         before = currentPosition(scroller, shown.blocks, path, 'rendered');
+        if (scroller !== document.documentElement) holdThroughResize(before);
       }
       clearTimeout(pending);
       // A new width re-breaks every paragraph; the relayout's passes re-run the grid pass themselves.
@@ -832,12 +994,16 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
         const relayout = rebreak;
         before = null;
         rebreak = false;
-        if (!laidOut()) return;
+        if (!laidOut()) {
+          endResizeHold(position);
+          return;
+        }
         if (relayout) {
           void relayoutKeepingReader('resize', position);
           return;
         }
         snap(article);
+        if (!endResizeHold(position)) return;
         if (position && shown && position.path === openPathNow() && viewMode === 'rendered') {
           restoreTo(shown.blocks, position);
         }
@@ -853,12 +1019,15 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * The store is not the view's: whoever opened it closes it.
    */
   function clear(): void {
+    blockEdit?.discard();
+    blockEdit = null;
     mount?.cancel();
     mount = null;
     unsubscribe?.();
     unsubscribe = null;
     store = null;
     shown = null;
+    pageStale = false;
     releaseAnchor();
     destroyTypeset();
     disconnectResizeObserver();
@@ -876,6 +1045,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   /** Source text the reader typed and has not yet folded into the store: the store cannot see it. */
   function unfoldedSourceEdits(): boolean {
+    // Text typed in a block open in place is the same kind of thing: the store does not have it (E-04).
+    if (blockEdit?.dirty()) return true;
     const buffer = bufferNow();
     return buffer !== null && viewMode === 'source' && sourceEditor !== null && leaveSourceMode(buffer, sourceEditor.docText()).changed;
   }
@@ -918,7 +1089,13 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * reload, a rename) and for `commitEdit` of unchanged bytes. `landing`, when given, is the anchor
    * the view held, mapped through the change: it is held again rather than released.
    */
-  function repaint(snapshot: DocumentSnapshot, position: ReadingPosition, landing: number | null = null, spanned = false): void {
+  function repaint(
+    snapshot: DocumentSnapshot,
+    position: ReadingPosition,
+    landing: number | null = null,
+    spanned = false,
+    reload = false,
+  ): void {
     // Every path that changes the store while Source shows folds the editor's text first (undo, redo, save,
     // rename) or refuses (commitEdit), so the editor holds nothing the store lacks here. If it does (another
     // pane changed the store under it, D-11), the editor is held apart: its text is kept, not reset, and
@@ -929,8 +1106,12 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     }
     if (sourceEditor && !heldApart) replaceSourceBuffer(sourceEditor, snapshot.buffer);
     releaseAnchor();
-    rerenderFromBuffer(landing ?? position.byteOffset);
-    const typesetting = typesetDocument();
+    const t0 = performance.now();
+    // A reload replaces only the blocks it changed when it can show that the result is the whole render (B-24);
+    // anything else sets the page whole, as every other transition does.
+    const fell = reload ? splicePage(snapshot) : 'not a reload';
+    if (fell !== null) rerenderFromBuffer(landing ?? position.byteOffset);
+    const typesetting = fell === null ? (typeset?.ready ?? Promise.resolve()) : typesetDocument();
     if (viewMode === 'source' && sourceEditor) {
       // Source shows and the window is its scroller: the place goes back into the editor, not onto the
       // hidden article, whose block list has nothing measured to place it by (F-04).
@@ -942,7 +1123,75 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     } else {
       holdPosition({ ...position, path: snapshot.path });
     }
+    recordRepaint(t0, fell);
     settlePage(typesetting);
+  }
+
+  /**
+   * What the last repaint did and how long it took, for a measurement or a test to read
+   * (`performance.getEntriesByName('marxy:repaint')`): nothing in the app reads it, and nothing leaves the page.
+   */
+  function recordRepaint(start: number, fell: string | null): void {
+    try {
+      performance.measure('marxy:repaint', {
+        start,
+        end: performance.now(),
+        detail: fell === null ? { how: 'replaced' } : { how: 'whole', reason: fell },
+      });
+    } catch {
+      // A page with no user-timing: nothing to read it.
+    }
+  }
+
+  /**
+   * The page after a reload, with only the blocks the change touched replaced (B-24, render/incremental.ts).
+   * Null when it was done; else why the page must be rendered whole, with nothing in it changed.
+   */
+  function splicePage(snapshot: DocumentSnapshot): string | null {
+    try {
+      return splicePageNow(snapshot);
+    } catch (e) {
+      // Whatever it did to the page, the whole render that follows replaces: the page is never left half done.
+      console.warn(`marxy: the blocks a reload changed could not be replaced; rendering the page whole: ${String(e)}`);
+      return `the replacement failed: ${String(e)}`;
+    }
+  }
+
+  function splicePageNow(snapshot: DocumentSnapshot): string | null {
+    const prior = shown;
+    const record = prior?.render ?? null;
+    if (!prior || !record || !mount) return 'the page was not set from a whole render';
+    if (viewMode !== 'rendered' || doc.hidden) return 'the page is not showing';
+    if (snapshot.buffer.bytes.length < INCREMENTAL_MIN_BYTES) return 'a small document';
+    const file = snapshot.path;
+    if (record.htmlGranted !== trust.grantsFor(file).html) return 'the trust grant changed';
+    const result = spliceRendered(
+      record,
+      snapshot.ast,
+      { live: doc, pending: mount.pending() },
+      { policy: trust.policyFor(file), prepare: (parsed) => stripNonLocalImages(parsed, file) },
+    );
+    if (!result.spliced) return result.reason;
+    const { record: next, added, from, removed } = result.value;
+    const { ast, nodeMap } = snapshot;
+    const policy = trust.policyFor(file);
+    shown = openDocumentOf(ast, nodeMap, prior.blocks, next, () => renderDocumentSafeHtml(ast, policy).html);
+    // The blocks that came in join what the page watches and sets; the rest of them are as they were.
+    watchIslands(doc, added);
+    typeset?.adopt(added);
+    afterRender();
+    trust.showNotices(removed, blockedImagesFrom(removed));
+    shown.blocks = buildBlocks(doc, nodeMap);
+    if (from !== null) {
+      // Under the change the grid is what it was, off by what the change added or removed. Near the end of the
+      // page that is a few blocks, set now; in the middle of a long one it is every block below, set at idle.
+      let below = 0;
+      for (let el = from.nextElementSibling; el !== null && below <= SYNC_SNAP_BLOCKS; el = el.nextElementSibling) below++;
+      if (below <= SYNC_SNAP_BLOCKS) snap(doc, from);
+      else scheduleSnap(doc, from);
+    }
+    deferAfterComplete(mount, file);
+    return null;
   }
 
   /**
@@ -975,7 +1224,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (!open || !editor || viewMode !== 'source' || heldApart) return false;
     const text = editor.docText();
     if (!leaveSourceMode(before.buffer, text).changed) return false;
-    if (change.kind === 'reload') diskChangedEditsKeptNotice();
+    if (change.kind === 'reload') diskChangedEditsKeptNotice({ pane: paneOf(doc) });
     void open.commitSource(text).then(
       (changed) => {
         if (changed && sourceEditor === editor && store === open) editor.replaceBuffer(open.snapshot().buffer);
@@ -1009,7 +1258,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * the other's. Its text still counts as unsaved, so a close, an open over it or quitting asks first.
    */
   function holdApart(): void {
-    if (!heldApart) notify({ kind: 'info', text: SOURCE_HELD_APART });
+    if (!heldApart) notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: paneOf(doc) });
     heldApart = true;
   }
 
@@ -1025,9 +1274,28 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     return true;
   }
 
+  /** Whether `change` sets the page again: a block open in place cannot stay on a page that is replaced (E-04). */
+  function setsPage(before: DocumentSnapshot, snapshot: DocumentSnapshot, change: Transition): boolean {
+    switch (change.kind) {
+      case 'open':
+      case 'close':
+      case 'save':
+        return false;
+      case 'reload':
+        return snapshot.buffer !== before.buffer;
+      default:
+        return true;
+    }
+  }
+
   /** The page's side of a committed transition on the shown store. */
   function followTransition(before: DocumentSnapshot, snapshot: DocumentSnapshot, change: Transition): void {
     if (keepTypedText(before, snapshot, change)) return;
+    // A block open in place (E-04): the reader's place is read with it on the page, as the reader sees it, and
+    // it closes just before the page is set again, putting back any text the store does not have.
+    const editing = blockEdit !== null && setsPage(before, snapshot, change) ? blockEdit : null;
+    const ownCommit = editing?.owns(change) ?? false;
+    if (editing && shown) shown.blocks = buildBlocks(doc, shown.nodeMap);
     switch (change.kind) {
       case 'open':
       case 'close':
@@ -1035,15 +1303,26 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       case 'save':
         // A Save as moved the store to another name: the parse the page resolves through follows it.
         if (change.renamedFrom !== undefined && shown) {
-          shown = { ...shown, ast: snapshot.ast, nodeMap: snapshot.nodeMap };
+          const was = shown;
+          shown = openDocumentOf(snapshot.ast, snapshot.nodeMap, was.blocks, was.render, () => was.html);
         }
         settlePage(Promise.resolve());
         return;
       case 'commitSource':
+        // A Rendered view over a store another view folded Source text into (two panes on one file) is set
+        // again as for any edit: its own place mapped through the fold's splice, not sent to the top (D-10).
+        if (viewMode === 'rendered') break;
         // Leaving Source (or folding before a save or a rename): the caller restores the position. Another
         // view's fold reaches this view's editor too, or its next fold would write the old text back (D-11).
         if (sourceEditor) followFoldIn(sourceEditor, snapshot);
+        // A pane in Source shows no article, and a fold only moves text from the editor into the store:
+        // the page is set when Rendered next shows, not now, from every fold (B-27).
+        if (viewMode === 'source' && doc.hidden) {
+          pageStale = true;
+          return;
+        }
         try {
+          editing?.release(before, snapshot, change);
           rerenderFromBuffer();
         } catch (e) {
           showRenderFailure(e);
@@ -1077,7 +1356,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // An anchor the edit removed lands on the edit's start: the block from there on is held, not the one above.
     const spanned = landing !== null && anchor !== null && removedBy(change, anchor);
     try {
-      repaint(snapshot, position, landing, spanned);
+      editing?.release(before, snapshot, change);
+      // The editor's own commit replaces only the block it changed, as a reload does (B-24): a long page is not rendered whole for a typo.
+      repaint(snapshot, position, landing, spanned, change.kind === 'reload' || ownCommit);
     } catch (e) {
       showRenderFailure(e);
     }
@@ -1146,14 +1427,18 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    */
   function rerenderFromBuffer(at?: number | Pick<ReadingPosition, 'byteOffset' | 'fraction'>): void {
     if (!store) return;
-    const { path: file, ast, nodeMap } = store.snapshot();
+    pageStale = false;
+    const { path: file, ast, nodeMap, buffer } = store.snapshot();
+    // The page is about to go: a block open in place goes with it, its text kept (a trust change, a fold of
+    // another view). The transitions that reach here have released it already, with their change (E-04).
+    blockEdit?.release(null, store.snapshot(), null);
     const byteOffset = typeof at === 'number' ? at : at?.byteOffset;
     const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
     destroyTypeset();
-    shown = { ast, html, nodeMap, blocks: [] };
+    shown = { ast, html, nodeMap, blocks: [], render: renderRecord(ast, removed, trust.grantsFor(file).html) };
     const mounted = mountDocument(html, file, byteOffset);
     afterRender();
-    trust.showNotices(removed, blockedImages);
+    trust.showNotices(removed, blockedImages, { path: file, buffer, pane: paneOf(doc) });
     snap(doc);
     startTypeset(doc);
     if (at !== undefined && typeof at !== 'number') {
@@ -1173,7 +1458,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * threshold, else the first screens (from `landing` down, when given) now and the rest in idle chunks
    * once `start` settles. Replaces, and cancels, the mount of whatever was shown before.
    */
-  function mountDocument(html: string, file: string, landing?: number, start?: Promise<unknown>): ProgressiveMount {
+  function mountDocument(html: string, file: string, landing?: number, start?: Promise<unknown>, parsed?: HTMLElement): ProgressiveMount {
     mount?.cancel();
     cancelScheduledSnap();
     // The repository root the images and links resolve against (F-14): asked once, never waited on.
@@ -1183,6 +1468,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const current: ProgressiveMount = mountProgressively(doc, html, {
       landing,
       start,
+      parsed,
       prepare: (parsed) => stripNonLocalImages(parsed, file),
       onChunk: (added) => {
         if (mount !== current) return;
@@ -1227,29 +1513,57 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     return () => runDeferredStartup(deferredStartupContext(file));
   }
 
+  /** Each call supersedes the ones before it on the same mount: a reload during the first mount must not run the passes twice. */
+  let deferredGeneration = 0;
   function deferAfterComplete(current: ProgressiveMount, file: string): void {
-    void afterComplete(current, () => whenIdle(deferredStartup(file)));
+    const generation = ++deferredGeneration;
+    void afterComplete(current, () => (generation === deferredGeneration ? whenIdle(deferredStartup(file)) : Promise.resolve()));
   }
 
   /** The render half of an open (MARXY-183): the store's snapshot into the article through the `render` mark. */
   async function show(
     next: DocumentStore,
-    opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void },
+    opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void; sliced?: boolean },
   ): Promise<RenderEvidence> {
     if (store !== null) clear();
+    pageStale = false;
     store = next;
     follow(next);
-    const { path: file, ast, nodeMap } = next.snapshot();
-    const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
+    let { path: file, ast, nodeMap, buffer } = next.snapshot();
+    const abandoned = (): boolean => store !== next;
+    // A large document beside another pane: rendered, then parsed into the inert body, in slices. A document
+    // the sliced render declines (a footnote, raw HTML left open) is rendered whole, as ever.
+    let slices =
+      opts?.sliced === true ? await renderDocumentSafeHtmlInSlices(ast, { policy: trust.policyFor(file), yieldNow: yieldToEventLoop, aborted: abandoned }) : null;
+    if (store !== next) throw new Error('the document was replaced while it was rendered');
+    let inert =
+      slices !== null && slices.html.length >= DEFAULT_THRESHOLD
+        ? await parseInertInSlices(slices.pieces, (holder) => stripNonLocalImages(holder, file), yieldToEventLoop, undefined, abandoned)
+        : undefined;
+    // A pane opening beside another gives the frame back between the stages that each take most of one.
+    if (opts?.sliced) await yieldToEventLoop();
+    if (store !== next) throw new Error('the document was replaced while it was parsed');
+    // The last await is behind us, and the store went on while they ran (the other pane of a same-file pair
+    // edited it, or the file was read again): the page is made from the store as it is now, whole, so that
+    // `shown`, the page and the version the selection will stamp are one document. Slicing resumes with the
+    // next open; this one has nothing left to give the frame back for.
+    const latest = next.snapshot();
+    if (latest.ast !== ast) {
+      ({ path: file, ast, nodeMap, buffer } = latest);
+      slices = null;
+      inert = undefined;
+    }
+    const { html, removed, blockedImages } = slices ?? renderDocumentSafeHtml(ast, trust.policyFor(file));
     console.info(`marxy: sanitiser removed ${removed.length}`);
-    shown = { ast, html, nodeMap, blocks: [] };
+    shown = { ast, html, nodeMap, blocks: [], render: renderRecord(ast, removed, trust.grantsFor(file).html) };
     // Only the first screens go in now (A-02); images are checked before any block reaches the page.
-    mountDocument(html, file, opts?.at, opts?.start);
+    mountDocument(html, file, opts?.at, opts?.start, inert);
     afterRender();
     opts?.onMounted?.();
     await shell.mark('rendered', Date.now());
     await shell.mark('first_screen', Date.now(), `blocks=${doc.childElementCount} bytes=${mountedBytes(doc)}`);
-    trust.showNotices(removed, blockedImages);
+    trust.showNotices(removed, blockedImages, { path: file, buffer, pane: paneOf(doc) });
+    if (opts?.sliced) await yieldToEventLoop();
     void doc.offsetHeight;
     await document.fonts.ready;
     // No face list here (A-02): reading `document.fonts` made WebKit restyle the whole article as soon
@@ -1257,6 +1571,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // happens at the next style read, but now while the article holds only the first screens.
     await shell.mark('fonts_ready', Date.now());
     // The grid pass also builds the block list the reading position is read from.
+    if (opts?.sliced) await yieldToEventLoop();
     keepOnGrid(doc);
     landOn(opts?.at);
     const evidence = deps.measure.renderEvidence(doc);
@@ -1340,12 +1655,30 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     showRenderedChrome: () => setModeChrome('rendered'),
     async foldSource() {
       const open = store;
+      // The block open in place folds as Source does: one history entry, and the editor closes (E-04).
+      if (blockEdit) return blockEdit.fold();
       if (!open || viewMode === 'rendered' || !sourceEditor || stillHeldApart()) return false;
       if (!(await open.commitSource(sourceEditor.docText()))) return false;
       sourceEditor?.replaceBuffer(open.snapshot().buffer);
       return true;
     },
     sourceHasUnfoldedEdits: unfoldedSourceEdits,
+    get blockEdit() {
+      return blockEdit;
+    },
+    set blockEdit(next) {
+      blockEdit = next;
+    },
+    holdPlace(change) {
+      const path = openPathNow();
+      if (!shown || !path || viewMode !== 'rendered' || doc.hidden) return change();
+      // The block list as the page is now, not as the last grid pass left it: what the reader sees is what they hold.
+      shown.blocks = buildBlocks(doc, shown.nodeMap);
+      const place = currentPosition(scroller, shown.blocks, path, 'rendered');
+      change();
+      shown.blocks = buildBlocks(doc, shown.nodeMap);
+      restoreTo(shown.blocks, place);
+    },
     typeset: typesetDocument,
     deferredWork(file) {
       // Once the whole document is in (at once under the threshold); later chunks do not hold the open

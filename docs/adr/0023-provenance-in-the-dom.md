@@ -1,6 +1,6 @@
 # ADR-0023 — Byte provenance rides into the DOM on attributes a document cannot forge
 
-**Status:** accepted (MARXY-75; Amendment 1 changes how, not what) · **Source:** design pass 2026-09-18; ADR-0003, ADR-0004, ADR-0009
+**Status:** accepted (MARXY-75; Amendments 1 and 2 change how, not what) · **Source:** design pass 2026-09-18; ADR-0003, ADR-0004, ADR-0009
 
 ## Context
 
@@ -44,6 +44,19 @@ one pass the only thing left to decide is how the renderer's attributes differ f
 A per-call secret answers that without a second tokenizer or a strip step that could disagree
 with the one that exists. `packages/core/src/render/contract.test.ts` pins the `<kbd>` case; the
 `provenance-forgery` vector pins the forgery case, in both spellings a document might try.
+
+## Amendment 2 — a second road to the same bytes (D-15, 2026-10-11)
+
+For a large document opened beside another pane, `renderDocumentSafeHtmlInSlices` renders runs of blocks with
+the event loop given back between them, and `parseMarkdownChunked` parses at proven fresh lines. They are a
+second road to the sanitised bytes beside Amendment 1's one pass, and the rule is that **they give the same
+bytes the one-pass road gives, byte for byte, with the removals in the same order, or they decline** (the
+parse is then made whole; the render returns `null` and the caller renders whole). The render declines on a
+footnote definition and on raw inline HTML that leaves the sanitiser's stack of open elements anywhere but
+where it found it (`rawTagsBalanced`, and a truncation behind it). Every run goes through `sanitizeHtml` with
+the same secret names; no run is trusted. `packages/core/src/render/sliced-oracle.test.ts` holds the roads
+equal over the corpus, 256 KB and 1 MB documents and seeded hostile documents, and fails a slicer with a guard
+removed. A change to either slicer is a change to the sanitised output and is reviewed as one.
 
 ## Consequences
 

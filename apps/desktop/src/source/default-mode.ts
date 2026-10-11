@@ -1,6 +1,7 @@
 // Per-file-type default view mode on open (docs/design/09-app-shell.md §Source mode).
 
 import { basename } from '@marxy/core/src/index-model/paths.ts';
+import { isUntitled } from '../document/untitled.ts';
 
 const RENDERED_EXT = new Set(['.md', '.markdown', '.mdx', '.txt']);
 
@@ -14,6 +15,8 @@ export function extensionOf(path: string): string {
 
 /** Default mode when a file is opened (before the reader toggles). */
 export function defaultModeForPath(path: string): 'rendered' | 'source' {
+  // A scratch document is Markdown until Save As names it something else (E-13).
+  if (isUntitled(path)) return 'rendered';
   const ext = extensionOf(path);
   return RENDERED_EXT.has(ext) ? 'rendered' : 'source';
 }

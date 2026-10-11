@@ -2,17 +2,19 @@
 // and for each pane a view on its own article and an open path that shows documents in it, through
 // the window's one store registry. Later stories append their pane wiring here, one line each.
 
-import { basename } from '@marxy/core/src/index-model/paths.ts';
 import type { AppShell } from '../app-types.ts';
 import type { AppContext } from '../commands/registry.ts';
 import { createOpenPath, type OpenPath, type OpenPathDeps } from '../document/open.ts';
+import { oneWatchPerStore, watchDocument } from '../document/live-reload.ts';
 import { createStoreRegistry } from '../document/registry.ts';
+import type { DocumentStore } from '../document/store.ts';
+import { createUntitledNamer, documentName } from '../document/untitled.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { createRenderedView, type RenderedView, type RenderedViewDeps, type ViewHost } from '../view/rendered-view.ts';
 import { createDivider } from './divider.ts';
 import { adoptFirstPane, type PaneParts, type Slot } from './dom.ts';
-import { createPaneSet, type PaneContent, type PaneSet } from './pane-set.ts';
+import { createPaneSet, type Pane, type PaneContent, type PaneSet } from './pane-set.ts';
 import { installScroll } from './scroll.ts';
 
 export { MAX_PANES, type Pane, type PaneContent, type PaneSet } from './pane-set.ts';
@@ -26,7 +28,7 @@ export interface PanesDeps {
   /** What every pane's view shares: the trust controller, the asset roots, the launch measure, the root lookup. */
   readonly view: Pick<RenderedViewDeps, 'trust' | 'assetRoots' | 'measure' | 'rootFor'>;
   /** What every pane's open path shares. The first pane alone launches (`pieces`) and holds the selection. */
-  readonly open: Omit<OpenPathDeps, 'view' | 'stores' | 'selection' | 'shell'>;
+  readonly open: Omit<OpenPathDeps, 'view' | 'stores' | 'selection' | 'shell' | 'watches' | 'viewsOver' | 'rejoin'>;
   /** The selection on the first pane's article. */
   selection(): RenderedSelection | null;
   /** The registry context commands on the first pane's article run in. */
@@ -45,16 +47,63 @@ function hostFor(parts: PaneParts, slot: Slot): ViewHost {
 }
 
 /** The panes, and what every view they made and have not destroyed has running (the harness's leak check). */
-export type AppPanes = PaneSet<AppPane> & { debugCounts(): { typesetters: number; resizeObservers: number } };
+export type AppPanes = PaneSet<AppPane> & {
+  debugCounts(): { typesetters: number; resizeObservers: number };
+  /**
+   * Shows `bytes` as a scratch document (E-13): in the other pane when two are open (D's rule), else the
+   * focused one. Asks first over unsaved edits there, as any open does. The pane, or null when refused.
+   */
+  openScratch(bytes: Uint8Array, opts?: { readonly label?: string }): Promise<Pane<AppPane> | null>;
+};
 
 export function createPanes(deps: PanesDeps): AppPanes {
   const { shell } = deps;
   const stores = createStoreRegistry();
+  /** Scratch paths for this window: never one twice, so two scratch documents never share a history. */
+  const untitled = createUntitledNamer();
   /** Every view made and not yet destroyed: a pane that went without its view going shows up here. */
   const live = new Set<RenderedView>();
   const { main, parts: first } = adoptFirstPane();
   /** Set once the set exists: the first pane's content is made while it is built. */
   let set: PaneSet<AppPane> | null = null;
+
+  /** The panes that show `store`, left to right: the views its one watch reloads (D-10). */
+  const showing = (store: DocumentStore): AppPane[] =>
+    (set?.panes ?? []).filter((pane) => pane.content.store() === store).map((pane) => pane.content);
+  const viewsOver = (store: DocumentStore): RenderedView[] => showing(store).map((pane) => pane.view);
+
+  /**
+   * One watch per store, the window's and not a pane's (D-10): the store is reloaded once however many panes
+   * show it, each pane is put at its own place, and a change is asked of every pane's Source before it is
+   * adopted. Its work runs on every view's queue of the store, left to right, so it cannot interleave with an
+   * open or a mode switch in either; it is not re-entered through a queue (`follow` does not queue).
+   */
+  const watches = oneWatchPerStore((store) =>
+    watchDocument(store, () => viewsOver(store), {
+      shell,
+      open: async (path, at, view) => {
+        const pane = showing(store).find((p) => p.view === view);
+        await pane?.follow(path, at);
+      },
+      serially<T>(fn: () => Promise<T>): Promise<T> {
+        const queues = viewsOver(store);
+        const run = (i: number): Promise<T> => (i >= queues.length ? fn() : queues[i]!.serially(() => run(i + 1)));
+        return run(0);
+      },
+      async foldSource() {
+        await showing(store)[0]?.foldSource();
+      },
+      async renamed(path) {
+        const focused = set?.focused;
+        if (focused?.content.store() === store) document.title = `${documentName(path)} — Marxy`;
+        for (const pane of showing(store)) deps.selection()?.forArticle(pane.view.host.article)?.afterRender();
+        await focused?.content.refreshTitle();
+      },
+      changed(path) {
+        void deps.open.index.rootFor(path).then((root) => deps.open.index.refresh(root));
+      },
+    }),
+  );
 
   function content(parts: PaneParts, slot: Slot): AppPane {
     let openPath: OpenPath | null = null;
@@ -79,8 +128,18 @@ export function createPanes(deps: PanesDeps): AppPanes {
       shell,
       view,
       stores,
+      watches,
+      viewsOver,
+      rejoin: async (store) => {
+        const path = store.snapshot().path;
+        for (const pane of set?.panes ?? []) {
+          const shown = pane.content.store();
+          if (shown && shown !== store && shown.snapshot().path === path) await pane.content.rejoin();
+        }
+      },
       selection,
       pieces: slot === 0 ? deps.open.pieces : null,
+      sliced: () => set !== null && set.panes.length > 1,
       // The window title is the focused pane's document: a pane opening beside it does not take it (D-06
       // carries the rest of focus).
       ownsTitle: () => set === null || set.focused.content === self,
@@ -111,10 +170,13 @@ export function createPanes(deps: PanesDeps): AppPanes {
   panes.onChange((e) => {
     if (e.kind !== 'focus') return;
     const path = panes.focused.content.currentPath();
-    if (path !== null) document.title = `${basename(path)} — Marxy`;
+    if (path !== null) document.title = `${documentName(path)} — Marxy`;
     void panes.focused.content.refreshTitle();
   });
   return Object.assign(panes, {
+    openScratch(bytes: Uint8Array, opts?: { readonly label?: string }) {
+      return panes.openIn(panes.panes.length > 1 ? 'other' : 'focused', untitled.next(), { scratch: { bytes, label: opts?.label } });
+    },
     debugCounts() {
       let typesetters = 0;
       let resizeObservers = 0;

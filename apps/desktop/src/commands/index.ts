@@ -1,8 +1,11 @@
 // Concatenates feature command lists; operations come from core (MARXY-42, MARXY-43, C-06).
 import { OPERATIONS } from '@marxy/core/src/operations/index.ts';
 import { appearanceCommands } from './appearance.ts';
+import { blockEditCommands } from './block-edit.ts';
 import { collectionCommands } from './collection.ts';
+import { compareCommands } from './compare.ts';
 import { kindCommands } from './kind.ts';
+import { copyAsCommands } from './copy-as.ts';
 import { copyTextCommands } from './copy-text.ts';
 import { documentCommands } from './document.ts';
 import { editorCommands } from './editor.ts';
@@ -13,11 +16,14 @@ import { paneLayoutCommands } from './pane-layout.ts';
 import { paneFocusCommands } from './pane-focus.ts';
 import { paneCloseCommands } from './pane-close.ts';
 import { paneOpenCommands } from './pane-open.ts';
+import { paneSplitSameCommands } from './pane-split-same.ts';
 import { fromOperation, type Command } from './registry.ts';
 import { selectionNavigationCommands } from './selection-nav.ts';
 import { sourceEditCommands } from './source-edit.ts';
 import { sourceViewCommands } from './source-view.ts';
 import { trustRevokeCommands } from './trust.ts';
+import { viewModeCommands } from './view-mode.ts';
+import { workspaceCommands } from './workspace.ts';
 
 export type { AppContext, Command } from './registry.ts';
 export { fromOperation } from './registry.ts';
@@ -28,6 +34,7 @@ export function commands(): readonly Command[] {
     ...documentCommands(),
     ...sourceViewCommands(),
     ...sourceEditCommands(),
+    ...blockEditCommands(),
     ...trustRevokeCommands(),
     ...navigationCommands(),
     ...paneFocusCommands(),
@@ -36,11 +43,16 @@ export function commands(): readonly Command[] {
     ...paneLayoutCommands(),
     ...paneCloseCommands(),
     ...paneOpenCommands(),
+    ...paneSplitSameCommands(),
+    ...viewModeCommands(),
+    ...workspaceCommands(),
     ...editorCommands(),
     ...collectionCommands(),
     ...kindCommands(),
     ...copyTextCommands(),
+    ...copyAsCommands(),
     ...findCommands(),
+    ...compareCommands(),
     ...OPERATIONS.map(fromOperation),
   ];
 }

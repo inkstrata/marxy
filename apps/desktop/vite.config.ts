@@ -30,7 +30,7 @@ function bundleFonts(): Plugin {
       server.middlewares.use((req, res, next) => {
         const file = FONT_FILES.find((f) => req.url === `/${f.to}`);
         if (!file) return next();
-        res.setHeader('Content-Type', file.to.endsWith('.ttf') ? 'font/ttf' : 'text/plain');
+        res.setHeader('Content-Type', file.to.endsWith('.ttf') ? 'font/ttf' : file.to.endsWith('.woff2') ? 'font/woff2' : 'text/plain');
         res.end(readFileSync(new URL(file.from, root)));
       });
     },

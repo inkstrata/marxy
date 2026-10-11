@@ -64,6 +64,8 @@ export function verbKindOf(sel: Selection, doc: Document): VerbKind | null {
       return 'document';
     case 'section':
       return 'section';
+    case 'blocks':
+      return 'block';
     case 'node': {
       const node = sel.node;
       if (!BLOCK_TYPES.has(node.type)) return 'inline';
@@ -103,7 +105,7 @@ export const MENU_ORDER: Readonly<Record<VerbKind, readonly string[]>> = {
   ],
   document: ['op.copy-section', 'op.copy-plain', 'op.extract-tasks', 'op.extract-code-blocks', 'op.extract-links'],
   task: ['op.toggle-task', 'op.copy-rich', 'op.copy-plain', 'op.copy-source', 'view.jump-to-source'],
-  block: ['op.copy-rich', 'op.copy-plain', 'op.copy-source', 'view.jump-to-source'],
+  block: ['op.copy-rich', 'op.copy-plain', 'op.copy-source', 'op.dedupe-lines', 'view.jump-to-source'],
   inline: ['op.copy-source', 'view.jump-to-source'],
 };
 

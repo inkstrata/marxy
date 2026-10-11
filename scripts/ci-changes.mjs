@@ -33,7 +33,7 @@ const isDoc = f => !READ_BY_FAST.test(f) && (/^(docs\/|orchestration\/|\.cursor\
 // privacy commitment's floor, so an edit to it must start the job that asserts it (before G-03 it did not,
 // unless `scripts/` changed too). ci-changes.test.mjs walks the imports of the gate and the lite files and
 // fails when one reaches a scripts/ file this set misses.
-const WEB = /^(packages\/|apps\/desktop\/(src\/|test\/|index\.html|app\.html|gate\.html|vite\.config|package\.json|scripts|src-tauri\/tauri\.conf\.json$)|fixtures\/|scripts\/(gate-no-network|playwright-webkit|perf-harness|check-csp)\.mjs$|scripts\/lib\/(repo|plan)\.mjs$|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|mise\.toml)/;
+const WEB = /^(packages\/|apps\/desktop\/(src\/|test\/|index\.html|app\.html|gate\.html|vite\.config|package\.json|scripts|src-tauri\/tauri\.conf\.json$)|fixtures\/|scripts\/(gate-no-network|playwright-webkit|perf-harness|check-csp|measure-reload)\.mjs$|scripts\/lib\/(repo|plan)\.mjs$|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|mise\.toml)/;
 
 // What the Rust job runs on a pull request: fmt, clippy and `cargo test` over the Tauri crate
 // (tauri.conf.json and Cargo.lock live in it), and the toolchain pin, whose new clippy lints can fail

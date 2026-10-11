@@ -2,7 +2,7 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { parseConfig, setTopLevelKey } from './config.ts';
+import { COPY_FORMATS, parseConfig, setTopLevelKey } from './config.ts';
 
 function outsideBytes(before: Uint8Array, after: Uint8Array, editedLineStart: number, editedLineEnd: number): boolean {
   const dec = new TextDecoder();
@@ -416,4 +416,19 @@ test('property: for random configs and rules, the input is an exact prefix of th
     assert.equal(rules2.at(-1)!.is, rule.is, `case ${n}`);
   }
   assert.ok(appended > 150, `only ${appended} cases appended; the generator is too hostile to test anything`);
+});
+
+test('J-04: copy_format names the Copy as row that comes first; markdown is the default', () => {
+  const parse = (toml: string) => parseConfig(new TextEncoder().encode(toml));
+  assert.equal(parse('').config.copyFormat, 'markdown');
+  for (const id of COPY_FORMATS) {
+    const got = parse(`copy_format = "${id}"\n`);
+    assert.equal(got.config.copyFormat, id);
+    assert.deepEqual(got.warnings, []);
+    assert.deepEqual(got.unknownKeys, []);
+  }
+  const bad = parse('copy_format = "nope"\n');
+  assert.equal(bad.config.copyFormat, 'markdown');
+  assert.deepEqual(bad.warnings, ['copy_format was invalid; using markdown']);
+  assert.equal(parse('copy_format = 3\n').config.copyFormat, 'markdown');
 });

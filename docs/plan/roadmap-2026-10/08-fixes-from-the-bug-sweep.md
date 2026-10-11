@@ -470,3 +470,15 @@ Acceptance: one test per point, red on main; no golden moves.
 `index.html` and booted a broken skeleton: every two-pane suite timed out at 120 s. Find the body element with a
 parser (or the first `<body` outside a comment and a `<style>` element). Acceptance: a skeleton whose `<style>`
 comment contains `<body>` still boots (a test, red on main); every two-pane suite green.
+
+### F-31 — A Linux WebKit boot stall: `waitForEnginePaint` never gets a paint entry
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-30.1 (merged) · *From the F-30.1 finding (2026-10-10).* ·
+**Author rules first:** the change touches ADR-0013's rule that the paint signal has no deadline. · **Paths:**
+`apps/desktop/src/paint-signal.mjs` (and its `.d.ts`), `apps/desktop/src/startup/measure.ts`, their tests, the CLI smoke verdict (`apps/desktop/scripts/smoke-verdict.mjs`, `smoke-cli-open.mjs`), and the one outcome line in `apps/desktop/src/document/open.ts` that lets a frames-only boot open the document. F-30.1 bounded and retried the harness's
+boot, but the stall is in the product's start-up: `waitForEnginePaint` waits for a paint entry that never arrives
+(1 of 391 boots in the 2-CPU CI image, Linux WebKit). By design it has no deadline (ADR-0013), so the boot hangs.
+Proposed: fall back after two animation frames and about 2 s, and mark the result `signal=frames-only`, so the metric
+stays honest and a frames-only boot is never reported as a paint. Acceptance: paint-signal tests for the paint path,
+the fallback path and the marker (red on main); the smoke verdict reads the marker; the author's ruling on ADR-0013
+recorded before the PR merges (ruled yes, 2026-10-11).

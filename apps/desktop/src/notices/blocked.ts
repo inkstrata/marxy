@@ -4,7 +4,7 @@ import type { BlockedImage } from '@marxy/core/src/render/images.ts';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
 import type { Grants } from '../trust/trust.ts';
 import { blockedImageNoticeText } from '@marxy/core/src/render/images.ts';
-import { dismiss, ensureNoticesRegion, notify } from './index.ts';
+import { dismiss, ensureNoticesRegion, focusedPane, notify } from './index.ts';
 import { blockedTrustNoticeText, htmlGrantWouldChangeForNotice } from './trust-copy.ts';
 
 export interface BlockedNoticeOpts {
@@ -13,12 +13,15 @@ export interface BlockedNoticeOpts {
   readonly blockedImages: readonly BlockedImage[];
   readonly grants: Grants;
   readonly dismissed?: boolean;
+  /** The pane that shows `path` (`section.marxy-pane`): the notice is said there. The focused pane when unset. */
+  readonly pane?: HTMLElement;
   onGrantHtml?(): void;
   onDismiss?(): void;
 }
 
 const dismissedPaths = new Set<string>();
-let current: number | null = null;
+/** Each pane's blocked-images line, so a render in one pane never dismisses another pane's. */
+const current = new Map<HTMLElement, number>();
 /** Grant-summary info notices; they describe a grant that a revoke or re-render may end. */
 const summaryIds = new Set<number>();
 
@@ -26,10 +29,12 @@ const summaryIds = new Set<number>();
  * Removes only this module's blocked-content lines before a render shows them again: the file-removed,
  * theme and index notices are not this document's blocked content and must survive a re-render.
  */
-export function clearBlockedNotices(): void {
-  if (current !== null) dismiss(current);
-  current = null;
-  for (const el of ensureNoticesRegion().querySelectorAll('[data-notice-kind="blocked"]')) el.remove();
+export function clearBlockedNotices(pane: HTMLElement | undefined = focusedPane()): void {
+  const region = ensureNoticesRegion(pane);
+  const id = current.get(region);
+  if (id !== undefined) dismiss(id);
+  current.delete(region);
+  for (const el of region.querySelectorAll('[data-notice-kind="blocked"]')) el.remove();
 }
 
 /** A revoked grant no longer holds, so its "Showing …" confirmation goes too. */
@@ -52,13 +57,16 @@ export function clearDismissForPath(path: string): void {
 }
 
 /** Image-only path kept for documents with no HTML widening story yet (MARXY-138 harness). */
-export function blockedContentNotice(images: readonly BlockedImage[]): void {
-  // Only this notice's previous line: file, theme and index notices are not this document's blocked images.
-  if (current !== null) dismiss(current);
-  current = null;
+export function blockedContentNotice(images: readonly BlockedImage[], pane: HTMLElement | undefined = focusedPane()): void {
+  // Only this notice's previous line in this pane: file, theme and index notices are not this document's
+  // blocked images, and another pane's are its own.
+  const region = ensureNoticesRegion(pane);
+  const previous = current.get(region);
+  if (previous !== undefined) dismiss(previous);
+  current.delete(region);
   const text = blockedImageNoticeText(images);
   if (text === '') return;
-  current = notify({ kind: 'blocked', text });
+  current.set(region, notify({ kind: 'blocked', text }, { pane }));
 }
 
 export function trustBlockedNotices(opts: BlockedNoticeOpts): void {
@@ -69,7 +77,7 @@ export function trustBlockedNotices(opts: BlockedNoticeOpts): void {
 
   if (text === '' && !htmlAction) return;
 
-  const region = ensureNoticesRegion();
+  const region = ensureNoticesRegion(opts.pane ?? focusedPane());
   const line = document.createElement('div');
   line.className = 'marxy-notice';
   line.dataset.noticeKind = 'blocked';

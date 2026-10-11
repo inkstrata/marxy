@@ -11,6 +11,7 @@ import {
   MIN_FRAMES_AFTER_RENDER,
   NEUTRALISE_AFTER_PAINT,
   framelessEnvironment,
+  framesOnlyVerdict,
   framesFromPaintedLine,
   killLaunch,
   launchSpawnOptions,
@@ -196,4 +197,21 @@ test('a launch killed on its way out says whether it stalled before asking to qu
     'the launch printed "MARK quit code=0" and was still running 15000 ms later: the process teardown stalled',
   );
   assert.match(stalledExitMessage([], 60000), /\(no mark\)/);
+});
+
+test('F-31: a frames-only boot is never ok: skipped when optional, a failure when required', () => {
+  const how = 'MARK painted 2 frames=3 since_render_ms=2010 signal=frames-only';
+  const optional = framesOnlyVerdict({ required: false, how });
+  assert.equal(optional.status, 'skip');
+  assert.match(optional.message, /signal=frames-only/);
+  assert.match(optional.message, /not\s+a paint/);
+  assert.match(optional.message, /No first_text was printed/);
+  assert.equal(framesOnlyVerdict({ required: true, how }).status, 'fail');
+});
+
+test('F-31: the CLI smoke reads the frames-only marker and keeps first_text out of it', () => {
+  const smoke = readFileSync(join(repoRoot, 'apps', 'desktop', 'scripts', 'smoke-cli-open.mjs'), 'utf8');
+  assert.match(smoke, /signal === FRAMES_ONLY_SIGNAL/);
+  assert.match(smoke, /framesOnlyVerdict\(/);
+  assert.match(smoke, /first_text was printed by a frames-only boot/);
 });

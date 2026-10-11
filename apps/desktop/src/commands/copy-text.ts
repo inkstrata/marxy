@@ -5,12 +5,11 @@
 import { textOf } from '@marxy/core';
 import { htmlFromRange } from '../selection/copy-html.ts';
 import { textFromRange } from '../selection/copy-text.ts';
+import { writeCopy } from './copy-write.ts';
 import type { AppContext, Command } from './registry.ts';
 
 async function write(ctx: AppContext, data: { readonly text: string; readonly html?: string }, notice: string): Promise<void> {
-  await ctx.shell.clipboardWrite(data);
-  ctx.closePalette();
-  ctx.showNotice(notice, { transient: true });
+  await writeCopy(ctx, data, notice);
 }
 
 const isDrag = (ctx: AppContext): boolean => ctx.selection.kind === 'text';
@@ -43,7 +42,7 @@ export function copyTextCommands(): readonly Command[] {
     },
     {
       id: 'selection.copy-plain',
-      title: 'Copy as plain text',
+      title: 'Copy as plain text (strip markdown)',
       group: 'selection',
       when: isDrag,
       async run(ctx) {

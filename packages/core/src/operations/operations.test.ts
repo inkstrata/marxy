@@ -15,6 +15,7 @@ import { CLIPBOARD_OPERATIONS, MUTATING_OPERATIONS, OPERATIONS } from './index.t
 import { assertOnlySpansChanged, corpusDocuments } from './testing/corpus.ts';
 import { assertBytesOutsideRangeUnchanged } from './testing/test-kit.ts';
 import { toggleTask } from './toggle-task.ts';
+import { NOT_YET } from '../transforms/registry.ts';
 
 function parse(source: string, file = 'test.md'): Document {
   return parseMarkdown(source, { file });
@@ -364,10 +365,19 @@ test('fidelity: replacement === text for every clipboard operation at every node
   assert.ok(checked > 0);
 });
 
-test('catalogue: OPERATIONS is the clipboard operations then the mutating ones, in palette order', () => {
-  assert.deepEqual(OPERATIONS.map((op) => op.id), ['copy-code-clean', 'copy-section', 'copy-source', 'copy-plain', 'copy-rich', 'copy-table-tsv', 'copy-table-csv', 'copy-table-json', 'copy-command', 'extract-code-blocks', 'extract-tasks', 'extract-links', 'toggle-task', 'align-table-pipes']);
+test('catalogue: OPERATIONS is the clipboard operations then the mutating ones, each list sorted by id (F-32)', () => {
+  const ids = (ops: readonly { id: string }[]): string[] => ops.map((op) => op.id);
+  const sorted = (xs: string[]): string[] => xs.slice().sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  assert.deepEqual(ids(CLIPBOARD_OPERATIONS), sorted(ids(CLIPBOARD_OPERATIONS)), 'CLIPBOARD_OPERATIONS is sorted by id');
+  assert.deepEqual(ids(MUTATING_OPERATIONS), sorted(ids(MUTATING_OPERATIONS)), 'MUTATING_OPERATIONS is sorted by id');
   assert.deepEqual(OPERATIONS, [...CLIPBOARD_OPERATIONS, ...MUTATING_OPERATIONS]);
-  // C-07 to C-09 update the id list above as their packs land; the fidelity test holds the invariant.
+  // The set is main's: no operation added or dropped by the reordering.
+  assert.deepEqual(sorted(ids(OPERATIONS)), sorted(['copy-code-clean', 'copy-section', 'copy-source', 'copy-plain', 'copy-rich', 'copy-table-tsv', 'copy-table-csv', 'copy-table-json', 'copy-command', 'extract-code-blocks', 'extract-tasks', 'extract-links', 'toggle-task', 'align-table-pipes', 'promote-heading', 'demote-heading', 'unwrap-markdown-fence', 'sort-list-items', 'dedupe-lines', 'renumber-list', 'list-to-numbers', 'list-to-bullets', 'bullets-from-glyphs', 'format-json', 'format-yaml']));
+});
+
+test('catalogue: the transform registry\'s NOT_YET list is sorted by id (F-32)', () => {
+  const ids = Object.keys(NOT_YET);
+  assert.deepEqual(ids, ids.slice().sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
 });
 
 test('fidelity: mutations change only their range over the corpus', () => {

@@ -5,6 +5,8 @@ export * from './contracts/position.ts';
 export { parseMarkdown } from './parse/parse.ts';
 export type { ParseOptions } from './parse/parse.ts';
 export { reparseMarkdown } from './parse/reparse.ts';
+export { Abandoned, lastChunkedParse, parseMarkdownChunked } from './parse/chunked.ts';
+export type { ChunkedParseOptions } from './parse/chunked.ts';
 export { checkInvariants } from './parse/invariants.ts';
 export type { Violation } from './parse/invariants.ts';
 export { outlineFrom } from './outline/outline.ts';
@@ -20,3 +22,7 @@ export { diffLines, splitLines, utf8Length, DEFAULT_MAX_LINES } from './diff/lin
 export type { DiffOp, DiffLinesOptions } from './diff/lines.ts';
 export { unifiedDiff } from './diff/unified.ts';
 export type { UnifiedDiff, UnifiedOptions } from './diff/unified.ts';
+export { CATALOGUE, NOT_YET, TRANSFORMS, transformById, runTransform } from './transforms/registry.ts';
+export type { CatalogueEntry, Transform, TransformContext, TransformGroup, TransformKind } from './transforms/registry.ts';
+export { COPY_TARGETS, copyTargets, copyAsFromOperation, copyAsFromText, titleFor } from './operations/copy-as.ts';
+export type { CopyAsInput, CopyAsRegistry, CopyAsResult, CopyTarget } from './operations/copy-as.ts';

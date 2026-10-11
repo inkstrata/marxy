@@ -15,14 +15,26 @@ import { basename, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import { readingLine } from '@marxy/core/src/position/blocks.ts';
 import type { AppShell } from '../app.ts';
+import type { OpenOptions } from '../document/open.ts';
 import type { DocumentStore } from '../document/store.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { notify } from '../notices/index.ts';
 import { splitRefusal } from '../pane/fit.ts';
 import { defaultModeForPath } from '../source/default-mode.ts';
+import { isUntitled } from '../document/untitled.ts';
 import { pathsForDocument } from '../render/images.ts';
 import type { NodeMap } from '../render/post.ts';
-import { moveSibling, parentOf, select, type Selection, type SelectionState } from './selection.ts';
+import {
+  extendRun,
+  extendRunTo,
+  moveSibling,
+  parentOf,
+  runBlocks,
+  runRange,
+  select,
+  type Selection,
+  type SelectionState,
+} from './selection.ts';
 import { applyInvisibleMarkers } from '../render/invisibles-dom.ts';
 import { applyLinkDestinations } from '../render/link-dest.ts';
 import { recordDrag } from './drag.ts';
@@ -63,6 +75,7 @@ function clearSelectedClass(article: HTMLElement): void {
 function paintSelected(article: HTMLElement, selection: Selection): void {
   clearSelectedClass(article);
   if (selection.kind === 'node') selection.el.classList.add('marxy-selected');
+  else if (selection.kind === 'blocks') for (const el of selection.els) el.classList.add('marxy-selected');
 }
 
 export type SelectionShell = AppShell & {
@@ -92,8 +105,11 @@ export interface SelectionTarget {
   readonly scroller: HTMLElement;
   /** The open document's store, or null when nothing is open. */
   store(): DocumentStore | null;
-  /** Opens a document through this pane's open path. */
-  open(path: string): Promise<void>;
+  /**
+   * Opens a document through this pane's open path. Over unsaved edits the promise settles once the reader
+   * is asked, so anything that must follow the move goes in the options (`OpenOptions`, F-21).
+   */
+  open(path: string, opts?: Pick<OpenOptions, 'onCommitted' | 'onLanded'>): Promise<void>;
   currentPath(): string | null;
   /** Mounts every block up to the one holding `byte` (a link to a heading not yet on the page). */
   mountThrough(byte: number): void;
@@ -114,6 +130,8 @@ export interface RenderedSelection {
   moveDown(): void;
   moveUp(): void;
   moveParent(): void;
+  /** `Alt+Shift+↓`: the selected block, or run of blocks, grows by the next sibling block (E-05). */
+  extendDown(): void;
   /**
    * Select what a click on `target` selects, without following a link when `link` is `'select'` (the verb
    * menu's right-click, C-13). Synchronous for `'select'`.
@@ -129,7 +147,7 @@ export interface RenderedSelection {
   back(): boolean;
   /** The block carrier (`[data-marxy-s]`) last pressed on in this article, or null: where Jump to source starts. */
   lastPointerCarrier(): Element | null;
-  /** The first pane's page was set again: re-resolve the selection on it, mark it, and land a pending fragment. */
+  /** The first pane's page was set again: re-resolve the selection on it and mark it. */
   afterRender(): void;
   /**
    * Listens on another pane's article too (D-06): the selection acts on it once `focusArticle` names it.
@@ -177,6 +195,8 @@ export function localLinkTarget(
   /** A link followed beside (D-09): a file that opens in Source is a target too; whether it is text is for the caller. */
   opts?: { readonly allowSource?: boolean },
 ): { readonly target: string; readonly fragment: string | undefined } | { readonly refused: string } {
+  // A scratch document has no folder for a relative link to be relative to: refused, nothing read (E-13).
+  if (isUntitled(path)) return { refused: 'That link points outside this folder and was not opened.' };
   const hash = href.indexOf('#');
   const pathPart = hash === -1 ? href : href.slice(0, hash);
   const fragment = hash === -1 ? undefined : href.slice(hash + 1);
@@ -197,8 +217,8 @@ export function localLinkTarget(
 interface PaneNav {
   history: string[];
   index: number;
-  /** A followed link's fragment, landed when this pane's page is next set. */
-  pendingFragment?: string;
+  /** The index a Back still in flight is heading for, so a second press steps on from it; null when none is. */
+  pendingBack: number | null;
 }
 
 /** Whether a Cmd-click (Ctrl-click off a Mac) asks for the link to open in the other pane. */
@@ -316,7 +336,10 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     record.pointerCarrier = null;
   };
 
-  /** `nextPath` joins `record`'s history after the document the pane shows now. */
+  /**
+   * `nextPath` joins `record`'s history after the document the pane shows now. Called when the open commits,
+   * before the page flips, so the history and `currentPath()` never disagree across an await (F-21).
+   */
   const recordNavOpen = (record: PaneRecord, nextPath: string): void => {
     const { nav } = record;
     const current = record.target.currentPath();
@@ -325,6 +348,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     if (kept[kept.length - 1] !== nextPath) kept.push(nextPath);
     nav.history = kept;
     nav.index = kept.length - 1;
+    nav.pendingBack = null;
   };
 
   /**
@@ -386,9 +410,19 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     }
     const { target, fragment } = local;
 
+    // A link to a heading of this very document (`[self](a.md#far)`) is the `#` branch with a path: land
+    // on it. No open, no re-read of the file, no history entry, so unsaved edits are left alone (F-21).
+    if (!beside && target === record.target.currentPath()) {
+      if (fragment) landFragment(record, fragment);
+      return;
+    }
+
     let bytes: Uint8Array;
     try {
-      bytes = await opts.shell.readFile(target);
+      // A look at the target, not a load: `peekFile` leaves the stale-write guard where it was. `readFile` would
+      // record these bytes as read, so a link to a file already open (a self link, a neighbour's file) would
+      // let the next save overwrite another program's change.
+      bytes = await (opts.shell.peekFile ?? opts.shell.readFile).call(opts.shell, target);
     } catch {
       notify({ kind: 'info', text: 'That document could not be found.' });
       return;
@@ -403,12 +437,14 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       return;
     }
 
-    recordNavOpen(record, target);
-    record.nav.pendingFragment = fragment;
-    await record.target.open(target);
-    const landing = record.nav.pendingFragment;
-    record.nav.pendingFragment = undefined;
-    if (landing) landFragment(record, landing);
+    // Over unsaved edits the reader is asked first: the history entry waits for their choice and is made
+    // when the open commits, the landing once the page is set (F-21). A Dismiss leaves both undone.
+    await record.target.open(target, {
+      onCommitted: () => recordNavOpen(record, target),
+      onLanded: () => {
+        if (fragment) landFragment(record, fragment);
+      },
+    });
   };
 
 
@@ -442,8 +478,72 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     } else if (sel.kind === 'section') {
       const el = elementForRange(article, sel.heading.src.start, sel.heading.src.end);
       if (!el) state = select(state, { kind: 'none' });
+    } else if (sel.kind === 'blocks') {
+      state = select(state, resolveRun(sel) ?? { kind: 'none' });
     }
     paint();
+  };
+
+  /** The run's elements: the carrier of each block still on the page, in order. */
+  const elementsOfRun = (doc: Document, first: Block, last: Block): Element[] => {
+    const out: Element[] = [];
+    for (const block of runBlocks(doc, first, last)) {
+      const el = elementForRange(active.target.article, block.src.start, block.src.end);
+      if (el) out.push(el);
+    }
+    return out;
+  };
+
+  /**
+   * A run again after the page was set (E-05): by its two end ranges, on the new page. Both ends must still be
+   * on it as blocks of one container; otherwise null, and nothing stays painted.
+   */
+  const resolveRun = (sel: Extract<Selection, { kind: 'blocks' }>): Selection | null => {
+    const snap = opts.store()?.snapshot();
+    if (!snap) return null;
+    const { article } = active.target;
+    const firstEl = elementForRange(article, sel.first.src.start, sel.first.src.end);
+    const lastEl = elementForRange(article, sel.last.src.start, sel.last.src.end);
+    if (!firstEl || !lastEl) return null;
+    const first = resolve(firstEl, snap.nodeMap)?.node;
+    const last = resolve(lastEl, snap.nodeMap)?.node;
+    if (!first || !last || !isBlock(first) || !isBlock(last)) return null;
+    if (first.src.start > last.src.start) return null;
+    const blocks = runBlocks(snap.ast, first, last);
+    if (blocks.length < 2) return null;
+    return { kind: 'blocks', first, last, range: runRange(first, last), els: elementsOfRun(snap.ast, first, last) };
+  };
+
+  /** Select the run `first`..`last`, painted together; the browser's own selection goes, so nothing competes with it. */
+  const selectRun = (first: Block, last: Block): void => {
+    const doc = opts.store()?.snapshot().ast;
+    if (!doc) return;
+    const els = elementsOfRun(doc, first, last);
+    if (els.length === 0) return;
+    window.getSelection()?.removeAllRanges();
+    state = select(state, { kind: 'blocks', first, last, range: runRange(first, last), els });
+    paint();
+  };
+
+  /** The block a pressed element belongs to: the innermost block carrier at or above it. */
+  const blockOfElement = (raw: Element): Block | null => {
+    const snap = opts.store()?.snapshot();
+    if (!snap) return null;
+    for (let carrier = raw.closest('[data-marxy-s]'); carrier; carrier = carrier.parentElement?.closest('[data-marxy-s]') ?? null) {
+      const resolved = resolve(carrier, snap.nodeMap);
+      if (resolved && isBlock(resolved.node)) return resolved.node;
+    }
+    return null;
+  };
+
+  /** `Shift+click` with a block or a run selected: the run grows to the clicked block's sibling; elsewhere, nothing happens. */
+  const extendTo = (raw: Element): void => {
+    const snap = opts.store()?.snapshot();
+    const target = blockOfElement(raw);
+    if (!snap || !target) return;
+    const run = extendRunTo(snap.ast, state.selection, target);
+    if (!run || run.first === run.last) return;
+    selectRun(run.first, run.last);
   };
 
   /** The block carrier holding `byte`, the narrowest range winning; inline carriers are skipped. */
@@ -534,6 +634,11 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       selectNone();
       return;
     }
+    // Shift+click grows a block selection into a run of its siblings (E-05).
+    if (ev.shiftKey && !ev.altKey && (state.selection.kind === 'node' || state.selection.kind === 'blocks') && active.target.article.contains(raw)) {
+      extendTo(raw);
+      return;
+    }
     await selectAt(raw, { link: ev.altKey ? 'select' : 'follow' }, ev);
   };
 
@@ -596,6 +701,10 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     const { article } = record.target;
     // A click is not a drag until the pointer has moved a few pixels: a hand's jitter must still select.
     const onMouseDown = (ev: MouseEvent): void => {
+      // Shift+press with a block or a run selected extends the run (E-05): the browser must not extend a text selection.
+      if (ev.shiftKey && ev.button === 0 && record === active && (state.selection.kind === 'node' || state.selection.kind === 'blocks')) {
+        ev.preventDefault();
+      }
       pointerDrag = false;
       pointerDown = true;
       downAt = { x: ev.clientX, y: ev.clientY };
@@ -635,7 +744,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       target,
       lastClickTarget: null,
       pointerCarrier: null,
-      nav: { history: [], index: -1 },
+      nav: { history: [], index: -1, pendingBack: null },
       shownPath: null,
       shownVersion: null,
       unlisten: () => {},
@@ -684,11 +793,6 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     if (focused) reresolve();
     applyInvisibleMarkers(article);
     applyLinkDestinations(article);
-    if (record.nav.pendingFragment) {
-      const landing = record.nav.pendingFragment;
-      record.nav.pendingFragment = undefined;
-      requestAnimationFrame(() => landFragment(record, landing));
-    }
   };
 
   const controller: RenderedSelection = {
@@ -701,21 +805,53 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     },
     moveDown() {
       const doc = opts.store()?.snapshot().ast;
-      if (doc) move(moveSibling(doc, state.selection, 1));
+      if (!doc) return;
+      // A run collapses to its last block (E-05).
+      if (state.selection.kind === 'blocks') {
+        const { last, els } = state.selection;
+        const el = elementForRange(active.target.article, last.src.start, last.src.end) ?? els.at(-1);
+        if (el) move({ kind: 'node', node: last, el });
+        return;
+      }
+      move(moveSibling(doc, state.selection, 1));
     },
     moveUp() {
       const doc = opts.store()?.snapshot().ast;
-      if (doc) move(moveSibling(doc, state.selection, -1));
+      if (!doc) return;
+      if (state.selection.kind === 'blocks') {
+        const { first, els } = state.selection;
+        const el = elementForRange(active.target.article, first.src.start, first.src.end) ?? els[0];
+        if (el) move({ kind: 'node', node: first, el });
+        return;
+      }
+      move(moveSibling(doc, state.selection, -1));
+    },
+    extendDown() {
+      const doc = opts.store()?.snapshot().ast;
+      if (!doc) return;
+      const run = extendRun(doc, state.selection, 1);
+      if (!run) return;
+      // The next block may not be on the page yet (a long document mounts progressively).
+      active.target.mountThrough(run.last.src.start);
+      selectRun(run.first, run.last);
     },
     moveParent() {
       const doc = opts.store()?.snapshot().ast;
       if (doc) move(parentOf(doc, state.selection));
     },
     back() {
-      const { nav } = active;
-      if (nav.index <= 0) return false;
-      nav.index -= 1;
-      void active.target.open(nav.history[nav.index]!);
+      const { nav, target } = active;
+      // A second press before the first open has committed steps on from where the first is heading. The
+      // pending index lasts only until then: `open()` settles at once when it asks about unsaved edits, so a
+      // Dismiss clears it and the next press starts from the page that is shown.
+      const from = nav.pendingBack ?? nav.index;
+      if (from <= 0) return false;
+      const index = from - 1;
+      nav.pendingBack = index;
+      const settle = (): void => { if (nav.pendingBack === index) nav.pendingBack = null; };
+      // The step back counts once the open commits, before the page flips, so a press while it is still
+      // finishing steps on from it; a Dismiss over unsaved edits keeps the place.
+      void target.open(nav.history[index]!, { onCommitted: () => { nav.index = index; settle(); } }).then(settle, settle);
       return true;
     },
     selectBlockAtByte(byte) {

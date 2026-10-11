@@ -5,6 +5,7 @@ import type { Collection } from '@marxy/core/src/index-model/collection.ts';
 import { denyRulesFor, parseCollection } from '@marxy/core/src/index-model/collection.ts';
 import { dirname, joinPath } from '@marxy/core/src/index-model/paths.ts';
 import type { WatchEvent } from '@marxy/shell-api';
+import { isUntitled } from '../document/untitled.ts';
 import type { IndexService } from '../index/service.ts';
 import { notify as showNotice, type NoticeInput } from '../notices/index.ts';
 import type { IndexFeed } from '../palette/index-feed.ts';
@@ -144,6 +145,8 @@ export function startCollection(deps: CollectionDeps): CollectionHandle {
   };
 
   const followCurrent = async (path: string | null) => {
+    // A scratch document is in no repository: the folder the reader was in stays current (E-13).
+    if (isUntitled(path)) return;
     const root = path === null ? undefined : await index.rootFor(path);
     if (stopped || root === current) return;
     current = root;

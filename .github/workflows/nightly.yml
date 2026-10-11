@@ -215,6 +215,32 @@ jobs:
           path: results/
           if-no-files-found: ignore
 
+  # The data-safety walk over the document store (F-33), at many more seeds than a pull request runs:
+  # 2,000 node-layer seeds and 30 through two real panes in WebKit. A failure prints its seed and its
+  # steps; `MARXY_WALK_SEED=<n>` replays one locally. Monitoring, like everything here.
+  store-walk:
+    if: ${{ !inputs.update_baselines }}
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - name: Store walk, 2,000 seeds (node) and 30 (two panes, WebKit)
+        working-directory: apps/desktop
+        run: node --test --experimental-strip-types test/store-walk.test.mjs test/store-walk-panes.test.mjs
+        env:
+          MARXY_WALK_SEEDS: "2000"
+          MARXY_WALK_PANES_SEEDS: "30"
+          MARXY_BROWSER_TESTS_REQUIRED: "1"
+
   # The Linux build, which left the pull-request path in G-03 (ADR-0046 amended by ADR-0056: Linux builds
   # nightly, not on pull requests): webview libraries, the thin-LTO ci-profile binary, its licence gate,
   # the command-line smoke, the Rust tests with the custom protocol, and the bundle gate over the built

@@ -47,6 +47,8 @@ if (MECHANICAL && UPDATE) {
 const filesIdx = process.argv.indexOf('--files');
 const FILES_FILTER = filesIdx === -1 ? null : process.argv[filesIdx + 1].split(',').filter(Boolean);
 const EMIT_EXPECTED = process.argv.includes('--emit-expected');
+// --split-only runs the two-pane split case alone, before any selftest (D-14): the quick look at a split page.
+const SPLIT_ONLY = process.argv.includes('--split-only');
 const variantIdx = process.argv.indexOf('--variant');
 const VARIANT_FILTER = variantIdx === -1 ? null : process.argv[variantIdx + 1];
 if (VARIANT_FILTER && !['dark', 'light'].includes(VARIANT_FILTER)) {
@@ -763,26 +765,30 @@ async function checkCodeVoice(page, { xHeight = false } = {}) {
 }
 
 /**
- * The unfolded window's vocabulary (ADR-0058, 02-fold-up-workspace.md). ADR-0058 lists the surfaces
- * (sidebar, toolbar, tabs, the kind's tool strip, inspector, status bar) but names no attribute, so
- * the spellings live here and in scripts/registry.json only. W-02 owns them: if it prefers other
- * names it edits both in one change. This file runs on import, so the constant cannot be exported.
+ * The unfolded window's vocabulary (ADR-0058, 02-fold-up-workspace.md). W-02 confirmed W-01's provisional
+ * names, which are the app's: `data-marxy-workspace` on `<body>` and `data-marxy-workspace-region` on each of
+ * the six regions (`WORKSPACE_REGIONS` in packages/core/src/layout/workspace-storage.ts; a test in
+ * apps/desktop/src/workspace/workspace.test.mjs pins this list to it). This file runs on import, so the
+ * constant cannot be exported.
  */
 const WORKSPACE = {
-  attribute: 'data-marxy-workspace', // on <html> or <body>: 'folded' | 'unfolded'
+  attribute: 'data-marxy-workspace', // on <body>: 'unfolded'; absent (or anything else) is folded
   regionAttribute: 'data-marxy-workspace-region',
   regions: ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar'],
 };
 
 /**
- * §10 check 9. html/body and the main landmark itself are the page, not chrome.
- * `state: 'folded'` (the default, and what the corpus run uses) is the at-rest window: nothing visible
- * outside #marxy-main, whatever its name. `state: 'unfolded'` additionally allows the workspace's
- * named regions and their contents; any other visible element outside #marxy-main, and any region
- * with a name outside the list, still fails.
+ * §10 check 9. The state is read from the page, never passed in: `<body data-marxy-workspace="unfolded">` is
+ * the unfolded window and every other page is the folded one, a page with no attribute included (a window
+ * opens folded, ADR-0058 item 4, and a page that forgot to say is judged at its strictest).
+ * html/body and the main landmark itself are the page, not chrome. Folded (what the corpus run sees) is the
+ * at-rest window: nothing visible outside #marxy-main, whatever its name. Unfolded additionally allows the
+ * workspace's named regions and their contents; any other visible element outside #marxy-main, and any
+ * region with a name outside the list, still fails.
  */
-async function checkChrome(page, { state = 'folded' } = {}) {
-  return page.evaluate(({ state, ws }) => {
+async function checkChrome(page) {
+  return page.evaluate(({ ws }) => {
+    const state = document.body.getAttribute(ws.attribute) === 'unfolded' ? 'unfolded' : 'folded';
     const main = document.getElementById('marxy-main');
     const out = [];
     const regionSel = `[${ws.regionAttribute}]`;
@@ -804,7 +810,7 @@ async function checkChrome(page, { state = 'folded' } = {}) {
       out.push(`visible <${el.tagName.toLowerCase()}> outside #marxy-main`);
     }
     return out;
-  }, { state, ws: WORKSPACE });
+  }, { ws: WORKSPACE });
 }
 
 function shotDir() {
@@ -1000,7 +1006,7 @@ async function runPageChecks(page, result, ctx) {
   add(await checkHanging(page));
   add(await checkHierarchy(page));
   add(await checkCodeVoice(page));
-  add(await checkChrome(page, { state: 'folded' }));
+  add(await checkChrome(page));
   await checkGeometry(page, ctx.file, ctx);
   if (ctx.file === NOTICE_DOC) recordCases('noticeColumn', ctx.file, cellId(ctx), await checkNoticeColumn(page));
   if (ctx.rag) add(checkRag(ctx.rag.metrics, ctx.rag.baseline, ctx.file));
@@ -1017,12 +1023,16 @@ ${extraCss}
 </style></head><body><main id="marxy-main"><article id="doc" class="marxy-article">${body}</article></main></body></html>`;
 }
 
-/** A workspace skeleton around crafted(): one visible element per region, outside #marxy-main. */
+/**
+ * A workspace skeleton around crafted(): one visible element per region, outside #marxy-main. `state` is the
+ * attribute's value; null leaves the attribute off, as a page that never says is.
+ */
 function craftedWorkspace(state, { stray = '', extraRegion = '' } = {}) {
   const regions = WORKSPACE.regions
     .map((r) => `<div ${WORKSPACE.regionAttribute}="${r}"><button>${r}</button></div>`)
     .join('');
-  return crafted('<p>In</p>').replace('<body>', `<body ${WORKSPACE.attribute}="${state}">${regions}${extraRegion}${stray}`);
+  const attribute = state === null ? '' : ` ${WORKSPACE.attribute}="${state}"`;
+  return crafted('<p>In</p>').replace('<body>', `<body${attribute}>${regions}${extraRegion}${stray}`);
 }
 
 /** Image swap that moves a following block, using the app harness's own layout-shift geometry. */
@@ -1072,6 +1082,203 @@ async function checkRoomInNarrowContainer(browser, css = defaultThemeCss()) {
   } finally {
     await page.close();
   }
+}
+
+/**
+ * The split page (D-14; ADR-0057; docs/aesthetics-acceptance.md): two panes, judged per pane by the same
+ * kind of rule as a one-pane page, rendered through the app harness over the shipped skeleton
+ * (apps/desktop/test/support/two-pane.mjs), so the page measured is the one a reader sees at that width.
+ * Measure in average characters stays between 45 and 80 (`articleWidth / (avgChar * bodyPx)`), no `pre`
+ * or `table` ends past its own pane (the `--marxy-room` regression: a room taken from the window, not the
+ * pane, spilled code 343 px at 1,470 px), nothing is visible outside #marxy-main, the divider is one pixel
+ * wide, and body text keeps its 7:1. `--mechanical` runs these; the nightly full gate adds screenshots.
+ */
+const SPLIT_CASES = [
+  { width: 1470, variant: 'dark' },
+  { width: 960, variant: 'dark' },
+  { width: 929, variant: 'dark' },
+  { width: 1470, variant: 'light' },
+];
+const SPLIT_SHOT_WIDTH = 1470;
+const wideLine = `const ${'wideIdentifier'.repeat(9)} = 1; // ${'x'.repeat(6)}`;
+const wideTable = (title) =>
+  `| ${Array.from({ length: 14 }, (_, i) => `${title}_column_${i}`).join(' | ')} |\n| ${Array(14).fill('---').join(' | ')} |\n| ${Array.from({ length: 14 }, (_, i) => `cell_${i}_unbreakable_content`).join(' | ')} |\n`;
+/** A synthetic page, inline so no corpus file (and no golden ceremony) is added: a 140-character code line and a wide table. */
+const syntheticSplitDoc = (title) =>
+  `# ${title}\n\nA paragraph above a code line that is wider than the pane.\n\n\`\`\`js\n${wideLine.padEnd(140, 'y')}\n\`\`\`\n\n${wideTable(title)}\nA paragraph below.\n`;
+const SPLIT_PAIRS = [
+  { name: 'corpus', files: ['01-long-technical.md', '16-api-reference.md'] },
+  { name: 'synthetic', files: [null, null] },
+];
+
+/** In the page: what each pane measures, and the divider. Pure geometry, no judgement. */
+function splitMeasureInPage() {
+  const main = document.getElementById('marxy-main');
+  const rootStyle = getComputedStyle(document.documentElement);
+  const avg = parseFloat(rootStyle.getPropertyValue('--marxy-avg-char'));
+  const body = parseFloat(rootStyle.getPropertyValue('--marxy-size-body'));
+  const background = (el) => {
+    for (let node = el; node; node = node.parentElement) {
+      const c = getComputedStyle(node).backgroundColor;
+      const m = c.match(/[\d.]+/g);
+      if (m && (m.length < 4 || parseFloat(m[3]) > 0.5)) return m.slice(0, 3).map(Number);
+    }
+    return [255, 255, 255];
+  };
+  const panes = [...main.querySelectorAll(':scope > section.marxy-pane')].map((pane, slot) => {
+    const article = pane.querySelector('article.marxy-article');
+    const box = pane.getBoundingClientRect();
+    const style = getComputedStyle(article);
+    const column = article.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const over = (sel) =>
+      [...article.querySelectorAll(sel)]
+        .map((el) => ({ tag: el.tagName.toLowerCase(), over: el.getBoundingClientRect().right - box.right }))
+        .filter((o) => o.over > 0.5);
+    return {
+      slot,
+      width: box.width,
+      column,
+      chars: column / (avg * body),
+      pres: article.querySelectorAll('pre').length,
+      tables: article.querySelectorAll('table').length,
+      spills: [...over('pre'), ...over('table')],
+      text: (style.color.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number),
+      ground: background(article),
+    };
+  });
+  const dividers = [...main.querySelectorAll('.marxy-divider')].map((el) => ({
+    inMain: el.parentElement === main,
+    line: getComputedStyle(el, '::before').width,
+  }));
+  return { panes, dividers };
+}
+
+/** The verdicts on one measurement. `label` names the page; the checks are the card's, per pane. */
+function splitFailures(m, label) {
+  const out = [];
+  if (m.panes.length !== 2) out.push(`${label}: ${m.panes.length} pane(s), expected 2`);
+  for (const pane of m.panes) {
+    const at = `${label} pane ${pane.slot}`;
+    if (!(pane.chars >= 45 && pane.chars <= 80)) out.push(`${at}: measure ${pane.chars.toFixed(1)} average characters outside 45-80 (column ${pane.column.toFixed(0)}px of a ${pane.width.toFixed(0)}px pane)`);
+    for (const s of pane.spills) out.push(`${at}: a <${s.tag}> ends ${s.over.toFixed(1)}px past its pane's right edge`);
+    const ratio = contrastRgb(pane.text, pane.ground);
+    if (ratio < 7) out.push(`${at}: body contrast ${ratio.toFixed(2)} < 7:1`);
+  }
+  if (m.dividers.length !== 1) out.push(`${label}: ${m.dividers.length} dividers, expected 1`);
+  for (const d of m.dividers) {
+    if (!d.inMain) out.push(`${label}: the divider is outside #marxy-main`);
+    if (d.line !== '1px') out.push(`${label}: the divider line is ${d.line} wide, expected 1px`);
+  }
+  return out;
+}
+
+/** Until both panes' typesetters have considered every paragraph and the page has held its height. */
+async function awaitSplitSettled(page) {
+  await page.waitForFunction(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'typeset_done').length >= 2, null, { timeout: 30_000 });
+  await page.evaluate(async () => {
+    const state = () =>
+      [...document.querySelectorAll('section.marxy-pane')]
+        .map((p) => `${p.scrollHeight}:${p.querySelectorAll('code[data-marxy-done="highlight"]').length}`)
+        .join('|');
+    let last = '';
+    let still = 0;
+    for (let i = 0; i < 100 && still < 3; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const now = state();
+      still = now === last ? still + 1 : 0;
+      last = now;
+    }
+  });
+}
+
+async function renderSplit(browser, twoPane, pair, { width, variant }) {
+  const page = await browser.newPage({ viewport: { width, height: 900 } });
+  const docs = pair.files.map((f, i) => (f ? readFileSync(join(corpusDir, f), 'utf8') : syntheticSplitDoc(`Synthetic ${i + 1}`)));
+  await twoPane.bootTwoPanes(page, {
+    files: { '/s/left.md': docs[0], '/s/right.md': docs[1], '/config': `variant = "${variant}"\n` },
+    open: ['/s/left.md', '/s/right.md'],
+  });
+  await awaitSplitSettled(page);
+  return page;
+}
+
+/** Nightly only: a split screenshot at 1,470 px compared with its baseline; created with --update. */
+async function checkSplitScreenshot(page, variant) {
+  const name = `split-${SPLIT_SHOT_WIDTH}-${variant}.png`;
+  const dest = join(shotDir(), name);
+  await page.evaluate(() => { for (const p of document.querySelectorAll('section.marxy-pane')) p.scrollTop = 0; });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const png = await screenshot(page);
+  if (UPDATE) {
+    mkdirSync(shotDir(), { recursive: true });
+    writeFileSync(dest, png);
+    return [];
+  }
+  if (!existsSync(dest)) {
+    notes.push(`split screenshot ${engineName()}/${name} has no baseline here (node scripts/gate-aesthetics.mjs --update writes it)`);
+    return [];
+  }
+  const expected = readFileSync(dest);
+  if (expected.equals(png)) return [];
+  const diffPath = join(diffDir(), name.replace(/\.png$/, '.diff.png'));
+  const diff = await compareScreenshotPng(page, expected, png, { writeDiffPath: diffPath });
+  return diff.pct > SHOT_MAX_PCT ? [`split ${SPLIT_SHOT_WIDTH} ${variant}: ${diff.pct.toFixed(3)}% pixels differ${diff.reason ? ` (${diff.reason})` : ''} (diff ${diffPath.slice(root.length)})`] : [];
+}
+
+/** A crafted two-pane page for the selftest: `room100` picks the pre-fix window-wide room rule. */
+function craftedSplit({ css = defaultThemeCss(), width = 1470, divider = 1 } = {}) {
+  const half = width / 2;
+  const doc = `<article class="marxy-article"><p>Text</p><pre><code>${'x'.repeat(140)}</code></pre></article>`;
+  return `<!doctype html><html lang="en" data-marxy-variant="dark"><head><meta charset="utf-8"><style>${css}
+.marxy-pane{container-type:inline-size;min-width:0}
+.marxy-divider::before{width:${divider}px}</style></head><body style="margin:0"><main id="marxy-main" style="position:relative;display:grid;grid-template-columns:${half}px ${half}px;width:${width}px"><section class="marxy-pane" data-marxy-pane="0">${doc}</section><section class="marxy-pane" data-marxy-pane="1">${doc}</section><div class="marxy-divider" style="left:${half}px"></div></main></body></html>`;
+}
+
+async function splitSelftest(browser) {
+  const run = async (opts, viewport = 1470) => {
+    const page = await browser.newPage({ viewport: { width: viewport, height: 900 } });
+    try {
+      await page.setContent(craftedSplit({ width: viewport, ...opts }), { waitUntil: 'domcontentloaded' });
+      return splitFailures(await page.evaluate(splitMeasureInPage), 'crafted');
+    } finally {
+      await page.close();
+    }
+  };
+  const head = await run({});
+  if (head.length) throw new Error(`selftest: the crafted split page should pass: ${head.join('; ')}`);
+  const preFix = await run({ css: defaultThemeCss().replaceAll('100cqi', '100vw') });
+  if (!preFix.some((p) => /past its pane's right edge/.test(p))) throw new Error(`selftest: splitFailures did not catch a pre spilling past its pane under the pre-fix 100vw room (${preFix.join('; ') || 'nothing'})`);
+  const thick = await run({ divider: 3 });
+  if (!thick.some((p) => /divider line is 3px/.test(p))) throw new Error(`selftest: splitFailures did not catch a 3px divider (${thick.join('; ') || 'nothing'})`);
+  const narrow = await run({ width: 600 }, 600);
+  if (!narrow.some((p) => /measure .* outside 45-80/.test(p))) throw new Error(`selftest: splitFailures did not catch panes narrower than 45 characters (${narrow.join('; ') || 'nothing'})`);
+  return 'selftest: the split checks pass a crafted two-pane page and fail it under the pre-fix 100vw room (a pre past its pane), a 3px divider and 300px panes';
+}
+
+async function splitCase(browser, twoPane) {
+  const problems = [];
+  const measures = [];
+  let renders = 0;
+  for (const c of SPLIT_CASES) {
+    for (const pair of SPLIT_PAIRS) {
+      const label = `split ${pair.name} ${c.width} ${c.variant}`;
+      let page;
+      try {
+        page = await renderSplit(browser, twoPane, pair, c);
+        renders++;
+        const measured = await page.evaluate(splitMeasureInPage);
+        for (const pane of measured.panes) measures.push(pane.chars);
+        problems.push(...splitFailures(measured, label));
+        problems.push(...(await checkChrome(page, { state: 'folded' })).map((p) => `${label}: ${p}`));
+        if (!MECHANICAL && pair.name === 'corpus' && c.width === SPLIT_SHOT_WIDTH) problems.push(...(await checkSplitScreenshot(page, c.variant)));
+      } catch (e) {
+        problems.push(`${label}: ${e.message}`);
+      } finally {
+        await page?.close();
+      }
+    }
+  }
+  return { problems, renders, measureRange: measures.length ? `${Math.min(...measures).toFixed(1)}-${Math.max(...measures).toFixed(1)}` : 'none' };
 }
 
 /**
@@ -1269,19 +1476,33 @@ async function selftest(browser, origin) {
       name: 'chrome-folded-region',
       html: craftedWorkspace('folded'),
       ok: crafted('<p>In</p>'),
-      run: (page) => checkChrome(page, { state: 'folded' }),
+      run: checkChrome,
+    },
+    {
+      // A page that never says is folded: with the default flipped to unfolded this page would pass.
+      name: 'chrome-no-attribute-is-folded',
+      html: craftedWorkspace(null),
+      ok: crafted('<p>In</p>'),
+      run: checkChrome,
+    },
+    {
+      // Only the one spelling unfolds; anything else is the folded window.
+      name: 'chrome-other-state-is-folded',
+      html: craftedWorkspace('open'),
+      ok: crafted('<p>In</p>'),
+      run: checkChrome,
     },
     {
       name: 'chrome-unfolded-stray',
       html: craftedWorkspace('unfolded', { stray: '<mark>out</mark>' }),
       ok: craftedWorkspace('unfolded'),
-      run: (page) => checkChrome(page, { state: 'unfolded' }),
+      run: checkChrome,
     },
     {
       name: 'chrome-unfolded-unknown-region',
       html: craftedWorkspace('unfolded', { extraRegion: `<div ${WORKSPACE.regionAttribute}="banner"><b>x</b></div>` }),
       ok: craftedWorkspace('unfolded'),
-      run: (page) => checkChrome(page, { state: 'unfolded' }),
+      run: checkChrome,
     },
     {
       name: 'hierarchy',
@@ -1482,12 +1703,29 @@ async function main() {
   const browser = await launchWebkit();
   const harness = await startHarness();
   try {
+    if (SPLIT_ONLY) {
+      const twoPane = await import('../apps/desktop/test/support/two-pane.mjs');
+      let split;
+      try {
+        split = await splitCase(browser, twoPane);
+        fails.push(...split.problems);
+      } finally {
+        await twoPane.closeHarness();
+      }
+      if (fails.length) {
+        console.error('aesthetics gate failed:\n - ' + fails.join('\n - '));
+        process.exit(1);
+      }
+      console.log(`aesthetics gate ok: split only, ${split.renders} two-pane render(s), measure ${split.measureRange} average characters per pane`);
+      return;
+    }
+
     const opticalSelftest = await selftest(browser, harness.origin);
     notes.push(
       `selftest: optical ~5% protrusion (margin/width=${opticalSelftest.marginOverWidth.toFixed(3)}, rect.width=${opticalSelftest.rectWidth.toFixed(2)}px) fails pre-fix (${opticalSelftest.preFixProblems.join('; ')}) and passes head (${opticalSelftest.headProblems.length ? opticalSelftest.headProblems.join('; ') : '[]'})`,
     );
     notes.push(
-      'selftest: grid, measure, contrast-link/kbd/th, cls, rag, chrome (folded, plus a region folded, a stray and an unknown region unfolded), hierarchy, code-voice, hanging-quote, and the geometry checks (centred, blockEdges, room, marks, noClip, noticeColumn, textSpacing, text200) each fail on a crafted page and pass on its twin; optical protrusion passes; the expected-failure table is held both ways',
+      'selftest: grid, measure, contrast-link/kbd/th, cls, rag, chrome (the state read from the page: folded, a region folded, no attribute or another value is folded, a stray and an unknown region unfolded), hierarchy, code-voice, hanging-quote, and the geometry checks (centred, blockEdges, room, marks, noClip, noticeColumn, textSpacing, text200) each fail on a crafted page and pass on its twin; optical protrusion passes; the expected-failure table is held both ways',
     );
     const roomHead = await checkRoomInNarrowContainer(browser);
     if (roomHead.problems.length) throw new Error(`aesthetics gate: ${roomHead.problems.join('; ')}`);
@@ -1501,6 +1739,7 @@ async function main() {
     if (!loadRagBaseline('01-long-technical.md').path.includes(`${join('rag', engineName())}`)) {
       throw new Error(`rag baselines must be engine-keyed under rag/${engineName()}/`);
     }
+    notes.push(await splitSelftest(browser));
     phase('selftest');
     if (SELFTEST_ONLY) {
       if (MECHANICAL && screenshotsTaken !== 0) throw new Error(`--mechanical took ${screenshotsTaken} screenshot(s); it must take none`);
@@ -1698,6 +1937,18 @@ async function main() {
     fails.push(...accessFails.flat());
     phase('access');
     notes.push(`access: ${accessTasks.length} render(s), text spacing at ${SPACING_WIDTHS.join(' and ')} px and 200 % text at ${TEXT200_WIDTH} px`);
+
+    if (!FILES_FILTER) {
+      const twoPane = await import('../apps/desktop/test/support/two-pane.mjs');
+      try {
+        const split = await splitCase(browser, twoPane);
+        fails.push(...split.problems);
+        phase('split');
+        notes.push(`split: ${split.renders} two-pane render(s) (${SPLIT_CASES.map((c) => `${c.width} ${c.variant}`).join(', ')}; a corpus pair and a synthetic page), measure (${split.measureRange} average characters per pane, bound 45-80), spill, chrome, divider and contrast per pane`);
+      } finally {
+        await twoPane.closeHarness();
+      }
+    }
 
     if (EMIT_EXPECTED) {
       console.log(`expected-failure rows (${foundCases.size} case(s)):\n${rowsOf(foundCases).map((r) => `  ${JSON.stringify(r)},`).join('\n')}`);

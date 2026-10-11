@@ -162,16 +162,118 @@ test('one watch per store, however often it is asked for; another store gets its
   assert.deepEqual(fake.watches.map((w) => w.closed), [true, false]);
 });
 
-test('release closes and forgets the watch of a store another pane still shows; asking again starts one (D-01)', async () => {
+test('a watch shared by two panes survives one of them going: it closes with the store, when the last view lets go (D-10)', async () => {
   const fake = fakeShell(new Map([['/d/a.md', enc.encode('# A\n')]]));
   const watches = oneWatchPerStore((store) => watchDocument(store, () => [], deps(fake.shell)));
   const a = storeFor(fake, '/d/a.md');
-  await watches.watch(a);
-  watches.release(a);
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(watches.of(a), null);
-  assert.deepEqual(fake.watches.map((w) => w.closed), [true], 'the store is still open, its watch from this open path is not');
-  await watches.watch(a);
-  assert.deepEqual(fake.watches.map((w) => w.closed), [true, false]);
+  const first = await watches.watch(a);
+  // The second pane to show the store asks for its watch and gets the same one: no second `shell.watch`.
+  assert.equal(await watches.watch(a), first);
+  assert.equal(fake.watches.length, 1);
+  assert.deepEqual(fake.watches.map((w) => w.closed), [false]);
   a.close();
+  assert.deepEqual(fake.watches.map((w) => w.closed), [true]);
+  assert.equal(watches.of(a), null);
+});
+
+test('an event that names another file in the folder reads nothing for this store (D-10)', async () => {
+  const fake = fakeShell(new Map([['/d/a.md', enc.encode('# A\n')], ['/d/b.md', enc.encode('# B\n')]]));
+  const reads: string[] = [];
+  const read = fake.shell.readFile.bind(fake.shell);
+  fake.shell.readFile = async (path) => {
+    reads.push(path);
+    return read(path);
+  };
+  const a = storeFor(fake, '/d/a.md');
+  const view = fakeView(a, { byteOffset: 0, fraction: 0, mode: 'rendered' });
+  const d = deps(fake.shell);
+  await watchDocument(a, () => [view], d);
+  fake.disk.set('/d/b.md', enc.encode('# B changed\n'));
+  fake.watches[0].emit([{ kind: 'modified', path: '/d/b.md' }]);
+  await d.queue;
+  assert.deepEqual(reads, [], 'a.md is not read for an event on b.md');
+  assert.equal(new TextDecoder().decode(a.snapshot().buffer.bytes), '# A\n');
+});
+
+test('a reload asks every view at the commit: Source text in any of them keeps the outside change out (D-10)', async () => {
+  const text = '# One\n\nFirst paragraph here.\n';
+  const fake = fakeShell(new Map([['/d/a.md', enc.encode(text)]]));
+  const store = storeFor(fake, '/d/a.md');
+  const quiet = fakeView(store, { byteOffset: 0, fraction: 0, mode: 'rendered' });
+  const typing = fakeView(store, { byteOffset: 0, fraction: 0, mode: 'source' });
+  let holding = false;
+  (typing as unknown as { sourceHasUnfoldedEdits(): boolean }).sourceHasUnfoldedEdits = () => holding;
+  // The reader's key lands after the watch looked and before the store's turn: only `holds` sees it.
+  const outcome = await store.reload(enc.encode('# Outside\n'), { holds: () => (holding = true) });
+  assert.equal(outcome, 'kept');
+  assert.equal(new TextDecoder().decode(store.snapshot().buffer.bytes), text, 'nothing was adopted');
+  assert.equal(quiet.told.length, 0);
+});
+
+// ---- V-07: the watch raises the choice; the store holds it once for every pane ----
+
+test('an outside write over unsaved edits: kept, every pane told once, one pending choice, nothing written (V-07)', async () => {
+  const text = '# One\n\nFirst paragraph.\n';
+  const fake = fakeShell(new Map([['/d/a.md', enc.encode(text)]]));
+  const writes: string[] = [];
+  const store = openDocumentStore(
+    { writeFileAtomic: async (p, b) => { writes.push(p); fake.disk.set(p, b); }, exists: async (p) => fake.disk.has(p), peekFile: async (p) => fake.disk.get(p)! },
+    '/d/a.md',
+    fake.disk.get('/d/a.md')!,
+  );
+  await store.apply({ range: { file: '/d/a.md', start: 2, end: 5 }, replacement: 'Mine', label: 'edit' });
+  const first = fakeView(store, { byteOffset: 0, fraction: 0, mode: 'rendered' });
+  const second = fakeView(store, { byteOffset: 0, fraction: 0, mode: 'rendered' });
+  const told: unknown[] = [];
+  const d = Object.assign(deps(fake.shell), { onConflict: (target: unknown) => void told.push(target) });
+  await watchDocument(store, () => [first, second], d);
+  fake.disk.set('/d/a.md', enc.encode('# Theirs\n'));
+  fake.watches[0].emit([{ kind: 'modified', path: '/d/a.md' }]);
+  await d.queue;
+  assert.equal(told.length, 2, 'said in each pane that shows the file');
+  assert.equal(new TextDecoder().decode(store.conflict()!), '# Theirs\n', 'one pending choice, on the store');
+  assert.equal(store.snapshot().dirty, true, 'nothing lost: the title still shows unsaved');
+  assert.match(new TextDecoder().decode(store.snapshot().buffer.bytes), /^# Mine/);
+  assert.deepEqual(writes, [], 'nothing is written until the reader chooses');
+  // Dismissing the notice is not a choice: both versions are still safe, and a save still refuses.
+  assert.equal((await store.save()).result, 'failed');
+  assert.deepEqual(writes, []);
+  // A further change while pending updates the held bytes and says so again.
+  fake.disk.set('/d/a.md', enc.encode('# Theirs again\n'));
+  fake.watches[0].emit([{ kind: 'modified', path: '/d/a.md' }]);
+  await d.queue;
+  assert.equal(new TextDecoder().decode(store.conflict()!), '# Theirs again\n');
+  assert.equal(told.length, 4);
+});
+
+test('Source text typed and not folded in is an unsaved edit the choice holds for too (V-07)', async () => {
+  const text = '# One\n\nFirst paragraph.\n';
+  const fake = fakeShell(new Map([['/d/a.md', enc.encode(text)]]));
+  const store = storeFor(fake, '/d/a.md');
+  const view = fakeView(store, { byteOffset: 0, fraction: 0, mode: 'source' });
+  (view as unknown as { sourceHasUnfoldedEdits(): boolean }).sourceHasUnfoldedEdits = () => true;
+  const told: unknown[] = [];
+  const d = Object.assign(deps(fake.shell), { onConflict: (target: unknown) => void told.push(target) });
+  await watchDocument(store, () => [view], d);
+  fake.disk.set('/d/a.md', enc.encode('# Theirs\n'));
+  fake.watches[0].emit([{ kind: 'modified', path: '/d/a.md' }]);
+  await d.queue;
+  assert.equal(told.length, 1);
+  assert.equal(new TextDecoder().decode(store.conflict()!), '# Theirs\n', 'the store holds it though its own buffer is clean');
+  assert.equal(new TextDecoder().decode(store.snapshot().buffer.bytes), text, 'nothing adopted over the typing');
+});
+
+test('an outside write of exactly the buffer\'s bytes raises no choice (V-07)', async () => {
+  const text = '# One\n';
+  const fake = fakeShell(new Map([['/d/a.md', enc.encode(text)]]));
+  const store = storeFor(fake, '/d/a.md');
+  const view = fakeView(store, { byteOffset: 0, fraction: 0, mode: 'source' });
+  (view as unknown as { sourceHasUnfoldedEdits(): boolean }).sourceHasUnfoldedEdits = () => true;
+  const told: unknown[] = [];
+  const d = Object.assign(deps(fake.shell), { onConflict: (target: unknown) => void told.push(target) });
+  await watchDocument(store, () => [view], d);
+  fake.watches[0].emit([{ kind: 'modified', path: '/d/a.md' }]);
+  await d.queue;
+  assert.deepEqual(told, []);
+  assert.equal(store.conflict(), null);
 });

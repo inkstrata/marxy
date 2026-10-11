@@ -12,13 +12,30 @@
 import { createBuffer, parseMarkdown, reparseMarkdown, splice, type Buffer, type Document, type Edit } from '@marxy/core';
 import { buildNodeMap, type NodeMap } from '../render/post.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
+import { isUntitled } from './untitled.ts';
 
 /** The privileged effects a store needs. `apps/desktop/src/shell` implements them; tests fake them. */
 export interface StoreIo {
   writeFileAtomic(path: string, bytes: Uint8Array): Promise<void>;
   /** Tauri's stale-write guard (shell/tauri.ts recordRead); optional in tests. */
   recordRead?(path: string, bytes: Uint8Array): void;
+  /**
+   * Reads `path` without arming that guard. A save compares disk with the store's own `disk` through it, so
+   * the baseline is the store's (what it last loaded or wrote), not the shell's last look: Marxy's own reads
+   * and writes of a file the reader has open (a config key, `.editorconfig`, a link's target) cannot move it.
+   */
+  peekFile?(path: string): Promise<Uint8Array>;
+  /** Whether anything (a file, a folder, a link) is at `path`: a copy is never written over one (V-07). */
+  exists?(path: string): Promise<boolean>;
 }
+
+/** How a changed-on-disk conflict ended (V-07). 'none': there was nothing pending; nothing was done. */
+export type ConflictResolution =
+  | { readonly result: 'none' }
+  /** The disk's bytes are now the buffer; with `copy`, the reader's buffer is at that new path first. */
+  | { readonly result: 'resolved'; readonly copy?: string }
+  /** Nothing changed, the conflict is still pending. */
+  | { readonly result: 'failed'; readonly error: unknown };
 
 /** One immutable reading of the store. `version` says whether a held snapshot is stale. */
 export interface DocumentSnapshot {
@@ -34,6 +51,12 @@ export interface DocumentSnapshot {
   readonly dirty: boolean;
   readonly canUndo: boolean;
   readonly canRedo: boolean;
+  /**
+   * The bytes the last `reload` replaced: what Marxy had loaded when another program rewrote the file under a
+   * clean buffer (E-17). View state, held in memory only: never written, never persisted, null until a reload
+   * adopts a change, and dropped with the store on `close`. A reload kept over unsaved edits sets nothing.
+   */
+  readonly previousDisk: Uint8Array | null;
 }
 
 /** What a committed change was. `undo` and `redo` carry the history entry they stepped over. */
@@ -81,10 +104,32 @@ export interface DocumentStore {
    * only for a real external change while the buffer is dirty: nothing changes. Otherwise
    * 'reloaded', and history is cleared.
    *
+   * `opts.holds` is asked, synchronously, at the turn the change would commit and never before it: a view
+   * of this store holding text the store cannot see (Source typed and not yet folded in, in any pane that
+   * shows it) answers true, and the change is 'kept' as for a dirty buffer. Asked at the commit and not
+   * earlier, so a key typed while the transition waited in the queue cannot slip between the question and
+   * the answer. Nothing is recorded as read, so the stale-write guard stays on the bytes the text came from.
+   *
    * The new bytes are reparsed from the store's own parse: only the blocks the change touched are
    * parsed again (B-23, `reparseMarkdown`).
    */
-  reload(bytes: Uint8Array): Promise<'reloaded' | 'unchanged' | 'kept'>;
+  reload(bytes: Uint8Array, opts?: { holds?: () => boolean }): Promise<'reloaded' | 'unchanged' | 'kept'>;
+  /**
+   * The bytes of the real external change a `reload` kept (the reader has unsaved edits), or null. It is
+   * the store's, so every view of the store sees the one pending choice (D-10). A later external change
+   * replaces it; the disk coming back to the bytes the buffer came from, or the buffer's own, clears it.
+   * Holding it writes nothing and changes no snapshot: a save still refuses (the stale-write guard).
+   */
+  conflict(): Uint8Array | null;
+  /**
+   * The reader's choice over a pending conflict (V-07), made explicitly and never by default. 'mine' writes
+   * the buffer, byte for byte, to a NEW file beside the original (`name (mine).ext`, then `(mine 2)`; an
+   * existing path is never written over) and then, like 'theirs', adopts what is on disk now: it becomes
+   * the buffer and `disk`, history is cleared as a reload does, and the guard is armed on it. 'theirs'
+   * discards the unsaved edits: the caller folds unfolded Source text in first, so they count. A failed
+   * copy leaves the buffer and the pending conflict as they were.
+   */
+  resolveConflict(choice: 'mine' | 'theirs'): Promise<ConflictResolution>;
   save(opts?: { to?: string }): Promise<{ result: 'saved' | 'unchanged' | 'failed'; error?: unknown }>;
   /**
    * The file now answers to `to`. History is kept; its entries keep the `range.file` they were made
@@ -131,9 +176,21 @@ interface State {
   readonly past: readonly Edit[];
   readonly future: readonly Edit[];
   readonly version: number;
+  /** See `DocumentSnapshot.previousDisk`. */
+  readonly previousDisk: Uint8Array | null;
 }
 
 const encoder = new TextEncoder();
+
+/** `notes.md` as `notes (mine).md`, `notes (mine 2).md`...; a name with no extension, or a dotfile, takes the tag last. */
+export function conflictCopyPath(path: string, n: number): string {
+  const slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  const dir = path.slice(0, slash + 1);
+  const name = path.slice(slash + 1);
+  const dot = name.lastIndexOf('.');
+  const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
+  return `${dir}${stem} (${n === 1 ? 'mine' : `mine ${n}`})${ext}`;
+}
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a === b) return true;
@@ -143,9 +200,9 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 /** The parse of `buffer` as `path`. Every node carries `{file, start, end}` for that path. */
-function parsed(path: string, buffer: Buffer): Pick<State, 'buffer' | 'ast' | 'nodeMap'> {
-  const ast = parseMarkdown(buffer.bytes, { file: path });
-  return { buffer, ast, nodeMap: buildNodeMap(ast) };
+function parsed(path: string, buffer: Buffer, made?: Preparsed): Pick<State, 'buffer' | 'ast' | 'nodeMap'> {
+  const ast = made?.ast ?? parseMarkdown(buffer.bytes, { file: path });
+  return { buffer, ast, nodeMap: made?.nodeMap ?? buildNodeMap(ast) };
 }
 
 /** `buffer` answering to `path`: same bytes and tables, a new name. */
@@ -169,23 +226,48 @@ function freezeSnapshot(state: State): DocumentSnapshot {
     dirty: state.disk === null || !sameBytes(state.disk, state.buffer.bytes),
     canUndo: state.past.length > 0,
     canRedo: state.future.length > 0,
+    previousDisk: state.previousDisk,
   });
 }
 
-/** The `open` transition: a store for `bytes` read from `path`, with an empty history. */
-export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array): DocumentStore {
+/** A parse of a document's bytes and its node map, made by a caller that built them in slices (D-15). */
+export interface Preparsed {
+  readonly ast: Document;
+  readonly nodeMap: NodeMap;
+}
+
+/**
+ * The `open` transition for a scratch document (E-13): a store for `bytes` that came from no file, under a
+ * scratch `path` (`untitled.ts`). `disk` is what the document was born with, so `dirty` reads "changed since
+ * it was opened" and a scratch the reader only read closes without a question. Nothing is written until a
+ * `save` to another path, which makes it an ordinary document: `disk` and the stale-write guard follow.
+ */
+export function openUntitledStore(io: StoreIo, path: string, bytes: Uint8Array): DocumentStore {
+  if (!isUntitled(path)) throw new Error(`${path} is not a scratch path`);
+  return openDocumentStore(io, path, bytes);
+}
+
+/**
+ * The `open` transition: a store for `bytes` read from `path`, with an empty history. `preparsed` is the
+ * parse of exactly these bytes as `path` when the caller made it in slices (`parseMarkdownChunked`, D-15);
+ * without it the store parses them here, all at once.
+ */
+export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array, preparsed?: Preparsed): DocumentStore {
   const buffer = createBuffer(path, bytes);
   let state: State = {
     path,
     disk: buffer.bytes,
-    ...parsed(path, buffer),
+    ...parsed(path, buffer, preparsed),
     past: [],
     future: [],
     version: 0,
     bytesVersion: 0,
+    previousDisk: null,
   };
   let snap = freezeSnapshot(state);
   let closed = false;
+  /** The disk's bytes a reload refused to adopt over the reader's edits: the pending choice (V-07). */
+  let pending: Uint8Array | null = null;
   let queue: Promise<unknown> = Promise.resolve();
   const subscribers = new Set<(snap: DocumentSnapshot, change: Transition) => void>();
 
@@ -283,9 +365,12 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
       });
     },
 
-    reload(bytes) {
+    reload(bytes, opts) {
       return transition((): 'reloaded' | 'unchanged' | 'kept' => {
+        // A scratch document has no file to change under it (E-13).
+        if (isUntitled(state.path)) return 'kept';
         if (sameBytes(bytes, state.buffer.bytes)) {
+          pending = null;
           if (state.disk === null || !sameBytes(state.disk, bytes)) {
             // Adopted: the stale-write guard now expects these bytes on disk (B-11).
             io.recordRead?.(state.path, bytes);
@@ -294,26 +379,84 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
           return 'unchanged';
         }
         // Our own save coming back through the watcher, after the reader edited again: not a conflict.
-        if (state.disk !== null && sameBytes(bytes, state.disk)) return 'unchanged';
+        if (state.disk !== null && sameBytes(bytes, state.disk)) {
+          pending = null; // the file is what the buffer came from again: nothing to choose
+          return 'unchanged';
+        }
         // Kept, not adopted: the guard stays armed on what was read, so a save cannot overwrite the change.
-        if (snap.dirty) return 'kept';
-        // A clean reload is a new document: undoing across it would splice bytes the reader never saw.
-        // Phase B clears it rather than mapping it through the change (ADR-0037 §3; roadmap 02-phase-b.md).
-        const buffer = createBuffer(state.path, bytes);
-        const ast = reparseMarkdown(state.ast, state.buffer.bytes, buffer.bytes, { file: state.path });
-        const next = { buffer, ast, nodeMap: buildNodeMap(ast) };
-        io.recordRead?.(state.path, buffer.bytes);
-        commit({ ...state, disk: buffer.bytes, ...next, past: [], future: [] }, { kind: 'reload' });
+        // The bytes are remembered for the reader's choice (V-07); a copy, so the caller's array may be reused.
+        if (snap.dirty || opts?.holds?.()) {
+          if (pending === null || !sameBytes(pending, bytes)) pending = bytes.slice();
+          return 'kept';
+        }
+        // The buffer is clean here, so it is exactly what was on disk: the version the reader was reading.
+        adopt(bytes, state.buffer.bytes);
         return 'reloaded';
+      });
+    },
+
+    conflict: () => pending,
+
+    resolveConflict(choice) {
+      return transition(async (): Promise<ConflictResolution> => {
+        if (pending === null) return { result: 'none' };
+        // What is on disk now, if it can be read: the choice is about the file as it is, not as it was when
+        // the conflict was noticed. A file that cannot be read is taken as the bytes that were refused.
+        let theirs = pending;
+        let gone = false;
+        if (io.peekFile) {
+          try {
+            theirs = await io.peekFile(state.path);
+          } catch {
+            // Gone or unreadable: the held bytes are stale, never "theirs". Nothing is adopted.
+            gone = true;
+          }
+        }
+        if (gone) {
+          if (choice === 'theirs') {
+            return { result: 'failed', error: new Error('The file is no longer on disk, so there is no version to take.') };
+          }
+          // A copy of the buffer is still safe to make; the buffer stays, and saving it would recreate the file.
+          const copy = await writeCopy();
+          if (typeof copy !== 'string') return copy;
+          pending = null;
+          return { result: 'resolved', copy };
+        }
+        let copy: string | undefined;
+        if (choice === 'mine' && !sameBytes(state.buffer.bytes, theirs)) {
+          const made = await writeCopy();
+          if (typeof made !== 'string') return made;
+          copy = made;
+        }
+        adopt(theirs);
+        return copy === undefined ? { result: 'resolved' } : { result: 'resolved', copy };
       });
     },
 
     save(opts) {
       return transition(async () => {
         const target = opts?.to ?? state.path;
+        // A scratch document has no file (E-13): writing "to" its own name would make one in the working
+        // directory. The first write is a Save As to a path the reader picked.
+        if (isUntitled(target)) {
+          return { result: 'failed' as const, error: new Error('this document is not saved yet; use Save As to choose where it goes') };
+        }
         if (target === state.path && !snap.dirty) return { result: 'unchanged' as const };
         const from = state.path;
         const bytes = state.buffer.bytes;
+        // The baseline is `disk`, the bytes this store last loaded or wrote: if the file is no longer them,
+        // another program wrote it (or Marxy did, for something else) and a save would overwrite that.
+        if (target === from && state.disk !== null && io.peekFile) {
+          let onDisk: Uint8Array | null = null;
+          try {
+            onDisk = await io.peekFile(target);
+          } catch {
+            // Gone, or unreadable: nothing there to overwrite, or the write itself will say why.
+          }
+          if (onDisk !== null && !sameBytes(onDisk, state.disk)) {
+            return { result: 'failed' as const, error: new Error(`${target}: changed on disk since it was opened; refusing to overwrite`) };
+          }
+        }
         // Parse under the new name before writing, so nothing after a successful write can throw.
         const moved = target === from ? null : { path: target, ...parsed(target, renamed(state.buffer, target)) };
         try {
@@ -324,6 +467,8 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
         // The write succeeded; the store moves in one transition, so no subscriber ever sees the old
         // path with the new disk bytes. History is untouched.
         io.recordRead?.(target, bytes);
+        // Saved under a new name: the old file's pending change is not this document's any more.
+        if (moved) pending = null;
         if (moved) commit({ ...state, ...moved, disk: bytes }, { kind: 'save', path: target, renamedFrom: from });
         else commit({ ...state, disk: bytes }, { kind: 'save', path: target });
         return { result: 'saved' as const };
@@ -339,17 +484,60 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
     close() {
       if (closed) return;
       closed = true;
-      commit({ ...state }, { kind: 'close' });
+      commit({ ...state, previousDisk: null }, { kind: 'close' });
       subscribers.clear();
     },
 
     serially,
   };
 
-  /** The file now answers to `to`: same bytes, same disk, same history; the AST carries the new name. */
+  /** The buffer, byte for byte, at the first free `(mine)` name beside the file: its path, or the failure. Never over a file. */
+  async function writeCopy(): Promise<string | { readonly result: 'failed'; readonly error: unknown }> {
+    if (!io.exists) return { result: 'failed', error: new Error('cannot tell whether a copy would overwrite a file') };
+    try {
+      for (let n = 1; n <= 999; n++) {
+        const candidate = conflictCopyPath(state.path, n);
+        if (await io.exists(candidate)) continue;
+        await io.writeFileAtomic(candidate, state.buffer.bytes);
+        return candidate;
+      }
+      throw new Error('no free name for a copy');
+    } catch (error) {
+      return { result: 'failed', error };
+    }
+  }
+
+  /**
+   * `bytes`, read from disk, become the buffer and `disk`. A new document: undoing across it would splice
+   * bytes the reader never saw, so history is cleared rather than mapped through the change (ADR-0037 §3).
+   * The guard is armed on them, and any pending conflict is over.
+   */
+  function adopt(bytes: Uint8Array, replaced: Uint8Array | null = null): void {
+    pending = null;
+    if (sameBytes(bytes, state.buffer.bytes)) {
+      io.recordRead?.(state.path, bytes);
+      commit({ ...state, disk: state.buffer.bytes }, { kind: 'reload' });
+      return;
+    }
+    const buffer = createBuffer(state.path, bytes);
+    const ast = reparseMarkdown(state.ast, state.buffer.bytes, buffer.bytes, { file: state.path });
+    io.recordRead?.(state.path, buffer.bytes);
+    commit(
+      { ...state, disk: buffer.bytes, buffer, ast, nodeMap: buildNodeMap(ast), past: [], future: [], previousDisk: replaced },
+      { kind: 'reload' },
+    );
+  }
+
+  /**
+   * The file now answers to `to`: same bytes, same disk, same history; the AST carries the new name. The
+   * stale-write guard follows it (D-10): it is armed on `to` with the bytes last read or written, so a save
+   * is refused if the file at the new name is not what the buffer came from (another program wrote it before
+   * it was renamed, or after), instead of writing over it unguarded because the new name was never read.
+   */
   function renameNow(to: string): void {
     const from = state.path;
     if (from === to) return;
+    if (state.disk !== null) io.recordRead?.(to, state.disk);
     commit({ ...state, path: to, ...parsed(to, renamed(state.buffer, to)) }, { kind: 'rename', from, to });
   }
 

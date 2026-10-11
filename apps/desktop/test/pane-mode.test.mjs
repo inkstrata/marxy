@@ -66,7 +66,7 @@ const storeText = (page, slot) =>
 
 /** The right pane in Source, focused, with `typed` typed at the end of its first line through the keyboard. */
 async function typeInRightSource(page, mod, typed) {
-  await page.keyboard.press(`${mod}+2`);
+  await page.keyboard.press(`${mod}+Alt+ArrowRight`);
   if ((await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.mode)) !== 'source') {
     await page.keyboard.press(`${mod}+e`);
   }
@@ -97,7 +97,7 @@ test('Mod+E with the right pane focused makes only the right pane Source; the bo
     assert.ok(before.scrollTop > 0, 'the left pane can scroll');
     assert.deepEqual(await modes(page), { panes: ['rendered', 'rendered'], body: 'rendered' });
 
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.keyboard.press(`${mod}+e`);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].view.mode === 'source');
     assert.deepEqual(await modes(page), { panes: ['rendered', 'source'], body: 'source' });
@@ -108,9 +108,9 @@ test('Mod+E with the right pane focused makes only the right pane Source; the bo
     assert.deepEqual(left, before);
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[0].view.mode), 'rendered');
 
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     assert.deepEqual(await modes(page), { panes: ['rendered', 'source'], body: 'rendered' });
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     assert.deepEqual(await modes(page), { panes: ['rendered', 'source'], body: 'source' });
     // Back to Rendered in the right pane, from the right pane.
     await page.keyboard.press(`${mod}+e`);
@@ -121,7 +121,7 @@ test('Mod+E with the right pane focused makes only the right pane Source; the bo
 
 test('the right pane\'s Source is absolutely placed inside its pane, and its editor is a descendant of it', async () => {
   await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.keyboard.press(`${mod}+e`);
     await page.waitForSelector('[data-marxy-pane="1"] .cm-editor');
     const placed = await page.evaluate(() => {
@@ -151,12 +151,12 @@ test('lib.rs opened beside a README is in Source with no Mod+E; the README stays
   });
 });
 
-test('the same file Rendered left and Source right: a key typed right reaches the left page on Mod+1; undo takes it out of both', async () => {
+test('the same file Rendered left and Source right: a key typed right reaches the left page on Mod+Alt+Left; undo takes it out of both', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[0].view.store() === window.__marxyHandle.panes().panes[1].view.store()), true);
     const hashBefore = await page.evaluate(() => window.__marxyHandle.sourceHarness().bufferHash);
     await typeInRightSource(page, mod, 'Qz');
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     await page.waitForFunction(() => document.querySelector('#doc h1')?.textContent.includes('AlphaQz'));
     const after = await page.evaluate(() => ({
       focused: window.__marxyHandle.panes().focused.slot,
@@ -182,8 +182,8 @@ test('the same file Rendered left and Source right: a key typed right reaches th
 
 test('a Source round trip without edits leaves the buffer fingerprint identical, in either pane', async () => {
   await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
-    for (const key of ['2', '1']) {
-      await page.keyboard.press(`${mod}+${key}`);
+    for (const key of ['ArrowRight', 'ArrowLeft']) {
+      await page.keyboard.press(`${mod}+Alt+${key}`);
       const before = await page.evaluate(() => window.__marxyHandle.sourceHarness().bufferHash);
       await page.keyboard.press(`${mod}+e`);
       await page.waitForFunction(() => window.__marxyHandle.sourceHarness().mode === 'source');
@@ -198,7 +198,7 @@ test('a Source round trip without edits leaves the buffer fingerprint identical,
 test('Source text in one pane survives the other pane switching mode, opening another file and undoing', async () => {
   await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
     await typeInRightSource(page, mod, 'Qz');
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     // Another document: nothing is folded across (the right pane is the only view of B), and nothing lost.
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.sourceHasUnfoldedEdits()), true);
     await page.keyboard.press(`${mod}+e`);
@@ -234,7 +234,7 @@ test('closing the left pane keeps the right pane\'s Source text: it is folded in
   });
 });
 
-test('the same file twice: a reload from disk the other pane\'s watch reads keeps the Source pane\'s typed text', async () => {
+test('the same file twice: a reload from disk keeps the Source pane\'s typed text, and the store keeps the bytes it had (D-10)', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     await typeInRightSource(page, mod, 'Qz');
     // Still focused in the editor: nothing folded yet.
@@ -247,11 +247,13 @@ test('the same file twice: a reload from disk the other pane\'s watch reads keep
     }, elsewhere);
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'readFile' || c.method === 'peekFile').length > 0);
     await page.waitForTimeout(400);
+    // The watch asks every view of the store before it reloads: the typed text is an unsaved edit the store
+    // cannot see, so the outside write is not adopted (and the stale-write guard stays on what was read).
     assert.ok((await editorText(page, 1)).startsWith('# AlphaQz\n'), 'the typed text is still in the editor');
-    // Kept as an unsaved edit over what disk now holds: in the store, so the left page and a save see it.
-    assert.ok((await storeText(page, 1)).startsWith('# AlphaQz\n'), 'the typed text is in the store');
-    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.store().snapshot().dirty), true);
-    await page.waitForFunction(() => document.querySelector('#doc h1')?.textContent.includes('AlphaQz'));
+    assert.equal(await storeText(page, 1), files['/r/A.md'], 'the store did not adopt the outside write');
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.sourceHasUnfoldedEdits()), true);
+    await page.waitForFunction(() => document.getElementById('marxy-notices-2').textContent.includes('your edits were kept'));
+    assert.ok((await page.evaluate(() => document.getElementById('marxy-notices').textContent)).includes('your edits were kept'), 'said in each pane that shows the file');
   });
 });
 
@@ -271,7 +273,7 @@ test('undo with a Source pane focused folds its text first, per pane: undo takes
 
 test('a right pane scrolled in Source comes back to Rendered at the line on its reading line, not the top', async () => {
   await withPanes(['/r/B.md', '/r/D.md'], async (page, mod) => {
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.keyboard.press(`${mod}+e`);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].view.mode === 'source');
     // Two frames for the entry place, then the reader scrolls the pane's Source down to "## Later".
@@ -298,13 +300,13 @@ test('a right pane scrolled in Source comes back to Rendered at the line on its 
 test('with both panes in Source, line numbers toggle in the focused pane\'s editor only', async () => {
   await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
     // The right pane's editor first and the left's last, so "the editor mounted last" is not the focused one.
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.keyboard.press(`${mod}+e`);
     await page.waitForSelector('#marxy-source-2 .cm-editor');
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     await page.keyboard.press(`${mod}+e`);
     await page.waitForSelector('#marxy-source .cm-editor');
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     const gutters = () =>
       page.evaluate(() => ['#marxy-source', '#marxy-source-2'].map((m) => Boolean(document.querySelector(`${m} .cm-lineNumbers`))));
     const before = await gutters();
@@ -337,10 +339,10 @@ async function typeAtFirstLineEnd(page, slot, typed) {
 
 /** Both panes on A.md, both in Source, the right one focused last. */
 async function bothInSource(page, mod) {
-  await page.keyboard.press(`${mod}+1`);
+  await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
   await page.keyboard.press(`${mod}+e`);
   await page.waitForSelector('#marxy-source .cm-editor');
-  await page.keyboard.press(`${mod}+2`);
+  await page.keyboard.press(`${mod}+Alt+ArrowRight`);
   await page.keyboard.press(`${mod}+e`);
   await page.waitForSelector('#marxy-source-2 .cm-editor');
   assert.deepEqual(await modes(page), { panes: ['source', 'source'], body: 'source' });
@@ -355,15 +357,15 @@ const firstLines = async (page) => [
 test('the same file in Source in both panes: each pane\'s fold reaches the other editor, so neither writes the other\'s typing back out', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     await bothInSource(page, mod);
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     await typeAtFirstLineEnd(page, 0, 'X');
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     assert.deepEqual(await firstLines(page), ['# AlphaX', '# AlphaX', '# AlphaX']);
     await typeAtFirstLineEnd(page, 1, 'Y');
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     assert.deepEqual(await firstLines(page), ['# AlphaXY', '# AlphaXY', '# AlphaXY']);
     await typeAtFirstLineEnd(page, 0, 'Z');
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     assert.deepEqual(await firstLines(page), ['# AlphaXYZ', '# AlphaXYZ', '# AlphaXYZ']);
     // Leaving Source in either pane writes nothing back over the other's.
     await page.keyboard.press(`${mod}+e`);
@@ -395,9 +397,9 @@ test('a fold from the other pane meets Source text of this pane\'s own not yet f
     assert.ok((await editorText(page, 1)).startsWith('# AlphaY\n\nAlpha'), (await editorText(page, 1)).slice(0, 40));
     await page.waitForFunction(() => document.body.textContent.includes('Source in the other pane changed this file'));
     // Its folds are refused: on blur, and on leaving Source, which would write it over the left's.
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     assert.equal(await storeText(page, 0), folded);
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.keyboard.press(`${mod}+e`);
     await page.waitForTimeout(200);
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.mode), 'source');
@@ -447,19 +449,19 @@ test('held apart, "Save and open" stops: it never writes the other pane\'s versi
  */
 async function openOverUnfolded(page, mod, file, rightEdits, leftEdits) {
   await page.evaluate((f) => window.__marxyHandle.panes().openIn(1, f), file);
-  await page.keyboard.press(`${mod}+2`);
+  await page.keyboard.press(`${mod}+Alt+ArrowRight`);
   await page.keyboard.press(`${mod}+e`);
   await page.waitForSelector('#marxy-source-2 .cm-content');
   for (const [line, typed] of rightEdits) await typeAtLineEnd(page, 1, line, typed);
-  await page.keyboard.press(`${mod}+1`);
+  await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
   await page.evaluate((f) => window.__marxyHandle.panes().openIn(0, f), file);
   await page.waitForFunction((f) => window.__marxyHandle.panes().panes[0].path() === f, file);
   await page.keyboard.press(`${mod}+e`);
   await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].view.mode === 'source');
   await page.waitForSelector('#marxy-source .cm-content');
   for (const [line, typed] of leftEdits) await typeAtLineEnd(page, 0, line, typed);
-  await page.keyboard.press(`${mod}+2`);
-  await page.keyboard.press(`${mod}+1`);
+  await page.keyboard.press(`${mod}+Alt+ArrowRight`);
+  await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
   await page.waitForTimeout(200);
 }
 

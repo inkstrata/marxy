@@ -1,0 +1,3 @@
+- [ ] Attestation policy decided
+  - [ ] Accept none
+  - [ ] Log AAGUID for analytics (no telemetry to third parties)

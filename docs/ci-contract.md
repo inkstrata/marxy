@@ -160,7 +160,7 @@ holds the cases. You cannot skip a job by hand.
 - **`web`**: `packages/`, `apps/desktop/{src/,test/,index.html,app.html,gate.html,vite.config,package.json,scripts}`,
   `apps/desktop/src-tauri/tauri.conf.json` (the release CSP the privacy test reads), `fixtures/`, the root
   manifests, `mise.toml`, and under `scripts/` only the files the job runs or imports:
-  `gate-no-network.mjs`, `playwright-webkit.mjs`, `perf-harness.mjs`, `check-csp.mjs` and
+  `gate-no-network.mjs`, `playwright-webkit.mjs`, `perf-harness.mjs`, `check-csp.mjs`, `measure-reload.mjs` and
   `lib/{repo,plan}.mjs`. A change to any other script starts `fast` and nothing else.
   `ci-changes.test.mjs` walks the imports of the lite files and fails when one reaches a script this list misses.
 - **`rust`**: `apps/desktop/src-tauri/` and `mise.toml`. Starts `rust`.

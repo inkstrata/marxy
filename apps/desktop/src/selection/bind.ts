@@ -1,11 +1,12 @@
 // Binds registry commands to keyboard chords and builds AppContext (MARXY-42).
 import { appHandle } from '../commands/app-handle.ts';
 import { commands, type AppContext } from '../commands/index.ts';
+import { recordPointer } from '../commands/copy-as.ts';
 import { chordMatches, commandForKey } from '../palette/commands.ts';
 import { notify } from '../notices/index.ts';
-import { runCopyShortcut, runMarkdownCopy } from './apply.ts';
+import { runCopyShortcut } from './apply.ts';
 import { operationInputFor, operationInputsFor } from './input.ts';
-import { copyDefault, markdownCopy } from './verbs.ts';
+import { copyDefault } from './verbs.ts';
 import { openVerbMenu, verbMenuIsOpen, type MenuAnchor } from './verb-menu.ts';
 import { applyDocumentMutation } from '../commands/edits.ts';
 import { bindFocus, focusRules } from '../pane/focus.ts';
@@ -113,7 +114,11 @@ export function menuAnchorFor(ctx: AppContext): MenuAnchor | null {
   let rect: DOMRect | undefined;
   // A code block's provenance is on its `code`; the block the reader sees is the `pre` around it.
   if (sel.kind === 'node') rect = (sel.el.closest('pre') ?? sel.el).getBoundingClientRect();
-  else if (sel.kind === 'section') {
+  else if (sel.kind === 'blocks') {
+    const first = sel.els[0]?.getBoundingClientRect();
+    const last = sel.els.at(-1)?.getBoundingClientRect();
+    if (first && last) rect = new DOMRect(first.left, first.top, first.width, Math.max(last.bottom - first.top, 0));
+  } else if (sel.kind === 'section') {
     const { start, end } = sel.heading.src;
     rect = article?.querySelector(`[data-marxy-s="${start}"][data-marxy-e="${end}"]`)?.getBoundingClientRect();
   } else if (sel.kind === 'document') rect = article?.getBoundingClientRect();
@@ -216,23 +221,21 @@ export function installCommandKeys(handle: AppHandle): void {
   if (keysInstalled || typeof document === 'undefined') return;
   keysInstalled = true;
   installVerbMenuOpeners();
+  // Where Copy as opens, and which block it copies with nothing selected: passive, one object written per event.
+  document.addEventListener('pointermove', (event) => recordPointer(event.clientX, event.clientY), { passive: true });
   installPaneKeys({ commands, context: () => buildAppContext(keysFor), mac: isMac });
   document.addEventListener('keydown', (event) => {
     const editable = inEditable(event);
     const appCtx = buildAppContext(keysFor);
-    if (!editable && (event.key === 'c' || event.key === 'C') && !event.altKey) {
-      // Mod+C and Mod+Shift+C run the selection's verbs from the written tables (ADR-0054), never a
-      // prefix of a command id; with no applicable verb the keys are left to the webview.
+    if (!editable && (event.key === 'c' || event.key === 'C') && !event.altKey && !event.shiftKey) {
+      // Mod+C runs the selection's default verb from the written table (ADR-0054), never a prefix of a
+      // command id; with no applicable verb the key is left to the webview. Mod+Shift+C is Copy as (J-04),
+      // a registry command like any other.
       if (isMac() ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) {
         const list = commands();
-        if (!event.shiftKey && copyDefault(appCtx, list)) {
+        if (copyDefault(appCtx, list)) {
           event.preventDefault();
           void runCopyShortcut(appCtx, list);
-          return;
-        }
-        if (event.shiftKey && markdownCopy(appCtx, list)) {
-          event.preventDefault();
-          void runMarkdownCopy(appCtx, list);
           return;
         }
       }

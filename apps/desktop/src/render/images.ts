@@ -1,4 +1,5 @@
 // Post-pass 3: local image paths, reserved boxes, asset URLs (docs/design/02-render.md). MARXY-138.
+import { isUntitled } from '../document/untitled.ts';
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot, presentLocalImage, resolveImageSrc, type ImageSize } from '@marxy/core/src/render/images.ts';
 
@@ -43,6 +44,8 @@ export function imageRootKnown(documentPath: string): boolean {
 
 /** Asks `rootFor` once for the document's repository root and remembers it. A failed lookup leaves the folder as the root. */
 export async function resolveImageRoot(documentPath: string, rootFor: (path: string) => Promise<string>): Promise<void> {
+  // A scratch document is in no folder and no repository: there is nothing to ask the filesystem (E-13).
+  if (isUntitled(documentPath)) return;
   if (imageRootKnown(documentPath)) return;
   try {
     rememberImageRoot(documentPath, await rootFor(documentPath));
@@ -53,6 +56,8 @@ export async function resolveImageRoot(documentPath: string, rootFor: (path: str
 
 /** Directory containing the document and the image root (repository root once known, else the same directory). */
 export function pathsForDocument(documentPath: string): { documentDir: string; imageRoot: string } {
+  // A scratch document has no directory: 'untitled:2' is a name, not a place (E-13).
+  if (isUntitled(documentPath)) return { documentDir: '', imageRoot: '' };
   const documentDir = directoryOf(documentPath);
   return { documentDir, imageRoot: knownRoots.get(documentDir) ?? documentDir };
 }
@@ -65,10 +70,25 @@ function measurePx(article: HTMLElement): number {
 }
 
 /**
+ * A scratch document's relative images stay blocked boxes: with no folder there is nothing for a relative
+ * path to be relative to, so none is resolved, measured or read (E-13). Remote images are the sanitiser's
+ * placeholders and are left to Phase B's setting.
+ */
+function inertLocalImages(article: HTMLElement): void {
+  for (const img of article.querySelectorAll<HTMLImageElement>('img[src], img[data-marxy-src]')) {
+    if (img.dataset.marxyRemote !== undefined) continue;
+    img.removeAttribute('src');
+    delete img.dataset.marxySrc;
+    img.dataset.marxyDone = 'images';
+  }
+}
+
+/**
  * Drops `src` on images that cannot be local assets (no shell IPC). Runs on the critical path so
  * refused paths never reach `first_text` with a fetchable URL (MARXY-138, MARXY-33).
  */
 export function stripNonLocalImages(article: HTMLElement, documentPath: string): void {
+  if (isUntitled(documentPath)) return inertLocalImages(article);
   const { documentDir, imageRoot } = pathsForDocument(documentPath);
   const known = imageRootKnown(documentPath);
   const measure = measurePx(article);
@@ -93,6 +113,7 @@ export function stripNonLocalImages(article: HTMLElement, documentPath: string):
  * Skips remote placeholders (dataset.marxyRemote) and images this pass already processed.
  */
 export async function applyImages(article: HTMLElement, ctx: ApplyImagesContext): Promise<void> {
+  if (isUntitled(ctx.documentPath)) return inertLocalImages(article);
   const measure = measurePx(article);
   const opts = { documentDir: ctx.documentDir, imageRoot: ctx.imageRoot, measurePx: measure };
 

@@ -86,6 +86,22 @@ export function paintVerdict({ noPaint, frames, required, how, environment }) {
 }
 
 /**
+ * The verdict for a launch whose `MARK painted` said `signal=frames-only` (F-31): frames ticked, the engine
+ * never produced a paint entry, and the app went on without reporting `first_text`. It is not a paint, so it is
+ * never `ok`: skipped where the smoke is optional, a failure where it is required (a CI runner that cannot
+ * paint cannot answer what this check asks; the run is retried, not passed).
+ *
+ * @returns {{ status: 'skip' | 'fail', message: string }}
+ */
+export function framesOnlyVerdict({ required, how }) {
+  const message = [
+    'the engine delivered animation frames but no paint entry, so the boot continued as signal=frames-only and is not',
+    `a paint (${how}). No first_text was printed, which is the correct behaviour here.`,
+  ].join(' ');
+  return { status: required ? 'fail' : 'skip', message };
+}
+
+/**
  * Spawn options that put a launch in a process group of its own, so `killLaunch` can end all of it.
  * On Linux a launch is `xvfb-run` → `dbus-run-session` → the app, and the session bus starts
  * xdg-desktop-portal and xdg-document-portal; the document portal FUSE-mounts `$XDG_RUNTIME_DIR/doc`.

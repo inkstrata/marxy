@@ -6,6 +6,18 @@
 
 export const FRAMES_BEFORE_PAINT = 2;
 
+/**
+ * How long the wait holds out for an engine paint entry once frames are ticking before it gives up and
+ * reports `FRAMES_ONLY_SIGNAL` (F-31, ADR-0013 amended 2026-10-11). Below the shell's 2.5 s harness deadline.
+ */
+export const PAINT_FALLBACK_MS = 2000;
+
+/**
+ * The signal of a wait that saw frames but no paint entry. It is not a paint: `first_text` is never
+ * reported for it, so the cold-start metric stays honest.
+ */
+export const FRAMES_ONLY_SIGNAL = 'frames-only';
+
 /** Signal names the engine actually emits. `paint` is the type if a build names no entry. */
 export const PAINT_SIGNAL_NAMES = Object.freeze(['first-contentful-paint', 'first-paint', 'paint']);
 
@@ -40,9 +52,11 @@ export function readPaintSignal(perf = globalThis.performance, after = 0) {
 }
 
 /**
- * Resolves only after two animation frames *and* an engine paint entry, and only while `#doc` is
- * visible. A `requestAnimationFrame` shim that is really `setTimeout` can satisfy the frames and
- * still never resolve this, because it cannot mint a paint entry.
+ * Resolves after two animation frames *and* an engine paint entry, and only while `#doc` is visible.
+ * A `requestAnimationFrame` shim that is really `setTimeout` can satisfy the frames but cannot mint a
+ * paint entry, so it never gets a paint signal. If no entry arrives within `fallbackMs` (default
+ * `PAINT_FALLBACK_MS`) of the wait starting, and the frames have ticked, it resolves with
+ * `signal: 'frames-only'` instead of hanging (F-31): a result the caller must not report as a paint.
  *
  * @param {object} [deps]
  * @returns {Promise<{ signal: string }>}
@@ -55,20 +69,24 @@ export function waitForEnginePaint(deps = {}) {
   const doc = deps.doc ?? globalThis.document?.getElementById('doc');
   const after = deps.after ?? 0;
   const timeoutMs = deps.timeoutMs;
+  const fallbackMs = deps.fallbackMs ?? PAINT_FALLBACK_MS;
 
   return new Promise(resolve => {
     let framesWaited = 0;
     let observer = null;
     let stopped = false;
+    let fallbackDue = false;
+    let fallbackTimer = null;
 
     const finish = () => {
       if (stopped) return false;
       if (framesWaited < FRAMES_BEFORE_PAINT) return false;
       if (doc && !isDocVisible(doc, compute)) return false;
-      const signal = readPaintSignal(perf, after);
+      const signal = readPaintSignal(perf, after) ?? (fallbackDue ? FRAMES_ONLY_SIGNAL : null);
       if (!signal) return false;
       stopped = true;
       observer?.disconnect();
+      clearTimeout(fallbackTimer);
       resolve({ signal });
       return true;
     };
@@ -90,12 +108,17 @@ export function waitForEnginePaint(deps = {}) {
       raf(tick);
     };
     raf(tick);
+    fallbackTimer = setTimeout(() => {
+      fallbackDue = true;
+      finish();
+    }, fallbackMs);
     // Tests only: a reader launch has no in-page deadline (the shell owns that). Without this a
     // negative case that correctly never resolves would keep scheduling frames and hang the process.
     if (timeoutMs) {
       setTimeout(() => {
         stopped = true;
         observer?.disconnect();
+        clearTimeout(fallbackTimer);
       }, timeoutMs);
     }
   });

@@ -149,29 +149,33 @@ axis but rounds; the explicit axis value is exact.
 
 ## Palettes (ADR-0024: dark is primary, light is designed second)
 
-Values are the token defaults (`tokens.css`, dark) and the light block in the default theme.
-Ratios are WCAG contrast, computed and checked by the aesthetics gate (§10 check 3). Nothing
-below is an inversion of anything else; each value was chosen on its own ground.
+H-04: the default theme is **Night** (dark, a true-black ground) and **Paper** (light); today's warm
+near-black and warm paper moved to the `ink` theme (`packages/theme/ink`). Night and Paper take their
+values from Galley's audited themes (`docs/plan/direction-2026-10/galley/tokens.css`); Ink keeps the
+values the app shipped before, whose ground `#151412` matches none of Galley's eight themes and is kept
+as Ink's own. Every pair of every theme is held by `scripts/gate-contrast.mjs` (ADR-0059 item 10), computed
+unrounded with translucent colours composited first; nothing below is an inversion of anything else.
+The tables give the values the palette tests read (`packages/theme/test/palettes.json`); the gate's
+`--md` output (`node scripts/gate-contrast.mjs --md`) lists every ratio.
 
-| Token | Dark (primary) | ratio on bg | Light | ratio on bg |
+| Token | Night | Paper | Ink dark | Ink light |
 | --- | --- | --- | --- | --- |
-| `--marxy-color-bg` | `#151412` warm near-black | — | `#faf8f4` warm paper | — |
-| `--marxy-color-text` | `#e8e4dc` | **14.5** | `#1c1b19` | **16.2** |
-| `--marxy-color-text-secondary` | `#a39e94` | 6.9 | `#5e5a53` | 6.5 |
-| `--marxy-color-accent` / `-link` | `#8fb4dd` | 8.5 | `#2c5f8a` | 6.4 |
-| `--marxy-color-rule` | `#2a2825` | — | `#e4e0d8` | — |
-| `--marxy-color-divider` | `var(--marxy-color-rule)` | — | `var(--marxy-color-rule)` | — |
-| `--marxy-color-divider-focus` | `var(--marxy-color-accent)` | 8.5 | `var(--marxy-color-accent)` | 6.4 |
-| `--marxy-color-code-bg` | `#1d1c19` | — | `#f1eee8` | — |
-| `--marxy-color-code-text` | `#e3dfd6` | 12.8 (on code bg) | `#1c1b19` | 14.9 (on code bg) |
-| `--marxy-color-quote-rule` | `#3a3833` | — | `#d6d1c8` | — |
-| `--marxy-color-selection` | `#1f3651` | text on it 9.7 | `#dbe9ff` | text on it 14.0 |
-| `--marxy-color-find` | `#3a3010` | text on it 10.3 | `#fcefc0` | 15.0 |
-| `--marxy-color-find-current` | `#403510` + an outline | text on it 9.5 | `#f8df8f` + an outline | 13.1 |
-| `--marxy-color-find-edge` | `#94701a` | 3.7 on code bg (4.0 on page), 3.4 vs code text | `#8a6200` | 4.7 on code bg, 3.1 vs code text |
-| `--marxy-color-notice` | `#1f1e1b` | — | `#f1eee8` | — |
-| `--marxy-weight-body` | 380 | | 400 | |
-| `--marxy-weight-heading` | 560 | | 580 | |
+| `--marxy-color-bg` | `#000000` | `#fbfaf8` | `#151412` | `#faf8f4` |
+| `--marxy-color-text` | `#c9cfd4` | `#1f2124` | `#e8e4dc` | `#1c1b19` |
+| `--marxy-color-text-secondary` | `#9aa1a8` | `#4f545a` | `#a39e94` | `#5e5a53` |
+| `--marxy-color-accent` | `#8fb4ff` | `#2357a0` | `#8fb4dd` | `#2c5f8a` |
+| `--marxy-color-rule` | `#232528` | `#dcd9d3` | `#2a2825` | `#e4e0d8` |
+| `--marxy-color-code-bg` | `#0d0e0f` | `#f2f1ed` | `#1d1c19` | `#f1eee8` |
+| `--marxy-color-surface` | `#17181a` | `#ffffff` | `#1f1e1b` | `#f1eee8` |
+| `--marxy-color-selection` | `#222b3d` | `#d8e0ea` | `#1f3651` | `#dbe9ff` |
+| `--marxy-color-find` | `#272213` | `#f1dfae` | `#3a3010` | `#fcefc0` |
+| `--marxy-color-find-edge` | `#8a6a18` | `#9a6a00` | `#94701a` | `#8a6200` |
+| `--marxy-weight-body` | 370 | 400 | 380 | 400 |
+| `--marxy-weight-heading` | 560 | 570 | 560 | 580 |
+
+Night's and Paper's selection, find and diff fills are opaque, the mock's translucent ones composited over the ground. Night's find fills are darker and its find edge deeper than the mock's, so that the edge keeps 3:1 on
+the ground and on the code text, and the faint text role keeps 4.5:1 on every fill (the gate's floors).
+Night's and Paper's translucent diff and find fills are written as opaque colours over the ground they sit on.
 
 The selection and find colours were chosen so that **every code token** also clears 4.5:1 on them,
 not only body text (research `10-spec.md` "Verification"). The current find match is darker (dark) or
@@ -193,7 +197,8 @@ lowest on selection, find and current find:
 
 Rules that follow: `html[data-marxy-variant]` is set by the app before first paint from config
 (`dark` default, `auto` follows `prefers-color-scheme`, `light` fixed); the window background and
-the empty state are `#151412` so a white frame never appears; `color-scheme: dark light` is
+the empty state are the ground so a white frame never appears (the Tauri window's own
+`backgroundColor` is Night's `#000000`, set by H-04.1, so no warm frame shows before first paint); `color-scheme: dark light` is
 declared on `:root` so form controls and scrollbars follow the variant. Themes that declare
 only one variant are used for both with the default theme's other block filling the gaps.
 

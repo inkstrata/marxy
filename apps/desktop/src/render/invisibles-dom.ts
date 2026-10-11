@@ -7,6 +7,9 @@ import {
   type InvisibleSegment,
 } from '@marxy/core/src/render/index.ts';
 
+/** Characters that no rule of `shouldFlagInvisible` flags in any context. */
+const PLAIN_ASCII = /^[\t\n\r\x20-\x7e]*$/;
+
 const GLYPH = 'marxy-invisible-glyph';
 const MARKER = 'marxy-invisible';
 
@@ -120,6 +123,13 @@ export function applyInvisibleMarkers(root: ParentNode): void {
   let current: Node | null = walker.nextNode();
   while (current !== null) {
     const parent = current.parentElement;
+    // Text of printable ASCII, tab and line endings holds nothing the rule table flags (it flags controls,
+    // U+007F to U+009F and what lies beyond U+00A0), so it is neither walked up from nor segmented: nearly
+    // all of a page, and the pass runs over the whole page after each reload (B-24).
+    if (PLAIN_ASCII.test((current as Text).data)) {
+      current = walker.nextNode();
+      continue;
+    }
     if (parent !== null && parent.closest(`.${MARKER}, .marxy-link-dest, .marxy-link-host-label, .katex .vlist-s, .katex-mathml`) === null) {
       nodes.push(current as Text);
     }

@@ -1,5 +1,6 @@
 // Summoned palette in the real document: input, list, keys, and ADR-0011 tab-bar checks (MARXY-87).
 
+import { closeVerbMenu } from '../selection/verb-menu.ts';
 import { detectKind, type IndexEntry, type IndexHit } from '@marxy/core';
 import { invisibleHexLabel, invisibleSegments } from '@marxy/core/src/render/index.ts';
 import type { ContentHit, Shell } from '@marxy/shell-api';
@@ -14,7 +15,7 @@ import { focusOrigin } from '../pane/focus.ts';
 import { splitRefusal } from '../pane/fit.ts';
 import { buildAppContext, setPaletteCloser, setPaletteOpener } from '../selection/bind.ts';
 import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
-import { copyDefault, markdownCopy } from '../selection/verbs.ts';
+import { copyDefault } from '../selection/verbs.ts';
 import {
   contentQuery,
   createContentSearch,
@@ -455,12 +456,12 @@ function ownerDocumentOf(node: HTMLElement): Document {
  * The chords name the selection's own default verbs, from the written tables (ADR-0054). The selection
  * cannot change while the palette is up, so they are read once per summon, not on every keystroke.
  */
-let chordCache: { readonly copyId?: string; readonly markdownId?: string } | undefined;
-function selectionChords(): { readonly copyId?: string; readonly markdownId?: string } {
+let chordCache: { readonly copyId?: string } | undefined;
+function selectionChords(): { readonly copyId?: string } {
   if (chordCache === undefined) {
     const ctx = buildAppContext();
     const registered = commands();
-    chordCache = { copyId: copyDefault(ctx, registered)?.id, markdownId: markdownCopy(ctx, registered)?.id };
+    chordCache = { copyId: copyDefault(ctx, registered)?.id };
   }
   return chordCache;
 }
@@ -475,7 +476,7 @@ function paintOperationRows(
     'createDocumentFragment' in doc
       ? (doc as Document).createDocumentFragment()
       : document.createDocumentFragment();
-  const { copyId, markdownId } = selectionChords();
+  const { copyId } = selectionChords();
   for (let i = 0; i < cmds.length; i++) {
     const cmd = cmds[i]!;
     const row = doc.createElement('li') as HTMLLIElement;
@@ -486,7 +487,7 @@ function paintOperationRows(
     title.className = 'marxy-palette-title';
     title.textContent = cmd.title;
     row.appendChild(title);
-    const spec = cmd.key ?? (cmd.id === copyId ? 'Mod+C' : cmd.id === markdownId ? 'Mod+Shift+C' : undefined);
+    const spec = cmd.key ?? (cmd.id === copyId ? 'Mod+C' : undefined);
     if (spec !== undefined) {
       const key = doc.createElement('span') as HTMLSpanElement;
       key.className = 'marxy-palette-key';
@@ -997,12 +998,33 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     }
   });
 
-  window.addEventListener('keydown', (event) => {
-    if (isMod(event) && event.key.toLowerCase() === 'p' && !event.shiftKey) {
+  // The summoning chords (W-19): `Mod+P` and `Mod+K` open the palette on documents, `Mod+Shift+P` and `Mod+/`
+  // open it on commands (`>`). Each closes it when it is already open on what the chord opens. On `window` in
+  // the capture phase, so a Source editor's own `Mod+/` (toggle comment) never sees the press.
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      if (!isMod(event) || event.altKey) return;
+      const key = event.key.toLowerCase();
+      const commands = (key === 'p' && event.shiftKey) || (key === '/' && !event.shiftKey);
+      const documents = (key === 'p' || key === 'k') && !event.shiftKey;
+      if (!commands && !documents) return;
       event.preventDefault();
-      if (open) dismiss();
-      else summon();
-    }
+      // Only Mod+/ is also a Source editor chord (CodeMirror's toggle comment): it stops here. The others go on,
+      // so an open verb menu still closes on them.
+      if (key === '/') event.stopPropagation();
+      // An open verb menu closes first: closing it later would hand focus back from under the palette's field.
+      closeVerbMenu();
+      if (documents) {
+        if (open) dismiss();
+        else summon();
+      } else if (open && input.value === '>') dismiss();
+      else summon('>');
+    },
+    true,
+  );
+
+  window.addEventListener('keydown', (event) => {
     if (isMod(event) && event.key === '.' && open && model.phase === 'content') {
       const found = model.contentHits?.[selected];
       if (found !== undefined) {

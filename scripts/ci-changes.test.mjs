@@ -48,6 +48,7 @@ const CASES = [
   ['the WebKit launcher every browser test imports is web', ['scripts/playwright-webkit.mjs'], only('web')],
   ['the no-network gate is web', ['scripts/gate-no-network.mjs'], only('web')],
   ['the perf harness, whose generator progressive.test.mjs imports, is web', ['scripts/perf-harness.mjs'], only('web')],
+  ['the reload measurement, which live-reload.test.mjs imports, is web', ['scripts/measure-reload.mjs'], only('web')],
   ['the CSP check release-csp.test.mjs imports, and the lib files it loads, are web', ['scripts/check-csp.mjs', 'scripts/lib/repo.mjs', 'scripts/lib/plan.mjs'], only('web')],
   ['the release CSP lives in tauri.conf.json: editing it runs the browser job that asserts it, and the Rust job', ['apps/desktop/src-tauri/tauri.conf.json'], only('web', 'rust')],
   ['the specimen gate is nightly: no PR job, but `fast` runs', ['scripts/specimen/specimen.mjs'], none],

@@ -3,7 +3,8 @@ import { basename } from '@marxy/core/src/index-model/paths.ts';
 import type { Shell, ShellError } from '@marxy/shell-api';
 import { appHandle } from './commands/app-handle.ts';
 import type { DocumentStore } from './document/store.ts';
-import { ensureNoticesRegion } from './notices/index.ts';
+import { documentName, isUntitled } from './document/untitled.ts';
+import { ensureNoticesRegion, focusedPane } from './notices/index.ts';
 
 export type SaveResult = 'saved' | 'unchanged' | 'cancelled' | 'failed';
 
@@ -15,8 +16,10 @@ export interface SaveDeps {
   foldSource(): Promise<void>;
   /** Source text this pane's fold could not take (held apart from another pane's, D-11): a save would not write it. */
   holdsUnfoldedSource?(): boolean;
-  /** The save went to a new path and the store now answers to it: scope, watch and title follow. */
-  onSaveAs(path: string): Promise<void>;
+  /** The pane that shows the document (`section.marxy-pane`): its notices are said there; the focused pane's when unset. */
+  readonly pane?: HTMLElement;
+  /** The save went to a new path and the store now answers to it: scope, watch and title follow. `from` is the path it had. */
+  onSaveAs(path: string, from: string): Promise<void>;
 }
 
 function shellErrorMessage(err: unknown, fallback: string): string {
@@ -33,13 +36,13 @@ function readOnlyNoticeName(path: string): string {
   return basename(path);
 }
 
-function showSaveFailedNotice(path: string, reason: string, retry: () => void): void {
-  const region = ensureNoticesRegion();
+function showSaveFailedNotice(path: string, reason: string, retry: () => void, pane?: HTMLElement): void {
+  const region = ensureNoticesRegion(pane ?? focusedPane());
   const line = document.createElement('div');
   line.className = 'marxy-notice';
   const text = document.createElement('span');
   text.className = 'marxy-notice-text';
-  const name = basename(path);
+  const name = documentName(path);
   text.textContent = `Could not save ${name}: ${reason}`;
   line.append(text);
   const saveAs = document.createElement('button');
@@ -86,15 +89,17 @@ export async function save(
   // while this pane's typing is still only in its editor. Refuse, and say why.
   if (deps.holdsUnfoldedSource?.()) {
     const { notify, SOURCE_HELD_APART } = await import('./notices/index.ts');
-    notify({ kind: 'info', text: SOURCE_HELD_APART });
+    notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: deps.pane });
     return 'cancelled';
   }
   const snap = store.snapshot();
-  if (!snap.dirty && !opts?.as) return 'unchanged';
+  // A scratch document is never "unchanged": it has no file, so Save asks where it goes, edited or not (E-13).
+  const scratch = isUntitled(snap.path);
+  if (!snap.dirty && !opts?.as && !scratch) return 'unchanged';
 
   let path = snap.path;
-  if (path === 'untitled' || opts?.as) {
-    const picked = await deps.shell.saveDialog({ defaultPath: path === 'untitled' ? undefined : basename(path) });
+  if (scratch || opts?.as) {
+    const picked = await deps.shell.saveDialog({ defaultPath: scratch ? 'Untitled.md' : basename(path) });
     if (!picked) return 'cancelled';
     path = picked;
   }
@@ -104,7 +109,7 @@ export async function save(
     notify({
       kind: 'info',
       text: `${readOnlyNoticeName(path)} is part of Marxy and cannot be saved`,
-    });
+    }, { pane: deps.pane });
     return 'cancelled';
   }
 
@@ -123,10 +128,10 @@ export async function save(
     // The shell's own message says why (read-only, hard link, not a regular file, changed on disk);
     // the code only picks a fallback when there is none.
     const reason = shellErrorMessage(err, code === 'permission' ? 'permission was denied.' : 'the write failed.');
-    showSaveFailedNotice(path, reason, () => void save(deps, { as: true }));
+    showSaveFailedNotice(path, reason, () => void save(deps, { as: true }), deps.pane);
     return 'failed';
   }
   if (written.result === 'unchanged') return 'unchanged';
-  if (path !== snap.path) await deps.onSaveAs(path);
+  if (path !== snap.path) await deps.onSaveAs(path, snap.path);
   return 'saved';
 }

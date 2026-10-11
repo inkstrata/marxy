@@ -1,0 +1,3 @@
+kind: report
+tier 6 (decides): task list without working headings -> report at line 5
+tier 7: nothing else fired -> article at launch-checklist.md
