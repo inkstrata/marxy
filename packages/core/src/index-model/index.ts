@@ -3,6 +3,7 @@
 export { detectIndexRoot, type RootProbe } from './root.ts';
 export { DENY_DIRECTORY_NAMES, isDeniedName, isDeniedPath } from './deny.ts';
 export { classify, extensionOf } from './kinds.ts';
+export { fileTypeOf, fileTypeForExtension, tableExtensions, type FileType, type FileKind, type FileMode } from './file-types.ts';
 export { parseIgnore, isIgnored, type IgnoreRule } from './ignore.ts';
 export { applyCeiling, type IndexNotice, type CeilingResult } from './ceiling.ts';
 export { entryFromCandidate, headingsFromMarkdown, type IndexCandidate, type IndexHeading } from './entry.ts';
