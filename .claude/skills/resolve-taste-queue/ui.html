@@ -67,6 +67,7 @@ figcaption span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap
 .file > summary::before { content: "▸"; color: var(--muted); } .file[open] > summary::before { content: "▾"; }
 .file > summary a { margin-left: auto; font: 15px var(--sans); color: var(--accent); text-decoration: none; border: 1px solid var(--rule); border-radius: 99px; padding: 0 10px; }
 .file pre { margin: 0; padding: 10px 14px 14px; max-height: 340px; overflow: auto; font: 18px/1.55 var(--mono); border-top: 1px solid var(--rule); white-space: pre-wrap; }
+.steps { font: 17px/1.5 var(--serif); max-width: 70ch; margin: 0 0 22px; padding-left: 1.3em; } .steps li { margin: 0 0 6px; padding-left: 4px; }
 .raw { color: var(--muted); font-size: 16.2px; max-width: 80ch; margin-bottom: 8px; }
 .empty { border: 1px dashed var(--rule); border-radius: 10px; padding: 22px; color: var(--muted); margin-bottom: 18px; }
 .flip { position: absolute; right: 8px; top: 8px; background: #000a; color: #fff; border: 0; border-radius: 99px; padding: 2px 10px; font: 13.8px var(--sans); }
@@ -195,8 +196,10 @@ function renderMain() {
   const v = verdictOf(r);
   $('#scroll').innerHTML = `
     <div class="head"><h2>${esc(r.key)}</h2><span class="date">${esc(r.date)}</span>${!r.decision && v?.verdict ? `<span class="badge ${v.verdict}">${V[v.verdict].label}${v.note ? ' · note saved' : ''}</span>` : ''}<span class="pos">${cur + 1} of ${visible().length}</span></div>
+    ${r.previous ? `<div class="decided-banner" style="border-left-color:var(--defer)"><b>Deferred earlier.</b> ${inline(r.previous.replace(/^\*\*Deferred\.\*\*\s*/, '').replace(/`[^`]*decisions\.md`$/, ''))}</div>` : ''}
     ${r.decision ? `<div class="decided-banner"><b>Already decided.</b> ${inline(r.decision)}</div>` : ''}
     <p class="label">What a reader would notice</p><p class="notice">${inline(r.notice)}</p>
+    ${r.guide?.length ? `<p class="label">How to look</p><ol class="steps">${r.guide.map(t => `<li>${inline(t)}</li>`).join('')}</ol>` : ''}
     ${n ? `<p class="label">Look at</p><div class="stage ${cls}">${imgs.map(x => x.pair ? pairFig(x.pair) : imgFig(x.img)).join('')}</div>` : ''}
     ${A.hiddenImages ? `<p class="more">+ ${A.hiddenImages} more image${A.hiddenImages > 1 ? 's' : ''} in these directories (macOS 960 px shown first).</p>` : ''}
     ${files.length ? `<div class="files">${files.map(f => `<details class="file" data-path="${esc(f.path)}"><summary><span>${esc(f.path)}</span>${f.kind === 'doc' ? `<a href="#" data-open="${esc(f.path)}">Open in Marxy</a>` : ''}</summary><pre>loading…</pre></details>`).join('')}</div>` : ''}

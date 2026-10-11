@@ -17,7 +17,9 @@ node .claude/skills/resolve-taste-queue/server.mjs        # http://127.0.0.1:474
 
 Run it in the background, then open `http://127.0.0.1:4747` in the browser (Control Chrome first,
 the in-app pane if Chrome is not running). Tell the author the URL and that the keys are on screen.
-Options: `--port N`, `--root DIR` (review another checkout), `--keep` (don't exit after finishing).
+Options: `--port N`, `--root DIR` (review another checkout), `--keep` (don't exit after finishing),
+`--deferred` (re-review only rows whose Decision starts `**Deferred.**`; `guides.json` gives each a
+"how to look" list and hand-picked artifacts, and a verdict replaces the Deferred cell).
 
 ## What the author sees
 

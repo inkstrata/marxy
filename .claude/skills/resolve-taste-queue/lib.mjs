@@ -2,7 +2,7 @@
 // root it is given, so test.mjs can run it against a temp copy.
 import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdirSync, rmSync } from 'node:fs';
 import { join, dirname, basename, extname, relative, resolve, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
 export const QUEUE_FILE = 'docs/taste-review/queue.md';
 export const QUEUE_DIR = 'docs/taste-review/queue.d';
@@ -41,7 +41,7 @@ function proseFragment(text, name) {
 }
 
 /** Every queue row, in table order, then unfolded fragments. Ids are `date|key` (+ `#n` on repeats). */
-export async function loadRows(root) {
+export async function loadRows(root, { redoDeferred = false } = {}) {
   const { fmt } = await repoLib(root);
   const rows = readFileSync(join(root, QUEUE_FILE), 'utf8').split('\n').filter(l => ROW_RE.test(l)).map(l => parseLine(l, 'queue.md'));
   const dir = join(root, QUEUE_DIR);
@@ -51,13 +51,30 @@ export async function loadRows(root) {
       rows.push(parseLine(text, `queue.d/${n}`) ?? proseFragment(text, n));
     }
   }
+  const guides = existsSync(join(here, 'guides.json')) ? JSON.parse(readFileSync(join(here, 'guides.json'), 'utf8')) : {};
   const seen = new Map();
   return rows.filter(Boolean).map(r => {
+    // Re-review: a row someone deferred is open again; their note travels with it.
+    if (redoDeferred && /^\*\*Deferred\./.test(r.decision)) r = { ...r, previous: r.decision, decision: '' };
     const base = `${r.date}|${r.key}`;
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
-    return { ...r, id: n > 1 ? `${base}#${n}` : base, artifacts: resolveArtifacts(root, r.artifactsRaw) };
+    const row = { ...r, id: n > 1 ? `${base}#${n}` : base, artifacts: resolveArtifacts(root, r.artifactsRaw) };
+    const g = redoDeferred && row.previous ? guides[r.key] : null;
+    if (g) applyGuide(root, row, g);
+    return row;
   });
+}
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+/** Hand-picked artifacts and a "how to look" list for a row, from guides.json (used when re-reviewing). */
+function applyGuide(root, row, g) {
+  const items = g.replace ? [] : [...row.artifacts.items];
+  for (const p of g.images ?? []) if (existsSync(join(root, p))) items.push({ path: p, kind: 'image', name: basename(p) });
+  for (const p of g.files ?? []) if (existsSync(join(root, p))) items.push({ path: p, kind: /\.(md|markdown)$/.test(p) ? 'doc' : 'text', name: basename(p) });
+  row.artifacts = { items, hiddenImages: g.replace ? 0 : row.artifacts.hiddenImages, hiddenFiles: 0 };
+  row.guide = g.steps ?? [];
 }
 
 function expandBraces(t) {
@@ -147,9 +164,9 @@ function foldValid(root, fmt) {
  * Fold fragments, write each verdict into its row's Decision cell, and write the dated decisions.md.
  * `decisions` is `{ [rowId]: { verdict, note } }`; `skip` rows stay open. Returns a summary.
  */
-export async function finish(root, decisions, { today = new Date().toISOString().slice(0, 10), dirName } = {}) {
+export async function finish(root, decisions, { today = new Date().toISOString().slice(0, 10), dirName, redoDeferred = false } = {}) {
   const { fmt } = await repoLib(root);
-  const before = await loadRows(root);
+  const before = (await loadRows(root, { redoDeferred })).filter(r => !redoDeferred || r.previous);
   const folded = foldValid(root, fmt);
   const folder = dirName ?? nextReviewDir(root, today);
   const rel = `${folder}/decisions.md`;
@@ -161,7 +178,7 @@ export async function finish(root, decisions, { today = new Date().toISOString()
     const d = decisions[r.id];
     if (r.decision || !d || !VERDICTS[d.verdict]) { if (!r.decision) left.push(r); continue; }
     if (r.malformed) { decided.push({ ...r, ...d }); continue; }
-    const i = lines.findIndex(l => ROW_RE.test(l) && cells(l)[1] === r.key && cells(l)[0] === r.date && !cells(l)[5]);
+    const i = lines.findIndex(l => ROW_RE.test(l) && cells(l)[1] === r.key && cells(l)[0] === r.date && (!cells(l)[5] || (redoDeferred && /^\*\*Deferred\./.test(cells(l)[5]))));
     if (i < 0) throw new Error(`row ${r.id} not found in ${QUEUE_FILE}`);
     const c = cells(lines[i]);
     const note = d.note?.trim() ? ` ${esc(d.note)}` : '';

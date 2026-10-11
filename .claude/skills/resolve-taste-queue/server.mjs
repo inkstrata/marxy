@@ -13,6 +13,7 @@ const arg = (n, d) => { const i = process.argv.indexOf(n); return i >= 0 ? proce
 const root = resolve(arg('--root', join(here, '../../..')));
 const port = Number(arg('--port', 4747));
 const keep = process.argv.includes('--keep');
+const redoDeferred = process.argv.includes('--deferred');
 const sessionFile = process.env.TASTE_SESSION ?? join(homedir(), '.cache/marxy-taste-review/session.json');
 const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml' };
 
@@ -26,7 +27,7 @@ const server = createServer(async (req, res) => {
   try {
     if (req.method === 'GET' && url.pathname === '/') return send(res, 200, readFileSync(join(here, 'ui.html')), 'text/html; charset=utf-8');
     if (req.method === 'GET' && url.pathname === '/api/queue') {
-      return send(res, 200, { rows: await loadRows(root), session: load(), verdicts: VERDICTS });
+      return send(res, 200, { rows: (await loadRows(root, { redoDeferred })).filter(r => !redoDeferred || r.previous), session: load(), verdicts: VERDICTS });
     }
     if (req.method === 'GET' && url.pathname === '/file') {
       const p = url.searchParams.get('p') ?? '';
@@ -48,7 +49,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
     if (req.method === 'POST' && url.pathname === '/api/finish') {
-      const summary = await finish(root, load().decisions);
+      const summary = await finish(root, load().decisions, { redoDeferred });
       save({ decisions: {}, finishedAt: new Date().toISOString(), summary });
       console.log('FINISHED', JSON.stringify(summary));
       if (!keep) setTimeout(() => process.exit(0), 2000);

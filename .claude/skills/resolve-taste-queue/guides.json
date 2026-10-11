@@ -1,0 +1,74 @@
+{
+  "MARXY-28": {
+    "replace": true,
+    "images": ["fixtures/baselines/webkit-macos/06-math-960-dark.png", "fixtures/baselines/webkit-macos/06-math-960-light.png"],
+    "files": ["fixtures/corpus/06-math.md"],
+    "steps": ["The baseline is now taken on the real app, so KaTeX is typeset (an earlier capture showed raw TeX).", "Display blocks: do the boxes sit on the grid, with even space above and below, not cramped?", "Inline math (E = mc², the integral): does it sit on the text baseline?"]
+  },
+  "B-02.2": {
+    "replace": true,
+    "images": ["fixtures/baselines/webkit-macos/06-math-960-dark.png"],
+    "files": ["fixtures/corpus/06-math.md"],
+    "steps": ["Look at the paragraph with inline math: do its lines keep the same rhythm as plain paragraphs?", "In the app, press Mod+= and Mod+- to try 16, 20 and 24 px and watch the line under inline math (ΔT, E = mc²) for a one-pixel shift."]
+  },
+  "B-02": {
+    "replace": true,
+    "images": ["fixtures/baselines/webkit-macos/03-ai-plan-960-dark.png", "fixtures/baselines/webkit-macos/03-ai-plan-960-light.png", "fixtures/baselines/webkit-macos/06-math-960-dark.png", "fixtures/baselines/webkit-macos/29-hidden-characters-960-dark.png", "fixtures/baselines/webkit-macos/29-hidden-characters-960-light.png", "fixtures/baselines/webkit-macos/28-artifact-fences-960-dark.png"],
+    "steps": ["Code colour (03-ai-plan, 28-artifact-fences): restrained, comments readable?", "KaTeX (06-math): same question as MARXY-28.", "Hidden-character marks (29): visible without shouting, in dark and light?"]
+  },
+  "MARXY-31": {
+    "replace": true,
+    "images": ["fixtures/baselines/webkit-macos/01-long-technical-960-light.png", "fixtures/baselines/webkit-macos/02-readme-real-world-960-light.png", "fixtures/baselines/webkit-macos/03-ai-plan-960-light.png"],
+    "steps": ["These are Marxy's three pages, light, 960 px. The Typora and Marked 2 captures this row needs do not exist.", "To resolve: open the same three files in Typora and Marked 2 at the same width and take screenshots, then compare blind. If you do not mean to run that comparison, say Change and the row is retired."]
+  },
+  "MARXY-87": {
+    "replace": true,
+    "images": ["docs/taste-review/2026-10-walk/s4-palette-dark.png", "docs/taste-review/2026-10-walk/s4-palette-light.png"],
+    "steps": ["This is today's palette (the 2026-10 walk), not the stale review-2 kit.", "Does it read as native chrome, not a web form dropped on the page?", "Is the list legible at 1x without feeling cramped?"]
+  },
+  "MARXY-39": {
+    "replace": true,
+    "images": ["docs/taste-review/2026-10-walk/s4-palette-dark.png", "docs/taste-review/2026-10-walk/s4-palette-light.png"],
+    "steps": ["Needs you and a stopwatch: open five documents, switch around, then reach 02-readme-real-world.md from three switches ago with the palette only. Under 5 s?", "Do the summoned states look like native chrome at 1x (see the pictures)?"]
+  },
+  "MARXY-196": {
+    "replace": true,
+    "images": ["docs/taste-review/2026-10-walk/s4-palette-dark.png"],
+    "steps": ["Open Marxy on this repository, press Mod+P and type: a path fragment (`taste`), a title word (`passkeys`), a heading word (`Checklist`).", "Does the document you meant come first each time?"]
+  },
+  "MARXY-193": {
+    "replace": true,
+    "files": ["fixtures/corpus/01-long-technical.md"],
+    "steps": ["Open the file, press Mod+P, type a heading name, Enter.", "Does the heading land about 40% down, where your eye expects?", "Resize the window while it is there: does the heading hold, or does the page fight the scroll bar?"]
+  },
+  "MARXY-43": {
+    "replace": true,
+    "files": ["fixtures/corpus/03-ai-plan.md", "fixtures/corpus/05-pathological-table-and-nesting.md"],
+    "steps": ["In 03-ai-plan, toggle a task checkbox. In 05, align the ragged table's pipes (palette).", "Does the page still read as the same book? Then Mod+Z: do the marks come back exactly?"]
+  },
+  "MARXY-177": {
+    "replace": true,
+    "files": ["fixtures/corpus/02-readme-real-world.md"],
+    "steps": ["Open a markdown file with the theme set to the quiet fixture (config: theme = \"/t/quiet\"). Watch the first frame after text appears.", "Is the restyle a book choosing its binding, or a flash of the wrong theme?", "Open the theme's theme.css: does the \"Use this theme\" notice read as helpful, not modal?"]
+  },
+  "MARXY-280": {
+    "replace": true,
+    "files": ["fixtures/corpus/15-prose-volume.md"],
+    "steps": ["Open the essay and drag the window narrower and wider, slowly, then quickly.", "After you stop, do the line breaks sit where the paragraph would be set fresh at that width? Reopen the file to compare."]
+  },
+  "MARXY-241": {
+    "replace": true,
+    "files": ["fixtures/corpus/02-readme-real-world.md"],
+    "steps": ["System Settings › Accessibility › Display: turn on Increase contrast, then Reduce motion; open the README in Marxy each time.", "Does the page still read as the same book? Forced-colours mode is a Windows and Linux feature, so it cannot be checked on this Mac; ADR-0033 lists it as Open."]
+  },
+  "commonplace": {
+    "replace": true,
+    "images": ["docs/taste-review/2026-09-marxy-257/rumi-song-of-the-reed-dark-1440-2x.png", "docs/taste-review/2026-09-marxy-257/rilke-archaischer-torso-apollos-dark-1440-2x.png", "docs/taste-review/2026-09-marxy-257/li-bai-quiet-night-thought-dark-1280-2x.png"],
+    "steps": ["These pages come from before the labels were removed, so they show the layout but not the final pair.", "Launch Marxy with no file to see the real thing: do two languages still read as two texts with only a gap between them? Is the colophon under the text still right?"]
+  },
+  "A-14": {
+    "replace": true,
+    "files": ["fixtures/corpus/01-long-technical.md"],
+    "steps": ["Open the file; set text size to 24 px from the palette, then Mod+= / Mod+- / Mod+0.", "Does the page re-set on the grid without a visible jump?"]
+  }
+}
