@@ -251,3 +251,121 @@ in order, is in [`handoff.md`](handoff.md), rewritten at the end of each session
 **2026-10-10 evening (author asked: be cost-effective).** All agents ran on Sonnet. browser-lite timed out at 15 minutes on #501, #511, #517 and #496 (the suite has outgrown its limit); #394, which raises it to 20 minutes, is code-owned and waits on the author. The lead's own regex resolution of the K-02 conflict dropped ADR index rows (#516 fixed it); the lesson is to diff a resolved file against both parents before committing. Merged since the afternoon: K-03, F-29, J-01.1, D-11, D-13, H-03, K-04, K-06, K-18, F-25, X-05, X-07. Open: W-01 (#513), J-02 (#514), B-24 (#521), H-07 (#522), H-03.1 (#523), X-08 (#524). The wave-3 cards are in `docs/plan/direction-2026-10/10-cards-wave-3.md`.
 
 **2026-10-10 late evening (X-09).** Merged since: H-07, W-01, J-02, B-24, H-03.1, X-08, H-06, V-01, F-27, B-27, D-09, D-12, E-01 to E-03, E-06 to E-11, E-14, E-16, F-30, F-30.1. Open: D-10 (#538), E-04 (#545, waits on the author's ADR-0048 ruling), J-03 (#546), E-05 (#547), and the code-owned #494, #407, #450. [`handoff.md`](handoff.md) is rewritten for the next lead.
+
+
+## 2026-10-11 lead session (Opus lead, Sonnet agents; F-21 and F-34.1 on Opus)
+
+Row states for the stories below supersede the table above where they differ; the next lead folds them in.
+
+- #557 X-12 merged (lead verdict, docs only).
+- #545 E-04 merged on Sonnet review at b98bd9d4 + author ruling (session prompt): ADR-0048 clause 3 amended, Esc keeps the edit. Unblocks E-18.
+- Author ruling: #551 H-04 to merge (taste accepted) after a correctness review. Font download (H-04.1) NOT authorised.
+- #445 closed, superseded by 13-code-view.md.
+- Wave 4 dispatched: D-15 (resume, sonnet high), W-02 (resume, sonnet high), F-32 (sonnet low); H-04 review (sonnet medium).
+- #551 H-04 merged (Sonnet review merge at f70524a0 + author taste ruling). Nits: stale comment default/theme.css; Tauri window background still #151412 (src-tauri code-owned) -> follow-up H-04.2. Linux baselines: nightly update_baselines run 38114269983 dispatched; commit artifact in a follow-up PR.
+- F-32 #558 opened (fa128439); CATALOGUE from ids.json left unsorted (outside Paths). Review running.
+- X-11 dispatched (sonnet low).
+- F-32 #558 merged (review merge at fa128439). Follow-up: transform CATALOGUE order comes from ids.json (mockup order, unsorted); parallel appends there conflict -> note for J-03.1 (ids already present, only NOT_YET changes, fine).
+- X-11 #559 merged (lead verdict, docs). Author walk at docs/taste-review/2026-10-walk/README.md; H-04.1 download line open.
+- J-04 dispatched (sonnet medium) on 02d540e4.
+- H-04.2 #560 opened by the lead: Linux baselines from nightly run 38114269983 (success on 3b034a70). Sonnet low review running.
+- H-04.2 #560 merged (Sonnet low review, byte-identical to run artifact).
+- AUTHOR 2026-10-11: H-04.1 font download OK. F-21 runs on Opus. Vetoes (item 5) and F-31 need more info -> W-02 merge held until the ⌘\ veto is answered.
+- AUTHOR 2026-10-11: F-31 yes (ADR-0013: fall back after two frames and ~2 s, marked signal=frames-only). All vetoes OK: ⌘\ folds / Open beside ⌥⌘\; pane focus ⌘⌥←/→; ⇧⌘C Copy as; D-15 two-frame allowance; K-R1 (a) 14/21, K-R3 (a), K-R4 (a); E-12 superseded. -> W-02 merge unheld; F-31 ready; V-11/V-12 deps satisfied.
+- F-21 dispatched on Opus high (author's choice); merges after D-15 (open.ts).
+- X-13 #562 merged (lead verdict, docs). Scope cuts W-03/W-21/J-06 recorded for the author.
+- J-04 #563 at 057533dd (after lead return of two card items); review running (sonnet medium).
+- FINDING: chrome-edges.test.mjs fails on main (theme colour assertion; likely H-04). Fold into H-04.1 with the Tauri background.
+- F-31 dispatched (sonnet medium); card path paint-signal.mjs is apps/desktop/src/, amended in PR.
+- D-15 #565 at 2f9aa5a7: oracle (corpus + 300 fuzz + 13 hostile), two mutants; 1 MB pair frame 30 ms (card 717); 20 KB pair 74-77 ms under load (above the 33 ms allowance) -> reviewer re-measures. Adversarial review queued (reviewer slots full).
+- H-04.1 dispatched (sonnet medium): fonts (author OK), tauri bg #000000, chrome-edges.
+- J-04 #563 review merge at 057533dd; merging on green. Carry into J-05: ⇧⌘C (global) fires in find field and over palette — J-05 fixes it with Mod+V's rule. Follow-up: copy_format cached via reader-config.
+- J-04 #563 merged. J-05 ready (waits for an implementor slot).
+- W-02 #561 returned (1): unfolded Source not contained by grid (blocking); Mod+Alt+\ shadows CM indentSelection -> lead ruling: in editables CM keeps it, Open beside outside editables + palette; storage small gaps. Split-1470 macOS baselines stale since H-04 -> added to H-04.1.
+- F-21 #470 at 6c873b0d (Opus): onCommitted hook; 3 race tests red before/green after; focus.ts one line accepted by lead. Adversarial review (sonnet high) running. Merge after D-15.
+- J-05 dispatched (sonnet high), plus the ⇧⌘C find-field/palette fix. NOTE: 4 implementors briefly (W-02 return fix + F-31 + H-04.1 + J-05).
+- W-02 fixes pushed f603248d; re-review queued for the original reviewer (resume) when a reviewer slot frees.
+- D-15 #565 returned (1) by adversarial review: stale page after store change during sliced show (task click toggled wrong line). Oracle held (193 hostile + 8000 fuzz, 0 diffs). Frames: 1 MB 30-43 ms vs main 1187-1322; 20 KB pair same path as main. Fix sent to implementor (+ cancel on close, ADR-0023 note).
+- H-04.1 #566 at 117496ea: Atkinson Hyperlegible Next (googlefonts @7925f50f) + Inter v4.1 roman, OFL; tauri bg #000000; chrome-edges test was stale (fixed); macOS split-1470 regenerated; +452 KB. Review (sonnet medium) running. src-tauri code-owned -> may need author review. After merge: Linux split-1470 regen via nightly.
+- F-21 #470 review merge at 6c873b0d (all probes held; merges cleanly with D-15). Merging on green. Follow-up F-21.1: Edit collection answered by keyboard after focus moved switches the other pane to Source (jumpToSource acts on focused pane); AppOpenOptions/openIn drop onCommitted.
+- W-02 #561 merged after one rerun (browser-lite boot stall F-19.3 test; typography 32-long-reference render timeout — green on rerun; log as a flake). W-19 ready, waits for a slot.
+- D-15 fixes at 841618db (re-snapshot after last await; abort on close; ADR-0023 Amendment 2; mutants killed). Re-review by original reviewer running.
+- W-19 dispatched (sonnet medium) on main after W-02/J-04/F-21.
+- H-04.1 #566 merged (review merge, SHAs verified upstream). Installer size vs 30 MB budget unmeasured -> check at release.
+- F-31 #567 at f22a6d77 (+1 line open.ts outside Paths, scrutinised in review). Review running (sonnet medium).
+- F-33 dispatched (sonnet high), wave 6 early (no deps; parallel-safe with D-15 per card).
+- D-15 #565 re-review merge at 841618db; merging on green. Frame bound not confirmed on a quiet machine (all runs loaded); nightly perf carries it.
+- F-31 #567 review merge at f22a6d77 (open.ts line 441 judged minimal); merging on green. Follow-up: direct test for that line.
+- D-15 #565 and F-31 #567 merged.
+- W-19 #568 at b55a19ba (paths widened + 3 more mechanical test edits accepted for review). Implementor used git stash for a main comparison (against rule; no leftover entry). Review running.
+- K-05a dispatched (sonnet medium) after D-15.
+- J-05 #569 at dab9f62d; adversarial review (sonnet high) running. Risks: Linux unsupported -> HTML paste refused; 5 MB 1.15 s main thread.
+- V-16 dispatched (sonnet low), wave 6.
+- W-19 #568 merged. Follow-up W-19.1: palette chord list from code; find-field/palette-open key tests; mode switch bytes unchanged test. W-05 ready (needs a slot).
+- J-05 #569 review merge at dab9f62d, but lead returned (regression: Linux 'unsupported' refuses web paste in Source; main pasted natively). Follow-ups: E-13.1 (scratch notices shown before E-13 prompt answered, stay after Dismiss); Rendered leading U+FEFF becomes BOM in scratch; Dvorak ⌥⇧⌘V.
+- F-33 #570 at 3c6e632b: walk works (mutations caught; 2000 seeds no leak; ~16.6 s). REAL FINDING ON MAIN: Source session, two typed changes either side of a non-UTF-8 byte fold as one splice (foldText) -> 0xFF becomes EF BF BD on save. Breaks 'faithful to the bytes'. New story F-34 (data-safety, sonnet high) after F-33 lands. Nightly line for author (code-owned nightly.yml): MARXY_WALK_SEEDS=2000 node --test --experimental-strip-types apps/desktop/test/store-walk*.test.mjs. Review running.
+- AUTHOR 2026-10-11: lead may add the store-walk line to nightly.yml (code-owned) itself. Plan: new 'store-walk' job (playwright container, not on update_baselines) after F-33 merges; PR F-33.2.
+- F-33 #570 merged. F-33.1 follow-ups: Save As onto dirty open path invisible to node layer (driver restates pickAround); peekFile logged as readFile note; holdsOpenFinding slightly wide.
+- F-33.2 #571 (lead-authored nightly job, author OK) at 19785cf6; sonnet low review running.
+- F-34 card (from F-33 review Finding): packages/core/src/buffer/buffer.ts foldText re-encodes whole middle span between common prefix/suffix -> stray byte FF becomes EF BF BD when two Source changes straddle it. Fix per hunk or map middle via like.offsets; remove todo marker + holdsOpenFinding; walk 200 seeds. Sonnet high, adversarial review. Next slot.
+- F-33.2 #571 merged (nightly store-walk job).
+- V-16 #572 at 1bfc8242; review running (asked to prove tests red on main). .go test synthetic until V-09.
+- F-34 dispatched (sonnet high) with brief-as-card; card section added in its PR.
+- J-05 fix at 6b274ceb (unsupported -> native paste); re-review by original reviewer (+ walk 200 seeds).
+- W-05 dispatched (sonnet high); card checked against main.
+- J-05 #569 merged (after lead return 1).
+- K-05a #573 at c3df4be9 (kind decided after first text; DetectResult at pane.content.detected()); review running.
+- E-18 dispatched (sonnet high; card said opus) — paste via J-05's path.
+- V-16 returned (1): aesthetics gate fails on 09-gfm-everything 960x28 dark (grid); root=true and boundary tests tautological; no-readDir fallback root /Users. Sent back to implementor (4 implementors briefly).
+- K-05a returned (1): possible regression — open-beside link to extension-less README refused (read from code, unverified) -> implementor to prove with a test on main and branch; assert /config read exactly twice. Finding: find-pane 1 MB test fails on main too (load?) — watch.
+- K-05a #573 merged (after return 1). Wave 5 closed. K-05b ready (look track).
+- W-05 #574 at 41688551; review (sonnet high) running. Flags: Back may show enabled with nowhere to go (canBack follow-up); 929 px @ chrome 26 overflows 82 px; states ARIA-only.
+- K-05b dispatched (sonnet medium; look track; taste artifact; CLS check).
+- E-18 #575 at e006f195; review running. Finding: 10 of 11 Phase E ops palette-only (no verb-menu row). ADR-0048 clause 3 inline text still says discard (amendment section records keep).
+- F-34 #576 at 2365aabc: foldText diffs the span when it holds a stray byte; property test 8k/100k red on main; walk 2000 ok; perf <=1.2x. CONCERN: beyond ~1500 chars/3000 lines of difference between two stray bytes it falls back to one change (old corruption) -> lead leans return unless reviewer shows the fallback can't touch a stray byte. NEW BUG F-35: splice throws RangeError when a Source edit deletes the char for a lone 80-BF byte (main too). Adversarial review queued (reviewer slots full).
+- E-18 #575 review merge; merging on green. ADR-0048 clause 3 inline pointer -> plan PR.
+- V-16 fixes at f1f5ffba; re-review by original reviewer.
+- E-18 #575 merged. V-02 dispatched (sonnet medium->high for data-safety).
+- V-16 #572 merged. V-09 ready.
+- W-05 #574 review merge at 41688551; merging. Follow-ups: W-05.2 canBack(); W-04 card add overflow at chrome 26/929 px (227 px; title to 0) + state styling; disposer test for launch-time listeners.
+- F-34 fix at 3a08c006 (anchor on strays; heuristic pairing when counts differ) -> adversarial review (sonnet high) probing mis-pairing.
+- W-04 dispatched (sonnet medium) + W-05 review follow-ups (overflow, state styling).
+- F-34 returned twice (lead: fallback; review: pairing writes wrong bytes). SPLIT: F-34 narrowed (no pairing; copy only diff-equal segments; patience line diff + per-hunk char diff; never a wrong byte; strays in touched/moved lines re-encode as on main). F-34.1 (new, card later, Opus planning allowed after Sonnet failure): full fidelity for moved/edited strays via surrogateescape-style decoding in Source.
+- F-34 narrowed at baea54bd; re-review by adversarial reviewer (bar: never a wrong byte; untouched lines exact).
+- V-09 dispatched (sonnet low).
+- F-34 #576 CLOSED after 3rd return (root cause: U+FFFD text equality != byte equality). F-34.1 (Opus high, card rule after 3 Sonnet returns): surrogateescape-style Source decoding; carry #576's tests (branch fix/f-34-fold-keeps-stray-bytes) as acceptance. Waits for an implementor slot.
+- V-02 #577 at 30469e0c; adversarial review running (incl. stray-byte interaction with foldText). GFM pipe-in-code-span split accepted as correct. FINDING: find-pane.test.mjs 1 MB typesetter test times out on clean main (several reports) -> F-36 investigate.
+- V-09 #578 at 6ec15dc1; review (sonnet low).
+- F-34.1 dispatched on OPUS high (card rule after 3 Sonnet returns), design surrogateescape-style; may need an ADR (stops before contract edits).
+- W-04 #579 at 87e9b47d (notices deferred: face change moved notice heights/baselines -> W-04.1 with baseline regen; W-05 wide test moved 1280->1440; captures outside paths). Review queued.
+- W-03 dispatched (sonnet medium).
+- V-02 #577 review merge (stray in cell re-encodes -> F-34.1 class; V-02.1 notice on Add column refusal).
+- V-09 #578 at cc5f8038 (rust test now reads file-types.ts; src-tauri code-owned -> waits for AUTHOR review). Lead re-verdict posted.
+- K-05b #581 HELD (lead-verdict hold df194e93): launch doc jumps after first text (CLS 0.24-0.45) because kind decided after first text; gate:aesthetics red on 6 cases (report docs at 200%, 29-hidden-characters fence 960x16). 104+17 macOS baselines regenerated.
+- K-05a.1 dispatched (sonnet high): kind before first paint without delaying first text; CLS <= 0.01 with K-05b profiles.
+- K-05b found a main bug: leaving the block editor after the paragraph gains a line moves the reading line two lines (it spawned a task chip).
+- W-04 #579 returned (1): forced-colors fallback missing for checked/pressed/scroll-fade. At 1280 px chrome 26 toolbar now scrolls 50 px (W-05 promise narrowed; disclosed).
+- V-09 #578 merged (no code-owner review was required for the tree.rs test). V-11 ready (V-09 + K-R4 ruled).
+- W-04 #579 merged. W-21 ready.
+- W-03 #582 at b5e3256d; review (sonnet medium). Panel keys inert until fills.
+- W-21 dispatched (sonnet high, data-safety: Apply writes).
+- W-03 #582 review merge; follow-up W-03.1 (Esc closes peek; cache viewport; Esc-in-block-edit test).
+- K-05a.1 #583 at e375faad: CLS readme/article 0.000, report 0.337 (Atkinson font swap 7 ms after paint; fix = preload in fonts/files.mjs -> add to K-05b); first_text within noise. Review running.
+- V-11 dispatched (sonnet high; card said opus).
+- F-34.1 #584 at b400ad9d (Opus): surrogateescape for Source text only (U+DC80-DCFF), readableText at editor exits, paste of own copy restores; fixes F-35 (splice). ADR-0069 proposed (0067/0068 reserved by V-12/K-R2) -> author to accept. Follow-up: foldSlice (Rendered block editor) still folds via reading text. Adversarial review (sonnet high) running.
+- K-07 dispatched (sonnet medium); DetectResult at open.ts:122 detected().
+- K-05a.1 #583 review merge; H-04.3 = font preload with first_text A/B.
+- F-34.1 returned (1): fold exact (30k fuzz ok) but copy-memory single slot (drag overwrites; foreign U+FFFD restored as FF), find panel leaks 
+- F-34.1 returned (1): fold exact (30k fuzz ok) but copy-memory single slot (drag overwrites; foreign U+FFFD restored as FF), find panel leaks a lone surrogate, caret->0 + Mod+Z wrong place after save when bytes form a char. Suggested: private pasteboard type via clipboardWriteItem.
+- F-34.1 #584 re-review merge at 38752069 (private pasteboard type application/x-marxy-source-text). Follow-up F-34.2: reject lone surrogates outside DC80-DCFF in pasted private item; Mod+Z #2 after save byte-exact; foldSlice via escaped text. ADR-0069 proposed -> AUTHOR to accept. F-35 fixed by F-34.1.
+- W-21 #585 at a71827f1; adversarial review. Concerns: toolbar now scrolls at 929 px default (~510 px row); core transforms superlinear (normalize-bullets 30 s @400 KB; strip-frontmatter 199 s @5 MB) -> freeze risk; implementor spawned a chip for core perf. Command.listed:false added.
+- K-07 #586 at 6d562a27; review running. Toolbar fit erodes with each door (W-21, K-07 both edit toolbar fit tests; conflict between #585 and #586). New story W-05.3: toolbar overflow — lower-priority doors collapse into a menu at narrow widths; restores the fit promise.
+- K-07 returned (1): withoutChip() hid real overflow (13 px at 929 default). Lead folded W-05.3 into K-07: priority doors + "More" overflow menu; real fit tests incl. all doors. W-21 rebases after.
+- W-21 returned (1): freeze 9.4 s @400 KB (sync chain) -> Worker + step cache + Esc cancel; walk 2000 fails I3 (oracle mayDrop always:true); drop SOURCE_NOT_UTF8 guard post F-34.1. Toolbar: 960 px is Tauri default launch width -> K-07's More menu covers.
+- K-07 #586 re-review merge at bda3831b; merging. K-07.1: surface [strip]/[[kind]] parse warnings.
+- K-07 #586 merged.
+- V-11 #587 at 7a31cfbd: 15/17 tests red on main; first_text +10-19 ms (Markdown parse of code still runs) -> lead sent back pre-review: defer the Rendered parse per card; re-measure 20x with A/A. Mod+E during open dropped (decision). view.setMode accepted.
+- H-04.3 #588 at 24661e63: preload Source Serif 4, Atkinson, Inter (roman); +1.6 MB; first_text within noise; report CLS 0.337->0. vite.config writes type=font/ttf on woff2 preloads (check double fetch). Review running.
+- V-12 dispatched (sonnet high; card said opus). Card path stale: ADR file is 0067-source-metrics.md, not 0056 (0056 taken).
+- H-04.3 #588 merged.
+- F-34.2 #589 at 7afdaa36 (+ store.ts apply string|Uint8Array, commit df3060ea outside paths). Adversarial review running.

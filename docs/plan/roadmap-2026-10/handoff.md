@@ -1,3 +1,51 @@
+# Lead handoff: 2026-10-11, end of the wave 4–7 session
+
+**Read first:** this section, then the older sections below (the replan rules still hold), `progress.md`'s
+"2026-10-11 lead session" block, and the cards in `direction-2026-10/11-cards-wave-4.md`, `13-code-view.md`,
+`14-cards-waves-6-7.md`. The session stopped on a usage limit; agents may have pushed after it.
+
+## Merged this session
+
+X-12 #557, E-04 #545 (author: Esc keeps), H-04 #551 (author: taste ok), F-32 #558, X-11 #559, H-04.2 #560,
+X-13 #562, J-04 #563, F-21 #470 (Opus, author's choice), W-02 #561, D-15 #565, F-31 #567 (author: ADR-0013 yes),
+H-04.1 #566 (author: font download ok), W-19 #568, J-05 #569, F-33 #570, F-33.2 #571 (author: lead may edit
+nightly.yml), V-16 #572, K-05a #573, E-18 #575, W-05 #574, V-02 #577, V-09 #578, W-04 #579, W-03 #582,
+K-05a.1 #583, F-34.1 #584 (Opus after three Sonnet returns of F-34, #576 closed), K-07 #586, H-04.3 #588.
+Closed: #445 (superseded), #576 (F-34, root cause fixed by F-34.1).
+
+## Open at the stop — resume each (read the PR, `git status` in its worktree; never `git stash`)
+
+| Story | PR / worktree | State | Next |
+| --- | --- | --- | --- |
+| W-21 | #585, `../marxy-wt/W-21` | returned 1: freeze (sync chain, 9.4 s at 400 KB), walk oracle `mayDrop {always:true}`, drop SOURCE_NOT_UTF8 guard; implementor was fixing | re-review (adversarial, verdict file `v/585-review.md` method) |
+| V-11 | #587, `../marxy-wt/V-11` | lead sent back pre-review: defer the Markdown parse of Source-default files; first_text was +10–19 ms | re-measure with A/A, then review |
+| V-12 | `../marxy-wt/V-12` | implementing (Sonnet high); ADR file is 0067 | review; author accepts ADR-0067 |
+| F-34.2 | #589, `../marxy-wt/F-34.2` | adversarial review running; commit df3060ea touches store.ts `apply` | verdict, then merge |
+| K-05b | #581, `../marxy-wt/K-05b` | lead hold; rework running: rebase on K-05a.1 + H-04.3, CLS ≤ 0.01, resolve 6 aesthetics-gate cases | new review; then Linux baselines via nightly `update_baselines` |
+
+## For the author
+
+1. Accept or amend **ADR-0069** (Source text holds every byte, proposed by F-34.1) and, when V-12 lands, **ADR-0067**.
+2. ADR-0060 / ADR-0061 still await acceptance (from the replan list).
+3. The lead's scope cuts in X-13's cards (W-03 no floating button; W-21 Apply for edit only; J-06 refuses concealed only) stand unless vetoed.
+
+## Next, in order
+
+Finish the five above. Then: J-06 (after W-21), W-04.1 (notices on the chrome spec + baselines), follow-ups
+W-19.1, W-03.1, W-05.2 (canBack), K-07.1, V-02.1, F-21.1, E-13.1, F-33.1, F-36 (find-pane 1 MB test times out on
+main), the block-editor reading-line bug K-05b found, the core transforms' superlinear time (W-21's chip). Wave 8
+needs cards first (W-06, W-07, W-09, Q-03): an X-15 plan story. V-13 to V-15 after V-11/V-12.
+
+## Lessons (this session)
+
+- **Sonnet returned F-34 three times on a design problem** (text equality is not byte equality); Opus solved it
+  in one design pass (surrogateescape). Call design problems early and card them for Opus under the rule.
+- **Each toolbar door eroded the narrow-window fit** until a review caught a test helper hiding it; K-07 added a
+  priority "More" menu. Test what the reader sees, never a reduced DOM.
+- **The machine ran at load 15–55**: full `precheck --browser` timed out in nearly every story; agents re-ran
+  files one at a time. Timing claims need an A/A run beside them.
+- **Lead pre-review sends-back saved review rounds** (V-11 parse, F-34 fallback, V-09 missing tests).
+
 # Lead handoff: 2026-10-11, after the replan
 
 **For:** the next lead session, and the author. **Read, in order:** this page, then
