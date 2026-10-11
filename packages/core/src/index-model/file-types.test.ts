@@ -28,8 +28,8 @@ test('every old allow-list extension keeps its kind and mode', () => {
   assert.equal(tableExtensions().length, OLD_MARKDOWN.length + OLD_TEXT.length + OLD_SOURCE.length);
 });
 
-test('every old BY_EXT extension keeps its CodeMirror id; only .mdown and .mkd gain one (they are Markdown)', () => {
-  for (const ext of tableExtensions()) assert.equal(fileTypeOf(`/r/f.${ext}`)?.cm, OLD_CM[ext] ?? (['mdown', 'mkd'].includes(ext) ? 'markdown' : undefined), ext);
+test('every old BY_EXT extension keeps its CodeMirror id; only .mdown, .mkd and .text gain one (as .txt has)', () => {
+  for (const ext of tableExtensions()) assert.equal(fileTypeOf(`/r/f.${ext}`)?.cm, OLD_CM[ext] ?? (['mdown', 'mkd', 'text'].includes(ext) ? 'markdown' : undefined), ext);
 });
 
 test('exact names and the extension-less text family', () => {

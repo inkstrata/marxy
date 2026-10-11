@@ -30,7 +30,7 @@ const BY_EXTENSION: Readonly<Record<string, FileType>> = {
   mkd: md('markdown'),
   mdx: md('mdx'),
   txt: text('markdown'),
-  text: text(),
+  text: text('markdown'),
   ts: src('typescript', 'typescript'),
   tsx: src('tsx', 'tsx'),
   js: src('javascript', 'javascript'),
