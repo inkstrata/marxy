@@ -1,6 +1,6 @@
 // Folding Source mode edits back into the buffer (§01 fromText, §09 unchanged → keep bytes).
 
-import { type Buffer, type Edit, contentHash, foldText, splice } from '@marxy/core';
+import { type Buffer, type Edit, contentHash, foldText, sourceTextOf, splice } from '@marxy/core';
 
 export interface LeaveSourceResult {
   readonly buffer: Buffer;
@@ -9,9 +9,13 @@ export interface LeaveSourceResult {
   readonly edit: Edit | null;
 }
 
-/** Document text CodeMirror edits (no BOM prefix). */
+/**
+ * Document text CodeMirror edits (no BOM prefix): the Source text, in which each byte that is not UTF-8 is its own
+ * code unit (U+DC80 to U+DCFF, `sourceTextOf`), so the editor's text names every byte and `foldText` is exact.
+ */
 export function cmDocText(buffer: Buffer): string {
-  return buffer.bom ? buffer.text.slice(1) : buffer.text;
+  const { text } = sourceTextOf(buffer);
+  return buffer.bom ? text.slice(1) : text;
 }
 
 /**
@@ -27,7 +31,8 @@ export function lineSeparatorFor(buffer: Buffer): '\n' | '\r\n' | '\r' {
 
 /**
  * Leaving Source: unchanged text keeps the original bytes; otherwise one splice over the part that
- * changed, so every byte outside it — a mixed file's line endings, a byte that is not UTF-8 — stays.
+ * changed, so every byte outside it — a mixed file's line endings, a byte that is not UTF-8 — stays, and
+ * every byte inside it is the one the editor's text names (`docText` is a Source text, `cmDocText`).
  */
 export function leaveSourceMode(buffer: Buffer, docText: string): LeaveSourceResult {
   const fold = foldText(buffer, docText);

@@ -15,5 +15,16 @@ export {
   lineOf,
 } from './buffer.ts';
 export { foldSlice } from './fold-slice.ts';
+export type { SourceText } from './source-text.ts';
+export {
+  STRAY_BASE,
+  sourceTextOf,
+  strayByteOf,
+  holdsStrayBytes,
+  encodeSourceText,
+  readableText,
+  sourceToTextOffset,
+  textToSourceOffset,
+} from './source-text.ts';
 export type { Edit } from './history.ts';
 export { History } from './history.ts';

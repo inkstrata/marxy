@@ -23,6 +23,7 @@ import {
   type StructureKind,
   type TextRange,
 } from '@marxy/core/src/source-edit/index.ts';
+import { readableText } from '@marxy/core/src/buffer/source-text.ts';
 import {
   isolateHistory,
   moveLineDown,
@@ -99,7 +100,10 @@ export function runTableTool(tool: TableTool, target: Target, path: string): boo
 
 /** The table at the caret as CSV (the text C-07's Copy table as CSV puts on the pasteboard), or null where there is none. */
 export function tableCsvAt(state: EditorState, path: string): string | null {
-  return structureKindFor(path) === 'markdown' ? tableCsv(textOf(state), state.selection.main.head) : null;
+  if (structureKindFor(path) !== 'markdown') return null;
+  const csv = tableCsv(textOf(state), state.selection.main.head);
+  // A byte that is not UTF-8 is a lone surrogate in the editor's text; it goes on the pasteboard as U+FFFD (F-34.1).
+  return csv === null ? null : readableText(csv);
 }
 
 const ranges = (state: EditorState): TextRange[] => state.selection.ranges.map((r) => ({ from: r.from, to: r.to }));

@@ -124,3 +124,37 @@ test('multi-cursor edit undo restores prior doc length', async () => {
     await browser.close();
   }
 });
+
+test('bytes that are not UTF-8: shown as marked bytes, copied as U+FFFD, pasted back and moved as themselves (F-34.1)', async () => {
+  const hex = (bytes) => [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(' ');
+  const enc = new TextEncoder();
+  const line1 = [...enc.encode('caf'), 0xe9, ...enc.encode(' and '), 0xe2, 0x82, 0x0a];
+  const line2 = [...enc.encode('second '), 0xff, 0x0a];
+  const bytes = Uint8Array.from([...line1, ...line2]);
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await page.goto(`${base}src/source/harness-shell.html`);
+    await page.waitForFunction(() => typeof window.marxySourceHarness?.strayBytes === 'function');
+    const result = await page.evaluate(
+      async ({ bytesB64 }) => window.marxySourceHarness.strayBytes(bytesB64, '/latin.md'),
+      { bytesB64: b64(bytes) },
+    );
+    assert.deepEqual(
+      result.markers.map((m) => m.text),
+      ['E9', 'E2', '82', 'FF'],
+      'each stray byte is marked with its value',
+    );
+    assert.equal(result.markers[0].label, 'Byte E9, not UTF-8');
+    assert.equal(result.pageHasLone, false, 'no lone surrogate in the page');
+    assert.equal(result.pageHasLoneAfter, false, 'nor after a paste and a move');
+    assert.equal(result.copiedHasLone, false, 'nor on the clipboard');
+    assert.equal(result.copied, 'caf\uFFFD and \uFFFD\uFFFD\nsecond \uFFFD\n');
+    // The copy pasted back is the bytes themselves; the foreign lone surrogate is EF BF BD; the first line moved
+    // below the second keeps its bytes.
+    const expected = [...line2, ...line1, ...line1, ...line2, ...enc.encode('X'), 0xef, 0xbf, 0xbd, ...enc.encode('Y')];
+    assert.equal(result.hex, hex(expected));
+  } finally {
+    await browser.close();
+  }
+});

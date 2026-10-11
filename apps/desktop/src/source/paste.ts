@@ -8,10 +8,14 @@ import { EditorView } from '@codemirror/view';
 import { appHandle } from '../commands/app-handle.ts';
 import { notify, paneOf } from '../notices/index.ts';
 import { CONVERTED_NOTICE, NOTHING_TO_PASTE, pasteShellOf, readConverted, readForPaste, type PasteShell } from '../paste/read-clipboard.ts';
+import { textIn } from './stray-bytes.ts';
 
-/** What `text` becomes in `state`: no U+FEFF, every line break (LF, CRLF, CR) written as the document's own. */
+/**
+ * What `text` becomes in `state`: no U+FEFF, every line break (LF, CRLF, CR) written as the document's own, and no
+ * lone surrogate (a byte that is not UTF-8 is never pasted, F-34.1) unless it is the editor's own last copy.
+ */
 export function pastedText(text: string, state: Pick<EditorState, 'lineBreak'>): string {
-  return text.replace(/﻿/g, '').replace(/\r\n?|\n/g, state.lineBreak);
+  return textIn(text).replace(/﻿/g, '').replace(/\r\n?|\n/g, state.lineBreak);
 }
 
 /**
