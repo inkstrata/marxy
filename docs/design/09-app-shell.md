@@ -51,7 +51,10 @@ puts six empty `div[data-marxy-workspace-region]` into `<body>`: `sidebar`, `too
 `#marxy-main`, `inspector` and `status-bar` after it. Folding takes them out and removes the attribute, so a folded
 page has neither: nothing is hidden by style, and a page with no attribute is the folded window (the aesthetics gate
 reads the attribute from the page and judges every other page as folded). A region the reader has not docked stays
-in the page, `hidden`, and takes no room. The regions hold no content; W-03 to W-11 fill them.
+in the page, `hidden`, and takes no room. The regions hold no content of their own: a story that has some registers it
+with `Workspace.fill(region, mount)` (W-05; `workspace/fill.ts` is the one place that happens), and `mount(el)` runs
+whenever that region's element is made (each unfold) and its disposer when it is removed (fold, destroy), so a folded
+page has none of it.
 
 The grid is `base.css`, under `[data-marxy-workspace="unfolded"]` only. `<body>` has three columns: the two side
 columns are the same width (the wider of the sidebar and the inspector, 252 and 300 px), so the middle column and the
@@ -60,6 +63,26 @@ only when the middle would fall below 45 characters and a gutter each side (twic
 two-column floor (929 px at the default size) both panels together still leave the column its 45 characters. The
 bands above the panes and the status bar are sticky; the window is still the scroller. `#marxy-main` is the middle
 column, so `splitRefusal` measures it as it always did and, unfolded, names the window width that includes the panels.
+
+**Toolbar (W-05; ADR-0065).** The first fill: unfolded, the `toolbar` region holds
+`div.marxy-toolbar[role="toolbar"]`, and folded there is no such node. It is a table (`workspace/toolbar.ts`,
+`TOOLBAR_ITEMS`) of doors, each naming the registry command it runs, drawn left to right only when that command is
+registered (`visibleItems`); a panel toggle also needs a fill in the region it opens. Today that draws Back, Forward,
+the title (the focused document's name, a dot while its store is dirty, its folder; "Untitled" for a scratch
+document), the Read / Split / Source switch (`view.mode-*`), Copy with its *Copy as* chevron (`copy-as.<copy_format>`
+and `copy-as.menu`) and Find (`view.find`). A story that wants a control registers its command and the control
+appears with no change here: `document.new-menu` (W-14), `kind.chip` (K-07), `export.menu` (W-15), `transform.open`
+(W-21), and `view.toggle-sidebar` and `view.toggle-inspector` (W-03, with the panel's fill). There is no Extract
+button and no theme switcher (06-reconciliation rows 3 and 4).
+
+Each control is a `<button>` named by its command's title, with the key in its tooltip; a press runs
+`command.when(ctx)` then `command.run(ctx)` as the palette does. A control whose `when` is false is
+`aria-disabled`, not removed. The row is one tab stop (roving `tabindex`), the arrows, Home and End move within it,
+Return and Space press. The switch is a `radiogroup`: Split is checked when two panes show one path, else the
+focused pane's mode. A press does not take focus or the selection from the page (`mousedown` is cancelled), so Copy
+copies what was selected. State is exposed as `aria-disabled`, `aria-checked` and `aria-pressed` and nothing here
+styles it: `base.css` has the layout (a flex row; the title takes what the controls leave and gives way first) and the
+look is W-04's.
 
 **Remembered panels.** Which regions are docked is `workspace.json` in the data directory beside `layout.json`
 (`{ version, panels: { sidebar, toolbar, tabs, strip, inspector, status-bar } }`; same version guard and quarantine).

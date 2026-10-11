@@ -753,6 +753,18 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
   height: var(--marxy-ws-status-h);
   border-block-start-width: 1px;
 }
+/* The toolbar (W-05): layout only, a row in the toolbar region. No ground, border, radius or shadow beyond taking the
+   system button's away: W-04 owns the look, and the states it styles are ARIA (aria-disabled, aria-checked, aria-pressed).
+   The title takes what the controls leave and gives way first, so the controls stay whole as the column narrows; when even they
+   do not fit (chrome_size 26 in the narrowest column) the row scrolls to the control that has focus rather than clipping it for good. */
+.marxy-toolbar { display: flex; align-items: center; gap: 4px; height: 100%; padding-inline: 0.9em; min-width: 0; overflow-x: auto; scrollbar-width: none; user-select: none; -webkit-user-select: none; }
+.marxy-toolbar::-webkit-scrollbar { display: none; }
+.marxy-toolbar button { flex: none; appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.6em; border: 0; background: none; color: inherit; font: inherit; cursor: default; white-space: nowrap; }
+.marxy-toolbar [data-marxy-toolbar-item] { display: flex; align-items: center; flex: none; gap: 2px; }
+.marxy-toolbar [data-marxy-toolbar-item="title"] { flex: 1 1 0; min-width: 0; gap: 8px; overflow: hidden; white-space: nowrap; }
+.marxy-toolbar-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.marxy-toolbar-folder { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.marxy-toolbar-dirty[hidden] { display: none; }
 /* The panes: the middle of the grid, below the bands. A split fills what the bands leave (index.html gives it the window's height). */
 body[data-marxy-workspace="unfolded"] #marxy-main { grid-column: 2; grid-row: 4; min-height: var(--marxy-ws-panes-h); }
 body[data-marxy-workspace="unfolded"] #marxy-main[data-marxy-split] { height: var(--marxy-ws-panes-h); }

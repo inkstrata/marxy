@@ -24,6 +24,7 @@ import { emptySession, type PaletteSession } from './palette/session.ts';
 import type { PieceSource } from './frontispiece/pieces.ts';
 import { splitRefusal } from './pane/fit.ts';
 import { createPanes, type AppPanes } from './pane/index.ts';
+import { installWorkspaceFills } from './workspace/fill.ts';
 import { createWorkspace, workspaceStoreFor } from './workspace/state.ts';
 import type { AppHandle, AppShell } from './app-types.ts';
 
@@ -268,6 +269,7 @@ export async function startApp(
   // here); the palette mount and the selection harness call the same idempotent install.
   setAppHandle(handle);
   installCommandKeys(handle);
+  installWorkspaceFills(handle);
   // The close guard asks about each pane's document, in that pane: quitting walks every unsaved one,
   // closing a pane asks about its own (D-08).
   installCloseGuard({ shell, panes: () => panes.panes });
