@@ -363,7 +363,7 @@ pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   text-indent: 2ch hanging each-line;
-  tab-size: 4;
+  tab-size: var(--marxy-tab-size, 4);
 }
 /* One source line (the highlight pass wraps each and sets --marxy-indent to its leading whitespace).
    A whole row of the block, so its own wrapped rows hang 2ch past the line's own indentation — a

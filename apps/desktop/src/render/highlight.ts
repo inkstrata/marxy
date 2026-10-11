@@ -18,11 +18,20 @@ const LONG_LINE_THRESHOLD = 1000;
 const LONG_LINE_HEAD = 200;
 const ELIDED_CLASS = 'marxy-elided';
 const OMITTED_CLASS = 'marxy-line-omitted';
-/** Matches base.css `tab-size`: a tab in the leading whitespace advances to the next multiple of 4. */
-const TAB = 4;
+const DEFAULT_TAB = 4;
+/** The custom property the app sets (source/tab-width.ts) and base.css's `tab-size` reads. */
+const TAB_PROPERTY = '--marxy-tab-size';
+
+/** The tab width in force for the open file: what base.css `tab-size` uses, 4 when none is set. */
+export function currentTabWidth(): number {
+  if (typeof document === 'undefined') return DEFAULT_TAB;
+  const raw = document.documentElement.style.getPropertyValue(TAB_PROPERTY).trim();
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 1 && n <= 8 ? n : DEFAULT_TAB;
+}
 
 /** Columns of leading whitespace, so a wrapped line continues past its own indentation. */
-function indentColumns(text: string): number {
+function indentColumns(text: string, TAB: number = currentTabWidth()): number {
   let col = 0;
   for (const ch of text) {
     if (ch === ' ') col++;
@@ -30,6 +39,19 @@ function indentColumns(text: string): number {
     else break;
   }
   return col;
+}
+
+/** Recompute each plain line's hang after the tab width changed (the width resolves after first render). */
+export function reindentLines(root: ParentNode): void {
+  const tab = currentTabWidth();
+  for (const line of root.querySelectorAll<HTMLElement>(`.${LINE}`)) {
+    // A diff line's hang is its marker column; only a tab in the leading whitespace depends on the width.
+    if (line.classList.length > 1) continue;
+    const text = line.textContent ?? '';
+    if (!/^ *\t/.test(text)) continue;
+    const value = `${indentColumns(text, tab)}ch`;
+    if (line.style.getPropertyValue('--marxy-indent') !== value) line.style.setProperty('--marxy-indent', value);
+  }
 }
 
 function languageFromCode(code: HTMLElement): string | null {
@@ -68,6 +90,7 @@ export function spansFromTokens(
 ): DocumentFragment {
   const lang = opts?.lang ?? null;
   const meta = lang ? lineMetaForHighlight(lang, lines) : [];
+  const tab = currentTabWidth();
   const frag = document.createDocumentFragment();
   for (let li = 0; li < lines.length; li++) {
     if (li > 0) frag.append(document.createTextNode('\n'));
@@ -78,7 +101,7 @@ export function spansFromTokens(
     line.className = lineClass ? `${LINE} ${lineClass}` : LINE;
     const source = lines[li]!.map((t) => t.text).join('');
     const markerCh = diffMarkerIndentCh(lineClass);
-    const indent = markerCh ?? indentColumns(source);
+    const indent = markerCh ?? indentColumns(source, tab);
     if (indent > 0) line.style.setProperty('--marxy-indent', `${indent}ch`);
     if (source.length > LONG_LINE_THRESHOLD) {
       const head = source.slice(0, LONG_LINE_HEAD);
