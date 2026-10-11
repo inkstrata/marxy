@@ -108,7 +108,8 @@ test('text is set in Literata and code in JetBrains Mono, and no frame shows a f
         code: getComputedStyle(p.querySelector('code')).fontFamily,
       };
     });
-    assert.deepEqual(result.loaded, ['JetBrains Mono/normal', 'Literata/italic', 'Literata/normal']);
+    // The preloaded roman faces (H-04.3) are loaded whether or not this page sets text in them; no italic but Literata's is.
+    assert.deepEqual(result.loaded, ['Atkinson Hyperlegible Next/normal', 'Inter/normal', 'JetBrains Mono/normal', 'Literata/italic', 'Literata/normal', 'Source Serif 4/normal']);
     assert.deepEqual([...new Set(result.display)], ['block'], 'every face blocks rather than swapping in a fallback');
     assert.ok(result.literataIsNotSerif, 'the loaded face is not the system serif');
     assert.match(result.body, /^"?Literata"?/);
@@ -116,4 +117,12 @@ test('text is set in Literata and code in JetBrains Mono, and no frame shows a f
   } finally {
     await browser.close();
   }
+});
+
+// H-04.3: the faces a kind profile's first screen sets text in are read before first paint, so a report,
+// article or README does not swap face (and move) after it. Roman only; italics wait for the first emphasis.
+nodeTest('the roman faces of the Classic set are preloaded in the built page, the italics and licences are not (H-04.3)', { skip: skip && 'the build needs Vite only, but the suite shares its before hook' }, () => {
+  const html = readFileSync(join(outDir, 'index.html'), 'utf8');
+  const links = [...html.matchAll(/<link rel="preload" as="font"[^>]*href="\.\/(fonts\/[^"]+)"/g)].map((m) => m[1]).sort();
+  assert.deepEqual(links, ['fonts/AtkinsonHyperlegibleNext.woff2', 'fonts/InterVariable.woff2', 'fonts/JetBrainsMono.ttf', 'fonts/Literata.ttf', 'fonts/SourceSerif4.ttf']);
 });
