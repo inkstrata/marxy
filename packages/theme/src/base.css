@@ -796,6 +796,7 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
 .marxy-toolbar button[aria-disabled="true"] { color: var(--marxy-color-text-secondary); background: none; box-shadow: none; }
 .marxy-toolbar button[aria-disabled="true"][aria-checked="true"] { box-shadow: inset 0 -2px 0 var(--marxy-color-text-secondary); }
 .marxy-toolbar [data-marxy-toolbar-item] { display: flex; align-items: center; flex: none; gap: 2px; }
+.marxy-toolbar [hidden] { display: none; }
 .marxy-toolbar [data-marxy-toolbar-item="title"] { flex: 1 1 0; min-width: 5em; gap: 8px; overflow: hidden; white-space: nowrap; }
 .marxy-toolbar-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .marxy-toolbar-folder { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

@@ -4,7 +4,7 @@
 // The chip is the toolbar's `kind` door (W-05), which draws a plain button once `kind.chip` is registered. This
 // gives that button the kind's glyph (K-18) and name and keeps it true to the focused pane's `data-marxy-kind`, so a
 // kind decided late (K-05a.1) or decided again by a *Show as* reopen shows at once; with no document open the door is
-// taken out of the row entirely. Its menu is `commands/kind-chip.ts`. The strip is the `strip` region: the focused
+// taken out of the row entirely. In a row too narrow for it the toolbar folds it into *More* (toolbar.ts). Its menu is `commands/kind-chip.ts`. The strip is the `strip` region: the focused
 // kind's tools whose commands are registered (`toolsFor`), nothing when there are none, and then the band is hidden
 // from emptiness on the element itself. The remembered panel arrangement is never touched.
 import { parseConfig } from '@marxy/theme';
@@ -40,15 +40,6 @@ export function mountKindChip(el: HTMLElement, handle: AppHandle, signal: Docume
   item.before(place);
 
   let drawn: Kind | null = null;
-  let name: HTMLSpanElement | null = null;
-  // The row is built to fit the narrowest column (W-05); where the name would push a control off the end it gives way
-  // and the glyph stays. The kind is still named for a screen reader and in the tooltip. Measured now, so no frame shows both.
-  const fit = (): void => {
-    const bar = item.closest<HTMLElement>('.marxy-toolbar');
-    if (!bar || !name || !item.isConnected) return;
-    name.hidden = false;
-    if (bar.scrollWidth > bar.clientWidth + 0.5) name.hidden = true;
-  };
   const refresh = (): void => {
     const kind = focusedKind(handle);
     if (kind === null) {
@@ -59,7 +50,7 @@ export function mountKindChip(el: HTMLElement, handle: AppHandle, signal: Docume
     if (!item.isConnected) place.after(item);
     if (drawn === kind) return;
     drawn = kind;
-    name = document.createElement('span');
+    const name = document.createElement('span');
     name.className = 'marxy-kind-chip-name';
     name.textContent = kind;
     button.replaceChildren(kindIconElement(document, kind), name);
@@ -72,19 +63,12 @@ export function mountKindChip(el: HTMLElement, handle: AppHandle, signal: Docume
     button.title = `${kind}: how this file is read`;
     item.dataset.marxyKind = kind;
   };
-  const update = (): void => {
-    refresh();
-    fit();
-  };
-  update();
-  const off = signal.onChange(update);
-  const stop = watchKinds(handle, update);
-  const resize = new ResizeObserver(fit);
-  resize.observe(el);
+  refresh();
+  const off = signal.onChange(refresh);
+  const stop = watchKinds(handle, refresh);
   return () => {
     off();
     stop();
-    resize.disconnect();
     place.remove();
   };
 }

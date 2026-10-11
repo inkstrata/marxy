@@ -47,7 +47,8 @@ function folderRows(): VerbMenuRow[] {
 
 /** Where the menu opens: under the chip when it is drawn, else the middle of the window. */
 function anchorFor(): MenuAnchor {
-  const chip = document.querySelector('[data-marxy-toolbar-item="kind"]');
+  // Under the chip when it is in the row, else under *More* where the toolbar folded it.
+  const chip = document.querySelector('[data-marxy-toolbar-item="kind"]:not([hidden])') ?? document.querySelector('[data-marxy-toolbar-item="more"]');
   const box = chip?.getBoundingClientRect();
   if (box && box.width > 0) return { x: Math.round(box.left), y: Math.round(box.bottom), top: Math.round(box.top) };
   return { x: Math.round(window.innerWidth / 2), y: Math.round(window.innerHeight / 3) };

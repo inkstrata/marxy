@@ -87,8 +87,8 @@ look is W-04's.
 **The kind chip and the strip (K-07; ADR-0060 items 3 and 6).** Two more fills, both made on unfold and gone when folded
 (`workspace/kind-chip.ts`, installed in `fill.ts` after the toolbar's). The chip is the toolbar's `kind` door, drawn once
 `kind.chip` is registered: the kind's glyph (K-18) and name, following the focused pane's `data-marxy-kind` (so a kind
-decided late, or again by a reopen, shows at once). With no document the door is taken out of the row. Where its name
-would push a control off the end of the row it gives way to the glyph. Pressing it runs `kind.chip`
+decided late, or again by a reopen, shows at once). With no document the door is taken out of the row. In a row too narrow for it, the toolbar folds
+it into *More* (below). Pressing it runs `kind.chip`
 (`commands/kind-chip.ts`), a menu in the verb menu's chrome: first why the file is the kind it is (the `Reason`s
 `detectFileKind` returned at open, the decisive one first, as quiet rows that do nothing), then *Show as* each kind,
 *Show as detected* and *Always open this folder as…* (a second list). A choice runs K-04's command and then reopens the
@@ -97,6 +97,12 @@ file, so the kind takes effect now (`AppHandle.open`: unsaved edits meet its own
 `STRIP_TOOLS`, at most four per kind, each naming a command or `null`; `toolsFor` keeps those whose command is
 registered, or the reader's `[strip]` list). A kind with no tool puts nothing in the region and hides it from that
 emptiness, on the element, not through `setPanel`: the remembered arrangement is unchanged.
+
+**More (K-07).** When the toolbar row would overflow, the doors in `FOLD_ORDER` (`workspace/toolbar.ts`: Transform, Export,
+New, the kind chip, Find, lowest first) fold into one *More* button at its end, measured on the element so no frame shows
+both. Its menu lists each folded door's command in the verb menu's chrome, so every action stays reachable by mouse and
+keyboard and nothing is clipped. Back, Forward, the title, the switch and Copy never fold; where even they do not fit
+(`chrome_size` 26 in the narrowest column) the row scrolls as before.
 
 **Remembered panels.** Which regions are docked is `workspace.json` in the data directory beside `layout.json`
 (`{ version, panels: { sidebar, toolbar, tabs, strip, inspector, status-bar } }`; same version guard and quarantine).

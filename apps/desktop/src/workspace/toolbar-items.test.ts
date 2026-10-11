@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { commands } from '../commands/index.ts';
-import { MODE_CHOICES, TOOLBAR_ITEMS, visibleItems } from './toolbar.ts';
+import { FOLD_ORDER, MODE_CHOICES, TOOLBAR_ITEMS, visibleItems } from './toolbar.ts';
 
 const ids = (items: readonly { readonly id: string }[]): string[] => items.map((item) => item.id);
 // The panel toggles are registered now (W-03); the tests below add them on purpose, to say when they are drawn.
@@ -68,4 +68,11 @@ test('a panel toggle is drawn only when its command is registered and something 
 
 test('the mode switch is drawn when any of its three commands is registered', () => {
   assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, ['view.mode-source'], [])), ['title', 'mode']);
+});
+
+test('the doors that fold into More are real button doors, each with its own place in the order', () => {
+  const byId = new Map(TOOLBAR_ITEMS.map((i) => [i.id, i]));
+  for (const id of Object.keys(FOLD_ORDER)) assert.equal(byId.get(id)?.kind, 'button', `${id} is a button door`);
+  const orders = Object.values(FOLD_ORDER);
+  assert.equal(new Set(orders).size, orders.length);
 });
