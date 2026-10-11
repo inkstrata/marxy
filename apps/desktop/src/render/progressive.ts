@@ -24,6 +24,12 @@ export interface ProgressiveMount {
   ensureThrough(byte: number): void;
   /** Stops appending; nothing more is added (a new open, a teardown). */
   cancel(): void;
+  /**
+   * The inert container holding the blocks not yet in the article, in order, or null when every one is in.
+   * A reload that replaces blocks (render/incremental.ts) edits it as it edits the article, so what is
+   * appended later is the new page's.
+   */
+  pending(): HTMLElement | null;
 }
 
 export interface ProgressiveOptions {
@@ -168,6 +174,7 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
       parsed.replaceChildren();
       finish();
     },
+    pending: () => (done ? null : parsed),
   };
 }
 
@@ -178,5 +185,6 @@ function whole(): ProgressiveMount {
     isComplete: () => true,
     ensureThrough() {},
     cancel() {},
+    pending: () => null,
   };
 }
