@@ -35,7 +35,7 @@ const IDS = (op: { id: string }) => op.id;
 
 test('COPY_PACK lists copy-source, copy-plain and copy-rich, in that order', () => {
   assert.deepEqual(COPY_PACK.map(IDS), ['copy-source', 'copy-plain', 'copy-rich']);
-  assert.deepEqual(COPY_PACK.map((op) => op.title), ['Copy as markdown', 'Copy as plain text', 'Copy as rich text']);
+  assert.deepEqual(COPY_PACK.map((op) => op.title), ['Copy as markdown', 'Copy as plain text (strip markdown)', 'Copy as rich text']);
 });
 
 type Case = { name: string; source: string; plain: string; sourceText?: string };
@@ -227,4 +227,29 @@ test('copy-plain keeps words apart across an inline <br> (paragraph: newline; ta
     const table = wholeDocument(`| a |\n|---|\n| y${br}z |\n`);
     assert.equal(copyPlain.run(table).clipboard?.text, 'a\ny z', br);
   }
+});
+
+// E-11 rows. The card names copy-plain-text.test.ts, but copy-plain already ships (C-07), so its rows sit here.
+// Clipboards are not files: the clipboard text uses `\n` whatever the document's line endings; replacement === text.
+test('E-11: copy-plain clipboard text uses \\n for CRLF and CR sources, and replacement === text', () => {
+  for (const [name, eol] of [['LF', '\n'], ['CRLF', '\r\n'], ['CR', '\r']] as const) {
+    const source = `one${eol}two${eol}${eol}- three${eol}- four${eol}`;
+    const document = parse(source);
+    const first = document.children[0]!;
+    const para = copyPlain.run({ document, node: first, range: first.src, text: textOf(createBuffer('c07.md', enc.encode(source)), first.src) });
+    assert.equal(para.clipboard?.text, 'one two', `${name} paragraph (a soft break reads as a space)`);
+    const whole = wholeDocument(source);
+    const result = copyPlain.run(whole);
+    assert.equal(result.replacement, whole.text, `${name} replacement`);
+    assert.ok(!/\r/.test(result.clipboard!.text), `${name} clipboard has no CR`);
+    assert.equal(result.clipboard!.text, 'one two\n\n- three\n- four', `${name} document`);
+  }
+});
+
+test('E-11: copy-plain on a paragraph with a footnote reference, emphasis, a link and inline code', () => {
+  const source = 'Say *hi*[^1] to [the site](https://example.com) and `code`.\n\n[^1]: note\n';
+  const input = blockInput(source, 0);
+  const result = copyPlain.run(input);
+  assert.equal(result.replacement, input.text);
+  assert.equal(result.clipboard!.text, 'Say hi[1] to the site and code.');
 });
