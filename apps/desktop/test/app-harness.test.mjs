@@ -93,13 +93,13 @@ test('window.marxyApp.start boots the real app and records one readFile', async 
       // `.git` and `.git/HEAD` are the probes that tell checkouts of one repository apart (C-15).
       // K-05a: after first text the launch decides its document's kind, reading config.toml's `[[kind]]` rules
       // (a second `/config`; "read once before first_text" is pinned in persist-reading.test.mjs) and kinds.json.
-      const reads = all
-        .filter((p) => !String(p).startsWith('/data/index-') && p !== '/collection.toml' && p !== '/data/kinds.json' && !/\/\.git(\/HEAD)?$/.test(String(p)))
-        .filter((p, i, list) => !(p === '/config' && list.indexOf(p) !== i));
-      return { heading, reads, collectionReads: all.filter((p) => p === '/collection.toml').length };
+      const reads = all.filter((p) => !String(p).startsWith('/data/index-') && p !== '/collection.toml' && p !== '/data/kinds.json' && !/\/\.git(\/HEAD)?$/.test(String(p)));
+      const kindsReads = all.filter((p) => p === '/data/kinds.json').length;
+      return { heading, reads, kindsReads, collectionReads: all.filter((p) => p === '/collection.toml').length };
     }, { files: { '/docs/README.md': fixture.toString('base64') }, argv: ['/docs/README.md'] });
     assert.equal(result.heading, 'widgetlib');
-    assert.deepEqual(result.reads, ['/docs/README.md', '/config', '/data/trust.json']);
+    assert.deepEqual(result.reads, ['/docs/README.md', '/config', '/config', '/data/trust.json'], 'config twice: pre-paint, then the kind rules after first text');
+    assert.equal(result.kindsReads, 1);
     assert.ok(result.collectionReads <= 1, 'collection.toml is read at most once by the index');
   } finally {
     await browser.close();

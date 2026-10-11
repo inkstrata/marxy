@@ -247,3 +247,19 @@ test('Cmd-click beside a neighbour with unsaved edits asks first: nothing is rep
     assert.equal(await page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && String(c.args[0]).startsWith('/r/')).length), 0);
   });
 });
+
+// K-05a: an extension-less README family file is a Rendered document now; a link to one still opens beside.
+const family = ['README', 'CONTRIBUTING', 'CHANGELOG', 'CHANGES', 'HISTORY'];
+test('Cmd-click on a link to an extension-less README, CONTRIBUTING, CHANGELOG, CHANGES or HISTORY opens it beside, Rendered (K-05a)', async () => {
+  const plan = `# Plan\n\n${para('Plan').repeat(2)}\n\n${family.map((n) => `[${n}](./${n})`).join(' and ')}\n`;
+  const set = { '/r/plan.md': plan, '/r/readme.md': files['/r/readme.md'], ...Object.fromEntries(family.map((n) => [`/r/${n}`, `# ${n}\n\nText of ${n}.\n`])) };
+  await withPage(1470, async (page) => {
+    await bootTwoPanes(page, { files: set, open: ['/r/plan.md', '/r/readme.md'] });
+    for (const n of family) {
+      await cmdClick(page, 0, `./${n}`);
+      await page.waitForFunction((p) => window.__marxyHandle.panes().panes[1].path() === p, `/r/${n}`);
+      assert.equal((await modes(page))[1], 'rendered', `${n} opens Rendered`);
+      assert.deepEqual(await noticeTexts(page), [], `${n}: no refusal`);
+    }
+  });
+});

@@ -19,7 +19,7 @@ export function extensionOf(path: string): string {
  * (ADR-0060 item 3). Asked of detection itself, so the two lists cannot drift: a name in this family is the only
  * extension-less file that the path alone gives `readme` or `changelog` (tier 2 applies inside the family only).
  */
-function isNamedTextFamily(path: string): boolean {
+export function isNamedTextFamily(path: string): boolean {
   if (extensionOf(path) !== '') return false;
   const kind = detectKind({ path, head: new Uint8Array() }).kind;
   return kind === 'readme' || kind === 'changelog';

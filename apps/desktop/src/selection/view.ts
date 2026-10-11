@@ -20,7 +20,7 @@ import type { DocumentStore } from '../document/store.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { notify } from '../notices/index.ts';
 import { splitRefusal } from '../pane/fit.ts';
-import { defaultModeForPath } from '../source/default-mode.ts';
+import { defaultModeForPath, isNamedTextFamily } from '../source/default-mode.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { pathsForDocument } from '../render/images.ts';
 import type { NodeMap } from '../render/post.ts';
@@ -207,7 +207,7 @@ export function localLinkTarget(
     const where = normalizePath(imageRoot) === normalizePath(documentDir) ? 'folder' : 'repository';
     return { refused: `That link points outside this ${where} and was not opened.` };
   }
-  if (!MARKDOWN_LINK.test(basename(target)) && !(opts?.allowSource && defaultModeForPath(target) === 'source')) {
+  if (!MARKDOWN_LINK.test(basename(target)) && !(opts?.allowSource && (defaultModeForPath(target) === 'source' || isNamedTextFamily(target)))) {
     return { refused: 'Only markdown documents open inside Marxy.' };
   }
   return { target, fragment };
@@ -429,7 +429,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     }
 
     if (beside) {
-      if (defaultModeForPath(target) === 'source' && !looksLikeText(bytes)) {
+      if ((defaultModeForPath(target) === 'source' || isNamedTextFamily(target)) && !looksLikeText(bytes)) {
         notify({ kind: 'info', text: 'That file is not text.' });
         return;
       }
