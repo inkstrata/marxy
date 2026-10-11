@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Node } from '@marxy/core';
 import { cmDocText } from '../source/buffer-commit.ts';
-import { HISTORY_DEPTH, openDocumentStore, type DocumentSnapshot, type StoreIo, type Transition } from './store.ts';
+import { HISTORY_DEPTH, conflictCopyPath, openDocumentStore, type DocumentSnapshot, type StoreIo, type Transition } from './store.ts';
 import { importSpecs } from '../../../../scripts/lib/imports.mjs';
 
 const enc = new TextEncoder();
@@ -653,3 +653,209 @@ test('store.ts has no module-level let', () => {
   assert.doesNotMatch(STORE_SOURCE, /^let /m);
 });
 
+
+// ---- V-07: a file changed on disk over unsaved edits: keep mine as a copy, or take theirs ----
+
+/** A folder as a map: `peekFile`, `exists` and `writeFileAtomic` over it, with every write recorded. */
+function folderIo(files: Map<string, Uint8Array>, failWrite?: (path: string) => boolean): RecordingIo {
+  const io = recordingIo(async (path, bytes) => {
+    if (failWrite?.(path)) throw new Error('disk full');
+    files.set(path, new Uint8Array(bytes));
+  });
+  return {
+    ...io,
+    async peekFile(path) {
+      const bytes = files.get(path);
+      if (!bytes) throw new Error('not found');
+      return bytes;
+    },
+    async exists(path) {
+      return files.has(path);
+    },
+  };
+}
+
+/** A store on `text` at PATH, edited (dirty), with the file then changed on disk and the change refused. */
+async function conflicted(
+  text: Uint8Array,
+  edit: { start: number; end: number; replacement: string },
+  disk: Uint8Array,
+  failWrite?: (path: string) => boolean,
+) {
+  const files = new Map<string, Uint8Array>([[PATH, text]]);
+  const io = folderIo(files, failWrite);
+  const store = openDocumentStore(io, PATH, text);
+  await store.apply({ range: range(edit.start, edit.end), replacement: edit.replacement, label: 'edit' });
+  files.set(PATH, disk);
+  assert.equal(await store.reload(disk), 'kept');
+  return { files, io, store };
+}
+
+test('a dirty buffer and an external write: kept, the change is held for a choice, nothing is written or lost', async () => {
+  const { io, store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
+  assert.equal(dec.decode(store.conflict()!), 'three\n');
+  assert.equal(dec.decode(store.snapshot().buffer.bytes), 'two\n');
+  assert.equal(store.snapshot().dirty, true, 'the title still shows unsaved');
+  assert.deepEqual(io.writes, [], 'holding the choice writes nothing');
+  // Save keeps the existing refusal while the choice is pending.
+  const saved = await store.save();
+  assert.equal(saved.result, 'failed');
+  assert.deepEqual(io.writes, []);
+});
+
+test('no conflict, no choice: resolving does nothing', async () => {
+  const store = openDocumentStore(folderIo(new Map([[PATH, enc.encode('one\n')]])), PATH, enc.encode('one\n'));
+  assert.equal(store.conflict(), null);
+  assert.deepEqual(await store.resolveConflict('theirs'), { result: 'none' });
+});
+
+test('keep mine: the copy is the buffer byte for byte (BOM, CRLF), the original is theirs, the store is clean', async () => {
+  const mine = new Uint8Array([0xef, 0xbb, 0xbf, ...enc.encode('# Mine\r\n\r\nbody\r\n')]);
+  const { files, io, store } = await conflicted(mine, { start: 5, end: 9, replacement: 'Mine!' }, enc.encode('# Theirs\n'));
+  const buffer = store.snapshot().buffer.bytes.slice();
+  const outcome = await store.resolveConflict('mine');
+  assert.deepEqual(outcome, { result: 'resolved', copy: '/repo/doc (mine).md' });
+  assert.deepEqual([...files.get('/repo/doc (mine).md')!], [...buffer], 'the copy is exactly the reader\'s buffer');
+  assert.equal(buffer[0], 0xef, 'the BOM is in it');
+  assert.ok(dec.decode(buffer).includes('\r\n'), 'and the CRLF');
+  assert.deepEqual(io.writes.map((w) => w.path), ['/repo/doc (mine).md'], 'one write, to a new path');
+  assert.equal(dec.decode(files.get(PATH)!), '# Theirs\n', 'the original is what was on disk');
+  const snap = store.snapshot();
+  assert.equal(dec.decode(snap.buffer.bytes), '# Theirs\n');
+  assert.equal(snap.dirty, false);
+  assert.equal(snap.canUndo, false, 'history is cleared as a reload clears it');
+  assert.equal(store.conflict(), null);
+  assert.deepEqual(io.reads.at(-1), { path: PATH, bytes: enc.encode('# Theirs\n') }, 'the guard is armed on their bytes');
+  assert.equal((await store.save()).result, 'unchanged');
+});
+
+test('a second conflict makes (mine 2): a copy is never written over a file', async () => {
+  const { files, io, store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
+  const first = await store.resolveConflict('mine');
+  assert.equal(first.result === 'resolved' && first.copy, '/repo/doc (mine).md');
+  const firstCopy = files.get('/repo/doc (mine).md')!.slice();
+  // Edited again, changed on disk again.
+  await store.apply({ range: range(0, 6), replacement: 'four\n', label: 'edit' });
+  files.set(PATH, enc.encode('five\n'));
+  assert.equal(await store.reload(enc.encode('five\n')), 'kept');
+  const second = await store.resolveConflict('mine');
+  assert.equal(second.result === 'resolved' && second.copy, '/repo/doc (mine 2).md');
+  assert.deepEqual([...files.get('/repo/doc (mine).md')!], [...firstCopy], 'the first copy is untouched');
+  assert.equal(dec.decode(files.get('/repo/doc (mine 2).md')!), 'four\n');
+  assert.deepEqual(io.writes.map((w) => w.path), ['/repo/doc (mine).md', '/repo/doc (mine 2).md']);
+});
+
+test('copy names keep the folder and the extension, and a dotfile or extensionless name takes the tag last', () => {
+  assert.equal(conflictCopyPath('/a/b/notes.md', 1), '/a/b/notes (mine).md');
+  assert.equal(conflictCopyPath('/a/b/archive.tar.gz', 2), '/a/b/archive.tar (mine 2).gz');
+  assert.equal(conflictCopyPath('/a/b/README', 1), '/a/b/README (mine)');
+  assert.equal(conflictCopyPath('/a/b/.env', 1), '/a/b/.env (mine)');
+  assert.equal(conflictCopyPath('C:\\docs\\a.md', 3), 'C:\\docs\\a (mine 3).md');
+});
+
+test('take theirs: the unsaved edits are discarded for the disk\'s bytes, and nothing is written', async () => {
+  const { files, io, store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
+  assert.deepEqual(await store.resolveConflict('theirs'), { result: 'resolved' });
+  assert.equal(dec.decode(store.snapshot().buffer.bytes), 'three\n');
+  assert.equal(store.snapshot().dirty, false);
+  assert.equal(store.snapshot().canUndo, false);
+  assert.equal(store.conflict(), null);
+  assert.deepEqual(io.writes, [], 'taking theirs writes nothing');
+  assert.equal([...files.keys()].length, 1);
+});
+
+test('take theirs over text folded in from Source: the unfolded edits are the buffer it discards (and a copy keeps)', async () => {
+  const text = enc.encode('# Title\n\nbody\n');
+  const files = new Map<string, Uint8Array>([[PATH, text]]);
+  const io = folderIo(files);
+  const store = openDocumentStore(io, PATH, text);
+  // Source typed, not yet folded in: the store is clean, so the outside change is kept because a view holds text.
+  files.set(PATH, enc.encode('# Theirs\n'));
+  assert.equal(await store.reload(enc.encode('# Theirs\n'), { holds: () => true }), 'kept');
+  assert.equal(store.snapshot().dirty, false);
+  assert.ok(store.conflict(), 'held for the choice although the store is clean');
+  // The caller folds the Source text in first.
+  assert.equal(await store.commitSource('# Title\n\nbody typed in Source\n'), true);
+  const outcome = await store.resolveConflict('mine');
+  assert.equal(outcome.result === 'resolved' && outcome.copy, '/repo/doc (mine).md');
+  assert.equal(dec.decode(files.get('/repo/doc (mine).md')!), '# Title\n\nbody typed in Source\n', 'the copy holds the unfolded text');
+  assert.equal(dec.decode(store.snapshot().buffer.bytes), '# Theirs\n');
+});
+
+test('a failed copy write leaves the buffer and the pending choice unchanged, and says why', async () => {
+  const { files, store } = await conflicted(
+    enc.encode('one\n'),
+    { start: 0, end: 3, replacement: 'two' },
+    enc.encode('three\n'),
+    (path) => path.includes('(mine)'),
+  );
+  const before = store.snapshot();
+  const outcome = await store.resolveConflict('mine');
+  assert.equal(outcome.result, 'failed');
+  assert.match(String((outcome as { error: Error }).error), /disk full/);
+  assert.equal(store.snapshot(), before, 'nothing in the store moved');
+  assert.equal(dec.decode(store.conflict()!), 'three\n', 'still pending');
+  assert.equal(files.size, 1, 'no copy was left');
+  assert.equal(dec.decode(files.get(PATH)!), 'three\n');
+});
+
+test('without a way to tell whether a copy would overwrite a file, keep mine writes nothing', async () => {
+  const files = new Map<string, Uint8Array>([[PATH, enc.encode('one\n')]]);
+  const io = { ...folderIo(files), exists: undefined };
+  const store = openDocumentStore(io, PATH, enc.encode('one\n'));
+  await store.apply({ range: range(0, 3), replacement: 'two', label: 'edit' });
+  assert.equal(await store.reload(enc.encode('three\n')), 'kept');
+  assert.equal((await store.resolveConflict('mine')).result, 'failed');
+  assert.deepEqual(io.writes, []);
+  assert.ok(store.conflict());
+});
+
+test('a further external change while a choice is pending updates the held bytes; the choice acts on the latest', async () => {
+  const { files, store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
+  files.set(PATH, enc.encode('four\n'));
+  assert.equal(await store.reload(enc.encode('four\n')), 'kept');
+  assert.equal(dec.decode(store.conflict()!), 'four\n');
+  await store.resolveConflict('theirs');
+  assert.equal(dec.decode(store.snapshot().buffer.bytes), 'four\n');
+});
+
+test('the choice reads the file as it is when chosen, not as it was when noticed', async () => {
+  const { files, store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
+  files.set(PATH, enc.encode('later\n')); // no watch event reached the store yet
+  await store.resolveConflict('theirs');
+  assert.equal(dec.decode(store.snapshot().buffer.bytes), 'later\n');
+  assert.equal(dec.decode(store.snapshot().disk!), 'later\n');
+});
+
+test('the file coming back to the bytes the buffer was read from ends the pending choice', async () => {
+  const { store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
+  assert.equal(await store.reload(enc.encode('one\n')), 'unchanged');
+  assert.equal(store.conflict(), null);
+  assert.equal(store.snapshot().dirty, true);
+});
+
+test('a Save as elsewhere ends the pending choice about the old file', async () => {
+  const { store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
+  assert.equal((await store.save({ to: '/repo/other.md' })).result, 'saved');
+  assert.equal(store.conflict(), null);
+});
+
+test('the file deleted while a choice is pending: Take theirs refuses and keeps the edits; stale bytes are never adopted (V-07)', async () => {
+  const { files, store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
+  files.delete(PATH);
+  const before = store.snapshot();
+  const outcome = await store.resolveConflict('theirs');
+  assert.equal(outcome.result, 'failed');
+  assert.equal(store.snapshot(), before, 'buffer, history and disk untouched');
+  assert.ok(store.conflict(), 'still pending');
+});
+
+test('the file deleted while a choice is pending: Keep mine saves the copy and keeps the buffer, adopting nothing (V-07)', async () => {
+  const { files, store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
+  files.delete(PATH);
+  const outcome = await store.resolveConflict('mine');
+  assert.deepEqual(outcome, { result: 'resolved', copy: '/repo/doc (mine).md' });
+  assert.equal(dec.decode(files.get('/repo/doc (mine).md')!), 'two\n');
+  assert.equal(dec.decode(store.snapshot().buffer.bytes), 'two\n');
+  assert.equal(store.snapshot().canUndo, true);
+});

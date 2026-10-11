@@ -8,6 +8,11 @@ import {
   undoDocumentEdit,
 } from './edits.ts';
 import { updateTabWidthResolver } from '../source/tab-width.ts';
+import { appHandle } from './app-handle.ts';
+import { basename } from '@marxy/core/src/index-model/paths.ts';
+import type { ShellError } from '@marxy/shell-api';
+import { clearDiskChangedChooseNotices } from '../notices/disk.ts';
+import { SOURCE_HELD_APART } from '../notices/index.ts';
 
 export { attachDocumentEdits } from './edits.ts';
 
@@ -66,6 +71,41 @@ function canSaveOpenDocument(ctx: AppContext): boolean {
   return store !== null && !store.snapshot().path.startsWith('marxy:');
 }
 
+/** A change on disk is waiting over unsaved edits for the reader to choose (V-07): the store holds it. */
+function hasDiskConflict(ctx: AppContext): boolean {
+  return ctx.document !== null && ctx.document.conflict() !== null;
+}
+
+/**
+ * The reader's choice over a changed-on-disk conflict (V-07). Source text not yet folded in is folded first, so
+ * it counts as the reader's edits: a copy holds it, and 'theirs' discards it only because the reader said so.
+ * Text this pane cannot fold (held apart from another pane's, D-11) is refused rather than guessed at.
+ */
+async function resolveDiskConflict(ctx: AppContext, choice: 'mine' | 'theirs'): Promise<void> {
+  const store = ctx.document;
+  if (!store || store.conflict() === null) return;
+  const app = appHandle();
+  await app?.foldSource();
+  if (app?.hasUnfoldedSource()) {
+    ctx.showNotice(SOURCE_HELD_APART);
+    return;
+  }
+  const outcome = await store.resolveConflict(choice);
+  if (outcome.result === 'failed') {
+    const err = outcome.error;
+    const said = err && typeof err === 'object' && 'message' in err ? String((err as ShellError).message) : String(err);
+    ctx.showNotice(`Could not save a copy: ${said.replace(/\.$/, '')}. Nothing was changed; your edits are still here.`);
+    return;
+  }
+  if (outcome.result === 'none') return;
+  clearDiskChangedChooseNotices();
+  ctx.showNotice(
+    outcome.copy !== undefined
+      ? `Your version was saved as ${basename(outcome.copy)}. ${store.snapshot().dirty ? 'The file is gone from disk; your text is still open here.' : 'This file now shows what is on disk.'}`
+      : 'Your unsaved edits were discarded and cannot be brought back with Undo. This file now shows what is on disk.',
+  );
+}
+
 export function documentCommands(): readonly Command[] {
   return [
     {
@@ -89,6 +129,21 @@ export function documentCommands(): readonly Command[] {
       run: async () => {
         await save({ as: true });
       },
+    },
+    {
+      id: 'document.keep-mine-as-copy',
+      title: 'Keep my version as a copy',
+      group: 'document',
+      // Only while the file changed on disk over unsaved edits; writes a new file, never over one.
+      when: hasDiskConflict,
+      run: (ctx) => resolveDiskConflict(ctx, 'mine'),
+    },
+    {
+      id: 'document.take-version-on-disk',
+      title: 'Take the version on disk',
+      group: 'document',
+      when: hasDiskConflict,
+      run: (ctx) => resolveDiskConflict(ctx, 'theirs'),
     },
     {
       id: 'document.undo',

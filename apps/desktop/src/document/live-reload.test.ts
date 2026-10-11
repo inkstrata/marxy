@@ -209,3 +209,71 @@ test('a reload asks every view at the commit: Source text in any of them keeps t
   assert.equal(new TextDecoder().decode(store.snapshot().buffer.bytes), text, 'nothing was adopted');
   assert.equal(quiet.told.length, 0);
 });
+
+// ---- V-07: the watch raises the choice; the store holds it once for every pane ----
+
+test('an outside write over unsaved edits: kept, every pane told once, one pending choice, nothing written (V-07)', async () => {
+  const text = '# One\n\nFirst paragraph.\n';
+  const fake = fakeShell(new Map([['/d/a.md', enc.encode(text)]]));
+  const writes: string[] = [];
+  const store = openDocumentStore(
+    { writeFileAtomic: async (p, b) => { writes.push(p); fake.disk.set(p, b); }, exists: async (p) => fake.disk.has(p), peekFile: async (p) => fake.disk.get(p)! },
+    '/d/a.md',
+    fake.disk.get('/d/a.md')!,
+  );
+  await store.apply({ range: { file: '/d/a.md', start: 2, end: 5 }, replacement: 'Mine', label: 'edit' });
+  const first = fakeView(store, { byteOffset: 0, fraction: 0, mode: 'rendered' });
+  const second = fakeView(store, { byteOffset: 0, fraction: 0, mode: 'rendered' });
+  const told: unknown[] = [];
+  const d = Object.assign(deps(fake.shell), { onConflict: (target: unknown) => void told.push(target) });
+  await watchDocument(store, () => [first, second], d);
+  fake.disk.set('/d/a.md', enc.encode('# Theirs\n'));
+  fake.watches[0].emit([{ kind: 'modified', path: '/d/a.md' }]);
+  await d.queue;
+  assert.equal(told.length, 2, 'said in each pane that shows the file');
+  assert.equal(new TextDecoder().decode(store.conflict()!), '# Theirs\n', 'one pending choice, on the store');
+  assert.equal(store.snapshot().dirty, true, 'nothing lost: the title still shows unsaved');
+  assert.match(new TextDecoder().decode(store.snapshot().buffer.bytes), /^# Mine/);
+  assert.deepEqual(writes, [], 'nothing is written until the reader chooses');
+  // Dismissing the notice is not a choice: both versions are still safe, and a save still refuses.
+  assert.equal((await store.save()).result, 'failed');
+  assert.deepEqual(writes, []);
+  // A further change while pending updates the held bytes and says so again.
+  fake.disk.set('/d/a.md', enc.encode('# Theirs again\n'));
+  fake.watches[0].emit([{ kind: 'modified', path: '/d/a.md' }]);
+  await d.queue;
+  assert.equal(new TextDecoder().decode(store.conflict()!), '# Theirs again\n');
+  assert.equal(told.length, 4);
+});
+
+test('Source text typed and not folded in is an unsaved edit the choice holds for too (V-07)', async () => {
+  const text = '# One\n\nFirst paragraph.\n';
+  const fake = fakeShell(new Map([['/d/a.md', enc.encode(text)]]));
+  const store = storeFor(fake, '/d/a.md');
+  const view = fakeView(store, { byteOffset: 0, fraction: 0, mode: 'source' });
+  (view as unknown as { sourceHasUnfoldedEdits(): boolean }).sourceHasUnfoldedEdits = () => true;
+  const told: unknown[] = [];
+  const d = Object.assign(deps(fake.shell), { onConflict: (target: unknown) => void told.push(target) });
+  await watchDocument(store, () => [view], d);
+  fake.disk.set('/d/a.md', enc.encode('# Theirs\n'));
+  fake.watches[0].emit([{ kind: 'modified', path: '/d/a.md' }]);
+  await d.queue;
+  assert.equal(told.length, 1);
+  assert.equal(new TextDecoder().decode(store.conflict()!), '# Theirs\n', 'the store holds it though its own buffer is clean');
+  assert.equal(new TextDecoder().decode(store.snapshot().buffer.bytes), text, 'nothing adopted over the typing');
+});
+
+test('an outside write of exactly the buffer\'s bytes raises no choice (V-07)', async () => {
+  const text = '# One\n';
+  const fake = fakeShell(new Map([['/d/a.md', enc.encode(text)]]));
+  const store = storeFor(fake, '/d/a.md');
+  const view = fakeView(store, { byteOffset: 0, fraction: 0, mode: 'source' });
+  (view as unknown as { sourceHasUnfoldedEdits(): boolean }).sourceHasUnfoldedEdits = () => true;
+  const told: unknown[] = [];
+  const d = Object.assign(deps(fake.shell), { onConflict: (target: unknown) => void told.push(target) });
+  await watchDocument(store, () => [view], d);
+  fake.watches[0].emit([{ kind: 'modified', path: '/d/a.md' }]);
+  await d.queue;
+  assert.deepEqual(told, []);
+  assert.equal(store.conflict(), null);
+});

@@ -11,7 +11,7 @@ import { classify } from '@marxy/core/src/index-model/kinds.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import type { AppShell } from '../app.ts';
-import { diskChangedEditsKeptNotice, fileRemovedNotice } from '../notices/disk.ts';
+import { clearDiskChangedChooseNotices, diskChangedChooseNotice, fileRemovedNotice } from '../notices/disk.ts';
 import { paneOf, type NoticeTarget } from '../notices/index.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
 import type { DocumentStore } from './store.ts';
@@ -30,6 +30,8 @@ export interface LiveReloadDeps {
   foldSource(): Promise<void>;
   /** The store follows a rename under unsaved edits and every view has set the page again: title and selection. */
   renamed(path: string): Promise<void>;
+  /** Says the change is waiting for the reader's choice (V-07), in a pane; the page's own notice unless a test names one. */
+  readonly onConflict?: (target: NoticeTarget) => void;
   /** A markdown file in the watched folder changed (not the echo of Marxy's own save): re-walk its root. */
   changed(path: string): void;
 }
@@ -141,9 +143,11 @@ export async function watchDocument(
       for (const view of places.keys()) view.expectReloadAt(null);
     }
     if (outcome === 'kept') {
-      say(diskChangedEditsKeptNotice);
+      say(conflictNotice);
       return;
     }
+    // Disk came back to what the buffer has (or the reader's edits are gone): there is no choice to make.
+    if (store.conflict() === null) clearDiskChangedChooseNotices();
     const t1 = performance.now();
     for (const view of places.keys()) await view.settled();
     if (outcome !== 'reloaded') return;
@@ -185,6 +189,7 @@ export async function watchDocument(
 
   /** The pane `view` draws in: a notice about the file is said in the panes that show it, and in no other. */
   const targetOf = (view: RenderedView): NoticeTarget => ({ pane: paneOf(view.host?.article) });
+  const conflictNotice = (target: NoticeTarget): void => (deps.onConflict ?? diskChangedChooseNotice)(target);
   const say = (notice: (target: NoticeTarget) => void): void => {
     for (const view of views()) notice(targetOf(view));
   };
@@ -231,8 +236,11 @@ export async function watchDocument(
     const { buffer, ast } = store.snapshot();
     // Text typed in Source and not yet folded in is an unsaved edit the store cannot see: keep it, as the
     // store keeps a dirty buffer. Bytes equal to the buffer change nothing the reader could lose.
+    // The store is told, so the change is held for the reader's choice (V-07) like a dirty buffer's.
     if (unfoldedSourceInAnyView()) {
-      if (!sameBytes(diskBytes, buffer.bytes)) say(diskChangedEditsKeptNotice);
+      if (!sameBytes(diskBytes, buffer.bytes) && (await store.reload(diskBytes, { holds: unfoldedSourceInAnyView })) === 'kept') {
+        say(conflictNotice);
+      }
       return;
     }
     // The new bytes' parse, of only the blocks the change touched (B-23): the place is mapped through it.
