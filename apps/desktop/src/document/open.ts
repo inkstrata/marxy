@@ -72,6 +72,11 @@ export interface OpenPathDeps {
   selection(): RenderedSelection | null;
   /** The pieces a launch with no document chooses from; null is the bundled Commonplace (MARXY-256). */
   readonly pieces: readonly PieceSource[] | null;
+  /**
+   * A Save As moved `store` onto a path another pane shows through a second store (D-10.1): that pane
+   * lets its store go and shows `store`, so the path has one store and one watch.
+   */
+  rejoin?(store: DocumentStore): Promise<void>;
   /** This open path's document titles the window (the focused pane's, D-01); unset, it always does. */
   ownsTitle?(): boolean;
 }
@@ -88,6 +93,8 @@ export interface OpenPath {
    * on disk, D-10): `at` is the byte held at the reading line.
    */
   follow(path: string, at: number): Promise<void>;
+  /** Show this pane's path again through the store the registry now holds for it (D-10.1), at the place it was. */
+  rejoin(): Promise<void>;
   currentPath(): string | null;
   /** The open document's store, or null. */
   store(): DocumentStore | null;
@@ -211,9 +218,28 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
 
   /** The store's save, with what only the app can do around it (save.ts). */
   function saveDeps(open: DocumentStore): SaveDeps {
+    // The path the reader picks may be one another pane shows through its own store: a second store for it
+    // would break one-store-per-path, and unsaved text in that pane would be thrown away (D-10.1).
+    const pickAround = async (options: Parameters<AppShell['saveDialog']>[0]): Promise<string | null> => {
+      const picked = await shell.saveDialog(options);
+      if (!picked) return picked;
+      const other = deps.stores?.held(picked) ?? null;
+      if (other && other !== open) {
+        const unsaved = other.snapshot().dirty || deps.viewsOver(other).some((v) => v.sourceHasUnfoldedEdits());
+        if (unsaved) {
+          const { notify } = await import('../notices/index.ts');
+          notify(
+            { kind: 'info', text: `${documentName(picked)} is open in the other pane with changes that are not saved. Save or close it there first; nothing was written.` },
+            { pane: paneOf(doc) },
+          );
+          return null;
+        }
+      }
+      return picked;
+    };
     return {
       store: open,
-      shell,
+      shell: Object.assign(Object.create(shell), { saveDialog: pickAround }) as AppShell,
       foldSource: async () => {
         if (current === open) await foldSource();
       },
@@ -234,6 +260,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         } else {
           await (await watches.of(open))?.moved();
         }
+        // Another pane showing the path through its own (clean) store now shows this one (D-10.1).
+        await deps.rejoin?.(open);
         deps.selection()?.afterRender();
       },
     };
@@ -349,14 +377,14 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     await refreshTitle();
   }
 
-  async function openReplacing(file: string, at?: number, scratch?: OpenOptions['scratch']): Promise<void> {
+  async function openReplacing(file: string, at?: number, scratch?: OpenOptions['scratch'], again = false): Promise<void> {
     if (closed) return;
     const openPath = currentPath();
     // A scratch document asked for again, with no bytes to open it from: it is already here, and nothing
     // else could say what it was (there is no file to read back).
-    if (file === openPath && isUntitled(file) && !scratch && view.document()) return;
+    if (!again && file === openPath && isUntitled(file) && !scratch && view.document()) return;
     if (openPath && file !== openPath) await persistence.flushReading(view);
-    if (file === openPath && view.document() && at !== undefined) {
+    if (!again && file === openPath && view.document() && at !== undefined) {
       // A heading in the document already on screen: move, do not read and set it again.
       if (view.mode === 'source') await view.leaveSource();
       view.landOn(at);
@@ -524,6 +552,12 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     },
     refreshTitle,
     follow: (file, at) => openReplacing(file, at),
+    rejoin: () =>
+      serially(async () => {
+        const file = currentPath();
+        if (file === null || isUntitled(file)) return;
+        await openReplacing(file, view.position().byteOffset, undefined, true);
+      }),
     close() {
       closed = true;
       followers.clear();
