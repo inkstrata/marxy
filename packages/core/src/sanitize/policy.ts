@@ -126,6 +126,8 @@ export const RENDERER_CLASSES_WITHOUT_PROVENANCE: ReadonlySet<string> = new Set(
   'marxy-footnote-back',
 ]);
 const SMALL_INTEGER = /^[0-9]{1,9}$/;
+/** `ol start` and `li value`: one optional ASCII `-`, then up to nine ASCII digits. No `+`, unit, exponent or expression. */
+const SIGNED_SMALL_INTEGER = /^-?[0-9]{1,9}$/;
 const BCP47 = /^[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8}){0,4}$/;
 
 const TEXT: AttributeRule = { kind: 'text' };
@@ -189,8 +191,8 @@ const MARKDOWN_EQUIVALENT: Readonly<Record<string, ElementRule>> = {
    */
   img: { attributes: { src: SUBRESOURCE, alt: TEXT, title: TEXT, class: { kind: 'tokens', token: CLASS_TOKEN } } },
   kbd: {},
-  li: { attributes: { id: { kind: 'pattern', pattern: IDENTIFIER } } },
-  ol: { attributes: { start: { kind: 'pattern', pattern: SMALL_INTEGER }, reversed: { kind: 'boolean' }, class: { kind: 'tokens', token: CLASS_TOKEN } } },
+  li: { attributes: { id: { kind: 'pattern', pattern: IDENTIFIER }, value: { kind: 'pattern', pattern: SIGNED_SMALL_INTEGER } } },
+  ol: { attributes: { start: { kind: 'pattern', pattern: SIGNED_SMALL_INTEGER }, reversed: { kind: 'boolean' }, class: { kind: 'tokens', token: CLASS_TOKEN } } },
   p: {},
   pre: { attributes: { class: { kind: 'tokens', token: CLASS_TOKEN } } },
   s: {},
