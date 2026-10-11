@@ -304,7 +304,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   async function openReplacing(file: string, at?: number): Promise<void> {
     if (closed) return;
     const openPath = currentPath();
-    if (openPath && file !== openPath) await persistence.flushReading();
+    if (openPath && file !== openPath) await persistence.flushReading(view);
     if (file === openPath && view.document() && at !== undefined) {
       // A heading in the document already on screen: move, do not read and set it again.
       if (view.mode === 'source') await view.leaveSource();

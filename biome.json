@@ -10,7 +10,8 @@
       "!!**/dist",
       "!!**/target",
       "!!results",
-      "!!docs/research"
+      "!!docs/research",
+      "!!apps/desktop/test/fixtures/paste"
     ]
   },
   "assist": {
