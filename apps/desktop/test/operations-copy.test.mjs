@@ -437,6 +437,28 @@ test('C-06: the palette shows Mod+C on the selection\'s default verb and Mod+Shi
   }
 });
 
+test('E-11: typing "strip" after > in the palette finds Copy as plain text (strip markdown) for a paragraph selection', async () => {
+  const file = '02-readme-real-world.md';
+  const docPath = `/corpus/${file}`;
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    const para = page.locator('#doc > p[data-marxy-s]').filter({ hasText: 'widgetlib authors' });
+    await para.scrollIntoViewIfNeeded();
+    await para.click();
+    await page.evaluate(() => window.__marxyOpsBoot.handle.palette.open('>'));
+    const query = page.locator('#marxy-palette .marxy-palette-query');
+    await query.press('End');
+    await query.type(' strip');
+    const row = page.locator('#marxy-palette .marxy-palette-row[data-row-key="op.copy-plain"]');
+    await row.waitFor();
+    assert.match((await row.textContent()) ?? '', /Copy as plain text \(strip markdown\)/);
+  } finally {
+    await browser.close();
+  }
+});
+
 async function clipboardWrites(page) {
   return page.evaluate(() => window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite').map((c) => c.args[0]));
 }
