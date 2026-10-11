@@ -128,3 +128,22 @@ test('a CR-only file: the shared separator rule splits on CR, and positions map 
   assert.equal(lineSeparatorFor(createBuffer('/tmp/x.ts', enc('a\r\nb\n'))), '\n', 'mixed keeps LF');
   assert.equal(lineSeparatorFor(createBuffer('/tmp/x.ts', enc('a\r\nb\r\n'))), '\r\n');
 });
+
+test('a stray sequence of several bytes is several editor positions and one buffer offset; bytes map both ways (F-34.1)', () => {
+  // "a", then E2 82 (a cut-off three-byte sequence), then "b\r\n", then FF, then "c\r\n" with a BOM: CRLF, BOM and strays at once.
+  const buffer = createBuffer('/tmp/x.md', new Uint8Array([0xef, 0xbb, 0xbf, 0x61, 0xe2, 0x82, 0x62, 0x0d, 0x0a, 0xff, 0x63, 0x0d, 0x0a]));
+  const state = stateFor(buffer);
+  assert.equal(state.lineBreak, '\r\n');
+  assert.equal(state.doc.line(1).text.length, 4, 'a, two stray units, b');
+  // Each editor position on the first two lines, and the byte it stands at.
+  const bytesAt = [3, 4, 5, 6, 7, 9, 10, 11];
+  const positions = [0, 1, 2, 3, 4, 5, 6, 7];
+  positions.forEach((pos, i) => {
+    const byte = utf16ToByte(buffer, cmPosToUtf16(buffer, state, pos));
+    // Inside the cut-off sequence a position rounds to its first byte: the buffer's text has one U+FFFD for both.
+    assert.equal(byte, pos === 2 ? 4 : bytesAt[i], `pos ${pos}`);
+  });
+  for (const [byte, pos] of [[3, 0], [4, 1], [6, 3], [7, 4], [9, 5], [10, 6], [11, 7]]) {
+    assert.equal(renderedByteToCmPos(buffer, state, byte), pos, `byte ${byte}`);
+  }
+});

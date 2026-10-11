@@ -48,12 +48,17 @@ export async function createSourceEditor(
           annotations: Transaction.addToHistory.of(false),
         });
       }
-      // New bytes from outside (a reload from disk): not the reader's edit, so Mod+Z must not bring
-      // the text on disk back to what it was before.
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: nextDoc },
-        annotations: Transaction.addToHistory.of(false),
-      });
+      // New bytes from outside (a reload from disk), or the editor's own fold read back differently (two stray
+      // bytes made neighbours that now spell a character, F-34.1): not the reader's edit, so Mod+Z must not bring
+      // the old text back. Only the part that differs is replaced, so the caret and the history map through it.
+      if (separatorChanged) {
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: nextDoc },
+          annotations: Transaction.addToHistory.of(false),
+        });
+        return;
+      }
+      view.dispatch({ changes: differingPart(textNow(), nextDoc, view.state.lineBreak), annotations: Transaction.addToHistory.of(false) });
     },
     scrollToByte(byteOffset: number) {
       scrollSourceToByte(buffer, view, byteOffset, readingLine());
@@ -64,5 +69,33 @@ export async function createSourceEditor(
     setLineNumbers(on: boolean) {
       toggleLineNumbersInView(view, on, compartments.lineNumbersCompartment);
     },
+  };
+}
+
+/**
+ * The one change that turns `from` into `to` (both the editor's text in its own line separator): the part between their
+ * common start and end, in CodeMirror positions (a separator is one position). Never splits a separator or a
+ * surrogate pair.
+ */
+export function differingPart(from: string, to: string, lineBreak: string): { from: number; to: number; insert: string } {
+  const limit = Math.min(from.length, to.length);
+  let head = 0;
+  while (head < limit && from.charCodeAt(head) === to.charCodeAt(head)) head++;
+  let tail = 0;
+  while (tail < limit - head && from.charCodeAt(from.length - 1 - tail) === to.charCodeAt(to.length - 1 - tail)) tail++;
+  const splits = (s: string, at: number): boolean => {
+    if (at <= 0 || at >= s.length) return false;
+    const a = s.charCodeAt(at - 1);
+    const b = s.charCodeAt(at);
+    return (a === 0x0d && b === 0x0a) || (a >= 0xd800 && a < 0xdc00 && b >= 0xdc00 && b < 0xe000);
+  };
+  while (head > 0 && (splits(from, head) || splits(to, head))) head--;
+  while (tail > 0 && (splits(from, from.length - tail) || splits(to, to.length - tail))) tail--;
+  // A string offset less one per separator before it, when the separator is two characters.
+  const pos = (s: string, at: number): number => (lineBreak.length === 1 ? at : at - (s.slice(0, at).split(lineBreak).length - 1));
+  return {
+    from: pos(from, head),
+    to: pos(from, from.length - tail),
+    insert: to.slice(head, to.length - tail),
   };
 }

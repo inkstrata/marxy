@@ -3,6 +3,7 @@
 
 import type { Source } from '../contracts/ast.ts';
 import { decodeWithOffsets, type ByteOffsets } from '../parse/byte-offsets.ts';
+import { encodeSourceText, sourceTextOf } from './source-text.ts';
 
 const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
 const encoder = new TextEncoder();
@@ -31,8 +32,8 @@ export function bytesOf(buffer: Buffer, range: Source): Uint8Array {
 }
 
 /**
- * Decode the bytes in `range`. Throws if `start` or `end` is a UTF-8 continuation byte,
- * so a caller cannot cut a code point in half and write the fragments back.
+ * Decode the bytes in `range`. Throws if `start` or `end` is a UTF-8 continuation byte inside a
+ * character, so a caller cannot cut a code point in half and write the fragments back.
  */
 export function textOf(buffer: Buffer, range: Source): string {
   assertUtf8Boundary(buffer.bytes, range.start);
@@ -60,8 +61,8 @@ export function splice(
 }
 
 /**
- * Encode `text` using `like`'s line endings and BOM. Used when Source mode folds back
- * into the buffer — the file's convention, not the editor's, wins.
+ * Encode `text` (a Source text, `sourceTextOf`) using `like`'s line endings and BOM. Used when Source mode
+ * folds back into the buffer — the file's convention, not the editor's, wins.
  */
 export function fromText(path: string, text: string, like: Buffer): Buffer {
   const fold = foldText(like, text);
@@ -76,15 +77,16 @@ export function fromText(path: string, text: string, like: Buffer): Buffer {
 }
 
 /**
- * The one splice that turns `like` into the editor's `text` (which carries no BOM): the bytes of the
- * part that differs, and nothing else. Everything before and after the edit keeps its bytes as they
- * were — a mixed-ending file keeps each line's ending and a byte that is not UTF-8 is not rewritten
- * as U+FFFD — so an edit in Source touches only what the reader changed. Inside the edit, line endings
- * follow the file (CRLF for a CRLF file). `null` when nothing differs.
+ * The one splice that turns `like` into the editor's `text`: the bytes of the part that differs, and nothing else.
+ * `text` is a Source text (`sourceTextOf`, without the BOM), in which each byte that is not UTF-8 is its own code
+ * unit, so equal text is equal bytes: everything before and after the edit keeps its bytes, and the part that
+ * differs is written as the bytes the text names (a stray byte typed nowhere but moved, copied or left inside the
+ * edit is still its own byte; a U+FFFD is EF BF BD). The result is the bytes `text` stands for, exactly (F-34.1).
+ * Inside the edit, line endings follow the file (CRLF for a CRLF file). `null` when no byte differs.
  */
 export function foldText(like: Buffer, text: string): { range: Source; replacement: Uint8Array } | null {
   const skip = like.bom ? 1 : 0;
-  const old = like.text;
+  const { text: old, offsets } = sourceTextOf(like);
   const oldLength = old.length - skip;
   const limit = Math.min(oldLength, text.length);
   let prefix = 0;
@@ -97,21 +99,27 @@ export function foldText(like: Buffer, text: string): { range: Source; replaceme
   ) {
     suffix++;
   }
-  // Never cut a surrogate pair or a CRLF: the edit widens to take the whole of either.
-  const cuts = (at: number): boolean =>
+  // Never cut a surrogate pair or a CRLF, in the editor's text or the file's: the edit widens to take the whole.
+  const cuts = (s: string, at: number): boolean =>
     at > 0 &&
-    at < text.length &&
-    ((isHigh(text.charCodeAt(at - 1)) && isLow(text.charCodeAt(at))) || (text[at - 1] === '\r' && text[at] === '\n'));
-  // The old text's pairs count too: an LF input against a CRLF buffer must not stop between the two.
-  const cutsOld = (at: number): boolean => at > 0 && at < old.length && old[at - 1] === '\r' && old[at] === '\n';
-  while (prefix > 0 && (cuts(prefix) || cutsOld(skip + prefix))) prefix--;
-  while (suffix > 0 && (cuts(text.length - suffix) || cutsOld(old.length - suffix))) suffix--;
+    at < s.length &&
+    ((isHigh(s.charCodeAt(at - 1)) && isLow(s.charCodeAt(at))) || (s[at - 1] === '\r' && s[at] === '\n'));
+  while (prefix > 0 && (cuts(text, prefix) || cuts(old, skip + prefix))) prefix--;
+  while (suffix > 0 && (cuts(text, text.length - suffix) || cuts(old, old.length - suffix))) suffix--;
   const middle = text.slice(prefix, text.length - suffix);
   const converted = like.eol === 'crlf' ? middle.replace(/\r\n|\n/g, '\r\n') : middle;
-  return {
-    range: { file: like.path, start: like.offsets.at(skip + prefix), end: like.offsets.at(old.length - suffix) },
-    replacement: encoder.encode(converted),
-  };
+  const replacement = encodeSourceText(converted);
+  const start = offsets.at(skip + prefix);
+  const end = offsets.at(old.length - suffix);
+  // Different text can name the same bytes (two stray bytes made adjacent spell a character): nothing to write.
+  if (sameBytes(like.bytes, start, end, replacement)) return null;
+  return { range: { file: like.path, start, end }, replacement };
+}
+
+function sameBytes(bytes: Uint8Array, start: number, end: number, replacement: Uint8Array): boolean {
+  if (end - start !== replacement.length) return false;
+  for (let i = 0; i < replacement.length; i++) if (bytes[start + i] !== replacement[i]) return false;
+  return true;
 }
 
 const isHigh = (code: number): boolean => code >= 0xd800 && code < 0xdc00;
@@ -245,9 +253,37 @@ function assertUtf8Boundary(bytes: Uint8Array, offset: number): void {
   if (offset < 0 || offset > bytes.length) {
     throw new RangeError(`byte offset ${offset} is outside 0..${bytes.length}`);
   }
-  if (offset < bytes.length && (bytes[offset]! & 0xc0) === 0x80) {
+  if (insideCharacter(bytes, offset)) {
     throw new RangeError(`byte offset ${offset} is a UTF-8 continuation byte`);
   }
+}
+
+/**
+ * True when `offset` falls inside a well-formed UTF-8 character. A continuation byte that belongs to no character
+ * (a stray 80 to BF, or the tail of a cut-off sequence) is a boundary like any other: the Source text gives it a
+ * code unit of its own, so an edit may start or end there (F-34.1; found as F-35).
+ */
+function insideCharacter(bytes: Uint8Array, offset: number): boolean {
+  if (offset <= 0 || offset >= bytes.length || (bytes[offset]! & 0xc0) !== 0x80) return false;
+  for (let back = 1; back <= 3 && offset - back >= 0; back++) {
+    const lead = bytes[offset - back]!;
+    if ((lead & 0xc0) === 0x80) continue;
+    const length = lead >= 0xc2 && lead <= 0xdf ? 2 : lead >= 0xe0 && lead <= 0xef ? 3 : lead >= 0xf0 && lead <= 0xf4 ? 4 : 0;
+    return length > back && wellFormed(bytes, offset - back, length);
+  }
+  return false;
+}
+
+/** `bytes[at, at + length)` is one well-formed character (the WHATWG decoder's bounds on the second byte). */
+function wellFormed(bytes: Uint8Array, at: number, length: number): boolean {
+  if (at + length > bytes.length) return false;
+  const lead = bytes[at]!;
+  const lower = lead === 0xe0 ? 0xa0 : lead === 0xf0 ? 0x90 : 0x80;
+  const upper = lead === 0xed ? 0x9f : lead === 0xf4 ? 0x8f : 0xbf;
+  const second = bytes[at + 1]!;
+  if (second < lower || second > upper) return false;
+  for (let i = 2; i < length; i++) if ((bytes[at + i]! & 0xc0) !== 0x80) return false;
+  return true;
 }
 
 function invertOffsets(text: string, offsets: ByteOffsets): Uint32Array {

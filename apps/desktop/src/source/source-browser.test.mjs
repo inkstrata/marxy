@@ -124,3 +124,82 @@ test('multi-cursor edit undo restores prior doc length', async () => {
     await browser.close();
   }
 });
+
+test('bytes that are not UTF-8: shown as marked bytes, copied as U+FFFD, pasted back and moved as themselves (F-34.1)', async () => {
+  const hex = (bytes) => [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(' ');
+  const enc = new TextEncoder();
+  const line1 = [...enc.encode('caf'), 0xe9, ...enc.encode(' and '), 0xe2, 0x82, 0x0a];
+  const line2 = [...enc.encode('second '), 0xff, 0x0a];
+  const bytes = Uint8Array.from([...line1, ...line2]);
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await page.goto(`${base}src/source/harness-shell.html`);
+    await page.waitForFunction(() => typeof window.marxySourceHarness?.strayBytes === 'function');
+    const result = await page.evaluate(
+      async ({ bytesB64 }) => window.marxySourceHarness.strayBytes(bytesB64, '/latin.md'),
+      { bytesB64: b64(bytes) },
+    );
+    assert.deepEqual(
+      result.markers.map((m) => m.text),
+      ['E9', 'E2', '82', 'FF'],
+      'each stray byte is marked with its value',
+    );
+    assert.equal(result.markers[0].label, 'Byte E9, not UTF-8');
+    assert.equal(result.pageHasLone, false, 'no lone surrogate in the page');
+    assert.equal(result.pageHasLoneAfter, false, 'nor after a paste and a move');
+    assert.equal(result.copiedHasLone, false, 'nor on the clipboard');
+    assert.equal(result.copied, 'caf\uFFFD and \uFFFD\uFFFD\nsecond \uFFFD\n');
+    // The copy pasted back is the bytes themselves; the foreign lone surrogate is EF BF BD; the first line moved
+    // below the second keeps its bytes.
+    const expected = [...line2, ...line1, ...line1, ...line2, ...enc.encode('X'), 0xef, 0xbf, 0xbd, ...enc.encode('Y')];
+    assert.equal(result.hex, hex(expected));
+  } finally {
+    await browser.close();
+  }
+});
+
+/** Runs `name` in the Source harness on `bytes`. */
+async function harness(name, bytes, path = '/stray.md') {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await page.goto(`${base}src/source/harness-shell.html`);
+    await page.waitForFunction((n) => typeof window.marxySourceHarness?.[n] === 'function', name);
+    return await page.evaluate(async ({ name, bytesB64, path }) => window.marxySourceHarness[name](bytesB64, path), { name, bytesB64: b64(bytes), path });
+  } finally {
+    await browser.close();
+  }
+}
+const hexBytes = (s) => s.split(' ').map((h) => Number.parseInt(h, 16));
+const asHex = (bytes) => [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(' ');
+
+// The first review of F-34.1 (#584), its returns 1 and 2: the restore reads the pasteboard item the paste carries, so
+// a drag cannot overwrite it and another program's U+FFFD cannot be taken for it.
+test('a copied stray line pastes back exactly after a drag that went nowhere; another program\'s U+FFFD stays U+FFFD (F-34.1)', async () => {
+  const input = '23 20 54 0a 0a 66 69 72 73 74 0a 0a 6d 69 64 20 ff 20 78 0a 0a 70 6c 61 69 6e 20 6c 69 6e 65 0a 0a 65 6e 64 20 e9 0a';
+  const result = await harness('strayClipboard', Uint8Array.from(hexBytes(input)));
+  assert.equal(result.afterDrag, `${input} 6d 69 64 20 ff 20 78`, 'the copy, after a cancelled drag');
+  assert.equal(result.copiedOne, '"\\udcff"', 'the copy of the one byte carried it');
+  assert.equal(result.otherApp, `${input} ef bf bd`, 'another program\'s U+FFFD');
+  assert.equal(result.types, 'text/plain,application/x-marxy-source-text', 'one pasteboard item, two types');
+  assert.equal(result.mismatch, `${input} 6d 69 64 20 ef bf bd 20 78 21`, 'readable text that disagrees with the type is read as it is');
+});
+
+test('the find panel, opened on a selection with a stray byte, and its announcement hold no lone surrogate (F-34.1)', async () => {
+  const input = '23 20 54 0a 0a 6d 69 64 20 69 64 20 ff 20 78 0a';
+  const result = await harness('strayFind', Uint8Array.from(hexBytes(input)));
+  assert.equal(result.opened, false, 'the panel as it opens');
+  assert.equal(result.afterFind, false, 'after find next');
+  assert.equal(result.query, 'd � ', 'the query is the selection read with U+FFFD');
+  assert.ok(!/[\uD800-\uDFFF]/u.test(result.announced), JSON.stringify(result.announced));
+});
+
+test('a save after two stray bytes are made neighbours keeps the caret and the undo history (F-34.1)', async () => {
+  const input = '23 20 54 0a 0a 68 65 6c 6c 6f 0a 0a 78 c3 0a a9 79 0a 0a 74 61 69 6c 0a';
+  const result = await harness('strayJoin', Uint8Array.from(hexBytes(input)));
+  assert.equal(result.saved, '23 20 54 0a 0a 68 65 6c 6c 6f 0a 0a 78 c3 a9 79 51 0a 0a 74 61 69 6c 0a');
+  assert.equal(result.caretText, 'yQ', 'the caret stays after the Q');
+  assert.equal(result.afterUndo, '# T\n\nhello\n\nxéy\n\ntail\n', 'Mod+Z takes the Q back, and nothing else');
+  void asHex;
+});
