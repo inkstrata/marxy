@@ -46,6 +46,28 @@ interface MountedSourceEditor {
   };
 }
 
+/**
+ * One block open for editing in place (E-04, commands/block-edit.ts): a CodeMirror editor where the block's
+ * element was. The view asks it before it lets the reader's text go, as it asks Source: it counts as unsaved
+ * text the store does not have, folds into the store on every route that folds Source, and is closed before
+ * the page under it is set again. At most one at a time, in the one view whose article holds it.
+ */
+export interface BlockEdit {
+  /** The reader's text differs from the block it was opened on: the store does not have it. */
+  dirty(): boolean;
+  /** That text into the store as one history entry, then the editor closes; true when the store changed. */
+  fold(): Promise<boolean>;
+  /** Whether `change` is this editor's own commit (its `fold`), not another view's or the disk's. */
+  owns(change: Transition): boolean;
+  /**
+   * The page under the editor is about to be set again, by `change` (null: with no change to the bytes). It
+   * closes at once; text it held that the store does not have is put back over the new bytes.
+   */
+  release(before: DocumentSnapshot | null, snapshot: DocumentSnapshot, change: Transition | null): void;
+  /** Closes it and keeps nothing: the document is being closed or replaced. */
+  discard(): void;
+}
+
 export interface OpenDocument {
   readonly ast: Document;
   /** The sanitised HTML of the whole document. After a reload that replaced only some blocks it is rendered when first read. */
@@ -151,6 +173,13 @@ export interface RenderedView {
   /** Source text into the store as one history entry; true when it changed the store. */
   foldSource(): Promise<boolean>;
   sourceHasUnfoldedEdits(): boolean;
+  /** The block open for editing in place in this view's article, or null (E-04). The block-edit command sets and clears it. */
+  blockEdit: BlockEdit | null;
+  /**
+   * Runs `change`, which alters the page's layout at or above the reader's place (a block opened in place
+   * takes more or less room than the block did), and puts the reader back on the block they were reading.
+   */
+  holdPlace(change: () => void): void;
   /** The typesetter for the shown page, including the `typeset_viewport` and `typeset_done` marks. */
   typeset(): Promise<void>;
   /** Images, KaTeX and highlighting for the page as mounted now: run the result at idle. */
@@ -353,6 +382,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   let shown: OpenDocument | null = null;
 
   let viewMode: 'rendered' | 'source' = 'rendered';
+  /** The block open for editing in place (E-04); closed before the page under it is set again. */
+  let blockEdit: BlockEdit | null = null;
   let sourceEditor: MountedSourceEditor | null = null;
   /** The accessor for the editor in a Source mount, once the editor module has loaded (it stays off the start-up path). */
   let activeSourceEditorIn: ((parent: HTMLElement) => MountedSourceEditor | null) | null = null;
@@ -623,6 +654,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   async function toggleViewMode(): Promise<void> {
     if (modeToggleBusy || !store) return;
+    // A block open in place leaves first, so Source shows what was typed there (E-04).
+    await blockEdit?.fold();
     modeToggleBusy = true;
     try {
       await serially(async () => {
@@ -636,6 +669,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   async function jumpToSource(byteOffset: number): Promise<void> {
     if (modeToggleBusy || !store) return;
+    await blockEdit?.fold();
     modeToggleBusy = true;
     try {
       await serially(async () => {
@@ -982,6 +1016,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * The store is not the view's: whoever opened it closes it.
    */
   function clear(): void {
+    blockEdit?.discard();
+    blockEdit = null;
     mount?.cancel();
     mount = null;
     unsubscribe?.();
@@ -1006,6 +1042,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   /** Source text the reader typed and has not yet folded into the store: the store cannot see it. */
   function unfoldedSourceEdits(): boolean {
+    // Text typed in a block open in place is the same kind of thing: the store does not have it (E-04).
+    if (blockEdit?.dirty()) return true;
     const buffer = bufferNow();
     return buffer !== null && viewMode === 'source' && sourceEditor !== null && leaveSourceMode(buffer, sourceEditor.docText()).changed;
   }
@@ -1233,9 +1271,28 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     return true;
   }
 
+  /** Whether `change` sets the page again: a block open in place cannot stay on a page that is replaced (E-04). */
+  function setsPage(before: DocumentSnapshot, snapshot: DocumentSnapshot, change: Transition): boolean {
+    switch (change.kind) {
+      case 'open':
+      case 'close':
+      case 'save':
+        return false;
+      case 'reload':
+        return snapshot.buffer !== before.buffer;
+      default:
+        return true;
+    }
+  }
+
   /** The page's side of a committed transition on the shown store. */
   function followTransition(before: DocumentSnapshot, snapshot: DocumentSnapshot, change: Transition): void {
     if (keepTypedText(before, snapshot, change)) return;
+    // A block open in place (E-04): the reader's place is read with it on the page, as the reader sees it, and
+    // it closes just before the page is set again, putting back any text the store does not have.
+    const editing = blockEdit !== null && setsPage(before, snapshot, change) ? blockEdit : null;
+    const ownCommit = editing?.owns(change) ?? false;
+    if (editing && shown) shown.blocks = buildBlocks(doc, shown.nodeMap);
     switch (change.kind) {
       case 'open':
       case 'close':
@@ -1262,6 +1319,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
           return;
         }
         try {
+          editing?.release(before, snapshot, change);
           rerenderFromBuffer();
         } catch (e) {
           showRenderFailure(e);
@@ -1295,7 +1353,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // An anchor the edit removed lands on the edit's start: the block from there on is held, not the one above.
     const spanned = landing !== null && anchor !== null && removedBy(change, anchor);
     try {
-      repaint(snapshot, position, landing, spanned, change.kind === 'reload');
+      editing?.release(before, snapshot, change);
+      // The editor's own commit replaces only the block it changed, as a reload does (B-24): a long page is not rendered whole for a typo.
+      repaint(snapshot, position, landing, spanned, change.kind === 'reload' || ownCommit);
     } catch (e) {
       showRenderFailure(e);
     }
@@ -1366,6 +1426,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (!store) return;
     pageStale = false;
     const { path: file, ast, nodeMap, buffer } = store.snapshot();
+    // The page is about to go: a block open in place goes with it, its text kept (a trust change, a fold of
+    // another view). The transitions that reach here have released it already, with their change (E-04).
+    blockEdit?.release(null, store.snapshot(), null);
     const byteOffset = typeof at === 'number' ? at : at?.byteOffset;
     const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
     destroyTypeset();
@@ -1563,12 +1626,30 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     showRenderedChrome: () => setModeChrome('rendered'),
     async foldSource() {
       const open = store;
+      // The block open in place folds as Source does: one history entry, and the editor closes (E-04).
+      if (blockEdit) return blockEdit.fold();
       if (!open || viewMode === 'rendered' || !sourceEditor || stillHeldApart()) return false;
       if (!(await open.commitSource(sourceEditor.docText()))) return false;
       sourceEditor?.replaceBuffer(open.snapshot().buffer);
       return true;
     },
     sourceHasUnfoldedEdits: unfoldedSourceEdits,
+    get blockEdit() {
+      return blockEdit;
+    },
+    set blockEdit(next) {
+      blockEdit = next;
+    },
+    holdPlace(change) {
+      const path = openPathNow();
+      if (!shown || !path || viewMode !== 'rendered' || doc.hidden) return change();
+      // The block list as the page is now, not as the last grid pass left it: what the reader sees is what they hold.
+      shown.blocks = buildBlocks(doc, shown.nodeMap);
+      const place = currentPosition(scroller, shown.blocks, path, 'rendered');
+      change();
+      shown.blocks = buildBlocks(doc, shown.nodeMap);
+      restoreTo(shown.blocks, place);
+    },
     typeset: typesetDocument,
     deferredWork(file) {
       // Once the whole document is in (at once under the threshold); later chunks do not hold the open

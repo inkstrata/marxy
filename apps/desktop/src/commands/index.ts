@@ -1,6 +1,7 @@
 // Concatenates feature command lists; operations come from core (MARXY-42, MARXY-43, C-06).
 import { OPERATIONS } from '@marxy/core/src/operations/index.ts';
 import { appearanceCommands } from './appearance.ts';
+import { blockEditCommands } from './block-edit.ts';
 import { collectionCommands } from './collection.ts';
 import { compareCommands } from './compare.ts';
 import { kindCommands } from './kind.ts';
@@ -30,6 +31,7 @@ export function commands(): readonly Command[] {
     ...documentCommands(),
     ...sourceViewCommands(),
     ...sourceEditCommands(),
+    ...blockEditCommands(),
     ...trustRevokeCommands(),
     ...navigationCommands(),
     ...paneFocusCommands(),
