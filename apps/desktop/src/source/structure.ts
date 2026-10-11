@@ -85,6 +85,31 @@ function apply(target: Target, edit: LineEdit | null): boolean {
 }
 
 /**
+ * Replaces `[from, to)` of the document with `text` as one transaction and one undo step (W-21's Apply). `text` is
+ * in the file's own line endings, as `state.doc.sliceString(from, to, state.lineBreak)` gives it and a transform
+ * returns it: it is inserted as given, so CodeMirror splits it on the editor's own separator and nothing is
+ * doubled (unlike `apply`, whose core edits are written with "\n"). Isolated from the history's grouping. The
+ * selection becomes the replaced text. False, with nothing dispatched, when the range is not in the document or
+ * the text is what is there already.
+ */
+export function replaceRange(target: Target, from: number, to: number, text: string): boolean {
+  const { state } = target;
+  if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from || to > state.doc.length) return false;
+  if (state.doc.sliceString(from, to, state.lineBreak) === text) return false;
+  const changes = state.changes({ from, to, insert: text });
+  target.dispatch(
+    state.update({
+      changes,
+      selection: EditorSelection.single(from, changes.mapPos(to, 1)),
+      scrollIntoView: true,
+      userEvent: 'source-edit',
+      annotations: isolateHistory.of('full'),
+    }),
+  );
+  return true;
+}
+
+/**
  * A table tool at the caret (the main selection's head), as one transaction: the same `apply` as the other
  * Source operations, so the file's own line separator is written, the caret lands where the tool puts it and the
  * undo is one step. False, with nothing changed and nothing said, when the caret is in no table, the file is not

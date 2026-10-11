@@ -22,10 +22,11 @@
 // layer tests the store's own baseline alone, which is the stricter test).
 
 import { EditorSelection, EditorState } from '@codemirror/state';
-import { createBuffer, parseMarkdown } from '@marxy/core';
+import { TRANSFORMS, createBuffer, parseMarkdown } from '@marxy/core';
 import { effectForOpenDocument } from '@marxy/core/src/position/watch-events.ts';
 import { cmDocText, lineSeparatorFor } from '../../src/source/buffer-commit.ts';
 import { runTableTool } from '../../src/source/structure.ts';
+import { addStep, applyToStore, createChain, eolOf, openedOf, output, replacesExactly } from '../../src/transform/chain.ts';
 import { conflictCopyPath, openDocumentStore } from '../../src/document/store.ts';
 import { createStoreRegistry } from '../../src/document/registry.ts';
 import { oneWatchPerStore, watchDocument } from '../../src/document/live-reload.ts';
@@ -981,6 +982,100 @@ export const OPS = {
         if (!same(copy(doc.store.snapshot().buffer.bytes), after)) world.fail('I6', `${at}: redo did not give the edited bytes back`);
       }
       return `tableTool ${at}: ${before.length} bytes became ${after.length}`;
+    },
+  },
+
+  /**
+   * W-21: Apply on the result sheet. The walk drives the real chain (`createChain`, `addStep`, `output`) and the real
+   * store write (`applyToStore`, the function the sheet's Apply calls) over a Rendered pane's range: the whole buffer
+   * or a stretch of it, one or two `edit` transforms. The oracle is the promise, not the transform's arithmetic: the
+   * bytes outside the range are the ones that were there (a byte diff, before and after), the range holds the output,
+   * the byte-order mark and the kinds of line ending are the file's, the history grew by one step and one undo gives
+   * the exact bytes back. A range holding a byte that is not UTF-8 is not offered Apply and nothing changes. One run in
+   * five changes the document after the sheet opened (a token typed at the top): Apply must then refuse and touch
+   * nothing. Source's own Apply is one CodeMirror transaction (test/transform-sheet.test.mjs, source-structure.test.mjs).
+   */
+  applyTransform: {
+    name: 'applyTransform',
+    weight: 5,
+    applicable: (model) => slotsWith(model, (v) => v.mode === 'rendered').length > 0,
+    async run(world, model) {
+      const d = model.d;
+      const slot = d.pick(slotsWith(model, (v) => v.mode === 'rendered'));
+      const view = model.views[slot];
+      const { doc } = view;
+      // Source text typed in another pane and not yet in the store goes in first (the app folds it on focus-out).
+      await world.foldAll(doc);
+      const before = doc.buf.slice();
+      let start = 0;
+      let end = before.length;
+      let scope = 'whole document';
+      const oneLine = d.chance(0.2);
+      if (oneLine || d.chance(0.6)) {
+        const { offsets } = safeOffsets(model, before);
+        const a = d.pick(offsets);
+        start = a;
+        end = d.pick(offsets.filter((o) => o >= a && o <= a + 300));
+        scope = 'selection';
+        if (oneLine) {
+          // Text with no line break in it: a transform that adds lines has no ending to follow (`fence`).
+          const stop = [...latin1(before.subarray(a)).matchAll(/\r|\n/g)][0]?.index ?? before.length - a;
+          end = d.pick(offsets.filter((o) => o >= a && o <= a + stop));
+          scope = 'line';
+        }
+      }
+      const loose = new TextDecoder('utf-8', { ignoreBOM: true });
+      const text = loose.decode(before.subarray(start, end));
+      let chain = createChain(text, [], eolOf(doc.store.snapshot().buffer.eol));
+      const edits = TRANSFORMS.filter((t) => t.kind === 'edit').map((t) => t.id);
+      if (oneLine && d.chance(0.5)) chain = addStep(chain, 'fence');
+      for (let n = 1 + d.int(2) - chain.steps.length; n > 0; n--) chain = addStep(chain, d.pick(edits));
+      const out = output(chain);
+      const at = `${chain.steps.join(' then ')} on the ${scope} ${start}..${end} of ${doc.path} in pane ${slot}`;
+      if (!replacesExactly(text, before.subarray(start, end))) return `applyTransform ${at}: not offered (bytes that are not UTF-8 in the range)`;
+      const opened = openedOf(doc.store);
+      if (d.chance(0.2)) {
+        // The document changes under the open sheet: a token typed at the top, as another view's edit would.
+        const token = world.newToken();
+        const top = bomLength(before);
+        const typed = await doc.store.apply({ range: { file: doc.path, start: top, end: top }, replacement: token.text, label: `walk edit ${token.id}` });
+        if (!typed) world.fail('I6', `a token typed at ${top} of ${doc.path} was a no-op`);
+        doc.past.push(before);
+        doc.future = [];
+        doc.buf = cat(before.slice(0, top), enc.encode(token.text), before.slice(top));
+        world.afterBytesChange(doc, view);
+        const refused = await applyToStore(doc.store, opened, { start, end }, out, 'walk transform');
+        if (refused !== 'stale') world.fail('I6', `Apply of ${at} after the document changed gave '${refused}', not 'stale'`);
+        return `applyTransform ${at}: the document changed under the sheet, Apply refused and touched nothing`;
+      }
+      // Tokens inside the range may be changed by the transform (UPPERCASE): the reader asked for that, and one undo gives them back.
+      world.mayDrop(model, tokensIn(model, latin1(before.subarray(start, end))));
+      const outcome = await applyToStore(doc.store, opened, { start, end }, out, `walk transform: ${chain.steps.join(', then ')}`);
+      if (out === text) {
+        if (outcome !== 'unchanged') world.fail('I6', `Apply of ${at} changed nothing yet gave '${outcome}'`);
+        return `applyTransform ${at}: the result is the text, unchanged`;
+      }
+      if (outcome !== 'applied') world.fail('I6', `Apply of ${at} gave '${outcome}'; nothing had changed under it`);
+      const after = copy(doc.store.snapshot().buffer.bytes);
+      const tail = before.length - end;
+      if (!same(after.subarray(0, start), before.subarray(0, start))) world.fail('I6', `Apply of ${at} changed bytes before the range`);
+      if (!same(after.subarray(after.length - tail), before.subarray(end))) world.fail('I6', `Apply of ${at} changed bytes after the range`);
+      if (!same(after.subarray(start, after.length - tail), enc.encode(out))) world.fail('I6', `Apply of ${at}: the range does not hold the output`);
+      if (bomLength(before) !== bomLength(after)) world.fail('I6', `Apply of ${at} changed the byte-order mark`);
+      // A file with no line ending yet takes LF from a transform that adds lines; any other file keeps the kinds it has.
+      const had = endingKinds(before);
+      if (had.size > 0) for (const kind of endingKinds(after)) if (!had.has(kind)) world.fail('I6', `Apply of ${at} wrote a line ending (${JSON.stringify(kind)}) the file did not have`);
+      doc.past.push(before);
+      doc.future = [];
+      doc.buf = after;
+      world.afterBytesChange(doc, view);
+      if (d.chance(0.5)) {
+        if (!(await doc.store.undo())) world.fail('I7', `${at}: undo returned false right after Apply`);
+        if (!same(copy(doc.store.snapshot().buffer.bytes), before)) world.fail('I6', `${at}: one undo did not restore the exact bytes`);
+        if (!(await doc.store.redo())) world.fail('I7', `${at}: redo returned false right after the undo`);
+        if (!same(copy(doc.store.snapshot().buffer.bytes), after)) world.fail('I6', `${at}: redo did not give the applied bytes back`);
+      }
+      return `applyTransform ${at}: ${before.length} bytes became ${after.length}`;
     },
   },
 

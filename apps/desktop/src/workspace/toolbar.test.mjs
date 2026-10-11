@@ -108,12 +108,12 @@ test('a fill is made on unfold, disposed on fold and made again on the next unfo
 
 // --- what is drawn ------------------------------------------------------------------------------------------------
 
-test('unfolded with a document open: back, forward, title, Read/Split/Source, Copy and Find, in that order, and nothing else', async () => {
+test('unfolded with a document open: back, forward, title, Read/Split/Source, Copy, Transform (W-21) and Find, in that order, and nothing else', async () => {
   await withPage(1280, async (page) => {
     await unfold(page);
-    assert.deepEqual(await items(page), ['back', 'forward', 'title', 'mode', 'copy', 'find']);
+    assert.deepEqual(await items(page), ['back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']);
     const buttons = await page.evaluate(() => [...document.querySelectorAll('.marxy-toolbar button')].map((b) => b.getAttribute('aria-label')));
-    assert.deepEqual(buttons, ['Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Copy as Markdown', 'Copy as…', 'Find in this pane']);
+    assert.deepEqual(buttons, ['Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Copy as Markdown', 'Copy as…', 'Transform', 'Find in this pane']);
     assert.deepEqual(await radios(page), { Read: 'true', Split: 'false', Source: 'false' });
     const wording = await page.evaluate(() => document.querySelector('[data-marxy-workspace-region="toolbar"]').textContent);
     assert.doesNotMatch(wording, /extract|theme/i);
@@ -141,7 +141,7 @@ test('the door: a registered command draws its control, the next mount draws it 
     });
     assert.deepEqual(got.added, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'export', 'transform', 'find']);
     assert.deepEqual(got.ran, ['transform.open'], 'the control runs its command');
-    assert.deepEqual(got.removed, ['back', 'forward', 'title', 'mode', 'copy', 'find']);
+    assert.deepEqual(got.removed, ['back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']);
   });
 });
 
@@ -166,8 +166,8 @@ test('a panel toggle waits for content in its region: a stub command alone draws
       await new Promise((r) => setTimeout(r, 50));
       return { without, withFill, docked, undocked: pressed() };
     });
-    assert.deepEqual(got.without, ['back', 'forward', 'title', 'mode', 'copy', 'find']);
-    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'mode', 'copy', 'find']);
+    assert.deepEqual(got.without, ['back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']);
+    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']);
     assert.deepEqual([got.docked, got.undocked], ['true', 'false']);
   });
 });
@@ -371,20 +371,22 @@ const fitOf = (page) =>
     return { clipped, overflow: bar.scrollWidth - bar.clientWidth, region: Math.round(region.width) };
   });
 
-test('the controls fit the toolbar region at the default chrome size in the narrowest window, and at chrome_size 26 in a wide one (the title now keeps five ems, W-04)', async () => {
-  await withPage(929, async (page) => {
+test('the controls fit the toolbar region at the default chrome size from 1024 px up, and at chrome_size 26 from 1600 px (the title keeps five ems, W-04)', async () => {
+  // W-21: with the Transform door drawn the row needs about 510 px; the middle column of a 929 px window is 449, so
+  // the narrowest window now scrolls the row (next test) and the width where it fits moved from 929 to about 1010.
+  await withPage(1024, async (page) => {
     await unfold(page);
     await page.waitForTimeout(100);
     const fit = await fitOf(page);
-    assert.deepEqual(fit.clipped, [], `default chrome at 929 px: ${JSON.stringify(fit)}`);
+    assert.deepEqual(fit.clipped, [], `default chrome at 1024 px: ${JSON.stringify(fit)}`);
     assert.ok(fit.overflow <= 0, JSON.stringify(fit));
   });
-  await withPage(1440, async (page) => {
+  await withPage(1600, async (page) => {
     await page.evaluate(() => document.documentElement.style.setProperty('--marxy-size-chrome', '26px'));
     await unfold(page);
     await page.waitForTimeout(100);
     const fit = await fitOf(page);
-    assert.deepEqual(fit.clipped, [], `chrome_size 26 at 1440 px: ${JSON.stringify(fit)}`);
+    assert.deepEqual(fit.clipped, [], `chrome_size 26 at 1600 px: ${JSON.stringify(fit)}`);
   });
 });
 
@@ -429,7 +431,8 @@ test('W-04: the title keeps its minimum at the narrowest window, at the default 
     const normal = await titleOf(page);
     assert.equal(normal.minimum, 5 * normal.em, 'the title declares five ems');
     assert.ok(normal.title >= normal.minimum - 0.5, `the title has its minimum at the default size: ${JSON.stringify(normal)}`);
-    assert.ok(normal.overflow <= 0, `and the row fits: ${JSON.stringify(normal)}`);
+    // W-21: the Transform door makes the default row wider than the 929 px window's column (it fitted before): it scrolls, as at 26.
+    assert.ok(normal.overflow > 0 && normal.overflow < 120, `and the row scrolls by about the Transform control: ${JSON.stringify(normal)}`);
     await page.evaluate(() => document.documentElement.style.setProperty('--marxy-size-chrome', '26px'));
     await page.waitForTimeout(100);
     const big = await titleOf(page);

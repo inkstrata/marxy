@@ -242,6 +242,16 @@ wrap, `Enter` runs, `Escape` closes and keeps the selection, a click outside or 
 page never shows WebKit's own context menu. Every verb in a menu is also in the palette's `>` list.
 A hover glyph, a gutter handle and a selection popover are rejected (ADR-0054).
 
+**Transform (W-21, ADR-0065 item 4).** Every entry of core's `TRANSFORMS` is a command, `transform.run.<id>`
+("Transform: Sort lines"), run on the selection else the document, in Rendered and in Source. It opens the result sheet
+(§09 "Transform and the result sheet"), which copies the result (one pasteboard item), opens it as a new document, adds
+another step, or applies it. Apply replaces the *input range* and nothing else: in Rendered it is one `store.apply`
+(one history entry, refused untouched when the document changed since the sheet read it), in Source one CodeMirror
+transaction (`replaceRange`). It is offered for `edit` transforms only (`Transform.kind`, `transforms/types.ts`).
+The `edit` kind's promise (line endings and BOM kept) is the registry's; Apply adds the document's own ending to a
+result that has none to follow. This is the one place an operation's input can be a drag's blocks: a transform on a
+drag is on those blocks' bytes, as Copy as Markdown is.
+
 ## Palette integration (§09)
 
 `OPERATIONS.filter(op => op.canApply(input))` for the current selection; each entry shows
@@ -261,7 +271,8 @@ export interface Command {
   readonly id: string;                         // 'save', 'find.open', 'op.toggle-task', 'trust.revoke-html', 'about'
   readonly title: string;                      // palette text, sentence case, no trailing period
   readonly key?: string;                       // the §09 keyboard-map string, e.g. 'Mod+S'; absent = palette only
-  readonly group: 'document' | 'selection' | 'view' | 'app';
+  readonly group: 'document' | 'selection' | 'view' | 'app' | 'transform';   // 'transform' (W-21): the palette lists it last
+  readonly listed?: false;                     // false: a door with no palette row of its own (transform.open, the toolbar's)
   when(ctx: AppContext): boolean;              // cheap; evaluated on every palette open
   run(ctx: AppContext): Promise<void>;
 }

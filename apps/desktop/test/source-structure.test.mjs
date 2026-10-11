@@ -15,7 +15,8 @@ import { PANE_CHORDS } from '../src/pane/keys.ts';
 import { commands } from '../src/commands/index.ts';
 import { SOURCE_EDIT_ENTRIES, sourceEditChords } from '../src/commands/source-edit.ts';
 import { cmDocText, leaveSourceMode, lineSeparatorFor } from '../src/source/buffer-commit.ts';
-import { keyBindingChords, registryChord, runStructure, runTableTool, tableCsvAt, withoutRegistryChords } from '../src/source/structure.ts';
+import { keyBindingChords, registryChord, replaceRange, runStructure, runTableTool, tableCsvAt, withoutRegistryChords } from '../src/source/structure.ts';
+import { runTransform } from '../../../packages/core/src/index.ts';
 import { copyTableCsv } from '../../../packages/core/src/operations/copy-table.ts';
 import { parseMarkdown } from '../../../packages/core/src/parse/parse.ts';
 
@@ -392,6 +393,68 @@ test('the table commands are palette-only entries of the Source group, each runs
     assert.match(entry.id, /^source\.table-/);
   }
   assert.match(table.find((e) => e.table === 'sortTableRows').title, /byte order/);
+});
+
+// W-21: Apply on the result sheet is `replaceRange`, one transaction.
+
+/** `replaceRange` over [from, to) of a file's text, with `transform` run on the text as the sheet reads it (the file's own separator). */
+function replacing(bytes, from, to, transform, path = '/t/a.md') {
+  const buffer = createBuffer(path, bytes);
+  let state = EditorState.create({
+    doc: cmDocText(buffer),
+    selection: EditorSelection.single(from, to),
+    extensions: [history(), EditorState.lineSeparator.of(lineSeparatorFor(buffer))],
+  });
+  const target = { get state() { return state; }, dispatch: (tr) => { state = tr.state; } };
+  const input = state.doc.sliceString(from, to, state.lineBreak);
+  const output = transform(input);
+  const ran = replaceRange(target, from, to, output);
+  const out = () => {
+    const fold = leaveSourceMode(buffer, state.sliceDoc(0, state.doc.length));
+    return fold.changed ? fold.buffer.bytes : bytes;
+  };
+  return { ran, input, output, bytes: out(), steps: undoDepth(state), get state() { return state; }, undo() { undo(target); return out(); } };
+}
+
+for (const eol of ['lf', 'crlf', 'cr']) {
+  for (const bom of [false, true]) {
+    test(`replaceRange applies a transform to a selection of a ${eol.toUpperCase()} file${bom ? ' with a BOM' : ''}: the bytes outside the range stay, the endings are the file's, one undo step restores every byte`, () => {
+      const sep = SEPARATORS[eol];
+      const bytes = fileBytes('head\nc\nb\na\ntail\n', sep, bom);
+      // CodeMirror counts a line break as one position whatever its separator.
+      const doc = 'head\nc\nb\na\ntail\n';
+      const from = doc.indexOf('c');
+      const to = doc.indexOf('tail') - 1;
+      const r = replacing(bytes, from, to, (t) => runTransform('sort', t));
+      assert.equal(r.ran, true);
+      assert.equal(text(r.bytes), text(fileBytes('head\na\nb\nc\ntail\n', sep, bom)));
+      assert.equal(r.steps, 1, 'one undo step');
+      assert.equal(r.state.sliceDoc(r.state.selection.main.from, r.state.selection.main.to), r.output, 'the result is selected');
+      assert.deepEqual([...r.undo()], [...bytes], 'one undo gives back every byte');
+    });
+  }
+}
+
+test('replaceRange keeps a mixed-ending file\'s other lines as they were, and a doubled CR never appears', () => {
+  const bytes = encoder.encode('x\r\nc\r\nb\r\na\r\ny\nz');
+  const r = replacing(bytes, 3, 12, (t) => runTransform('sort', t));
+  assert.equal(r.ran, true);
+  assert.ok(!/\r\r/.test(text(r.bytes)), JSON.stringify(text(r.bytes)));
+  assert.equal(text(r.bytes).startsWith('x\r\n'), true);
+  assert.equal(text(r.bytes).endsWith('y\nz'), true);
+  assert.deepEqual([...r.undo()], [...bytes]);
+});
+
+test('replaceRange does nothing, dispatches nothing and says false for the same text or a range outside the document', () => {
+  const bytes = encoder.encode('a\nb\n');
+  assert.equal(replacing(bytes, 0, 3, (t) => t).ran, false, 'the same text');
+  assert.equal(replacing(bytes, 0, 3, (t) => t).steps, 0);
+  const buffer = createBuffer('/t/a.md', bytes);
+  let state = EditorState.create({ doc: cmDocText(buffer), extensions: [history()] });
+  const calls = [];
+  const target = { get state() { return state; }, dispatch: (tr) => calls.push(tr) };
+  for (const [from, to] of [[0, 99], [-1, 2], [3, 1], [0.5, 2]]) assert.equal(replaceRange(target, from, to, 'zzz'), false, `${from}..${to}`);
+  assert.equal(calls.length, 0);
 });
 
 // Keys: one table, no collision.

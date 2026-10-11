@@ -42,7 +42,9 @@ export interface Command {
   readonly keys?: readonly string[];
   /** Runs even when focus is in an editable, such as Source mode's editor. */
   readonly global?: boolean;
-  readonly group: 'document' | 'selection' | 'view' | 'app';
+  readonly group: 'document' | 'selection' | 'view' | 'app' | 'transform';
+  /** `false`: a door with a row of its own elsewhere (the toolbar's Transform button), so the palette does not list it. */
+  readonly listed?: false;
   when(ctx: AppContext): boolean;
   run(ctx: AppContext): Promise<void>;
 }

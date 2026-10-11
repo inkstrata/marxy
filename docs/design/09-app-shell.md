@@ -70,9 +70,11 @@ column, so `splitRefusal` measures it as it always did and, unfolded, names the 
 registered (`visibleItems`); a panel toggle also needs a fill in the region it opens. Today that draws Back, Forward,
 the title (the focused document's name, a dot while its store is dirty, its folder; "Untitled" for a scratch
 document), the Read / Split / Source switch (`view.mode-*`), Copy with its *Copy as* chevron (`copy-as.<copy_format>`
-and `copy-as.menu`) and Find (`view.find`). A story that wants a control registers its command and the control
-appears with no change here: `document.new-menu` (W-14), `kind.chip` (K-07), `export.menu` (W-15), `transform.open`
-(W-21), and `view.toggle-sidebar` and `view.toggle-inspector` (W-03, with the panel's fill). There is no Extract
+and `copy-as.menu`), Transform (`transform.open`, W-21: it opens the palette on `>Transform`) and Find (`view.find`).
+A story that wants a control registers its command and the control appears with no change here: `document.new-menu`
+(W-14), `kind.chip` (K-07), `export.menu` (W-15), and `view.toggle-sidebar` and `view.toggle-inspector` (W-03, with
+the panel's fill). With Transform drawn the default row is about 510 px wide: it fits the middle column from a
+1024 px window, and in the 929 px window it scrolls with the edge fade W-04 draws, as it does at `chrome_size` 26. There is no Extract
 button and no theme switcher (06-reconciliation rows 3 and 4).
 
 Each control is a `<button>` named by its command's title, with the key in its tooltip; a press runs
@@ -142,7 +144,8 @@ chrome.
 | Key | Action | Notes |
 | --- | --- | --- |
 | `Mod+P` / `Mod+K` | palette (documents) | W-19: `Mod+K` is the same palette; either again closes it |
-| `Mod+Shift+P` / `Mod+/` | palette on commands (`>`) | W-19: the command list, including the operations; either again closes it; in Source `Mod+/` opens the palette, it does not toggle a comment |
+| `Mod+Shift+P` | palette on commands (`>`) | W-19: the command list, including the operations; again closes it |
+| `Mod+/` | palette on the transforms (`>Transform`) | W-19, W-21: one row per transform core can run (`Transform: <name>`), none that is `NOT_YET`; again closes it; in Source `Mod+/` opens the palette, it does not toggle a comment. A choice opens the result sheet (below) |
 | `Mod+1` / `Mod+2` / `Mod+3` | Read / Split / Source | W-19 (`commands/view-mode.ts`): Read and Source set the focused pane's mode and do nothing when it is already there (`Mod+E` flips). Split shows the document twice, Read left and Source right; with two panes over two files it refuses and says why |
 | `Mod+E` | toggle Rendered / Source | position kept (§08) |
 | `Mod+F` | find | `Enter` next, `Shift+Enter` previous, `Esc` closes and keeps the reading position |
@@ -295,6 +298,44 @@ to it (`focusOrigin`). `outline/pane.ts` makes that binding. Module: `apps/deskt
 (`outline.ts` builds entries from the AST — pure, tested without a DOM; `view.ts` owns the
 dialog). Entries are plain text: inline markup in a heading is flattened with `textContent`
 semantics, smart typography applied as in the article.
+
+## Transform and the result sheet (W-21; ADR-0065 item 4)
+
+`Mod+/` and the toolbar's Transform button open the palette on `>Transform`. The list is core's `TRANSFORMS`: one
+registry command per entry, `transform.run.<id>`, titled `Transform: <name>`, in the palette group `transform` (last
+in the group order). `transform.open`, the toolbar's door, is registered with `listed: false`, so the palette does not
+show a row for the way into itself. Choosing one runs it on the input and opens **the result sheet**
+(`transform/sheet.ts`, built on demand like the outline: a modal `dialog#marxy-transform` on the shared chrome
+classes `marxy-surface marxy-surface-lg`, nothing in the page until then).
+
+**The input** (`commands/transform.ts`). Rendered: the selection's source range (a node, a section or a run of
+blocks; a drag is the top-level blocks it touched, as recorded when it was made), else the whole buffer of the
+store. The text is read from the store's current bytes and checked against what the page resolved; a drag that cannot
+be matched to its page is refused with a notice and never widened to the document. Source: the editor's one
+selection, else the whole document, read with the file's own line separator. The sheet shows Before and After side by
+side with their character counts (code points; a byte-order mark is not one), at most 20,000 characters painted per
+side, the counts and every action using all of it.
+
+**Actions.** *Copy result* (`Return`, first focus): one pasteboard item through `writeCopy`, the text without a
+byte-order mark, nothing in the document changes. *Apply* (`Mod+Return`): replaces the input range, one undo step;
+offered only when every step is an `edit` transform (`derive` and `literal` outputs are new text, not an edit of the
+input: they are copied or opened as a document). *Open as new document*: `openScratch`. *Add another step*: the same
+list, filtered as typed, run on the result (`transform/chain.ts`; no saved pipeline, no history). `Esc` closes the
+step list first, then the sheet; nothing is changed or copied. The sheet reads no clipboard and owns the keyboard
+while it is up (the app's keys do not act on the document behind it). Focus returns to the pane it came from.
+
+**Apply is a data write, and refuses rather than guesses.** Rendered: `applyToStore` splices the range once through
+`store.apply` with the base version the sheet read; when the store's bytes are no longer the ones the sheet read (an
+edit, an undo, a reload from disk, another pane's fold) nothing is done and the sheet says the document changed. A
+save does not make it stale. Nothing is written to disk by Apply: the reader saves. The result is written in the
+document's own line ending (a CRLF or CR file gets no bare LF from a transform that adds lines to a one-line
+selection), `edit` transforms keep a leading byte-order mark, and a range holding a byte that is not UTF-8 is not
+offered Apply (writing the text back would turn that byte into U+FFFD). Source: `replaceRange` (`source/structure.ts`),
+one CodeMirror transaction and one undo step, refused when the editor's document is no longer the object the sheet
+read; a file with a byte that is not UTF-8 is not offered Apply in Source, because Source's fold re-encodes. A
+transform marked `outsideCode` leaves fenced code and front matter alone by Markdown's rules; in a file that is not
+Markdown the sheet says which steps do that. The data-safety walk (`test/support/store-walk.mjs`, op
+`applyTransform`) drives the same functions over random ranges.
 
 ## Find (D-A14)
 

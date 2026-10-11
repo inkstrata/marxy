@@ -173,7 +173,7 @@ test('bootApplication mounts dialog#marxy-palette; Mod+P summons input and list'
   }
 });
 
-test('Mod+K and Mod+P toggle the palette; Mod+Shift+P and Mod+/ open it on commands (W-19), from Rendered and from Source', async () => {
+test('Mod+K and Mod+P toggle the palette; Mod+Shift+P opens it on commands and Mod+/ on the transforms (W-19, W-21), from Rendered and from Source', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -205,11 +205,12 @@ test('Mod+K and Mod+P toggle the palette; Mod+Shift+P and Mod+/ open it on comma
         await press(chord);
         assert.equal((await state()).open, false, `${chord} again closes in ${where}`);
       }
-      for (const chord of [`${mod}+Shift+KeyP`, `${mod}+Slash`]) {
+      // Mod+Shift+P opens on every command; Mod+/ on the transforms (W-21).
+      for (const [chord, query] of [[`${mod}+Shift+KeyP`, '>'], [`${mod}+Slash`, '>Transform']]) {
         await press(chord);
         const opened = await state();
         assert.equal(opened.open, true, `${chord} opens in ${where}`);
-        assert.equal(opened.query, '>', `${chord} types > in ${where}`);
+        assert.equal(opened.query, query, `${chord} types ${query} in ${where}`);
         assert.ok(opened.rows > 0, `${chord} lists commands in ${where}`);
         await press(chord);
         assert.equal((await state()).open, false, `${chord} again closes in ${where}`);

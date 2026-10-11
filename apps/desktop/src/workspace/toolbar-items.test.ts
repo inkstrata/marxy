@@ -24,8 +24,8 @@ test('with nothing registered the title alone is drawn', () => {
   assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, [], [])), ['title']);
 });
 
-test('the registry today draws back, forward, title, Read/Split/Source, Copy and Find, and nothing else', () => {
-  assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, real, [])), ['back', 'forward', 'title', 'mode', 'copy', 'find']);
+test('the registry today draws back, forward, title, Read/Split/Source, Copy, Transform (W-21) and Find, and nothing else', () => {
+  assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, real, [])), ['back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']);
 });
 
 test('no Extract button and no theme switcher: the table names neither,', () => {
@@ -37,10 +37,9 @@ test('no Extract button and no theme switcher: the table names neither,', () => 
 
 // The door: a story registers its command and its control appears, with no change to the toolbar.
 const DOORS: ReadonlyArray<readonly [string, string, string[]]> = [
-  ['transform.open', 'transform', ['back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']],
-  ['export.menu', 'export', ['back', 'forward', 'title', 'mode', 'copy', 'export', 'find']],
-  ['kind.chip', 'kind', ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'find']],
-  ['document.new-menu', 'new', ['back', 'forward', 'title', 'new', 'mode', 'copy', 'find']],
+  ['export.menu', 'export', ['back', 'forward', 'title', 'mode', 'copy', 'export', 'transform', 'find']],
+  ['kind.chip', 'kind', ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']],
+  ['document.new-menu', 'new', ['back', 'forward', 'title', 'new', 'mode', 'copy', 'transform', 'find']],
 ];
 
 for (const [command, item, expected] of DOORS) {
@@ -51,9 +50,15 @@ for (const [command, item, expected] of DOORS) {
   });
 }
 
+test('transform.open is registered (W-21), so the Transform control is drawn; without the command it is not', () => {
+  assert.ok(real.includes('transform.open'));
+  assert.ok(ids(visibleItems(TOOLBAR_ITEMS, real, [])).includes('transform'));
+  assert.ok(!ids(visibleItems(TOOLBAR_ITEMS, real.filter((id) => id !== 'transform.open'), [])).includes('transform'));
+});
+
 test('a panel toggle is drawn only when its command is registered and something fills its region', () => {
   const toggles = ['view.toggle-sidebar', 'view.toggle-inspector'];
-  const base = ['back', 'forward', 'title', 'mode', 'copy', 'find'];
+  const base = ['back', 'forward', 'title', 'mode', 'copy', 'transform', 'find'];
   assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, [...real, ...toggles], [])), base, 'commands without content draw nothing');
   assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, real, ['sidebar', 'inspector'])), base, 'content without commands draws nothing');
   assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, [...real, ...toggles], ['sidebar'])), ['sidebar', ...base]);
