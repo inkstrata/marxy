@@ -10,6 +10,13 @@ const enc = new TextEncoder();
 const bytesOf = (...parts: Array<string | number[]>): Uint8Array =>
   Uint8Array.from(parts.flatMap((p) => (typeof p === 'string' ? [...enc.encode(p)] : p)));
 const hex = (bytes: Uint8Array): string => [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(' ');
+/** For the big inputs: equal, or say where they first differ (a hex dump of a megabyte is no use). */
+function assertSameBytes(actual: Uint8Array, expected: Uint8Array): void {
+  let at = 0;
+  while (at < actual.length && at < expected.length && actual[at] === expected[at]) at++;
+  const around = (b: Uint8Array): string => hex(b.subarray(Math.max(0, at - 6), at + 6));
+  assert.ok(at === actual.length && at === expected.length, `lengths ${actual.length} and ${expected.length}; first difference at ${at}: got ${around(actual)}, want ${around(expected)}`);
+}
 
 /** The bytes after the reader's text is folded into `like`, as `commitSource` writes them. */
 function folded(like: Buffer, text: string): Uint8Array {
@@ -117,16 +124,59 @@ test('many changes between two bytes that are not UTF-8: lines, then characters,
   assert.equal(hex(folded(like, next)), hex(expected));
 });
 
-test('more changes than any comparison takes on still write the editor\'s text, and keep the file around it', () => {
-  const lines = Array.from({ length: 9000 }, (_, i) => `row ${i}`);
+// Past the comparison's budgets (about 1,500 characters, then 3,000 lines, of difference) the span is cut at its
+// U+FFFDs instead; none of these may write EF BF BD for a stray byte the reader left in the text.
+const rows = (n: number, tag = 'row'): string[] => Array.from({ length: n }, (_, i) => `${tag} ${i}`);
+
+test('past the budgets, two bytes that are not UTF-8 with the whole span between them rewritten keep their bytes', () => {
+  const lines = rows(9000);
   const like = createBuffer('/x.md', bytesOf('head\n', [0xff], '\n', lines.join('\n'), '\n', [0xfe], '\ntail\n'));
-  const next = like.text
-    .replace('head', 'HEAD')
-    .replace('tail', 'TAIL')
-    .replace(lines.join('\n'), lines.map((l, i) => `${l}${i} changed`).join('\n'));
-  const bytes = folded(like, next);
-  // The limit is a fall-back to one change over the span: the text is right and the ends are the file's.
-  assert.equal(new TextDecoder().decode(bytes), next.replace('�\n', '�\n'));
-  assert.equal(bytes[5], 0xef); // inside the span the bytes are re-encoded, as they were before F-34
-  assert.equal(hex(bytes.subarray(0, 5)), hex(bytesOf('HEAD\n')));
+  const edited = lines.map((l, i) => `${l}${i} changed`);
+  const next = like.text.replace('head', 'HEAD').replace('tail', 'TAIL').replace(lines.join('\n'), edited.join('\n'));
+  assert.equal(hex(folded(like, next)), hex(bytesOf('HEAD\n', [0xff], '\n', edited.join('\n'), '\n', [0xfe], '\nTAIL\n')));
+});
+
+test('past the budgets, a stray byte inside the rewritten text keeps its bytes, and one deleted with its markers goes', () => {
+  const part = (tag: string, n: number, stray: number[]): Array<string | number[]> => [rows(2500, tag).join('\n'), `\n;S${n};`, stray, `;E${n};\n`];
+  const like = createBuffer(
+    '/x.md',
+    bytesOf('head\n', ...part('a', 1, [0xff]), ...part('b', 2, [0xe2, 0x82]), ...part('c', 3, [0xc3]), 'tail\n'),
+  );
+  const rewrite = (tag: string): string => rows(2500, `${tag}-new`).join('\n');
+  // All three runs of rows are rewritten; the middle stray is deleted along with its markers; the others stay.
+  const next = `HEAD\n${rewrite('a')}\n;S1;\ufffd;E1;\n${rewrite('b')}\n${rewrite('c')}\n;S3;\ufffd;E3;\nTAIL\n`;
+  const expected = bytesOf('HEAD\n', rewrite('a'), '\n;S1;', [0xff], ';E1;\n', rewrite('b'), '\n', rewrite('c'), '\n;S3;', [0xc3], ';E3;\nTAIL\n');
+  assertSameBytes(folded(like, next), expected);
+});
+
+test('past the budgets, in a file of about 1 MB, every line rewritten around strays keeps their bytes', () => {
+  const strayAt = new Set([100, 9000, 20000, 39000]);
+  const name = (i: number): string => `a line of the document, number ${i}`;
+  const original: Array<string | number[]> = [];
+  const expected: Array<string | number[]> = [];
+  const rewritten: string[] = [];
+  for (let i = 0; i < 40000; i++) {
+    if (strayAt.has(i)) {
+      original.push(`;S${i};`, [0xff], `;E${i};\n`);
+      expected.push(`;S${i};`, [0xff], `;E${i};\n`);
+      rewritten.push(`;S${i};\ufffd;E${i};`);
+    } else {
+      original.push(`${name(i)}\n`);
+      expected.push(`${name(i)} rewritten ${i}\n`);
+      rewritten.push(`${name(i)} rewritten ${i}`);
+    }
+  }
+  const like = createBuffer('/x.md', bytesOf(...original));
+  assert.ok(like.bytes.length > 1_000_000);
+  assertSameBytes(folded(like, `${rewritten.join('\n')}\n`), bytesOf(...expected));
+});
+
+test('past the budgets, a file of strays only: no byte that is not UTF-8 is rewritten when text around them changes', () => {
+  const strays = [[0xff], [0xfe], [0xc3], [0xe2, 0x82], [0xf8]];
+  const parts: Array<string | number[]> = [];
+  for (let i = 0; i < 400; i++) parts.push(`${'x'.repeat(10)}${i}`, strays[i % strays.length]!);
+  const like = createBuffer('/x.md', bytesOf(...parts));
+  const next = like.text.replace(/x+/g, (m) => `${m}${m}${m}${m}${m}${m}${m}${m}`);
+  const want = bytesOf(...parts.map((p, i) => (typeof p === 'string' ? p.replace(/x+/, (m) => m.repeat(8)) : p)));
+  assert.equal(hex(folded(like, next)), hex(want));
 });

@@ -84,8 +84,9 @@ export function fromText(path: string, text: string, like: Buffer): Buffer {
  * changed. Inside a change, line endings follow the file (CRLF for a CRLF file). `null` when nothing differs.
  *
  * The range is one span, so the API and its callers are unchanged; its replacement is the changed runs'
- * encodings with the file's own bytes between them. A text that differs from the file in more than a few
- * thousand places between two non-UTF-8 bytes falls back to one change over that whole span (see `alignChanges`).
+ * encodings with the file's own bytes between them. However much differs, a U+FFFD that is still in the
+ * editor's text is matched to one in the file, in order, and written as that one's original bytes (see
+ * `anchorChanges`); no path writes EF BF BD for a byte the reader did not change.
  */
 export function foldText(like: Buffer, text: string): { range: Source; replacement: Uint8Array } | null {
   const skip = like.bom ? 1 : 0;
@@ -116,8 +117,7 @@ export function foldText(like: Buffer, text: string): { range: Source; replaceme
   // finding which runs are unchanged; with none, the middle is one change.
   let changes: Change[] | null = null;
   if (holdsStrayByte(like, oldFrom, oldTo)) {
-    changes = alignChanges(old, oldFrom, oldTo, text, newFrom, newTo);
-    if (changes !== null) changes = widenChanges(changes, old, text, oldFrom, newFrom);
+    changes = widenChanges(alignChanges(old, oldFrom, oldTo, text, newFrom, newTo), old, text, oldFrom, newFrom);
   }
   if (changes === null || changes.length === 0) changes = [{ a0: oldFrom, a1: oldTo, b0: newFrom, b1: newTo }];
   const parts: Uint8Array[] = [];
@@ -179,13 +179,16 @@ function holdsStrayByte(like: Buffer, from: number, to: number): boolean {
 const CHAR_BUDGET = 1500;
 /** The same for the line-level comparison, and for the character-level one inside each changed block of lines. */
 const LINE_BUDGET = 3000;
+/** Characters of context either side of a U+FFFD that tell it from another when the texts are too different to compare. */
+const ANCHOR_CONTEXT = 5;
 
 /**
- * The runs of `old[a, a')` that are not in `text[b, b')`, as a minimal edit script: a character-level
+ * The runs of `old[a, a2)` that are not in `text[b, b2)`, as a minimal edit script: a character-level
  * comparison, then (if the texts differ in too many places for that) a comparison of lines and a character-level
- * one inside each changed block. `null` when even that is too much; the caller then takes the span as one change.
+ * one inside each changed block. A block too different for either is cut at its U+FFFDs (`anchorChanges`), so
+ * there is no span that is re-encoded whole.
  */
-function alignChanges(old: string, a: number, a2: number, text: string, b: number, b2: number): Change[] | null {
+function alignChanges(old: string, a: number, a2: number, text: string, b: number, b2: number): Change[] {
   const fine = diffSequences(codeUnits(old, a, a2), codeUnits(text, b, b2), CHAR_BUDGET);
   if (fine !== null) return fine.map((c) => ({ a0: c.a0 + a, a1: c.a1 + a, b0: c.b0 + b, b1: c.b1 + b }));
   const oldLines = lineStarts(old, a, a2);
@@ -199,7 +202,7 @@ function alignChanges(old: string, a: number, a2: number, text: string, b: numbe
       return id;
     });
   const lines = diffSequences(idsOf(old, oldLines, a2), idsOf(text, newLines, b2), LINE_BUDGET);
-  if (lines === null) return null;
+  if (lines === null) return anchorChanges(old, a, a2, text, b, b2);
   const out: Change[] = [];
   const at = (starts: number[], line: number, end: number): number => (line < starts.length ? starts[line]! : end);
   for (const block of lines) {
@@ -208,8 +211,62 @@ function alignChanges(old: string, a: number, a2: number, text: string, b: numbe
     const y0 = at(newLines, block.b0, b2);
     const y1 = at(newLines, block.b1, b2);
     const inner = diffSequences(codeUnits(old, x0, x1), codeUnits(text, y0, y1), LINE_BUDGET);
-    if (inner === null) out.push({ a0: x0, a1: x1, b0: y0, b1: y1 });
+    if (inner === null) out.push(...anchorChanges(old, x0, x1, text, y0, y1));
     else for (const c of inner) out.push({ a0: c.a0 + x0, a1: c.a1 + x0, b0: c.b0 + y0, b1: c.b1 + y0 });
+  }
+  return out;
+}
+
+/**
+ * For two stretches too different to compare: every U+FFFD of the editor's text is matched to one of the file's,
+ * in order, and the runs between matched pairs are the changes. So a byte that is not UTF-8 and still in the
+ * text keeps its bytes, however much was rewritten around it, and the only text that is re-encoded is a run
+ * with no U+FFFD in it (the file's own side of every run has none: each one is a pair, or was deleted).
+ * Which U+FFFDs pair is decided by their surroundings first (a shortest edit script over each one's few
+ * characters either side), then, among those left between two pairs, by order. More in the text than in the
+ * file means the reader wrote the extra ones, and they are encoded as U+FFFD is.
+ */
+function anchorChanges(old: string, a: number, a2: number, text: string, b: number, b2: number): Change[] {
+  const marks = (s: string, from: number, to: number): number[] => {
+    const out: number[] = [];
+    for (let i = s.indexOf('\ufffd', from); i !== -1 && i < to; i = s.indexOf('\ufffd', i + 1)) out.push(i);
+    return out;
+  };
+  const oldMarks = marks(old, a, a2);
+  const newMarks = marks(text, b, b2);
+  const ids = new Map<string, number>();
+  const keyed = (s: string, at: number[], from: number, to: number): number[] =>
+    at.map((i) => {
+      const key = `${s.slice(Math.max(from, i - ANCHOR_CONTEXT), i)}\ufffd${s.slice(i + 1, Math.min(to, i + 1 + ANCHOR_CONTEXT))}`;
+      let id = ids.get(key);
+      if (id === undefined) ids.set(key, (id = ids.size));
+      return id;
+    });
+  const pairs: Array<[number, number]> = [];
+  const pairInOrder = (o0: number, o1: number, n0: number, n1: number): void => {
+    for (let k = 0; k < Math.min(o1 - o0, n1 - n0); k++) pairs.push([oldMarks[o0 + k]!, newMarks[n0 + k]!]);
+  };
+  const surroundings = diffSequences(keyed(old, oldMarks, a, a2), keyed(text, newMarks, b, b2), LINE_BUDGET);
+  if (surroundings === null) {
+    pairInOrder(0, oldMarks.length, 0, newMarks.length);
+  } else {
+    // Whatever the script leaves out is matched; the runs it changes are paired in order.
+    let o = 0;
+    let n = 0;
+    for (const c of [...surroundings, { a0: oldMarks.length, a1: oldMarks.length, b0: newMarks.length, b1: newMarks.length }]) {
+      for (; o < c.a0; o++, n++) pairs.push([oldMarks[o]!, newMarks[n]!]);
+      pairInOrder(c.a0, c.a1, c.b0, c.b1);
+      o = c.a1;
+      n = c.b1;
+    }
+  }
+  const out: Change[] = [];
+  let x = a;
+  let y = b;
+  for (const [i, j] of [...pairs, [a2, b2] as [number, number]]) {
+    if (i > x || j > y) out.push({ a0: x, a1: i, b0: y, b1: j });
+    x = i + 1;
+    y = j + 1;
   }
   return out;
 }

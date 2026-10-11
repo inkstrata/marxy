@@ -492,13 +492,13 @@ common prefix and one common suffix between the file's lossy decode (a byte that
 editor's text, and re-encodes everything between them, so two changes either side of a stray byte write it as
 `EF BF BD` (`alpha\n` `FF` `\nomega\n`, with `ALPHA` and `OMEGA` typed, gives `… 0A EF BF BD 0A …`; commitment 3,
 faithful to the bytes). Compare the middle for the runs that are the same on both sides (a character-level shortest edit
-script, then lines, then characters inside the changed lines, with a budget on each) and copy those runs' original
-bytes between the changed runs' encodings; the return stays one range and one replacement. **Acceptance:** the minimal
+script, then lines, then characters inside the changed lines, with a budget on each; a block too different for any
+of that is cut at its U+FFFDs, which pair off in order) and copy those runs' original bytes between the changed runs'
+encodings; the return stays one range and one replacement, and no path writes `EF BF BD` for a byte the reader left. **Acceptance:** the minimal
 input gives `41 4C 50 48 41 0A FF 0A 4F 4D 45 47 41 0A` (red on main); a property test (random bytes with lone FF,
 truncated, overlong and surrogate-encoded sequences, several edits each) folds to the original bytes with only the
 edited runs replaced (red on main); the store-walk `todo` passes and `holdsOpenFinding` is gone, with 200 seeds and
 `MARXY_WALK_FINDINGS=1` at 300 green; `gate:fidelity` and the goldens unchanged; one edit in a 1 MB buffer folds within
-2× of main. **Do not:** widen the return type or touch a caller. **Known limit:** past the budgets (about 1,500
-characters, then 3,000 lines, of difference between two stray bytes) the span folds as one change, as before F-34.
-**Found and left:** `splice` refuses a range that starts or ends on a lone continuation byte (80 to BF), so deleting
-the character that stands for one throws a `RangeError` in `leaveSourceMode`, on main and here; a story of its own.
+2× of main; and the same past the comparison's budgets (two stray bytes with more than 1,500 changed characters
+between them, and a 1 MB file). **Do not:** widen the return type or touch a caller. **Found and left (F-35):** `splice` refuses a range that starts or ends on a lone continuation byte (80 to BF), so deleting
+the character that stands for one throws a `RangeError` in `leaveSourceMode`, on main and here; a story of its own, F-35.

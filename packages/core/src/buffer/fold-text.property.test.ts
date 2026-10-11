@@ -183,3 +183,46 @@ function multiRun(bytes: Uint8Array, from: number, to: number): boolean {
   const lead = bytes[from]!;
   return MULTI.some((m) => m[0] === lead && m.length >= to - from);
 }
+
+// The same, past the comparison's budgets (about 1,500 characters, then 3,000 lines, of difference): thousands of
+// lines are rewritten around a few lines that hold a byte that is not UTF-8, and some of those lines are deleted.
+// The expected bytes are built line by line: a rewritten line is its new text encoded, a kept line its own bytes.
+test(`foldText over ${process.env.FOLD_BIG_CASES ?? 40} random files with thousands of lines rewritten around bytes that are not UTF-8`, () => {
+  const cases = Number(process.env.FOLD_BIG_CASES ?? 40);
+  for (let seed = 1; seed <= cases; seed++) {
+    const r = rng(seed * 7919);
+    const lines = 3200 + r.int(1500);
+    const strayLines = new Map<number, { stray: readonly number[]; keep: boolean }>();
+    for (let k = 1 + r.int(6); k > 0; k--) {
+      strayLines.set(r.int(lines), { stray: r.chance(0.7) ? r.pick(SINGLE) : r.pick(MULTI), keep: r.chance(0.7) });
+    }
+    const file: number[] = [];
+    const expected: number[] = [];
+    let next = '';
+    for (let i = 0; i < lines; i++) {
+      const held = strayLines.get(i);
+      if (held) {
+        const head = enc.encode(`;S${i};`);
+        const tail = enc.encode(`;E${i};\n`);
+        file.push(...head, ...held.stray, ...tail);
+        if (held.keep) {
+          expected.push(...head, ...held.stray, ...tail);
+          const units = new TextDecoder().decode(Uint8Array.from(held.stray)).length; // one U+FFFD for each the decoder makes
+          next += `;S${i};${'\ufffd'.repeat(units)};E${i};\n`;
+        }
+        continue;
+      }
+      file.push(...enc.encode(`line ${i}\n`));
+      const rewritten = r.chance(0.9) ? `line ${i} is now ${r.int(1000)}\n` : `line ${i}\n`;
+      expected.push(...enc.encode(rewritten));
+      next += rewritten;
+    }
+    const like = createBuffer('/p.md', Uint8Array.from(file));
+    const fold = foldText(like, next);
+    assert.ok(fold, `case ${seed}`);
+    const got = splice(like, fold.range, fold.replacement).bytes;
+    let at = 0;
+    while (at < got.length && at < expected.length && got[at] === expected[at]) at++;
+    assert.ok(at === got.length && at === expected.length, `case ${seed}: lengths ${got.length} and ${expected.length}, first difference at byte ${at}: got ${JSON.stringify(Buffer.from(got.subarray(Math.max(0, at - 20), at + 20)).toString('latin1'))}, want ${JSON.stringify(Buffer.from(expected.slice(Math.max(0, at - 20), at + 20)).toString('latin1'))}; stray lines ${JSON.stringify([...strayLines])}`);
+  }
+});
