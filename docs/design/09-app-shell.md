@@ -102,6 +102,7 @@ chrome.
 | `Mod+Shift+C` | copy as markdown | the exact source bytes of the selected block, or of the blocks a drag covers (§03) |
 | `Enter` | open the verb menu | with a `node`, `section`, `document` or `text` selection, outside editable fields and with no dialog open; anchored to the selection (§03, ADR-0054). On a selected link or heading anchor, Enter opens the verb menu, not the link; the link's default verb is "open link" (Enter again, or the first row) |
 | `ContextMenu` / `Shift+F10` | open the verb menu | same; right-click and Ctrl-click open it at the pointer |
+| `Mod+Enter` | edit the selected block in place | opens a CodeMirror editor over that block's bytes where the block was (E-04, ADR-0048); `Esc`, `Mod+Enter` again or a press outside leaves it and folds the text back as one undo step; `Mod+E`, `Mod+S`, undo, close and quit leave it first |
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
 

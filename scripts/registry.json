@@ -68,7 +68,8 @@
     "data-marxy-kind",
     "data-marxy-lang",
     "data-marxy-workspace",
-    "data-marxy-workspace-region"
+    "data-marxy-workspace-region",
+    "data-marxy-edit"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

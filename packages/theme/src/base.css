@@ -499,6 +499,17 @@ p > img:only-child { display: block; margin-inline: auto; }
 
 /* Set by the typesetter (docs/design/04-typeset.md). */
 .marxy-selected { box-shadow: -3px 0 0 var(--marxy-color-accent); }
+/* One block open for editing in place (E-04, ADR-0048): Source for that block, where the block was. It sits in
+   the measure like a code block, in the code face, with the accent rule of a selected block, and exists only
+   while the reader edits it; at rest the page holds no element of this class. */
+.marxy-block-editor {
+  box-sizing: border-box;
+  margin: var(--lb) 0;
+  background: var(--marxy-color-code-bg);
+  border-radius: var(--marxy-code-radius);
+  box-shadow: -2px 0 0 var(--marxy-color-accent);
+}
+.marxy-block-editor .cm-editor.cm-focused { outline: none; }
 .marxy-set { white-space: nowrap; }
 .marxy-lb::before { content: '\A'; white-space: pre; }   /* a line break that is not text: copy and find never see it */
 /* A hung grapheme is an inline-block, shaped apart from the rest of its line. It has no line height of

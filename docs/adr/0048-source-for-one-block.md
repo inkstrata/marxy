@@ -50,6 +50,24 @@ the reader loses the typeset context while they do it.
 - The roadmap tripwire is marked answered, with a link here.
 - It depends on the document store (ADR-0037): the splice is a transition, not a write.
 
+### What shipped (E-04, 2026-10-10)
+
+One block, in the code face, one undo step, and no caret in typeset text. `Mod+Enter` on a selected block (a
+node, or a section's heading) opens a CodeMirror editor over that block's bytes, built from the Source editor's
+own extensions, where the block stood; the block's element is hidden, not removed, so the node map and the
+byte lookups stay valid. Leaving (`Esc`, `Mod+Enter` again, a press elsewhere, focus moving elsewhere) folds the
+text back with `foldSlice` as one `apply` labelled "edit block", and the page is set again by the one render
+path with the reader on the same block. A block over 64 KB, and a document selection, refuse with a word and
+open nothing. The editor counts as unsaved Source text: `Mod+E`, `Mod+S`, undo, a rename, closing and quitting
+fold it first; an outside write keeps it (the edit survives, with the notice); another pane's change to the file
+is kept beside it, and a change to the very block shows a notice and the reader's text stands, the other
+version one undo away.
+
+One reading of clause 3 changed with it. "Cancel is free: Escape discards" became "`Esc` leaves, keeping the
+text", as the E-04 card has it: leaving is one gesture, `Esc` is the key a reader reaches for, and what it
+keeps is one `Mod+Z` from gone. A discard is `Mod+Z` inside the editor until the text is the block again; leaving
+then changes nothing and adds no history. The author may prefer the other reading; it is one key binding.
+
 ## Rejected
 
 - **Live-rendered editing (Typora style).** The cluster of risk ADR-0005 exists to avoid.
