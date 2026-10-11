@@ -1,40 +1,14 @@
 // Sort list items (E-09): a list's top-level items are reordered A to Z, each carrying its own bytes. The markers and the
 // separators between items stay in their places, so the output is a permutation of the input's bytes: no line ending is
 // created, none is lost, and a moved last item brings no newline to the end and takes none from it.
-import type { List, ListItem, Source } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
-import { textIndex } from './text-helpers.ts';
+import { itemSpans } from './list-item-spans.ts';
+export { itemSpans, type ItemSpans } from './list-item-spans.ts';
 
 /** A fixed locale, so the order does not depend on the reader's machine. Digits compare as numbers; case and accents do not break a tie. */
 const COLLATOR = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 
 const FIRST_LINE = /^[^\r\n]*/;
-
-export interface ItemSpans {
-  readonly item: ListItem;
-  /** The marker, `[item start, first child start)`; for an item with no content, the whole item. UTF-16 offsets inside the range's text. */
-  readonly marker: { readonly start: number; readonly end: number };
-  /** The content, `[first child start, item end)`. It moves. */
-  readonly content: { readonly start: number; readonly end: number };
-}
-
-/** The marker and content spans of each top-level item, as UTF-16 offsets in `text` (the bytes of `range`). Null when an item lies outside the range. */
-export function itemSpans(list: List, range: Source, text: string): ItemSpans[] | null {
-  const index = textIndex(text);
-  const rel = (byte: number): number => index.toIndex(byte - range.start);
-  const out: ItemSpans[] = [];
-  let at = 0;
-  for (const item of list.children) {
-    if (item.src.start < range.start || item.src.end > range.end || item.src.start < at) return null;
-    const start = rel(item.src.start);
-    const end = rel(item.src.end);
-    const first = item.children[0];
-    const split = first && first.src.start >= item.src.start && first.src.start <= item.src.end ? rel(first.src.start) : end;
-    out.push({ item, marker: { start, end: split }, content: { start: split, end } });
-    at = item.src.end;
-  }
-  return out;
-}
 
 /** Markers keep their place, so content that spans lines can only land under a marker that indents continuations the same way. */
 function sameIndent(a: string, b: string): boolean {

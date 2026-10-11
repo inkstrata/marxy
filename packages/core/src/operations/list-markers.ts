@@ -1,9 +1,13 @@
 // List marker operations (E-08): renumber a list, turn bullets into numbers and back, and turn a paragraph of glyph
 // bullets (`•`, `–`, as chat tools emit) into a real list. Pure string to string; only marker bytes change.
-// A marker's width sets the indent its continuation lines and nested blocks need, and these operations do not
-// re-indent, so an item whose marker would change width is rewritten only when it is one line with nothing under it.
+// A marker's width sets the indent its continuation lines and nested blocks need. An item whose marker would change width
+// is rewritten when it is one line with nothing under it; list-to-bullets (E-08.1) also narrows a multi-line or nested item
+// of a top-level list, moving its continuation lines left by the width the marker lost and checking the result re-parses to
+// the same structure. Everything else that would change width is declined.
 import type { Document, List, ListItem, Node, Paragraph, Source } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
+import { parseMarkdown } from '../parse/parse.ts';
+import { itemSpans } from './list-item-spans.ts';
 import { replaceSpans, textIndex } from './text-helpers.ts';
 
 export interface MarkerSpan {
@@ -46,11 +50,61 @@ const sameRange = (a: Source, b: Source): boolean => a.start === b.start && a.en
 const isList = (node: Node | undefined): node is List => node?.type === 'list';
 
 /** One line, and nothing under the first paragraph: widening or narrowing its marker moves nothing that depends on it. */
-function isSimple(item: ListItem, text: string, base: number): boolean {
+function isSimple(item: ListItem, text: string, range: Source): boolean {
   if (item.children.length > 1 || (item.children[0] && item.children[0].type !== 'paragraph')) return false;
+  const own = itemText(item, text, range);
+  return own !== undefined && !/[\r\n]/.test(own);
+}
+
+function itemText(item: ListItem, text: string, range: Source): string | undefined {
   const index = textIndex(text);
-  const own = text.slice(index.toIndex(item.src.start - base), index.toIndex(item.src.end - base));
-  return !/[\r\n]/.test(own);
+  try {
+    return text.slice(index.toIndex(item.src.start - range.start), index.toIndex(item.src.end - range.start));
+  } catch {
+    return undefined;
+  }
+}
+
+/** The shape a re-indent must keep: node types down the tree (a list's kind is what changes, so it is left out), and the text of every code block. */
+function skeleton(node: Node): unknown {
+  const kids = ((node.children ?? []) as readonly Node[]).map(skeleton);
+  if (node.type === 'list') return ['list', (node as List).tight, kids];
+  if (node.type === 'codeBlock') return ['codeBlock', (node as unknown as { value: string }).value];
+  return [node.type, kids];
+}
+
+/**
+ * Edits that move one item's continuation lines left by `delta` columns (its marker lost that many). Each line's leading
+ * spaces shrink by `delta`, so everything under the item, indented code and fenced code included, keeps its place relative to
+ * the new content column. `undefined` when that cannot be done faithfully: a tab in the indent. A lazy line (short of the content
+ * column) is left as it is.
+ */
+function reindentEdits(text: string, from: number, to: number, markerLen: number, delta: number, margin: number): { start: number; end: number; text: string }[] | undefined {
+  const own = text.slice(from, to);
+  const first = /^[^\r\n]*(\r\n|\n|\r)?/.exec(own)![0];
+  const after = first.slice(markerLen);
+  const gap = /^[ \t]*/.exec(after)![0];
+  if (gap.includes('\t')) return undefined;
+  const rest = after.slice(gap.length);
+  const column = markerLen + (/^[\r\n]|^$/.test(rest) || gap.length > 4 ? 1 : gap.length);
+  const edits: { start: number; end: number; text: string }[] = [];
+  const line = /[^\r\n]*(\r\n|\n|\r|$)/y;
+  for (let at = first.length; at < own.length; ) {
+    line.lastIndex = at;
+    const m = line.exec(own)!;
+    const ws = /^[ \t]*/.exec(m[0])![0];
+    const blank = ws.length === m[0].length - m[1]!.length;
+    if (ws.includes('\t')) return undefined;
+    // A line short of the content column is a lazy paragraph line: its indent means nothing, so it stays as written.
+    if (!blank && ws.length < margin + column) {
+      at += m[0].length || 1;
+      continue;
+    }
+    const cut = Math.min(delta, ws.length);
+    if (cut > 0) edits.push({ start: from + at, end: from + at + cut, text: '' });
+    at += m[0].length || 1;
+  }
+  return edits;
 }
 
 function parentOf(root: Node, target: Node): Node | undefined {
@@ -74,6 +128,8 @@ interface Plan {
   readonly noun: string;
   /** Kind the list becomes, when conversion could merge it into a neighbour. */
   readonly becomes?: boolean;
+  /** A narrowed marker may move the item's continuation lines left (top-level lists only). */
+  readonly reindent?: boolean;
 }
 
 function rewrite(input: OperationInput, plan: Plan): OperationResult {
@@ -86,6 +142,9 @@ function rewrite(input: OperationInput, plan: Plan): OperationResult {
   }
   const index = textIndex(input.text);
   const edits: { start: number; end: number; text: string }[] = [];
+  const topLevel = parentOf(input.document, list)?.type === 'document';
+  const lines = plan.reindent && topLevel ? itemSpans(list, input.range, input.text) : null;
+  let moved = false;
   for (let i = 0; i < spans.length; i++) {
     const span = spans[i]!;
     const next = plan.newMarker(i, span);
@@ -93,12 +152,26 @@ function rewrite(input: OperationInput, plan: Plan): OperationResult {
     const start = index.toIndex(span.marker.start - input.range.start);
     const old = input.text.slice(start, start + (span.marker.end - span.marker.start));
     if (next === old) continue;
-    if (next.length !== old.length && !isSimple(span.item, input.text, input.range.start)) {
-      return refuse(`${plan.noun} would re-indent a nested item`);
-    }
     edits.push({ start, end: start + old.length, text: next });
+    if (next.length !== old.length && !isSimple(span.item, input.text, input.range)) {
+      const item = lines?.[i];
+      const shift = old.length - next.length;
+      if (!item || shift <= 0) return refuse(`${plan.noun} would re-indent a nested item`);
+      const lineStart = Math.max(input.text.lastIndexOf('\n', item.marker.start - 1), input.text.lastIndexOf('\r', item.marker.start - 1)) + 1;
+      const margin = i === 0 ? 0 : item.marker.start - lineStart;
+      if (i > 0 && input.text.slice(lineStart, item.marker.start).trim() !== '') return refuse(`${plan.noun} would re-indent a nested item`);
+      const moves = reindentEdits(input.text, item.marker.start, item.content.end, old.length, shift, margin);
+      if (!moves) return refuse(`${plan.noun} would re-indent a nested item`);
+      edits.push(...moves);
+      moved = true;
+    }
   }
-  return { replacement: replaceSpans(input.text, edits) };
+  const replacement = replaceSpans(input.text, edits.sort((a, b) => a.start - b.start));
+  if (moved) {
+    const shape = (s: string): string => JSON.stringify(skeleton(parseMarkdown(s, { file: 'list.md' })));
+    if (shape(replacement) !== shape(input.text)) return refuse(`${plan.noun} would change how the list nests`);
+  }
+  return { replacement };
 }
 
 const wholeList = (input: Omit<OperationInput, 'text'>, ordered: boolean): boolean =>
@@ -137,7 +210,7 @@ export const listToBullets: Operation = {
   title: 'List to bullets',
   appliesTo: ['block'],
   canApply: (input) => wholeList(input, true),
-  run: (input) => rewrite(input, { noun: 'converting', becomes: false, newMarker: () => '-' }),
+  run: (input) => rewrite(input, { noun: 'converting', becomes: false, reindent: true, newMarker: () => '-' }),
 };
 
 const GLYPH_LINE = /^[•–—·] +\S/;

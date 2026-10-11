@@ -1,7 +1,7 @@
 // renumber-list, list-to-numbers, list-to-bullets, bullets-from-glyphs (E-08): table rows run in LF, CRLF, CR, no trailing
 // newline and BOM; the corpus sweep checks only marker bytes change, idempotence and the inverse.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import type { Document, List, Node, Paragraph } from '../contracts/ast.ts';
 import type { Operation } from '../contracts/operation.ts';
@@ -74,9 +74,19 @@ tableTest(listToBullets, [
   list('a start of 4 goes too', '4. a\n5. b\n', '- a\n- b\n'),
   list('a task list stays a task list', '1. [ ] a\n2. [x] b\n', '- [ ] a\n- [x] b\n'),
   list('a loose list stays loose', '1. a\n\n2. b\n', '- a\n\n- b\n'),
-  same('a multi-line item declines', '1. a\n   more\n2. b\n', /re-indent a nested item/),
-  same('a nested block declines', '1. a\n   - x\n2. b\n', /re-indent a nested item/),
-  list('the nested list is left alone', '1. a\n2. b\n   1. x\n   2. y\n', '1. a\n2. b\n   1. x\n   2. y\n', 0, /re-indent a nested item/),
+  list('a multi-line item moves its continuation left by one', '1. a\n   more\n2. b\n', '- a\n  more\n- b\n'),
+  list('a nested block moves left with it', '1. a\n   - x\n2. b\n', '- a\n  - x\n- b\n'),
+  list('the nested list moves, its own markers stay', '1. a\n2. b\n   1. x\n   2. y\n', '- a\n- b\n  1. x\n  2. y\n'),
+  list('10. is three wide: continuation moves by two', '9. a\n10. b\n    more\n', '- a\n- b\n  more\n'),
+  list('1) and a wide gap keep the gap', '1)   a\n     more\n', '-   a\n    more\n'),
+  list('a loose multi-line item, blank line between paragraphs', '1. a\n\n   more\n\n2. b\n', '- a\n\n  more\n\n- b\n'),
+  list('indented code in an item keeps its place under the content', '1. a\n\n       code\n2. b\n', '- a\n\n      code\n- b\n'),
+  list('fenced code in an item: fence and content move together', '1. a\n   ```js\n   let x = 1;\n     y\n   ```\n2. b\n', '- a\n  ```js\n  let x = 1;\n    y\n  ```\n- b\n'),
+  list('a lazy line is left as written', '1. a\nlazy\n   more\n2. b\n', '- a\nlazy\n  more\n- b\n'),
+  list('a task item with a continuation', '1. [ ] a\n   more\n', '- [ ] a\n  more\n'),
+  same('a tab in the continuation indent declines', '1. a\n\tmore\n2. b\n', /re-indent a nested item/),
+  same('a multi-line item inside a blockquote declines', '> 1. a\n>    more\n> 2. b\n', /re-indent a nested item/),
+  same('a multi-line item in a nested list declines', '- x\n  1. a\n     more\n  2. b\n', /re-indent a nested item/, 1),
   same('would merge with a bullet list next to it', '- a\n\n1. b\n2. c\n', /merge with the list next to it/, 1),
   list('a list in a blockquote', '> 1. a\n> 2. b\n', '> - a\n> - b\n'),
 ], { bom: true });
@@ -156,6 +166,22 @@ test('markerSpans: the marker bytes, number and delimiter, without the spaces af
 const lists = (accepts: (l: List) => boolean) => (n: Node): boolean => n.type === 'list' && accepts(n as List);
 const spansOf = (doc: Document, node: Node, text: string) => markerSpans(node as List, text, node.src.start)!.map((s) => s.marker);
 
+/** The markers, and for list-to-bullets also the leading spaces of every line after the first: a re-indent changes nothing else. */
+const spansAndIndents = (doc: Document, node: Node, text: string) => {
+  const base = node.src.start;
+  const markers = spansOf(doc, node, text);
+  const enc = new TextEncoder();
+  const out = [...markers];
+  let at = 0;
+  for (const line of text.split(/(?<=\r\n|\n|\r)(?!\n)/)) {
+    const lead = /^ */.exec(line)![0].length;
+    const start = base + enc.encode(text.slice(0, at)).length;
+    if (at > 0 && lead > 0 && !markers.some((m) => m.start >= start && m.start < start + lead + 1)) out.push({ file: node.src.file, start, end: start + lead });
+    at += line.length;
+  }
+  return out;
+};
+
 test('corpus: renumber-list changes only marker bytes, is idempotent', () => {
   const stats = corpusProperties(renumberList, { targets: spansOf, accepts: lists((l) => l.ordered), idempotent: true, sample: 20 });
   assert.ok(stats.applied > 0);
@@ -163,7 +189,7 @@ test('corpus: renumber-list changes only marker bytes, is idempotent', () => {
 
 test('corpus: list-to-numbers and list-to-bullets change only marker bytes', () => {
   assert.ok(corpusProperties(listToNumbers, { targets: spansOf, accepts: lists((l) => !l.ordered), sample: 0 }).applied > 0);
-  assert.ok(corpusProperties(listToBullets, { targets: spansOf, accepts: lists((l) => l.ordered), sample: 0 }).applied > 0);
+  assert.ok(corpusProperties(listToBullets, { targets: spansAndIndents, accepts: lists((l) => l.ordered), sample: 0 }).applied > 0);
 });
 
 /** `listToNumbers` as the round trip may use it: only a list of `-` bullets, and only when it applied (a `*` list is declined, so its inverse is skipped). */
@@ -180,4 +206,60 @@ const dashOnly: Operation = {
 test('corpus: list-to-bullets undoes list-to-numbers for lists of - bullets with single-line items', () => {
   const stats = corpusProperties(dashOnly, { targets: spansOf, accepts: lists((l) => !l.ordered), inverse: listToBullets, sample: 10 });
   assert.ok(stats.applied > 0);
+});
+
+// ---- E-08.1: narrowing re-indents, and the list keeps its structure --------------------------------------------------
+
+/** Node types down the tree, and the text of each code block: what a re-indent must leave alone. A list's kind is what the operation changes. */
+function shape(n: Node): unknown {
+  const kids = ((n.children ?? []) as readonly Node[]).map(shape);
+  if (n.type === 'list') return ['list', (n as List).tight, kids];
+  if (n.type === 'codeBlock') return ['codeBlock', (n as unknown as { value: string }).value];
+  return [n.type, kids];
+}
+
+test('list-to-bullets: every converted corpus list re-parses to the same items, nesting and code, and none is declined for its indent', () => {
+  const dir = new URL('../../../../fixtures/corpus/', import.meta.url);
+  let converted = 0;
+  let reindented = 0;
+  let declined = 0;
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.md'))) {
+    const source = readFileSync(new URL(f, dir), 'utf8');
+    const doc = parseMarkdown(source, { file: f });
+    const bytes = Buffer.from(source);
+    for (const node of collect(doc, 'list') as List[]) {
+      if (!node.ordered || !listToBullets.canApply({ document: doc, node, range: node.src })) continue;
+      const text = bytes.subarray(node.src.start, node.src.end).toString();
+      const out = listToBullets.run({ document: doc, node, range: node.src, text });
+      if (out.summary) {
+        declined++;
+        const topLevel = doc.children.includes(node as never);
+        if (topLevel) assert.match(out.summary, /merge with the list next to it/, `${f}: a top-level list was declined for its indent`);
+        continue;
+      }
+      converted++;
+      // Only a top-level list parses on its own; a nested one lost its container's prefix when cut out.
+      if (doc.children.includes(node as never) && /[\r\n]/.test(text.replace(/[\r\n]+$/, ''))) {
+        const before = parseMarkdown(text, { file: f });
+        const after = parseMarkdown(out.replacement, { file: f });
+        assert.deepEqual(shape(after), shape(before), `${f}: the list changed shape`);
+        const a = (collect(after, 'list')[0] as List).children.length;
+        assert.equal(a, node.children.length, `${f}: item count changed`);
+        if (out.replacement.length < text.length) reindented++;
+      }
+    }
+  }
+  assert.ok(reindented >= 5, `expected the five re-indent cases to convert, got ${reindented}`);
+  assert.equal(declined, 8, 'the corpus declines are the merge-with-neighbour ones only');
+  assert.ok(converted > 0);
+});
+
+test('list-to-bullets: a fenced block in an item keeps its content, and only leading spaces change', () => {
+  const source = '1. a\n   ```\n   x\n     y\n\n   z\n   ```\n2. b\n';
+  const doc = parseMarkdown(source, { file: 't.md' });
+  const node = collect(doc, 'list')[0] as List;
+  const out = listToBullets.run({ document: doc, node, range: node.src, text: source }).replacement;
+  const code = (d: Document): string => (collect(d, 'codeBlock')[0] as unknown as { value: string }).value;
+  assert.equal(code(parseMarkdown(out, { file: 't.md' })), code(doc));
+  assert.equal(out.replace(/^ +/gm, ''), source.replace(/^ +/gm, '').replace(/^1\./, '-').replace(/^2\./m, '-'));
 });
