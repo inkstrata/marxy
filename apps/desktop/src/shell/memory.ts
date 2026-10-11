@@ -70,6 +70,14 @@ export type MemoryShell = Pick<
    * must not appear as a `readFile` on first launch (the app-harness call record is fixed).
    */
   hasFile(path: string): boolean;
+  /**
+   * The file's bytes without arming anything, as Tauri's `peekFile` (the stale-write guard's blind read; this shell
+   * has no guard). Recorded as `readFile`: the app reads through `peekFile` where a shell has one and through
+   * `readFile` where it does not, and the app-harness call record (a live reload's read, an index read) is fixed.
+   */
+  peekFile(path: string): Promise<Uint8Array>;
+  /** Whether anything (a file, or a folder: a path some file lies under) is at `path`. Unrecorded, as `hasFile` is. */
+  exists(path: string): Promise<boolean>;
   imageSize(path: string): Promise<{ width: number; height: number } | null>;
   allowAssetScope(dir: string): Promise<void>;
   assetUrl(path: string): string;
@@ -332,6 +340,18 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
     },
     hasFile(path) {
       return store.has(path);
+    },
+    async peekFile(path) {
+      record('readFile', [path]);
+      const bytes = store.get(path);
+      if (!bytes) throw notFound(path);
+      return bytes.slice();
+    },
+    async exists(path) {
+      if (store.has(path)) return true;
+      const prefix = `${path.replace(/\/$/, '')}/`;
+      for (const key of store.keys()) if (key.startsWith(prefix)) return true;
+      return false;
     },
     async imageSize(path) {
       record('imageSize', [path]);
