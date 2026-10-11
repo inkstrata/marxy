@@ -3,7 +3,7 @@
 // (docs/design/08-position-and-watching.md). Both read `data-marxy-s` / `data-marxy-e` and nothing
 // else, and neither trusts them: a pair with no node of that exact range is ignored.
 
-import type { Document, Node } from '@marxy/core';
+import { Abandoned, type Document, type Node } from '@marxy/core';
 
 /** AST nodes by `"${start}-${end}"`. Where two nodes share a range, the outermost wins. */
 export type NodeMap = ReadonlyMap<string, Node>;
@@ -34,6 +34,40 @@ export function buildNodeMap(ast: Document): NodeMap {
     for (const child of node.children ?? []) walk(child);
   };
   walk(ast);
+  return map;
+}
+
+/**
+ * `buildNodeMap(ast)`, a few top-level blocks at a time with the event loop given back between them (D-15):
+ * the same map with its entries in the same order, for a large document opened beside another pane.
+ */
+export async function buildNodeMapInSlices(ast: Document, yieldNow: () => Promise<void>, budgetMs = 3, aborted?: () => boolean): Promise<NodeMap> {
+  const map = new Map<string, Node>();
+  const add = (node: Node): void => {
+    const key = rangeKey(node.src.start, node.src.end);
+    if (!map.has(key)) map.set(key, node);
+    if (node.type === 'codeBlock') {
+      const content = rangeKey(node.content.start, node.content.end);
+      if (!map.has(content)) map.set(content, node);
+    }
+  };
+  const walk = (node: Node): void => {
+    add(node);
+    for (const child of node.children ?? []) walk(child);
+  };
+  add(ast);
+  const blocks = ast.children;
+  let at = 0;
+  let count = 64;
+  while (at < blocks.length) {
+    const t0 = performance.now();
+    for (const end = Math.min(blocks.length, at + count); at < end; at++) walk(blocks[at]!);
+    count = Math.max(8, Math.min(8192, Math.round(count * (budgetMs / Math.max(performance.now() - t0, 0.25)))));
+    if (at < blocks.length) {
+      await yieldNow();
+      if (aborted?.()) throw new Abandoned();
+    }
+  }
   return map;
 }
 

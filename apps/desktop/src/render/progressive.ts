@@ -13,6 +13,7 @@
 // Under the threshold, which every corpus file but the long reference is, the HTML is assigned in one
 // step exactly as before and `complete` resolves at once.
 
+import { Abandoned } from '@marxy/core';
 import { whenIdle } from '../startup/idle-work.ts';
 
 export interface ProgressiveMount {
@@ -53,6 +54,11 @@ export interface ProgressiveOptions {
   readonly start?: Promise<unknown>;
   /** After each append past the first: the top-level elements it added, in order. */
   readonly onChunk?: (added: readonly HTMLElement[]) => void;
+  /**
+   * The document already parsed in an inert body, `prepare` already run on it (`parseInertInSlices`, D-15),
+   * when the caller built it a slice at a time. `html` then only says how large the document is.
+   */
+  readonly parsed?: HTMLElement;
 }
 
 export const DEFAULT_THRESHOLD = 65_536;
@@ -64,15 +70,18 @@ const CHUNK_MS = 8;
 
 export function mountProgressively(article: HTMLElement, html: string, opts: ProgressiveOptions = {}): ProgressiveMount {
   const threshold = opts.thresholdBytes ?? DEFAULT_THRESHOLD;
-  if (html.length < threshold) {
+  if (html.length < threshold && opts.parsed === undefined) {
     article.innerHTML = html;
     opts.prepare?.(article);
     return whole();
   }
   // An inert document: nothing in it loads, runs or is styled until it is moved into the page.
-  const parsed = document.implementation.createHTMLDocument('').body;
-  parsed.innerHTML = html;
-  opts.prepare?.(parsed);
+  let parsed = opts.parsed;
+  if (parsed === undefined) {
+    parsed = document.implementation.createHTMLDocument('').body;
+    parsed.innerHTML = html;
+    opts.prepare?.(parsed);
+  }
   article.replaceChildren();
 
   const screens = opts.screens ?? DEFAULT_SCREENS;
@@ -176,6 +185,41 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
     },
     pending: () => (done ? null : parsed),
   };
+}
+
+/**
+ * `pieces` (sanitised html, top-level blocks, in order) parsed into an inert body a few milliseconds at a time,
+ * with the event loop given back between slices (D-15): the body `mountProgressively` would have made of the
+ * pieces joined by a newline, with `prepare` run on what each slice parsed. For a document too large to parse
+ * in one frame while another pane is on screen.
+ */
+export async function parseInertInSlices(
+  pieces: readonly string[],
+  prepare: ((parsed: HTMLElement) => void) | undefined,
+  yieldNow: () => Promise<void>,
+  budgetMs = 3,
+  aborted?: () => boolean,
+): Promise<HTMLElement> {
+  const inert = document.implementation.createHTMLDocument('');
+  const parsed = inert.body;
+  let at = 0;
+  let chars = 24_000;
+  while (at < pieces.length) {
+    const t0 = performance.now();
+    // As many pieces as the last slice's rate says the budget buys, with the newline `join('\n')` writes between them.
+    let html = at === 0 ? pieces[at++]! : `\n${pieces[at++]!}`;
+    while (at < pieces.length && html.length < chars) html += `\n${pieces[at++]!}`;
+    const holder = inert.createElement('div');
+    holder.innerHTML = html;
+    prepare?.(holder);
+    parsed.append(...holder.childNodes);
+    chars = Math.max(4_000, Math.min(400_000, Math.round(html.length * (budgetMs / Math.max(performance.now() - t0, 0.25)))));
+    if (at < pieces.length) {
+      await yieldNow();
+      if (aborted?.()) throw new Abandoned();
+    }
+  }
+  return parsed;
 }
 
 /** The whole document is already in: nothing to append. */

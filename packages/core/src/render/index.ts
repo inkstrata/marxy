@@ -1,8 +1,8 @@
 // The render pipeline's public surface. `packages/core/src/index.ts` is not this story's to edit, so
 // callers — including `scripts/gate-no-network.mjs` — import this file directly for now.
 
-export { renderSafeHtml, renderDocumentSafeHtml } from './pipeline.ts';
-export type { RenderOptions, RenderResult } from './pipeline.ts';
+export { renderSafeHtml, renderDocumentSafeHtml, renderDocumentSafeHtmlInSlices } from './pipeline.ts';
+export type { RenderOptions, RenderResult, SliceOptions, SlicedRenderResult } from './pipeline.ts';
 export {
   blockedHosts,
   blockedImageNoticeText,

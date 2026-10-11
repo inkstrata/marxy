@@ -139,6 +139,7 @@ export function createPanes(deps: PanesDeps): AppPanes {
       },
       selection,
       pieces: slot === 0 ? deps.open.pieces : null,
+      sliced: () => set !== null && set.panes.length > 1,
       // The window title is the focused pane's document: a pane opening beside it does not take it (D-06
       // carries the rest of focus).
       ownsTitle: () => set === null || set.focused.content === self,

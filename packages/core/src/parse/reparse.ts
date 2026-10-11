@@ -137,7 +137,7 @@ function regionParse(previous: Document, before: Uint8Array, after: Uint8Array, 
  * a blank line, then `-` and `~~~` parse as a paragraph and a fence, where alone they are an empty
  * list item and a fence).
  */
-function fresh(bytes: Uint8Array, prior: Block, at: number): boolean {
+export function fresh(bytes: Uint8Array, prior: Block, at: number): boolean {
   if (at <= 0 || !isLineEnding(bytes[at - 1])) return false;
   const first = bytes[at];
   if (first === undefined || isBlank(first) || isLineEnding(first)) return false;
@@ -152,7 +152,7 @@ function fenced(bytes: Uint8Array, block: CodeBlock): boolean {
 }
 
 /** The offset just past the line ending of the line starting at `at`, or the end of the bytes. */
-function lineEndAfter(bytes: Uint8Array, at: number): number {
+export function lineEndAfter(bytes: Uint8Array, at: number): number {
   let i = at;
   while (i < bytes.length && !isLineEnding(bytes[i])) i++;
   if (bytes[i] === 0x0d && bytes[i + 1] === 0x0a) return i + 2;
@@ -160,7 +160,7 @@ function lineEndAfter(bytes: Uint8Array, at: number): number {
 }
 
 /** A document over `bytes` with these children, its line starts registered as `parseMarkdown` does. */
-function documentOf(file: string, bytes: Uint8Array, children: readonly Block[]): Document {
+export function documentOf(file: string, bytes: Uint8Array, children: readonly Block[]): Document {
   const document: Document = { type: 'document', src: { file, start: 0, end: bytes.length }, path: file, children };
   registerLineStarts(document, () => lineStarts(bytes));
   markDefinitions(document, false); // a region parse is used only when neither side held a definition
@@ -211,7 +211,7 @@ function blankBetween(bytes: Uint8Array, from: number, to: number): boolean {
 }
 
 /** True when the first line, after any byte-order marks, is `---` or `+++` and nothing but spaces and tabs. */
-function opensLikeFrontmatter(bytes: Uint8Array): boolean {
+export function opensLikeFrontmatter(bytes: Uint8Array): boolean {
   let i = 0;
   while (bytes[i] === 0xef && bytes[i + 1] === 0xbb && bytes[i + 2] === 0xbf) i += 3;
   const c = bytes[i];
@@ -222,7 +222,7 @@ function opensLikeFrontmatter(bytes: Uint8Array): boolean {
 }
 
 /** `]:` anywhere: a link reference or footnote definition may be there. For a previous parse that does not say. */
-function holdsDefinitionMark(bytes: Uint8Array): boolean {
+export function holdsDefinitionMark(bytes: Uint8Array): boolean {
   for (let i = bytes.indexOf(0x5d); i !== -1 && i < bytes.length - 1; i = bytes.indexOf(0x5d, i + 1)) {
     if (bytes[i + 1] === 0x3a) return true;
   }

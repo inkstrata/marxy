@@ -8,6 +8,9 @@ import { parseMarkdown, type ParseOptions } from '../parse/parse.ts';
 import { DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, REMOTE_IMAGE_ATTR, withProvenance, type Policy, type ProvenanceNames } from '../sanitize/policy.ts';
 import { sanitizeHtml, type Removal } from '../sanitize/sanitize-html.ts';
 import { blockedImagesFrom, type BlockedImage } from './images.ts';
+import { headingIdsForDocument } from './heading-ids.ts';
+import { Abandoned } from '../parse/chunked.ts';
+import { rawTagsBalanced } from './raw-tags.ts';
 import { renderToUnsanitisedHtml } from './render-html.ts';
 
 /** A removal tagged with the island it came from when the first pass took it out (§12). */
@@ -89,6 +92,74 @@ export function renderDocumentSafeHtml(document: Document, policy: Policy = DEFA
     removed,
     blockedImages: blockedImagesFrom(removed),
   };
+}
+
+/** What `renderDocumentSafeHtmlInSlices` makes: the result of `renderDocumentSafeHtml`, and its html in the slices it was made in. */
+export interface SlicedRenderResult extends RenderResult {
+  /** The top-level blocks' html in runs, in order; `html` is these joined by a newline. */
+  readonly pieces: readonly string[];
+}
+
+export interface SliceOptions {
+  readonly policy?: Policy;
+  /** Given back between slices: resolves once the event loop has had its turn. */
+  readonly yieldNow: () => Promise<void>;
+  /** What one slice may cost, in milliseconds; the next is sized from the last one's cost. Default 3. */
+  readonly budgetMs?: number;
+  /** Asked after each yield: true abandons the render by throwing `Abandoned` (the pane it was for is gone). */
+  readonly aborted?: () => boolean;
+}
+
+/**
+ * `renderDocumentSafeHtml(document, policy)`, a run of blocks at a time with the event loop given back
+ * between runs (D-15): the same html byte for byte and the same removals in the same order, or null when
+ * the document is one whose render reaches across blocks in a way a run alone cannot give. Those are a
+ * footnote definition (it numbers the references to it and adds a list at the end) and raw inline HTML that
+ * leaves an element open past its block (the sanitiser keeps one stack for the whole document); the caller
+ * renders those whole. Heading ids, which a repeated heading numbers by what came before it, are worked out
+ * once for the document and handed to every run.
+ */
+export async function renderDocumentSafeHtmlInSlices(document: Document, options: SliceOptions): Promise<SlicedRenderResult | null> {
+  const { yieldNow, budgetMs = 3, aborted } = options;
+  const policy = options.policy ?? DEFAULT_POLICY;
+  const blocks = document.children;
+  if (blocks.some((block) => block.type === 'footnoteDefinition')) return null;
+  const secret = secretNames();
+  const remoteAttr = `${secret.start.slice(0, -2)}-r`;
+  const withNames = withProvenance(policy, secret, remoteAttr);
+  const holders = blocks.filter((b) => b.type === 'heading' || b.type === 'blockquote' || b.type === 'list');
+  const headingIds = headingIdsForDocument({ ...document, children: holders });
+
+  const pieces: string[] = [];
+  const islandRemoved: RenderRemoval[] = [];
+  const passRemoved: RenderRemoval[] = [];
+  let at = 0;
+  let count = 8;
+  while (at < blocks.length) {
+    const t0 = performance.now();
+    const run = blocks.slice(at, at + count);
+    at += run.length;
+    if (!run.every(rawTagsBalanced)) return null;
+    const { document: prepared, removed: islands } = sanitizeBlockIslands({ ...document, children: run }, policy, remoteAttr);
+    const rendered = renderToUnsanitisedHtml(prepared, { provenance: secret, headingIds });
+    // A run that renders to nothing leaves nothing between its neighbours' newlines, as a whole render's blocks do.
+    if (rendered.length > 0) {
+      const pass = sanitizeHtml(rendered, withNames, { provenanceNames: secret, remoteAttr });
+      // A run the sanitiser ended with an element open took the rest of the document with it in a whole render.
+      if (pass.removed.some((r) => r.what === 'truncation')) return null;
+      pieces.push(publish(pass.html, secret, remoteAttr));
+      passRemoved.push(...pass.removed);
+    }
+    islandRemoved.push(...islands);
+    const spent = performance.now() - t0;
+    count = Math.max(4, Math.min(4096, Math.round(count * (budgetMs / Math.max(spent, 0.25)))));
+    if (at < blocks.length) {
+      await yieldNow();
+      if (aborted?.()) throw new Abandoned();
+    }
+  }
+  const removed: RenderRemoval[] = [...islandRemoved, ...passRemoved];
+  return { html: pieces.join('\n'), pieces, removed, blockedImages: blockedImagesFrom(removed) };
 }
 
 function sanitizeBlockIslands(document: Document, policy: Policy, remoteAttr: string): { document: Document; removed: RenderRemoval[] } {
