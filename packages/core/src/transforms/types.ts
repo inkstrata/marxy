@@ -22,6 +22,8 @@ export interface TransformDef {
   readonly outsideCode?: true;
   /** `fn(fn(x)) === fn(x)` (tested). */
   readonly idempotent?: true;
-  /** The body, on LF text. For `literal`, on the text as given. */
+  /** The body sees the text with its own line endings (BOM still set aside): for a transform that moves whole lines. */
+  readonly raw?: true;
+  /** The body, on LF text. For `literal` or `raw`, on the text as given. */
   readonly run: (text: string, ctx: TransformContext) => string;
 }

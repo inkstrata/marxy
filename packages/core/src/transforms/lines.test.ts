@@ -20,3 +20,25 @@ test('sort is deterministic across calls and idempotent', () => {
   assert.equal(runTransform('sort', 'b\na2\na10\n'), once);
   assert.equal(runTransform('sort', once), once);
 });
+
+// Each line keeps its own ending when it moves, is dropped or is de-duplicated (commitment 3).
+const MIXED = 'pear\r\napple\rfig\nplum\r\napple\nzed\r';
+const pairs = (s: string): string[] => s.match(/[^\r\n]*(?:\r\n|\r|\n)/g) ?? [];
+
+test('a moved line takes its own ending with it, in a file that mixes all three', () => {
+  const before = new Set(pairs(MIXED));
+  for (const id of ['sort', 'sort-unique', 'dedupe', 'reverse']) {
+    const out = runTransform(id, MIXED);
+    for (const line of pairs(out)) assert.ok(before.has(line), `${id}: ${JSON.stringify(line)} is not a line of the input with its ending`);
+  }
+  assert.equal(runTransform('reverse', MIXED), 'zed\rapple\nplum\r\nfig\napple\rpear\r\n');
+  assert.equal(runTransform('dedupe', MIXED), 'pear\r\napple\rfig\nplum\r\nzed\r');
+  assert.equal(runTransform('sort', 'b\r\na\rc'), 'a\rb\r\nc', 'the last line had no ending and the last output line has none');
+});
+
+test('number, unnumber and to-bullets keep each line\'s ending; a blank line stays', () => {
+  assert.equal(runTransform('number', 'a\r\n\rb\n'), '1. a\r\n\r2. b\n');
+  assert.equal(runTransform('unnumber', '- a\r1. b\n'), 'a\rb\n');
+  assert.equal(runTransform('to-bullets', 'a\r\n\rb\n'), '- a\r\n- b\n');
+  assert.equal(runTransform('join', 'a\r\nb\r'), 'a b\r');
+});

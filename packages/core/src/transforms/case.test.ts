@@ -8,6 +8,10 @@ const FENCE = '```\n# the quick brown fox\n```\n';
 tableOf([
   ['lower', 'whole text', 'Hello WORLD\n', 'hello world\n'],
   ['upper', 'whole text', 'Hello world\n', 'HELLO WORLD\n'],
+  ['lower', 'leaves URLs, link destinations, code spans and fences alone', 'Read [The Docs](https://Ex.com/Path?Q=1) or <https://A.io/X> or https://B.io/Y#Z, `CamelCase`\n\n```\nKeepMe\n```\n\n[Ref]: https://C.io/W\n', 'read [the docs](https://Ex.com/Path?Q=1) or <https://A.io/X> or https://B.io/Y#Z, `CamelCase`\n\n```\nKeepMe\n```\n\n[Ref]: https://C.io/W\n'],
+  ['upper', 'leaves URLs, link destinations, code spans and fences alone', 'see [the docs](https://ex.com/p) and www.ex.org/q `code` ok\n\n```\nkeep\n```\n', 'SEE [THE DOCS](https://ex.com/p) AND www.ex.org/q `code` OK\n\n```\nkeep\n```\n'],
+  ['lower', 'leaves front matter alone', '---\nTitle: X\n---\n\nHELLO\n', '---\nTitle: X\n---\n\nhello\n'],
+  ['title-headings', 'leaves a heading\'s link destination and code alone', '# see [the docs](https://Ex.com/Path) and `a b`\n', '# See [the docs](https://Ex.com/Path) and `a b`\n'],
   ['slug', 'lower-case-with-hyphens', 'Hello, World -- Ünïcode & more!\n', 'hello-world-unicode-more'],
   ['title-headings', 'minor words stay lower, first and last and after a colon rise', '# the lord of the rings: a tale\n\ntext of the day\n', '# The Lord of the Rings: A Tale\n\ntext of the day\n'],
   ['title-headings', 'keeps acronyms, code, paths and mixed case; keeps the closing run', '## using `git` with iOS and NASA/api ##\n', '## Using `git` With iOS and NASA/api ##\n'],

@@ -121,6 +121,25 @@ for (const t of TRANSFORMS.filter((x) => x.outsideCode)) {
   test(`${t.id}: code blocks, math blocks and front matter come back byte for byte`, () => assertProtectedKept(t.id, t.fn));
 }
 
+// Per-line endings (commitment 3): in a file that mixes endings, a transform that keeps the line count keeps line i's own
+// ending on line i, and one that only moves or drops lines (Lines group) never writes a line with an ending it did not have.
+test('mixed endings: every transform keeps each line\'s own ending', () => {
+  const endingsOf = (s: string): string[] => s.match(/\r\n|\r|\n/g) ?? [];
+  const text = '# Title\n\nA **b** line\nsecond line\n\n- x\n- y\n\n## Sub\n\nlast?\n';
+  const mixed = mixedEndings(text, 7).replace(/\n\n/, '\r\n\r');
+  for (const t of TRANSFORMS.filter((x) => x.kind === 'edit' && x.group !== 'Lines')) {
+    const out = t.fn(mixed);
+    const before = endingsOf(mixed);
+    const after = endingsOf(out);
+    if (after.length === before.length) assert.deepEqual(after, before, `${t.id}: a line's ending changed`);
+    else for (const e of new Set(after)) assert.ok(before.includes(e), `${t.id}: wrote an ending the input lacks`);
+  }
+  for (const id of ['sort', 'sort-unique', 'dedupe', 'reverse']) {
+    const lines = new Set(mixed.match(/[^\r\n]*(?:\r\n|\r|\n)/g));
+    for (const l of transformById(id)!.fn(mixed).match(/[^\r\n]*(?:\r\n|\r|\n)/g) ?? []) assert.ok(lines.has(l), `${id}: ${JSON.stringify(l)}`);
+  }
+});
+
 test('the protected-bytes property can fail', () => {
   canFail(() => assertProtectedKept('upper', (s) => s.toUpperCase()));
   canFail(() => assertProtectedKept('trim', (s) => s.replace(/[ \t]+$/gm, '')));

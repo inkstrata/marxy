@@ -1,10 +1,27 @@
 // The Case group (J-03). `lower`, `upper` and `slug` take the whole text, as the catalogue says; the two heading
 // transforms rewrite only the words of ATX headings outside code.
-import { applyEdits, atxHeadings } from './prose.ts';
+import { applyEdits, atxHeadings, mapInline } from './prose.ts';
 import type { TransformDef } from './types.ts';
 
-export const lower: TransformDef = { id: 'lower', kind: 'edit', idempotent: true, run: (lf) => lf.toLowerCase() };
-export const upper: TransformDef = { id: 'upper', kind: 'edit', idempotent: true, run: (lf) => lf.toUpperCase() };
+// Bytes a case change must not reach: a link destination, an autolink or tag, a reference definition's target, a bare
+// URL. (Code spans, fenced code, math and front matter are stepped around by `mapInline`.)
+const LOCATOR = /(\]\([^)\n]*\))|(<[^<>\s]+>)|(^[ \t]{0,3}\[[^\]\n]+\]:[ \t]*\S+)|((?:https?:\/\/|www\.)[^\s<>)\]]+)/gm;
+
+/** `f` on the prose text between locators, code and the other protected bytes. */
+function proseOnly(lf: string, f: (text: string) => string): string {
+  return mapInline(lf, (piece) => {
+    let out = '';
+    let at = 0;
+    for (const m of piece.matchAll(LOCATOR)) {
+      out += f(piece.slice(at, m.index)) + m[0];
+      at = m.index + m[0].length;
+    }
+    return out + f(piece.slice(at));
+  });
+}
+
+export const lower: TransformDef = { id: 'lower', kind: 'edit', outsideCode: true, idempotent: true, run: (lf) => proseOnly(lf, (t) => t.toLowerCase()) };
+export const upper: TransformDef = { id: 'upper', kind: 'edit', outsideCode: true, idempotent: true, run: (lf) => proseOnly(lf, (t) => t.toUpperCase()) };
 
 export const slug: TransformDef = {
   id: 'slug',

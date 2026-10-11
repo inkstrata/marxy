@@ -55,12 +55,25 @@ function wrap(def: TransformDef): Transform['fn'] {
     if (def.kind === 'literal') return def.run(text, ctx);
     const bom = text.startsWith(BOM);
     const body = bom ? text.slice(1) : text;
-    const eol = eolOf(body);
+    const keepBom = (s: string): string => (bom && def.kind === 'edit' ? BOM + s : s);
+    if (def.raw) {
+      const out = def.run(body, ctx);
+      return out === body ? text : keepBom(out);
+    }
+    const endings = body.match(/\r\n|\r|\n/g) ?? [];
+    const eol = endings[0] ?? '\n';
     const lf = body.replace(/\r\n|\r/g, '\n');
     const out = def.run(lf, ctx);
     if (out === lf) return text;
-    const restored = eol === '\n' ? out : out.replace(/\n/g, eol);
-    return bom && def.kind === 'edit' ? BOM + restored : restored;
+    let restored: string;
+    if (new Set(endings).size > 1 && out.split('\n').length - 1 === endings.length) {
+      // A mixed file whose line count did not change: line i keeps line i's own ending.
+      let i = 0;
+      restored = out.replace(/\n/g, () => endings[i++]!);
+    } else {
+      restored = eol === '\n' ? out : out.replace(/\n/g, eol);
+    }
+    return keepBom(restored);
   };
 }
 
