@@ -1,0 +1,1 @@
+Two palette commands, Show what changed on disk and Show unsaved changes, open a diff of the version you were reading against the new one as a new document; they appear only when there is something to show, and the file is never touched (E-17)

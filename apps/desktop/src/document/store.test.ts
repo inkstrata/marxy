@@ -366,6 +366,23 @@ test('reload into a clean buffer: reloaded, history cleared', async () => {
   assert.equal(await store.undo(), false);
 });
 
+test('previousDisk: the bytes a clean reload replaced, in memory only; a kept reload, a save and close', async () => {
+  const io = recordingIo();
+  const store = openDocumentStore(io, PATH, enc.encode('one\n'));
+  assert.equal(store.snapshot().previousDisk, null);
+  assert.equal(await store.reload(enc.encode('two\n')), 'reloaded');
+  assert.equal(dec.decode(store.snapshot().previousDisk ?? undefined), 'one\n');
+  assert.equal(await store.reload(enc.encode('two\n')), 'unchanged');
+  assert.equal(dec.decode(store.snapshot().previousDisk ?? undefined), 'one\n', 'an echo of the same bytes is not a change');
+  // Over unsaved edits the change is kept for the reader's choice and sets nothing.
+  await store.apply({ range: range(0, 3), replacement: 'own', label: 'edit' });
+  assert.equal(await store.reload(enc.encode('three\n')), 'kept');
+  assert.equal(dec.decode(store.snapshot().previousDisk ?? undefined), 'one\n');
+  assert.equal(io.writes.length, 0, 'holding it writes nothing');
+  store.close();
+  assert.equal(store.snapshot().previousDisk, null, 'dropped with the document');
+});
+
 test('reload into a dirty buffer: kept, nothing changed', async () => {
   const store = openDocumentStore(recordingIo(), PATH, enc.encode('one\n'));
   await store.apply({ range: range(0, 3), replacement: 'two', label: 'edit' });
