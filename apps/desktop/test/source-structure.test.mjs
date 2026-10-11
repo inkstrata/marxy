@@ -337,10 +337,10 @@ async function caretAt(page, slot, needle, delta = 0) {
   }, { slot, needle, delta });
 }
 async function bothInSource(page) {
-  await page.keyboard.press('Meta+1');
+  await page.keyboard.press('Meta+Alt+ArrowLeft');
   await page.keyboard.press('Meta+e');
   await page.waitForSelector('#marxy-source .cm-content');
-  await page.keyboard.press('Meta+2');
+  await page.keyboard.press('Meta+Alt+ArrowRight');
   await page.keyboard.press('Meta+e');
   await page.waitForSelector('#marxy-source-2 .cm-content');
 }
@@ -348,7 +348,7 @@ async function bothInSource(page) {
 browserTest('the keys work from inside the editor, past the pane listener, and each runs once', async () => {
   await withPanes(async (page) => {
     await bothInSource(page);
-    await page.keyboard.press('Meta+1');
+    await page.keyboard.press('Meta+Alt+ArrowLeft');
     await caretAt(page, 0, 'alpha one', 2);
     await page.keyboard.press('Control+Shift+B');
     assert.deepEqual(await selectionOf(page, 0), ['alpha one\nalpha two']);
@@ -388,7 +388,7 @@ browserTest('with two panes in Source, an operation changes its own pane\'s docu
     await bothInSource(page);
     const leftBefore = await editorText(page, 0);
     const storesBefore = [await storeText(page, 0), await storeText(page, 1)];
-    await page.keyboard.press('Meta+2');
+    await page.keyboard.press('Meta+Alt+ArrowRight');
     await caretAt(page, 1, '- [ ] task');
     await page.keyboard.press('Control+Shift+T');
     assert.ok((await editorText(page, 1)).includes('- [x] task'));
@@ -426,7 +426,7 @@ browserTest('in Rendered no Source key does anything, and Source gains no elemen
 browserTest('the find panel\'s field keeps its own keys: the Source chords do nothing from it', async () => {
   await withPanes(async (page) => {
     await bothInSource(page);
-    await page.keyboard.press('Meta+1');
+    await page.keyboard.press('Meta+Alt+ArrowLeft');
     await caretAt(page, 0, 'alpha one');
     await page.keyboard.press('Meta+f');
     await page.waitForSelector('#marxy-source .cm-search input');

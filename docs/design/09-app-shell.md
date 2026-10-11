@@ -108,8 +108,9 @@ chrome.
 
 | Key | Action | Notes |
 | --- | --- | --- |
-| `Mod+P` | palette (documents) | with a selection: `Mod+P` again shows operations |
-| `Mod+Shift+P` | palette (operations) | |
+| `Mod+P` / `Mod+K` | palette (documents) | W-19: `Mod+K` is the same palette; either again closes it |
+| `Mod+Shift+P` / `Mod+/` | palette on commands (`>`) | W-19: the command list, including the operations; either again closes it; in Source `Mod+/` opens the palette, it does not toggle a comment |
+| `Mod+1` / `Mod+2` / `Mod+3` | Read / Split / Source | W-19 (`commands/view-mode.ts`): Read and Source set the focused pane's mode and do nothing when it is already there (`Mod+E` flips). Split shows the document twice, Read left and Source right; with two panes over two files it refuses and says why |
 | `Mod+E` | toggle Rendered / Source | position kept (§08) |
 | `Mod+F` | find | `Enter` next, `Shift+Enter` previous, `Esc` closes and keeps the reading position |
 | `Mod+Shift+O` | outline | `↑/↓ Enter`, `Esc` |
@@ -169,9 +170,7 @@ whose `when` does not hold (one pane), does nothing.
 | `Mod+\` | fold or unfold the workspace (`view.toggle-workspace`) | W-02, ADR-0058; held while a dialog is open; a held key counts once |
 | `Mod+Alt+\` | open beside (`view.open-beside`) | D-07, moved here by W-02: the palette in beside mode (below); works with the palette already open. Focus in a Source editor or another text field (the palette's query aside) leaves it to the field: CodeMirror's indent selection |
 | `Mod+Shift+\` | close the focused pane (`view.close-pane`) | D-08; never `Mod+W`, which is the native Close Window and quits |
-| `Mod+1` | focus the left pane (`view.focus-left`) | with two panes |
-| `Mod+2` | focus the right pane (`view.focus-right`) | with two panes |
-| `Mod+Alt+←` / `Mod+Alt+→` | focus the left / right pane | the same two commands; `Alt+←`/`→` without `Mod` stays history |
+| `Mod+Alt+←` / `Mod+Alt+→` | focus the left / right pane (`view.focus-left`, `view.focus-right`) | with two panes; moved here from `Mod+1`/`Mod+2` by W-19; `Alt+←`/`→` without `Mod` stays history |
 
 **Open beside.** `Mod+Alt+\` opens the palette in beside mode. With nothing typed it lists Recent alone, the
 most recently used documents without those already on screen (`recentExcluding`, `palette/session.ts`), the
@@ -325,7 +324,7 @@ does so in whichever pane it opens in. Commands that mean "the editor" (line num
 external editor's line) take the focused pane's (`activeSourceEditor()`).
 
 Two panes on one file, one Rendered and one Source: what is typed in Source reaches the other view
-when focus leaves the editor (a click or `Mod+1`/`Mod+2` into the other pane, the palette), not per
+when focus leaves the editor (a click or `Mod+Alt+←`/`→` into the other pane, the palette), not per
 keystroke. It is folded into the store then, one history entry, exactly as leaving Source folds it; a
 Source pane that is the only view of its store folds only on leaving Source, as before. Two views of one
 store never both hold unfolded Source text: a pane that comes to show a document another pane holds

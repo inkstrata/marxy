@@ -97,7 +97,7 @@ test('Mod+F in the right pane finds in the right article only, counts it, and la
       [...document.querySelectorAll('.marxy-find-slot')].map((s) => [s.childElementCount, getComputedStyle(s).display]));
     assert.deepEqual(rest, [[0, 'none'], [0, 'none']]);
 
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.keyboard.press(`${mod}+KeyF`);
     await page.waitForSelector('#marxy-main > section[data-marxy-pane="1"] .marxy-find input:focus');
     await typeQuery(page, 'lantern');
@@ -129,7 +129,7 @@ test('Mod+F in the right pane finds in the right article only, counts it, and la
 
 test('Esc closes find, removes its highlights and gives focus back to the pane it opened from', async () => {
   await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.keyboard.press(`${mod}+KeyF`);
     await typeQuery(page, 'lantern');
     assert.equal((await findState(page)).highlighted.length, RIGHT_LANTERNS);
@@ -147,7 +147,7 @@ test('Esc closes find, removes its highlights and gives focus back to the pane i
     // Opening in the other pane closes it here; each pane keeps its own last query.
     await page.keyboard.press(`${mod}+KeyF`);
     assert.equal(await page.inputValue('.marxy-find input'), 'lantern');
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     await page.keyboard.press(`${mod}+KeyF`);
     assert.deepEqual((await findState(page)).fields, [1, 0]);
     assert.equal(await page.inputValue('.marxy-find input'), '');
@@ -171,7 +171,7 @@ test('without CSS.highlights the fallback draws overlay rectangles and never wri
       window.__articleWrites = 0;
       new MutationObserver((records) => { window.__articleWrites += records.length; }).observe(document.getElementById('doc-2'), { subtree: true, childList: true, characterData: true, attributes: true });
     });
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.keyboard.press(`${mod}+KeyF`);
     await typeQuery(page, 'lantern');
     const drawn = await page.evaluate(() => ({
@@ -287,7 +287,7 @@ test('a match in a horizontally scrolled table brings the table into view too', 
 
 test('find sits above the outline when both are open', async () => {
   await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     await page.keyboard.press(`${mod}+Shift+KeyO`);
     await page.waitForSelector('#marxy-outline[open]');
     await page.evaluate(async () => {
@@ -334,7 +334,7 @@ test('after the typesetter split text nodes, a match across a line break is foun
       return null;
     });
     assert.ok(phrase, 'a line break between two words');
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.keyboard.press(`${mod}+KeyF`);
     await typeQuery(page, phrase);
     const crossing = await page.evaluate(() =>
@@ -419,7 +419,7 @@ test('Source pane focused: Mod+F is CodeMirror search in that pane, and the othe
   await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
     await page.evaluate(() => window.__marxyHandle.panes().panes[0].view.toggleMode());
     await page.waitForSelector('#marxy-source .cm-content');
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     await page.waitForFunction(() => document.activeElement?.classList.contains('cm-content'));
     await page.keyboard.press(`${mod}+KeyF`);
     await page.waitForSelector('#marxy-source .cm-search');
@@ -456,7 +456,7 @@ test('the outline follows the focused pane: its headings, its scroll, its right 
         pane: document.querySelector(`section.marxy-pane[data-marxy-pane="${slot}"]`).getBoundingClientRect().right,
       }), slot);
 
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     await page.keyboard.press(`${mod}+Shift+KeyO`);
     assert.deepEqual(await rows(), left);
     assert.equal(await marked(), 'Alpha');
@@ -471,7 +471,7 @@ test('the outline follows the focused pane: its headings, its scroll, its right 
     await page.keyboard.press('Escape');
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().focused.slot), 0);
 
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.keyboard.press(`${mod}+Shift+KeyO`);
     assert.deepEqual(await rows(), right);
     const rightEdge = await edges(1);

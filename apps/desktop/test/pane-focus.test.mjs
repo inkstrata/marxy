@@ -1,4 +1,4 @@
-// Focus between two panes (D-06): `Mod+1`/`Mod+2` and `Mod+Alt+Left`/`Right` move it, a press or a wheel
+// Focus between two panes (D-06): `Mod+Alt+Left`/`Right` move it, a press or a wheel
 // gesture after a pause over the other pane moves it, and the selection, copy and undo act on the focused
 // pane. Booted on the shipped skeleton and CSS (test/support/two-pane.mjs), over the memory shell.
 import { strict as assert } from 'node:assert';
@@ -83,22 +83,34 @@ const clickOn = async (page, selector) => {
   await page.mouse.click(x, y);
 };
 
-test('Mod+2 focuses the right pane and Mod+1 the left: one marked pane, activeElement in it, its path on the handle', async () => {
+test('Mod+Alt+Right focuses the right pane and Mod+Alt+Left the left: one marked pane, activeElement in it, its path on the handle', async () => {
   await withTwoPanes(async (page, mod) => {
     assert.deepEqual({ ...(await focusState(page)), active: 0 }, LEFT);
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     assert.deepEqual(await focusState(page), RIGHT);
     // The window title follows (D-01's listener; asserted here so the chord's whole effect is pinned).
     assert.equal(await page.evaluate(() => document.title), 'B.md — Marxy');
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     assert.deepEqual(await focusState(page), LEFT);
+  });
+});
+
+test('Mod+1 and Mod+2 no longer move focus (they choose Read and Split, W-19)', async () => {
+  await withTwoPanes(async (page, mod) => {
+    assert.deepEqual({ ...(await focusState(page)), active: 0 }, LEFT);
+    await page.keyboard.press(`${mod}+2`);
+    assert.equal((await focusState(page)).focused, 0);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
+    assert.deepEqual(await focusState(page), RIGHT);
+    await page.keyboard.press(`${mod}+1`);
+    assert.equal((await focusState(page)).focused, 1);
   });
 });
 
 test('a pane chord runs its command once, not again in the registry dispatcher', async () => {
   await withTwoPanes(async (page, mod) => {
-    await page.keyboard.press(`${mod}+2`);
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     assert.equal(await page.evaluate(() => window.__focusEvents), 3);
   });
@@ -152,7 +164,7 @@ test('focusing the other pane clears the selection; Mod+C copies the focused pan
   await withTwoPanes(async (page, mod) => {
     await clickOn(page, '#doc p:nth-of-type(2)');
     assert.equal(await page.evaluate(() => document.querySelectorAll('#doc .marxy-selected').length), 1);
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     const cleared = await page.evaluate(() => ({
       kind: window.__marxyHandle.selection.state().selection.kind,
       marked: document.querySelectorAll('.marxy-selected').length,
@@ -169,15 +181,15 @@ test('focusing the other pane clears the selection; Mod+C copies the focused pan
   });
 });
 
-test('Mod+2 from inside the left pane\'s Source editor still moves focus; Mod+1 gives it back to the editor', async () => {
+test('Mod+Alt+Right from inside the left pane\'s Source editor still moves focus; Mod+Alt+Left gives it back to the editor', async () => {
   await withTwoPanes(async (page, mod) => {
     await page.evaluate(() => window.__marxyHandle.toggleMode());
     await page.waitForSelector('#marxy-source .cm-content');
     await page.focus('#marxy-source .cm-content');
     assert.equal(await page.evaluate(() => document.activeElement.classList.contains('cm-content')), true);
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     assert.deepEqual(await focusState(page), RIGHT);
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     const back = await page.evaluate(() => ({
       focused: window.__marxyHandle.panes().focused.slot,
       inEditor: document.querySelector('#marxy-source .cm-content') === document.activeElement,
@@ -186,7 +198,7 @@ test('Mod+2 from inside the left pane\'s Source editor still moves focus; Mod+1 
   });
 });
 
-test('Mod+Z undoes the focused pane\'s file only: the right pane\'s tick, then after Mod+1 the left one\'s', async () => {
+test('Mod+Z undoes the focused pane\'s file only: the right pane\'s tick, then after Mod+Alt+Left the left one\'s', async () => {
   await withTwoPanes(async (page, mod) => {
     const text = () =>
       page.evaluate(() =>
@@ -206,7 +218,7 @@ test('Mod+Z undoes the focused pane\'s file only: the right pane\'s tick, then a
     [left, right] = await text();
     assert.ok(left.includes('- [x] alpha task') && right.includes('- [ ] bravo task'), `${left}\n${right}`);
 
-    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     await page.keyboard.press(`${mod}+z`);
     await page.waitForFunction(() => !window.__marxyHandle.panes().panes[0].view.store().snapshot().canUndo);
     [left, right] = await text();
@@ -220,7 +232,7 @@ test('one pane: the focus chords do nothing and the palette lists neither focus 
     const page = await browser.newPage({ viewport: { width: 1470, height: 900 } });
     await bootTwoPanes(page, { files, open: ['/r/A.md'] });
     const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     const state = await page.evaluate(async () => {
       const { buildAppContext } = await import('/src/selection/bind.ts');
       const ctx = buildAppContext(window.__marxyHandle);
@@ -258,7 +270,7 @@ test('the right pane\'s page is told to the selection: its links show their dest
 
 test('focusOrigin gives focus back to the pane an overlay opened from', async () => {
   await withTwoPanes(async (page, mod) => {
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     const restored = await page.evaluate(async () => {
       const { focusOrigin } = await import('/src/pane/focus.ts');
       const panes = window.__marxyHandle.panes();
@@ -276,7 +288,7 @@ test('focusOrigin gives focus back to the pane an overlay opened from', async ()
 /** Presses every pane chord and asserts focus, the mark, the selection and the document stay on the left pane. */
 async function assertChordsHeldOnLeft(page, mod) {
   const before = await page.evaluate(() => ({ version: window.__marxyHandle.selection.runtime()?.version ?? null }));
-  for (const chord of [`${mod}+2`, `${mod}+1`, `${mod}+Alt+ArrowRight`, `${mod}+Alt+ArrowLeft`]) {
+  for (const chord of [`${mod}+Alt+ArrowRight`, `${mod}+Alt+ArrowLeft`]) {
     await page.keyboard.press(chord);
     const state = await page.evaluate(() => ({
       focused: window.__marxyHandle.panes().focused.slot,
@@ -290,7 +302,7 @@ async function assertChordsHeldOnLeft(page, mod) {
   assert.ok(before);
 }
 
-test('with the outline open, Mod+1, Mod+2 and Mod+Alt+Arrow leave focus, the mark and the selection on the left pane', async () => {
+test('with the outline open, Mod+Alt+Arrow leave focus, the mark and the selection on the left pane', async () => {
   await withTwoPanes(async (page, mod) => {
     await page.keyboard.press(`${mod}+Shift+KeyO`);
     await page.waitForFunction(() => document.getElementById('marxy-outline')?.hasAttribute('open'));
@@ -299,7 +311,7 @@ test('with the outline open, Mod+1, Mod+2 and Mod+Alt+Arrow leave focus, the mar
   });
 });
 
-test('with the palette open, Mod+1, Mod+2 and Mod+Alt+Arrow leave focus, the mark and the selection on the left pane', async () => {
+test('with the palette open, Mod+Alt+Arrow leave focus, the mark and the selection on the left pane', async () => {
   await withTwoPanes(async (page, mod) => {
     await page.evaluate(async () => {
       const { mountPaletteFromHandle } = await import('/src/palette/view.ts');
@@ -342,7 +354,7 @@ test('a pane chord with the verb menu open closes the menu and lands focus insid
     await clickOn(page, '#doc p:nth-of-type(2)');
     await page.keyboard.press('Enter');
     await page.waitForSelector('[role=menu]');
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     assert.equal(await page.evaluate(() => document.querySelector('[role=menu]') === null), true);
     assert.deepEqual(await focusState(page), RIGHT);
     assert.equal(await page.evaluate(() => window.__marxyHandle.selection.runtime()?.article?.id), 'doc-2');
@@ -353,7 +365,7 @@ test('each pane host is labelled with its document, so a screen reader announces
   await withTwoPanes(async (page, mod) => {
     const labels = () => page.evaluate(() => [...document.querySelectorAll('#marxy-main > section.marxy-pane')].map((h) => h.getAttribute('aria-label')));
     assert.deepEqual(await labels(), ['Left pane, A.md', 'Right pane, B.md']);
-    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     assert.deepEqual(await labels(), ['Left pane, A.md', 'Right pane, B.md']);
   });
 });

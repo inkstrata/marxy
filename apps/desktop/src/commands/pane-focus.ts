@@ -1,8 +1,8 @@
 // "Focus left pane" and "Focus right pane" (D-06). Each holds only while its pane exists, so with one
 // document neither is listed. `when` says only that: the palette, itself a dialog, lists and runs both
 // (P8, the fallback for every chord); holding a chord under an open dialog is pane/keys.ts's. The `key`
-// documents the chord for the palette; the chords themselves (`Mod+1`/`Mod+2`, and
-// `Mod+Alt+Left`/`Mod+Alt+Right`) are run by pane/keys.ts, on physical keys.
+// documents the chord for the palette; the chords themselves (`Mod+Alt+Left`/`Mod+Alt+Right`; `Mod+1`
+// and `Mod+2` are Read and Split since W-19) are run by pane/keys.ts, on physical keys.
 import { appHandle } from './app-handle.ts';
 import type { Command } from './registry.ts';
 
@@ -25,7 +25,7 @@ export function paneFocusCommands(): readonly Command[] {
     {
       id: 'view.focus-left',
       title: 'Focus left pane',
-      key: 'Mod+1',
+      key: 'Mod+Alt+ArrowLeft',
       group: 'view',
       when: () => hasSlot(0),
       run: focusSlot(0),
@@ -33,7 +33,7 @@ export function paneFocusCommands(): readonly Command[] {
     {
       id: 'view.focus-right',
       title: 'Focus right pane',
-      key: 'Mod+2',
+      key: 'Mod+Alt+ArrowRight',
       group: 'view',
       when: () => hasSlot(1),
       run: focusSlot(1),

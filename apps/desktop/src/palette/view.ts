@@ -1,5 +1,6 @@
 // Summoned palette in the real document: input, list, keys, and ADR-0011 tab-bar checks (MARXY-87).
 
+import { closeVerbMenu } from '../selection/verb-menu.ts';
 import { detectKind, type IndexEntry, type IndexHit } from '@marxy/core';
 import { invisibleHexLabel, invisibleSegments } from '@marxy/core/src/render/index.ts';
 import type { ContentHit, Shell } from '@marxy/shell-api';
@@ -997,12 +998,33 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     }
   });
 
-  window.addEventListener('keydown', (event) => {
-    if (isMod(event) && event.key.toLowerCase() === 'p' && !event.shiftKey) {
+  // The summoning chords (W-19): `Mod+P` and `Mod+K` open the palette on documents, `Mod+Shift+P` and `Mod+/`
+  // open it on commands (`>`). Each closes it when it is already open on what the chord opens. On `window` in
+  // the capture phase, so a Source editor's own `Mod+/` (toggle comment) never sees the press.
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      if (!isMod(event) || event.altKey) return;
+      const key = event.key.toLowerCase();
+      const commands = (key === 'p' && event.shiftKey) || (key === '/' && !event.shiftKey);
+      const documents = (key === 'p' || key === 'k') && !event.shiftKey;
+      if (!commands && !documents) return;
       event.preventDefault();
-      if (open) dismiss();
-      else summon();
-    }
+      // Only Mod+/ is also a Source editor chord (CodeMirror's toggle comment): it stops here. The others go on,
+      // so an open verb menu still closes on them.
+      if (key === '/') event.stopPropagation();
+      // An open verb menu closes first: closing it later would hand focus back from under the palette's field.
+      closeVerbMenu();
+      if (documents) {
+        if (open) dismiss();
+        else summon();
+      } else if (open && input.value === '>') dismiss();
+      else summon('>');
+    },
+    true,
+  );
+
+  window.addEventListener('keydown', (event) => {
     if (isMod(event) && event.key === '.' && open && model.phase === 'content') {
       const found = model.contentHits?.[selected];
       if (found !== undefined) {
