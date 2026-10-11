@@ -15,7 +15,9 @@ import { PANE_CHORDS } from '../src/pane/keys.ts';
 import { commands } from '../src/commands/index.ts';
 import { SOURCE_EDIT_ENTRIES, sourceEditChords } from '../src/commands/source-edit.ts';
 import { cmDocText, leaveSourceMode, lineSeparatorFor } from '../src/source/buffer-commit.ts';
-import { keyBindingChords, registryChord, runStructure, withoutRegistryChords } from '../src/source/structure.ts';
+import { keyBindingChords, registryChord, runStructure, runTableTool, tableCsvAt, withoutRegistryChords } from '../src/source/structure.ts';
+import { copyTableCsv } from '../../../packages/core/src/operations/copy-table.ts';
+import { parseMarkdown } from '../../../packages/core/src/parse/parse.ts';
 
 const encoder = new TextEncoder();
 const SEPARATORS = { lf: '\n', crlf: '\r\n', cr: '\r' };
@@ -36,7 +38,9 @@ function session(bytes, op, sel, path = '/t/a.md') {
   const dispatch = (tr) => {
     state = tr.state;
   };
-  const ran = runStructure(op, { get state() { return state; }, dispatch }, path);
+  const target = { get state() { return state; }, dispatch };
+  // A V-02 table tool is `{ table: 'alignTable' }`; the rest are V-01 operations.
+  const ran = typeof op === 'object' ? runTableTool(op.table, target, path) : runStructure(op, target, path);
   const out = () => {
     const fold = leaveSourceMode(buffer, state.sliceDoc(0, state.doc.length));
     return fold.changed ? fold.buffer.bytes : bytes;
@@ -245,6 +249,151 @@ test('carets on neighbouring lines: join and delete line act once', () => {
   assert.equal(text(session(encoder.encode('a\nb\nc\nd\n'), 'deleteLine', two).bytes), 'c\nd\n');
 });
 
+// ---- V-02: table tools ------------------------------------------------------------------------------------------
+
+// What each tool does to a table in a file with LF line ends and the caret in `^`, by hand: the CRLF and CR runs,
+// with and without a BOM, with and without a final newline, must be this in their own separator. `^` is removed.
+const TABLE_CASES = [
+  { tool: 'alignTable', input: 'intro\n\n| a | b |\n|:-:|--:|\n| 1 | ^22 |\n\nouttro\n', expected: 'intro\n\n| a   | b   |\n| :-: | --: |\n| 1   | 22  |\n\nouttro\n' },
+  { tool: 'addTableRow', input: 'intro\n\n| a | b |\n|---|---|\n| ^1 | 2 |\n\nouttro\n', expected: 'intro\n\n| a | b |\n|---|---|\n| 1 | 2 |\n|  |  |\n\nouttro\n' },
+  { tool: 'addTableColumn', input: 'intro\n\n| a | b |\n|---|---|\n| ^1 | 2 |\n\nouttro\n', expected: 'intro\n\n| a |  | b |\n|---|---|---|\n| 1 |  | 2 |\n\nouttro\n' },
+  { tool: 'sortTableRows', input: 'intro\n\n| a | b |\n|---|---|\n| z | 1 |\n| ^a | 2 |\n\nouttro\n', expected: 'intro\n\n| a | b |\n|---|---|\n| a | 2 |\n| z | 1 |\n\nouttro\n' },
+];
+
+/** `input` with its caret marker removed, and the caret. */
+const withCaret = (input) => ({ lf: input.replace('^', ''), at: input.indexOf('^') });
+
+for (const eol of ['lf', 'crlf', 'cr']) {
+  for (const bom of [false, true]) {
+    for (const finalNewline of [true, false]) {
+      for (const kase of TABLE_CASES) {
+        test(`${kase.tool} keeps a ${eol.toUpperCase()} file ${eol.toUpperCase()}${bom ? ', its BOM' : ''} and ${finalNewline ? 'its final newline' : 'no final newline'}; one undo step`, () => {
+          const sep = SEPARATORS[eol];
+          const trim = (t) => (finalNewline ? t : t.replace(/\n$/, ''));
+          const { lf, at } = withCaret(trim(kase.input));
+          const bytes = fileBytes(lf, sep, bom);
+          const r = session(bytes, { table: kase.tool }, { from: at, to: at });
+          assert.equal(r.ran, true);
+          assert.equal(text(r.bytes), text(fileBytes(trim(kase.expected), sep, bom)), 'the bytes written');
+          assert.equal(r.steps, 1, 'one undo step');
+          assert.deepEqual([...r.undo()], [...bytes], 'one undo brings back every byte');
+        });
+      }
+    }
+  }
+}
+
+test('every table tool with the caret outside a table does nothing: no change, no undo step, false', () => {
+  for (const input of ['para ^graph\n\n| a |\n|---|\n| 1 |\n', '| a |\n|---|\n| 1 |\n\n^after\n', '```\n| a |\n|---|\n| ^1 |\n```\n']) {
+    const { lf, at } = withCaret(input);
+    for (const tool of ['alignTable', 'addTableRow', 'addTableColumn', 'sortTableRows']) {
+      for (const sep of ['\n', '\r\n']) {
+        const bytes = fileBytes(lf, sep, false);
+        const r = session(bytes, { table: tool }, { from: at, to: at });
+        assert.equal(r.ran, false, `${tool} in ${JSON.stringify(input)}`);
+        assert.equal(r.steps, 0);
+        assert.deepEqual([...r.bytes], [...bytes]);
+      }
+    }
+    assert.equal(tableCsvAt(EditorState.create({ doc: lf, selection: { anchor: at } }), '/t/a.md'), null);
+  }
+});
+
+test('table tools do nothing in a file that is not Markdown', () => {
+  const { lf, at } = withCaret('| a |\n|---|\n| ^1 |\n');
+  for (const tool of ['alignTable', 'addTableRow', 'addTableColumn', 'sortTableRows']) {
+    const r = session(fileBytes(lf, '\n', false), { table: tool }, { from: at, to: at }, '/t/a.txt');
+    assert.equal(r.ran, false);
+    assert.equal(r.steps, 0);
+  }
+});
+
+test('a table in a mixed-ending file: each tool keeps every other line\'s ending, and the table\'s own', () => {
+  // The file's separator is "\n" (it is mixed), so a "\r" is a character at the end of a line, or inside one.
+  const mixed = 'a\r\n\r\n| k |\n|---|\r\n| b |\n| ^a |\r\n\r\nz\rlone\n';
+  const { lf, at } = withCaret(mixed);
+  const bytes = encoder.encode(lf);
+  const sorted = session(bytes, { table: 'sortTableRows' }, { from: at, to: at });
+  assert.equal(text(sorted.bytes), 'a\r\n\r\n| k |\n|---|\r\n| a |\n| b |\r\n\r\nz\rlone\n');
+  assert.deepEqual([...sorted.undo()], [...bytes]);
+  const row = session(bytes, { table: 'addTableRow' }, { from: at, to: at });
+  assert.equal(text(row.bytes), 'a\r\n\r\n| k |\n|---|\r\n| b |\n| a |\n|  |\r\n\r\nz\rlone\n');
+  assert.deepEqual([...row.undo()], [...bytes]);
+  const aligned = session(bytes, { table: 'alignTable' }, { from: at, to: at });
+  assert.equal(text(aligned.bytes), 'a\r\n\r\n| k   |\n| --- |\r\n| b   |\n| a   |\r\n\r\nz\rlone\n');
+  const column = session(bytes, { table: 'addTableColumn' }, { from: at, to: at });
+  assert.equal(text(column.bytes), 'a\r\n\r\n| k |  |\n|---|---|\r\n| b |  |\n| a |  |\r\n\r\nz\rlone\n');
+  assert.deepEqual([...column.undo()], [...bytes]);
+});
+
+test('a table in a block quote or a list item is edited with its prefix on every line, in CRLF too', () => {
+  for (const sep of ['\n', '\r\n']) {
+    for (const [first, rest] of [['> ', '> '], ['- ', '  '], ['1. ', '   '], ['> - ', '>   ']]) {
+      const lines = [`${first}| k | v |`, `${rest}|---|---|`, `${rest}| b | 1 |`, `${rest}| ^a | 2 |`];
+      const input = `${lines.join('\n')}\n`;
+      const { lf, at } = withCaret(input);
+      const bytes = fileBytes(lf, sep, false);
+      const run = (tool) => session(bytes, { table: tool }, { from: at, to: at });
+      const eolOf = (t) => t.replace(/\r\n/g, '\n');
+      assert.equal(eolOf(text(run('sortTableRows').bytes)), `${first}| k | v |\n${rest}|---|---|\n${rest}| a | 2 |\n${rest}| b | 1 |\n`);
+      assert.equal(eolOf(text(run('addTableRow').bytes)), `${first}| k | v |\n${rest}|---|---|\n${rest}| b | 1 |\n${rest}| a | 2 |\n${rest}|  |  |\n`);
+      assert.equal(eolOf(text(run('addTableColumn').bytes)), `${first}| k |  | v |\n${rest}|---|---|---|\n${rest}| b |  | 1 |\n${rest}| a |  | 2 |\n`);
+      const al = eolOf(text(run('alignTable').bytes));
+      assert.equal(al, lf.replace(/\|---\|---\|/, '| --- | --- |').replace(/\| k \|/, '| k   |').replace(/\| b \|/, '| b   |').replace(/\| a \|/, '| a   |').replace(/\| v \|/, '| v   |').replace(/\| 1 \|/, '| 1   |').replace(/\| 2 \|/, '| 2   |'));
+    }
+  }
+});
+
+test('escaped pipes stay in their cell through every tool, and a code span\'s with them', () => {
+  const input = '| name | code |\n|---|---|\n| b \\| c | `x\\|y` |\n| ^a | `p\\|q` |\n';
+  const { lf, at } = withCaret(input);
+  const run = (tool) => text(session(encoder.encode(lf), { table: tool }, { from: at, to: at }).bytes);
+  assert.equal(run('sortTableRows'), '| name | code |\n|---|---|\n| a | `p\\|q` |\n| b \\| c | `x\\|y` |\n');
+  assert.equal(run('addTableColumn'), '| name |  | code |\n|---|---|---|\n| b \\| c |  | `x\\|y` |\n| a |  | `p\\|q` |\n');
+  assert.equal(run('addTableRow'), `${lf}|  |  |\n`);
+  assert.equal(run('alignTable'), '| name   | code   |\n| ------ | ------ |\n| b \\| c | `x\\|y` |\n| a      | `p\\|q` |\n');
+});
+
+test('wide characters align by display width: CJK and emoji are two cells', () => {
+  const { lf, at } = withCaret('| a | b |\n|---|---|\n| ^漢字 | 😀 |\n| xxxx | y |\n');
+  const out = text(session(encoder.encode(lf), { table: 'alignTable' }, { from: at, to: at }).bytes);
+  assert.equal(out, '| a    | b   |\n| ---- | --- |\n| 漢字 | 😀  |\n| xxxx | y   |\n');
+});
+
+test('sort leaves the header and alignment rows in place and is one undo step', () => {
+  const { lf, at } = withCaret('| k |\n|:-:|\n| c |\n| ^a |\n| b |\n');
+  const bytes = encoder.encode(lf);
+  const r = session(bytes, { table: 'sortTableRows' }, { from: at, to: at });
+  assert.equal(text(r.bytes), '| k |\n|:-:|\n| a |\n| b |\n| c |\n');
+  assert.equal(r.steps, 1);
+  assert.deepEqual([...r.undo()], [...bytes]);
+});
+
+test('Copy table as CSV is the text of C-07\'s copy-table-csv for the same table, and reads nothing it does not own', () => {
+  const src = '| name | note |\n|:--|--:|\n| a,b | "q" |\n| =1+1 | x\\|y |\n| 名 | `c` |\n';
+  for (const sep of ['\n', '\r\n']) {
+    const { lf, at } = withCaret(src.replace('| a,b', '| ^a,b'));
+    const buffer = createBuffer('/t/a.md', fileBytes(lf, sep, true));
+    const state = EditorState.create({ doc: cmDocText(buffer), selection: { anchor: at }, extensions: [EditorState.lineSeparator.of(lineSeparatorFor(buffer))] });
+    const doc = parseMarkdown(lf);
+    const table = doc.children.find((n) => n.type === 'table');
+    const expected = copyTableCsv.run({ document: doc, node: table, range: table.src, text: '' }).clipboard.text;
+    assert.equal(tableCsvAt(state, '/t/a.md'), expected);
+    assert.equal(expected, 'name,note\r\n"a,b","""q"""\r\n\'=1+1,x|y\r\n名,c');
+    assert.equal(state.doc.toString(), lf, 'the editor is not touched');
+  }
+});
+
+test('the table commands are palette-only entries of the Source group, each runs from inside the editor and has a title that says what it does', () => {
+  const table = SOURCE_EDIT_ENTRIES.filter((e) => e.table !== undefined);
+  assert.deepEqual(table.map((e) => e.table), ['alignTable', 'addTableRow', 'addTableColumn', 'sortTableRows', 'copyTableCsv']);
+  for (const entry of table) {
+    assert.equal(entry.key, undefined, `${entry.id} takes no key`);
+    assert.match(entry.id, /^source\.table-/);
+  }
+  assert.match(table.find((e) => e.table === 'sortTableRows').title, /byte order/);
+});
+
 // Keys: one table, no collision.
 const MAC = true;
 
@@ -435,5 +584,137 @@ browserTest('the find panel\'s field keeps its own keys: the Source chords do no
     for (const chord of ['Control+j', 'Meta+d', 'Meta+Shift+l', 'Meta+l']) await page.keyboard.press(chord);
     assert.equal(await editorText(page, 0), before);
     assert.equal(await page.evaluate(() => document.activeElement?.closest('.cm-panels') !== null), true, 'focus stays in the panel');
+  });
+});
+
+// ---- V-02 in the running app: the palette commands over a real editor, the Source fold and Save --------------------------
+
+const TABLE_DOC = '/r/T.md';
+// CRLF, a BOM and no final newline: the table is the last block of the file.
+const TABLE_FILE = '﻿# Notes\r\n\r\n| k | v |\r\n|:--|--:|\r\n| b | 1 |\r\n| a | 22 |';
+
+async function withTable(fn) {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
+    await bootTwoPanes(page, { files: { [TABLE_DOC]: TABLE_FILE }, open: [TABLE_DOC], guard: true });
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${mod}+e`);
+    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
+    await page.waitForSelector('.cm-content');
+    const api = {
+      mod,
+      doc: () => page.evaluate(async () => (await import('/src/source/editor.ts')).activeSourceEditor().docText()),
+      caretAt: (needle, delta = 0) =>
+        page.evaluate(async ({ needle, delta }) => {
+          const { activeSourceEditor } = await import('/src/source/editor.ts');
+          const view = activeSourceEditor().view;
+          view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf(needle) + delta } });
+          view.focus();
+        }, { needle, delta }),
+      /** Runs the registry command as the palette does; resolves whether the palette offers it in Source. */
+      run: (id) =>
+        page.evaluate(async (id) => {
+          const { commands } = await import('/src/commands/index.ts');
+          const { buildAppContext } = await import('/src/selection/bind.ts');
+          const cmd = commands().find((c) => c.id === id);
+          const ctx = buildAppContext();
+          const offered = cmd.when(ctx);
+          await cmd.run(ctx);
+          return offered;
+        }, id),
+      notices: () => page.evaluate(() => [...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent)),
+      /** Saves with the Mod+S chord and returns the bytes on disk. */
+      save: async () => {
+        await page.evaluate(() => { window.__appWrites.length = 0; });
+        await page.keyboard.press(`${mod}+s`);
+        await page.waitForFunction((p) => window.__appWrites.some((w) => w.path === p), TABLE_DOC, { timeout: 5000 });
+        return page.evaluate((p) => window.__marxyHandle.shell.peekFile(p).then((b) => [...b]), TABLE_DOC);
+      },
+      /** Mod+Z presses that change the text: the history's depth. Undoes everything it counts. */
+      undoSteps: async () => {
+        let steps = 0;
+        for (let i = 0; i < 8; i++) {
+          const before = await api.doc();
+          await page.keyboard.press(`${mod}+z`);
+          if ((await api.doc()) === before) break;
+          steps += 1;
+        }
+        return steps;
+      },
+      writes: () => page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !c.args[0].startsWith('/data/')).length),
+    };
+    await fn(page, api);
+  } finally {
+    await browser.close();
+  }
+}
+
+const asBytes = (s) => [...new TextEncoder().encode(s)];
+const TABLE_EXPECTED = {
+  'source.table-align': { at: ['| a |', 4], file: TABLE_FILE.replace('| k | v |', '| k   | v   |').replace('|:--|--:|', '| :-- | --: |').replace('| b | 1 |', '| b   | 1   |').replace('| a | 22 |', '| a   | 22  |') },
+  'source.table-add-row': { at: ['| a |', 4], file: `${TABLE_FILE}\r\n|  |  |` },
+  'source.table-add-column': { at: ['| a |', 4], file: TABLE_FILE.replace('| k | v |', '| k |  | v |').replace('|:--|--:|', '|:--|---|--:|').replace('| b | 1 |', '| b |  | 1 |').replace('| a | 22 |', '| a |  | 22 |') },
+  'source.table-sort': { at: ['| a |', 4], file: TABLE_FILE.replace('| b | 1 |\r\n| a | 22 |', '| a | 22 |\r\n| b | 1 |') },
+};
+
+for (const [id, want] of Object.entries(TABLE_EXPECTED)) {
+  browserTest(`${id} in the app: one undo step, and Save writes the file's own CRLF, BOM and missing final newline`, async () => {
+    await withTable(async (page, s) => {
+      const original = await s.doc();
+      await s.caretAt(...want.at);
+      assert.equal(await s.run(id), true, 'offered in Source');
+      const edited = await s.doc();
+      assert.notEqual(edited, original);
+      assert.deepEqual(await s.save(), asBytes(want.file), 'the bytes on disk');
+      await s.caretAt(...want.at);
+      assert.equal(await s.undoSteps(), 1, 'one Mod+Z undoes the whole operation');
+      assert.equal(await s.doc(), original);
+      assert.deepEqual(await s.save(), asBytes(TABLE_FILE), 'saved again, the original bytes');
+    });
+  });
+}
+
+browserTest('the table commands with the caret outside a table do nothing and say nothing', async () => {
+  await withTable(async (page, s) => {
+    const original = await s.doc();
+    await s.caretAt('# Notes', 2);
+    const writes = await s.writes();
+    for (const id of ['source.table-align', 'source.table-add-row', 'source.table-add-column', 'source.table-sort', 'source.table-copy-csv']) await s.run(id);
+    assert.equal(await s.doc(), original);
+    assert.equal(await s.undoSteps(), 0, 'no undo step');
+    assert.deepEqual(await s.notices(), []);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => /clipboard/i.test(c.method) && !/Types|Read/.test(c.method)).length), 0, 'nothing on the pasteboard');
+    assert.equal(await s.writes(), writes);
+  });
+});
+
+browserTest('Copy table as CSV in Source goes through the one copy path: one pasteboard item, the text of copy-table-csv, one notice', async () => {
+  await withTable(async (page, s) => {
+    await s.caretAt('| a |', 4);
+    await page.evaluate(() => { window.__marxyHandle.shell.calls.length = 0; });
+    await s.run('source.table-copy-csv');
+    const item = await page.evaluate(() => {
+      const [w] = window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem');
+      return w ? { reps: w.args[0].map((r) => ({ type: r.type, text: new TextDecoder().decode(r.bytes) })), others: window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').length } : null;
+    });
+    assert.deepEqual(item, { reps: [{ type: 'public.utf8-plain-text', text: 'k,v\r\nb,1\r\na,22' }], others: 1 });
+    assert.deepEqual(await s.notices(), ['Copied table as CSV, 14 B']);
+    assert.equal(await s.doc(), TABLE_FILE.slice(1), 'the editor is untouched');
+  });
+});
+
+browserTest('the table commands are offered in Source and not in Rendered', async () => {
+  await withTable(async (page, s) => {
+    const offered = () =>
+      page.evaluate(async () => {
+        const { commands } = await import('/src/commands/index.ts');
+        const { buildAppContext } = await import('/src/selection/bind.ts');
+        return commands().filter((c) => c.id.startsWith('source.table-')).map((c) => c.when(buildAppContext()));
+      });
+    assert.deepEqual(await offered(), [true, true, true, true, true]);
+    await page.keyboard.press(`${s.mod}+e`);
+    await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
+    assert.deepEqual(await offered(), [false, false, false, false, false]);
   });
 });

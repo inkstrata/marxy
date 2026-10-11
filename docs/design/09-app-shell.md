@@ -165,6 +165,22 @@ the palette.
 | `Ctrl+Shift+C` | toggle comment | the language's own comment syntax; `Mod+/` is the transforms key and is not this |
 | `Alt+↑/↓`, `Alt+Shift+↑/↓` | move line, duplicate line | the editor's own; Rendered's `Alt+↑/↓` are the block moves and stay so |
 | palette only | sort lines (byte order) | UTF-8 byte-wise, not the locale's |
+| palette only | align table, add table row, add table column, sort table rows, copy table at caret as CSV | V-02, with the caret in a GFM table; see below |
+
+**Table tools (V-02).** With the caret in a table (the parse's `table` node, so a table in a code fence is not
+one), the five palette commands act on that table and nothing else; with the caret anywhere else they do nothing
+and say nothing. Align lays the pipes out by display width (CJK and emoji are two cells) and keeps each
+column's `:` markers (it is `align-table-pipes` on the table's span). Add row puts an empty row below the caret's
+row (below the delimiter row from the header), padded to the column widths only when the table was aligned. Add
+column puts an empty column after the caret's, with `---` in the delimiter row, in the rows that reach that
+column and no other. Sort orders the body rows by the source text of the caret's column, trimmed, in UTF-8 byte
+order and stably; the header and delimiter rows stay, and a row moves whole while each line keeps its own
+ending. Copy as CSV is Copy table as CSV (C-07's `copy-table-csv`) through the one copy path. A pipe separates
+cells unless a backslash escapes it, in a code span too (the parse's rule, GFM's: an unescaped pipe in a code span
+splits the cell, and the tools split where the parse does). A table in a block quote or a list item keeps its
+prefix on every line, new rows included. The tools refuse (do nothing) rather than guess: where this file's
+reading of the rows differs from the parse's, where a column cannot be added without a closing pipe, or where the
+result would not parse as the edit meant. None of them is in `MUTATING_OPERATIONS` or the transform catalogue.
 
 One operation is one undo step, changes only the bytes it targets, and writes the file's own line separator
 (LF, CRLF or CR) and keeps its BOM and its last line's ending (`source/structure.ts`; the pure part is

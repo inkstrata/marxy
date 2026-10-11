@@ -8,14 +8,31 @@
 import { appHandle } from './app-handle.ts';
 import type { Command } from './registry.ts';
 import type { StructureOp } from '../source/structure-ops.ts';
+import { writeCopy } from './copy-write.ts';
 
-interface SourceEditEntry {
-  readonly op: StructureOp;
+/** The table tools (V-02) by name. Declared here, with the command table: `source/structure.ts` is lazy and may not be imported by it (MARXY-33), and `structure-ops.ts` lists the V-01 operations. */
+export type TableTool = 'alignTable' | 'addTableRow' | 'addTableColumn' | 'sortTableRows';
+
+interface EntryBase {
   readonly id: string;
   readonly title: string;
-  /** The registry chord; none where CodeMirror's own chord stays or the operation is palette-only. */
+}
+
+/** A V-01 operation: the registry chord is optional (none where CodeMirror's own chord stays or the operation is palette-only). */
+interface OpEntry extends EntryBase {
+  readonly op: StructureOp;
+  readonly table?: undefined;
   readonly key?: string;
 }
+
+/** A V-02 table tool or the CSV copy: palette only, so it has no chord. */
+interface TableEntry extends EntryBase {
+  readonly table: TableTool | 'copyTableCsv';
+  readonly op?: undefined;
+  readonly key?: undefined;
+}
+
+type SourceEditEntry = OpEntry | TableEntry;
 
 /**
  * Every operation. The chords follow the Select menu in `mock-v2/09-macos.md` (`⌘L` line, `⌃⇧B` block, `⌃⇧S`
@@ -40,6 +57,12 @@ export const SOURCE_EDIT_ENTRIES: readonly SourceEditEntry[] = [
   { op: 'toggleTask', id: 'source.toggle-task', title: 'Toggle task in Source', key: 'Ctrl+Shift+T' },
   { op: 'toggleQuote', id: 'source.toggle-quote', title: 'Toggle quote', key: 'Ctrl+Shift+Q' },
   { op: 'toggleComment', id: 'source.toggle-comment', title: 'Toggle comment', key: 'Ctrl+Shift+C' },
+  // V-02: with the caret in a table. Palette only (the mockup gives these no keys); outside a table each does nothing.
+  { table: 'alignTable', id: 'source.table-align', title: 'Align table' },
+  { table: 'addTableRow', id: 'source.table-add-row', title: 'Add table row below' },
+  { table: 'addTableColumn', id: 'source.table-add-column', title: 'Add table column after this one' },
+  { table: 'sortTableRows', id: 'source.table-sort', title: 'Sort table rows by this column (byte order of the cell text)' },
+  { table: 'copyTableCsv', id: 'source.table-copy-csv', title: 'Copy table at caret as CSV' },
 ];
 
 /** The chords the registry binds inside Source: the editor leaves exactly these to it (`withoutRegistryChords`). */
@@ -65,11 +88,16 @@ export function sourceEditCommands(): readonly Command[] {
       global: true,
       group: 'selection',
       when: inSource,
-      run: async () => {
-        const [{ activeSourceEditor }, { runStructure }] = await Promise.all([import('../source/editor.ts'), import('../source/structure.ts')]);
+      run: async (ctx) => {
+        const [{ activeSourceEditor }, structure] = await Promise.all([import('../source/editor.ts'), import('../source/structure.ts')]);
         const editor = activeSourceEditor();
         if (!editor) return;
-        runStructure(entry.op, editor.view, editor.buffer.path);
+        if (entry.table === 'copyTableCsv') {
+          // The one copy path (C-07): the same text as Copy table as CSV in Rendered, one pasteboard item, one notice.
+          const csv = structure.tableCsvAt(editor.view.state, editor.buffer.path);
+          if (csv !== null) await writeCopy(ctx, { text: csv }, 'Copied table as CSV');
+        } else if (entry.table !== undefined) structure.runTableTool(entry.table, editor.view, editor.buffer.path);
+        else if (entry.op !== undefined) structure.runStructure(entry.op, editor.view, editor.buffer.path);
         editor.view.focus();
       },
     }),

@@ -21,9 +21,11 @@
 // in rendered-view.ts: `draft`, `heldApart`), the real notice regions, the Tauri stale-write guard (the node
 // layer tests the store's own baseline alone, which is the stricter test).
 
-import { createBuffer } from '@marxy/core';
+import { EditorSelection, EditorState } from '@codemirror/state';
+import { createBuffer, parseMarkdown } from '@marxy/core';
 import { effectForOpenDocument } from '@marxy/core/src/position/watch-events.ts';
-import { cmDocText } from '../../src/source/buffer-commit.ts';
+import { cmDocText, lineSeparatorFor } from '../../src/source/buffer-commit.ts';
+import { runTableTool } from '../../src/source/structure.ts';
 import { conflictCopyPath, openDocumentStore } from '../../src/document/store.ts';
 import { createStoreRegistry } from '../../src/document/registry.ts';
 import { oneWatchPerStore, watchDocument } from '../../src/document/live-reload.ts';
@@ -67,6 +69,14 @@ const MARKDOWN = [
   '| a | b |',
   '|---|---|',
   '| 1 | 2 |',
+  '',
+  // V-02: wide characters, an escaped pipe, a code span, a row with fewer cells, an alignment row with colons.
+  '| name | note |',
+  '|:-----|-----:|',
+  '| 漢字 | a \\| b |',
+  '| `x\\|y` | 😀 |',
+  '| z |',
+  '| B | é |',
   '',
   '```js',
   'const x = 1;',
@@ -669,6 +679,59 @@ function outsideBytes(model, path) {
   return cat(cur, enc.encode(`\nOUTSIDE ${n}\n`));
 }
 
+// ---- V-02: the table tools ----------------------------------------------------------------------------------------
+
+/** Where each UTF-16 unit of `text` starts, in UTF-8 bytes (a surrogate pair is four bytes, counted at its first unit). */
+function unitStarts(text) {
+  const starts = [];
+  let byte = 0;
+  for (let i = 0; i < text.length; i++) {
+    starts.push(byte);
+    const c = text.charCodeAt(i);
+    byte += c < 0x80 ? 1 : c < 0x800 ? 2 : c >= 0xd800 && c < 0xdc00 ? 4 : c >= 0xdc00 && c < 0xe000 ? 0 : 3;
+  }
+  starts.push(byte);
+  return starts;
+}
+
+/** The tables of the parse, as `{ from, to }` indexes into `text` (not the tools' own idea of a table). */
+function tableSpans(text) {
+  const starts = unitStarts(text);
+  const at = (byte) => starts.findIndex((s) => s >= byte);
+  const out = [];
+  const visit = (node) => {
+    if (node.type === 'table') out.push({ from: at(node.src.start), to: at(node.src.end) });
+    else for (const child of node.children ?? []) visit(child);
+  };
+  visit(parseMarkdown(text));
+  return out;
+}
+
+/** The tables of a file's bytes, as byte ranges. */
+function tableByteSpans(bytes) {
+  const out = [];
+  const visit = (node) => {
+    if (node.type === 'table') out.push({ start: node.src.start, end: node.src.end });
+    else for (const child of node.children ?? []) visit(child);
+  };
+  visit(parseMarkdown(bytes));
+  return out;
+}
+
+const endingKinds = (bytes) => new Set(latin1(bytes).match(/\r\n|\r|\n/g) ?? []);
+const TABLE_TOOLS = ['alignTable', 'addTableRow', 'addTableColumn', 'sortTableRows'];
+
+/** A pane the table tools may act on: a Markdown file with a table, nothing held apart, no byte that is not UTF-8. */
+const tableToolSlots = (model) =>
+  slotsWith(
+    model,
+    (v) =>
+      /\.md$/.test(v.doc.path) &&
+      viewsOf(model, v.doc).every((other) => !other.heldApart) &&
+      (process.env.MARXY_WALK_FINDINGS === '1' || !strayBytes(v.doc.buf)) &&
+      tableByteSpans(v.doc.buf).length > 0,
+  );
+
 // ---- operations ----------------------------------------------------------------------------------------------------
 
 export const OPS = {
@@ -859,6 +922,65 @@ export const OPS = {
         world.afterBytesChange(doc, null);
       }
       return `redo in pane ${slot} (${doc.path}): ${done}`;
+    },
+  },
+
+  /**
+   * V-02: a table tool run in Source at a caret in a table, and folded. The walk takes the tool's Source text from
+   * the store's bytes (what an editor over the folded buffer holds), runs the real command function over a real
+   * CodeMirror state in the file's own line separator, and commits it through the Source fold (`commitSource`).
+   * The oracle is the promise, not the tool's arithmetic: the bytes that changed lie inside one table of the
+   * parse, no kind of line ending appears that the file did not have, and one undo gives the old bytes back.
+   * Not covered here: a tool run over Source text typed and not yet folded (the tool folds it first).
+   */
+  tableTool: {
+    name: 'tableTool',
+    weight: 5,
+    applicable: (model) => tableToolSlots(model).length > 0,
+    async run(world, model) {
+      const d = model.d;
+      const slot = d.pick(tableToolSlots(model));
+      const { doc } = model.views[slot];
+      await world.foldAll(doc);
+      const before = doc.buf.slice();
+      const buffer = createBuffer(doc.path, before);
+      let state = EditorState.create({ doc: cmDocText(buffer), extensions: [EditorState.lineSeparator.of(lineSeparatorFor(buffer))] });
+      const spans = tableSpans(state.doc.toString());
+      if (spans.length === 0) return `tableTool in pane ${slot} (${doc.path}): no table in the folded text`;
+      const span = d.pick(spans);
+      const caret = span.from + d.int(span.to - span.from + 1);
+      const tool = d.pick(TABLE_TOOLS);
+      state = state.update({ selection: EditorSelection.single(caret) }).state;
+      const ran = runTableTool(tool, { get state() { return state; }, dispatch: (tr) => { state = tr.state; } }, doc.path);
+      const at = `${tool} at ${caret} of ${doc.path} in pane ${slot}`;
+      if (!ran) return `tableTool ${at}: declined, nothing changed`;
+      const changed = await doc.store.commitSource(state.sliceDoc(0, state.doc.length));
+      if (!changed) world.fail('I6', `${at} ran and the Source fold changed nothing`);
+      const after = copy(doc.store.snapshot().buffer.bytes);
+      // Every byte outside one table of the parse is as it was: before it, and after it. (Not "the diff lies in a
+      // table": a row added at a table's end differs from the old bytes equally well one newline later.)
+      const tables = tableByteSpans(before);
+      const outside = (t) =>
+        before.subarray(0, t.start).every((byte, i) => after[i] === byte) &&
+        before.subarray(t.end).every((byte, i) => after[after.length - (before.length - t.end) + i] === byte);
+      if (!tables.some(outside)) {
+        world.fail('I6', `${at} changed bytes outside every table (tables: ${tables.map((t) => `${t.start}..${t.end}`).join(', ')}; ${before.length} bytes became ${after.length})`);
+      }
+      const had = endingKinds(before);
+      for (const kind of endingKinds(after)) if (!had.has(kind)) world.fail('I6', `${at} wrote a line ending (${JSON.stringify(kind)}) the file did not have`);
+      if (bomLength(before) !== bomLength(after)) world.fail('I6', `${at} changed the byte-order mark`);
+      doc.past.push(before);
+      doc.future = [];
+      doc.buf = after;
+      world.afterBytesChange(doc, null);
+      // One undo gives the exact old bytes back, and one redo the new ones (half the time: the history is the store's).
+      if (d.chance(0.5)) {
+        if (!(await doc.store.undo())) world.fail('I7', `${at}: undo returned false right after the fold`);
+        if (!same(copy(doc.store.snapshot().buffer.bytes), before)) world.fail('I6', `${at}: one undo did not restore the exact bytes`);
+        if (!(await doc.store.redo())) world.fail('I7', `${at}: redo returned false right after the undo`);
+        if (!same(copy(doc.store.snapshot().buffer.bytes), after)) world.fail('I6', `${at}: redo did not give the edited bytes back`);
+      }
+      return `tableTool ${at}: ${before.length} bytes became ${after.length}`;
     },
   },
 
