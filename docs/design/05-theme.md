@@ -198,7 +198,7 @@ lowest on selection, find and current find:
 Rules that follow: `html[data-marxy-variant]` is set by the app before first paint from config
 (`dark` default, `auto` follows `prefers-color-scheme`, `light` fixed); the window background and
 the empty state are the ground so a white frame never appears (the Tauri window's own
-`backgroundColor` is still `#151412`: H-04.1 sets it to Night's `#000000`); `color-scheme: dark light` is
+`backgroundColor` is Night's `#000000`, set by H-04.1, so no warm frame shows before first paint); `color-scheme: dark light` is
 declared on `:root` so form controls and scrollbars follow the variant. Themes that declare
 only one variant are used for both with the default theme's other block filling the gaps.
 

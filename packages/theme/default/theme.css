@@ -12,13 +12,13 @@
   --marxy-weight-heading: 560;
   --marxy-weight-strong: 610;
 
-  /* type set. Provisional (H-04): only the faces already vendored are bundled, Source Serif 4 and the
-     sans faces come with H-04.1. Book and article both set in Literata until then; sans and the README
-     face are the platform's. The slots (--marxy-font-*) stay Literata and JetBrains Mono. */
+  /* type set (Classic): Literata for books, Source Serif 4 for articles, Atkinson Hyperlegible Next for
+     reports and notes, Inter for READMEs (H-04.1), each bundled (fonts/README.md) with the platform face
+     as its fallback. The slots (--marxy-font-*) stay Literata and JetBrains Mono. */
   --marxy-face-book: "Literata", serif;
   --marxy-face-article: "Source Serif 4", "Literata", serif;
-  --marxy-face-sans: system-ui, sans-serif;
-  --marxy-face-readme: system-ui, sans-serif;
+  --marxy-face-sans: "Atkinson Hyperlegible Next", "Segoe UI", system-ui, sans-serif;
+  --marxy-face-readme: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
   --marxy-face-mono: var(--marxy-font-mono);
 
   /* ground and text */

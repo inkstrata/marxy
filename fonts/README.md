@@ -10,6 +10,8 @@ the licences diff as text, and nothing here is ever line-ending converted (`pnpm
 | Literata | body and headings (default) | opsz 7–72, wght 200–900 | github.com/googlefonts/literata |
 | JetBrains Mono | code (default) | wght 100–800 | github.com/JetBrains/JetBrainsMono |
 | Source Serif 4 | the default theme's article face (`--marxy-face-article`, H-04); also the taste review #0 alternative | wght 200–900, opsz 8–60 | github.com/adobe-fonts/source-serif |
+| Atkinson Hyperlegible Next | the Classic set's sans face (`--marxy-face-sans`, H-04.1); roman and italic | wght 200–800 | github.com/googlefonts/atkinson-hyperlegible-next |
+| Inter | the Classic set's README face (`--marxy-face-readme`, H-04.1); roman only | wght 100–900, opsz 14–32 | github.com/rsms/inter |
 | IBM Plex Mono | taste review #0 alternative code face | none — static 400 only | github.com/google/fonts/tree/main/ofl/ibmplexmono |
 
 IBM Plex Mono ships no variable font: only the regular is vendored, and only the weight the
@@ -22,7 +24,8 @@ cannot be tuned below regular weight (see `docs/spike/outcome.md`, ADR-0015).
 ## Licence audit (H-04)
 
 Every bundled face is SIL OFL 1.1 with the upstream licence text verbatim beside it, and none is modified.
-The app bundles Literata (roman and italic), Source Serif 4 (roman) and JetBrains Mono, each with its
+The app bundles Literata (roman and italic), Source Serif 4 (roman), Atkinson Hyperlegible Next (roman and
+italic), Inter (roman) and JetBrains Mono, each with its
 `LICENSE` copied to `fonts/<Face>-OFL.txt` in the build (`apps/desktop/src/fonts/files.mjs`).
 IBM Plex Mono is vendored here but not bundled.
 
@@ -31,8 +34,12 @@ IBM Plex Mono is vendored here but not bundled.
 | Literata | OFL 1.1 | github.com/googlefonts/literata | yes: `--marxy-face-book` |
 | Source Serif 4 | OFL 1.1 | github.com/adobe-fonts/source-serif | yes: `--marxy-face-article` |
 | JetBrains Mono | OFL 1.1 | github.com/JetBrains/JetBrainsMono | yes: `--marxy-face-mono` |
+| Atkinson Hyperlegible Next | OFL 1.1 | github.com/googlefonts/atkinson-hyperlegible-next, commit 7925f50f, `fonts/webfonts/*[wght].woff2` and `OFL.txt` | yes: `--marxy-face-sans` |
+| Inter | OFL 1.1 | github.com/rsms/inter, release v4.1, `web/InterVariable.woff2` and `LICENSE.txt` | yes: `--marxy-face-readme` |
 | IBM Plex Mono | OFL 1.1 | github.com/google/fonts/tree/main/ofl/ibmplexmono | no |
 
-The Classic set's sans faces, Atkinson Hyperlegible Next and Inter, are not bundled yet (H-04.1: they
-need the upstream releases and their `LICENSE` files, which an author approves downloading). Until then
-`--marxy-face-sans` and `--marxy-face-readme` are the platform face.
+The Classic set's sans faces, Atkinson Hyperlegible Next and Inter, were added by H-04.1 from the upstream
+repositories named above, as the variable WOFF2 files the projects publish for the web, each with its licence
+text byte for byte (Inter's file is upstream's `LICENSE.txt`, Atkinson's is `OFL.txt`; both are stored here as
+`LICENSE`). Inter's italic is not bundled (388 KB for a face READMEs seldom set); the engine slants the roman
+where a README emphasises. Neither project reserves a font name beyond the OFL's standard clause.
