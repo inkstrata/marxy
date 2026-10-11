@@ -3,7 +3,8 @@
 import type { Shell } from '@marxy/shell-api';
 import { isUntitled } from '../document/untitled.ts';
 import { appHandle } from '../commands/app-handle.ts';
-import { indexedRootForDocument, resolveTabWidth } from './editorconfig.ts';
+import { rootFor } from '../index/walk.ts';
+import { createEditorConfigCache, dirname as dirnameOf, indexedRootForDocument, resolveTabWidth } from './editorconfig.ts';
 
 export interface TabWidthResolver {
   readonly indexedRoot: string;
@@ -11,17 +12,45 @@ export interface TabWidthResolver {
 }
 
 let resolver: TabWidthResolver | null = null;
+/** One walk per directory per session (V-16). */
+const cache = createEditorConfigCache();
+let applying = 0;
+const roots = new Map<string, string>();
 
-export async function updateTabWidthResolver(filePath: string, shell: Pick<Shell, 'readFile'>): Promise<void> {
-  if (isUntitled(filePath)) return;
-  const indexedRoot = indexedRootForDocument(filePath);
-  resolver = {
-    indexedRoot,
-    readText: async (path) => {
-      const bytes = await shell.readFile(path);
-      return new TextDecoder().decode(bytes);
-    },
-  };
+const MARKDOWN = /\.(md|markdown|mdown|mkd|mdx)$/i;
+
+/** Rendered's `tab-size` and hang read this one property; a Markdown fence keeps the default 4. */
+async function applyTabWidth(width: number | null): Promise<void> {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  if (width === null || width === 4) root.style.removeProperty('--marxy-tab-size');
+  else root.style.setProperty('--marxy-tab-size', String(width));
+  // Loaded on demand: the highlighter stays out of the startup graph (MARXY-33).
+  const { reindentLines } = await import('../render/highlight.ts');
+  reindentLines(document);
+}
+
+export async function updateTabWidthResolver(filePath: string, shell: Pick<Shell, 'readFile'> & Partial<Pick<Shell, 'readDir'>>): Promise<void> {
+  if (isUntitled(filePath)) {
+    applying++;
+    await applyTabWidth(null);
+    return;
+  }
+  // The indexed root is the nearest `.git` ancestor (ADR-0012): the walk never reads above it.
+  let indexedRoot = roots.get(filePath);
+  if (indexedRoot === undefined) {
+    try {
+      indexedRoot = 'readDir' in shell ? await rootFor(shell as Parameters<typeof rootFor>[0], filePath) : indexedRootForDocument(filePath);
+    } catch {
+      indexedRoot = dirnameOf(filePath);
+    }
+    roots.set(filePath, indexedRoot);
+  }
+  const readText = async (path: string): Promise<string> => new TextDecoder().decode(await shell.readFile(path));
+  resolver = { indexedRoot, readText };
+  const mine = ++applying;
+  const width = MARKDOWN.test(filePath) ? null : await resolveTabWidth(filePath, indexedRoot, readText, cache);
+  if (mine === applying) await applyTabWidth(width);
   // The focused pane's editor (D-11), when it shows this file: another pane's is not this file's.
   const { activeSourceEditor, reconfigureTabSize } = await import('./editor.ts');
   const editor = activeSourceEditor();
@@ -37,5 +66,5 @@ export async function tabSizeForFile(path: string): Promise<number> {
     if (shell) updateTabWidthResolver(path, shell);
   }
   if (!resolver) return 4;
-  return resolveTabWidth(path, resolver.indexedRoot, resolver.readText);
+  return resolveTabWidth(path, resolver.indexedRoot, resolver.readText, cache);
 }
