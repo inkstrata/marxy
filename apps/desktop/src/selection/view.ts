@@ -15,6 +15,7 @@ import { basename, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import { readingLine } from '@marxy/core/src/position/blocks.ts';
 import type { AppShell } from '../app.ts';
+import type { OpenOptions } from '../document/open.ts';
 import type { DocumentStore } from '../document/store.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { notify } from '../notices/index.ts';
@@ -104,8 +105,11 @@ export interface SelectionTarget {
   readonly scroller: HTMLElement;
   /** The open document's store, or null when nothing is open. */
   store(): DocumentStore | null;
-  /** Opens a document through this pane's open path. */
-  open(path: string): Promise<void>;
+  /**
+   * Opens a document through this pane's open path. Over unsaved edits the promise settles once the reader
+   * is asked, so anything that must follow the move goes in the options (`OpenOptions`, F-21).
+   */
+  open(path: string, opts?: Pick<OpenOptions, 'onCommitted' | 'onLanded'>): Promise<void>;
   currentPath(): string | null;
   /** Mounts every block up to the one holding `byte` (a link to a heading not yet on the page). */
   mountThrough(byte: number): void;
@@ -143,7 +147,7 @@ export interface RenderedSelection {
   back(): boolean;
   /** The block carrier (`[data-marxy-s]`) last pressed on in this article, or null: where Jump to source starts. */
   lastPointerCarrier(): Element | null;
-  /** The first pane's page was set again: re-resolve the selection on it, mark it, and land a pending fragment. */
+  /** The first pane's page was set again: re-resolve the selection on it and mark it. */
   afterRender(): void;
   /**
    * Listens on another pane's article too (D-06): the selection acts on it once `focusArticle` names it.
@@ -213,8 +217,8 @@ export function localLinkTarget(
 interface PaneNav {
   history: string[];
   index: number;
-  /** A followed link's fragment, landed when this pane's page is next set. */
-  pendingFragment?: string;
+  /** The index a Back still in flight is heading for, so a second press steps on from it; null when none is. */
+  pendingBack: number | null;
 }
 
 /** Whether a Cmd-click (Ctrl-click off a Mac) asks for the link to open in the other pane. */
@@ -332,7 +336,10 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     record.pointerCarrier = null;
   };
 
-  /** `nextPath` joins `record`'s history after the document the pane shows now. */
+  /**
+   * `nextPath` joins `record`'s history after the document the pane shows now. Called when the open commits,
+   * before the page flips, so the history and `currentPath()` never disagree across an await (F-21).
+   */
   const recordNavOpen = (record: PaneRecord, nextPath: string): void => {
     const { nav } = record;
     const current = record.target.currentPath();
@@ -341,6 +348,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     if (kept[kept.length - 1] !== nextPath) kept.push(nextPath);
     nav.history = kept;
     nav.index = kept.length - 1;
+    nav.pendingBack = null;
   };
 
   /**
@@ -402,6 +410,13 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     }
     const { target, fragment } = local;
 
+    // A link to a heading of this very document (`[self](a.md#far)`) is the `#` branch with a path: land
+    // on it. No open, no re-read of the file, no history entry, so unsaved edits are left alone (F-21).
+    if (!beside && target === record.target.currentPath()) {
+      if (fragment) landFragment(record, fragment);
+      return;
+    }
+
     let bytes: Uint8Array;
     try {
       // A look at the target, not a load: `peekFile` leaves the stale-write guard where it was. `readFile` would
@@ -422,12 +437,14 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       return;
     }
 
-    recordNavOpen(record, target);
-    record.nav.pendingFragment = fragment;
-    await record.target.open(target);
-    const landing = record.nav.pendingFragment;
-    record.nav.pendingFragment = undefined;
-    if (landing) landFragment(record, landing);
+    // Over unsaved edits the reader is asked first: the history entry waits for their choice and is made
+    // when the open commits, the landing once the page is set (F-21). A Dismiss leaves both undone.
+    await record.target.open(target, {
+      onCommitted: () => recordNavOpen(record, target),
+      onLanded: () => {
+        if (fragment) landFragment(record, fragment);
+      },
+    });
   };
 
 
@@ -727,7 +744,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       target,
       lastClickTarget: null,
       pointerCarrier: null,
-      nav: { history: [], index: -1 },
+      nav: { history: [], index: -1, pendingBack: null },
       shownPath: null,
       shownVersion: null,
       unlisten: () => {},
@@ -776,11 +793,6 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     if (focused) reresolve();
     applyInvisibleMarkers(article);
     applyLinkDestinations(article);
-    if (record.nav.pendingFragment) {
-      const landing = record.nav.pendingFragment;
-      record.nav.pendingFragment = undefined;
-      requestAnimationFrame(() => landFragment(record, landing));
-    }
   };
 
   const controller: RenderedSelection = {
@@ -828,10 +840,18 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       if (doc) move(parentOf(doc, state.selection));
     },
     back() {
-      const { nav } = active;
-      if (nav.index <= 0) return false;
-      nav.index -= 1;
-      void active.target.open(nav.history[nav.index]!);
+      const { nav, target } = active;
+      // A second press before the first open has committed steps on from where the first is heading. The
+      // pending index lasts only until then: `open()` settles at once when it asks about unsaved edits, so a
+      // Dismiss clears it and the next press starts from the page that is shown.
+      const from = nav.pendingBack ?? nav.index;
+      if (from <= 0) return false;
+      const index = from - 1;
+      nav.pendingBack = index;
+      const settle = (): void => { if (nav.pendingBack === index) nav.pendingBack = null; };
+      // The step back counts once the open commits, before the page flips, so a press while it is still
+      // finishing steps on from it; a Dismiss over unsaved edits keeps the place.
+      void target.open(nav.history[index]!, { onCommitted: () => { nav.index = index; settle(); } }).then(settle, settle);
       return true;
     },
     selectBlockAtByte(byte) {
