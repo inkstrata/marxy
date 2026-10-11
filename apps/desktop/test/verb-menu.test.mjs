@@ -498,7 +498,7 @@ test('C-13: forced colours keep the menu border and the focused row', async () =
       }
       return found.join('\n');
     });
-    assert.match(rules, /\.marxy-verb-menu\s*\{[^}]*border-color: canvastext/i);
+    assert.match(rules, /\.marxy-verb-menu\s*[,{][^}]*border-color: canvastext/i); // the one forced-colours rule of the surfaces (W-04) lists it
     assert.match(rules, /\.marxy-verb-menu-item:focus\s*\{[^}]*background(?:-color)?: highlight/i);
   } finally {
     await page.close();

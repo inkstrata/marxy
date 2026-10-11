@@ -4,8 +4,8 @@
 // (W-21), `export.menu` (W-15), `kind.chip` (K-07), `document.new-menu` (W-14), `view.toggle-sidebar` and
 // `view.toggle-inspector` (W-03, which also fill the region the toggle opens). Folded there is no element at all:
 // this runs only while the region exists (workspace/fill.ts). No Extract button and no theme switcher (06-
-// reconciliation rows 3 and 4). Layout is `base.css`; the look is W-04's, so state is exposed as ARIA
-// (`aria-disabled`, `aria-checked`, `aria-pressed`) and nothing here styles it.
+// reconciliation rows 3 and 4). Layout and look are `base.css`: state is exposed as ARIA
+// (`aria-disabled`, `aria-checked`, `aria-pressed`) and the stylesheet draws it from the chrome spec (W-04); nothing here styles it.
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { parseConfig } from '@marxy/theme';
 import type { AppHandle } from '../app.ts';

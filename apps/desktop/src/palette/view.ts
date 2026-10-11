@@ -277,12 +277,8 @@ function injectPaletteStyles(doc: Document): void {
     #marxy-palette {
       margin: 2rem auto 0;
       padding: 0;
-      border: 1px solid var(--marxy-color-rule-strong);
-      border-radius: 8px;
+      border-color: var(--marxy-color-rule-strong);
       width: min(640px, 90vw);
-      background: var(--marxy-color-surface, #1a1a1a);
-      color: var(--marxy-color-text, #eee);
-      box-shadow: 0 12px 40px rgb(0 0 0 / 35%);
     }
     #marxy-palette::backdrop { background: rgb(0 0 0 / 25%); }
     #marxy-palette .marxy-palette-query {
@@ -302,18 +298,10 @@ function injectPaletteStyles(doc: Document): void {
       max-height: 50vh;
       overflow: auto;
     }
-    #marxy-palette .marxy-palette-row {
-      padding: 0.45rem 1rem;
-      cursor: default;
-    }
-    #marxy-palette .marxy-palette-row:has(.marxy-palette-key) {
-      display: flex;
-      gap: 1em;
-    }
-    #marxy-palette .marxy-palette-row:has(.marxy-palette-age) {
-      display: flex;
-      align-items: baseline;
-      gap: 0.6em;
+    #marxy-palette .marxy-palette-row.marxy-palette-hit {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
     }
     #marxy-palette .marxy-palette-row:has(.marxy-palette-age) .marxy-palette-title {
       flex: 1;
@@ -328,7 +316,6 @@ function injectPaletteStyles(doc: Document): void {
       align-self: center;
       inline-size: 1em;
       block-size: 1em;
-      margin-inline-end: 0.6em;
       vertical-align: -0.15em;
       color: var(--marxy-lang, var(--marxy-color-text-secondary, #a39e94));
     }
@@ -356,10 +343,6 @@ function injectPaletteStyles(doc: Document): void {
       height: 0.4em;
       border-radius: 50%;
       background: var(--marxy-color-accent, #8fb4dd);
-    }
-    #marxy-palette .marxy-palette-key {
-      margin-inline-start: auto;
-      opacity: 0.75;
     }
     #marxy-palette .marxy-palette-row[aria-selected="true"] {
       background: var(--marxy-color-accent-wash);
@@ -421,6 +404,7 @@ function ensurePaletteStructure(
       notice: dialog.querySelector('.marxy-palette-notice') as HTMLParagraphElement,
     };
   }
+  dialog.classList.add('marxy-surface', 'marxy-surface-md');
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-label', 'Palette');
   const input = owner.createElement('input') as HTMLInputElement;
@@ -480,7 +464,7 @@ function paintOperationRows(
   for (let i = 0; i < cmds.length; i++) {
     const cmd = cmds[i]!;
     const row = doc.createElement('li') as HTMLLIElement;
-    row.className = 'marxy-palette-row';
+    row.className = 'marxy-palette-row marxy-menu-row';
     row.dataset.rowKey = cmd.id;
     row.setAttribute('role', 'option');
     const title = doc.createElement('span') as HTMLSpanElement;
@@ -490,7 +474,7 @@ function paintOperationRows(
     const spec = cmd.key ?? (cmd.id === copyId ? 'Mod+C' : undefined);
     if (spec !== undefined) {
       const key = doc.createElement('span') as HTMLSpanElement;
-      key.className = 'marxy-palette-key';
+      key.className = 'marxy-palette-key marxy-menu-key';
       key.textContent = keyLabel(spec, isMacPlatform());
       row.appendChild(key);
     }
@@ -522,7 +506,7 @@ function documentRow(
   const key = `${hit.entry.path}:${hit.heading ?? 'doc'}`;
   const row = reuse ?? (doc.createElement('li') as HTMLLIElement);
   if (reuse === undefined) {
-    row.className = 'marxy-palette-row';
+    row.className = 'marxy-palette-row marxy-menu-row';
     row.dataset.rowKey = key;
     row.setAttribute('role', 'option');
   }
@@ -621,7 +605,7 @@ function paintContentRows(
   for (let i = 0; i < hits.length; i++) {
     const hit = hits[i]!;
     const row = doc.createElement('li') as HTMLLIElement;
-    row.className = 'marxy-palette-row marxy-palette-hit';
+    row.className = 'marxy-palette-row marxy-menu-row marxy-palette-hit';
     row.dataset.rowKey = `${hit.path}:${hit.byteOffset}`;
     row.setAttribute('role', 'option');
     const head = doc.createElement('div') as HTMLDivElement;

@@ -58,11 +58,11 @@ function injectStyles(doc: Document): void {
       height: 100vh;
       max-height: none;
       box-sizing: border-box;
-      border: 0;
-      border-inline-start: 1px solid var(--marxy-color-rule-strong);
-      background: var(--marxy-color-surface, #1a1a1a);
-      color: var(--marxy-color-text, #eee);
-      box-shadow: 0 0 40px rgb(0 0 0 / 25%);
+      border-width: 0;
+      border-inline-start-width: 1px;
+      border-color: var(--marxy-color-rule-strong);
+      border-start-end-radius: 0;
+      border-end-end-radius: 0;
     }
     #marxy-outline:not([open]) { display: none; }
     #marxy-outline .marxy-outline-list {
@@ -99,6 +99,7 @@ function dialogElement(): HTMLDialogElement {
   if (!dialog) {
     dialog = document.createElement('dialog');
     dialog.id = 'marxy-outline';
+    dialog.classList.add('marxy-surface', 'marxy-surface-lg');
     document.body.appendChild(dialog);
   }
   return dialog;

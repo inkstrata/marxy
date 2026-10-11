@@ -198,14 +198,14 @@ export function openVerbMenu(at: MenuAnchor, ctx: AppContext, opts: VerbMenuOpti
   const mac = isMac();
 
   const el = document.createElement('div');
-  el.className = 'marxy-verb-menu';
+  el.className = 'marxy-verb-menu marxy-surface';
   el.setAttribute('role', 'menu');
   el.setAttribute('aria-label', opts.rows ? (opts.label ?? 'Actions') : verbMenuLabel(ctx));
   el.setAttribute('aria-orientation', 'vertical');
   const items: HTMLElement[] = [];
   rows.forEach((row, i) => {
     const item = document.createElement('div');
-    item.className = 'marxy-verb-menu-item';
+    item.className = 'marxy-verb-menu-item marxy-menu-row';
     item.setAttribute('role', 'menuitem');
     item.setAttribute('tabindex', '-1');
     item.dataset.rowKey = row.command?.id ?? 'palette.all-actions';
@@ -215,7 +215,7 @@ export function openVerbMenu(at: MenuAnchor, ctx: AppContext, opts: VerbMenuOpti
     item.appendChild(title);
     if (row.chord !== undefined) {
       const key = document.createElement('span');
-      key.className = 'marxy-verb-menu-key';
+      key.className = 'marxy-verb-menu-key marxy-menu-key';
       key.setAttribute('aria-hidden', 'true');
       key.textContent = keyLabel(row.chord, mac);
       item.appendChild(key);
