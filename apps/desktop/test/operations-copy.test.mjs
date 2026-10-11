@@ -407,7 +407,7 @@ test('C-06: the drag\'s rich copy drops display marks, soft hyphens, image sourc
   }
 });
 
-test('C-06: the palette shows Mod+C on the selection\'s default verb and Mod+Shift+C on its markdown copy, and opens on a given query', async () => {
+test('C-06: the palette shows Mod+C on the selection\'s default verb and no chord on its markdown copy (Mod+Shift+C is Copy as, J-04), and opens on a given query', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const browser = await launchWebkit();
@@ -433,7 +433,7 @@ test('C-06: the palette shows Mod+C on the selection\'s default verb and Mod+Shi
     );
     const mac = (await page.evaluate(() => navigator.platform)) === 'MacIntel';
     assert.equal(keys['op.copy-rich'], mac ? '⌘C' : 'Ctrl+C');
-    assert.equal(keys['op.copy-source'], mac ? '⇧⌘C' : 'Ctrl+Shift+C');
+    assert.equal(keys['op.copy-source'], null, 'Mod+Shift+C no longer copies markdown directly (J-04)');
     assert.equal(keys['op.copy-plain'], null, 'only the default verbs carry a chord');
   } finally {
     await browser.close();
