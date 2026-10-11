@@ -10,6 +10,7 @@ import type { AppPane, PaneSet } from './pane/index.ts';
 import type { PaletteSession } from './palette/session.ts';
 import type { NodeMap } from './render/post.ts';
 import type { SaveResult } from './save.ts';
+import type { Workspace } from './workspace/state.ts';
 import type { RenderedSelection } from './selection/view.ts';
 import type { OpenDocument } from './view/rendered-view.ts';
 
@@ -166,6 +167,8 @@ export type AppHandle = {
   relayout(): Promise<void>;
   /** The window's panes (D-01): one, or two side by side; every member above reads the focused one. */
   panes(): PaneSet<AppPane>;
+  /** The window's two states and the regions around the panes (W-02): folded, today's page, until the reader unfolds. */
+  workspace(): Workspace;
   /**
    * Releases everything this instance started: its open store and watch, its view, its selection, its
    * persistence listeners and its user theme. `startApp` calls it on the instance it replaces in a page.

@@ -18,13 +18,15 @@ export interface PaneChord {
 }
 
 /**
- * Every pane chord, `Mod` held for each. `view.open-beside` (D-07) and `view.close-pane` (D-08) are listed
- * now so the table is whole; until their story registers the command the chord does nothing. `Alt+Arrow`
+ * Every pane chord, `Mod` held for each. `Mod+\` folds and unfolds the workspace (W-02, ADR-0058; it is listed
+ * here for the physical key, not because it is a pane's); `Mod+Alt+\` is `view.open-beside` (D-07, moved there
+ * by W-02) and `view.close-pane` (D-08) is listed now so the table is whole; until their story registers the command the chord does nothing. `Alt+Arrow`
  * without `Mod` is history (palette/keys.ts), not a pane chord. No `Mod+W`: the native menu's Close Window
  * quits.
  */
 export const PANE_CHORDS: readonly PaneChord[] = [
-  { code: 'Backslash', command: 'view.open-beside' },
+  { code: 'Backslash', command: 'view.toggle-workspace' },
+  { code: 'Backslash', alt: true, command: 'view.open-beside' },
   { code: 'Backslash', shift: true, command: 'view.close-pane' },
   { code: 'Digit1', command: 'view.focus-left' },
   { code: 'Digit2', command: 'view.focus-right' },
@@ -43,6 +45,11 @@ export function paneChordFor(event: KeyboardEvent, mac: boolean): PaneChord | nu
   );
 }
 
+/** A Source editor or a text field: where the editor's own chords are the reader's. */
+function inEditable(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select') !== null);
+}
+
 export interface PaneKeysDeps {
   commands(): readonly Command[];
   context(): AppContext;
@@ -52,7 +59,7 @@ export interface PaneKeysDeps {
 /**
  * Runs a pane chord's command: looked up by id in the registry, skipped when it is not registered (yet)
  * or its `when` does not hold, and held (stopped, not run) while a dialog is open (the palette, the
- * outline) except `Mod+\`. An open verb menu (a `div[role=menu]`, not a dialog) is closed first, so focus lands in the
+ * outline) except `Mod+Alt+\` (open beside). An open verb menu (a `div[role=menu]`, not a dialog) is closed first, so focus lands in the
  * target pane and not on `body`. Editable targets are not skipped. Returns what takes the listener off.
  */
 export function installPaneKeys(deps: PaneKeysDeps): () => void {
@@ -64,6 +71,15 @@ export function installPaneKeys(deps: PaneKeysDeps): () => void {
       // from: moving focus under it would split the overlay from the selection. The chord is held here,
       // at the key, and stopped so the registry's bubble-phase dispatcher does not run it by `event.key`;
       // the commands' `when` stays true, so the palette still lists and runs them.
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    // Mod+Alt+\ is CodeMirror's indent-selection in a Source editor, and a text field's own: open beside waits
+    // for focus outside one. The palette's query is the exception: it is open beside's own place to be pressed.
+    if (chord.command === 'view.open-beside' && inEditable(event.target) && !(event.target as Element).closest('dialog[open]')) return;
+    // A held fold key would strobe the workspace: only the first press counts, and the repeats are swallowed.
+    if (chord.command === 'view.toggle-workspace' && event.repeat) {
       event.preventDefault();
       event.stopPropagation();
       return;

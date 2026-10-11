@@ -24,6 +24,7 @@ import { emptySession, type PaletteSession } from './palette/session.ts';
 import type { PieceSource } from './frontispiece/pieces.ts';
 import { splitRefusal } from './pane/fit.ts';
 import { createPanes, type AppPanes } from './pane/index.ts';
+import { createWorkspace, workspaceStoreFor } from './workspace/state.ts';
 import type { AppHandle, AppShell } from './app-types.ts';
 
 export type { AppAction, AppHandle, AppShell, OpenDocument, OpenDocumentState } from './app-types.ts';
@@ -99,6 +100,7 @@ export async function startApp(
     ...injected,
     quit: async (code) => {
       await persistence.flush();
+      await workspace.flush();
       return injected.quit(code);
     },
   };
@@ -174,6 +176,13 @@ export async function startApp(
     imageRoot: imageRootFor,
   });
   selection = renderedSelection;
+  // Folded until the reader unfolds; the panels they last had are read then, never here (W-02).
+  const workspace = createWorkspace({
+    body: document.body,
+    main: first.host.parentElement ?? document.body,
+    store: workspaceStoreFor(shell),
+    windowWidth: () => window.innerWidth,
+  });
   const offPaneMode = followPaneModes(panes);
   // The open document is the focused pane's; with one pane that is the first pane, as it always was.
   const handle: AppHandle = {
@@ -243,7 +252,9 @@ export async function startApp(
     },
     index,
     panes: () => panes,
+    workspace: () => workspace,
     destroy() {
+      workspace.destroy();
       renderedSelection.destroy();
       offPaneMode();
       layout.stop();

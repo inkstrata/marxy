@@ -1,4 +1,4 @@
-// Open beside (D-07): `Mod+\` opens the palette in beside mode, whose empty list is the recent documents
+// Open beside (D-07): `Mod+Alt+\` opens the palette in beside mode, whose empty list is the recent documents
 // not on screen; `Enter` opens the first in the other pane (made when there is one), `Mod+Enter` opens any
 // row beside; a window narrower than two columns at the typography floor makes no second pane and says so.
 // Booted on the shipped skeleton (palette dialog included) over the memory shell, with the real palette.
@@ -105,7 +105,7 @@ const focus = (page, slot) =>
     const panes = window.__marxyHandle.panes();
     panes.focus(panes.panes[s]);
   }, slot);
-const beside = (page) => page.keyboard.press('ControlOrMeta+Backslash');
+const beside = (page) => page.keyboard.press('ControlOrMeta+Alt+Backslash');
 /** The first pane's page, store and place, to see that it was left alone. */
 const place = (page) =>
   page.evaluate(() => {
@@ -119,7 +119,7 @@ const place = (page) =>
     };
   });
 
-test('1,470 px, one document, two more in the MRU: Mod+\\ then Enter splits with the most recent other document', async () => {
+test('1,470 px, one document, two more in the MRU: Mod+Alt+\\ then Enter splits with the most recent other document', async () => {
   await withPage(1470, async (page) => {
     await boot(page, { open: ['/r/note-1.md', '/r/B.md', '/r/C.md', '/r/A.md'] });
     const before = await place(page);
@@ -136,7 +136,7 @@ test('1,470 px, one document, two more in the MRU: Mod+\\ then Enter splits with
   });
 });
 
-test('Mod+\\ with two panes and Enter replaces the other pane, not the focused one, and lists neither', async () => {
+test('Mod+Alt+\\ with two panes and Enter replaces the other pane, not the focused one, and lists neither', async () => {
   await withPage(1470, async (page) => {
     await boot(page, { open: ['/r/note-1.md', '/r/B.md', '/r/C.md', '/r/A.md'] });
     await page.evaluate(() => window.__marxyHandle.panes().openIn('other', '/r/C.md'));
@@ -175,7 +175,7 @@ test('Mod+Enter on the third row of a typed result opens that file beside; plain
   });
 });
 
-test('900 px: Mod+\\ shows the fit notice naming 929 px and opens no palette and no second pane; 929 px splits', async () => {
+test('900 px: Mod+Alt+\\ shows the fit notice naming 929 px and opens no palette and no second pane; 929 px splits', async () => {
   await withPage(900, async (page) => {
     await boot(page, { open: ['/r/note-1.md', '/r/B.md', '/r/A.md'] });
     await beside(page);
@@ -197,6 +197,32 @@ test('900 px: Mod+\\ shows the fit notice naming 929 px and opens no palette and
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 2);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md']);
+  });
+});
+
+test('in a Source editor Mod+Alt+\\ is CodeMirror\'s (indent selection): open beside does not fire; the palette query keeps it', async () => {
+  await withPage(1470, async (page) => {
+    await boot(page, { open: ['/r/note-1.md', '/r/B.md', '/r/A.md'] });
+    await page.keyboard.press('ControlOrMeta+KeyE');
+    await page.waitForSelector('.cm-content');
+    await page.locator('.cm-content').focus();
+    await page.evaluate(() => {
+      window.__seen = [];
+      window.addEventListener('keydown', (e) => window.__seen.push({ code: e.code, prevented: e.defaultPrevented }));
+    });
+    await beside(page);
+    await page.waitForTimeout(200);
+    assert.equal(await dialogOpen(page), false, 'no palette from inside the editor');
+    assert.deepEqual(await paths(page), ['/r/A.md'], 'no second pane');
+    const seen = await page.evaluate(() => window.__seen.filter((k) => k.code === 'Backslash'));
+    assert.deepEqual(seen, [{ code: 'Backslash', prevented: true }], 'the key reached the editor, which handled it');
+    // Outside the editor it is open beside again, and a palette already up keeps it.
+    await page.evaluate(() => document.activeElement.blur());
+    await beside(page);
+    assert.equal(await dialogOpen(page), true, 'outside a text field it opens the palette');
+    await beside(page);
+    assert.equal(await dialogOpen(page), true, 'pressed in the palette query it stays open beside');
+    assert.equal(await paletteNotice(page), 'Open beside');
   });
 });
 

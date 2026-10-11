@@ -16,9 +16,24 @@ export function canShowTwoColumns(main: HTMLElement): boolean {
   return fitsTwoColumns(main.clientWidth, readSplitMetrics(main));
 }
 
-/** What the reader is told when a second pane would not fit: the narrowest window, in whole pixels. */
+/**
+ * What the unfolded workspace takes from the window on each side of the panes: its wider panel, read from the
+ * page (`--marxy-ws-left` and `--marxy-ws-right`, base.css). Zero folded, where `main` is the window.
+ */
+function workspaceSides(): number {
+  const body = document.body;
+  if (!body.hasAttribute('data-marxy-workspace')) return 0;
+  const style = getComputedStyle(body);
+  const side = (name: string): number => parseFloat(style.getPropertyValue(name)) || 0;
+  return 2 * Math.max(side('--marxy-ws-left'), side('--marxy-ws-right'));
+}
+
+/**
+ * What the reader is told when a second pane would not fit: the narrowest window, in whole pixels. Unfolded,
+ * the panels beside the panes are part of the window the panes must fit in.
+ */
 export function splitFitNotice(main: HTMLElement): string {
-  const width = Math.floor(minSplitWidth(readSplitMetrics(main)));
+  const width = Math.floor(minSplitWidth(readSplitMetrics(main)) + workspaceSides());
   return `Marxy needs a window at least ${width} px wide to show two documents side by side.`;
 }
 

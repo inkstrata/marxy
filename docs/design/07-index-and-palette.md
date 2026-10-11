@@ -54,7 +54,7 @@ path. No count, badge or preview appears anywhere (ADR-0050).
 
 ### Open beside (D-07)
 
-`Mod+\` summons the palette with a target of `'split'`: the empty list is one section, Recent, from
+`Mod+Alt+\` summons the palette with a target of `'split'`: the empty list is one section, Recent, from
 `recentExcluding(session, visiblePaths)` (the MRU newest first, without the documents the panes show), with
 the first row selected. Typing, `>` and `/` behave as ever. `Enter`, and `Mod+Enter` on any row, open the
 hit in the other pane through `AppHandle.open(path, { target: 'other' })`, which is `PaneSet.openIn('other')`

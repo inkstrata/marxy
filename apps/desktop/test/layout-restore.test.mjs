@@ -229,7 +229,7 @@ test('at 900 px one pane (the focused column) is shown and nothing is written; a
     await quit(page);
     assert.equal(await writesTo(page, '/data/layout.json'), 0, 'quitting wrote layout.json');
 
-    // The window widens and a second document is opened beside (what `Mod+\` ends in).
+    // The window widens and a second document is opened beside (what `Mod+Alt+\` ends in).
     await page.setViewportSize(WIDE);
     await wait(page, 300);
     await page.evaluate(() => window.__marxyHandle.panes().openIn('other', '/r/C.md'));
