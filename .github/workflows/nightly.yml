@@ -221,6 +221,7 @@ jobs:
         env:
           MARXY_WALK_SEEDS: "2000"
           MARXY_WALK_PANES_SEEDS: "30"
+          MARXY_BROWSER_TESTS_REQUIRED: "1"
 
   # The pull-request `rust` job of ci.yml, every night, whatever changed: a pull request runs it only
   # when Rust, the Vite config, the CLI smoke, the toolchain or a dependency changed (A-09).
