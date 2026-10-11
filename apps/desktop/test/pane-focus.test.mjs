@@ -161,9 +161,9 @@ test('focusing the other pane clears the selection; Mod+C copies the focused pan
 
     await clickOn(page, '#doc-2 p');
     await page.keyboard.press(`${mod}+c`);
-    await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'clipboardWrite'));
+    await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
     const copied = await page.evaluate(() =>
-      window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWrite').map((c) => c.args[0].text),
+      window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })).map((c) => c.args[0].text),
     );
     assert.deepEqual(copied, ['Bravo is the second document and its first paragraph.']);
   });

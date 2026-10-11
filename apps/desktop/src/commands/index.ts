@@ -5,6 +5,7 @@ import { blockEditCommands } from './block-edit.ts';
 import { collectionCommands } from './collection.ts';
 import { compareCommands } from './compare.ts';
 import { kindCommands } from './kind.ts';
+import { copyAsCommands } from './copy-as.ts';
 import { copyTextCommands } from './copy-text.ts';
 import { documentCommands } from './document.ts';
 import { editorCommands } from './editor.ts';
@@ -45,6 +46,7 @@ export function commands(): readonly Command[] {
     ...collectionCommands(),
     ...kindCommands(),
     ...copyTextCommands(),
+    ...copyAsCommands(),
     ...findCommands(),
     ...compareCommands(),
     ...OPERATIONS.map(fromOperation),

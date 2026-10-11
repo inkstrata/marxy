@@ -5,7 +5,7 @@
 
 import type { AppContext, Command } from '../commands/registry.ts';
 import { keyLabel } from '../palette/commands.ts';
-import { copyDefault, markdownCopy, menuVerbs, verbKindIn } from './verbs.ts';
+import { copyDefault, menuVerbs, verbKindIn } from './verbs.ts';
 
 /** At most this many verb rows; "All actions…" follows when more apply (ADR-0054 §1, §5). */
 export const MENU_VERB_LIMIT = 7;
@@ -25,6 +25,13 @@ export interface VerbMenuOptions {
   readonly registered: readonly Command[];
   /** Opens the palette on its actions list (`'>'`): the "All actions…" row. */
   readonly allActions: () => void;
+  /**
+   * Rows to show in place of the selection's verbs (Copy as, J-04): the first has focus, so Enter runs it.
+   * Each row's command is run with the `ctx` the menu was opened with.
+   */
+  readonly rows?: readonly VerbMenuRow[];
+  /** What the menu is for, as a screen reader announces it, when `rows` are given ("Copy as"). */
+  readonly label?: string;
 }
 
 /** One row of the menu, as built: the command it runs (null for "All actions…") and its chord. */
@@ -41,18 +48,17 @@ function isMac(): boolean {
 
 /**
  * The rows the menu shows for `ctx`: the selection's verbs (`menuVerbs`, the one written order), the first
- * seven, each with its chord (`Mod+C` for the default copy verb, `Mod+Shift+C` for the markdown one, else
- * the command's own key); then "All actions…" when an operation applies that the rows do not show.
+ * seven, each with its chord (`Mod+C` for the default copy verb, else the command's own key; `Mod+Shift+C`
+ * opens Copy as and is not a verb's, J-04); then "All actions…" when an operation applies that the rows do not show.
  */
 export function verbMenuRows(ctx: AppContext, registered: readonly Command[]): VerbMenuRow[] {
   const verbs = menuVerbs(ctx, registered);
   const shown = verbs.slice(0, MENU_VERB_LIMIT);
   const copyId = copyDefault(ctx, registered)?.id;
-  const markdownId = markdownCopy(ctx, registered)?.id;
   const rows: VerbMenuRow[] = shown.map((command) => ({
     command,
     title: command.title,
-    chord: command.id === copyId ? 'Mod+C' : command.id === markdownId ? 'Mod+Shift+C' : command.key,
+    chord: command.id === copyId ? 'Mod+C' : command.key,
   }));
   if (rows.length === 0) return rows;
   const shownIds = new Set(shown.map((c) => c.id));
@@ -187,14 +193,14 @@ function place(el: HTMLElement, at: MenuAnchor): void {
 export function openVerbMenu(at: MenuAnchor, ctx: AppContext, opts: VerbMenuOptions): boolean {
   const returnFocus = current?.returnFocus ?? document.activeElement;
   closeVerbMenu();
-  const rows = verbMenuRows(ctx, opts.registered);
+  const rows = opts.rows ?? verbMenuRows(ctx, opts.registered);
   if (rows.length === 0) return false;
   const mac = isMac();
 
   const el = document.createElement('div');
   el.className = 'marxy-verb-menu';
   el.setAttribute('role', 'menu');
-  el.setAttribute('aria-label', verbMenuLabel(ctx));
+  el.setAttribute('aria-label', opts.rows ? (opts.label ?? 'Actions') : verbMenuLabel(ctx));
   el.setAttribute('aria-orientation', 'vertical');
   const items: HTMLElement[] = [];
   rows.forEach((row, i) => {

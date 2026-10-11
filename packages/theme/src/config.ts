@@ -42,6 +42,8 @@ export interface Config {
   readonly lineNumbers: boolean | undefined;
   readonly externalEditor: string | null;
   readonly resident: boolean;
+  /** The Copy as row that is first and chosen by Enter (J-04): one of `COPY_FORMATS`. A target not built yet still parses; the menu falls back to Markdown. */
+  readonly copyFormat: string;
   readonly linuxWeightOffset: number | null;
   /** Valid `[[kind]]` rules in file order; the first that matches a path wins (detectKind's job). */
   readonly kindRules: readonly KindRule[];
@@ -63,6 +65,7 @@ const DEFAULTS: Config = {
   lineNumbers: undefined,
   externalEditor: null,
   resident: false,
+  copyFormat: 'markdown',
   linuxWeightOffset: null,
   kindRules: [],
 };
@@ -77,9 +80,13 @@ const KNOWN = new Set([
   'line_numbers',
   'external_editor',
   'resident',
+  'copy_format',
   'linux',
   'kind',
 ]);
+
+/** The ids `copy_format` takes: the Copy as targets of ADR-0065 item 1 (`apps/desktop/test/copy-as.test.mjs` holds this list equal to core's). */
+export const COPY_FORMATS: readonly string[] = ['markdown', 'plain', 'rich', 'html', 'slack', 'jira', 'json-string', 'quote'];
 
 /** The reader's chrome size range in px: 200 % of 13 at most (WCAG 1.4.4), ADR-0059 item 6. */
 export const CHROME_SIZE_MIN = 11;
@@ -147,6 +154,10 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
   if (typeof raw.resident === 'boolean') resident = raw.resident;
   else if (raw.resident !== undefined) warnings.push('resident was invalid; using false');
 
+  let copyFormat = DEFAULTS.copyFormat;
+  if (typeof raw.copy_format === 'string' && COPY_FORMATS.includes(raw.copy_format)) copyFormat = raw.copy_format;
+  else if (raw.copy_format !== undefined) warnings.push(`copy_format was invalid; using ${DEFAULTS.copyFormat}`);
+
   let linuxWeightOffset: number | null = null;
   const linux = raw.linux;
   if (linux !== null && typeof linux === 'object' && !Array.isArray(linux)) {
@@ -169,6 +180,7 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
       lineNumbers,
       externalEditor,
       resident,
+      copyFormat,
       linuxWeightOffset,
       kindRules,
     },

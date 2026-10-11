@@ -179,7 +179,8 @@ offers "Toggle task". The node's own operation input is tried first, then the en
 
 **The tables.** `MENU_ORDER` is the order of the menu (at most seven rows, then "All actions…" when
 more apply). `COPY_DEFAULT` lists the candidates for `Mod+C`, the first registered and applicable
-wins; every id in it is clipboard-only. `MARKDOWN_COPY` is the same for `Mod+Shift+C`. Ids of
+wins; every id in it is clipboard-only. `MARKDOWN_COPY` is the same, exact markdown; since J-04 no key runs it
+(`Mod+Shift+C` opens Copy as, below), and the Copy as menu's Markdown row writes the same bytes. Ids of
 operations not yet registered are skipped.
 
 | Kind | `MENU_ORDER` | `COPY_DEFAULT` | `MARKDOWN_COPY` |
@@ -202,6 +203,17 @@ write: the cloned range loses the invisible-glyph, link-destination and break ma
 every attribute except `href`, `title`, `alt`, `colspan`, `rowspan` and `start`, then passes the core
 sanitiser. `selection.copy-markdown` copies the bytes from the first to the last top-level block the
 range touches.
+
+**Copy as (J-04, ADR-0065 item 1).** `Mod+Shift+C` opens a menu at the pointer for the selection, else the block
+under the pointer (selected as a click would select it), else the document; in Source it copies the selected text,
+else the file. The rows are core's `COPY_TARGETS` (`operations/copy-as.ts`, the one place that names them):
+Markdown, Plain text, Rich text, HTML source, Slack, Jira wiki, JSON string, Quote with source. A target whose
+transform is not built (`NOT_YET`) is not offered, so the menu is whatever the transform registry can run. The
+row `copy_format` (§11) names is first and has focus. A choice writes **one pasteboard item** holding every
+representation the target needs (plain text always, HTML for rich text only) through `clipboardWriteItem`, and says
+one notice, "Copied as Slack, 1.2 KB" (format and the size of the text). Every other copy verb writes the same way,
+through `commands/copy-write.ts`; where the shell has no native pasteboard the same copy goes through
+`clipboardWrite` and the notice is unchanged. Nothing is read from the pasteboard.
 
 **The menu.** Opened by right-click, `ContextMenu` / `Shift+F10`, or `Enter` on a selection (§09).
 A `div.marxy-verb-menu` with `role="menu"`, labelled with the selection ("Code block, json"), rows

@@ -1,7 +1,8 @@
 // Applies a core operation: clipboard, optional splice, notice (§03, MARXY-42, C-06).
 import type { Operation, OperationInput } from '@marxy/core';
+import { writeCopy } from '../commands/copy-write.ts';
 import type { AppContext, Command } from '../commands/registry.ts';
-import { copyDefault, markdownCopy } from './verbs.ts';
+import { copyDefault } from './verbs.ts';
 
 /** What a copy says it did, from its title: "Copy table as TSV" says "Copied table as TSV". */
 export function copiedNotice(title: string): string {
@@ -16,7 +17,9 @@ export async function apply(
   if (!op.canApply(input)) return;
   const result = op.run(input);
   if (result.clipboard) {
-    await ctx.shell.clipboardWrite(result.clipboard);
+    // One pasteboard item and one notice that carries its size: the operation's own account first
+    // ("Copied 3 links"), else what its title says it copied.
+    if (!(await writeCopy(ctx, result.clipboard, result.summary ?? copiedNotice(op.title)))) return;
   }
   if (result.replacement !== input.text) {
     if (!ctx.applyBufferMutation) {
@@ -32,13 +35,10 @@ export async function apply(
       return;
     }
   }
+  // A copy has closed the palette and said its notice already (writeCopy); closing it again would be after it.
+  if (result.clipboard) return;
   ctx.closePalette();
-  // The operation's own account first ("Copied 3 links"), else what its title says it copied.
-  if (result.summary) {
-    ctx.showNotice(result.summary, { transient: true });
-  } else if (result.clipboard) {
-    ctx.showNotice(copiedNotice(op.title), { transient: true });
-  }
+  if (result.summary) ctx.showNotice(result.summary, { transient: true });
 }
 
 /**
@@ -52,10 +52,4 @@ export async function runCopyShortcut(ctx: AppContext, registered: readonly Comm
     return;
   }
   document.execCommand('copy');
-}
-
-/** Mod+Shift+C: the selection's exact markdown (`MARKDOWN_COPY`); nothing when no verb applies. */
-export async function runMarkdownCopy(ctx: AppContext, registered: readonly Command[]): Promise<void> {
-  const cmd = markdownCopy(ctx, registered);
-  if (cmd) await cmd.run(ctx);
 }
