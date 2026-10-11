@@ -14,7 +14,8 @@ import type { AppContext } from '../commands/registry.ts';
 import type { PieceSource } from '../frontispiece/pieces.ts';
 import { wireArticle } from '../commands/document.ts';
 import type { DocumentSnapshot, DocumentStore, Transition } from '../document/store.ts';
-import { currentPosition, restoreScrollToPosition } from '../position/index.ts';
+import { currentPosition as positionOf, restoreScrollToPosition } from '../position/index.ts';
+import type { ScrollerGeometry } from '../position/position.ts';
 import { renderRecord, spliceRendered, type RenderRecord } from '../render/incremental.ts';
 import { resolveImageRoot, stripNonLocalImages } from '../render/images.ts';
 import { buildBlocks, nodeFor, type BlockList, type NodeMap } from '../render/post.ts';
@@ -297,11 +298,41 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * has been clamped.
    */
   let seen = { scrollTop: scroller.scrollTop, clientHeight: scroller.clientHeight };
+  /**
+   * How far the article's top sits below the top of the scroller's content (a pane's padding, the page's
+   * margin). The block list measures from the article, the scroll offset from the content, so a block's
+   * place in the scroller is its `top` and this. Left out, a position read at one width and put back at
+   * another was off by this much of every block's change in height (F-27).
+   */
+  const contentOffset = (): number => {
+    // The window scroller (one pane) is left as it was: its blocks are measured as before.
+    if (scroller === document.documentElement) return 0;
+    const offset = doc.getBoundingClientRect().top - (scroller.getBoundingClientRect().top + scroller.clientTop) + scroller.scrollTop;
+    return Number.isFinite(offset) ? offset : 0;
+  };
+  let seenOffset = contentOffset();
   const scrollListeners = new Set<() => void>();
   const noteScroll = (): void => {
     seen = { scrollTop: scroller.scrollTop, clientHeight: scroller.clientHeight };
+    seenOffset = contentOffset();
   };
+  /** `blocks` with their tops measured from the scroller's content, as its scroll offset is. */
+  const inScroller = (blocks: BlockList, offset: number): BlockList =>
+    offset === 0 ? blocks : blocks.map((block) => ({ ...block, top: block.top + offset }));
+  /** The reading position on `geometry` (the scroller, or what it last was), over `blocks`. */
+  const currentPosition = (
+    geometry: ScrollerGeometry,
+    blocks: BlockList,
+    path: string,
+    mode: ReadingPosition['mode'],
+  ): ReadingPosition =>
+    positionOf(geometry, inScroller(blocks, geometry === seen ? seenOffset : contentOffset()), path, mode);
   const onScrollerScroll = (): void => {
+    // A scroll nobody here made (every restore notes its own, and the event finds nothing moved) is the
+    // reader's or a script's, and releases whatever this view is holding the place with, as the reader's
+    // input does: a hold put back after it would undo it (F-27, from the D-13 review: a scroll made just
+    // after a pane opened was reset to the top).
+    if (scroller !== document.documentElement && scroller.scrollTop !== seen.scrollTop) releaseAnchor();
     noteScroll();
     for (const cb of [...scrollListeners]) cb();
   };
@@ -310,8 +341,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   scrollTarget(scroller).addEventListener('scroll', onScrollerScroll, { passive: true });
 
   /** Puts `p` on the reading line of this view's scroller, and notes where that left it. */
-  function restoreTo(blocks: BlockList, p: ReadingPosition): void {
-    restoreScrollToPosition(scroller, blocks, p);
+  function restoreTo(blocks: BlockList, p: ReadingPosition, offset: number = contentOffset()): void {
+    restoreScrollToPosition(scroller, inScroller(blocks, offset), p);
     noteScroll();
   }
 
@@ -361,6 +392,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * at 1 MB they run for seconds after the render returns.
    */
   let heldPosition: ReadingPosition | null = null;
+  /**
+   * The place a burst of resizes holds (F-27): taken when the first resize is noticed, ended when its
+   * relayout has set the page. Reader input in between releases it (`releaseAnchor`), and the relayout
+   * then leaves the reader where they put themselves instead of putting back the place read before.
+   */
+  let resizeHold: ReadingPosition | null = null;
+  /** Each resize hold's place, until its relayout ends: whether the reader released it. */
+  const resizeReleased = new WeakMap<ReadingPosition, boolean>();
 
   let lastSnapAt = 0;
   let snapTimer = 0;
@@ -614,13 +653,47 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     };
   }
 
+  /** Holds `p` until the resize burst it was read for has been laid out, or the reader scrolls. */
+  function holdThroughResize(p: ReadingPosition): void {
+    if (anchor !== null || (heldPosition !== null && heldPosition !== resizeHold)) return;
+    resizeHold = p;
+    resizeReleased.set(p, false);
+    heldPosition = p;
+    listenForReaderScroll();
+  }
+
+  function releaseResizeHold(): void {
+    if (resizeHold === null) return;
+    resizeReleased.set(resizeHold, true);
+    if (heldPosition === resizeHold) heldPosition = null;
+    resizeHold = null;
+  }
+
+  /** True when `p` should be put back: false when it was a resize hold that a scroll released. */
+  function endResizeHold(p: ReadingPosition | null): boolean {
+    const released = p === null ? undefined : resizeReleased.get(p);
+    if (p === null || released === undefined) return true;
+    resizeReleased.delete(p);
+    if (resizeHold === p) {
+      resizeHold = null;
+      if (heldPosition === p) {
+        heldPosition = null;
+        if (anchor === null) stopListeningForReaderScroll();
+      }
+    }
+    return !released;
+  }
+
   /** A change of variant, size or window width: same position, new layout (A-14, S-02-0001). */
   async function relayoutKeepingReader(
     reason: 'theme' | 'resize' = 'theme',
     from: ReadingPosition | null = null,
   ): Promise<void> {
     const path = openPathNow();
-    if (!path || !shown || viewMode !== 'rendered') return;
+    if (!path || !shown || viewMode !== 'rendered') {
+      endResizeHold(from);
+      return;
+    }
     const pos = from?.path === path ? from : currentPosition(scroller, shown.blocks, path, 'rendered');
     if (typeset) {
       typeset.relayout(reason);
@@ -628,7 +701,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     } else {
       snap(doc);
     }
-    if (!shown) return;
+    if (!endResizeHold(from) || !shown) return;
     restoreTo(shown.blocks, { ...pos, path, mode: 'rendered' });
   }
 
@@ -638,10 +711,13 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const openPath = openPathNow();
     const blocks = shown?.blocks ?? null;
     if (!set || !openPath || !blocks) return;
-    const pos = currentPosition(scroller, blocks, openPath, 'rendered');
+    // The offset is read with the place and put back with it: what sits above the article (a notice that
+    // comes or goes while the page is set) is not the reader's place, and the page leaves it where it was.
+    const offset = contentOffset();
+    const pos = positionOf(scroller, inScroller(blocks, offset), openPath, 'rendered');
     set.relayout('theme');
     await set.ready;
-    restoreTo(blocks, { ...pos, path: openPath, mode: 'rendered' });
+    restoreTo(blocks, { ...pos, path: openPath, mode: 'rendered' }, offset);
   }
 
   function snap(article: HTMLElement, from?: HTMLElement): void {
@@ -655,6 +731,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   function releaseAnchor(): void {
     anchor = null;
     heldPosition = null;
+    releaseResizeHold();
     stopListeningForReaderScroll();
   }
 
@@ -856,6 +933,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       const path = openPathNow();
       if (before === null && path && shown) {
         before = currentPosition(scroller, shown.blocks, path, 'rendered');
+        if (scroller !== document.documentElement) holdThroughResize(before);
       }
       clearTimeout(pending);
       // A new width re-breaks every paragraph; the relayout's passes re-run the grid pass themselves.
@@ -864,12 +942,16 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
         const relayout = rebreak;
         before = null;
         rebreak = false;
-        if (!laidOut()) return;
+        if (!laidOut()) {
+          endResizeHold(position);
+          return;
+        }
         if (relayout) {
           void relayoutKeepingReader('resize', position);
           return;
         }
         snap(article);
+        if (!endResizeHold(position)) return;
         if (position && shown && position.path === openPathNow() && viewMode === 'rendered') {
           restoreTo(shown.blocks, position);
         }
