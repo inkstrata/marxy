@@ -89,7 +89,8 @@ const reg = registry();
 const staged = process.argv.includes('--staged');
 const src = /\.(m?[jt]sx?|rs|css|html)$/;
 // Design prototypes kept under docs/plan/<round>/ (mock*, galley, studio) are reference HTML, not the app.
-const prototype = /\/(marxy-spike|marxy-brainstorm)\/|\/docs\/plan\/[^/]+\/(mock[^/]*|galley|studio)\//;
+// So are the project's agent skills under .claude/skills/ (a local review page is not shipped).
+const prototype = /\/(marxy-spike|marxy-brainstorm)\/|\/docs\/plan\/[^/]+\/(mock[^/]*|galley|studio)\/|\/\.claude\/skills\//;
 const files = (staged ? changedFiles({ staged: true }).map(f => join(ROOT, f)).filter(f => existsSync(f) && statSync(f).isFile() && !prototype.test(f)) : walk(ROOT, f => !prototype.test(f)))
   .filter(f => src.test(f) && !/\/scripts\/registry\.json$/.test(f) && !/fixtures\/corpus\//.test(f));
 const problems = [];
