@@ -1397,6 +1397,21 @@ threshold 3 fails), and two panes cost more memory than the card allowed (thresh
 the slow-runner allowance the author sets) and the pair RSS meets threshold 4 for 256 KB and 1 MB, measured the
 way D-14 measured them. Report the new medians in the PR; do not add a perf gate (ADR-0032).
 
+**Amended 2026-10-11 (the replan, `direction-2026-10/12-replan-2026-10-11.md`).**
+- **Threshold 4 is recorded, not a bar.** The 1 MB pair's miss (73 MB) is inside the 1 MB single's own run spread
+  (782 to 1,065 MB) and the 256 KB miss is 14 MB; report the medians, do not chase them.
+- **The frame bound stands**, with the slow-runner allowance at **two frames (about 33 ms)** unless the author sets
+  another: the 0.7 s freeze is what a reader feels.
+- **The work in progress parses and renders in slices** (`parse/chunked.ts`, `renderDocumentSafeHtmlInSlices`). That
+  is a second road to the bytes the reader sees, beside the sanitiser's one pass (ADR-0023 Amendment 1), so the PR
+  must carry an **equivalence oracle**: over every corpus file, the 256 KB and 1 MB documents and at least 200 seeded
+  fuzz documents (raw HTML left open across blocks, footnotes, link definitions, unclosed fences and front matter
+  among them), the sliced parse equals `parseMarkdown` and the sliced render equals `renderDocumentSafeHtml` byte for
+  byte, removals in order, or the slicer returns null and the caller renders whole. A mutation that drops the
+  `rawTagsBalanced` or footnote fall-back must fail it.
+- **Review:** adversarial (Sonnet, high), with the reviewer's own hostile documents through both roads. A difference
+  in sanitised output is a return, never a nit.
+
 ## What this phase deliberately leaves out
 
 - **A diff mode.** Two versions of a regenerated file are a diff, not a split: the reader-artifacts handbook

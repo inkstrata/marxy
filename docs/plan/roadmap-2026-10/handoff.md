@@ -1,75 +1,62 @@
-# Lead handoff: the 2026-10-10 evening
+# Lead handoff: 2026-10-11, after the replan
 
-**For:** the next lead session, and the author. **Read with:** `00-orchestration.md` §3 to §6, then `progress.md`
-(the ledger holds the detail of every story named here). This page says what to do next.
+**For:** the next lead session, and the author. **Read, in order:** this page, then
+[`../direction-2026-10/12-replan-2026-10-11.md`](../direction-2026-10/12-replan-2026-10-11.md) (the replan: what exists,
+the decisions, the wave order, the author list), `00-orchestration.md` §3 to §7, the cards for the wave you run
+([`11-cards-wave-4.md`](../direction-2026-10/11-cards-wave-4.md), [`13-code-view.md`](../direction-2026-10/13-code-view.md)),
+and [`harness-map.md`](harness-map.md) to drive the app headless. `progress.md` holds every story's detail.
 
-## Late evening, 2026-10-10: stopped at the author's request
+## Where it stands
 
-**Merged after X-09:** D-10 (#538), J-03 (#546), V-07 (#549), E-13 (#550), D-14 (#552, closes Phase D; its failing cost thresholds are the D-15 card), E-08.1 (#553), E-17 (#554), D-10.1 (#555, Save As onto a path open in the other pane keeps one store; refuses over unsaved edits there).
-
-**Held for the author (review says merge):**
-- #545 E-04, edit a block in place: it amends ADR-0048 clause 3 (Esc keeps the edit, as the card says; the ADR said discard). Rule on the clause, then merge.
-- #551 H-04, Night and Paper become the default and Ink gets its own directory: taste review (artifact in `docs/taste-review/evidence/H-04-*.png`). 108 macOS goldens moved; the **Linux goldens must be regenerated in CI's image** before `typography` is green. H-04.1 (Atkinson Hyperlegible Next and Inter) needs the author's permission to download the upstream releases and LICENSE files; the PR uses the vendored faces provisionally.
+The replan session (2026-10-11, Opus lead, two Sonnet agents) surveyed `main` at `7b543931` and found most of the
+direction's merged work has no surface: kinds are never read at open, the clipboard API and the transform library
+have no caller, the query language and capture rules are parsed for nothing. The next waves wire those into the window
+before building more parts. Nothing was dispatched or merged in this session.
 
 **Stopped mid-work, uncommitted; resume in the worktree (read `git diff` first, never `git stash`):**
-| Story | Worktree / branch | State |
-| --- | --- | --- |
-| D-15 | `../marxy-wt/D-15`, `perf/d-15-split-open-nonblocking` | Second pane opens through a chunked parse and sliced store so a 1 MB document beside a small one does not block (~0.7 s today). Core `parse/chunked.ts`, `startup/yield.ts`, store/render/view edits; was wiring the view's show and mountDocument. Remove the stray `pane/index.ts.bak`. Branch may carry D-14's commits (based on its branch before #552 merged): rebase onto origin/main. |
-| W-02 | `../marxy-wt/W-02`, `feat/w-02-workspace-shell` | Workspace shell: `workspace/state.ts`, `regions.ts`, `commands/workspace.ts`, `layout/workspace-storage.ts`, gate-aesthetics updates, base.css; a browser precheck was running. The fold/unfold command has no default key (⌘\ is D-07's open beside; author to choose). |
 
-**Next, in order:** finish D-15 and W-02; then W-03..W-07 (need W-02), Q-03 (needs W-02), K-05 (needs H-04), F-31 (needs the author's ADR-0013 ruling), E-15 (needs E-12, the spike with the author), E-18 (after E-04 and E-15), V-02 (no card yet), F-21 #470 (returned twice on Sonnet: the rule says re-run on Opus with the two review notes).
-
-**Process notes from this session:** every agent ran on Sonnet (the author asked to be cost-effective; a usage limit was still hit once at about 18:00). Three or four implementors plus one or two reviewers at a time was the working pace. Parallel E stories conflict on the append-only operation lists (`MUTATING_OPERATIONS`, the catalogue ids): land them one at a time and resolve by union. Reviewers that only read code ("tests not run") are cheaper but lean on CI.
-
-## What merged on 2026-10-10
-
-All agents ran on Sonnet (the author asked for cost-effectiveness).
-
-- **Direction and chrome:** H-07 (`chrome_size`), W-01 (the two-state at-rest gate), J-02 (`shell-api` clipboard),
-  H-03.1 (palette and outline edge roles), H-06 (character-width measurement), V-01 (structural selection and line
-  operations in Source), X-08 (the wave-3 cards).
-- **Panes and layout:** D-09 (Cmd-click into the neighbour pane), D-12 (remember the layout and each pane's place).
-- **Large documents and scroll:** B-24 (re-render only what a reload changed), B-27 (a hidden Source page is not
-  rebuilt on every fold; fold on 1 MB 5,095 to 898 ms), F-27 (each pane keeps its block under the reading line).
-- **Text operations (Phase E):** E-01, E-02 (gap-fill tests), E-03, E-06, E-07, E-08, E-09, E-10, E-11, E-14, E-16.
-- **Test infrastructure:** F-30 (a stuck live-reload test fails by name) and F-30.1 (boot deadline and retry).
-
-## Open pull requests, and what each needs
-
-| PR | Story | State | Next |
+| Story | Worktree / branch | State | Resume with |
 | --- | --- | --- | --- |
-| #538 | D-10 | re-check merged at `0a3d143a`; main merged in after B-27 | the lead's re-verdict, then merge |
-| #545 | E-04 | Sonnet review dispatched | **hold the merge**: it amends ADR-0048 clause 3 (see below) |
-| #546 | J-03 | Sonnet review dispatched; 45 of 50 transforms | merge on a merge verdict; then J-03.1 for the five deferred |
-| #547 | E-05 | Sonnet review merge | merge (notes in the ledger) |
-| #494 | F-26 | review merge at `0c8f0358` | code-owned: the author merges |
-| #407 | sanitiser test | browser-lite and ci red | code-owned: the author merges |
-| #450 | G-03 | `ci.yml` / `nightly.yml`; browser-lite and ci red | code-owned: the author |
-| #470 | F-21 | returned twice | re-run on Opus (see `progress.md`) |
-| #445 | K-00 | docs, plan lane K | no checks yet; read, then merge or return |
+| D-15 | `../marxy-wt/D-15`, `perf/d-15-split-open-nonblocking` | Sliced parse (`parse/chunked.ts`) and sliced sanitised render (`renderDocumentSafeHtmlInSlices`), open/store/view wiring; 13 files, about 285 lines; uncommitted. The branch carries D-14's two pre-merge commits and tracks the deleted `test/d-14-close-phase-d`. | Delete `apps/desktop/src/pane/index.ts.bak`, commit the work in progress on the branch, then `git rebase --onto origin/main 7a9f7199` (replays only that commit; D-14's `7cacc512` and `7a9f7199` are in `main` as #552, squashed), `git branch --unset-upstream`; then the **amended card** (`04-phase-d.md`, "Amended 2026-10-11"): equivalence oracle, two-frame allowance, memory recorded only. Adversarial review (Sonnet, high). |
+| W-02 | `../marxy-wt/W-02`, `feat/w-02-workspace-shell` | Workspace state, regions, commands, storage, gate-aesthetics, base.css; uncommitted; 4 behind `main`. | **`⌘\` folds and unfolds** (the lead's ruling by ADR-0058 and mock-v2; the author may veto before merge); D-07's Open beside moves to **`⌥⌘\`** in the same PR (`pane/keys.ts`, registry, `09-app-shell.md`). Then the card in `10-cards-wave-3.md`. |
 
-Ready to dispatch: H-04 (held, author taste), K-05, W-02, F-28 (code-owned; point 2 needs the author), E-08.1,
-J-03.1 (after #546), F-31 (after the author rules), V-07, A-03.
+**Held for the author (do not merge):** #545 (E-04, ADR-0048 clause 3), #551 (H-04, taste; Linux goldens to
+regenerate in CI's image after the ruling; no font download without the author's OK). Code-owned: #494, #407, #450.
 
-## Waiting on the author
+**Close as superseded** once the replan PR merges: #445 (lane K "code as read"), imported as V-09 to V-16 in
+`direction-2026-10/13-code-view.md`. Comment on it with the link before closing.
 
-1. **Code-owned pull requests:** #494 (F-26, the sanitiser), #407 (the sanitiser test), #450 (G-03, `ci.yml` and
-   `nightly.yml`).
-2. **ADRs:** ADR-0060 and ADR-0061 are proposed.
-3. **ADR-0048 clause 3 (E-04, #545):** the card has Esc keep the edit; the ADR has it discard. The PR amends the ADR.
-   The lead holds the merge for the author's ruling.
-4. **The `⌘\` conflict (W-02):** D-07 shipped it as Open beside, while ADR-0058 gives it to fold and unfold. W-02
-   registers without a key until the author names one.
-5. **V-01:** the keys ⌃⇧→ and ⌃⇧B take over macOS emacs defaults.
-6. **Taste:**
-   - K-18's html glyph;
-   - H-03.1's palette and outline edges (the old literals were wrong in light, so the default look moved);
-   - K-03's "a task list means report";
-   - E-11's copy-plain keeps list markers (the card said dropped; the lead decided).
-7. **F-31's ADR-0013 question:** may the paint signal fall back after two frames and about 2 s, marked
-   `signal=frames-only`? The card is in `08-fixes-from-the-bug-sweep.md`.
-8. **The Docker incident:** an agent ran `docker stop` on all containers and stopped another session's
-   `tender_shannon` (since gone, likely `--rm`). Future briefs: stop only the containers you started.
+## Next, in order
+
+The wave table is in the replan. In short:
+
+- **Wave 4 (now):** W-02 (resume, Sonnet high), D-15 (resume, Sonnet high), F-32 (Sonnet low) then J-04 (Sonnet medium),
+  and X-11, the taste walk (Sonnet low; docs only, beside the three).
+- **Wave 5:** K-05a (after D-15), W-19 (after W-02), J-05 (after J-04, Sonnet high).
+- **Wave 6:** W-05 (high), F-33 (high), V-16 then V-09 (low). **Write the cards for waves 6 and 7 first** (W-03, W-04,
+  W-05, W-21, J-06 and K-07 have none): an X-13 plan story, Sonnet medium, in wave 5, with the shape of
+  `11-cards-wave-4.md`.
+- **Waves 7 and 8, then the look track after H-04 is ruled:** as the replan says.
+
+## Rules for this cycle (the replan's decisions)
+
+- **A story that adds a core API names its caller**, in that story or the next queued one. No more parts without a door.
+- **Before dispatch, check the card against `main`**: its Paths exist (`git ls-files`), the functions it names exist
+  (`git grep`). A number the implementor cannot reproduce goes in the PR and the card is amended in the same PR.
+- **Operation lists:** until F-32 merges, land E and J stories one at a time and resolve the lists by union, then diff
+  the resolved file against both parents.
+- **CI reds:** rerun once when the red test is outside the PR's paths; a second red is a finding, not a rerun.
+- **Data-safety stories** (store, save, two panes, outside writes, paste) get an adversarial review with the
+  reviewer's own probes, and, once F-33 lands, its walk at a higher seed count. A "nit" that breaks a commitment is a
+  return.
+- **Models:** every implementor and reviewer on Sonnet (medium; low for docs and XS; high for L or data-safety).
+  Opus only where a card's rule names it after a Sonnet failure, and for F-21 only if the author says so.
+- At most three implementors plus one or two reviewers at once. Set `model` and `effort` on every spawn.
+- Brief implementors to run `pnpm gate:fidelity` when they touch `src/shell` or document code.
+- Merge with `node scripts/lead-merge.mjs <pr> --verdict FILE --sha HEAD` after a verdict naming the current head.
+  Never sign your own implementation; a lead verdict only for a clean merge-from-main or a trivial docs or test change.
+- Agents using Docker stop only containers they started. No GUI windows from the session.
+- End the session by updating this page and `progress.md` in a plan PR, and close the report with the readiness table.
 
 ## Lessons
 
@@ -86,3 +73,33 @@ J-03.1 (after #546), F-31 (after the author rules), V-07, A-03.
   paths) and V-01 (Join, Delete line, mixed CRLF) were each found by a reviewer's probes, not the PR's tests.
 - **A usage limit stops agents mid-work** (about 18:00: E-04, J-03, E-05). Their worktrees were intact; resume rather
   than restart.
+- **Parts without a door pile up silently** (2026-10-11): 77 PRs in two days, and the reader's window barely changed.
+  The survey (harness-map recipe, about 6 minutes on Sonnet) is cheap; run one at the end of each milestone.
+- **Author-reported problems need a ledger row the day they arrive.** #445's code-view report sat three days as an
+  unmerged plan PR with colliding ids.
+
+## The running prompt
+
+Paste this to start the next lead session (any model; the lead's own work is reading, deciding and merging):
+
+```text
+Continue the marxy lead cycle as the lead (repo ~/Dev/marxy). Be cost-effective: every subagent on Sonnet (medium; low for docs and XS stories; high for L or data-safety stories), at most 3 implementors plus 1–2 reviewers at a time, and set model and effort on every spawn. Opus only where a card's rule names it after a Sonnet failure.
+
+Read first, in order: docs/plan/roadmap-2026-10/handoff.md ("2026-10-11, after the replan" is current), docs/plan/direction-2026-10/12-replan-2026-10-11.md, 00-orchestration.md §3–§7, then the cards for the wave you run (direction-2026-10/11-cards-wave-4.md, 13-code-view.md, 10-cards-wave-3.md for W-02) and roadmap-2026-10/harness-map.md. Pull main first; if the replan PR (X-12) is still open, review and merge it before anything else (lead verdict: docs only).
+
+Then run the waves in the replan's order, landing each before starting work that depends on it:
+- Wave 4: resume D-15 (~/Dev/marxy-wt/D-15) and W-02 (~/Dev/marxy-wt/W-02) exactly as handoff.md's table says (read `git diff` first, never `git stash`; D-15 rebases with `--onto origin/main 7a9f7199`; W-02 takes ⌘\ for fold/unfold and moves Open beside to ⌥⌘\). F-32, then J-04. X-11, the taste walk, beside them (docs only).
+- Wave 5: K-05a (after D-15), W-19 (after W-02), J-05 (after J-04), and X-13 (write the cards for waves 6 and 7).
+- Then waves 6 to 8 as the replan says. Before each dispatch, check the card against main (Paths exist, named functions exist).
+
+Do not merge #545 (ADR-0048 clause 3) or #551 (H-04 taste) until the author rules; never download fonts without the author's OK. F-31 waits on the author's ADR-0013 ruling; F-21 (#470) waits on the author's choice of model. Close #445 as superseded by direction-2026-10/13-code-view.md, with a comment linking it. When the author answers an item on the replan's "For the author" list, record the ruling in progress.md and unblock what it names.
+
+Rules:
+- A story that adds a core API names its caller, in the same story or the next queued one.
+- Merge with `node scripts/lead-merge.mjs <pr> --verdict FILE --sha HEAD`, only after a review verdict naming the current head. Never sign your own implementation; a lead verdict only for a clean merge-from-main or a trivial docs or test change, after diffing the resolved file against both parents.
+- Until F-32 lands, E and J stories land one at a time; resolve the operation lists by union.
+- Data-safety stories (store, save, two panes, outside writes, paste) get an adversarial review with the reviewer's own probes, and F-33's walk once it exists; a "nit" that breaks a commitment (faithful to the bytes, nothing lost silently) is a return.
+- CI: rerun once when the red test is outside the PR's paths; a second red is a finding.
+- Brief implementors to run `pnpm gate:fidelity` when touching src/shell or document code. Agents using Docker stop only containers they started. No GUI windows.
+- End the session by updating handoff.md (including this prompt, if the order changed) and progress.md in a plan PR, and close your report with the readiness table.
+```
