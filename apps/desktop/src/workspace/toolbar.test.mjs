@@ -108,12 +108,12 @@ test('a fill is made on unfold, disposed on fold and made again on the next unfo
 
 // --- what is drawn ------------------------------------------------------------------------------------------------
 
-test('unfolded with a document open: back, forward, title, Read/Split/Source, the kind chip, Copy and Find, in that order, and nothing else', async () => {
+test('unfolded with a document open: back, forward, title, Read/Split/Source, the kind chip, Copy, Transform (W-21) and Find, in that order, and nothing else', async () => {
   await withPage(1280, async (page) => {
     await unfold(page);
-    assert.deepEqual(await items(page), ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'find']);
+    assert.deepEqual(await items(page), ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
     const buttons = await page.evaluate(() => [...document.querySelectorAll('.marxy-toolbar button')].filter((b) => !b.closest('[hidden]')).map((b) => b.getAttribute('aria-label')));
-    assert.deepEqual(buttons, ['Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Kind: article. How this file is read', 'Copy as Markdown', 'Copy as…', 'Find in this pane']);
+    assert.deepEqual(buttons, ['Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Kind: article. How this file is read', 'Copy as Markdown', 'Copy as…', 'Transform', 'Find in this pane']);
     assert.deepEqual(await radios(page), { Read: 'true', Split: 'false', Source: 'false' });
     const wording = await page.evaluate(() => document.querySelector('[data-marxy-workspace-region="toolbar"]').textContent);
     assert.doesNotMatch(wording, /extract|theme/i);
@@ -141,7 +141,7 @@ test('the door: a registered command draws its control, the next mount draws it 
     });
     assert.deepEqual(got.added, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'export', 'transform', 'find']);
     assert.deepEqual(got.ran, ['transform.open'], 'the control runs its command');
-    assert.deepEqual(got.removed, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'find']);
+    assert.deepEqual(got.removed, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
   });
 });
 
@@ -166,8 +166,8 @@ test('a panel toggle waits for content in its region: a stub command alone draws
       await new Promise((r) => setTimeout(r, 50));
       return { without, withFill, docked, undocked: pressed() };
     });
-    assert.deepEqual(got.without, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'find']);
-    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'find']);
+    assert.deepEqual(got.without, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
+    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
     assert.deepEqual([got.docked, got.undocked], ['true', 'false']);
   });
 });

@@ -8,6 +8,7 @@ const GROUP_ORDER: Readonly<Record<Command['group'], number>> = {
   view: 1,
   app: 2,
   selection: 3,
+  transform: 4,
 };
 
 /** The commands that apply now, filtered by `query` on the title, in group then title order. */
@@ -18,7 +19,7 @@ export function paletteCommands(
 ): readonly Command[] {
   const needle = query.trim().toLowerCase();
   const kept = all.filter(
-    (c) => c.when(ctx) && (needle === '' || fuzzyScore(c.title.toLowerCase(), needle) > 0),
+    (c) => c.listed !== false && c.when(ctx) && (needle === '' || fuzzyScore(c.title.toLowerCase(), needle) > 0),
   );
   return kept.slice().sort((a, b) => {
     const g = GROUP_ORDER[a.group] - GROUP_ORDER[b.group];

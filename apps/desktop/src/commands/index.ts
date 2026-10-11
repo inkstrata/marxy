@@ -22,6 +22,7 @@ import { fromOperation, type Command } from './registry.ts';
 import { selectionNavigationCommands } from './selection-nav.ts';
 import { sourceEditCommands } from './source-edit.ts';
 import { sourceViewCommands } from './source-view.ts';
+import { transformCommands } from './transform.ts';
 import { trustRevokeCommands } from './trust.ts';
 import { viewModeCommands } from './view-mode.ts';
 import { panelCommands } from './panels.ts';
@@ -57,6 +58,7 @@ export function commands(): readonly Command[] {
     ...pasteCommands(),
     ...findCommands(),
     ...compareCommands(),
+    ...transformCommands(),
     ...OPERATIONS.map(fromOperation),
   ];
 }

@@ -984,7 +984,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   });
 
   // The summoning chords (W-19): `Mod+P` and `Mod+K` open the palette on documents, `Mod+Shift+P` and `Mod+/`
-  // open it on commands (`>`). Each closes it when it is already open on what the chord opens. On `window` in
+  // open it on commands (`>`; `Mod+/` on `>Transform`, W-21). Each closes it when it is already open on what the chord opens. On `window` in
   // the capture phase, so a Source editor's own `Mod+/` (toggle comment) never sees the press.
   window.addEventListener(
     'keydown',
@@ -1003,8 +1003,12 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       if (documents) {
         if (open) dismiss();
         else summon();
-      } else if (open && input.value === '>') dismiss();
-      else summon('>');
+      } else {
+        // Mod+/ opens on the transforms (`>Transform`); Mod+Shift+P on every command (`>`).
+        const query = key === '/' ? '>Transform' : '>';
+        if (open && input.value === query) dismiss();
+        else summon(query);
+      }
     },
     true,
   );
