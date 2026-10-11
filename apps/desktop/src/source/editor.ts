@@ -134,6 +134,8 @@ export async function baseExtensions(
   buffer: Buffer,
   lineNumbers: boolean,
   compartments?: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment?: Compartment },
+  /** `false` for the block editor (its text is the reading decode): a paste never takes a stray byte back. */
+  strayRestore = true,
 ): Promise<Extension[]> {
   const { history, defaultKeymap, historyKeymap } = await import('@codemirror/commands');
   const { EditorState } = await import('@codemirror/state');
@@ -160,7 +162,7 @@ export async function baseExtensions(
     highlightActiveLine(),
     // Special characters marked as before, and a byte that is not UTF-8 shown as its value; no lone surrogate
     // the editor holds for one leaves it on a copy, a cut or a drag (F-34.1).
-    strayBytes(),
+    strayBytes({ restore: strayRestore }),
     // Save and Save as work from either mode (§01). The document-level chord handler leaves editable
     // targets alone, so the editor answers these two itself and nothing else of Rendered mode leaks in.
     keymap.of([

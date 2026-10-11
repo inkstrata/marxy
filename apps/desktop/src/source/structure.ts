@@ -23,7 +23,7 @@ import {
   type StructureKind,
   type TextRange,
 } from '@marxy/core/src/source-edit/index.ts';
-import { readableText } from '@marxy/core/src/buffer/source-text.ts';
+import { holdsStrayBytes, readableText } from '@marxy/core';
 import {
   isolateHistory,
   moveLineDown,
@@ -95,7 +95,32 @@ export function runTableTool(tool: TableTool, target: Target, path: string): boo
   if (structureKindFor(path) !== 'markdown') return false;
   const { state } = target;
   const run = { alignTable, addTableRow, addTableColumn, sortTableRows }[tool];
-  return apply(target, run(textOf(state), state.selection.main.head));
+  const text = textOf(state);
+  if (!holdsStrayBytes(text)) return apply(target, run(text, state.selection.main.head));
+  // A byte that is not UTF-8 is a lone surrogate in the editor's text, which the tools' own check refuses. They work
+  // on a copy with each one stood in for by a private-use character the text does not hold, one code unit for one,
+  // so every offset stays; what they write is mapped back, so the byte stays itself (F-34.1).
+  const base = strayStandInBase(text);
+  if (base === null) return false;
+  const stood = text.replace(/[\uDC80-\uDCFF]/gu, (c) => String.fromCharCode(base + c.charCodeAt(0) - 0xdc00));
+  const edit = run(stood, state.selection.main.head);
+  if (!edit) return false;
+  const back = (s: string): string =>
+    s.replace(new RegExp(`[${String.fromCharCode(base + 0x80)}-${String.fromCharCode(base + 0xff)}]`, 'g'), (c) => String.fromCharCode(c.charCodeAt(0) - base + 0xdc00));
+  return apply(target, { ...edit, changes: edit.changes.map((c) => ({ ...c, insert: back(c.insert) })) });
+}
+
+/** A base in the Private Use Area whose characters base + 0x80 to base + 0xFF the text holds none of, or null. */
+function strayStandInBase(text: string): number | null {
+  for (let base = 0xe000; base + 0xff <= 0xf8ff; base += 0x100) {
+    let clear = true;
+    for (let i = 0; i < text.length && clear; i++) {
+      const code = text.charCodeAt(i);
+      if (code >= base + 0x80 && code <= base + 0xff) clear = false;
+    }
+    if (clear) return base;
+  }
+  return null;
 }
 
 /** The table at the caret as CSV (the text C-07's Copy table as CSV puts on the pasteboard), or null where there is none. */

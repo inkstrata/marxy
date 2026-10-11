@@ -55,12 +55,15 @@ async function open(page) {
 }
 const mod = async (page) => ((await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control');
 const latin = (page) => page.evaluate(() => String.fromCharCode(...window.__boot.handle.openDocument().buffer.bytes));
-/** Whether any lone surrogate is in the page's text, or in any attribute value. */
+/** Whether any lone surrogate is in the page's text, in any attribute value, or in a form field's value. */
 const pageHasLone = (page) =>
   page.evaluate(() => {
     const lone = /[\uD800-\uDFFF]/u;
     if (lone.test(document.documentElement.textContent ?? '')) return 'text';
-    for (const el of document.querySelectorAll('*')) for (const a of el.attributes) if (lone.test(a.value)) return `${el.tagName} ${a.name}`;
+    for (const el of document.querySelectorAll('*')) {
+      for (const a of el.attributes) if (lone.test(a.value)) return `${el.tagName} ${a.name}`;
+      if ((el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) && lone.test(el.value)) return `${el.tagName} value`;
+    }
     return false;
   });
 
@@ -133,6 +136,46 @@ test('Copy as from Source writes U+FFFD for a stray byte, never a lone surrogate
     }
     assert.ok(written[0].includes('Caf\uFFFD'), 'Markdown carries U+FFFD for the byte');
     assert.ok(written[1].includes('Caf\uFFFD'), 'so does the JSON string');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('in the app: the find panel on a stray byte, and a copy and paste of a stray line through the real pasteboard', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await open(page);
+    await page.click('#doc p');
+    await page.waitForFunction(() => window.marxySelection?.getSelectionState().selection.kind !== 'none');
+    await page.evaluate(() => window.marxyRunCommand?.('view.jump-to-source'));
+    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-line'));
+    // Select "e \xFF h" on the middle line and open find (Mod+F), then find next (Enter).
+    const line = page.locator('#marxy-source .cm-line').nth(4);
+    await line.click();
+    await page.keyboard.press('Home');
+    for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight');
+    for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowRight');
+    await page.keyboard.press(`${await mod(page)}+f`);
+    await page.waitForSelector('#marxy-source .cm-search input');
+    assert.equal(await pageHasLone(page), false, 'the find panel as it opens');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    assert.equal(await pageHasLone(page), false, 'after find next, the announcement too');
+    await page.keyboard.press('Escape');
+    // Copy the whole middle line and paste it at the end of the file, with the keys.
+    await line.click();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Shift+End');
+    await page.keyboard.press(`${await mod(page)}+c`);
+    await page.locator('#marxy-source .cm-line').last().click();
+    await page.keyboard.press(`${await mod(page)}+End`);
+    await page.keyboard.press(`${await mod(page)}+v`);
+    await page.keyboard.press(`${await mod(page)}+e`);
+    await page.waitForFunction(() => document.body.dataset.marxyMode !== 'source');
+    const bytes = await latin(page);
+    // The editor's own type rode the real pasteboard item with the readable text, so the exact byte came back.
+    assert.equal(bytes, `${FILE}middle \xFF here`);
   } finally {
     await browser.close();
   }

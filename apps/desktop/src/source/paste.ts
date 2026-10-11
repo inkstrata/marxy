@@ -8,14 +8,14 @@ import { EditorView } from '@codemirror/view';
 import { appHandle } from '../commands/app-handle.ts';
 import { notify, paneOf } from '../notices/index.ts';
 import { CONVERTED_NOTICE, NOTHING_TO_PASTE, pasteShellOf, readConverted, readForPaste, type PasteShell } from '../paste/read-clipboard.ts';
-import { textIn } from './stray-bytes.ts';
+import { readableText } from '@marxy/core';
 
 /**
  * What `text` becomes in `state`: no U+FEFF, every line break (LF, CRLF, CR) written as the document's own, and no
- * lone surrogate (a byte that is not UTF-8 is never pasted, F-34.1) unless it is the editor's own last copy.
+ * lone surrogate (a paste read through the shell never names a byte that is not UTF-8, F-34.1).
  */
 export function pastedText(text: string, state: Pick<EditorState, 'lineBreak'>): string {
-  return textIn(text).replace(/﻿/g, '').replace(/\r\n?|\n/g, state.lineBreak);
+  return readableText(text).replace(/﻿/g, '').replace(/\r\n?|\n/g, state.lineBreak);
 }
 
 /**

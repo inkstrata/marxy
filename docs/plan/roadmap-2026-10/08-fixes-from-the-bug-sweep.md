@@ -500,8 +500,9 @@ wrote a wrong or lost byte (a moved line, a deleted neighbour, twin lines with d
 U+DC00 + byte (PEP 383's surrogateescape), which valid UTF-8 never produces; encoding maps it back, and a real or typed
 U+FFFD stays `EF BF BD`. The fold is then exact by construction: the file is the bytes the edited text names, moves and
 copies included. Only the editor holds this text: Rendered, find, the outline and the index keep reading U+FFFD; a copy,
-cut, drag, Copy as or table CSV copy writes U+FFFD; a paste of the editor's own last copy gets its bytes back and any other lone
-surrogate pasted in is U+FFFD; each stray byte is marked in Source with its value (`E9`, labelled for a screen reader).
+cut, drag, Copy as or table CSV copy writes U+FFFD; the editor's own copy, cut or drag carries the exact text in a type of its own on the same pasteboard
+item and only a paste or drop of that item restores it (another program's copy replaces the item), and any other
+lone surrogate pasted in is U+FFFD; the find panel's query and announcements read U+FFFD; the table tools keep a stray; each stray byte is marked in Source with its value (`E9`, labelled for a screen reader).
 A continuation byte that belongs to no character is a splice boundary (this settles F-35's `RangeError`).
 **Acceptance:** the F-33 finding and every case from #576's reviews (moves, duplicates and swaps of lines with
 different strays, a typed U+FFFD beside a stray, a deleted neighbour, inserts around a stray line, 1 MB rewrites, each

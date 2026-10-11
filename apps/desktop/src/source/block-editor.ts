@@ -62,7 +62,8 @@ export async function openBlockEditor(
     tabSizeCompartment: new Compartment(),
     lineSeparatorCompartment: new Compartment(),
   };
-  const extensions = await baseExtensions(buffer, false, compartments);
+  // The block's text is the reading decode and folds through `foldSlice`: no stray byte comes back on a paste (F-34.1).
+  const extensions = await baseExtensions(buffer, false, compartments, false);
   const leave = (): boolean => {
     keys.leave();
     return true;

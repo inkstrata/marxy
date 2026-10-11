@@ -71,4 +71,5 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | 0064 | File metadata capabilities in `shell-api` (reserved for W-18) | — |
 | [0065](0065-the-clipboard.md) | The clipboard is essential: Copy as targets, multi-format writes, paste, Transform; clipboard read on reader action only; the studio waits for a design; amends 0026 and 0054 | accepted (author, 2026-10-10) |
 | [0066](0066-clipboard-history.md) | Clipboard history: Marxy keeps its own copies, recorded where it writes, in memory by default or as plain files by choice; nothing watches the pasteboard; opt-in watching designed and deferred | proposed (J-D1) |
-| [0069](0069-source-text-holds-every-byte.md) | The Source text holds every byte: a byte that is not UTF-8 is its own code unit (U+DC80 to U+DCFF), so a Source fold writes exactly the bytes the text names; only the editor holds it | proposed (F-34.1) |
+| 0067, 0068 | Reserved for V-12 and V-13 (`docs/plan/direction-2026-10/13-code-view.md`) | — |
+| [0069](0069-source-text-holds-every-byte.md) | The Source text holds every byte: a byte that is not UTF-8 is its own code unit (U+DC80 to U+DCFF), so a Source fold writes exactly the bytes the text names; only the editor holds it, and its own copy carries the bytes on the same pasteboard item | proposed (F-34.1) |

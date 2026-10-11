@@ -23,16 +23,26 @@ equality was not byte equality, and no diff over that text can make it so.
    The fold is a common prefix and suffix over this text and is exact by construction: the file after a fold is the
    bytes the editor's text names, moves and copies included. `null` means no byte differs.
 2. **Only the Source editor holds it.** `Buffer.text`, and everything read from it (Rendered, the outline, find, the
-   index, operations), stays the reading decode with U+FFFD. Text leaves the editor (copy, cut, drag, Copy as) through
-   `readableText`, which writes U+FFFD for a lone surrogate. A paste or drop of the editor's own last copy gets its
-   bytes back (one copy, in memory); any other incoming text has U+FFFD for a lone surrogate, so a paste never names
-   a stray byte.
-3. **A stray byte is shown, never hidden.** Source marks each one with its value in hex in a thin box (`E9`), labelled
+   index, operations), stays the reading decode with U+FFFD. Text leaves the editor (copy, cut, drag, Copy as, Copy
+   table as CSV) through `readableText`, which writes U+FFFD for a lone surrogate. CodeMirror's find panel seeds its
+   query from the selection and announces each match in a live region; both go through `readableText` too.
+3. **The editor's own copy carries its bytes on the same pasteboard item.** A copy, cut or drag out of the editor
+   whose text holds a stray byte writes, beside `text/plain` (the readable text), a type of the editor's own,
+   `application/x-marxy-source-text`, holding the exact text as JSON (a lone surrogate as its `\udcff` escape). A paste
+   or drop restores the exact text only when the item it reads carries that type and the type's text reads as the
+   item's `text/plain`. Another program's copy replaces the whole item, so it can never be taken for ours, and a drag
+   writes its own item, not the clipboard. WebKit hands a page's own types back only to the same origin. Every other
+   paste (another program's, Paste and Match Style, an HTML paste read through the shell) gets U+FFFD for any lone
+   surrogate, so it never names a stray byte. The type is not a Copy as target and nothing outside the editor reads
+   it; J-04's rule against custom types was for Copy as targets, which write through the shell's one pasteboard item
+   (ADR-0065 item 2), and is not changed. A string match against an in-memory last copy was tried first and rejected
+   in review: a cancelled drag overwrote it, and another program's U+FFFD matched a copied stray.
+4. **A stray byte is shown, never hidden.** Source marks each one with its value in hex in a thin box (`E9`), labelled
    "Byte E9, not UTF-8" for a pointer and a screen reader; the code unit itself never reaches the DOM.
-4. **Positions cross the two texts through the bytes.** A stray sequence of several bytes is several code units in
+5. **Positions cross the two texts through the bytes.** A stray sequence of several bytes is several code units in
    the Source text and one U+FFFD in `Buffer.text`; the CodeMirror position conversions map through the byte offsets,
    and are the identity when no such sequence exists (every valid file).
-5. **A continuation byte that belongs to no character is a boundary.** The Source text gives it a code unit, so an
+6. **A continuation byte that belongs to no character is a boundary.** The Source text gives it a code unit, so an
    edit may begin or end there; `splice` refuses only an offset inside a well-formed character (this also settles
    F-35's `RangeError`).
 
@@ -52,9 +62,16 @@ equality was not byte equality, and no diff over that text can make it so.
 
 - Commitment 3 holds for Source with any bytes: a reader's edit changes exactly the bytes they changed.
 - Two stray bytes made neighbours by an edit can spell a character (`C3` and `A9` are `é`). The file then holds those
-  two bytes, which is what the text named; read back, it shows `é`, and the editor takes the new text as a reload does.
+  two bytes, which is what the text named; read back, it shows `é`. The editor takes the new text as a reload does,
+  replacing only the part that differs, so the caret and the undo history map through it (an undo of the join itself
+  puts the line break back beside `é`, not between the two bytes; the store's undo in Rendered is byte-exact).
 - Searching Source for U+FFFD does not find a stray byte (it is a different character there); the marker shows it.
 - A line copied with no selection (CodeMirror's line-wise copy) that holds a stray byte pastes back as text at the
   caret, not as a whole line, because CodeMirror compares the pasted text with the filtered copy.
 - The block editor in Rendered (ADR-0048) still folds through the reading text (`foldSlice`); two edits around a
-  stray byte inside one block there are not yet exact. A follow-up story applies the same decoding to it.
+  stray byte inside one block there are not yet exact. It never restores a stray byte from a paste (its text could not
+  write it back). A follow-up story applies the same decoding to it.
+- The Source table tools work on a table that holds a stray byte: they run on a copy with each such code unit stood in
+  for by a private-use character the text does not hold, and what they write is mapped back.
+- Opening Source on a file that is almost all stray bytes costs the Source decode once (about 0.4 s for 1 MB of `FF`);
+  a file with no stray byte costs one `indexOf`.

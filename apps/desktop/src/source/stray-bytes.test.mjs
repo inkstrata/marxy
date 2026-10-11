@@ -246,29 +246,45 @@ test('400 strays on one line, every run between them rewritten: each keeps its o
   assertSameBytes(folded(bytesOf(...parts), (t) => t.replace(/x+/g, (m) => m.repeat(8))), bytesOf(...expected));
 });
 
-// What leaves the editor and what comes in: no lone surrogate reaches the clipboard, and no paste makes a stray byte
-// unless it is the editor's own copy coming back.
-test('a copy out of the editor carries U+FFFD for each stray byte, and pasting it back puts the bytes back', async () => {
-  const { textOut, textIn, forgetCopy } = await import('./stray-bytes.ts');
+// What leaves the editor and what comes in. The restore itself (the exact text on the same pasteboard item) is driven
+// through real clipboard and drag events in WebKit (source-browser.test.mjs); here, the filters on their own.
+test('text leaving the editor has U+FFFD for each stray byte; text coming in without the editor\'s own type never names one', async () => {
+  const { textOut, textIn, heldTextOf, SOURCE_TEXT_TYPE } = await import('./stray-bytes.ts');
   const { pastedText } = await import('./paste.ts');
-  forgetCopy();
   const buffer = createBuffer('/x.md', bytesOf('caf', [0xe9], ' ', [0xe2, 0x82], ' \u{1F600}\n'));
   const held = cmDocText(buffer);
   const shown = textOut(held);
-  assert.equal(shown, 'caf\uFFFD \uFFFD\uFFFD \u{1F600}\n');
+  assert.equal(shown, 'caf� �� \u{1F600}\n');
   assert.ok(!/[\uD800-\uDFFF]/u.test(shown), 'no lone surrogate on the clipboard');
-  // The editor's own copy, pasted (or dropped) back: its bytes.
-  assert.equal(textIn(shown), held);
-  assert.equal(pastedText(shown, { lineBreak: '\n' }), held);
-  const back = leaveSourceMode(buffer, `${held}${textIn(shown)}`).buffer.bytes;
-  assert.equal(hex(back), hex(bytesOf('caf', [0xe9], ' ', [0xe2, 0x82], ' \u{1F600}\n', 'caf', [0xe9], ' ', [0xe2, 0x82], ' \u{1F600}\n')));
-  // Anything else: a lone surrogate from outside is U+FFFD, and U+FFFD stays U+FFFD (EF BF BD in the file).
-  assert.equal(textIn('x\uDCE9y\uFFFD'), 'x\uFFFDy\uFFFD');
-  assert.equal(pastedText('x\uDCE9\r\ny', { lineBreak: '\n' }), 'x\uFFFD\ny');
-  // A copy with no stray byte forgets the last one: text that happens to match it pastes as U+FFFD.
-  assert.equal(textOut('plain'), 'plain');
+  // No pasteboard type of the editor's own: the readable text, however much it looks like a copy of ours.
   assert.equal(textIn(shown), shown);
-  forgetCopy();
+  assert.equal(textIn('x\uDCE9y�'), 'x�y�');
+  // A paste read through the shell (HTML on the pasteboard, Paste and Match Style) never restores.
+  assert.equal(pastedText(shown, { lineBreak: '\n' }), shown);
+  assert.equal(pastedText('x\uDCE9\r\ny', { lineBreak: '\n' }), 'x�\ny');
+  // The type carries the exact text as JSON, with each lone surrogate escaped; anything else in it is ignored.
+  const data = { getData: (type) => (type === SOURCE_TEXT_TYPE ? JSON.stringify(held) : '') };
+  assert.equal(heldTextOf(data), held);
+  assert.ok(!/[\uD800-\uDFFF]/u.test(JSON.stringify(held)) && JSON.stringify(held).includes('\\udce9'), 'the payload has no lone surrogate');
+  assert.equal(heldTextOf({ getData: () => '{not json' }), null);
+  assert.equal(heldTextOf({ getData: () => '42' }), null);
+  assert.equal(heldTextOf(null), null);
+});
+
+test('the table tools work on a table that holds a stray byte, and keep it', async () => {
+  const { EditorState } = await import('@codemirror/state');
+  const { runTableTool } = await import('./structure.ts');
+  const buffer = createBuffer('/t.md', bytesOf('| a | b |\n|---|---|\n| x | ', [0xff], ' |\n| caf', [0xe9], ' | 2 |\n'));
+  for (const tool of ['alignTable', 'addTableRow', 'addTableColumn', 'sortTableRows']) {
+    let state = EditorState.create({ doc: cmDocText(buffer), selection: { anchor: cmDocText(buffer).indexOf('caf') } });
+    const ran = runTableTool(tool, { state, dispatch: (tr) => (state = tr.state) }, '/t.md');
+    assert.ok(ran, `${tool} ran`);
+    const out = leaveSourceMode(buffer, state.doc.toString()).buffer.bytes;
+    const latin = Buffer.from(out).toString('latin1');
+    assert.ok(latin.includes('caf\xE9'), `${tool}: E9 kept: ${JSON.stringify(latin)}`);
+    assert.ok(latin.includes('\xFF'), `${tool}: FF kept`);
+    assert.ok(!latin.includes('\xEF\xBF\xBD'), `${tool}: no EF BF BD`);
+  }
 });
 
 test('Copy table at caret as CSV in Source writes U+FFFD for a stray byte, never a lone surrogate', async () => {
