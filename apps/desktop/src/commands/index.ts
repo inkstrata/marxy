@@ -22,6 +22,7 @@ import { selectionNavigationCommands } from './selection-nav.ts';
 import { sourceEditCommands } from './source-edit.ts';
 import { sourceViewCommands } from './source-view.ts';
 import { trustRevokeCommands } from './trust.ts';
+import { workspaceCommands } from './workspace.ts';
 
 export type { AppContext, Command } from './registry.ts';
 export { fromOperation } from './registry.ts';
@@ -42,6 +43,7 @@ export function commands(): readonly Command[] {
     ...paneCloseCommands(),
     ...paneOpenCommands(),
     ...paneSplitSameCommands(),
+    ...workspaceCommands(),
     ...editorCommands(),
     ...collectionCommands(),
     ...kindCommands(),

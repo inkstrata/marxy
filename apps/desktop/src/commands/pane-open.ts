@@ -1,4 +1,5 @@
-// "Open beside…" (D-07): `Mod+\` opens the palette to choose a document for the other pane. With one pane the
+// "Open beside…" (D-07): `Mod+Alt+\` (`Mod+\` folds the workspace, W-02) opens the palette to choose a
+// document for the other pane. With one pane the
 // palette's empty list is the recent documents not on screen, so Enter alone is "split with recent"; with
 // two it replaces the other pane's document. A window too narrow for two columns gets the reason as a
 // notice and no palette. The `key` documents the chord for the palette; the chord itself is run by
@@ -12,7 +13,7 @@ export function paneOpenCommands(): readonly Command[] {
     {
       id: 'view.open-beside',
       title: 'Open beside…',
-      key: 'Mod+\\',
+      key: 'Mod+Alt+\\',
       group: 'view',
       when: () => appHandle() !== null && palette() !== null,
       async run(ctx) {

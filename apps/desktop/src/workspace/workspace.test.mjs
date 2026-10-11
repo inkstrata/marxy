@@ -1,0 +1,465 @@
+// The workspace shell (W-02; ADR-0058): two states, six empty regions in a grid around the panes, the reading
+// column that never moves when the workspace unfolds, and the panels the reader last had, kept in
+// workspace.json. The browser tests boot the real app on the shipped skeleton and CSS (test/support/two-pane.mjs)
+// over the memory shell, in WebKit; the rest need no browser.
+import { strict as assert } from 'node:assert';
+import { existsSync, readFileSync } from 'node:fs';
+import { after, test as nodeTest } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { webkit } from 'playwright';
+import { WORKSPACE_REGIONS } from '@marxy/core/src/layout/workspace-storage.ts';
+import { launchWebkit } from '../../../../scripts/playwright-webkit.mjs';
+import { bootTwoPanes, closeHarness } from '../../test/support/two-pane.mjs';
+import { PANE_CHORDS, paneChordFor } from '../pane/keys.ts';
+import { INSPECTOR_MIN_WINDOW, arrangementFor } from './state.ts';
+
+const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
+  ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
+  : false;
+const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
+const plain = (name, fn) => nodeTest(name, fn);
+after(() => closeHarness());
+
+const repo = (rel) => readFileSync(fileURLToPath(new URL(`../../../../${rel}`, import.meta.url)), 'utf8');
+const para = (word) =>
+  `${word} runs long enough to wrap across several lines of the column, so that the typesetter has ` +
+  'real paragraphs to break and the page is tall enough to scroll a heading to the reading line. ';
+const files = {
+  '/r/A.md': `# Alpha\n\n${para('Alpha').repeat(8)}\n\n## Later\n\n${para('Later').repeat(8)}\n`,
+  '/r/B.md': `# Bravo\n\n${para('Bravo').repeat(4)}\n`,
+};
+
+async function withPage(width, fn, extra = {}) {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width, height: 900 } });
+    await bootTwoPanes(page, { files: { ...files, ...extra }, open: ['/r/A.md'] });
+    await fn(page);
+  } finally {
+    await browser.close();
+  }
+}
+
+/** The reading column: the article's left edge and width, and what the window is. */
+const column = (page) =>
+  page.evaluate(() => {
+    const r = document.getElementById('doc').getBoundingClientRect();
+    return { x: r.x, width: r.width, window: document.documentElement.clientWidth };
+  });
+const unfold = (page) => page.evaluate(() => window.__marxyHandle.workspace().unfold());
+const fold = (page) => page.evaluate(() => window.__marxyHandle.workspace().fold());
+
+// --- the names the gate holds -------------------------------------------------------------------------------
+
+plain('the gate, the registry and the app spell the workspace vocabulary alike', () => {
+  const gate = repo('scripts/gate-aesthetics.mjs');
+  const regions = JSON.parse(gate.match(/regions:\s*(\[[^\]]*\])/)[1].replaceAll("'", '"'));
+  assert.deepEqual(regions, [...WORKSPACE_REGIONS], 'the gate WORKSPACE.regions is the app list');
+  assert.equal(gate.match(/attribute:\s*'([^']+)'/)[1], 'data-marxy-workspace');
+  assert.equal(gate.match(/regionAttribute:\s*'([^']+)'/)[1], 'data-marxy-workspace-region');
+  const registry = JSON.parse(repo('scripts/registry.json')).dataAttributes;
+  for (const name of ['data-marxy-workspace', 'data-marxy-workspace-region']) assert.ok(registry.includes(name), `${name} is in the registry`);
+});
+
+// --- the arrangement ----------------------------------------------------------------------------------------
+
+plain('with nothing remembered every region is docked, the inspector only in a window of 1600 px or more', () => {
+  const narrow = arrangementFor({}, INSPECTOR_MIN_WINDOW - 1);
+  const wide = arrangementFor({}, INSPECTOR_MIN_WINDOW);
+  for (const name of WORKSPACE_REGIONS) assert.equal(narrow[name], name !== 'inspector', `${name} at ${INSPECTOR_MIN_WINDOW - 1}`);
+  for (const name of WORKSPACE_REGIONS) assert.equal(wide[name], true, `${name} at ${INSPECTOR_MIN_WINDOW}`);
+});
+
+plain('what was remembered wins over the width, a region at a time', () => {
+  const got = arrangementFor({ inspector: true, sidebar: false }, 900);
+  assert.equal(got.inspector, true);
+  assert.equal(got.sidebar, false);
+  assert.equal(got.toolbar, true);
+});
+
+// --- folded is today ----------------------------------------------------------------------------------------
+
+test('a fresh profile opens folded: no attribute, no region, nothing read from workspace.json', async () => {
+  await withPage(1280, async (page) => {
+    const got = await page.evaluate(() => ({
+      mode: window.__marxyHandle.workspace().mode,
+      attribute: document.body.getAttribute('data-marxy-workspace'),
+      regions: document.querySelectorAll('[data-marxy-workspace-region]').length,
+      touched: window.__marxyHandle.shell.calls.filter((c) => JSON.stringify(c.args).includes('workspace.json')).length,
+      main: document.getElementById('marxy-main').getBoundingClientRect().width,
+      window: document.documentElement.clientWidth,
+    }));
+    assert.deepEqual(got, { mode: 'folded', attribute: null, regions: 0, touched: 0, main: got.window, window: got.window });
+  });
+});
+
+// --- unfolded: six regions, the column does not move --------------------------------------------------------
+
+test('unfolding puts the six regions in the page, in order, and nothing else outside #marxy-main is visible', async () => {
+  await withPage(1280, async (page) => {
+    await unfold(page);
+    const got = await page.evaluate(() => {
+      const main = document.getElementById('marxy-main');
+      const regions = [...document.querySelectorAll('[data-marxy-workspace-region]')];
+      const visible = [];
+      for (const el of document.body.querySelectorAll('*')) {
+        if (el === main || main.contains(el) || el.closest('[data-marxy-workspace-region]')) continue;
+        const s = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        if (s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0) visible.push(el.tagName.toLowerCase());
+      }
+      return {
+        attribute: document.body.getAttribute('data-marxy-workspace'),
+        names: regions.map((r) => r.getAttribute('data-marxy-workspace-region')),
+        children: regions.map((r) => r.childElementCount + r.textContent.length),
+        parents: [...new Set(regions.map((r) => r.parentElement.tagName))],
+        shown: regions.map((r) => !r.hidden),
+        visible,
+        order: [...document.body.children].map((c) => c.getAttribute('data-marxy-workspace-region') ?? c.id).filter(Boolean),
+      };
+    });
+    assert.equal(got.attribute, 'unfolded');
+    assert.deepEqual(got.names, ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar']);
+    assert.deepEqual(got.children, [0, 0, 0, 0, 0, 0], 'the regions hold no content');
+    assert.deepEqual(got.parents, ['BODY']);
+    assert.deepEqual(got.shown, [true, true, true, true, false, true], 'a 1280 px window docks everything but the inspector');
+    assert.deepEqual(got.visible, [], 'a stray element outside the regions is what the gate would fail');
+    assert.deepEqual(got.order.slice(0, 6), ['sidebar', 'toolbar', 'tabs', 'strip', 'marxy-main', 'inspector']);
+  });
+});
+
+test('the reading column has the same left edge and width folded and unfolded (inspector docked, and not)', async () => {
+  for (const width of [1280, 1700]) {
+    await withPage(width, async (page) => {
+      const folded = await column(page);
+      await unfold(page);
+      await page.waitForTimeout(100);
+      const open = await column(page);
+      assert.equal(open.x, folded.x, `x at ${width}`);
+      assert.equal(open.width, folded.width, `width at ${width}`);
+      await page.evaluate((docked) => window.__marxyHandle.workspace().setPanel('inspector', docked), width < 1600);
+      const toggled = await column(page);
+      assert.equal(toggled.x, folded.x, `x at ${width}, the inspector the other way`);
+      assert.equal(toggled.width, folded.width, `width at ${width}, the inspector the other way`);
+      await fold(page);
+      assert.deepEqual(await column(page), folded, `folded again at ${width}`);
+    });
+  }
+});
+
+test('the column does not move when the sidebar alone is docked either', async () => {
+  await withPage(1440, async (page) => {
+    const folded = await column(page);
+    await unfold(page);
+    await page.evaluate(() => {
+      const ws = window.__marxyHandle.workspace();
+      for (const name of ['toolbar', 'tabs', 'strip', 'status-bar', 'inspector']) ws.setPanel(name, false);
+    });
+    const got = await column(page);
+    assert.equal(got.x, folded.x);
+    assert.equal(got.width, folded.width);
+  });
+});
+
+test('at the two-column floor the column still holds its 45 characters unfolded', async () => {
+  const browser = await launchWebkit();
+  try {
+    const probe = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await bootTwoPanes(probe, { files, open: ['/r/A.md'] });
+    const floor = await probe.evaluate(async () => {
+      const { readSplitMetrics } = await import('/src/pane/fit.ts');
+      const m = readSplitMetrics(document.getElementById('marxy-main'));
+      return Math.ceil(2 * (45 * m.avgChar * m.bodyPx + 2 * m.gutterPx));
+    });
+    await probe.close();
+    assert.ok(floor >= 900 && floor <= 960, `the floor is about 929 px (${floor})`);
+    const page = await browser.newPage({ viewport: { width: floor, height: 900 } });
+    await bootTwoPanes(page, { files, open: ['/r/A.md'] });
+    const folded = await column(page);
+    await unfold(page);
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
+    const got = await page.evaluate(() => {
+      const article = document.getElementById('doc');
+      const root = getComputedStyle(document.documentElement);
+      const s = getComputedStyle(article);
+      const content = parseFloat(s.width);
+      return {
+        chars: content / (parseFloat(root.getPropertyValue('--marxy-avg-char')) * parseFloat(root.getPropertyValue('--marxy-size-body'))),
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        pane: document.getElementById('marxy-main').getBoundingClientRect().width,
+      };
+    });
+    assert.ok(got.chars >= 45 - 0.01, `${got.chars.toFixed(2)} characters in the column at ${floor} px with both panels docked`);
+    assert.ok(got.overflow <= 0, 'nothing runs off the window');
+    assert.ok(folded.width >= (await column(page)).width, 'the column is narrower than folded only because the measure no longer fits');
+    await page.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+test('the room two panes need includes the panels: the refusal names the wider window', async () => {
+  await withPage(1200, async (page) => {
+    const got = async () =>
+      page.evaluate(async () => {
+        const { splitRefusal } = await import('/src/pane/fit.ts');
+        return splitRefusal(window.__marxyHandle.panes());
+      });
+    assert.equal(await got(), null, 'folded, 1200 px holds two columns');
+    await unfold(page);
+    const refusal = await got();
+    assert.match(refusal, /at least (\d+) px wide/);
+    assert.ok(Number(refusal.match(/at least (\d+) px/)[1]) > 1200, refusal);
+  });
+});
+
+// --- Source and the grid ------------------------------------------------------------------------------------
+
+/** Every Source editor, the notices line of each pane and the article, against `#marxy-main`. */
+const containment = (page) =>
+  page.evaluate(() => {
+    const box = (el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+    };
+    const main = box(document.getElementById('marxy-main'));
+    const inside = (r) =>
+      r.left >= main.left - 0.5 && r.right <= main.right + 0.5 && r.top >= main.top - 0.5 && r.bottom <= main.bottom + 0.5 &&
+      r.editorLeft >= main.left - 0.5 && r.editorRight <= main.right + 0.5;
+    // The editor is as tall as its text and scrolls inside its mount: the mount is what must fit the column,
+    // and the editor must fit it across.
+    const editors = [...document.querySelectorAll('.marxy-source-mount:not([hidden])')].map((m) => {
+      const mount = box(m);
+      const editor = box(m.querySelector('.cm-editor'));
+      return { ...mount, editorLeft: editor.left, editorRight: editor.right };
+    });
+    const notices = [...document.querySelectorAll('.marxy-pane [role=status]')].map(box).filter((r) => r.width > 0);
+    return { main, editors, editorsInside: editors.map(inside), noticesInside: notices.map((r) => r.left >= main.left - 0.5 && r.right <= main.right + 0.5) };
+  });
+
+for (const [name, open] of [['one pane', ['/r/A.md']], ['two panes', ['/r/A.md', '/r/B.md']]]) {
+  test(`unfolded, ${name}: the Source editor and the notices stay inside the panes' column, and so does Rendered`, async () => {
+    const browser = await launchWebkit();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1470, height: 900 } });
+      await bootTwoPanes(page, { files, open });
+      await unfold(page);
+      await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
+      const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+      const rendered = await page.evaluate(() => {
+        const main = document.getElementById('marxy-main').getBoundingClientRect();
+        return [...document.querySelectorAll('.marxy-article')].map((a) => {
+          const r = a.getBoundingClientRect();
+          return r.left >= main.left - 0.5 && r.right <= main.right + 0.5;
+        });
+      });
+      assert.ok(rendered.length > 0 && rendered.every(Boolean), `Rendered articles inside #marxy-main: ${rendered}`);
+      await page.keyboard.press(`${mod}+KeyE`);
+      await page.waitForSelector('.cm-editor');
+      await page.waitForTimeout(150);
+      const got = await containment(page);
+      assert.ok(got.editors.length >= 1, 'a Source editor is showing');
+      assert.ok(got.main.left > 0 && got.main.right < 1470, `the panes' column is inside the window (${got.main.left}..${got.main.right})`);
+      assert.deepEqual(got.editorsInside, got.editors.map(() => true), `the Source mount and .cm-editor inside #marxy-main ${JSON.stringify(got.main)}: ${JSON.stringify(got.editors)}`);
+      assert.ok(got.noticesInside.every(Boolean), 'the notices line is inside #marxy-main');
+      // Folded, one pane's Source is the window's: the rule is the workspace's and leaves today's page alone.
+      await fold(page);
+      const folded = await containment(page);
+      assert.ok(folded.editors.length >= 1);
+    } finally {
+      await browser.close();
+    }
+  });
+}
+
+// --- the command, and the key ------------------------------------------------------------------------------
+
+test('the command folds and unfolds, is in the palette list, and is the one command on Mod+\\', async () => {
+  await withPage(1280, async (page) => {
+    const got = await page.evaluate(async () => {
+      const handle = window.__marxyHandle;
+      const command = handle.commands().find((c) => c.id === 'view.toggle-workspace');
+      const keyed = handle.commands().filter((c) => c.key === 'Mod+\\' || (c.keys ?? []).includes('Mod+\\')).map((c) => c.id);
+      const beside = handle.commands().find((c) => c.id === 'view.open-beside').key;
+      const ctx = {};
+      const before = handle.workspace().mode;
+      await command.run(ctx);
+      const during = handle.workspace().mode;
+      await command.run(ctx);
+      return { title: command.title, key: command.key ?? null, group: command.group, when: command.when(ctx), keyed, beside, before, during, after: handle.workspace().mode };
+    });
+    assert.deepEqual(got, {
+      title: 'Fold or unfold the workspace',
+      key: 'Mod+\\',
+      group: 'view',
+      when: true,
+      keyed: ['view.toggle-workspace'],
+      beside: 'Mod+Alt+\\',
+      before: 'folded',
+      during: 'unfolded',
+      after: 'folded',
+    });
+  });
+});
+
+test('Mod+\\ on the keyboard folds and unfolds the workspace; Mod+Alt+\\ leaves it alone', async () => {
+  await withPage(1470, async (page) => {
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    const mode = () => page.evaluate(() => window.__marxyHandle.workspace().mode);
+    assert.equal(await mode(), 'folded');
+    await page.keyboard.press(`${mod}+Backslash`);
+    await page.waitForFunction(() => window.__marxyHandle.workspace().mode === 'unfolded');
+    await page.keyboard.press(`${mod}+Backslash`);
+    await page.waitForFunction(() => window.__marxyHandle.workspace().mode === 'folded');
+    await page.keyboard.press(`${mod}+Alt+Backslash`);
+    await page.waitForTimeout(200);
+    assert.equal(await mode(), 'folded', 'open beside (its own test, open-beside.test.mjs) does not fold or unfold');
+  });
+});
+
+plain('the chords resolve on the physical key: Mod+\\ to the fold, Mod+Alt+\\ to open beside, each alone', () => {
+  const press = (init) => paneChordFor({ code: 'Backslash', metaKey: true, ctrlKey: false, shiftKey: false, altKey: false, ...init }, true)?.command ?? null;
+  assert.equal(press({}), 'view.toggle-workspace');
+  assert.equal(press({ altKey: true, key: '«' }), 'view.open-beside');
+  assert.equal(press({ shiftKey: true, key: '|' }), 'view.close-pane');
+  assert.equal(press({ metaKey: false }), null, 'Mod is held for each');
+});
+
+plain('the pane chord table: Mod+\\ folds, Mod+Alt+\\ opens beside, Mod+Shift+\\ closes', () => {
+  assert.deepEqual(PANE_CHORDS.filter((c) => c.code === 'Backslash').map((c) => [c.shift ?? false, c.alt ?? false, c.command]), [
+    [false, false, 'view.toggle-workspace'],
+    [false, true, 'view.open-beside'],
+    [true, false, 'view.close-pane'],
+  ]);
+});
+
+// --- the remembered arrangement -----------------------------------------------------------------------------
+
+/** What a relaunch finds: the app's data files, read out of this page's memory shell. */
+const workspaceFile = (page) =>
+  page.evaluate(async () => {
+    const shell = window.__marxyHandle.shell;
+    return shell.hasFile('/data/workspace.json') ? new TextDecoder().decode(await shell.readFile('/data/workspace.json')) : null;
+  });
+
+test('fold, unfold, quit, relaunch: it opens folded, and unfolding brings back the last panels', async () => {
+  let kept = null;
+  await withPage(1280, async (page) => {
+    assert.equal(await workspaceFile(page), null, 'launching writes nothing');
+    await unfold(page);
+    await page.evaluate(() => {
+      const ws = window.__marxyHandle.workspace();
+      ws.setPanel('sidebar', false);
+      ws.setPanel('inspector', true);
+      ws.setPanel('strip', false);
+    });
+    assert.equal(await workspaceFile(page), null, 'unfolded, nothing is written until the reader folds');
+    await fold(page);
+    const saved = JSON.parse(await workspaceFile(page));
+    assert.deepEqual(saved, { version: 1, panels: { sidebar: false, toolbar: true, tabs: true, strip: false, inspector: true, 'status-bar': true } });
+    await page.evaluate(() => window.__marxyHandle.shell.quit());
+    kept = await workspaceFile(page);
+  });
+  // The next launch, on a new page over the same data directory.
+  await withPage(1280, async (page) => {
+    const launched = await page.evaluate(() => ({
+      mode: window.__marxyHandle.workspace().mode,
+      regions: document.querySelectorAll('[data-marxy-workspace-region]').length,
+      attribute: document.body.getAttribute('data-marxy-workspace'),
+      readBeforeUnfold: window.__marxyHandle.shell.calls.filter((c) => c.method === 'readHead' && JSON.stringify(c.args).includes('workspace.json')).length,
+    }));
+    assert.equal(launched.mode, 'folded');
+    assert.equal(launched.regions, 0);
+    assert.equal(launched.attribute, null);
+    assert.equal(launched.readBeforeUnfold, 0, 'the launch did not read workspace.json');
+    await unfold(page);
+    const shown = await page.evaluate(() =>
+      Object.fromEntries([...document.querySelectorAll('[data-marxy-workspace-region]')].map((r) => [r.getAttribute('data-marxy-workspace-region'), !r.hidden])),
+    );
+    assert.deepEqual(shown, { sidebar: false, toolbar: true, tabs: true, strip: false, inspector: true, 'status-bar': true });
+  }, { '/data/workspace.json': kept });
+});
+
+test('quitting while unfolded keeps the panels too', async () => {
+  await withPage(1280, async (page) => {
+    await unfold(page);
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('tabs', false));
+    await page.evaluate(() => window.__marxyHandle.shell.quit());
+    assert.equal(JSON.parse(await workspaceFile(page)).panels.tabs, false);
+  });
+});
+
+test('a corrupt workspace file is kept beside itself, the window opens folded, and unfolding uses the defaults', async () => {
+  await withPage(1280, async (page) => {
+    assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().mode), 'folded');
+    await unfold(page);
+    const shown = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-workspace-region]')].map((r) => !r.hidden));
+    assert.deepEqual(shown, [true, true, true, true, false, true]);
+    const kept = await page.evaluate(async () => {
+      const shell = window.__marxyHandle.shell;
+      const bad = [];
+      for (let t = 0; t < 1; t++) for (const key of shell.calls.filter((c) => c.method === 'writeFileAtomic').map((c) => c.args[0])) if (String(key).includes('workspace.json.bad-')) bad.push(key);
+      return { bad, text: shell.hasFile(bad[0] ?? '') ? new TextDecoder().decode(await shell.readFile(bad[0])) : null, now: new TextDecoder().decode(await shell.readFile('/data/workspace.json')) };
+    });
+    assert.equal(kept.bad.length, 1);
+    assert.equal(kept.text, '{"version": 1, "panels": {"sidebar": ');
+    assert.deepEqual(JSON.parse(kept.now), { version: 1, panels: {} });
+  }, { '/data/workspace.json': '{"version": 1, "panels": {"sidebar": ' });
+});
+
+// --- the file failing, and a held key -----------------------------------------------------------------------
+
+test('a workspace.json write that fails does not stop the fold, and the next fold writes it', async () => {
+  await withPage(1280, async (page) => {
+    await unfold(page);
+    await page.evaluate(() => {
+      window.__marxyHandle.workspace().setPanel('tabs', false);
+      window.__marxyHandle.shell.rejectNextWrite('io');
+    });
+    await fold(page);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().mode), 'folded', 'the window folded anyway');
+    assert.equal(await workspaceFile(page), null, 'the refused write left nothing behind');
+    await unfold(page);
+    await fold(page);
+    assert.equal(JSON.parse(await workspaceFile(page)).panels.tabs, false, 'the next fold wrote the panels the reader had');
+  });
+});
+
+test('a rejected first open is not remembered: a quarantine write that fails is retried at the next save', async () => {
+  await withPage(1280, async (page) => {
+    await page.evaluate(() => window.__marxyHandle.shell.rejectNextWrite('permission'));
+    await unfold(page); // reads the corrupt file; the write that keeps its bytes is refused
+    const first = await page.evaluate(() => ({ mode: window.__marxyHandle.workspace().mode, shown: [...document.querySelectorAll('[data-marxy-workspace-region]')].length }));
+    assert.deepEqual(first, { mode: 'unfolded', shown: 6 }, 'the defaults apply');
+    assert.equal(await workspaceFile(page), '{"version": 1, "panels": {"sidebar": ', 'the corrupt file is untouched');
+    await fold(page); // opens again, quarantines, and writes
+    const saved = JSON.parse(await workspaceFile(page));
+    assert.equal(saved.version, 1);
+    assert.ok(saved.panels.sidebar === true, 'the disk recovered and the panels were written');
+  }, { '/data/workspace.json': '{"version": 1, "panels": {"sidebar": ' });
+});
+
+test('a held Mod+\\ strobes nothing, and presses that arrive together settle on the state they ask for', async () => {
+  await withPage(1280, async (page) => {
+    await page.evaluate(() => {
+      window.__changes = [];
+      window.__marxyHandle.workspace().onChange((mode) => window.__changes.push(mode));
+      const press = (repeat) =>
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Backslash', key: '\\', metaKey: navigator.platform === 'MacIntel', ctrlKey: navigator.platform !== 'MacIntel', repeat, bubbles: true, cancelable: true }));
+      press(false);
+      for (let i = 0; i < 6; i++) press(true);
+    });
+    await page.waitForFunction(() => window.__changes.length >= 1);
+    await page.waitForTimeout(300);
+    assert.deepEqual(await page.evaluate(() => window.__changes), ['unfolded'], 'one press, six repeats: one transition');
+    // Four presses before the first transition ends: each counts, so the window ends where it began.
+    const final = await page.evaluate(async () => {
+      const ws = window.__marxyHandle.workspace();
+      const all = [ws.toggle(), ws.toggle(), ws.toggle(), ws.toggle()];
+      await Promise.all(all);
+      return ws.mode;
+    });
+    assert.equal(final, 'unfolded', 'four toggles from unfolded: unfolded again');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('[data-marxy-workspace-region]').length), 6);
+  });
+});

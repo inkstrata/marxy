@@ -1,6 +1,6 @@
 // The phase's screen criterion, end to end (D-14; docs/plan/roadmap-2026-10/04-phase-d.md): a README
 // beside the plan and the source it documents, walked as a reader walks it. One test, one page, one
-// window of 1,470 px: open the plan; `Mod+\` Enter opens the most recent other document beside it;
+// window of 1,470 px: open the plan; `Mod+Alt+\` Enter opens the most recent other document beside it;
 // Cmd-click a link in the plan lands result.md in the neighbour; each pane scrolls on its own; `Mod+2`
 // then `Mod+E` puts the right pane in Source; Cmd-click the README's link to src/lib.rs opens it in Source
 // beside; `Mod+F` finds in the focused pane only; `Mod+Shift+\` closes a pane; `view.split-same` shows
@@ -102,9 +102,9 @@ test('README beside the plan, the result and the source: open beside, follow a l
     await boot(page, { open: ['/r/result.md', '/r/README.md', '/r/plan.md'] });
     const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
 
-    // 1. The plan is open, alone. Mod+\ then Enter opens the most recent other document (the README) beside it.
+    // 1. The plan is open, alone. Mod+Alt+\ then Enter opens the most recent other document (the README) beside it.
     assert.deepEqual(await paths(page), ['/r/plan.md']);
-    await page.keyboard.press(`${mod}+Backslash`);
+    await page.keyboard.press(`${mod}+Alt+Backslash`);
     await page.waitForFunction(() => document.getElementById('marxy-palette').open);
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1]?.path() === '/r/README.md');
@@ -201,7 +201,7 @@ test('README beside the plan, the result and the source: open beside, follow a l
 
     // 9. Below two columns at the typography floor a window says why it will not split.
     await page.setViewportSize({ width: 900, height: 900 });
-    await page.keyboard.press(`${mod}+Backslash`);
+    await page.keyboard.press(`${mod}+Alt+Backslash`);
     await settle(page, 300);
     assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), false);
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes.length), 1);
