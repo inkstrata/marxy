@@ -95,6 +95,36 @@ radius or font face goes in those rules (`packages/theme/src/chrome-spec.test.ts
 | Toolbar states | hover: the selection ground; checked and pressed: `--marxy-color-accent-wash` and a 2 px accent line under the label; disabled: `--marxy-color-text-secondary`; focus: a 2 px accent outline. Every pair is one the contrast gate holds (text, text-secondary, accent on surface or accent-wash) | |
 | Toolbar width | the title keeps `5em`; a row that still cannot fit scrolls, with the edge that hides controls faded into the ground | |
 
+## Kind profiles (K-05b)
+
+The default theme gives three kinds a profile in `default/theme.css`, as `[data-marxy-kind="…"]` scopes (ADR-0059
+item 7). A scope covers Night and Paper alike: it sets a face role, sizes, a measure and the face's average advance,
+never a colour or a weight. The sizes are `calc(<ratio> * var(--marxy-root-…))` over the system-owned root copies,
+because the default theme is inlined as written and not compiled by the loader; line boxes are `round(…, 2px)`, so
+they are whole even pixels at the default size (ADR-0030) and at every reader size. The reader's text size still wins.
+
+| Kind | Face (role) | Body / line box | Code / code line | Measure (characters) | `--marxy-avg-char` | Follows |
+| --- | --- | --- | --- | --- | --- | --- |
+| `article` | Source Serif 4 (`--marxy-face-article`) | 20 / 30 (as the root) | as the root | 66 | 0.434 | ch.10 "Measure from average character width" |
+| `readme` | Inter (`--marxy-face-readme`) | 16 / 26 (0.8, 0.8667) | 14 / 26 (0.78, 0.8667) | **80** | 0.454 | the forge's own conventions (03 §Profiles) |
+| `report` | Atkinson Hyperlegible Next (`--marxy-face-sans`) | 17 / 26 (0.85, 0.8667) | 15 / 26 (0.83, 0.8667) | 74 | 0.425 | ch.7 and ch.10 "Documentation": ragged, space between paragraphs |
+
+- *`readme` is 80, not 84.* 03 §Profiles gave the README 84 characters, past the 45 to 80 the loader and `base.css`
+  clamp a reflowing kind to. The profile takes the clamp's edge (ADR-0060, last Consequence) rather than write an
+  exception into the clamp.
+- *The average advances are measured*, by `measureAverageAdvance` (H-06) at the size and weight the face is set at
+  (`docs/taste-review/2026-10-k05b/capture.mjs <tag> --measure`), so each column holds its character count whatever the
+  face. A face is narrower than Literata, so an article column is 621 px with its gutters where it was 659 px.
+- *`base.css` derives again in the kind scope* what a kind may move: `--marxy-measure` (K-05a's H-03 repeat; its `1em`
+  is the body size where the column is used, and the test sets a measure inside the clamp at two reader sizes to prove
+  it) and `--marxy-size-h1`, `-h2`, `-h3`, which were derived on `:root` from the reader's body size and would have left
+  a README's headings 39 px beside 16 px text.
+- *Source is not a profile.* `.marxy-source-mount` takes the root sizes back, so a README in Source is the editor it is
+  in any other pane.
+- *Not yet done:* report's "no hyphenation". Hyphenation is the typesetter's (JS), not a CSS property, so there is no
+  token to set here; it is a follow-up outside `theme/`.
+- Tests: `apps/desktop/test/kind-profiles.test.mjs` (WebKit) and the last test in `packages/theme/src/loader.test.ts`.
+
 ## Loader (`loader.ts`)
 
 ```ts

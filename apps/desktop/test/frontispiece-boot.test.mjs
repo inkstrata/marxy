@@ -385,14 +385,15 @@ test('an open replaces the piece with the document and leaves one typesetter', a
   try {
     const after = await page.evaluate(async () => {
       const h = window.__handle;
-      const widthBefore = getComputedStyle(document.getElementById('doc')).maxWidth;
       await h.open('/docs/opened.md');
       return {
         path: h.currentPath(),
         frontispiece: document.querySelector('.marxy-frontispiece') !== null,
         heading: document.querySelector('#doc h1')?.textContent ?? '',
         counts: h.debugCounts(),
-        widthKept: getComputedStyle(document.getElementById('doc')).maxWidth === widthBefore,
+        // K-05b: the opened article is set by its kind's profile (Source Serif 4, 66 characters), so its column is the
+        // pane's own column for that kind, not the frontispiece's.
+        columnIsTheKinds: Math.abs(parseFloat(getComputedStyle(document.getElementById('doc')).maxWidth) - 66 * 0.434 * 20) < 0.5,
       };
     });
     assert.deepEqual(after, {
@@ -400,7 +401,7 @@ test('an open replaces the piece with the document and leaves one typesetter', a
       frontispiece: false,
       heading: 'Opened',
       counts: { typesetters: 1, resizeObservers: 1 },
-      widthKept: true,
+      columnIsTheKinds: true,
     });
   } finally {
     await page.close();

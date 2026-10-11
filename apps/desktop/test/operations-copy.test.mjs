@@ -613,6 +613,14 @@ test('C-06 review: a drag over the hostile fixture copies html the sanitiser wou
     assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'text');
     const requests = [];
     page.on('request', (req) => requests.push(req.url()));
+    // The page's own idle work (a code block's grammar chunk) is not the copy's: let it go quiet first. K-05b: the
+    // kind's profile re-sets the page just after first text, which moves that work later than this test attached.
+    for (let quiet = 0, seen = -1; quiet < 3; ) {
+      await page.waitForTimeout(250);
+      quiet = requests.length === seen ? quiet + 1 : 0;
+      seen = requests.length;
+    }
+    requests.length = 0;
     const mod = modKey(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+KeyC`);
     const writes = await clipboardWrites(page);
