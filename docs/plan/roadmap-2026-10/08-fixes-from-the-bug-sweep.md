@@ -486,19 +486,28 @@ recorded before the PR merges (ruled yes, 2026-10-11).
 ### F-34 — A Source fold keeps every byte it was not asked to change
 
 **Model:** sonnet · **Size:** M · **Depends on:** F-33 (merged) · *From the F-33 review (PR #570, 2026-10-11); true on
-main.* · **Paths:** `packages/core/src/buffer/buffer.ts` and its tests, `apps/desktop/test/support/store-walk.mjs`
-(remove `holdsOpenFinding`), `apps/desktop/test/store-walk.test.mjs` (the `todo` becomes a test). `foldText` takes one
-common prefix and one common suffix between the file's lossy decode (a byte that is not UTF-8 is U+FFFD) and the
-editor's text, and re-encodes everything between them, so two changes either side of a stray byte write it as
-`EF BF BD` (`alpha\n` `FF` `\nomega\n`, with `ALPHA` and `OMEGA` typed, gives `… 0A EF BF BD 0A …`; commitment 3,
-faithful to the bytes). Compare the middle for the runs that are the same on both sides (a character-level shortest edit
-script, then lines, then characters inside the changed lines, with a budget on each; a block too different for any
-of that is cut at its U+FFFDs, which pair off in order) and copy those runs' original bytes between the changed runs'
-encodings; the return stays one range and one replacement, and no path writes `EF BF BD` for a byte the reader left. **Acceptance:** the minimal
-input gives `41 4C 50 48 41 0A FF 0A 4F 4D 45 47 41 0A` (red on main); a property test (random bytes with lone FF,
-truncated, overlong and surrogate-encoded sequences, several edits each) folds to the original bytes with only the
-edited runs replaced (red on main); the store-walk `todo` passes and `holdsOpenFinding` is gone, with 200 seeds and
-`MARXY_WALK_FINDINGS=1` at 300 green; `gate:fidelity` and the goldens unchanged; one edit in a 1 MB buffer folds within
-2× of main; and the same past the comparison's budgets (two stray bytes with more than 1,500 changed characters
-between them, and a 1 MB file). **Do not:** widen the return type or touch a caller. **Found and left (F-35):** `splice` refuses a range that starts or ends on a lone continuation byte (80 to BF), so deleting
-the character that stands for one throws a `RangeError` in `leaveSourceMode`, on main and here; a story of its own, F-35.
+main; narrowed after the second review, which split the rest into F-34.1.* · **Paths:**
+`packages/core/src/buffer/buffer.ts` and its tests, `apps/desktop/test/support/store-walk.mjs` (remove
+`holdsOpenFinding`), `apps/desktop/test/store-walk.test.mjs` (the `todo` becomes a test). `foldText` took one common
+prefix and one common suffix between the file's lossy decode (a byte that is not UTF-8 is U+FFFD) and the editor's
+text, and re-encoded everything between them, so two changes either side of a stray byte wrote it as `EF BF BD`
+(`alpha\n` `FF` `\nomega\n`, with `ALPHA` and `OMEGA` typed, gave `… 0A EF BF BD 0A …`; commitment 3, faithful to
+the bytes). Now the span is compared by lines (patience: lines that occur once on each side anchor), and a line that is
+the same text, with a U+FFFD, copies its original bytes only if no other line of the file has that text with other
+bytes; a hunk between anchors keeps its common start and end and encodes the change between, unless a U+FFFD is in that
+change, when the hunk is encoded whole. The return stays one range and one replacement. **Rule:** a run keeps the
+file's bytes only if it is provably the same text at the same place; every other run is encoded from the editor's text.
+No U+FFFD is ever paired with a stray byte by guessing, so no stray byte's value is written in another's place.
+**Acceptance:** the minimal input gives `41 4C 50 48 41 0A FF 0A 4F 4D 45 47 41 0A` (red on main); a property test
+(random bytes with lone FF, truncated, overlong and surrogate-encoded sequences, several edits, each stray on its own
+line of labelled text) folds to the original bytes with only the edited lines' strays allowed to become `EF BF BD`
+(red on main); a second property test moves, copies, swaps, types and edits lines, with twins that differ only in the
+byte, and no `U+FFFD` is written as any value but its own or `EF BF BD` (red at 3a08c006); the review's hex cases are
+tests (red at 3a08c006); the store-walk `todo` passes and `holdsOpenFinding` is gone (`MARXY_WALK_FINDINGS` no longer
+exists, so that env var changes nothing); 200 and 2,000 seeds green; `gate:fidelity` and the goldens unchanged; one edit
+in a 1 MB buffer folds within 2x of main. **Do not:** widen the return type or touch a caller. **Remaining limit
+(F-34.1):** a stray byte inside a line the reader edited or moved, or a line whose text another line shares with other
+bytes, is written as `EF BF BD` (as on main), because the editor's text cannot say which byte it was. Full fidelity
+needs a decoding that keeps the byte in the text (a surrogate-escape style decode for Source). **Found and left
+(F-35):** `splice` refuses a range that starts or ends on a lone continuation byte (80 to BF), so deleting the character
+that stands for one throws a `RangeError` in `leaveSourceMode`, on main and here.

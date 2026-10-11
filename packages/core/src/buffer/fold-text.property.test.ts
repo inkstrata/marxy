@@ -58,6 +58,9 @@ interface Atom {
   to: number;
   stray: boolean;
   marker: boolean;
+  /** The line of the file this atom is on, from 0. */
+  line: number;
+  newline: boolean;
 }
 
 function makeFile(r: ReturnType<typeof rng>): { bytes: Uint8Array } {
@@ -91,6 +94,7 @@ test(`foldText over ${CASES} random files with bytes that are not UTF-8, edited 
 
     // Atoms of the decoded text: a code point, a CRLF, or the whole run of U+FFFD for one stray.
     const atoms: Atom[] = [];
+    let lineNo = 0;
     for (let i = skip; i < text.length; ) {
       const code = text.codePointAt(i)!;
       let to = i + (code > 0xffff ? 2 : 1);
@@ -102,7 +106,9 @@ test(`foldText over ${CASES} random files with bytes that are not UTF-8, edited 
       } else if (code === 0x0d && text.charCodeAt(i + 1) === 0x0a) {
         to = i + 2;
       }
-      atoms.push({ from: i, to, stray, marker: code === 0x3b || (code >= 0x30 && code <= 0x39) });
+      const newline = code === 0x0a || (code === 0x0d && to === i + 2);
+      atoms.push({ from: i, to, stray, marker: code === 0x3b || (code >= 0x30 && code <= 0x39), line: lineNo, newline });
+      if (newline) lineNo++;
       i = to;
     }
 
@@ -129,6 +135,17 @@ test(`foldText over ${CASES} random files with bytes that are not UTF-8, edited 
       cursor = last + 1;
     }
     if (edits.length === 0 || edits.every((e) => e.first === e.last && e.insert === '')) continue;
+    // Lines the edits touch: a byte that is not UTF-8 on one may be kept or written as EF BF BD (a line that was
+    // edited is not provably the same line); on any other line it must keep its own bytes.
+    const touched = new Set<number>();
+    for (const edit of edits) {
+      touched.add(edit.first < atoms.length ? atoms[edit.first]!.line : lineNo);
+      for (let k = edit.first; k < edit.last; k++) {
+        touched.add(atoms[k]!.line);
+        if (atoms[k]!.newline) touched.add(atoms[k]!.line + 1);
+      }
+    }
+    const loose: Array<{ at: number; truth: number[] }> = [];
 
     // The editor's text, and the oracle's bytes, built together.
     let next = '';
@@ -137,6 +154,14 @@ test(`foldText over ${CASES} random files with bytes that are not UTF-8, edited 
     let atText = skip;
     let atByte = skip === 1 ? 3 : 0;
     const copy = (toText: number): void => {
+      for (const atom of atoms) {
+        if (atom.stray && touched.has(atom.line) && atom.from >= atText && atom.to <= toText) {
+          loose.push({
+            at: expected.length + offsets.at(atom.from) - atByte,
+            truth: [...file.bytes.subarray(offsets.at(atom.from), offsets.at(atom.to))],
+          });
+        }
+      }
       next += text.slice(atText, toText);
       written += text.slice(atText, toText);
       for (let b = atByte; b < offsets.at(toText); b++) expected.push(file.bytes[b]!);
@@ -168,13 +193,39 @@ test(`foldText over ${CASES} random files with bytes that are not UTF-8, edited 
       continue;
     }
     const got = splice(like, fold.range, fold.replacement).bytes;
-    assert.equal(Buffer.compare(Buffer.from(got), Buffer.from(expected)), 0, `${where}\n got ${hex(got)}\n want ${hex(Uint8Array.from(expected))}`);
+    // Equal to the oracle's bytes, except that a byte that is not UTF-8 on a touched line may be EF BF BD.
+    assertTolerant(got, expected, loose, where);
     // Nothing was merged around a stray, so the file reads back as exactly what the reader typed.
     assert.equal(new TextDecoder('utf-8', { ignoreBOM: true }).decode(got).slice(skip), written, where);
   }
   assert.ok(multiChange > CASES / 4, `only ${multiChange} cases had more than one change`);
   assert.ok(withStrayDeleted > CASES / 20, `only ${withStrayDeleted} cases deleted a stray byte`);
 });
+
+/** `got` is `expected`, except that each `loose` run (a byte that is not UTF-8) may be EF BF BD instead. */
+function assertTolerant(got: Uint8Array, expected: number[], loose: Array<{ at: number; truth: number[] }>, where: string): void {
+  loose.sort((a, b) => a.at - b.at);
+  let i = 0;
+  let j = 0;
+  let k = 0;
+  const fail = (): never => assert.fail(`${where}\n got ${hex(got)}\n want ${hex(Uint8Array.from(expected))}\n (byte ${i} of the oracle, ${j} of the file)`);
+  while (i < expected.length) {
+    if (k < loose.length && loose[k]!.at === i) {
+      const { truth } = loose[k++]!;
+      if (truth.every((b, n) => got[j + n] === b)) j += truth.length;
+      else {
+        // One EF BF BD for each U+FFFD the file's bytes decode to.
+        const units = new TextDecoder().decode(Uint8Array.from(truth)).length;
+        for (let u = 0; u < units; u++, j += 3) if (got[j] !== 0xef || got[j + 1] !== 0xbf || got[j + 2] !== 0xbd) fail();
+      }
+      i += truth.length;
+    } else if (got[j] === expected[i]) {
+      i++;
+      j++;
+    } else fail();
+  }
+  if (j !== got.length) fail();
+}
 
 const hex = (bytes: Uint8Array): string => [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(' ');
 
@@ -225,4 +276,76 @@ test(`foldText over ${process.env.FOLD_BIG_CASES ?? 40} random files with thousa
     while (at < got.length && at < expected.length && got[at] === expected[at]) at++;
     assert.ok(at === got.length && at === expected.length, `case ${seed}: lengths ${got.length} and ${expected.length}, first difference at byte ${at}: got ${JSON.stringify(Buffer.from(got.subarray(Math.max(0, at - 20), at + 20)).toString('latin1'))}, want ${JSON.stringify(Buffer.from(expected.slice(Math.max(0, at - 20), at + 20)).toString('latin1'))}; stray lines ${JSON.stringify([...strayLines])}`);
   }
+});
+
+// Safety under confusion (F-34, the second review): lines are moved, copied, swapped and deleted, text is typed
+// (U+FFFD included) and lines are edited, over files whose lines may repeat the same text with different stray bytes.
+// The text cannot always say which stray is which, so the fold is held to the one thing it can promise: the file
+// reads back as the editor's text, and each U+FFFD in it is written as the bytes that stood there or as EF BF BD,
+// never as another stray's value, and never as a value the reader typed (a typed U+FFFD is always EF BF BD).
+type Line = { parts: Array<string | { stray: readonly number[] }> };
+const lineText = (line: Line): string => line.parts.map((p) => (typeof p === 'string' ? p : '�')).join('');
+const lineBytes = (line: Line): number[] => line.parts.flatMap((p) => (typeof p === 'string' ? [...enc.encode(p)] : [...p.stray]));
+
+function confusion(seed: number, lineCount: number): void {
+  const r = rng(seed * 104729);
+  const kinds = [[0xff], [0xfe], [0xc3], [0xe2, 0x82], [0xf8], [0xf5]] as const;
+  const make = (k: number): Line => {
+    const x = r.int(5);
+    // A label on each side of a stray makes most lines unique; "tw" lines repeat the same text and may differ in the byte.
+    if (x === 0) return { parts: [`tw `, { stray: kinds[r.int(kinds.length)]! }, ` end`] };
+    if (x === 1) return { parts: [`plain ${k}`] };
+    if (x === 2) return { parts: [`two ${k} `, { stray: kinds[r.int(kinds.length)]! }, ` and ${k} `, { stray: kinds[r.int(kinds.length)]! }, ` x ${k}`] };
+    return { parts: [`line ${k} `, { stray: kinds[r.int(kinds.length)]! }, ` tail ${k}`] };
+  };
+  const old: Line[] = Array.from({ length: lineCount }, (_, k) => make(k));
+  const file = Uint8Array.from(old.flatMap((l) => [...lineBytes(l), 0x0a]));
+  const like = createBuffer('/c.md', file);
+  // Each U+FFFD the editor will show, in order, with the bytes that stood there (null: typed by the reader).
+  const lines: Line[] = old.map((l) => ({ parts: [...l.parts] }));
+  const moves = 1 + r.int(8);
+  for (let m = 0; m < moves && lines.length > 2; m++) {
+    const at = r.int(lines.length);
+    switch (r.int(7)) {
+      case 0: lines.splice(at, 1); break; // delete
+      case 1: { const [l] = lines.splice(at, 1); lines.splice(r.int(lines.length + 1), 0, l!); break; } // move
+      case 2: lines.splice(r.int(lines.length + 1), 0, { parts: [...lines[at]!.parts] }); break; // copy
+      case 3: { const j = Math.min(lines.length - 1, at + 1); [lines[at], lines[j]] = [lines[j]!, lines[at]!]; break; } // swap
+      case 4: lines.splice(at, 0, { parts: [`typed ${m} `, '\u{fffd}'.repeat(1 + r.int(2)), ` done`] }); break; // type a line with U+FFFD
+      case 5: lines[at] = { parts: [...lines[at]!.parts, ` +${m}`] }; break; // edit the end of a line
+      default: lines[at] = { parts: [`${m}> `, ...lines[at]!.parts] }; // edit the start of a line
+    }
+  }
+  const next = lines.map((l) => `${lineText(l)}\n`).join('');
+  const truth: Array<readonly number[] | null> = lines.flatMap((l) =>
+    l.parts.flatMap((p): Array<readonly number[] | null> =>
+      typeof p === 'string' ? [...p].filter((c) => c === '�').map(() => null) : [p.stray],
+    ),
+  );
+  // A multi-unit stray is not in the kinds above, so one stray is one U+FFFD.
+  const fold = foldText(like, next);
+  const where = `confusion case ${seed} (${lineCount} lines)`;
+  if (fold === null) {
+    assert.equal(next, like.text, where);
+    return;
+  }
+  const got = splice(like, fold.range, fold.replacement).bytes;
+  const back = createBuffer('/r.md', got);
+  assert.equal(back.text, next, `${where}: the file reads back as the editor's text`);
+  let unit = 0;
+  for (let i = 0; i < back.text.length; i++) {
+    if (back.text.charCodeAt(i) !== 0xfffd) continue;
+    const bytes = hex(got.subarray(back.offsets.at(i), back.offsets.at(i + 1)));
+    const own = truth[unit] === null ? null : hex(Uint8Array.from(truth[unit]!));
+    assert.ok(bytes === 'ef bf bd' || bytes === own, `${where}: U+FFFD number ${unit} was written as ${bytes}; it may be ${own ?? 'only ef bf bd'}`);
+    unit++;
+  }
+}
+
+test(`foldText never writes another stray's value: ${process.env.FOLD_CONFUSION ?? 6000} small files with lines moved, copied, swapped, typed and edited`, () => {
+  for (let seed = 1; seed <= Number(process.env.FOLD_CONFUSION ?? 6000); seed++) confusion(seed, 6 + (seed % 30));
+});
+
+test('foldText never writes another stray\'s value: files past the comparison budgets, with lines moved and typed', () => {
+  for (let seed = 1; seed <= Number(process.env.FOLD_CONFUSION_BIG ?? 6); seed++) confusion(seed + 50000, 3400 + seed * 100);
 });

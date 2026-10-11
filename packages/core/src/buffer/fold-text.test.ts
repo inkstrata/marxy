@@ -59,18 +59,18 @@ test('every kind of byte that is not UTF-8 survives two changes around it', () =
 });
 
 test('several strays and several changes: only the changed runs are re-encoded', () => {
-  const like = createBuffer('/x.md', bytesOf('a1\n', [0xff], '\nb2\n', [0xe2, 0x82], '\nc3\n', [0x80], '\nd4\n'));
+  const like = createBuffer('/x.md', bytesOf('a1\n;1;', [0xff], '\nb2\n;2;', [0xe2, 0x82], '\nc3\n;3;', [0xf8], '\nd4\n'));
   const next = like.text.replace('a1', 'A1').replace('b2', 'B2!').replace('c3', 'c').replace('d4', 'D4');
   assert.equal(
     hex(folded(like, next)),
-    hex(bytesOf('A1\n', [0xff], '\nB2!\n', [0xe2, 0x82], '\nc\n', [0x80], '\nD4\n')),
+    hex(bytesOf('A1\n;1;', [0xff], '\nB2!\n;2;', [0xe2, 0x82], '\nc\n;3;', [0xf8], '\nD4\n')),
   );
 });
 
 test('a change that removes the byte removes exactly that byte', () => {
-  const like = createBuffer('/x.md', bytesOf('alpha\n', [0xff], '\nomega\n', [0xfe], '\nend\n'));
-  const next = like.text.replace('alpha', 'ALPHA').replace('�\nomega', 'omega').replace('end', 'END');
-  assert.equal(hex(folded(like, next)), hex(bytesOf('ALPHA\nomega\n', [0xfe], '\nEND\n')));
+  const like = createBuffer('/x.md', bytesOf('alpha\n;1;', [0xff], ';\nomega\n;2;', [0xfe], ';\nend\n'));
+  const next = like.text.replace('alpha', 'ALPHA').replace(';1;\ufffd;\nomega', 'omega').replace('end', 'END');
+  assert.equal(hex(folded(like, next)), hex(bytesOf('ALPHA\nomega\n;2;', [0xfe], ';\nEND\n')));
 });
 
 test('a change around an astral character and a byte that is not UTF-8 does not split the pair', () => {
@@ -117,23 +117,42 @@ test('many changes between two bytes that are not UTF-8: lines, then characters,
   // 1,200 lines, 150 of them rewritten end to end: about 3,000 characters differ, more than a
   // character-by-character comparison takes on, so the lines are compared first.
   const lines = Array.from({ length: 1200 }, (_, i) => `line number ${i} of the file`);
-  const like = createBuffer('/x.md', bytesOf('head\n', [0xff], '\n', lines.join('\n'), '\n', [0xfe], '\ntail\n'));
+  const like = createBuffer('/x.md', bytesOf('head\n;A;', [0xff], '\n', lines.join('\n'), '\n;B;', [0xfe], '\ntail\n'));
   const edited = lines.map((l, i) => (i % 8 === 0 ? `REWRITTEN ${i} ENTIRELY, AND LONGER` : l));
   const next = like.text.replace('head', 'HEAD').replace('tail', 'TAIL').replace(lines.join('\n'), edited.join('\n'));
-  const expected = bytesOf('HEAD\n', [0xff], '\n', edited.join('\n'), '\n', [0xfe], '\nTAIL\n');
+  const expected = bytesOf('HEAD\n;A;', [0xff], '\n', edited.join('\n'), '\n;B;', [0xfe], '\nTAIL\n');
   assert.equal(hex(folded(like, next)), hex(expected));
 });
 
 // Past the comparison's budgets (about 1,500 characters, then 3,000 lines, of difference) the span is cut at its
 // U+FFFDs instead; none of these may write EF BF BD for a stray byte the reader left in the text.
+/**
+ * The bytes of each U+FFFD of `bytes` read back: a stray byte's own bytes, or EF BF BD. `truth` names, for each U+FFFD
+ * of the editor's text in order, the bytes the reader left there (or null for one the reader typed): the fold may keep
+ * them or write EF BF BD, and must never write any other value.
+ */
+function assertNoWrongByte(bytes: Uint8Array, next: string, truth: Array<readonly number[] | null>, what: string): void {
+  const back = createBuffer('/r.md', bytes);
+  assert.equal(back.text, next, `${what}: the file reads back as the editor's text`);
+  const units: string[] = [];
+  for (let i = 0; i < back.text.length; i++) {
+    if (back.text.charCodeAt(i) === 0xfffd) units.push(hex(bytes.subarray(back.offsets.at(i), back.offsets.at(i + 1))));
+  }
+  assert.equal(units.length, truth.length, `${what}: ${units.length} U+FFFD in the file, ${truth.length} in the text`);
+  units.forEach((got, k) => {
+    const own = truth[k] === null ? null : hex(Uint8Array.from(truth[k]!));
+    assert.ok(got === 'ef bf bd' || got === own, `${what}: U+FFFD number ${k} was written as ${got}; it may be ${own ?? 'only ef bf bd'}`);
+  });
+}
+
 const rows = (n: number, tag = 'row'): string[] => Array.from({ length: n }, (_, i) => `${tag} ${i}`);
 
 test('past the budgets, two bytes that are not UTF-8 with the whole span between them rewritten keep their bytes', () => {
   const lines = rows(9000);
-  const like = createBuffer('/x.md', bytesOf('head\n', [0xff], '\n', lines.join('\n'), '\n', [0xfe], '\ntail\n'));
+  const like = createBuffer('/x.md', bytesOf('head\n;A;', [0xff], '\n', lines.join('\n'), '\n;B;', [0xfe], '\ntail\n'));
   const edited = lines.map((l, i) => `${l}${i} changed`);
   const next = like.text.replace('head', 'HEAD').replace('tail', 'TAIL').replace(lines.join('\n'), edited.join('\n'));
-  assert.equal(hex(folded(like, next)), hex(bytesOf('HEAD\n', [0xff], '\n', edited.join('\n'), '\n', [0xfe], '\nTAIL\n')));
+  assertSameBytes(folded(like, next), bytesOf('HEAD\n;A;', [0xff], '\n', edited.join('\n'), '\n;B;', [0xfe], '\nTAIL\n'));
 });
 
 test('past the budgets, a stray byte inside the rewritten text keeps its bytes, and one deleted with its markers goes', () => {
@@ -171,12 +190,81 @@ test('past the budgets, in a file of about 1 MB, every line rewritten around str
   assertSameBytes(folded(like, `${rewritten.join('\n')}\n`), bytesOf(...expected));
 });
 
-test('past the budgets, a file of strays only: no byte that is not UTF-8 is rewritten when text around them changes', () => {
+test('past the budgets, a file of strays on one line: none is written as another value (an edited line is re-encoded)', () => {
   const strays = [[0xff], [0xfe], [0xc3], [0xe2, 0x82], [0xf8]];
   const parts: Array<string | number[]> = [];
-  for (let i = 0; i < 400; i++) parts.push(`${'x'.repeat(10)}${i}`, strays[i % strays.length]!);
+  const truth: number[][] = [];
+  for (let i = 0; i < 400; i++) {
+    parts.push(`${'x'.repeat(10)}${i}`, strays[i % strays.length]!);
+    truth.push(strays[i % strays.length]!);
+  }
   const like = createBuffer('/x.md', bytesOf(...parts));
-  const next = like.text.replace(/x+/g, (m) => `${m}${m}${m}${m}${m}${m}${m}${m}`);
-  const want = bytesOf(...parts.map((p, i) => (typeof p === 'string' ? p.replace(/x+/, (m) => m.repeat(8)) : p)));
-  assert.equal(hex(folded(like, next)), hex(want));
+  const next = like.text.replace(/x+/g, (m) => m.repeat(8));
+  assertNoWrongByte(folded(like, next), next, truth, 'one line');
+});
+
+// The adversarial review of 3a08c006 (F-34): each of these once wrote another stray's value in a stray's place.
+test('a line moved to the end brings its stray with it or loses it, and nobody else\'s is changed', () => {
+  const like = createBuffer('/x.md', bytesOf('L0 ', [0xff], '\nL1 ', [0xfe], '\nL2 \nL3 \nL4 ', [0xf5], '\n'));
+  const next = 'L0 \ufffd\nL2 \nL3 \nL4 \ufffd\nL1 \ufffd\n';
+  const got = folded(like, next);
+  assert.equal(hex(got.subarray(0, 18)), hex(bytesOf('L0 ', [0xff], '\nL2 \nL3 \nL4 ', [0xf5], '\nL1 ').subarray(0, 18)));
+  assertNoWrongByte(got, next, [[0xff], [0xf5], [0xfe]], 'moved line');
+});
+
+test('replacing one line that holds a stray and inserting another keeps the lines around that were not touched', () => {
+  const like = createBuffer('/x.md', bytesOf('K0:', [0xf5], '\nK1:', [0x80], '\nK2:', [0xc3], '\nK3:', [0xc3], '\n'));
+  const next = 'K0:\ufffd\nEjsx\nK2:\ufffd\nnew2:mwau\nK3:\ufffd\n';
+  assert.equal(
+    hex(folded(like, next)),
+    hex(bytesOf('K0:', [0xf5], '\nEjsx\nK2:', [0xc3], '\nnew2:mwau\nK3:', [0xc3], '\n')),
+  );
+});
+
+test('a U+FFFD typed beside a stray, past the budgets, does not take its bytes', () => {
+  const like = createBuffer('/x.md', bytesOf('a'.repeat(1600), 'xyzab', [0xff], 'cd', 'z'.repeat(1600)));
+  const next = `${'b'.repeat(1600)}xy\ufffdzab\ufffdcd${'y'.repeat(1600)}`;
+  assertNoWrongByte(folded(like, next), next, [null, [0xff]], 'typed beside');
+});
+
+test('deleting one stray, past the budgets, does not write its value where the other stood', () => {
+  const like = createBuffer('/x.md', bytesOf('a'.repeat(1600), 'one', [0xff], 'two', [0xfe], 'three', 'z'.repeat(1600)));
+  const next = `${'b'.repeat(1600)}onetwo\ufffdthree${'y'.repeat(1600)}`;
+  assertNoWrongByte(folded(like, next), next, [[0xfe]], 'deleted neighbour');
+});
+
+test('lines whose twins hold different bytes: whichever the text pairs, only a value the file holds is written', () => {
+  const stray = (i: number): number[] => [0xe0 + (i % 16)];
+  const parts: Array<string | number[]> = [];
+  for (let i = 0; i < 300; i++) parts.push('a', stray(i), 'b\n');
+  const like = createBuffer('/x.md', bytesOf(...parts));
+  const next = like.text.split('\n').filter((_, i) => i !== 100 && i !== 101 && i !== 250).join('\n');
+  const allowed = Array.from({ length: 16 }, (_, i) => stray(i));
+  assert.equal(createBuffer('/r.md', folded(like, next)).text, next);
+  const back = createBuffer('/r.md', folded(like, next));
+  for (let k = 0; k < back.text.length; k++) {
+    if (back.text.charCodeAt(k) !== 0xfffd) continue;
+    const got = hex(back.bytes.subarray(back.offsets.at(k), back.offsets.at(k + 1)));
+    assert.ok(got === 'ef bf bd' || allowed.some((a) => hex(Uint8Array.from(a)) === got), got);
+  }
+});
+
+test('a stray in an edited line stays when it is the only one the comparison can pair, and an untouched line keeps its own', () => {
+  const like = createBuffer('/x.md', bytesOf('caf', [0xe9], ' au lait\nsecond ', [0xe8], ' line\n'));
+  assert.equal(
+    hex(folded(like, 'caf\ufffd au lait!\nsecond \ufffd line\n')),
+    hex(bytesOf('caf', [0xe9], ' au lait!\nsecond ', [0xe8], ' line\n')),
+  );
+});
+
+test('edits in the lines either side of a line with a stray, and in that line, keep its byte (the walk\'s seed 79)', () => {
+  const like = createBuffer('/x.md', bytesOf('- a\n- b\r\n', [0xff], '\nlast é end\r\n'));
+  const next = '- a\n- b\r\nqz2zq�\nlast qz3zq é end\r\n';
+  assert.equal(hex(folded(like, next)), hex(bytesOf('- a\n- b\r\nqz2zq', [0xff], '\nlast qz3zq é end\r\n')));
+});
+
+test('a line replaced by one that differs only where the stray is not (a label) is re-encoded when the bytes would differ', () => {
+  const like = createBuffer('/x.md', bytesOf('two 7 ', [0xff], ' and 7 ', [0xe2, 0x82], ' x 7\ntwo 5 ', [0xff], ' and 5 ', [0xf8], ' x 5\n'));
+  const next = 'two 5 � and 5 � x 5\ntwo 5 � and 5 � x 5\n';
+  assertNoWrongByte(folded(like, next), next, [[0xff], [0xf8], [0xff], [0xf8]], 'copied over');
 });

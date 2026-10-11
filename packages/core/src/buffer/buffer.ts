@@ -79,14 +79,16 @@ export function fromText(path: string, text: string, like: Buffer): Buffer {
  * The one splice that turns `like` into the editor's `text` (which carries no BOM): the bytes from the first
  * change to the last, and every run of the file between two changes keeps its own bytes, copied and not decoded
  * and re-encoded. Everything before the first change and after the last keeps its bytes as it was too. So a
- * mixed-ending file keeps each line's ending and a byte that is not UTF-8 is not rewritten as U+FFFD, however
- * many changes the reader made and wherever they sit (F-34); an edit in Source touches only what the reader
- * changed. Inside a change, line endings follow the file (CRLF for a CRLF file). `null` when nothing differs.
+ * mixed-ending file keeps each line's ending and a byte that is not UTF-8 in a line the reader did not touch is not
+ * rewritten as U+FFFD, however many changes the reader made and wherever they sit (F-34); an edit in Source touches
+ * only what the reader changed. Inside a change, line endings follow the file (CRLF for a CRLF file). `null` when
+ * nothing differs.
  *
  * The range is one span, so the API and its callers are unchanged; its replacement is the changed runs'
- * encodings with the file's own bytes between them. However much differs, a U+FFFD that is still in the
- * editor's text is matched to one in the file, in order, and written as that one's original bytes (see
- * `anchorChanges`); no path writes EF BF BD for a byte the reader did not change.
+ * encodings with the file's own bytes between them. A run is left to the file's bytes only when it is provably
+ * the same text at the same place (see `alignChanges`); a U+FFFD in any other run is written as U+FFFD is (EF BF BD),
+ * and no path writes another byte's value in its place. (A byte in a line the reader edited or moved is therefore
+ * lost to U+FFFD, as it always was; keeping it is F-34.1.)
  */
 export function foldText(like: Buffer, text: string): { range: Source; replacement: Uint8Array } | null {
   const skip = like.bom ? 1 : 0;
@@ -108,16 +110,49 @@ export function foldText(like: Buffer, text: string): { range: Source; replaceme
   const cutsAt = (a: number, b: number): boolean => cuts(old, a) || cuts(text, b);
   while (prefix > 0 && cutsAt(skip + prefix, prefix)) prefix--;
   while (suffix > 0 && cutsAt(old.length - suffix, text.length - suffix)) suffix--;
-  const oldFrom = skip + prefix;
-  const oldTo = old.length - suffix;
-  const newFrom = prefix;
-  const newTo = text.length - suffix;
+  let oldFrom = skip + prefix;
+  let oldTo = old.length - suffix;
+  let newFrom = prefix;
+  let newTo = text.length - suffix;
   // Every run of the middle that is the same on both sides re-encodes to the bytes it came from, except a
   // run holding a byte that is not UTF-8 (decoded as U+FFFD, written as EF BF BD). Only then is it worth
   // finding which runs are unchanged; with none, the middle is one change.
   let changes: Change[] | null = null;
+  if (old.includes('\ufffd')) {
+    // A line of the file whose text is also another line's, with different bytes, is not "the same line" just
+    // because it is outside the change: the span grows to take in every such line.
+    const ambiguous = ambiguousLines(like);
+    if (ambiguous.size > 0) {
+      const lineAt = (k: number): [number, number] => {
+        const nl = old.indexOf('\n', k);
+        return [Math.max(skip, old.lastIndexOf('\n', k) + 1), nl === -1 ? old.length : nl + 1];
+      };
+      for (let k = old.indexOf('\ufffd', skip); k !== -1 && k < oldFrom; k = old.indexOf('\ufffd', k + 1)) {
+        const [from, to] = lineAt(k);
+        if (ambiguous.has(old.slice(from, to))) {
+          newFrom -= oldFrom - from;
+          oldFrom = from;
+          break;
+        }
+      }
+      for (let k = old.lastIndexOf('\ufffd'); k >= oldTo; k = k === 0 ? -1 : old.lastIndexOf('\ufffd', k - 1)) {
+        const [from, to] = lineAt(k);
+        if (ambiguous.has(old.slice(from, to))) {
+          newTo += to - oldTo;
+          oldTo = to;
+          break;
+        }
+      }
+    }
+  }
   if (holdsStrayByte(like, oldFrom, oldTo)) {
-    changes = widenChanges(alignChanges(old, oldFrom, oldTo, text, newFrom, newTo), old, text, oldFrom, newFrom);
+    // Compare whole lines: the unchanged text just before the first change and just after the last is the same
+    // on both sides, so the span grows by the same amount in each.
+    const back = newFrom === 0 ? 0 : newFrom - (text.lastIndexOf('\n', newFrom - 1) + 1);
+    const nl = text.indexOf('\n', newTo);
+    const forward = (nl === -1 ? text.length : nl + 1) - newTo;
+    const from = oldFrom - back;
+    changes = widenChanges(alignChanges(like, from, oldTo + forward, text, newFrom - back, newTo + forward), old, text, from, newFrom - back);
   }
   if (changes === null || changes.length === 0) changes = [{ a0: oldFrom, a1: oldTo, b0: newFrom, b1: newTo }];
   const parts: Uint8Array[] = [];
@@ -175,107 +210,205 @@ function holdsStrayByte(like: Buffer, from: number, to: number): boolean {
   return false;
 }
 
-/** The most code units two texts may differ by before the character-level comparison gives up (memory ~ budget^2). */
-const CHAR_BUDGET = 1500;
-/** The same for the line-level comparison, and for the character-level one inside each changed block of lines. */
-const LINE_BUDGET = 3000;
-/** Characters of context either side of a U+FFFD that tell it from another when the texts are too different to compare. */
-const ANCHOR_CONTEXT = 5;
-
 /**
- * The runs of `old[a, a2)` that are not in `text[b, b2)`, as a minimal edit script: a character-level
- * comparison, then (if the texts differ in too many places for that) a comparison of lines and a character-level
- * one inside each changed block. A block too different for either is cut at its U+FFFDs (`anchorChanges`), so
- * there is no span that is re-encoded whole.
+ * The changed runs between `like.text[a, a2)` and `text[b, b2)`, which both start and end on a line. Everything
+ * outside them is copied from the file's own bytes, so a run is left out of the changes (is "equal") only when it
+ * is the same text at the same place, and, if it holds a U+FFFD, only when copying cannot write another byte's
+ * value there:
+ *
+ *  - Lines first (patience: lines that occur once on each side anchor, the longest increasing run of them is kept,
+ *    and what lies between is compared again). A line that moved is not in that run, so it is a deletion and an
+ *    insertion. A line with a U+FFFD is equal only if every line of the file with that text has the same bytes
+ *    (otherwise the text cannot say which one this is).
+ *  - What lines leave changed is a hunk. Its lines are paired one for one if both sides have as many; in each pair
+ *    (or in the whole hunk, if they do not pair) the common start and end stay equal and the change between them is
+ *    encoded, if no U+FFFD is in that change; otherwise the whole pair is encoded.
+ *
+ * So the one thing a Source fold still does to a byte that is not UTF-8 is write it as U+FFFD is (EF BF BD) when it
+ * is in a line the reader edited or moved and the text cannot show it is the same byte: as before F-34, but only there.
  */
-function alignChanges(old: string, a: number, a2: number, text: string, b: number, b2: number): Change[] {
-  const fine = diffSequences(codeUnits(old, a, a2), codeUnits(text, b, b2), CHAR_BUDGET);
-  if (fine !== null) return fine.map((c) => ({ a0: c.a0 + a, a1: c.a1 + a, b0: c.b0 + b, b1: c.b1 + b }));
+function alignChanges(like: Buffer, a: number, a2: number, text: string, b: number, b2: number): Change[] {
+  const old = like.text;
   const oldLines = lineStarts(old, a, a2);
   const newLines = lineStarts(text, b, b2);
   const ids = new Map<string, number>();
   const idsOf = (s: string, starts: number[], end: number): number[] =>
     starts.map((start, i) => {
-      const line = s.slice(start, i + 1 < starts.length ? starts[i + 1]! : end);
+      // In a CRLF file the editor may hand over LF: the ending is the file's, so a line is the same either way.
+      const raw = s.slice(start, i + 1 < starts.length ? starts[i + 1]! : end);
+      const line = like.eol === 'crlf' ? raw.replace(/\r\n$/, '\n') : raw;
       let id = ids.get(line);
       if (id === undefined) ids.set(line, (id = ids.size));
       return id;
     });
-  const lines = diffSequences(idsOf(old, oldLines, a2), idsOf(text, newLines, b2), LINE_BUDGET);
-  if (lines === null) return anchorChanges(old, a, a2, text, b, b2);
+  const oldIds = idsOf(old, oldLines, a2);
+  const newIds = idsOf(text, newLines, b2);
+  const edge = (starts: number[], line: number, end: number): number => (line < starts.length ? starts[line]! : end);
+  const heavyIds: boolean[] = [];
+  for (const [line, id] of ids) heavyIds[id] = line.includes('\ufffd');
+  const ambiguous = ambiguousLines(like);
+  const matched = matchLines(oldIds, newIds, heavyIds).filter(([i]) => {
+    const from = oldLines[i]!;
+    const to = edge(oldLines, i + 1, a2);
+    const at = old.indexOf('\ufffd', from);
+    return at === -1 || at >= to || !ambiguous.has(old.slice(from, to));
+  });
   const out: Change[] = [];
-  const at = (starts: number[], line: number, end: number): number => (line < starts.length ? starts[line]! : end);
-  for (const block of lines) {
-    const x0 = at(oldLines, block.a0, a2);
-    const x1 = at(oldLines, block.a1, a2);
-    const y0 = at(newLines, block.b0, b2);
-    const y1 = at(newLines, block.b1, b2);
-    const inner = diffSequences(codeUnits(old, x0, x1), codeUnits(text, y0, y1), LINE_BUDGET);
-    if (inner === null) out.push(...anchorChanges(old, x0, x1, text, y0, y1));
-    else for (const c of inner) out.push({ a0: c.a0 + x0, a1: c.a1 + x0, b0: c.b0 + y0, b1: c.b1 + y0 });
+  const hunk = (i0: number, i1: number, j0: number, j1: number): void => {
+    if (i0 === i1 && j0 === j1) return;
+    const x0 = edge(oldLines, i0, a2);
+    const x1 = edge(oldLines, i1, a2);
+    const y0 = edge(newLines, j0, b2);
+    const y1 = edge(newLines, j1, b2);
+    out.push(...compareHunk(like, x0, x1, text, y0, y1, ambiguous));
+  };
+  let i = 0;
+  let j = 0;
+  for (const [mi, mj] of matched) {
+    hunk(i, mi, j, mj);
+    i = mi + 1;
+    j = mj + 1;
   }
+  hunk(i, oldLines.length, j, newLines.length);
   return out;
 }
 
 /**
- * For two stretches too different to compare: every U+FFFD of the editor's text is matched to one of the file's,
- * in order, and the runs between matched pairs are the changes. So a byte that is not UTF-8 and still in the
- * text keeps its bytes, however much was rewritten around it, and the only text that is re-encoded is a run
- * with no U+FFFD in it (the file's own side of every run has none: each one is a pair, or was deleted).
- * Which U+FFFDs pair is decided by their surroundings first (a shortest edit script over each one's few
- * characters either side), then, among those left between two pairs, by order. More in the text than in the
- * file means the reader wrote the extra ones, and they are encoded as U+FFFD is.
+ * The changed runs of one hunk that lines left changed: what the hunk's two sides share at either end stays equal, and
+ * the one change between is encoded. If a U+FFFD is in that change, on either side, the text cannot say which of them
+ * is which, so nothing of the hunk keeps the file's bytes for it: the hunk is one change, whole.
  */
-function anchorChanges(old: string, a: number, a2: number, text: string, b: number, b2: number): Change[] {
-  const marks = (s: string, from: number, to: number): number[] => {
-    const out: number[] = [];
-    for (let i = s.indexOf('\ufffd', from); i !== -1 && i < to; i = s.indexOf('\ufffd', i + 1)) out.push(i);
-    return out;
-  };
-  const oldMarks = marks(old, a, a2);
-  const newMarks = marks(text, b, b2);
-  const ids = new Map<string, number>();
-  const keyed = (s: string, at: number[], from: number, to: number): number[] =>
-    at.map((i) => {
-      const key = `${s.slice(Math.max(from, i - ANCHOR_CONTEXT), i)}\ufffd${s.slice(i + 1, Math.min(to, i + 1 + ANCHOR_CONTEXT))}`;
-      let id = ids.get(key);
-      if (id === undefined) ids.set(key, (id = ids.size));
-      return id;
-    });
-  const pairs: Array<[number, number]> = [];
-  const pairInOrder = (o0: number, o1: number, n0: number, n1: number): void => {
-    for (let k = 0; k < Math.min(o1 - o0, n1 - n0); k++) pairs.push([oldMarks[o0 + k]!, newMarks[n0 + k]!]);
-  };
-  const surroundings = diffSequences(keyed(old, oldMarks, a, a2), keyed(text, newMarks, b, b2), LINE_BUDGET);
-  if (surroundings === null) {
-    pairInOrder(0, oldMarks.length, 0, newMarks.length);
-  } else {
-    // Whatever the script leaves out is matched; the runs it changes are paired in order.
-    let o = 0;
-    let n = 0;
-    for (const c of [...surroundings, { a0: oldMarks.length, a1: oldMarks.length, b0: newMarks.length, b1: newMarks.length }]) {
-      for (; o < c.a0; o++, n++) pairs.push([oldMarks[o]!, newMarks[n]!]);
-      pairInOrder(c.a0, c.a1, c.b0, c.b1);
-      o = c.a1;
-      n = c.b1;
-    }
-  }
+function compareHunk(like: Buffer, x0: number, x1: number, text: string, y0: number, y1: number, ambiguous: Set<string>): Change[] {
+  // The same number of lines on both sides: line for line, so an edit in one line does not cost the next its bytes.
+  const xs = x1 > x0 ? lineStarts(like.text, x0, x1) : [];
+  const ys = y1 > y0 ? lineStarts(text, y0, y1) : [];
+  if (xs.length !== ys.length || xs.length < 2) return compareLines(like, x0, x1, text, y0, y1, ambiguous);
   const out: Change[] = [];
-  let x = a;
-  let y = b;
-  for (const [i, j] of [...pairs, [a2, b2] as [number, number]]) {
-    if (i > x || j > y) out.push({ a0: x, a1: i, b0: y, b1: j });
-    x = i + 1;
-    y = j + 1;
+  for (let k = 0; k < xs.length; k++) {
+    const e = (starts: number[], end: number): number => (k + 1 < starts.length ? starts[k + 1]! : end);
+    out.push(...compareLines(like, xs[k]!, e(xs, x1), text, ys[k]!, e(ys, y1), ambiguous));
   }
   return out;
 }
 
-const codeUnits = (s: string, from: number, to: number): Uint16Array => {
-  const out = new Uint16Array(to - from);
-  for (let i = from; i < to; i++) out[i - from] = s.charCodeAt(i);
-  return out;
+function compareLines(like: Buffer, x0: number, x1: number, text: string, y0: number, y1: number, ambiguous: Set<string>): Change[] {
+  const whole: Change[] = [{ a0: x0, a1: x1, b0: y0, b1: y1 }];
+  const old = like.text;
+  if (x1 === x0 || y1 === y0 || (!hasStray(old, x0, x1) && !hasStray(text, y0, y1))) return whole;
+  // A line the text cannot tell from another with different bytes is re-encoded, even if it reads the same here.
+  for (let k = old.indexOf('\ufffd', x0); k !== -1 && k < x1; k = old.indexOf('\ufffd', k + 1)) {
+    const nl = old.indexOf('\n', k);
+    if (ambiguous.has(old.slice(Math.max(x0, old.lastIndexOf('\n', k) + 1), nl === -1 ? old.length : nl + 1))) return whole;
+  }
+  const limit = Math.min(x1 - x0, y1 - y0);
+  let lead = 0;
+  while (lead < limit && old.charCodeAt(x0 + lead) === text.charCodeAt(y0 + lead)) lead++;
+  let tail = 0;
+  while (tail < limit - lead && old.charCodeAt(x1 - 1 - tail) === text.charCodeAt(y1 - 1 - tail)) tail++;
+  const change = { a0: x0 + lead, a1: x1 - tail, b0: y0 + lead, b1: y1 - tail };
+  return hasStray(old, change.a0, change.a1) || hasStray(text, change.b0, change.b1) ? whole : [change];
+}
+
+const hasStray = (s: string, from: number, to: number): boolean => {
+  const at = s.indexOf('\ufffd', from);
+  return at !== -1 && at < to;
 };
+
+const ambiguousCache = new WeakMap<object, Set<string>>();
+
+/**
+ * The texts of the file's lines that hold a U+FFFD and occur with different bytes (`caf\ufffd` as E9 in one place and
+ * E8 in another): the editor's text cannot say which of them a line of it is, so none is taken as unchanged.
+ */
+function ambiguousLines(like: Buffer): Set<string> {
+  let found = ambiguousCache.get(like);
+  if (found) return found;
+  found = new Set<string>();
+  const seen = new Map<string, string>();
+  const { text } = like;
+  let doneTo = 0;
+  for (let k = text.indexOf('\ufffd'); k !== -1; k = text.indexOf('\ufffd', Math.max(k + 1, doneTo))) {
+    const from = Math.max(like.bom ? 1 : 0, text.lastIndexOf('\n', k) + 1);
+    const nl = text.indexOf('\n', k);
+    const to = nl === -1 ? text.length : nl + 1;
+    doneTo = to;
+    const line = text.slice(from, to);
+    const key = bytesKey(like, from, to);
+    const before = seen.get(line);
+    if (before === undefined) seen.set(line, key);
+    else if (before !== key) found.add(line);
+  }
+  ambiguousCache.set(like, found);
+  return found;
+}
+
+/** The bytes of `like.text[from, to)` as a string, to compare two stretches of the file. */
+const bytesKey = (like: Buffer, from: number, to: number): string => {
+  let key = '';
+  const start = like.offsets.at(from);
+  const end = like.offsets.at(to);
+  for (let k = start; k < end; k += 8192) key += String.fromCharCode(...like.bytes.subarray(k, Math.min(end, k + 8192)));
+  return key;
+};
+
+/**
+ * Pairs `[i, j]` of equal lines (`a[i] === b[j]`) increasing in both, by patience: trim what the two share at either
+ * end, anchor on the lines that occur once on each side (the longest increasing run of them), and do the same
+ * between the anchors. A region with no line in common once on each side, and none at its ends, pairs nothing.
+ */
+function matchLines(a: number[], b: number[], weightOf: boolean[]): Array<[number, number]> {
+  const pairs: Array<[number, number]> = [];
+  const regions: Array<[number, number, number, number]> = [[0, a.length, 0, b.length]];
+  while (regions.length > 0) {
+    let [i0, i1, j0, j1] = regions.pop()!;
+    while (i0 < i1 && j0 < j1 && a[i0] === b[j0]) pairs.push([i0++, j0++]);
+    while (i0 < i1 && j0 < j1 && a[i1 - 1] === b[j1 - 1]) pairs.push([--i1, --j1]);
+    if (i0 === i1 || j0 === j1) continue;
+    const inOld = new Map<number, number>(); // id -> index, or -1 when it occurs more than once
+    for (let i = i0; i < i1; i++) inOld.set(a[i]!, inOld.has(a[i]!) ? -1 : i);
+    const inNew = new Map<number, number>();
+    for (let j = j0; j < j1; j++) inNew.set(b[j]!, inNew.has(b[j]!) ? -1 : j);
+    // Candidates in the old order, with their new index; the longest strictly increasing run of the new index.
+    const cand: Array<[number, number]> = [];
+    for (let i = i0; i < i1; i++) {
+      const j = inNew.get(a[i]!);
+      if (j !== undefined && j !== -1 && inOld.get(a[i]!) === i) cand.push([i, j]);
+    }
+    if (cand.length === 0) continue;
+    // The run of candidates, increasing in both, that holds the most weight: a line with a U+FFFD counts for more
+    // than any number of lines without (so a short line that happens to be unique cannot displace one that matters).
+    const order = cand.map((_, k) => k).sort((x, y) => cand[x]![1] - cand[y]![1]);
+    const rank = new Array<number>(cand.length);
+    order.forEach((k, r) => (rank[k] = r + 1));
+    const tree = new Array<number>(cand.length + 1).fill(-1); // Fenwick tree of the best chain end for ranks so far
+    const best = new Array<number>(cand.length).fill(0);
+    const back = new Array<number>(cand.length).fill(-1);
+    const heavy = cand.length + 1;
+    let top = -1;
+    for (let k = 0; k < cand.length; k++) {
+      let before = -1;
+      for (let r = rank[k]! - 1; r > 0; r -= r & -r) if (tree[r]! !== -1 && (before === -1 || best[tree[r]!]! > best[before]!)) before = tree[r]!;
+      best[k] = (before === -1 ? 0 : best[before]!) + (weightOf[a[cand[k]![0]]!] ? heavy : 1);
+      back[k] = before;
+      for (let r = rank[k]!; r <= cand.length; r += r & -r) if (tree[r]! === -1 || best[tree[r]!]! < best[k]!) tree[r] = k;
+      if (top === -1 || best[k]! > best[top]!) top = k;
+    }
+    const chain: number[] = [];
+    for (let k = top; k !== -1; k = back[k]!) chain.push(k);
+    chain.reverse();
+    let pi = i0;
+    let pj = j0;
+    for (const k of chain) {
+      const [ci, cj] = cand[k]!;
+      pairs.push([ci, cj]);
+      regions.push([pi, ci, pj, cj]);
+      pi = ci + 1;
+      pj = cj + 1;
+    }
+    regions.push([pi, i1, pj, j1]);
+  }
+  return pairs.sort((x, y) => x[0] - y[0]);
+}
 
 /** Offsets at which each line of `s[from, to)` starts; a line keeps its `\n`. A CRLF is never split. */
 function lineStarts(s: string, from: number, to: number): number[] {
@@ -310,79 +443,6 @@ function widenChanges(changes: Change[], old: string, text: string, oldFloor: nu
     }
   }
   return out;
-}
-
-/**
- * Myers' O(ND) shortest edit script between two sequences: the runs of `a` and of `b` that are not common,
- * in order, as `[a0, a1)` replaced by `[b0, b1)`. `null` when they differ by more than `budget` elements.
- * Runs that are common to both stay out of every change, wherever they sit.
- */
-function diffSequences(a: ArrayLike<number>, b: ArrayLike<number>, budget: number): Array<Change> | null {
-  const n = a.length;
-  const m = b.length;
-  let lead = 0;
-  while (lead < n && lead < m && a[lead] === b[lead]) lead++;
-  let tail = 0;
-  while (tail < n - lead && tail < m - lead && a[n - 1 - tail] === b[m - 1 - tail]) tail++;
-  const aEnd = n - tail;
-  const bEnd = m - tail;
-  if (lead === aEnd && lead === bEnd) return [];
-  const width = Math.min(aEnd - lead + bEnd - lead, budget);
-  const offset = width + 1;
-  const v = new Int32Array(2 * width + 3);
-  const trace: Int32Array[] = [];
-  let found = -1;
-  for (let d = 0; d <= width && found < 0; d++) {
-    for (let k = -d; k <= d; k += 2) {
-      let x = k === -d || (k !== d && v[offset + k - 1]! < v[offset + k + 1]!) ? v[offset + k + 1]! : v[offset + k - 1]! + 1;
-      let y = x - k;
-      while (lead + x < aEnd && lead + y < bEnd && a[lead + x] === b[lead + y]) {
-        x++;
-        y++;
-      }
-      v[offset + k] = x;
-      if (lead + x >= aEnd && lead + y >= bEnd) {
-        found = d;
-        break;
-      }
-    }
-    trace.push(v.slice(offset - d, offset + d + 1));
-  }
-  if (found < 0) return null;
-  // Walk back from the end: each step is one inserted or deleted element, and the snake after it is common.
-  const common: Array<[number, number, number]> = []; // [x, y, length] relative to `lead`
-  let x = aEnd - lead;
-  let y = bEnd - lead;
-  for (let d = found; d > 0; d--) {
-    const prev = trace[d - 1]!;
-    const k = x - y;
-    const at = (kk: number): number => prev[kk + (d - 1)]!;
-    const fromAbove = k === -d || (k !== d && at(k - 1) < at(k + 1));
-    const prevK = fromAbove ? k + 1 : k - 1;
-    const prevX = at(prevK);
-    const prevY = prevX - prevK;
-    const midX = fromAbove ? prevX : prevX + 1;
-    const midY = fromAbove ? prevY + 1 : prevY;
-    if (x > midX) common.push([midX, midY, x - midX]);
-    x = prevX;
-    y = prevY;
-  }
-  if (x > 0) common.push([0, 0, x]);
-  common.reverse();
-  const changes: Change[] = [];
-  let px = 0;
-  let py = 0;
-  const close = (qx: number, qy: number): void => {
-    if (qx > px || qy > py) changes.push({ a0: lead + px, a1: lead + qx, b0: lead + py, b1: lead + qy });
-  };
-  for (const [cx, cy, length] of common) {
-    close(cx, cy);
-    px = cx + length;
-    py = cy + length;
-  }
-  close(aEnd - lead, bEnd - lead);
-  // The leading and trailing common runs trimmed above are matches too; the changes lie strictly between them.
-  return changes;
 }
 
 const isHigh = (code: number): boolean => code >= 0xd800 && code < 0xdc00;
