@@ -144,7 +144,10 @@ test('first launch without store files records only the document and config read
         // `.git` and `.git/HEAD` are the probes that tell checkouts of one repository apart (C-15).
         .filter((p) => !/\/\.git(\/HEAD)?$/.test(String(p))),
     );
-    assert.deepEqual(reads, [path, '/config', '/data/trust.json']);
+    // K-05a: after first text the launch reads config.toml's `[[kind]]` rules (a second `/config`; the
+    // pre-paint read is pinned to once before first_text below) and kinds.json, once, to decide its kind.
+    assert.deepEqual(reads.filter((p) => p !== '/data/kinds.json'), [path, '/config', '/config', '/data/trust.json']);
+    assert.equal(reads.filter((p) => p === '/data/kinds.json').length, 1);
   } finally {
     await browser.close();
   }

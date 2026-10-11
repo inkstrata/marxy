@@ -224,6 +224,32 @@ test('Mod+K and Mod+P toggle the palette; Mod+Shift+P and Mod+/ open it on comma
   }
 });
 
+test('a row shows the kind its index entry recorded (K-05a); the path decides only for an entry that records none', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    await page.evaluate(async ({ doc }) => {
+      await window.marxyPaletteBoot.start({ '/docs/readme.md': doc }, ['/docs/readme.md'], []);
+      const entry = (name, extra) => ({ path: `/docs/${name}`, root: '/docs', title: name, headings: [], mtimeMs: 1, size: 1, kind: 'markdown', ...extra });
+      window.__marxyPalette.setIndexEntries([
+        entry('session.md', { readerKind: 'transcript' }),
+        entry('plain.md'),
+      ]);
+    }, { doc: Buffer.from(HEADING_DOC).toString('base64') });
+    const mod = modChord(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.fill('#marxy-palette .marxy-palette-query', 'm');
+    const kinds = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
+      Object.fromEntries(els.map((el) => [el.dataset.rowKey, el.querySelector('svg')?.dataset.marxyKind ?? null])));
+    assert.equal(kinds['/docs/session.md:doc'], 'transcript', 'the recorded kind, not the path\'s article');
+    assert.equal(kinds['/docs/plain.md:doc'], 'article', 'no recorded kind falls back to the path');
+  } finally {
+    await browser.close();
+  }
+});
+
 test('Tab toggles documents and headings; Enter on a heading scrolls to the reading line', async () => {
   const browser = await launchWebkit();
   try {

@@ -527,8 +527,9 @@ function documentRow(
     row.setAttribute('role', 'option');
   }
   const age = decor.age(hit);
-  // The kind icon leads every document row; the path alone decides the kind (no bytes are read).
-  const kind = detectKind({ path: hit.entry.path, head: new Uint8Array() }).kind;
+  // The kind icon leads every document row: the kind the index recorded (a reader's rule included), and
+  // only for an entry that records none, the path alone (no bytes are read).
+  const kind = hit.entry.readerKind ?? detectKind({ path: hit.entry.path, head: new Uint8Array() }).kind;
   const icon = kindIconElement(doc, kind, kind === 'code' ? langOfPath(hit.entry.path) : undefined);
   if (age === undefined) {
     row.replaceChildren(icon, doc.createTextNode(labelForHit(hit)));

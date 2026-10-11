@@ -35,6 +35,16 @@ pane's document in it. Each pane is a size container, so an article's margins (`
 measured against its own pane. With one document none of this is visible: one pane fills
 `#marxy-main`, and there is no divider element and no split attribute.
 
+**The kind (K-05a; ADR-0060 items 6 to 9).** Each pane's `section.marxy-pane` carries `data-marxy-kind="<kind>"`, one of
+the fourteen, once its document is read and before its first text. It is decided once per open, in `document/open.ts`,
+by `detectFileKind` over the file's first `KIND_HEAD_BYTES`, the reader's `[[kind]]` rules (`config.toml`) and *show as*
+(`kinds.json`): *show as* beats a rule, a rule beats detection. A missing or unreadable `config.toml` or `kinds.json`
+is as if empty. A live reload, an edit and a save never decide it again; opening the file again does, and a failed open
+leaves the attribute off. The full result, with every reason that fired, is `OpenPath.detected()` (a pane's
+`content.detected()`), and `Pane.kind()` reads the attribute. No stylesheet has a rule on the attribute yet (the
+profiles are K-05b), so it changes no pixel. The palette's kind icon reads the index entry's `readerKind`, and the
+path alone only for an entry that has none.
+
 **The workspace (W-02; ADR-0058).** The window is *folded* (the skeleton above, exactly) or *unfolded*. Unfolding
 (`AppHandle.workspace().unfold()`, from `workspace/state.ts`) sets `data-marxy-workspace="unfolded"` on `<body>` and
 puts six empty `div[data-marxy-workspace-region]` into `<body>`: `sidebar`, `toolbar`, `tabs`, `strip` before
@@ -370,7 +380,8 @@ original buffer untouched. Otherwise `buffer = fromText(path, doc, like: buffer)
 `history.push` one edit covering the whole document with label "edit in Source". A `mixed`
 buffer edited in Source becomes LF with a one-time notice.
 
-Per-file-type default: `.md .markdown .mdx .txt` open Rendered; everything else Source. A
+Per-file-type default: `.md .markdown .mdx .txt`, and an extension-less `README`, `CONTRIBUTING`, `CHANGELOG`, `CHANGES` or
+`HISTORY` (K-05a, ADR-0060 item 8), open Rendered; everything else Source. A
 `theme.css` next to a `theme.toml` opens in Source with a notice offering "apply this theme".
 
 ## Open in external editor (`Mod+Shift+E`)

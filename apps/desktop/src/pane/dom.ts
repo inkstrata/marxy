@@ -3,6 +3,7 @@
 // first pane's elements keep the ids every test and script has always named (`#doc`, `#marxy-notices`,
 // `#marxy-source`); the second pane's carry a `-2`.
 
+import { KINDS, type Kind } from '@marxy/core/src/contracts/kinds.ts';
 import { ensureNoticesRegion } from '../notices/index.ts';
 
 export type Slot = 0 | 1;
@@ -32,6 +33,22 @@ export function applySlot(parts: PaneParts, slot: Slot): void {
   parts.article.id = ids.article;
   parts.notices.id = ids.notices;
   parts.source.id = ids.source;
+}
+
+/** The pane root's kind attribute (K-05a, ADR-0060): the kind its document was decided to be when it opened. */
+export const KIND_ATTRIBUTE = 'data-marxy-kind';
+
+/** Sets (or, with null, removes) the pane's kind. Nothing is styled by it until a theme or K-05b writes a rule. */
+export function setPaneKind(host: Element | null, kind: Kind | null): void {
+  if (host === null) return;
+  if (kind === null) host.removeAttribute(KIND_ATTRIBUTE);
+  else host.setAttribute(KIND_ATTRIBUTE, kind);
+}
+
+/** The kind a pane root carries, or null when it carries none (nothing open) or a name outside the set. */
+export function paneKind(host: Element | null): Kind | null {
+  const value = host?.getAttribute(KIND_ATTRIBUTE) ?? null;
+  return value !== null && (KINDS as readonly string[]).includes(value) ? (value as Kind) : null;
 }
 
 function findSlot(): HTMLElement {
