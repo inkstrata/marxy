@@ -1,0 +1,225 @@
+// The Clean group (J-03): remove, normalise and tidy. Bodies run on LF text (see types.ts).
+// Structure comes from the parser: a thematic break is a node (so a setext underline is not one), a heading
+// is a node, a code block is a span the prose transforms step around. Where an E operation already does the
+// job on a node (promote/demote, list markers), the transform calls that operation.
+import type { List, ListItem } from '../contracts/ast.ts';
+import { demoteHeading, promoteHeading } from '../operations/heading-level.ts';
+import { markerSpans, mergesWithNeighbour } from '../operations/list-markers.ts';
+import { textIndex } from '../operations/text-helpers.ts';
+import { applyEdits, atxHeadings, mapInline, mapProse, nodesOf, parseText } from './prose.ts';
+import type { TransformDef } from './types.ts';
+
+// An emoji, with its joiners and modifiers. `\p{Extended_Pictographic}` alone would take the copyright sign and
+// the trade mark, so a bare pictograph counts only when it is emoji-presentation or carries U+FE0F.
+const EMOJI =
+  /(?:\p{Regional_Indicator}{2}|[#*0-9]️?⃣|\p{Emoji_Presentation}|\p{Extended_Pictographic}️)(?:\p{Emoji_Modifier}|️|‍(?:\p{Emoji_Presentation}|\p{Extended_Pictographic}️?))*/gu;
+
+export const stripEmoji: TransformDef = {
+  id: 'strip-emoji',
+  kind: 'edit',
+  outsideCode: true,
+  idempotent: true,
+  run: (lf) => mapInline(lf, (p) => p.replace(EMOJI, '')),
+};
+
+export const stripFrontmatter: TransformDef = {
+  id: 'strip-frontmatter',
+  kind: 'edit',
+  idempotent: true,
+  run(lf) {
+    const first = nodesOf(lf, parseText(lf), ['frontmatter'])[0];
+    if (!first || first.span.start !== 0) return lf;
+    let end = first.span.end;
+    while (lf[end] === '\n') end++;
+    return lf.slice(end);
+  },
+};
+
+export const stripCitations: TransformDef = {
+  id: 'strip-citations',
+  kind: 'edit',
+  outsideCode: true,
+  idempotent: true,
+  run(lf) {
+    // Footnote definitions (and their indented continuation lines) go whole, line ending included.
+    const defs = mapProse(lf, (p) => p.replace(/^\[\^[^\]\n]+\]:.*(?:\n[ \t]+\S.*)*\n?/gm, ''));
+    // `[1]` is a marker unless it is a link's text, a reference's label or a definition; `[^note]` unless it opens a definition.
+    // A `[1]` whose label the document defines is a reference link, not a marker.
+    const labels = new Set([...lf.matchAll(/^ {0,3}\[(\d+)\]:/gm)].map((m) => m[1]));
+    return mapInline(defs, (p) =>
+      p
+        .replace(/[ \t]?\[(\d+)\](?![(:[])/g, (m, n: string) => (labels.has(n) ? m : ''))
+        .replace(/[ \t]?【[^】\n]*】/g, '')
+        .replace(/\[\^[^\]\n]+\](?!:)/g, ''),
+    );
+  },
+};
+
+export const stripBold: TransformDef = {
+  id: 'strip-bold',
+  kind: 'edit',
+  outsideCode: true,
+  run: (lf) =>
+    mapInline(lf, (p) =>
+      p.replace(/\*\*(?=\S)(.+?)(?<=\S)\*\*/g, '$1').replace(/(?<!\w)__(?=\S)(.+?)(?<=\S)__(?!\w)/g, '$1'),
+    ),
+};
+
+export const stripHr: TransformDef = {
+  id: 'strip-hr',
+  kind: 'edit',
+  outsideCode: true,
+  idempotent: true,
+  run(lf) {
+    const edits: { start: number; end: number; text: string }[] = [];
+    for (const { span } of nodesOf(lf, parseText(lf), ['thematicBreak'])) {
+      const lineStart = lf.lastIndexOf('\n', span.start - 1) + 1;
+      // A rule inside a quote or a list item has a marker before it on its line: leave it.
+      if (!/^[ \t]*$/.test(lf.slice(lineStart, span.start))) continue;
+      const end = lf[span.end] === '\n' ? span.end + 1 : span.end;
+      edits.push({ start: lineStart, end, text: '' });
+    }
+    return applyEdits(lf, edits);
+  },
+};
+
+export const collapseBlank: TransformDef = {
+  id: 'collapse-blank',
+  kind: 'edit',
+  outsideCode: true,
+  idempotent: true,
+  run: (lf) =>
+    mapProse(lf, (prose) => {
+      const lines = prose.split('\n');
+      const stripped = lines.map((line, i) => {
+        const bare = line.replace(/[ \t]+$/, '');
+        // Two spaces at the end of a line inside a paragraph are a hard break, not stray space: keep them.
+        const hardBreak = bare !== '' && / {2,}$/.test(line) && i < lines.length - 1 && lines[i + 1]!.trim() !== '';
+        return hardBreak ? line : bare;
+      });
+      return stripped.join('\n').replace(/\n{3,}/g, '\n\n');
+    }),
+};
+
+export const normalizeBullets: TransformDef = {
+  id: 'normalize-bullets',
+  kind: 'edit',
+  outsideCode: true,
+  idempotent: true,
+  run(lf) {
+    const doc = parseText(lf);
+    const index = textIndex(lf);
+    const edits: { start: number; end: number; text: string }[] = [];
+    for (const { node } of nodesOf<List>(lf, doc, ['list'])) {
+      if (node.ordered) continue;
+      // A list that would join the unordered list beside it once its marker matches is left as written.
+      if (mergesWithNeighbour(doc, node, false)) continue;
+      const spans = markerSpans(node, lf, 0);
+      if (!spans || spans.length !== node.children.length) continue;
+      for (const { marker } of spans as { item: ListItem; marker: { start: number; end: number } }[]) {
+        const at = index.toIndex(marker.start);
+        if (lf[at] === '*' || lf[at] === '+') edits.push({ start: at, end: at + 1, text: '-' });
+      }
+    }
+    return applyEdits(lf, edits);
+  },
+};
+
+export const normalizeHeadings: TransformDef = {
+  id: 'normalize-headings',
+  kind: 'edit',
+  outsideCode: true,
+  idempotent: true,
+  run(lf) {
+    const heads = atxHeadings(lf);
+    if (heads.length === 0) return lf;
+    const min = Math.min(...heads.map((h) => h.heading.level));
+    let last = 0;
+    const edits: { start: number; end: number; text: string }[] = [];
+    for (const { heading, span } of heads) {
+      const level = Math.min(heading.level - min + 1, last + 1);
+      last = level;
+      if (level !== heading.level) edits.push({ start: span.start, end: span.start + heading.level, text: '#'.repeat(level) });
+    }
+    return applyEdits(lf, edits);
+  },
+};
+
+/** Run E's promote/demote operation on each ATX heading alone (its own range), so a heading at the limit stays as it is. */
+function shiftHeadings(lf: string, op: typeof promoteHeading): string {
+  const doc = parseText(lf);
+  const index = textIndex(lf);
+  const edits: { start: number; end: number; text: string }[] = [];
+  for (const { heading, span } of atxHeadings(lf, doc)) {
+    const range = heading.src;
+    const input = { document: doc, node: heading, range };
+    if (!op.canApply(input)) continue;
+    const text = lf.slice(index.toIndex(range.start), index.toIndex(range.end));
+    const { replacement } = op.run({ ...input, text });
+    if (replacement !== text) edits.push({ start: span.start, end: span.end, text: replacement });
+  }
+  return applyEdits(lf, edits);
+}
+
+export const demote: TransformDef = { id: 'demote', kind: 'edit', outsideCode: true, run: (lf) => shiftHeadings(lf, demoteHeading) };
+export const promote: TransformDef = { id: 'promote', kind: 'edit', outsideCode: true, run: (lf) => shiftHeadings(lf, promoteHeading) };
+
+export const unwrap: TransformDef = {
+  id: 'unwrap',
+  kind: 'edit',
+  outsideCode: true,
+  idempotent: true,
+  run(lf) {
+    // Only paragraphs that sit directly in the document: a list item, a quote or a table keeps its line breaks.
+    const doc = parseText(lf);
+    const top = new Set<unknown>(doc.children);
+    const edits: { start: number; end: number; text: string }[] = [];
+    for (const { node, span } of nodesOf(lf, doc, ['paragraph'])) {
+      if (!top.has(node)) continue;
+      const text = lf.slice(span.start, span.end);
+      const body = text.replace(/\n+$/, '');
+      const lines = body.split('\n');
+      if (lines.length < 2) continue;
+      let flat = lines[0]!;
+      for (let i = 1; i < lines.length; i++) {
+        // A hard break (two spaces or a backslash at the end of the line) stays a line break.
+        const hard = / {2,}$/.test(lines[i - 1]!) || /\\$/.test(lines[i - 1]!);
+        flat = hard ? `${flat}\n${lines[i]}` : `${flat.replace(/[ \t]+$/, '')} ${lines[i]!.replace(/^[ \t]+/, '')}`;
+      }
+      if (flat !== body) edits.push({ start: span.start, end: span.start + body.length, text: flat });
+    }
+    return applyEdits(lf, edits);
+  },
+};
+
+export const smartPunct: TransformDef = {
+  id: 'smart-punct',
+  kind: 'edit',
+  outsideCode: true,
+  run: (lf) =>
+    mapInline(lf, (t) =>
+      t
+        .replace(/(^|[\s([{"])'(?=\d0s)/g, '$1’')
+        .replace(/(^|[\s([{])"/g, '$1“')
+        .replace(/"/g, '”')
+        .replace(/(^|[\s([{“])'/g, '$1‘')
+        .replace(/'/g, '’')
+        .replace(/(?<![\d-])(\d+) ?- ?(\d+)(?![\d-])/g, '$1–$2')
+        .replace(/ -- | --(?=\w)/g, '—')
+        .replace(/\.\.\./g, '…'),
+    ),
+};
+
+export const straightPunct: TransformDef = {
+  id: 'straight-punct',
+  kind: 'edit',
+  outsideCode: true,
+  idempotent: true,
+  run: (lf) =>
+    mapInline(lf, (t) => t.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/—/g, '--').replace(/–/g, '-').replace(/…/g, '...')),
+};
+
+export const CLEAN: readonly TransformDef[] = [
+  stripEmoji, stripFrontmatter, stripCitations, stripBold, stripHr, collapseBlank, normalizeBullets,
+  normalizeHeadings, demote, promote, unwrap, smartPunct, straightPunct,
+];

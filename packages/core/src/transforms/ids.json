@@ -1,0 +1,252 @@
+[
+  {
+    "id": "strip-emoji",
+    "name": "Remove emoji",
+    "group": "Clean"
+  },
+  {
+    "id": "strip-frontmatter",
+    "name": "Remove front matter",
+    "group": "Clean"
+  },
+  {
+    "id": "strip-citations",
+    "name": "Remove citation markers",
+    "group": "Clean"
+  },
+  {
+    "id": "strip-bold",
+    "name": "Remove bold",
+    "group": "Clean"
+  },
+  {
+    "id": "strip-hr",
+    "name": "Remove horizontal rules",
+    "group": "Clean"
+  },
+  {
+    "id": "collapse-blank",
+    "name": "Collapse blank lines",
+    "group": "Clean"
+  },
+  {
+    "id": "normalize-bullets",
+    "name": "Normalise list markers",
+    "group": "Clean"
+  },
+  {
+    "id": "normalize-headings",
+    "name": "Normalise heading levels",
+    "group": "Clean"
+  },
+  {
+    "id": "demote",
+    "name": "Demote headings",
+    "group": "Clean"
+  },
+  {
+    "id": "promote",
+    "name": "Promote headings",
+    "group": "Clean"
+  },
+  {
+    "id": "unwrap",
+    "name": "Unwrap hard-wrapped lines",
+    "group": "Clean"
+  },
+  {
+    "id": "wrap-80",
+    "name": "Hard-wrap at 80",
+    "group": "Clean"
+  },
+  {
+    "id": "smart-punct",
+    "name": "Smart punctuation",
+    "group": "Clean"
+  },
+  {
+    "id": "straight-punct",
+    "name": "Straight punctuation",
+    "group": "Clean"
+  },
+  {
+    "id": "to-plain",
+    "name": "Markdown → plain text",
+    "group": "Convert"
+  },
+  {
+    "id": "to-slack",
+    "name": "Markdown → Slack",
+    "group": "Convert"
+  },
+  {
+    "id": "to-jira",
+    "name": "Markdown → Jira wiki",
+    "group": "Convert"
+  },
+  {
+    "id": "to-html",
+    "name": "Markdown → HTML",
+    "group": "Convert"
+  },
+  {
+    "id": "tsv-to-table",
+    "name": "TSV / CSV → Markdown table",
+    "group": "Convert"
+  },
+  {
+    "id": "table-to-csv",
+    "name": "Markdown table → CSV",
+    "group": "Convert"
+  },
+  {
+    "id": "table-to-json",
+    "name": "Markdown table → JSON",
+    "group": "Convert"
+  },
+  {
+    "id": "json-pretty",
+    "name": "Format JSON",
+    "group": "Convert"
+  },
+  {
+    "id": "json-min",
+    "name": "Minify JSON",
+    "group": "Convert"
+  },
+  {
+    "id": "json-string",
+    "name": "Escape as JSON string",
+    "group": "Convert"
+  },
+  {
+    "id": "fence",
+    "name": "Wrap in code fence",
+    "group": "Convert"
+  },
+  {
+    "id": "quote",
+    "name": "Quote (> )",
+    "group": "Convert"
+  },
+  {
+    "id": "unquote",
+    "name": "Unquote",
+    "group": "Convert"
+  },
+  {
+    "id": "indent",
+    "name": "Indent 4 spaces",
+    "group": "Convert"
+  },
+  {
+    "id": "dedent",
+    "name": "Dedent",
+    "group": "Convert"
+  },
+  {
+    "id": "sort",
+    "name": "Sort lines",
+    "group": "Lines"
+  },
+  {
+    "id": "sort-unique",
+    "name": "Sort and de-duplicate",
+    "group": "Lines"
+  },
+  {
+    "id": "dedupe",
+    "name": "Remove duplicate lines",
+    "group": "Lines"
+  },
+  {
+    "id": "reverse",
+    "name": "Reverse lines",
+    "group": "Lines"
+  },
+  {
+    "id": "number",
+    "name": "Number lines",
+    "group": "Lines"
+  },
+  {
+    "id": "unnumber",
+    "name": "Remove list markers and numbers",
+    "group": "Lines"
+  },
+  {
+    "id": "join",
+    "name": "Join lines",
+    "group": "Lines"
+  },
+  {
+    "id": "to-bullets",
+    "name": "Lines → bullet list",
+    "group": "Lines"
+  },
+  {
+    "id": "title-headings",
+    "name": "Title Case headings",
+    "group": "Case"
+  },
+  {
+    "id": "sentence-headings",
+    "name": "Sentence case headings",
+    "group": "Case"
+  },
+  {
+    "id": "lower",
+    "name": "lowercase",
+    "group": "Case"
+  },
+  {
+    "id": "upper",
+    "name": "UPPERCASE",
+    "group": "Case"
+  },
+  {
+    "id": "slug",
+    "name": "slugify",
+    "group": "Case"
+  },
+  {
+    "id": "x-code",
+    "name": "All code blocks",
+    "group": "Extract"
+  },
+  {
+    "id": "x-commands",
+    "name": "Shell commands as a script",
+    "group": "Extract"
+  },
+  {
+    "id": "x-tasks",
+    "name": "Open tasks",
+    "group": "Extract"
+  },
+  {
+    "id": "x-links",
+    "name": "Links",
+    "group": "Extract"
+  },
+  {
+    "id": "x-paths",
+    "name": "File paths mentioned",
+    "group": "Extract"
+  },
+  {
+    "id": "x-headings",
+    "name": "Outline",
+    "group": "Extract"
+  },
+  {
+    "id": "x-tables",
+    "name": "Tables as CSV",
+    "group": "Extract"
+  },
+  {
+    "id": "x-questions",
+    "name": "Open questions",
+    "group": "Extract"
+  }
+]

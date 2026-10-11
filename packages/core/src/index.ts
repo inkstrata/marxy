@@ -20,3 +20,5 @@ export { diffLines, splitLines, utf8Length, DEFAULT_MAX_LINES } from './diff/lin
 export type { DiffOp, DiffLinesOptions } from './diff/lines.ts';
 export { unifiedDiff } from './diff/unified.ts';
 export type { UnifiedDiff, UnifiedOptions } from './diff/unified.ts';
+export { CATALOGUE, NOT_YET, TRANSFORMS, transformById, runTransform } from './transforms/registry.ts';
+export type { CatalogueEntry, Transform, TransformContext, TransformGroup, TransformKind } from './transforms/registry.ts';
