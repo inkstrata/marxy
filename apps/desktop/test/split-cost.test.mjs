@@ -31,6 +31,8 @@ const files = {
   '/r/b.md': `# B\n\n${'The second document of a pair. '.repeat(40)}\n`,
   '/r/c.md': `# C\n\n${'The third document of a pair. '.repeat(40)}\n`,
 };
+/** One frame at 60 Hz. */
+const FRAME_MS = 1000 / 60;
 const RUNS = Math.max(1, Number.parseInt(process.env.MARXY_COST_RUNS ?? '', 10) || 5);
 
 async function withPage(fn, viewport = { width: 1470, height: 900 }) {
@@ -188,10 +190,48 @@ test('two panes\' grid snap timers do not starve each other: both panes are put 
   });
 });
 
+/** The article's top-level blocks as the page holds them: tag, ranges, id, and the text length. */
+const signatureOf = (article) =>
+  [...article.children].map((el) => `${el.tagName}:${el.getAttribute('data-marxy-s')}-${el.getAttribute('data-marxy-e')}:${el.id}:${el.textContent.length}`);
+const contentComplete = (page) =>
+  page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'content_complete'), null, { timeout: 60_000 });
+
+test('a large document opened beside another is read in slices and is the page it is when opened alone (D-15)', async () => {
+  const body = toText(generateLarge(300 * 1024));
+  // The same large file, once with a footnote (the sliced render declines it and renders whole) and once without.
+  for (const [name, text] of [['plain', body], ['with a footnote', `${body}\n\nA note.[^n]\n\n[^n]: The note.\n`]]) {
+    let alone;
+    await withPage(async (page) => {
+      await bootTwoPanes(page, { files: { '/r/big.md': text }, open: ['/r/big.md'] });
+      await contentComplete(page);
+      alone = await page.evaluate(`(${signatureOf})(window.__marxyHandle.panes().panes[0].article)`);
+    });
+    await withPage(async (page) => {
+      await bootTwoPanes(page, { files: { '/r/small.md': SMALL, '/r/big.md': text }, open: ['/r/small.md'] });
+      await page.evaluate(() => window.__marxyHandle.panes().openIn('other', '/r/big.md'));
+      await contentComplete(page);
+      const beside = await page.evaluate(`(${signatureOf})(window.__marxyHandle.panes().panes[1].article)`);
+      assert.ok(alone.length > 100, `${name}: the document is long`);
+      // Read in slices when the parse can be cut (a footnote's `]:` makes it one parse), and whole as ever alone.
+      const parsedAs = await marks(page, 'parsed');
+      assert.equal(parsedAs.length, 2, `${name}: each document was parsed once`);
+      assert.equal(parsedAs[0], '', `${name}: the first pane's small document was parsed whole`);
+      if (name === 'plain') assert.match(parsedAs[1], /^slices=(\d+)$/);
+      if (name === 'plain') assert.ok(Number(/\d+/.exec(parsedAs[1])[0]) > 10, `${name}: ${parsedAs[1]}`);
+      else assert.equal(parsedAs[1], 'slices=0');
+      assert.deepEqual(beside, alone, `${name}: beside is the page alone`);
+      // The small pane's page was not touched by the large one's open.
+      const left = await page.evaluate(`(${signatureOf})(window.__marxyHandle.panes().panes[0].article)`);
+      assert.ok(left.length > 10);
+    });
+  }
+});
+
 /**
  * One measured open: a small document in the left pane, `other` opened beside it. Returns the numbers the
  * card asks for. The frame gap is the longest rAF-to-rAF interval from the command to two frames after the
- * second pane's first text, so a parse of the large file that blocked the page shows as one long frame.
+ * second pane's first text, so a parse of the large file that blocked the page shows as one long frame; `after`
+ * is the longest once the frame the split itself lands in is left out.
  */
 async function measurePair(name, text) {
   const result = {};
@@ -200,12 +240,12 @@ async function measurePair(name, text) {
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'typeset_done'));
     result.left = (await marks(page, 'typeset_viewport'))[0];
     await settle(page, 300);
-    result.gap = await page.evaluate(async () => {
+    const frames = await page.evaluate(async () => {
       let last = performance.now();
-      let max = 0;
+      const gaps = [];
       let running = true;
       const tick = (t) => {
-        max = Math.max(max, t - last);
+        gaps.push(t - last);
         last = t;
         if (running) requestAnimationFrame(tick);
       };
@@ -213,8 +253,12 @@ async function measurePair(name, text) {
       await window.__marxyHandle.panes().openIn('other', '/r/big.md');
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       running = false;
-      return max;
+      return gaps;
     });
+    // The first gap is the frame the split itself lands in (the second pane made, the first narrowed and set
+    // again), the same for a pair of 20 KB files; the rest is what the large document does to the window.
+    result.gap = Math.max(...frames);
+    result.after = Math.max(0, ...frames.slice(1));
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'typeset_viewport').length >= 2, null, { timeout: 60_000 });
     const open = (await marks(page, 'split_open'))[0] ?? '';
     const right = (await marks(page, 'typeset_viewport'))[1] ?? '';
@@ -246,11 +290,17 @@ test('records split_open, each pane\'s typeset_viewport and the longest frame fo
     const rs = runs.get(name);
     const m = (key) => median(rs.map((r) => r[key]));
     for (const [i, r] of rs.entries()) {
-      console.log(`split_cost ${name} run ${i + 1}: split_open ms=${r.splitOpen} left typeset_viewport ms=${r.leftMs} right typeset_viewport ms=${r.right} longest frame ms=${r.gap.toFixed(1)}`);
+      console.log(`split_cost ${name} run ${i + 1}: split_open ms=${r.splitOpen} left typeset_viewport ms=${r.leftMs} right typeset_viewport ms=${r.right} longest frame ms=${r.gap.toFixed(1)} longest frame after the split's own ms=${r.after.toFixed(1)}`);
     }
     console.log(
-      `split_cost ${name} median of ${RUNS}: split_open ms=${m('splitOpen').toFixed(1)} left typeset_viewport ms=${m('leftMs').toFixed(1)} right typeset_viewport ms=${m('right').toFixed(1)} longest frame ms=${m('gap').toFixed(1)}`,
+      `split_cost ${name} median of ${RUNS}: split_open ms=${m('splitOpen').toFixed(1)} left typeset_viewport ms=${m('leftMs').toFixed(1)} right typeset_viewport ms=${m('right').toFixed(1)} longest frame ms=${m('gap').toFixed(1)} longest frame after the split's own ms=${m('after').toFixed(1)}`,
     );
+    // The card's frame bound (04-phase-d.md D-15, amended 2026-10-11): the longest frame while the second pane
+    // opens within one frame, with two frames as the slow-runner allowance. The frame the split itself lands in
+    // counts (it is where an unsliced parse of the large file froze the window), so the 20 KB pair's own
+    // longest frame is printed beside it as the floor. Printed against the medians, never asserted (ADR-0032).
+    const verdict = (ms) => (ms <= FRAME_MS ? 'within one frame' : ms <= 2 * FRAME_MS ? 'within two frames' : 'over two frames');
+    console.log(`split_cost ${name} frame bound: median longest frame ${m('gap').toFixed(1)} ms against ${FRAME_MS.toFixed(1)} ms (one frame) and ${(2 * FRAME_MS).toFixed(1)} ms (two): ${verdict(m('gap'))}`);
     assert.ok(rs.every((r) => Number.isFinite(r.splitOpen) && Number.isFinite(r.right)), `${name}: every run reported split_open and the second pane's typeset_viewport`);
   }
 });

@@ -200,9 +200,9 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 /** The parse of `buffer` as `path`. Every node carries `{file, start, end}` for that path. */
-function parsed(path: string, buffer: Buffer): Pick<State, 'buffer' | 'ast' | 'nodeMap'> {
-  const ast = parseMarkdown(buffer.bytes, { file: path });
-  return { buffer, ast, nodeMap: buildNodeMap(ast) };
+function parsed(path: string, buffer: Buffer, made?: Preparsed): Pick<State, 'buffer' | 'ast' | 'nodeMap'> {
+  const ast = made?.ast ?? parseMarkdown(buffer.bytes, { file: path });
+  return { buffer, ast, nodeMap: made?.nodeMap ?? buildNodeMap(ast) };
 }
 
 /** `buffer` answering to `path`: same bytes and tables, a new name. */
@@ -230,6 +230,12 @@ function freezeSnapshot(state: State): DocumentSnapshot {
   });
 }
 
+/** A parse of a document's bytes and its node map, made by a caller that built them in slices (D-15). */
+export interface Preparsed {
+  readonly ast: Document;
+  readonly nodeMap: NodeMap;
+}
+
 /**
  * The `open` transition for a scratch document (E-13): a store for `bytes` that came from no file, under a
  * scratch `path` (`untitled.ts`). `disk` is what the document was born with, so `dirty` reads "changed since
@@ -241,13 +247,17 @@ export function openUntitledStore(io: StoreIo, path: string, bytes: Uint8Array):
   return openDocumentStore(io, path, bytes);
 }
 
-/** The `open` transition: a store for `bytes` read from `path`, with an empty history. */
-export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array): DocumentStore {
+/**
+ * The `open` transition: a store for `bytes` read from `path`, with an empty history. `preparsed` is the
+ * parse of exactly these bytes as `path` when the caller made it in slices (`parseMarkdownChunked`, D-15);
+ * without it the store parses them here, all at once.
+ */
+export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array, preparsed?: Preparsed): DocumentStore {
   const buffer = createBuffer(path, bytes);
   let state: State = {
     path,
     disk: buffer.bytes,
-    ...parsed(path, buffer),
+    ...parsed(path, buffer, preparsed),
     past: [],
     future: [],
     version: 0,

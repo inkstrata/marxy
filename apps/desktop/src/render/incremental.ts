@@ -28,11 +28,14 @@
 // sanitiser still runs over every block that is rendered: they go through `renderDocumentSafeHtml`,
 // the one pipeline there is (ADR-0009).
 
-import type { Block, Document, Node as AstNode } from '@marxy/core';
+import type { Block, Document } from '@marxy/core';
 import { headingIdsForDocument } from '@marxy/core/src/render/heading-ids.ts';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
-import { FOREIGN_ROOTS, RAW_TEXT_ELEMENTS, VOID_ELEMENTS, type Policy } from '@marxy/core/src/sanitize/policy.ts';
+import { rawTagsBalanced } from '@marxy/core/src/render/raw-tags.ts';
+import type { Policy } from '@marxy/core/src/sanitize/policy.ts';
+
+export { rawTagsBalanced };
 
 /** What a render is known by: enough to splice the next one into it. One per page set from a whole render. */
 export interface RenderRecord {
@@ -131,39 +134,6 @@ export function sameMoved(a: unknown, b: unknown, delta: number): boolean {
       if (r.file !== s.file || s.start !== r.start + delta || s.end !== r.end + delta) return false;
     } else if (!sameMoved(x[key], y[key], delta)) return false;
   }
-  return true;
-}
-
-/**
- * True when the raw tags among a block's inline nodes are properly nested within it, so the sanitiser's
- * stack of open elements is where it was when the block started, once the block is done. A tag the
- * sanitiser would take with its contents to a later end tag (`script`, `style`, `svg`, …) does not count.
- */
-export function rawTagsBalanced(block: AstNode): boolean {
-  const open: string[] = [];
-  let ok = true;
-  const walk = (node: AstNode): void => {
-    if (!ok) return;
-    if (node.type === 'html') {
-      ok = tagKeepsStack(node.value, open);
-      return;
-    }
-    for (const child of node.children ?? []) walk(child);
-  };
-  walk(block);
-  return ok && open.length === 0;
-}
-
-const TAG = /^<(\/?)([A-Za-z][A-Za-z0-9-]*)(?:\s[^>]*)?\/?>$/s;
-
-function tagKeepsStack(value: string, open: string[]): boolean {
-  if (value.startsWith('<!') || value.startsWith('<?')) return true; // a comment or a declaration: removed, no element
-  const m = TAG.exec(value);
-  if (m === null) return false;
-  const name = m[2]!.toLowerCase();
-  if (RAW_TEXT_ELEMENTS.has(name) || FOREIGN_ROOTS.has(name)) return false;
-  if (m[1] === '/') return open.pop() === name;
-  if (!VOID_ELEMENTS.has(name)) open.push(name);
   return true;
 }
 

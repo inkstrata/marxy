@@ -6,7 +6,7 @@
 
 import { byteToUtf16, contentHash, utf16ToByte, type Buffer, type Document } from '@marxy/core';
 import { offsetThroughEdit } from '@marxy/core/src/position/restore.ts';
-import { blockedImagesFrom, renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
+import { blockedImagesFrom, renderDocumentSafeHtml, renderDocumentSafeHtmlInSlices } from '@marxy/core/src/render/index.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { AppShell } from '../app.ts';
@@ -19,7 +19,8 @@ import type { ScrollerGeometry } from '../position/position.ts';
 import { renderRecord, spliceRendered, type RenderRecord } from '../render/incremental.ts';
 import { resolveImageRoot, stripNonLocalImages } from '../render/images.ts';
 import { buildBlocks, nodeFor, type BlockList, type NodeMap } from '../render/post.ts';
-import { mountProgressively, type ProgressiveMount } from '../render/progressive.ts';
+import { DEFAULT_THRESHOLD, mountProgressively, parseInertInSlices, type ProgressiveMount } from '../render/progressive.ts';
+import { yieldToEventLoop } from '../startup/yield.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
 import { notify, paneOf, SOURCE_HELD_APART } from '../notices/index.ts';
@@ -132,9 +133,11 @@ export interface RenderedView {
    * Shows `store` in the article: subscribes to it, renders its snapshot through the one mount (the
    * first screens from `at` down now, the rest in idle chunks once `start` settles), sets the grid and
    * lands on `at`. Whatever was shown before is cleared first. `onMounted` runs once the first screens
-   * are in and the selection has been told, before the `rendered` mark.
+   * are in and the selection has been told, before the `rendered` mark. `sliced` (D-15) renders and parses a
+   * large document a few milliseconds at a time with the event loop given back between slices, for a pane
+   * opening beside another: the page it makes is the same, and first text comes a little later.
    */
-  show(store: DocumentStore, opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void }): Promise<RenderEvidence>;
+  show(store: DocumentStore, opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void; sliced?: boolean }): Promise<RenderEvidence>;
   /** The store shown, or null. */
   store(): DocumentStore | null;
   /** The page again from the shown store's snapshot (a trust change); `at` lands the mount and, given a fraction, is restored. */
@@ -1455,7 +1458,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * threshold, else the first screens (from `landing` down, when given) now and the rest in idle chunks
    * once `start` settles. Replaces, and cancels, the mount of whatever was shown before.
    */
-  function mountDocument(html: string, file: string, landing?: number, start?: Promise<unknown>): ProgressiveMount {
+  function mountDocument(html: string, file: string, landing?: number, start?: Promise<unknown>, parsed?: HTMLElement): ProgressiveMount {
     mount?.cancel();
     cancelScheduledSnap();
     // The repository root the images and links resolve against (F-14): asked once, never waited on.
@@ -1465,6 +1468,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const current: ProgressiveMount = mountProgressively(doc, html, {
       landing,
       start,
+      parsed,
       prepare: (parsed) => stripNonLocalImages(parsed, file),
       onChunk: (added) => {
         if (mount !== current) return;
@@ -1519,23 +1523,36 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   /** The render half of an open (MARXY-183): the store's snapshot into the article through the `render` mark. */
   async function show(
     next: DocumentStore,
-    opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void },
+    opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void; sliced?: boolean },
   ): Promise<RenderEvidence> {
     if (store !== null) clear();
     pageStale = false;
     store = next;
     follow(next);
     const { path: file, ast, nodeMap, buffer } = next.snapshot();
-    const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
+    const policy = trust.policyFor(file);
+    // A large document beside another pane: rendered, then parsed into the inert body, in slices. A document
+    // the sliced render declines (a footnote, raw HTML left open) is rendered whole, as ever.
+    const slices = opts?.sliced === true ? await renderDocumentSafeHtmlInSlices(ast, { policy, yieldNow: yieldToEventLoop }) : null;
+    if (store !== next) throw new Error('the document was replaced while it was rendered');
+    const { html, removed, blockedImages } = slices ?? renderDocumentSafeHtml(ast, policy);
+    const inert =
+      slices !== null && html.length >= DEFAULT_THRESHOLD
+        ? await parseInertInSlices(slices.pieces, (holder) => stripNonLocalImages(holder, file), yieldToEventLoop)
+        : undefined;
+    if (store !== next) throw new Error('the document was replaced while it was parsed');
     console.info(`marxy: sanitiser removed ${removed.length}`);
     shown = { ast, html, nodeMap, blocks: [], render: renderRecord(ast, removed, trust.grantsFor(file).html) };
     // Only the first screens go in now (A-02); images are checked before any block reaches the page.
-    mountDocument(html, file, opts?.at, opts?.start);
+    // A pane opening beside another gives the frame back between the stages that each take most of one.
+    if (opts?.sliced) await yieldToEventLoop();
+    mountDocument(html, file, opts?.at, opts?.start, inert);
     afterRender();
     opts?.onMounted?.();
     await shell.mark('rendered', Date.now());
     await shell.mark('first_screen', Date.now(), `blocks=${doc.childElementCount} bytes=${mountedBytes(doc)}`);
     trust.showNotices(removed, blockedImages, { path: file, buffer, pane: paneOf(doc) });
+    if (opts?.sliced) await yieldToEventLoop();
     void doc.offsetHeight;
     await document.fonts.ready;
     // No face list here (A-02): reading `document.fonts` made WebKit restyle the whole article as soon
@@ -1543,6 +1560,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // happens at the next style read, but now while the article holds only the first screens.
     await shell.mark('fonts_ready', Date.now());
     // The grid pass also builds the block list the reading position is read from.
+    if (opts?.sliced) await yieldToEventLoop();
     keepOnGrid(doc);
     landOn(opts?.at);
     const evidence = deps.measure.renderEvidence(doc);

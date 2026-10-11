@@ -3,7 +3,8 @@
 // `boot`, a launch's first open (or its frontispiece). The open store is a field of the object
 // `createOpenPath` returns, never module state, so a second app instance in one page starts clean
 // (ADR-0037). Every edit, save and fold of the open document goes through its store here.
-import type { Buffer } from '@marxy/core';
+import { lastChunkedParse, parseMarkdownChunked, type Buffer } from '@marxy/core';
+import { buildNodeMapInSlices } from '../render/post.ts';
 import { dirname } from '@marxy/core/src/index-model/paths.ts';
 import type { AppShell, OpenDocumentState } from '../app.ts';
 import { confirmLeaveDocument } from '../close.ts';
@@ -17,6 +18,7 @@ import { save, type SaveDeps, type SaveResult } from '../save.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { defaultModeForPath } from '../source/default-mode.ts';
 import { whenIdle } from '../startup/idle-work.ts';
+import { yieldToEventLoop } from '../startup/yield.ts';
 import { t0, type LaunchMeasure, type RenderEvidence } from '../startup/measure.ts';
 import type { AppConfig } from '../theme/app-config.ts';
 import { applyWeightOffset, platformOf } from '../theme/offset.ts';
@@ -27,7 +29,7 @@ import type { TrustController } from '../trust/controller.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
 import type { DocumentWatch } from './live-reload.ts';
 import type { StoreRegistry } from './registry.ts';
-import { openDocumentStore, openUntitledStore, type DocumentSnapshot, type DocumentStore } from './store.ts';
+import { openDocumentStore, openUntitledStore, type DocumentSnapshot, type DocumentStore, type Preparsed } from './store.ts';
 import { documentName, isUntitled } from './untitled.ts';
 
 /**
@@ -77,6 +79,12 @@ export interface OpenPathDeps {
    * lets its store go and shows `store`, so the path has one store and one watch.
    */
   rejoin?(store: DocumentStore): Promise<void>;
+  /**
+   * True while another pane is on screen (D-15): a large document is then read in slices with the event loop
+   * given back between them, so the other pane keeps painting and scrolling. Unset, or false for a window's
+   * only pane, which has nothing else to keep alive and reads at once, the fastest road to first text.
+   */
+  sliced?(): boolean;
   /** This open path's document titles the window (the focused pane's, D-01); unset, it always does. */
   ownsTitle?(): boolean;
 }
@@ -132,6 +140,9 @@ function byteChange(bytes: Uint8Array, next: Uint8Array): { start: number; end: 
   return { start: prefix, end: bytes.length - suffix, replacement: next.subarray(prefix, next.length - suffix) };
 }
 
+/** A document of at least this many bytes is read in slices while another pane is on screen (D-15); below it the work is a frame or less. */
+const SLICED_BYTES = 64 * 1024;
+
 /** Released once: a promise for a mount's `start`, and the call that settles it. */
 function gate(): { readonly promise: Promise<void>; release(): void } {
   let release!: () => void;
@@ -155,6 +166,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   const followers = new Set<(next: DocumentStore) => void>();
   /** The byte the open in progress lands on (an `at`, or the stored place), read before anything re-notes it. */
   let landing: number | undefined;
+  /** The open in progress was read in slices (D-15): its later stages give the frame back too. */
+  let openedInSlices = false;
   /** The launch document's walk, so `ready` (and a harness quit) follows its `index_loaded` mark. */
   let indexing: Promise<void> = Promise.resolve();
 
@@ -309,6 +322,18 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       if (stored) lands = stored.byteOffset;
     }
     landing = lands;
+    // Another pane on screen: a large document is parsed in slices, before this pane's page is touched.
+    const slices = deps.sliced?.() === true && bytes.length >= SLICED_BYTES;
+    openedInSlices = slices;
+    let preparsed: Preparsed | undefined;
+    let cut = 0;
+    if (slices && !(deps.stores?.held(file) ?? null)) {
+      const ast = await parseMarkdownChunked(bytes, { file, yieldNow: yieldToEventLoop });
+      const stats = lastChunkedParse();
+      cut = stats.kind === 'slices' ? stats.slices : 0;
+      preparsed = { ast, nodeMap: await buildNodeMapInSlices(ast, yieldToEventLoop) };
+      if (closed) throw new Error('closed while the document was read');
+    }
     teardownDocument();
     scratchLabel = untitled ? scratch?.label : undefined;
     clearDismissForPath(file);
@@ -324,18 +349,20 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         peekFile: shell.peekFile ? (path: string) => shell.peekFile!(path) : undefined,
         exists: async (path: string) => (await shell.stat(path)) !== null,
       };
-      return untitled ? openUntitledStore(io, file, bytes) : openDocumentStore(io, file, bytes);
+      return untitled ? openUntitledStore(io, file, bytes) : openDocumentStore(io, file, bytes, preparsed);
     };
     const opened = deps.stores ? deps.stores.acquire(file, make) : make();
     current = opened;
+    if (slices) await yieldToEventLoop();
     // One parse for a file however many panes show it: a pane that shares the store makes none (D-10).
-    if (parsedHere) await shell.mark('parsed', Date.now());
+    if (parsedHere) await shell.mark('parsed', Date.now(), preparsed ? `slices=${cut}` : undefined);
     // A different document starts with no notices in this pane; another pane's are its own (D-10).
     clearNotices(paneOf(doc));
     // The view renders from the store's snapshot and follows it from here on (B-13).
     const evidence = await view.show(opened, {
       at: lands,
       start,
+      sliced: slices,
       onMounted: () => {
         for (const follow of [...followers]) follow(opened);
       },
@@ -349,8 +376,9 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
    * positions.json is read only now, after first text), deferred start-up and the user theme at idle,
    * the mode, the watch and the title.
    */
-  async function finishDocumentOpen(file: string, opts: { at?: number; firstOpen?: boolean } = {}): Promise<void> {
+  async function finishDocumentOpen(file: string, opts: { at?: number; firstOpen?: boolean; sliced?: boolean } = {}): Promise<void> {
     if (opts.firstOpen) await persistence.ensureLoaded(dirname(file));
+    if (opts.sliced) await yieldToEventLoop();
     await view.typeset();
     if (opts.firstOpen) await restorePersistedPosition();
     const deferred = view.deferredWork(file);
@@ -395,7 +423,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       await readAndShow(file, at, chunks.promise, scratch);
       chunks.release();
       if (!isUntitled(file)) persistence.trackOpen(file, () => index.rootFor(file));
-      await finishDocumentOpen(file, { at });
+      await finishDocumentOpen(file, { at, sliced: openedInSlices });
     } catch (e) {
       chunks.release();
       // Nothing of the last document may outlive the page that showed it.
