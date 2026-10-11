@@ -311,3 +311,61 @@ test('in Source, the selected text is copied and not the line; with no selection
     await page.close();
   }
 });
+
+const noMenuAfter = async (page, press) => {
+  await press();
+  await page.waitForTimeout(400);
+  assert.equal(await page.locator(MENU).count(), 0, 'no Copy as menu');
+};
+
+test('⇧⌘C leaves the find field alone, in Rendered and in Source, and works again once focus is back in the page', async () => {
+  const chord = async (page) => page.keyboard.press(`${await mod(page)}+Shift+KeyC`);
+  const { page } = await boot('09-gfm-everything.md');
+  try {
+    await page.keyboard.press(`${await mod(page)}+f`);
+    await page.waitForSelector('.marxy-find-input');
+    assert.equal(await page.evaluate(() => document.activeElement?.classList.contains('marxy-find-input')), true);
+    await noMenuAfter(page, () => chord(page));
+    await page.keyboard.press('Escape');
+    await page.mouse.move(400, 300);
+    await openMenu(page);
+    await page.keyboard.press('Escape');
+  } finally {
+    await page.close();
+  }
+  const source = await boot('04-source.rs');
+  try {
+    const p = source.page;
+    await p.waitForSelector('#marxy-source .cm-editor');
+    await p.locator('#marxy-source .cm-content').click();
+    await p.keyboard.press(`${await mod(p)}+f`);
+    await p.waitForSelector('.cm-panels input');
+    assert.equal(await p.evaluate(() => document.activeElement?.closest('.cm-panels') !== null), true);
+    await noMenuAfter(p, () => chord(p));
+    await p.keyboard.press('Escape');
+    await p.locator('#marxy-source .cm-content').click();
+    await p.mouse.move(400, 300);
+    await openMenu(p);
+    assert.equal(await p.locator(MENU).count(), 1, 'in the editor itself it still opens');
+  } finally {
+    await source.page.close();
+  }
+});
+
+test('⇧⌘C leaves the open palette alone, and Copy as… from the palette still opens the menu', async () => {
+  const { page } = await boot('09-gfm-everything.md');
+  try {
+    await page.keyboard.press(`${await mod(page)}+p`);
+    await page.waitForFunction(() => document.getElementById('marxy-palette')?.open === true);
+    await noMenuAfter(page, async () => page.keyboard.press(`${await mod(page)}+Shift+KeyC`));
+    assert.equal(await page.evaluate(() => document.getElementById('marxy-palette')?.open), true, 'the palette is still open');
+    await page.keyboard.type('>Copy as');
+    await page.waitForFunction(() => /Copy as…\s*⇧⌘C/.test(document.getElementById('marxy-palette').innerText));
+    // The rows are ranked; arrow down to the one named Copy as… (the targets sort before it).
+    for (let i = 0; i < 12 && !(await page.evaluate(() => /Copy as…/.test(document.querySelector('#marxy-palette [aria-selected="true"]')?.textContent ?? ''))); i++) await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector(MENU);
+  } finally {
+    await page.close();
+  }
+});

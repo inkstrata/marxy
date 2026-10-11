@@ -23,6 +23,7 @@ import { ancestorsOf } from '../selection/verbs.ts';
 import { openVerbMenu, type MenuAnchor, type VerbMenuRow } from '../selection/verb-menu.ts';
 import { appHandle } from './app-handle.ts';
 import { writeCopy } from './copy-write.ts';
+import { inFindField, paletteIsOpen } from './paste.ts';
 import type { AppContext, Command } from './registry.ts';
 
 /** Where the pointer last was, in viewport coordinates: one object written per event, nothing else (bind.ts feeds it). */
@@ -160,8 +161,12 @@ export function copyAsCommands(): readonly Command[] {
       key: 'Mod+Shift+C',
       global: true,
       group: 'selection',
-      when: (ctx) => ctx.document !== null || inSourceMode(),
+      // `global` so it runs from Source's editor; the find field and the open palette keep their keys, as `Mod+V`
+      // leaves them (J-05). The palette lists commands while its field has focus, so it is refused in `run`: from
+      // a key the palette is still open, from the palette it closed first.
+      when: (ctx) => (ctx.document !== null || inSourceMode()) && !inFindField(),
       async run(ctx) {
+        if (paletteIsOpen()) return;
         if (!inSourceMode()) await selectUnderPointer();
         const rows = copyAsRows(await configuredFormat(ctx));
         const at: MenuAnchor = pointer ? { x: pointer.x, y: pointer.y } : await fallbackAnchor();

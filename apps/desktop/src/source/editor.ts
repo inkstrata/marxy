@@ -142,6 +142,7 @@ export async function baseExtensions(
   );
   const { searchKeymap } = await import('@codemirror/search');
   const { withoutRegistryChords } = await import('./structure.ts');
+  const { pasteExtension } = await import('./paste.ts');
 
   const { lineSeparator } = editorDocConfig(buffer);
   const tabSize = await tabSizeForFile(buffer.path);
@@ -154,6 +155,8 @@ export async function baseExtensions(
     history(),
     // Several selections: next and all occurrences (V-01) add ranges, which a single-selection state drops.
     EditorState.allowMultipleSelections.of(true),
+    // Paste with HTML on the pasteboard becomes Markdown (J-05); any other paste is the editor's own.
+    pasteExtension(),
     drawSelection(),
     highlightActiveLine(),
     highlightSpecialChars(),
