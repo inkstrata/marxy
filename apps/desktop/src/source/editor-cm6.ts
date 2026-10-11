@@ -1,11 +1,12 @@
 // CodeMirror EditorView construction (dynamic import target).
 
-import type { Buffer } from '@marxy/core';
+import { encodeSourceText, type Buffer } from '@marxy/core';
 import { Compartment, EditorState, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { baseExtensions, editorDocConfig, toggleLineNumbersInView, type SourceEditor, type SourceEditorOptions } from './editor.ts';
 import { resolveLineNumbers } from './line-numbers.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
+import { readBack } from './stray-bytes.ts';
 
 export async function createSourceEditor(
   opts: SourceEditorOptions,
@@ -58,7 +59,17 @@ export async function createSourceEditor(
         });
         return;
       }
-      view.dispatch({ changes: differingPart(textNow(), nextDoc, view.state.lineBreak), annotations: Transaction.addToHistory.of(false) });
+      const part = differingPart(textNow(), nextDoc, view.state.lineBreak);
+      if (namesSameBytes(view.state.sliceDoc(part.from, part.to), part.insert)) {
+        // The editor's own fold, read back as the file now decodes (two stray bytes made neighbours spell a character):
+        // the text named these bytes already. It is a step of the history, joined to the reader's last edit, so that
+        // undoing that edit puts back the text the reader had and not the text the mapping through this change would
+        // make of it (a line break between the two bytes would land beside the character). Time 0 passes the history's
+        // group delay, which this change has no business with.
+        view.dispatch({ changes: part, annotations: [readBack.of(true), Transaction.time.of(0)] });
+        return;
+      }
+      view.dispatch({ changes: part, annotations: Transaction.addToHistory.of(false) });
     },
     scrollToByte(byteOffset: number) {
       scrollSourceToByte(buffer, view, byteOffset, readingLine());
@@ -70,6 +81,13 @@ export async function createSourceEditor(
       toggleLineNumbersInView(view, on, compartments.lineNumbersCompartment);
     },
   };
+}
+
+/** Whether two pieces of the editor's text name the same bytes (they differ only in how the file decodes them). */
+function namesSameBytes(a: string, b: string): boolean {
+  const x = encodeSourceText(a);
+  const y = encodeSourceText(b);
+  return x.length === y.length && x.every((byte, i) => byte === y[i]);
 }
 
 /**

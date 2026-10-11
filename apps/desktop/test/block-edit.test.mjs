@@ -668,3 +668,76 @@ test('closing the window over an editor with nothing typed in it closes at once'
     assert.deepEqual(await closeNotice(page), []);
   });
 });
+
+// F-34.2: the block's text is Source's (a byte that is not UTF-8 is a code unit of its own, shown as a marked byte), so a
+// block edit beside a stray byte, or either side of one, keeps the byte.
+const STRAY_FILE = Buffer.concat([
+  Buffer.from('# Title\n\nalpha '),
+  Buffer.from([0xff]),
+  Buffer.from(' omega\n\nsecond '),
+  Buffer.from([0xe9]),
+  Buffer.from(' para\n'),
+]);
+const withStray = (...parts) => Buffer.concat(parts.map((p) => (typeof p === 'string' ? Buffer.from(p) : Buffer.from(p))));
+
+/** The paragraph block of `bytes` as the editor resolves it: its node start and edit range. */
+function strayBlock(bytes, at = 0) {
+  const ast = parseMarkdown(bytes, { file: 'x' });
+  const node = ast.children.filter((c) => c.type === 'paragraph')[at];
+  return { node, range: blockEditRange(ast, node) };
+}
+
+test('a block edit beside a stray byte, and either side of one, keeps the byte; the marker shows; Esc keeps the edit; one Mod+Z is exact (F-34.2)', async () => {
+  const first = strayBlock(STRAY_FILE);
+  await withPage({ '/c/stray.md': STRAY_FILE }, ['/c/stray.md'], async (page, mod) => {
+    const original = await bytesOf(page);
+    assert.deepEqual(original, [...STRAY_FILE]);
+    await selectBlock(page, first.node.src.start);
+    await page.keyboard.press(`${mod}+Enter`);
+    await page.waitForSelector('.marxy-block-editor .cm-content');
+    // The byte is marked with its value, and no lone surrogate (the editor's code unit for it) is on the page.
+    assert.deepEqual(await page.locator('.marxy-block-editor .marxy-stray-byte').allTextContents(), ['FF']);
+    assert.equal(await page.evaluate(() => /[\uD800-\uDFFF]/u.test(document.body.innerText)), false, 'no lone surrogate in the page');
+    // Two edits, one either side of the byte: the start of the block, then its end.
+    await page.keyboard.press(mod === 'Meta' ? 'Meta+ArrowUp' : 'Control+Home');
+    await page.keyboard.type('A ');
+    await toEnd(page, mod);
+    await page.keyboard.type(' Z');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.querySelector('.marxy-block-editor') === null);
+    const edited = await bytesOf(page);
+    assert.deepEqual(edited, [...withStray('# Title\n\nA alpha ', [0xff], ' omega Z\n\nsecond ', [0xe9], ' para\n')]);
+    assert.equal(await page.evaluate(() => /[\uD800-\uDFFF]/u.test(document.body.innerText)), false, 'nor after the fold');
+    // One step in the document: one Mod+Z puts back every byte.
+    await page.keyboard.press(`${mod}+z`);
+    await page.waitForFunction(() => !window.__marxyHandle.document().snapshot().canUndo);
+    assert.deepEqual(await bytesOf(page), original);
+    assert.equal((await stateOf(page)).dirty, false);
+    await page.keyboard.press(`${mod}+Shift+z`);
+    await page.waitForFunction(() => !window.__marxyHandle.document().snapshot().canRedo);
+    assert.deepEqual(await bytesOf(page), edited);
+  });
+});
+
+test('a block with a stray byte that is opened and left with nothing typed, or edited beside another block\'s stray, changes no other byte (F-34.2)', async () => {
+  const second = strayBlock(STRAY_FILE, 1);
+  await withPage({ '/c/stray.md': STRAY_FILE }, ['/c/stray.md'], async (page, mod) => {
+    await selectBlock(page, strayBlock(STRAY_FILE).node.src.start);
+    await page.keyboard.press(`${mod}+Enter`);
+    await page.waitForSelector('.marxy-block-editor .cm-content');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.querySelector('.marxy-block-editor') === null);
+    assert.equal((await stateOf(page)).dirty, false, 'nothing typed: nothing changed');
+    assert.deepEqual(await bytesOf(page), [...STRAY_FILE]);
+    // The second paragraph: edit its start; the first paragraph's FF and its own E9 keep their bytes.
+    await selectBlock(page, second.node.src.start);
+    await page.keyboard.press(`${mod}+Enter`);
+    await page.waitForSelector('.marxy-block-editor .cm-content');
+    assert.deepEqual(await page.locator('.marxy-block-editor .marxy-stray-byte').allTextContents(), ['E9']);
+    await page.keyboard.press(mod === 'Meta' ? 'Meta+ArrowUp' : 'Control+Home');
+    await page.keyboard.type('> ');
+    await page.keyboard.press(`${mod}+Enter`);
+    await page.waitForFunction(() => document.querySelector('.marxy-block-editor') === null);
+    assert.deepEqual(await bytesOf(page), [...withStray('# Title\n\nalpha ', [0xff], ' omega\n\n> second ', [0xe9], ' para\n')]);
+  });
+});

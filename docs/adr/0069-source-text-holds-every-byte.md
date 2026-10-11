@@ -1,10 +1,11 @@
 # ADR-0069 — The Source text holds every byte: a byte that is not UTF-8 is its own code unit
 
-- **Status:** proposed (F-34.1)
+- **Status:** proposed (F-34.1; amended by F-34.2)
 - **Date:** 2026-10-11
 - **Reads:** commitment 3 (faithful to the bytes) and commitment 4 (nothing hidden silently) in `AGENTS.md` and
   ADR-0052; ADR-0003 (one buffer); ADR-0005 (Source mode).
-- **Evidence:** F-33's walk finding (#570); the three returned attempts at F-34 (#576, closed) and their reviews.
+- **Evidence:** F-33's walk finding (#570); the three returned attempts at F-34 (#576, closed) and their reviews; the two
+  reviews of F-34.1 (#584), whose open items F-34.2 closes.
 
 ## Context
 
@@ -30,7 +31,10 @@ equality was not byte equality, and no diff over that text can make it so.
    whose text holds a stray byte writes, beside `text/plain` (the readable text), a type of the editor's own,
    `application/x-marxy-source-text`, holding the exact text as JSON (a lone surrogate as its `\udcff` escape). A paste
    or drop restores the exact text only when the item it reads carries that type and the type's text reads as the
-   item's `text/plain`. Another program's copy replaces the whole item, so it can never be taken for ours, and a drag
+   item's `text/plain`. The type may name stray bytes and nothing else: a lone surrogate outside U+DC80 to U+DCFF in it
+   (a lone high surrogate would join a stray byte already in the text and make a valid pair: a forged `"\ud800"`
+   pasted before a stray `FF` wrote `F0 90 83 BF`) makes the whole item be read as its `text/plain` (F-34.2).
+   Another program's copy replaces the whole item, so it can never be taken for ours, and a drag
    writes its own item, not the clipboard. WebKit hands a page's own types back only to the same origin. Every other
    paste (another program's, Paste and Match Style, an HTML paste read through the shell) gets U+FFFD for any lone
    surrogate, so it never names a stray byte. The type is not a Copy as target and nothing outside the editor reads
@@ -62,15 +66,23 @@ equality was not byte equality, and no diff over that text can make it so.
 
 - Commitment 3 holds for Source with any bytes: a reader's edit changes exactly the bytes they changed.
 - Two stray bytes made neighbours by an edit can spell a character (`C3` and `A9` are `é`). The file then holds those
-  two bytes, which is what the text named; read back, it shows `é`. The editor takes the new text as a reload does,
-  replacing only the part that differs, so the caret and the undo history map through it (an undo of the join itself
-  puts the line break back beside `é`, not between the two bytes; the store's undo in Rendered is byte-exact).
+  two bytes, which is what the text named; read back after a save, it shows `é`. The editor takes the read-back by
+  replacing only the part that differs, so the caret maps through it, and the replacement is a step of the editor's
+  history, joined to the reader's last edit (F-34.2). Undoing that edit puts back the text the reader had, so each Mod+Z
+  after a save is byte-exact (a replacement outside the history was mapped over by the undo of the line break between
+  the two bytes, and put it beside `é`: the second Mod+Z was not exact). Two edges, both visible and neither changing a
+  byte: when the caret moved after the typing, the history cannot join and the read-back is a step of its own, so the
+  first Mod+Z after the save shows the two bytes boxed again and the next takes the typing back; and a read-back
+  is a new step, so a redo that was pending is gone. A change from outside (a reload from disk) is not the editor's
+  fold and is still taken outside the history. The store's undo in Rendered is byte-exact throughout.
 - Searching Source for U+FFFD does not find a stray byte (it is a different character there); the marker shows it.
 - A line copied with no selection (CodeMirror's line-wise copy) that holds a stray byte pastes back as text at the
   caret, not as a whole line, because CodeMirror compares the pasted text with the filtered copy.
-- The block editor in Rendered (ADR-0048) still folds through the reading text (`foldSlice`); two edits around a
-  stray byte inside one block there are not yet exact. It never restores a stray byte from a paste (its text could not
-  write it back). A follow-up story applies the same decoding to it.
+- The block editor in Rendered (ADR-0048) holds the Source text of its block (`sourceTextOfRange`), folds it through
+  `foldSlice` over that text, and applies the bytes (`store.apply` takes bytes as well as text), so a stray byte the reader
+  did not edit keeps its bytes, however many edits are made around it, and the editor marks it like Source (F-34.2).
+  Its copy, cut and paste carry the private type as Source's do. The block's text is read for the page (the notice that
+  names a kept block) through `readableText`.
 - The Source table tools work on a table that holds a stray byte: they run on a copy with each such code unit stood in
   for by a private-use character the text does not hold, and what they write is mapped back.
 - Opening Source on a file that is almost all stray bytes costs the Source decode once (about 0.4 s for 1 MB of `FF`);

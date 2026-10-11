@@ -1,6 +1,6 @@
 // Browser test entry for Source mode (Playwright only; not shipped in index.html).
 
-import { createBuffer } from '@marxy/core';
+import { createBuffer, encodeSourceText } from '@marxy/core';
 import { createSourceEditor } from './editor.ts';
 import { leaveSourceMode } from './buffer-commit.ts';
 import { scrollSourceToByte, sourceReadingPosition } from './mode-switch.ts';
@@ -200,6 +200,21 @@ async function strayClipboard(bytesB64: string, path: string) {
     // The next mount must build a new editor in #host, not reuse this one.
     editor.destroy();
   }
+  // The second review of #584: a forged item whose readable text is one U+FFFD and whose type holds a lone surrogate
+  // that is no stray byte's, pasted just before a stray byte. A lone high surrogate fused with it into a valid pair.
+  for (const [name, forged] of [['forgedHigh', '"\\ud800"'], ['forgedLow', '"\\udc00"'], ['forgedMixed', '"\\udce9\\ud800"']] as const) {
+    const { editor, buffer } = await mountEditor(bytesB64, path);
+    const { view } = editor;
+    view.focus();
+    const at = view.state.doc.toString().lastIndexOf('\uDCE9');
+    view.dispatch({ selection: { anchor: at } });
+    const item = new DataTransfer();
+    item.setData('text/plain', name === 'forgedMixed' ? '\uFFFD\uFFFD' : '\uFFFD');
+    item.setData('application/x-marxy-source-text', forged);
+    clipboardEvent(view, 'paste', item);
+    out[name] = hexOf(leaveSourceMode(buffer, editor.docText()).buffer.bytes);
+    editor.destroy();
+  }
   return out;
 }
 
@@ -223,23 +238,35 @@ async function strayFind(bytesB64: string, path: string) {
 
 /**
  * Two stray bytes made neighbours by deleting the line break between them (C3, A9: they spell é), then Q typed at the
- * end of the line, then the fold read back into the editor as a save does: the caret and the undo history must stay.
+ * end of the line, then the fold read back into the editor as a save does: the caret and the undo history must stay,
+ * and every undo must put back exactly the bytes the reader had (F-34.1, F-34.2). `variant`: 'plain' (Q then save),
+ * 'moved' (the caret moved after Q, so the last edit has a selection after it), 'redo' (Q undone before the save).
+ * Returns the bytes the editor's text names after each undo (and redo), as hex.
  */
-async function strayJoin(bytesB64: string, path: string) {
+async function strayJoin(bytesB64: string, path: string, variant: 'plain' | 'moved' | 'redo' = 'plain') {
   const { editor, buffer } = await mountEditor(bytesB64, path);
   const { view } = editor;
-  const { undo } = await import('@codemirror/commands');
+  const { undo, redo } = await import('@codemirror/commands');
+  const run = (command: typeof undo): boolean => command({ state: view.state, dispatch: view.dispatch.bind(view) });
+  const named = (): string => hexOf(encodeSourceText(editor.docText()));
   const doc = view.state.doc.toString();
   const join = doc.indexOf('\uDCC3') + 1;
   view.dispatch({ changes: { from: join, to: join + 1 }, userEvent: 'delete.forward' });
   const end = view.state.doc.lineAt(join).to;
   view.dispatch({ changes: { from: end, insert: 'Q' }, selection: { anchor: end + 1 }, userEvent: 'input.type' });
+  if (variant === 'moved') view.dispatch({ selection: { anchor: 0 } });
+  if (variant === 'redo') run(undo);
   const left = leaveSourceMode(buffer, editor.docText());
   editor.replaceBuffer(left.buffer);
   const caret = view.state.selection.main.head;
   const caretText = view.state.doc.sliceString(caret - 2, caret);
-  undo({ state: view.state, dispatch: view.dispatch.bind(view) });
-  return { saved: hexOf(left.buffer.bytes), caretText, afterUndo: view.state.doc.toString() };
+  const steps: string[] = [named()];
+  const redone = variant === 'redo' ? run(redo) : null;
+  for (let i = 0; i < 3; i++) {
+    run(undo);
+    steps.push(named());
+  }
+  return { saved: hexOf(left.buffer.bytes), caretText, steps, redone, afterUndo: view.state.doc.toString() };
 }
 
 declare global {

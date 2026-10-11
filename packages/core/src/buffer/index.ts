@@ -25,6 +25,8 @@ export {
   readableText,
   sourceToTextOffset,
   textToSourceOffset,
+  byteToSourceOffset,
+  sourceTextOfRange,
 } from './source-text.ts';
 export type { Edit } from './history.ts';
 export { History } from './history.ts';
