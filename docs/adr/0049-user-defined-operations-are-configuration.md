@@ -1,6 +1,7 @@
 # ADR-0049 — User-defined operations are configuration, not plugins
 
 - **Status:** accepted (author, 2026-10-02); recorded now, not scheduled
+- **Phase E (2026-10):** built nothing for it. The operation contract is unchanged and able to carry it.
 - **Date:** 2026-10-02
 - **Amends:** ADR-0004's "no shell-pipe or scripting surface, now or in v1.1". The security argument
   in ADR-0004 and ADR-0009 about documents causing execution stands, absolutely.

@@ -130,7 +130,8 @@ chrome.
 | `Mod+Alt+Shift+V` | paste as plain text | Source only: inserts the clipboard's plain text unconverted, as one undo step (*Paste and Match Style*). The editor answers it by physical key, because Option rewrites `event.key` on a Mac. Not bound in the find field or the palette (J-05) |
 | `Enter` | open the verb menu | with a `node`, `section`, `document` or `text` selection, outside editable fields and with no dialog open; anchored to the selection (§03, ADR-0054). On a selected link or heading anchor, Enter opens the verb menu, not the link; the link's default verb is "open link" (Enter again, or the first row) |
 | `ContextMenu` / `Shift+F10` | open the verb menu | same; right-click and Ctrl-click open it at the pointer |
-| `Mod+Enter` | edit the selected block in place | opens a CodeMirror editor over that block's bytes where the block was (E-04, ADR-0048); `Esc`, `Mod+Enter` again or a press outside leaves it and folds the text back as one undo step; `Mod+E`, `Mod+S`, undo, close and quit leave it first |
+| `Mod+Enter` | edit the selected block in place | opens a CodeMirror editor over that block's bytes where the block was (E-04, ADR-0048); `Esc` (which keeps what was typed, ADR-0048 clause 3 as amended), `Mod+Enter` again or a press outside leaves it and folds the text back as one undo step; `Mod+E`, `Mod+S`, undo, close and quit leave it first |
+| `Shift+click` | grow a block selection into a run | with a block or a run selected, the run reaches the clicked sibling (E-05); `dedupe-lines` and the copy verbs then act on the run (§03) |
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
 

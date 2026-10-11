@@ -1285,16 +1285,21 @@ composition (paste, unwrap, tick, edit in place, save).
 
 **Build order.**
 1. The fixture, plus a CRLF twin made in the test with `crlf()` semantics.
-2. `phase-e-flow.test.mjs` (boot as `operations-edit.test.mjs:41-65`): dispatch a synthetic paste
-   (plain text = the fixture, HTML = a rendering) → a scratch opens; click the fenced block; run
+2. `phase-e-flow.test.mjs` (boot as `paste-rendered.test.mjs` does, `bootTwoPanes` over the memory shell; amended
+   in E-18 after J-05, #569): put the fixture on the memory shell's pasteboard as another app would
+   (`shell.setPasteboard`, plain text) and press `Mod+V`, so `paste.rendered` reads it through the shell → a
+   scratch opens; click the fenced block; run
    `unwrap-markdown-fence` from the palette; click two task checkboxes; click the typo paragraph, press
    `Mod+Enter`, replace one word, press `Esc`; `Mod+Shift+S` to a path in the memory shell. Read the
    saved bytes. Compute the **expected** bytes in the test by applying the four splices (fence
    lines removed, two three-byte markers, one word) to the fixture bytes directly, assert equality,
-   and assert with the kit's `assertMinimalDiff` that the saved bytes differ from the fixture only inside
-   those four target spans. Then press `Mod+Z` five times and assert the buffer equals the pasted text.
+   and assert with the kit's `assertMinimalDiff` (`packages/core/src/operations/testing/test-kit.ts`, imported by
+   relative path) that the saved bytes differ from the fixture only inside those target spans (five: the two
+   fence lines, two markers, one word). Then press `Mod+Z` four times (unwrap, two ticks, the block edit; a
+   fifth has nothing to undo) and assert the buffer equals the pasted text.
    Run it for LF and CRLF (every line ending in the saved CRLF file is CRLF; no bare LF).
-3. A registry-level check in `registry.test.ts`: for each selection kind in a fixed set of nodes
+3. A registry-level check (the menu's order is `MENU_ORDER` in `apps/desktop/src/selection/verbs.ts`, outside core's
+   `rootDir`, so the rank check is in `phase-e-flow.test.mjs`; `registry.test.ts` holds the part core can see): for each selection kind in a fixed set of nodes
    (paragraph, heading, list, task item, table cell, markdown fence, json fence, a run of blocks), the
    number of applicable `group: 'selection'` commands is printed; assert each of the **new**
    operations of this phase has an explicit rank or sits below the copy verbs if Phase C's menu ranks
@@ -1316,8 +1321,8 @@ composition (paste, unwrap, tick, edit in place, save).
 **Do not.** Do not weaken an earlier story's test to make this pass. Do not add a screenshot
 baseline. Do not change any contract. Do not edit `docs/taste-review/queue.md` (no gate reads it).
 
-**Risks and open questions.** The test depends on E-12's paste route being testable with a synthetic
-event; if the chosen route is the catcher, drive the real keystroke instead. If the verb cap check
+**Risks and open questions.** E-12 is superseded by J-02 (replan of 2026-10-11): paste is `paste.rendered`
+over the shell's pasteboard, driven by the real keystroke. If the verb cap check
 shows a selection kind with more than seven rows for operations that are not copy verbs, report which
 and let the author choose what leaves the menu (it stays in the palette).
 

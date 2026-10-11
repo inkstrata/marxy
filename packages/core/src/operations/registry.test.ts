@@ -2,7 +2,7 @@
 // editing this file: no list of ids is kept here.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { OPERATIONS } from './index.ts';
+import { CLIPBOARD_OPERATIONS, OPERATIONS } from './index.ts';
 
 test('registry: every operation id is unique and kebab-case', () => {
   const seen = new Set<string>();
@@ -101,4 +101,30 @@ test('E-11: the guards fail on a deliberate strip-markdown splice', () => {
   };
   canFail(() => assertNoStrippingIds([...OPERATIONS, bad]));
   canFail(() => assertNoMarkdownStripped([...MUTATING_OPERATIONS, { ...bad, id: 'tidy-text' }]));
+});
+
+// E-18: the operations Phase E added are all registered, and as mutating ones, so none can be taken for a copy verb that ranks
+// first in a menu. The menu's own order (`MENU_ORDER`) is desktop code, checked in `apps/desktop/test/phase-e-flow.test.mjs`.
+const PHASE_E = [
+  'bullets-from-glyphs',
+  'dedupe-lines',
+  'demote-heading',
+  'format-json',
+  'format-yaml',
+  'list-to-bullets',
+  'list-to-numbers',
+  'promote-heading',
+  'renumber-list',
+  'sort-list-items',
+  'unwrap-markdown-fence',
+];
+
+test('registry: every Phase E operation is registered once, as a mutating operation and not a copy verb', () => {
+  const mutating = new Set(MUTATING_OPERATIONS.map((op) => op.id));
+  const clipboard = new Set(CLIPBOARD_OPERATIONS.map((op) => op.id));
+  for (const id of PHASE_E) {
+    assert.ok(mutating.has(id), `${id} is not registered as a mutating operation`);
+    assert.ok(!clipboard.has(id) && !id.startsWith('copy-'), `${id} is listed with the copy verbs`);
+    assert.equal(OPERATIONS.filter((op) => op.id === id).length, 1, `${id} is registered more than once`);
+  }
 });
