@@ -183,6 +183,11 @@ export interface RenderedView {
    * takes more or less room than the block did), and puts the reader back on the block they were reading.
    */
   holdPlace(change: () => void): void;
+  /**
+   * `el` changed height by `by` px as the reader worked in it (a block open in place gaining or losing a line).
+   * When it ends above the reading line the page scrolls with it, so the block being read does not move.
+   */
+  followGrowth(el: HTMLElement, by: number): void;
   /** The typesetter for the shown page, including the `typeset_viewport` and `typeset_done` marks. */
   typeset(): Promise<void>;
   /** Images, KaTeX and highlighting for the page as mounted now: run the result at idle. */
@@ -1678,6 +1683,13 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       change();
       shown.blocks = buildBlocks(doc, shown.nodeMap);
       restoreTo(shown.blocks, place);
+    },
+    followGrowth(el, by) {
+      if (by === 0 || viewMode !== 'rendered' || doc.hidden || !el.isConnected) return;
+      // Its bottom before it changed: a block the reading line crosses grows under the reader, who stays on it.
+      if (el.getBoundingClientRect().bottom - by > readingLinePx()) return;
+      scroller.scrollTop += by;
+      noteScroll();
     },
     typeset: typesetDocument,
     deferredWork(file) {

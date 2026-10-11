@@ -223,6 +223,11 @@ async function openResolved(ctx: AppContext): Promise<void> {
   const cleanup: Array<() => void> = [];
 
   const textNow = (): string => (editor ? editor.text() : (heldText ?? original));
+  /**
+   * The page follows a line the editor gained or lost above the reading line. Run on leaving too: the last key's
+   * line may be laid out before the observer has reported it, and the place is read before the editor goes.
+   */
+  let followGrowth = (): void => {};
 
   /**
    * Takes the editor and everything it put on the page off, and unhides the block. Once. `keepPlace`: the page
@@ -302,6 +307,7 @@ async function openResolved(ctx: AppContext): Promise<void> {
       leavingNow ??= (async () => {
         try {
           if (released) return false;
+          followGrowth();
           const snap = store.snapshot();
           const fold = foldSlice(snap.buffer, range, textNow());
           // Nothing typed: the editor closes and the document, its history and its page are as they were.
@@ -361,6 +367,19 @@ async function openResolved(ctx: AppContext): Promise<void> {
     first.parentNode?.insertBefore(host, first);
     for (const el of hidden) el.hidden = true;
   });
+  // The editor gains or loses a line as the reader types; above the reading line, the page follows it (WebKit
+  // has no scroll anchoring), so the block being read stays where it is and leaving keeps the reader on it.
+  let height = host.getBoundingClientRect().height;
+  followGrowth = (): void => {
+    if (released || !host.isConnected) return;
+    const now = host.getBoundingClientRect().height;
+    const by = now - height;
+    height = now;
+    view.followGrowth(host, by);
+  };
+  const grown = new ResizeObserver(() => followGrowth());
+  grown.observe(host);
+  cleanup.push(() => grown.disconnect());
 
   // A press outside the editor leaves it, the reader's text kept, but only once the press is over: the commit sets
   // the page again, and a page replaced between a press and its release would take the click with it (the other
