@@ -14,6 +14,7 @@ import { paneLayoutCommands } from './pane-layout.ts';
 import { paneFocusCommands } from './pane-focus.ts';
 import { paneCloseCommands } from './pane-close.ts';
 import { paneOpenCommands } from './pane-open.ts';
+import { paneSplitSameCommands } from './pane-split-same.ts';
 import { fromOperation, type Command } from './registry.ts';
 import { selectionNavigationCommands } from './selection-nav.ts';
 import { sourceEditCommands } from './source-edit.ts';
@@ -38,6 +39,7 @@ export function commands(): readonly Command[] {
     ...paneLayoutCommands(),
     ...paneCloseCommands(),
     ...paneOpenCommands(),
+    ...paneSplitSameCommands(),
     ...editorCommands(),
     ...collectionCommands(),
     ...kindCommands(),

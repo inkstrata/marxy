@@ -49,7 +49,7 @@ const floorPx = (page) =>
 const commandIds = (page) =>
   page.evaluate(() => {
     const h = window.__marxyHandle;
-    return h.commands().filter((c) => c.id.startsWith('view.') && /split/.test(c.id)).map((c) => [c.id, c.when({})]);
+    return h.commands().filter((c) => c.id.startsWith('view.') && /split/.test(c.id) && c.id !== 'view.split-same').map((c) => [c.id, c.when({})]);
   });
 const run = (page, id) => page.evaluate((id) => window.__marxyHandle.commands().find((c) => c.id === id).run({}), id);
 const left = (page) => page.evaluate(() => document.querySelector('#marxy-main > section[data-marxy-pane="0"]').getBoundingClientRect().width);

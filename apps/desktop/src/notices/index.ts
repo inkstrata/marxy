@@ -20,6 +20,28 @@ let nextId = 0;
 const open = new Map<number, HTMLElement>();
 
 /**
+ * The pane a notice is about, or the focused one when none is named (D-10): `section.marxy-pane`. A
+ * notice about a file goes in the pane that shows it and in no other; one about the app has no pane.
+ */
+export interface NoticeTarget {
+  readonly pane?: HTMLElement;
+}
+
+/** The pane around `el` (a view's article, a Source mount), or undefined outside any pane. */
+export function paneOf(el: Element | null | undefined): HTMLElement | undefined {
+  return el?.closest<HTMLElement>('section.marxy-pane') ?? undefined;
+}
+
+/** The pane that has focus now: the one marked `data-marxy-focus`, else the first. */
+export function focusedPane(): HTMLElement | undefined {
+  return (
+    document.querySelector<HTMLElement>('section.marxy-pane[data-marxy-focus]') ??
+    document.querySelector<HTMLElement>('section.marxy-pane') ??
+    undefined
+  );
+}
+
+/**
  * Ensures `#marxy-notices` exists in flow above `#doc`, empty and zero-height at rest. Given a pane
  * (`section.marxy-pane`, D-01), that pane's own region instead: the `[role=status]` child it was built
  * with, or one made at its top.
@@ -48,11 +70,20 @@ export function ensureNoticesRegion(pane?: HTMLElement): HTMLElement {
   return region;
 }
 
-export function notify(input: NoticeInput): number {
-  const region = ensureNoticesRegion();
-  // One line per kind and text: the same news again replaces the old line instead of stacking.
+/**
+ * Says `input` in `target.pane`'s region, else the focused pane's (D-10): a split window has one region
+ * per pane, and a notice shows where the file it is about is shown.
+ */
+export function notify(input: NoticeInput, target: NoticeTarget = {}): number {
+  const region = ensureNoticesRegion(target.pane ?? focusedPane());
+  // One line per kind and text in a pane: the same news again replaces the old line instead of stacking.
+  // Another pane's line of the same words is its own.
   for (const [openId, el] of [...open]) {
-    if (el.dataset.noticeKind === input.kind && el.querySelector('.marxy-notice-text')?.textContent === input.text) {
+    if (
+      el.parentElement === region &&
+      el.dataset.noticeKind === input.kind &&
+      el.querySelector('.marxy-notice-text')?.textContent === input.text
+    ) {
       dismissNotice(openId);
     }
   }
@@ -94,7 +125,12 @@ function dismissNotice(id: number): void {
   open.delete(id);
 }
 
-export function clearNotices(): void {
-  for (const id of [...open.keys()]) dismissNotice(id);
-  ensureNoticesRegion().replaceChildren();
+/**
+ * Empties `pane`'s region (the first pane's when none is named): opening a document in a pane clears that
+ * pane's notices, never another pane's (D-10).
+ */
+export function clearNotices(pane?: HTMLElement): void {
+  const region = ensureNoticesRegion(pane);
+  for (const [id, el] of [...open]) if (el.parentElement === region) dismissNotice(id);
+  region.replaceChildren();
 }

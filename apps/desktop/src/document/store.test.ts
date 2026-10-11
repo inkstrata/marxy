@@ -414,6 +414,38 @@ test('rename changes the path and keeps history and dirty', async () => {
   assert.equal(store.snapshot().dirty, false);
 });
 
+test('rename arms the stale-write guard on the new name with the bytes last read (D-10)', async () => {
+  const io = recordingIo();
+  const store = openDocumentStore(io, PATH, enc.encode('# A\n\nbody\n'));
+  await store.apply({ range: range(2, 3), replacement: 'B', label: 'edit' });
+  io.reads.length = 0;
+  await store.rename('/repo/renamed.md');
+  assert.deepEqual(
+    io.reads.map((r) => [r.path, dec.decode(r.bytes)]),
+    [['/repo/renamed.md', '# A\n\nbody\n']],
+    'the guard expects what disk held when the file was read, not the edited buffer',
+  );
+});
+
+test('a save is refused when disk is no longer the bytes the store loaded or wrote, whatever else read the file (D-10)', async () => {
+  let onDisk = enc.encode('# A\n\nbody\n');
+  const io = recordingIo(async (_path, bytes) => { onDisk = new Uint8Array(bytes); });
+  io.peekFile = async () => onDisk;
+  const store = openDocumentStore(io, PATH, onDisk);
+  await store.apply({ range: range(2, 3), replacement: 'B', label: 'edit' });
+  onDisk = enc.encode('# A\n\nbody\nOUTSIDE\n');
+  // Something else read the file since (a `recordRead` of the new bytes would have armed a shell's guard on them).
+  io.recordRead?.(PATH, onDisk);
+  const refused = await store.save();
+  assert.equal(refused.result, 'failed');
+  assert.match(String((refused.error as Error).message), /changed on disk/);
+  assert.equal(io.writes.length, 0, 'nothing was written');
+  assert.equal(store.snapshot().dirty, true, 'the edit is still there');
+  // The file back to what the store loaded: a save is against that baseline again.
+  onDisk = enc.encode('# A\n\nbody\n');
+  assert.equal((await store.save()).result, 'saved');
+});
+
 test('CRLF and BOM bytes survive apply and undo byte-for-byte', async () => {
   const original = corpus('12-crlf-and-bom.md');
   assert.deepEqual([...original.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
