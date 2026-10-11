@@ -1376,6 +1376,27 @@ amendment 10). Retry a flaky test until it passes. Touch an existing single-docu
 not retire `render/headless.ts`, the split case must still be built on the app harness, so the gate judges the
 page a reader sees.
 
+### D-15 — Opening a large document beside a small one must not block the window
+
+**Model:** sonnet · **Size:** M · **Depends on:** D-14 · **Parallel with:** nothing
+
+**Outcome.** Opening a 1 MB document beside a small one does not block the window: the small pane keeps
+scrolling and painting while the large one lays out its first screens. Today it does not (D-14's report-back
+threshold 3 fails), and two panes cost more memory than the card allowed (threshold 4 fails).
+
+**Baseline (D-14, PR 552; Playwright WebKit on macOS, median of 5 interleaved runs).**
+- Longest frame while the second pane opens: 20 KB + 20 KB 56 ms; 20 KB + 256 KB 219 ms; 20 KB + 1 MB **717 ms**
+  (`split_open` 47, 194 and 691 ms). The bar is one frame after the small pane has painted.
+- WebContent RSS: empty 164 MB, 20 KB 238, 256 KB 559, 1 MB 923 (runs 782-1065); pairs 248, 592 and 1,014 MB.
+  Threshold 4 (larger single plus 25 % of the smaller's 74 MB increment) fails for 20 KB + 256 KB by 14 MB
+  (592 against 578) and for 20 KB + 1 MB by 73 MB (1,014 against 941; inside the 1 MB single's own run spread).
+- Levers named by D-14: Phase B rank 8 (first two screens only) for a pane opened beside, and rank 1 (the grid
+  pass) for the rest.
+
+**Done when** `split-cost.test.mjs` prints a longest frame for the 1 MB pair within one frame (about 17 ms, or
+the slow-runner allowance the author sets) and the pair RSS meets threshold 4 for 256 KB and 1 MB, measured the
+way D-14 measured them. Report the new medians in the PR; do not add a perf gate (ADR-0032).
+
 ## What this phase deliberately leaves out
 
 - **A diff mode.** Two versions of a regenerated file are a diff, not a split: the reader-artifacts handbook

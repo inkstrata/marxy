@@ -45,6 +45,17 @@ story deletes the row. The gate fails on a case that is not listed and on a list
 the list can neither hide a new fault nor go stale. `node scripts/gate-aesthetics.mjs --mechanical
 --emit-expected` prints the cases found as rows; `--files a.md,b.md` narrows a run to those documents.
 
+A split page is judged per pane, at the same checks (D-14, ADR-0057). The gate renders two panes through the
+app harness over the shipped skeleton (`apps/desktop/test/support/two-pane.mjs`) at 1,470, 960 and 929 px dark
+and 1,470 px light, once with two corpus documents (`01-long-technical.md`, `16-api-reference.md`) and once with a
+synthetic page written in the gate (a 140-character code line and a wide table, so no corpus file is added). Per
+pane: the measure in average characters (`articleWidth / (avgChar * bodyPx)`) is between 45 and 80; no `pre` or
+`table` ends past its pane's right edge (the regression `--marxy-room` taken from the window instead of the pane
+once caused); body text keeps 7:1 on its ground. Per page: nothing visible outside `#marxy-main`, and one
+divider, inside it, one pixel wide. The selftest passes a crafted two-pane page and fails it under the pre-fix
+`100vw` room, a 3 px divider and 300 px panes. The nightly full run adds split screenshots at 1,470 px, dark and
+light (`split-1470-<variant>.png`, written by `--update`); they are never compared on the pull-request path (ADR-0047).
+
 Baselines live under `fixtures/baselines/<engine>/`. A PR that changes them must say why in
 the taste-review queue.
 
