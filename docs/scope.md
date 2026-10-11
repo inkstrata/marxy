@@ -19,7 +19,10 @@ over titles, headings and paths with results per keystroke; MRU stack, pinning, 
 forward; reading position remembered across launches.
 
 **Operations.** The mechanism, plus copy section, copy code block clean, toggle task item,
-align table pipes. Palette-reachable, single-step undo.
+align table pipes, and the catalogue Phases C and E built on it (`docs/operations.md`): the copy pack, unwrap a
+markdown fence, promote and demote headings, list markers, sort list items, pretty-print JSON and YAML, dedupe
+lines. Edit one block in place (ADR-0048); paste as a new Markdown document; a scratch document. Palette-reachable,
+single-step undo.
 
 **Rendering.** Highlighting from an allow-list of ~20 grammars with language detection,
 soft-wrap with hanging indent, copy clean. Images with reserved dimensions; remote images
@@ -41,7 +44,7 @@ criterion once it can be verified (ADR-0046).
 | Cut | Where it goes | Why |
 | --- | --- | --- |
 | Content search | v1.1 | Expensive; titles + headings hit the stated requirement |
-| Operations beyond the four | v1.1, a weekend each | The mechanism is the architecture; the catalogue is content |
+| Operations beyond the catalogue in `docs/operations.md` (minify JSON, rewrap, sort table rows, encodings) | v1.1, a weekend each | The mechanism is the architecture; the catalogue is content |
 | Theme linter, contract negotiation UI | v1.1 | Support tooling, not shipping tooling |
 | Mermaid | v1.1 on first substantial request | Heavy, hard to grid |
 | Resident mode by default | never, unless a platform misses the budget | Surprising for a reader |

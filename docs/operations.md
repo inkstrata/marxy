@@ -36,11 +36,37 @@ filtered by selection (constraint 5). The catalogue is composed from three packs
 - **Extract:** every code block, every unchecked task, every link, to the clipboard or a scratch
   document, never a silent file write.
 
-Still to come, in order: pretty-print / minify JSON and YAML; rewrap / unwrap; sort list items and
-table rows; promote / demote headings; encoding utilities. Each is a function plus a registry
-command once the mechanism exists. Cross-document operations are v2; keep the signature from
-foreclosing them (an operation receives a `Document`, not a string, so a future multi-document
-variant can receive several). Operations that change bytes need a minimal-diff property; the
+## The Phase E catalogue: shipped
+
+Every row is a registered operation, reachable from the palette (`>`) on a selection it applies to, one undo step,
+and held by the byte-fidelity property over every corpus file and by its own table, on every line ending
+(`packages/core/src/operations/testing/test-kit.ts`). The verb menu shows a row only where
+[§03](design/03-selection-and-operations.md) lists it; the rest are palette-only for now.
+
+| Operation | Id | Applies to | Story |
+| --- | --- | --- | --- |
+| Unwrap markdown fence | `unwrap-markdown-fence` | a `markdown`-fenced block | E-06 |
+| Promote heading, Demote heading | `promote-heading`, `demote-heading` | a heading and its section | E-07 |
+| Renumber list, List to numbers, List to bullets, Bullets from glyphs | `renumber-list`, `list-to-numbers`, `list-to-bullets`, `bullets-from-glyphs` | a list, or a paragraph of glyph bullets | E-08, E-08.1 |
+| Sort list items | `sort-list-items` | a list | E-09 |
+| Pretty-print JSON, Re-indent YAML | `format-json`, `format-yaml` | a fenced `json` or `yaml` block | E-10 |
+| Dedupe lines | `dedupe-lines` | a run of blocks (`Shift+click` grows one) | E-05 |
+| Toggle task, Align table pipes | `toggle-task`, `align-table-pipes` | a task item, a table; both from a click in Rendered | E-02 |
+| Copy as plain text | `copy-plain` | a block, section or document; stripping is a copy form, never a splice | E-11 |
+
+Around them, not operations: **Edit block in place** (`Mod+Enter`, ADR-0048, E-04), **Paste as a new Markdown
+document** (`Mod+V` in Rendered, J-05), the scratch document that paste and the comparisons open (E-13), and
+**Show what changed on disk** and **Show unsaved changes** (E-17).
+
+The phase's screen criterion is one test, `apps/desktop/test/phase-e-flow.test.mjs`: paste an assistant's answer,
+unwrap its fence, tick and untick a task, fix a typo in place, save, then undo to the pasted text, on LF and CRLF
+files, with every byte outside those four changes asserted identical.
+
+Still to come, in order: minify JSON; rewrap; sort table rows; encoding utilities. Each is a function plus a
+registry command once the mechanism exists. Stripping markdown as a splice stays out (E-11's guard).
+Cross-document operations are v2; keep the signature from foreclosing them (an operation receives a `Document`,
+not a string, so a future multi-document variant can receive several). User-defined operations are ADR-0049,
+recorded and not scheduled. Operations that change bytes need a minimal-diff property; the
 fidelity property covers every clipboard-only operation at every node of every corpus file.
 
 ## Testing shape
