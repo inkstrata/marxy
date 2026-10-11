@@ -3,6 +3,24 @@
 **For:** the next lead session, and the author. **Read with:** `00-orchestration.md` §3 to §6, then `progress.md`
 (the ledger holds the detail of every story named here). This page says what to do next.
 
+## Late evening, 2026-10-10: stopped at the author's request
+
+**Merged after X-09:** D-10 (#538), J-03 (#546), V-07 (#549), E-13 (#550), D-14 (#552, closes Phase D; its failing cost thresholds are the D-15 card), E-08.1 (#553), E-17 (#554), D-10.1 (#555, Save As onto a path open in the other pane keeps one store; refuses over unsaved edits there).
+
+**Held for the author (review says merge):**
+- #545 E-04, edit a block in place: it amends ADR-0048 clause 3 (Esc keeps the edit, as the card says; the ADR said discard). Rule on the clause, then merge.
+- #551 H-04, Night and Paper become the default and Ink gets its own directory: taste review (artifact in `docs/taste-review/evidence/H-04-*.png`). 108 macOS goldens moved; the **Linux goldens must be regenerated in CI's image** before `typography` is green. H-04.1 (Atkinson Hyperlegible Next and Inter) needs the author's permission to download the upstream releases and LICENSE files; the PR uses the vendored faces provisionally.
+
+**Stopped mid-work, uncommitted; resume in the worktree (read `git diff` first, never `git stash`):**
+| Story | Worktree / branch | State |
+| --- | --- | --- |
+| D-15 | `../marxy-wt/D-15`, `perf/d-15-split-open-nonblocking` | Second pane opens through a chunked parse and sliced store so a 1 MB document beside a small one does not block (~0.7 s today). Core `parse/chunked.ts`, `startup/yield.ts`, store/render/view edits; was wiring the view's show and mountDocument. Remove the stray `pane/index.ts.bak`. Branch may carry D-14's commits (based on its branch before #552 merged): rebase onto origin/main. |
+| W-02 | `../marxy-wt/W-02`, `feat/w-02-workspace-shell` | Workspace shell: `workspace/state.ts`, `regions.ts`, `commands/workspace.ts`, `layout/workspace-storage.ts`, gate-aesthetics updates, base.css; a browser precheck was running. The fold/unfold command has no default key (⌘\ is D-07's open beside; author to choose). |
+
+**Next, in order:** finish D-15 and W-02; then W-03..W-07 (need W-02), Q-03 (needs W-02), K-05 (needs H-04), F-31 (needs the author's ADR-0013 ruling), E-15 (needs E-12, the spike with the author), E-18 (after E-04 and E-15), V-02 (no card yet), F-21 #470 (returned twice on Sonnet: the rule says re-run on Opus with the two review notes).
+
+**Process notes from this session:** every agent ran on Sonnet (the author asked to be cost-effective; a usage limit was still hit once at about 18:00). Three or four implementors plus one or two reviewers at a time was the working pace. Parallel E stories conflict on the append-only operation lists (`MUTATING_OPERATIONS`, the catalogue ids): land them one at a time and resolve by union. Reviewers that only read code ("tests not run") are cheaper but lean on CI.
+
 ## What merged on 2026-10-10
 
 All agents ran on Sonnet (the author asked for cost-effectiveness).
