@@ -2,11 +2,10 @@
 // Structure comes from the parser: a thematic break is a node (so a setext underline is not one), a heading
 // is a node, a code block is a span the prose transforms step around. Where an E operation already does the
 // job on a node (promote/demote, list markers), the transform calls that operation.
-import type { List, ListItem } from '../contracts/ast.ts';
+import type { List, ListItem, Node } from '../contracts/ast.ts';
 import { demoteHeading, promoteHeading } from '../operations/heading-level.ts';
 import { markerSpans, mergesWithNeighbour } from '../operations/list-markers.ts';
-import { textIndex } from '../operations/text-helpers.ts';
-import { applyEdits, atxHeadings, mapInline, mapProse, nodesOf, parseText } from './prose.ts';
+import { applyEdits, atxHeadings, indexOf, mapInline, mapProse, nodesOf, parseText, walk } from './prose.ts';
 import type { TransformDef } from './types.ts';
 
 // An emoji, with its joiners and modifiers. `\p{Extended_Pictographic}` alone would take the copyright sign and
@@ -27,7 +26,16 @@ export const stripFrontmatter: TransformDef = {
   kind: 'edit',
   idempotent: true,
   run(lf) {
-    const first = nodesOf(lf, parseText(lf), ['frontmatter'])[0];
+    // Front matter opens on the first line and ends at the first fence that closes it; nothing after that line can change
+    // it. So the parse reads the text up to the first later line that could be a closing fence, not the whole document,
+    // and reads it all only when that line turns out not to close it.
+    if (lf[0] !== '-' && lf[0] !== '+') return lf;
+    const fence = /\n(?:---|\+\+\+)[^\n]*(?:\n|$)/g;
+    fence.lastIndex = lf.indexOf('\n');
+    const close = fence.lastIndex < 0 ? null : fence.exec(lf);
+    if (!close) return lf;
+    const head = lf.slice(0, close.index + close[0].length);
+    const first = nodesOf(head, parseText(head), ['frontmatter'])[0] ?? nodesOf(lf, parseText(lf), ['frontmatter'])[0];
     if (!first || first.span.start !== 0) return lf;
     let end = first.span.end;
     while (lf[end] === '\n') end++;
@@ -108,13 +116,18 @@ export const normalizeBullets: TransformDef = {
   idempotent: true,
   run(lf) {
     const doc = parseText(lf);
-    const index = textIndex(lf);
+    const index = indexOf(lf);
+    const parents = new Map<Node, Node>();
+    walk(doc, (n) => {
+      for (const child of n.children ?? []) parents.set(child as Node, n);
+    });
     const edits: { start: number; end: number; text: string }[] = [];
-    for (const { node } of nodesOf<List>(lf, doc, ['list'])) {
+    for (const { node, span } of nodesOf<List>(lf, doc, ['list'])) {
       if (node.ordered) continue;
       // A list that would join the unordered list beside it once its marker matches is left as written.
-      if (mergesWithNeighbour(doc, node, false)) continue;
-      const spans = markerSpans(node, lf, 0);
+      if (mergesWithNeighbour(doc, node, false, parents.get(node))) continue;
+      // The list's own text, so reading its markers costs its length, not the document's.
+      const spans = markerSpans(node, lf.slice(span.start, span.end), node.src.start);
       if (!spans || spans.length !== node.children.length) continue;
       for (const { marker } of spans as { item: ListItem; marker: { start: number; end: number } }[]) {
         const at = index.toIndex(marker.start);
@@ -148,7 +161,7 @@ export const normalizeHeadings: TransformDef = {
 /** Run E's promote/demote operation on each ATX heading alone (its own range), so a heading at the limit stays as it is. */
 function shiftHeadings(lf: string, op: typeof promoteHeading): string {
   const doc = parseText(lf);
-  const index = textIndex(lf);
+  const index = indexOf(lf);
   const edits: { start: number; end: number; text: string }[] = [];
   for (const { heading, span } of atxHeadings(lf, doc)) {
     const range = heading.src;

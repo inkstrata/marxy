@@ -6,7 +6,7 @@
 import type { Document, Heading, Node, Source } from '../contracts/ast.ts';
 import type { Operation } from '../contracts/operation.ts';
 import { parseMarkdown } from '../parse/parse.ts';
-import { textIndex } from '../operations/text-helpers.ts';
+import { textIndex, type TextIndex } from '../operations/text-helpers.ts';
 
 const enc = new TextEncoder();
 
@@ -27,6 +27,18 @@ export function parseText(lf: string): Document {
   return doc;
 }
 
+// The byte-to-index map of the last text, kept for the same reason: building it is a scan of the whole text, so a
+// transform that maps one node at a time (a table, a list, a code block) must not build it once per node.
+let lastIndex: { text: string; index: TextIndex } | undefined;
+
+/** `textIndex(lf)`, built once per text. */
+export function indexOf(lf: string): TextIndex {
+  if (lastIndex?.text === lf) return lastIndex.index;
+  const index = textIndex(lf);
+  lastIndex = { text: lf, index };
+  return index;
+}
+
 /** Depth-first, document order. */
 export function walk(node: Node, visit: (n: Node) => void): void {
   visit(node);
@@ -35,7 +47,7 @@ export function walk(node: Node, visit: (n: Node) => void): void {
 
 /** The spans (UTF-16) of every node whose type is in `types`, in document order, plus the node. */
 export function nodesOf<T extends Node = Node>(lf: string, doc: Document, types: readonly string[]): { node: T; span: Span }[] {
-  const index = textIndex(lf);
+  const index = indexOf(lf);
   const out: { node: T; span: Span }[] = [];
   walk(doc, (n) => {
     if (n !== doc && types.includes(n.type)) {
@@ -130,7 +142,7 @@ export function joinLinesLf(lines: readonly string[], finalEol: boolean): string
 export function clipboardOf(op: Operation, doc: Document, lf: string, node: Node | undefined = undefined, range: Source = node?.src ?? doc.src): string | undefined {
   const base = { document: doc, node, range };
   if (!op.canApply(base)) return undefined;
-  const index = textIndex(lf);
+  const index = indexOf(lf);
   const text = lf.slice(index.toIndex(range.start), index.toIndex(range.end));
   return op.run({ ...base, text }).clipboard?.text;
 }

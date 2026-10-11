@@ -9,7 +9,17 @@ function headingsIn(node: Node, within: { start: number; end: number }, out: Hea
     if (node.src.start >= within.start && node.src.end <= within.end) out.push(node as Heading);
     return out;
   }
-  for (const child of node.children ?? []) headingsIn(child as Node, within, out);
+  // Children are in document order: skip, by binary search, those that end before the range, and stop at the first that
+  // starts after it, so one heading's section does not cost a walk of the whole document.
+  const children = (node.children ?? []) as readonly Node[];
+  let lo = 0;
+  let hi = children.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (children[mid]!.src.end <= within.start) lo = mid + 1;
+    else hi = mid;
+  }
+  for (let i = lo; i < children.length && children[i]!.src.start < within.end; i++) headingsIn(children[i]!, within, out);
   return out;
 }
 
