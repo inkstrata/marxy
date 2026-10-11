@@ -43,7 +43,7 @@ export function copyTextCommands(): readonly Command[] {
     },
     {
       id: 'selection.copy-plain',
-      title: 'Copy as plain text',
+      title: 'Copy as plain text (strip markdown)',
       group: 'selection',
       when: isDrag,
       async run(ctx) {

@@ -1,84 +1,70 @@
-# Lead handoff: the 2026-10-08 round, stopped at the author's request
+# Lead handoff: the 2026-10-10 evening
 
-**For:** the next lead session, and the author. **Read with:** `00-orchestration.md` §3 to §6, then `progress.md`,
-then the phase documents the stories below name. This page says what to do next.
+**For:** the next lead session, and the author. **Read with:** `00-orchestration.md` §3 to §6, then `progress.md`
+(the ledger holds the detail of every story named here). This page says what to do next.
 
-## Where things stand (2026-10-08, evening)
+## What merged on 2026-10-10
 
-The author asked the lead to run the implementation cycle, then to stop gracefully. Twenty-five pull requests merged
-this round, each after an Opus review that the lead acted on (the ledger has the detail): C-06, B-15, C-10.1, C-11.2,
-C-13, C-13.1, C-17 (Phase C is complete), F-17.1, F-19, F-19.1, F-19.2, F-19.3, F-20, B-16, B-16.1, B-17, B-17.1,
-B-23, B-25, L-02, L-02.1, L-03, D-01, D-04, D-05; and the plan PRs #455 and #477.
+All agents ran on Sonnet (the author asked for cost-effectiveness).
 
-Large documents, the author's first priority, moved most:
-
-- A live reload of a 1 MB document dropped from 5.4 s to about 0.2 s (B-23, incremental reparse; two adversarial
-  reviews, about 475,000 fuzzed edits, no mismatch).
-- The first full mount of a transcript-shaped document was cubic: 59 s at 256 KB, over 11 minutes at 1 MB. With B-25
-  merged and B-25.1 open, it is 0.8 s and about 4 s. **B-25.1 (#479) is the next merge to land.**
+- **Direction and chrome:** H-07 (`chrome_size`), W-01 (the two-state at-rest gate), J-02 (`shell-api` clipboard),
+  H-03.1 (palette and outline edge roles), H-06 (character-width measurement), V-01 (structural selection and line
+  operations in Source), X-08 (the wave-3 cards).
+- **Panes and layout:** D-09 (Cmd-click into the neighbour pane), D-12 (remember the layout and each pane's place).
+- **Large documents and scroll:** B-24 (re-render only what a reload changed), B-27 (a hidden Source page is not
+  rebuilt on every fold; fold on 1 MB 5,095 to 898 ms), F-27 (each pane keeps its block under the reading line).
+- **Text operations (Phase E):** E-01, E-02 (gap-fill tests), E-03, E-06, E-07, E-08, E-09, E-10, E-11, E-14, E-16.
+- **Test infrastructure:** F-30 (a stuck live-reload test fails by name) and F-30.1 (boot deadline and retry).
 
 ## Open pull requests, and what each needs
 
 | PR | Story | State | Next |
 | --- | --- | --- | --- |
-| #479 | B-25.1 | review was stopped | a fresh Opus review (brief: the sanitiser keeps `language-*` on `pre` for every language name; goldens moved only by the attribute; captions unchanged; re-measure), then merge |
-| #475 | D-06 | fixed after return 1; re-review stopped | a fresh re-review of `14473ac1` (check the `dialog[open]` rule does not block pane focus while a notice shows), then merge |
-| #480 | F-20.1 | review stopped just after it reported "an introduced divergence" against commonmark.js | **do not merge**; re-review, comparing CR-heavy inputs against commonmark.js 0.31.2 |
-| #470 | F-21 | returned twice on Sonnet | re-run on Opus after D-08 merges (it needs an `onCommitted` hook in `document/open.ts`, which D-08 is editing); the second review describes the race |
+| #538 | D-10 | re-check merged at `0a3d143a`; main merged in after B-27 | the lead's re-verdict, then merge |
+| #545 | E-04 | Sonnet review dispatched | **hold the merge**: it amends ADR-0048 clause 3 (see below) |
+| #546 | J-03 | Sonnet review dispatched; 45 of 50 transforms | merge on a merge verdict; then J-03.1 for the five deferred |
+| #547 | E-05 | Sonnet review merge | merge (notes in the ledger) |
+| #494 | F-26 | review merge at `0c8f0358` | code-owned: the author merges |
+| #407 | sanitiser test | browser-lite and ci red | code-owned: the author merges |
+| #450 | G-03 | `ci.yml` / `nightly.yml`; browser-lite and ci red | code-owned: the author |
+| #470 | F-21 | returned twice | re-run on Opus (see `progress.md`) |
+| #445 | K-00 | docs, plan lane K | no checks yet; read, then merge or return |
 
-## Stopped mid-work: resume in the worktree
-
-Each was stopped with uncommitted work. Read `git diff` in the worktree before continuing; do not `git stash` (the
-stash is shared across worktrees).
-
-| Story | Worktree | Model | What is there |
-| --- | --- | --- | --- |
-| D-08 | `../marxy-wt/D-08` | opus | close, save, title and quit for two documents; most files edited, test file written; the pane/index.ts title listener and the command were next |
-| B-26 | `../marxy-wt/B-26` | opus | the typesetter's keep-place reads the pane's scroller; implemented, mutations were running |
-| F-23 | `../marxy-wt/F-23` | sonnet | CRLF position helpers (`source/cm-position.ts`) and their use; tests written |
-| F-24 | `../marxy-wt/F-24` | sonnet | a CR-only file's line separator; test written, precheck was running |
-
-## Next, in order
-
-1. Land #479 (B-25.1), #475 (D-06); re-review #480.
-2. Finish D-08, then F-21 on Opus; then D-07 (the D-05 review's stale-offset fix is on its card), D-11, D-13 (each
-   after D-06), and B-24 (re-render only what a reload changed; after F-23 lands, same file).
-3. F-23, F-24, B-26; then F-22 (ordered lists; after B-25.1, same file `base.css`), B-18 (after D-08: `app.ts`).
-4. A-11.2 waits for G-03 (#450, lane G's session).
-- **Cap:** four implementors, at most two on Opus. Reviews are not capped, and every one this round found something.
+Ready to dispatch: H-04 (held, author taste), K-05, W-02, F-28 (code-owned; point 2 needs the author), E-08.1,
+J-03.1 (after #546), F-31 (after the author rules), V-07, A-03.
 
 ## Waiting on the author
 
-1. **Code-owned files**, which the lead cannot merge:
-   - **B-16.1:** `nightly.yml`'s perf job still builds `dist/`, which it no longer uses.
-   - **L-02.1:** the probe tests' nightly step (the YAML is in #469's body).
-   - **B-23:** a nightly `pnpm --filter @marxy/core test:reparse-stress`.
-   - **B-25:** the transcript step (YAML in #471's body).
-   - **`release.yml`:** it runs `gate:bundle` after `tauri-action` has published; move it before.
-   - Merge #394 and #407.
-2. **Decision 4 (classic scrollbar):** L-03 measured macOS and Linux and recommends no root rule. The measurement was
-   at 20 px type only; the overflow range grows with size.
-3. **Rulings carried from earlier:**
-   - L-01 decisions 6, 7 and 9;
-   - ADR-0053, ADR-0054, ADR-0055 and now ADR-0057 (proposed);
-   - the image-scope ceiling;
-   - a Rust-owned root allow-list for `read_file` and `search_content`.
-4. **New questions from this round:**
-   - **Content search (C-17):** a hit in a code file opens in Source.
-   - **The `/` prefix (C-17):** it collides with typing an absolute path.
-   - **The verb menu (C-13):** a right-clicked link offers only "Jump to source"; and Enter on a Tab-focused link
-     follows it, while on a selected link it opens the menu.
-   - **WKWebView's menu (C-13):** whether `contextmenu`'s `preventDefault` hides WKWebView's own menu in the built app.
-   - **Taste (L-03):** the partial list hang at narrow widths.
-   - **TCC prompts (C-10.1):** whether walking `~` raises a prompt for Pictures, Music or Movies on macOS 26.
+1. **Code-owned pull requests:** #494 (F-26, the sanitiser), #407 (the sanitiser test), #450 (G-03, `ci.yml` and
+   `nightly.yml`).
+2. **ADRs:** ADR-0060 and ADR-0061 are proposed.
+3. **ADR-0048 clause 3 (E-04, #545):** the card has Esc keep the edit; the ADR has it discard. The PR amends the ADR.
+   The lead holds the merge for the author's ruling.
+4. **The `⌘\` conflict (W-02):** D-07 shipped it as Open beside, while ADR-0058 gives it to fold and unfold. W-02
+   registers without a key until the author names one.
+5. **V-01:** the keys ⌃⇧→ and ⌃⇧B take over macOS emacs defaults.
+6. **Taste:**
+   - K-18's html glyph;
+   - H-03.1's palette and outline edges (the old literals were wrong in light, so the default look moved);
+   - K-03's "a task list means report";
+   - E-11's copy-plain keeps list markers (the card said dropped; the lead decided).
+7. **F-31's ADR-0013 question:** may the paint signal fall back after two frames and about 2 s, marked
+   `signal=frames-only`? The card is in `08-fixes-from-the-bug-sweep.md`.
+8. **The Docker incident:** an agent ran `docker stop` on all containers and stopped another session's
+   `tender_shannon` (since gone, likely `--rm`). Future briefs: stop only the containers you started.
 
-## Lessons from this round
+## Lessons
 
-- **Machine load is the bottleneck.** With about ten WebKit-running agents, load reached 100 and test runs timed out
-  for hours. Brief every agent to run tests serially and targeted, and to re-run a timeout alone.
-- **Adversarial reviews with an oracle pay.** B-23's first reparse was wrong on lists and line ends, and F-20's checker
-  loosening hid a wrong range. Both were found by fuzzers the reviewers wrote, not by the PRs' own tests.
-- **A test that waits can hide a product race.** F-21's 300 ms wait hid a Back press going one step too far.
-- **The lead's own requests need the same scrutiny.** The APG Home/End behaviour the lead asked of D-04 broke it.
-- **A card's paths can be wrong.** F-19 named the wrong file, and F-19.1's "offset 0" was never held by an unscrolled
-  reader. Implementors who stopped and reported saved a round each time.
+- **browser-lite timeouts (7 times) were a boot stall, not the suite's size.** The same job takes 5 to 6 minutes on
+  other runs and hits the 15 minute cap on others. F-30 named the hanging test (F-19.3) and F-30.1 bounded the boot.
+  The residual is a product stall, F-31. Do not raise the timeout (#394) for this.
+- **Append-only operation lists conflict between parallel E stories.** `MUTATING_OPERATIONS` and the catalogue list
+  conflicted for E-06 and E-07, E-08 and E-10. Merge those stories serially, or expect a list-union merge.
+- **The lead's regex conflict resolution once dropped ADR index rows** (#516 fixed it). Diff a resolved file against
+  both parents before committing.
+- **Cards can be wrong on a number.** B-27's 28 to 30 s, F-27's 1,300 px, H-06's "two sizes within 0.5 %" and E-16's
+  CRLF rule did not hold; the implementors who measured and reported saved a round each time.
+- **Adversarial reviews with an oracle still pay:** B-24 (KaTeX ran twice, Save as threw), D-10 (two silent-overwrite
+  paths) and V-01 (Join, Delete line, mixed CRLF) were each found by a reviewer's probes, not the PR's tests.
+- **A usage limit stops agents mid-work** (about 18:00: E-04, J-03, E-05). Their worktrees were intact; resume rather
+  than restart.

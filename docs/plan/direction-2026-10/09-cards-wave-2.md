@@ -296,3 +296,18 @@ the contract with a declaration, a kind and a comment.
 **Checked.** `gate:contrast` 430 pairs, 0 failing; `check-tokens` ok (93 tokens); `gate:aesthetics --mechanical` ok; `pnpm precheck` 7 of 7.
 
 **Do not.** Declare a name; touch `tokens.css`; set a value (H-04).
+
+### J-03.1 — The five deferred transforms
+
+**Model:** sonnet · **Size:** M · **Depends on:** J-03 (#546, open) · *From J-03 (2026-10-10).* ·
+**State:** card written before #546 merged.
+
+**Outcome.** The five catalogue ids J-03 left in `NOT_YET` (`packages/core/src/transforms/registry.ts`) are
+implemented, and `NOT_YET` empties. Read each reason there once #546 merges (or from `gh pr diff 546`); at the time of
+writing they are: `wrap-80` (hard-wrapping needs list-indent and table rules of its own and a reflow property),
+`to-slack` (a Markdown to mrkdwn converter that needs the AST walk, not regexes), `to-jira` (Jira wiki, with nested
+lists, panels and tables), `to-html` (needs core's HTML writer, which has its own sanitiser rules, ADR-0021) and
+`tsv-to-table` (reads delimited text, not Markdown; wants the numeric-column alignment from `align-table-pipes`).
+
+**Do not.** Touch the sanitiser (code-owned); `to-html` goes through core's writer as it is. Land the five as one PR
+only if each stays small; otherwise one PR per id.
