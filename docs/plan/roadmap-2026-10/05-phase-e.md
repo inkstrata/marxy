@@ -1321,6 +1321,20 @@ event; if the chosen route is the catcher, drive the real keystroke instead. If 
 shows a selection kind with more than seven rows for operations that are not copy verbs, report which
 and let the author choose what leaves the menu (it stays in the palette).
 
+### E-08.1 — Narrow `1.` to `-` on multi-line and nested items
+
+**Model:** sonnet · **Size:** S · **Depends on:** E-08 (merged) · *From the E-08 review (2026-10-10).* ·
+**Paths:** E-08's list-conversion code in `packages/core/src/operations/` and its tests. **To bullets** declines
+today when an item is multi-line or nested, although the E-08 card's step 2 allows re-indenting the continuation
+lines: narrowing the marker `1.` to `-` shifts the content column left by one, and the continuation lines move with
+it. 5 of the 13 corpus declines (13 of 21 to-bullets) are this case. Re-indent continuation and nested lines by the
+width the marker lost, and keep declining where the shift would change meaning (a fenced block or indented code
+inside the item). Acceptance: the five corpus inputs convert; the fidelity kit passes on every line ending; the
+decline count drops to 8 of 21.
+
+**Also here:** dedupe E-09's item-span helpers with E-08's (E-09 carries its own copy of the item-span code). One
+helper, both operations on it, no byte moves in either's tests.
+
 ## What this phase deliberately leaves out
 
 - **A caret or live rendering in Rendered mode.** The island is a code-face editor on one block's
