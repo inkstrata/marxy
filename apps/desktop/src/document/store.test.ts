@@ -639,8 +639,8 @@ test('property: random splices and Source edits, then undo to the start, restore
 
 const STORE_SOURCE = readFileSync(fileURLToPath(new URL('./store.ts', import.meta.url)), 'utf8');
 
-test('store.ts imports only @marxy/core, the DOM-free node map and the Source fold', () => {
-  const allowed = new Set(['@marxy/core', '../render/post.ts', '../source/buffer-commit.ts']);
+test('store.ts imports only @marxy/core, the DOM-free node map, the Source fold and the scratch path shape', () => {
+  const allowed = new Set(['@marxy/core', '../render/post.ts', '../source/buffer-commit.ts', './untitled.ts']);
   const specs = importSpecs(STORE_SOURCE, 'store.ts') as string[];
   assert.ok(specs.length > 0);
   for (const spec of specs) assert.ok(allowed.has(spec), `store.ts may not import ${spec}`);

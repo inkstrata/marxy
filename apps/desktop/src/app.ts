@@ -8,6 +8,7 @@ import { applyDocumentMutation, redoDocumentEdit, undoDocumentEdit } from './com
 import { buildAppContext, installCommandKeys } from './selection/bind.ts';
 import { createRenderedSelection, type RenderedSelection, type SelectionShell } from './selection/view.ts';
 import { guardPaneClose, installCloseGuard } from './close.ts';
+import { openScratchIn } from './document/scratch.ts';
 import { pathsForDocument } from './render/images.ts';
 import { resetDismissedNotices } from './notices/blocked.ts';
 import { commands as appCommands } from './commands/index.ts';
@@ -222,6 +223,7 @@ export async function startApp(
     openDocument: () => focused().openDocument(),
     document: () => focused().store(),
     save: (opts) => focused().save(opts),
+    openScratch: (text, opts) => openScratchIn(panes, text, opts),
     // The first pane's, as the selection is (D-06 moves both with focus).
     onDocumentChange: openPath.onDocumentChange,
     selection: renderedSelection,

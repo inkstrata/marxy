@@ -27,16 +27,20 @@ import type { TrustController } from '../trust/controller.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
 import type { DocumentWatch } from './live-reload.ts';
 import type { StoreRegistry } from './registry.ts';
-import { openDocumentStore, type DocumentSnapshot, type DocumentStore } from './store.ts';
+import { openDocumentStore, openUntitledStore, type DocumentSnapshot, type DocumentStore } from './store.ts';
+import { documentName, isUntitled } from './untitled.ts';
 
 /**
  * How a document is opened (`AppHandle.open`, `PaneSet.openIn`, a pane's `open` and `replace`): `at` is a
  * byte held at the reading line; `onLanded` runs once the document is on screen in the pane it was opened
  * in, never when the open is refused or the reader dismisses the unsaved-edits prompt (C-17, D-01).
+ * `scratch` is what a scratch path (`untitled.ts`) opens: the bytes the document was born with, and a label
+ * for its window title (E-13). A scratch path another pane already shows needs none.
  */
 export interface OpenOptions {
   readonly at?: number;
   readonly onLanded?: () => void;
+  readonly scratch?: { readonly bytes: Uint8Array; readonly label?: string };
 }
 
 /** The window's live reload: one watch per store, started by whichever pane shows it first (D-10). */
@@ -138,6 +142,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
    */
   let current: DocumentStore | null = null;
   let closed = false;
+  /** What the open scratch document is called in the window title, if it was given a name (E-13). */
+  let scratchLabel: string | undefined;
   /** `onDocumentChange` subscribers: each moves its subscription to a newly opened store (B-12). */
   const followers = new Set<(next: DocumentStore) => void>();
   /** The byte the open in progress lands on (an `at`, or the stored place), read before anything re-notes it. */
@@ -163,7 +169,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     const snap = current?.snapshot();
     // The document is unsaved when its store is, or when any pane that shows it holds Source text the
     // store does not (D-10): the focused pane is not the only one that can.
-    await updateTitle(shell, snap?.path ?? null, (snap?.dirty ?? false) || (current !== null && unfoldedAnywhere(current)));
+    await updateTitle(shell, snap?.path ?? null, (snap?.dirty ?? false) || (current !== null && unfoldedAnywhere(current)), scratchLabel);
   }
 
   /** Source text typed in any pane that shows the open document goes into its store. */
@@ -213,12 +219,21 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       },
       holdsUnfoldedSource: () => current === open && unfoldedAnywhere(open),
       pane: paneOf(doc),
-      onSaveAs: async (path) => {
+      onSaveAs: async (path, from) => {
         if (current !== open) return;
         await shell.allowAssetScope(dirname(path));
         // The watch moved with the store when it took the new path (document/live-reload.ts). The save
-        // resolves once the new folder's watch is registered, so a write right after it is seen.
-        await (await watches.of(open))?.moved();
+        // resolves once the new folder's watch is registered, so a write right after it is seen. A scratch
+        // document had no watch: it is now a file, so it gets one, and its place in the folder's index.
+        if (isUntitled(from)) {
+          scratchLabel = undefined;
+          await (await watches.watch(open)).moved();
+          if (ownsTitle()) document.title = `${documentName(path)} — Marxy`;
+          persistence.trackOpen(path, () => index.rootFor(path));
+          void index.ensureFor(path, open.snapshot().buffer.bytes);
+        } else {
+          await (await watches.of(open))?.moved();
+        }
         deps.selection()?.afterRender();
       },
     };
@@ -243,18 +258,31 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
    * Read and render `file` through the `render` mark; cold-start paint runs after this (MARXY-183).
    * A large document's idle chunks wait for `start` (A-02), so nothing is appended before first text.
    */
-  async function readAndShow(file: string, at: number | undefined, start: Promise<unknown>): Promise<RenderEvidence> {
+  async function readAndShow(
+    file: string,
+    at: number | undefined,
+    start: Promise<unknown>,
+    scratch?: OpenOptions['scratch'],
+  ): Promise<RenderEvidence> {
     // Shown in another pane: its store is the document, unsaved edits and all, and is not read again.
     const shown = deps.stores?.held(file) ?? null;
-    const bytes = shown && shown !== current ? shown.snapshot().buffer.bytes : await shell.readFile(file);
+    const untitled = isUntitled(file);
+    let bytes: Uint8Array;
+    if (shown && shown !== current) bytes = shown.snapshot().buffer.bytes;
+    // A scratch document is not on disk: its bytes are the ones it was handed, and nothing is read (E-13).
+    else if (untitled) {
+      if (!scratch) throw new Error('That new document is no longer open.');
+      bytes = scratch.bytes;
+    } else bytes = await shell.readFile(file);
     await config.applyOnce(document.documentElement);
     let lands = at;
-    if (lands === undefined) {
+    if (lands === undefined && !untitled) {
       const stored = persistence.storedFor(file, bytes.length);
       if (stored) lands = stored.byteOffset;
     }
     landing = lands;
     teardownDocument();
+    scratchLabel = untitled ? scratch?.label : undefined;
     clearDismissForPath(file);
     await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
     // The open transition (ADR-0037): the store copies the bytes, parses them once and starts an empty
@@ -262,16 +290,13 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     let parsedHere = false;
     const make = (): DocumentStore => {
       parsedHere = true;
-      return openDocumentStore(
-        {
-          writeFileAtomic: (path, written) => shell.writeFileAtomic(path, written),
-          recordRead: shell.recordRead ? (path, read) => shell.recordRead?.(path, read) : undefined,
-          peekFile: shell.peekFile ? (path) => shell.peekFile!(path) : undefined,
-          exists: async (path) => (await shell.stat(path)) !== null,
-        },
-        file,
-        bytes,
-      );
+      const io = {
+        writeFileAtomic: (path: string, written: Uint8Array) => shell.writeFileAtomic(path, written),
+        recordRead: shell.recordRead ? (path: string, read: Uint8Array) => shell.recordRead?.(path, read) : undefined,
+        peekFile: shell.peekFile ? (path: string) => shell.peekFile!(path) : undefined,
+        exists: async (path: string) => (await shell.stat(path)) !== null,
+      };
+      return untitled ? openUntitledStore(io, file, bytes) : openDocumentStore(io, file, bytes);
     };
     const opened = deps.stores ? deps.stores.acquire(file, make) : make();
     current = opened;
@@ -287,7 +312,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         for (const follow of [...followers]) follow(opened);
       },
     });
-    if (ownsTitle()) document.title = `${file.split('/').pop()} — Marxy`;
+    if (ownsTitle()) document.title = `${untitled ? documentName(file) : file.split('/').pop()} — Marxy`;
     return evidence;
   }
 
@@ -301,10 +326,14 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     await view.typeset();
     if (opts.firstOpen) await restorePersistedPosition();
     const deferred = view.deferredWork(file);
+    // A scratch document is in no repository: it is not indexed, watched or offered a theme beside it (E-13).
+    const scratch = isUntitled(file);
     await whenIdle(async () => {
       await deferred();
-      indexing = index.ensureFor(file, current?.snapshot().buffer.bytes);
-      void indexing;
+      if (!scratch) {
+        indexing = index.ensureFor(file, current?.snapshot().buffer.bytes);
+        void indexing;
+      }
       await config.startUserTheme();
     });
     await shell.mark('position_restored', Date.now());
@@ -313,14 +342,19 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     } else {
       view.showRenderedChrome();
     }
-    await config.offerThemeDocument(file);
-    if (current) await watches.watch(current);
+    if (!scratch) {
+      await config.offerThemeDocument(file);
+      if (current) await watches.watch(current);
+    }
     await refreshTitle();
   }
 
-  async function openReplacing(file: string, at?: number): Promise<void> {
+  async function openReplacing(file: string, at?: number, scratch?: OpenOptions['scratch']): Promise<void> {
     if (closed) return;
     const openPath = currentPath();
+    // A scratch document asked for again, with no bytes to open it from: it is already here, and nothing
+    // else could say what it was (there is no file to read back).
+    if (file === openPath && isUntitled(file) && !scratch && view.document()) return;
     if (openPath && file !== openPath) await persistence.flushReading(view);
     if (file === openPath && view.document() && at !== undefined) {
       // A heading in the document already on screen: move, do not read and set it again.
@@ -330,9 +364,9 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     }
     const chunks = gate();
     try {
-      await readAndShow(file, at, chunks.promise);
+      await readAndShow(file, at, chunks.promise, scratch);
       chunks.release();
-      persistence.trackOpen(file, () => index.rootFor(file));
+      if (!isUntitled(file)) persistence.trackOpen(file, () => index.rootFor(file));
       await finishDocumentOpen(file, { at });
     } catch (e) {
       chunks.release();
@@ -353,7 +387,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         // The document already on screen, asked for again with nowhere to go (a second launch, Finder, a
         // drag, the palette on the current document): reading it back from disk would drop unsaved edits.
         if (file === currentPath() && opts?.at === undefined && hasUnsavedChanges()) return;
-        await openReplacing(file, opts?.at);
+        await openReplacing(file, opts?.at, opts?.scratch);
         // Only once `file` is on screen: after a confirmed "Save and open" too, never on the old document (C-17).
         if (currentPath() === file) opts?.onLanded?.();
       });
@@ -453,7 +487,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     open,
     replace: (file, opts) =>
       serially(async () => {
-        await openReplacing(file, opts?.at);
+        await openReplacing(file, opts?.at, opts?.scratch);
         if (currentPath() === file) opts?.onLanded?.();
       }),
     currentPath,

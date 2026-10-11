@@ -12,6 +12,7 @@
 import { createBuffer, parseMarkdown, reparseMarkdown, splice, type Buffer, type Document, type Edit } from '@marxy/core';
 import { buildNodeMap, type NodeMap } from '../render/post.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
+import { isUntitled } from './untitled.ts';
 
 /** The privileged effects a store needs. `apps/desktop/src/shell` implements them; tests fake them. */
 export interface StoreIo {
@@ -220,6 +221,17 @@ function freezeSnapshot(state: State): DocumentSnapshot {
   });
 }
 
+/**
+ * The `open` transition for a scratch document (E-13): a store for `bytes` that came from no file, under a
+ * scratch `path` (`untitled.ts`). `disk` is what the document was born with, so `dirty` reads "changed since
+ * it was opened" and a scratch the reader only read closes without a question. Nothing is written until a
+ * `save` to another path, which makes it an ordinary document: `disk` and the stale-write guard follow.
+ */
+export function openUntitledStore(io: StoreIo, path: string, bytes: Uint8Array): DocumentStore {
+  if (!isUntitled(path)) throw new Error(`${path} is not a scratch path`);
+  return openDocumentStore(io, path, bytes);
+}
+
 /** The `open` transition: a store for `bytes` read from `path`, with an empty history. */
 export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array): DocumentStore {
   const buffer = createBuffer(path, bytes);
@@ -335,6 +347,8 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
 
     reload(bytes, opts) {
       return transition((): 'reloaded' | 'unchanged' | 'kept' => {
+        // A scratch document has no file to change under it (E-13).
+        if (isUntitled(state.path)) return 'kept';
         if (sameBytes(bytes, state.buffer.bytes)) {
           pending = null;
           if (state.disk === null || !sameBytes(state.disk, bytes)) {
@@ -401,6 +415,11 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
     save(opts) {
       return transition(async () => {
         const target = opts?.to ?? state.path;
+        // A scratch document has no file (E-13): writing "to" its own name would make one in the working
+        // directory. The first write is a Save As to a path the reader picked.
+        if (isUntitled(target)) {
+          return { result: 'failed' as const, error: new Error('this document is not saved yet; use Save As to choose where it goes') };
+        }
         if (target === state.path && !snap.dirty) return { result: 'unchanged' as const };
         const from = state.path;
         const bytes = state.buffer.bytes;

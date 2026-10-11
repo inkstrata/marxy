@@ -2,9 +2,9 @@
 // document while dirty takes the same path (MARXY-337). With two panes (D-08) the guard is per document:
 // the notice names the document being left, sits in the pane that shows it and saves that document;
 // quitting asks about each unsaved document in turn; closing a pane asks about its document.
-import { basename } from '@marxy/core/src/index-model/paths.ts';
 import type { Shell } from '@marxy/shell-api';
 import type { DocumentStore } from './document/store.ts';
+import { documentName } from './document/untitled.ts';
 import { ensureNoticesRegion, notify, SOURCE_HELD_APART } from './notices/index.ts';
 import type { SaveResult } from './save.ts';
 
@@ -75,7 +75,7 @@ function documentOf(pane: GuardPane, all: readonly GuardPane[]): DirtyDocument |
   return {
     store,
     path,
-    name: basename(path) || 'This document',
+    name: documentName(path) || 'This document',
     pane,
     isDirty: () => store.snapshot().dirty || showing().some((p) => p.content.hasUnsavedChanges()),
     async fold() {
