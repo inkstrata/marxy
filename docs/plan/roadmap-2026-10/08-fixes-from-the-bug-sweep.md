@@ -482,3 +482,23 @@ Proposed: fall back after two animation frames and about 2 s, and mark the resul
 stays honest and a frames-only boot is never reported as a paint. Acceptance: paint-signal tests for the paint path,
 the fallback path and the marker (red on main); the smoke verdict reads the marker; the author's ruling on ADR-0013
 recorded before the PR merges (ruled yes, 2026-10-11).
+
+### F-34 — A Source fold keeps every byte it was not asked to change
+
+**Model:** sonnet · **Size:** M · **Depends on:** F-33 (merged) · *From the F-33 review (PR #570, 2026-10-11); true on
+main.* · **Paths:** `packages/core/src/buffer/buffer.ts` and its tests, `apps/desktop/test/support/store-walk.mjs`
+(remove `holdsOpenFinding`), `apps/desktop/test/store-walk.test.mjs` (the `todo` becomes a test). `foldText` takes one
+common prefix and one common suffix between the file's lossy decode (a byte that is not UTF-8 is U+FFFD) and the
+editor's text, and re-encodes everything between them, so two changes either side of a stray byte write it as
+`EF BF BD` (`alpha\n` `FF` `\nomega\n`, with `ALPHA` and `OMEGA` typed, gives `… 0A EF BF BD 0A …`; commitment 3,
+faithful to the bytes). Compare the middle for the runs that are the same on both sides (a character-level shortest edit
+script, then lines, then characters inside the changed lines, with a budget on each) and copy those runs' original
+bytes between the changed runs' encodings; the return stays one range and one replacement. **Acceptance:** the minimal
+input gives `41 4C 50 48 41 0A FF 0A 4F 4D 45 47 41 0A` (red on main); a property test (random bytes with lone FF,
+truncated, overlong and surrogate-encoded sequences, several edits each) folds to the original bytes with only the
+edited runs replaced (red on main); the store-walk `todo` passes and `holdsOpenFinding` is gone, with 200 seeds and
+`MARXY_WALK_FINDINGS=1` at 300 green; `gate:fidelity` and the goldens unchanged; one edit in a 1 MB buffer folds within
+2× of main. **Do not:** widen the return type or touch a caller. **Known limit:** past the budgets (about 1,500
+characters, then 3,000 lines, of difference between two stray bytes) the span folds as one change, as before F-34.
+**Found and left:** `splice` refuses a range that starts or ends on a lone continuation byte (80 to BF), so deleting
+the character that stands for one throws a `RangeError` in `leaveSourceMode`, on main and here; a story of its own.

@@ -2,7 +2,6 @@
 //
 //   MARXY_WALK_SEEDS=<n>  runs seeds 1..n (default 40; the nightly run sets 2000)
 //   MARXY_WALK_SEED=<n>   replays that one seed and nothing else
-//   MARXY_WALK_FINDINGS=1 lifts the generator's one restriction (see "OPEN FINDING" in support/store-walk.mjs)
 //
 // A failure names its seed and lists the steps. Every later data-safety story adds an op or an invariant to
 // test/support/store-walk.mjs instead of writing a probe of its own; the story's PR runs 200 seeds and says so.
@@ -71,11 +70,9 @@ test('a long run does not leak: the heap after a collection does not grow with t
   assert.ok(late - early < 25, `heap grew from ${early.toFixed(1)} MB to ${late.toFixed(1)} MB over ${seeds.length - 100} more seeds`);
 });
 
-// FOUND BY THE WALK ON MAIN, NOT FIXED HERE (F-33 is a test story): a Source session with typed changes either
-// side of a byte that is not UTF-8 folds as one splice, and the byte between them becomes U+FFFD (ff -> ef bf bd).
-// Walk seeds 57, 79, 108 (with MARXY_WALK_FINDINGS=1) reach it. This is a `todo`: it reports, and does not fail the
-// run, until `foldText` keeps the byte, when it passes and the restriction in support/store-walk.mjs goes.
-test('two changes in one Source session, either side of a byte that is not UTF-8, keep that byte', { todo: 'found by the F-33 walk: foldText re-encodes the span between the changes' }, async () => {
+// Found by the walk (F-33), fixed by F-34: a Source session with typed changes either side of a byte that is not
+// UTF-8 folded as one splice, and the byte between them became U+FFFD (ff -> ef bf bd). Walk seeds 57, 79, 108 reached it.
+test('two changes in one Source session, either side of a byte that is not UTF-8, keep that byte', async () => {
   const enc = new TextEncoder();
   const bytes = new Uint8Array([...enc.encode('alpha\n'), 0xff, ...enc.encode('\nomega\n')]);
   const store = openDocumentStore({ writeFileAtomic: async () => {} }, '/x.md', bytes);

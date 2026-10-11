@@ -76,11 +76,16 @@ export function fromText(path: string, text: string, like: Buffer): Buffer {
 }
 
 /**
- * The one splice that turns `like` into the editor's `text` (which carries no BOM): the bytes of the
- * part that differs, and nothing else. Everything before and after the edit keeps its bytes as they
- * were — a mixed-ending file keeps each line's ending and a byte that is not UTF-8 is not rewritten
- * as U+FFFD — so an edit in Source touches only what the reader changed. Inside the edit, line endings
- * follow the file (CRLF for a CRLF file). `null` when nothing differs.
+ * The one splice that turns `like` into the editor's `text` (which carries no BOM): the bytes from the first
+ * change to the last, and every run of the file between two changes keeps its own bytes, copied and not decoded
+ * and re-encoded. Everything before the first change and after the last keeps its bytes as it was too. So a
+ * mixed-ending file keeps each line's ending and a byte that is not UTF-8 is not rewritten as U+FFFD, however
+ * many changes the reader made and wherever they sit (F-34); an edit in Source touches only what the reader
+ * changed. Inside a change, line endings follow the file (CRLF for a CRLF file). `null` when nothing differs.
+ *
+ * The range is one span, so the API and its callers are unchanged; its replacement is the changed runs'
+ * encodings with the file's own bytes between them. A text that differs from the file in more than a few
+ * thousand places between two non-UTF-8 bytes falls back to one change over that whole span (see `alignChanges`).
  */
 export function foldText(like: Buffer, text: string): { range: Source; replacement: Uint8Array } | null {
   const skip = like.bom ? 1 : 0;
@@ -98,20 +103,229 @@ export function foldText(like: Buffer, text: string): { range: Source; replaceme
     suffix++;
   }
   // Never cut a surrogate pair or a CRLF: the edit widens to take the whole of either.
-  const cuts = (at: number): boolean =>
-    at > 0 &&
-    at < text.length &&
-    ((isHigh(text.charCodeAt(at - 1)) && isLow(text.charCodeAt(at))) || (text[at - 1] === '\r' && text[at] === '\n'));
   // The old text's pairs count too: an LF input against a CRLF buffer must not stop between the two.
-  const cutsOld = (at: number): boolean => at > 0 && at < old.length && old[at - 1] === '\r' && old[at] === '\n';
-  while (prefix > 0 && (cuts(prefix) || cutsOld(skip + prefix))) prefix--;
-  while (suffix > 0 && (cuts(text.length - suffix) || cutsOld(old.length - suffix))) suffix--;
-  const middle = text.slice(prefix, text.length - suffix);
-  const converted = like.eol === 'crlf' ? middle.replace(/\r\n|\n/g, '\r\n') : middle;
-  return {
-    range: { file: like.path, start: like.offsets.at(skip + prefix), end: like.offsets.at(old.length - suffix) },
-    replacement: encoder.encode(converted),
+  const cutsAt = (a: number, b: number): boolean => cuts(old, a) || cuts(text, b);
+  while (prefix > 0 && cutsAt(skip + prefix, prefix)) prefix--;
+  while (suffix > 0 && cutsAt(old.length - suffix, text.length - suffix)) suffix--;
+  const oldFrom = skip + prefix;
+  const oldTo = old.length - suffix;
+  const newFrom = prefix;
+  const newTo = text.length - suffix;
+  // Every run of the middle that is the same on both sides re-encodes to the bytes it came from, except a
+  // run holding a byte that is not UTF-8 (decoded as U+FFFD, written as EF BF BD). Only then is it worth
+  // finding which runs are unchanged; with none, the middle is one change.
+  let changes: Change[] | null = null;
+  if (holdsStrayByte(like, oldFrom, oldTo)) {
+    changes = alignChanges(old, oldFrom, oldTo, text, newFrom, newTo);
+    if (changes !== null) changes = widenChanges(changes, old, text, oldFrom, newFrom);
+  }
+  if (changes === null || changes.length === 0) changes = [{ a0: oldFrom, a1: oldTo, b0: newFrom, b1: newTo }];
+  const parts: Uint8Array[] = [];
+  let length = 0;
+  const push = (part: Uint8Array): void => {
+    parts.push(part);
+    length += part.length;
   };
+  for (let i = 0; i < changes.length; i++) {
+    const change = changes[i]!;
+    if (i > 0) push(like.bytes.subarray(like.offsets.at(changes[i - 1]!.a1), like.offsets.at(change.a0)));
+    const middle = text.slice(change.b0, change.b1);
+    push(encoder.encode(like.eol === 'crlf' ? middle.replace(/\r\n|\n/g, '\r\n') : middle));
+  }
+  let replacement = parts[0]!;
+  if (parts.length > 1) {
+    replacement = new Uint8Array(length);
+    let at = 0;
+    for (const part of parts) {
+      replacement.set(part, at);
+      at += part.length;
+    }
+  }
+  return {
+    range: { file: like.path, start: like.offsets.at(changes[0]!.a0), end: like.offsets.at(changes[changes.length - 1]!.a1) },
+    replacement,
+  };
+}
+
+/** One changed run: `old[a0, a1)` is `text[b0, b1)` now (UTF-16 offsets into `like.text` and the editor's text). */
+interface Change {
+  a0: number;
+  a1: number;
+  b0: number;
+  b1: number;
+}
+
+/** True when `at` sits between the two halves of a surrogate pair or of a CRLF in `s`. */
+const cuts = (s: string, at: number): boolean =>
+  at > 0 &&
+  at < s.length &&
+  ((isHigh(s.charCodeAt(at - 1)) && isLow(s.charCodeAt(at))) || (s.charCodeAt(at - 1) === 0x0d && s.charCodeAt(at) === 0x0a));
+
+/** True when `like.text[from, to)` holds a U+FFFD that stands for bytes other than EF BF BD (a byte that is not UTF-8). */
+function holdsStrayByte(like: Buffer, from: number, to: number): boolean {
+  const { text, bytes, offsets } = like;
+  let at = text.indexOf('\ufffd', from);
+  while (at !== -1 && at < to) {
+    const start = offsets.at(at);
+    if (offsets.at(at + 1) - start !== 3 || bytes[start] !== 0xef || bytes[start + 1] !== 0xbf || bytes[start + 2] !== 0xbd) {
+      return true;
+    }
+    at = text.indexOf('\ufffd', at + 1);
+  }
+  return false;
+}
+
+/** The most code units two texts may differ by before the character-level comparison gives up (memory ~ budget^2). */
+const CHAR_BUDGET = 1500;
+/** The same for the line-level comparison, and for the character-level one inside each changed block of lines. */
+const LINE_BUDGET = 3000;
+
+/**
+ * The runs of `old[a, a')` that are not in `text[b, b')`, as a minimal edit script: a character-level
+ * comparison, then (if the texts differ in too many places for that) a comparison of lines and a character-level
+ * one inside each changed block. `null` when even that is too much; the caller then takes the span as one change.
+ */
+function alignChanges(old: string, a: number, a2: number, text: string, b: number, b2: number): Change[] | null {
+  const fine = diffSequences(codeUnits(old, a, a2), codeUnits(text, b, b2), CHAR_BUDGET);
+  if (fine !== null) return fine.map((c) => ({ a0: c.a0 + a, a1: c.a1 + a, b0: c.b0 + b, b1: c.b1 + b }));
+  const oldLines = lineStarts(old, a, a2);
+  const newLines = lineStarts(text, b, b2);
+  const ids = new Map<string, number>();
+  const idsOf = (s: string, starts: number[], end: number): number[] =>
+    starts.map((start, i) => {
+      const line = s.slice(start, i + 1 < starts.length ? starts[i + 1]! : end);
+      let id = ids.get(line);
+      if (id === undefined) ids.set(line, (id = ids.size));
+      return id;
+    });
+  const lines = diffSequences(idsOf(old, oldLines, a2), idsOf(text, newLines, b2), LINE_BUDGET);
+  if (lines === null) return null;
+  const out: Change[] = [];
+  const at = (starts: number[], line: number, end: number): number => (line < starts.length ? starts[line]! : end);
+  for (const block of lines) {
+    const x0 = at(oldLines, block.a0, a2);
+    const x1 = at(oldLines, block.a1, a2);
+    const y0 = at(newLines, block.b0, b2);
+    const y1 = at(newLines, block.b1, b2);
+    const inner = diffSequences(codeUnits(old, x0, x1), codeUnits(text, y0, y1), LINE_BUDGET);
+    if (inner === null) out.push({ a0: x0, a1: x1, b0: y0, b1: y1 });
+    else for (const c of inner) out.push({ a0: c.a0 + x0, a1: c.a1 + x0, b0: c.b0 + y0, b1: c.b1 + y0 });
+  }
+  return out;
+}
+
+const codeUnits = (s: string, from: number, to: number): Uint16Array => {
+  const out = new Uint16Array(to - from);
+  for (let i = from; i < to; i++) out[i - from] = s.charCodeAt(i);
+  return out;
+};
+
+/** Offsets at which each line of `s[from, to)` starts; a line keeps its `\n`. A CRLF is never split. */
+function lineStarts(s: string, from: number, to: number): number[] {
+  const starts = [from];
+  for (let i = s.indexOf('\n', from); i !== -1 && i + 1 < to; i = s.indexOf('\n', i + 1)) starts.push(i + 1);
+  return starts;
+}
+
+/**
+ * Widen each change so none starts or ends between the two halves of a surrogate pair or of a CRLF (in either
+ * text), then join changes that touch. The runs between changes are equal on both sides, so a change grows by the
+ * same amount in `old` and in `text`.
+ */
+function widenChanges(changes: Change[], old: string, text: string, oldFloor: number, newFloor: number): Change[] {
+  const out: Change[] = [];
+  for (const change of changes) {
+    const c = { ...change };
+    while (c.a0 > oldFloor && c.b0 > newFloor && (cuts(old, c.a0) || cuts(text, c.b0))) {
+      c.a0--;
+      c.b0--;
+    }
+    while (c.a1 < old.length && c.b1 < text.length && (cuts(old, c.a1) || cuts(text, c.b1))) {
+      c.a1++;
+      c.b1++;
+    }
+    const last = out[out.length - 1];
+    if (last !== undefined && c.a0 <= last.a1) {
+      last.a1 = Math.max(last.a1, c.a1);
+      last.b1 = Math.max(last.b1, c.b1);
+    } else {
+      out.push(c);
+    }
+  }
+  return out;
+}
+
+/**
+ * Myers' O(ND) shortest edit script between two sequences: the runs of `a` and of `b` that are not common,
+ * in order, as `[a0, a1)` replaced by `[b0, b1)`. `null` when they differ by more than `budget` elements.
+ * Runs that are common to both stay out of every change, wherever they sit.
+ */
+function diffSequences(a: ArrayLike<number>, b: ArrayLike<number>, budget: number): Array<Change> | null {
+  const n = a.length;
+  const m = b.length;
+  let lead = 0;
+  while (lead < n && lead < m && a[lead] === b[lead]) lead++;
+  let tail = 0;
+  while (tail < n - lead && tail < m - lead && a[n - 1 - tail] === b[m - 1 - tail]) tail++;
+  const aEnd = n - tail;
+  const bEnd = m - tail;
+  if (lead === aEnd && lead === bEnd) return [];
+  const width = Math.min(aEnd - lead + bEnd - lead, budget);
+  const offset = width + 1;
+  const v = new Int32Array(2 * width + 3);
+  const trace: Int32Array[] = [];
+  let found = -1;
+  for (let d = 0; d <= width && found < 0; d++) {
+    for (let k = -d; k <= d; k += 2) {
+      let x = k === -d || (k !== d && v[offset + k - 1]! < v[offset + k + 1]!) ? v[offset + k + 1]! : v[offset + k - 1]! + 1;
+      let y = x - k;
+      while (lead + x < aEnd && lead + y < bEnd && a[lead + x] === b[lead + y]) {
+        x++;
+        y++;
+      }
+      v[offset + k] = x;
+      if (lead + x >= aEnd && lead + y >= bEnd) {
+        found = d;
+        break;
+      }
+    }
+    trace.push(v.slice(offset - d, offset + d + 1));
+  }
+  if (found < 0) return null;
+  // Walk back from the end: each step is one inserted or deleted element, and the snake after it is common.
+  const common: Array<[number, number, number]> = []; // [x, y, length] relative to `lead`
+  let x = aEnd - lead;
+  let y = bEnd - lead;
+  for (let d = found; d > 0; d--) {
+    const prev = trace[d - 1]!;
+    const k = x - y;
+    const at = (kk: number): number => prev[kk + (d - 1)]!;
+    const fromAbove = k === -d || (k !== d && at(k - 1) < at(k + 1));
+    const prevK = fromAbove ? k + 1 : k - 1;
+    const prevX = at(prevK);
+    const prevY = prevX - prevK;
+    const midX = fromAbove ? prevX : prevX + 1;
+    const midY = fromAbove ? prevY + 1 : prevY;
+    if (x > midX) common.push([midX, midY, x - midX]);
+    x = prevX;
+    y = prevY;
+  }
+  if (x > 0) common.push([0, 0, x]);
+  common.reverse();
+  const changes: Change[] = [];
+  let px = 0;
+  let py = 0;
+  const close = (qx: number, qy: number): void => {
+    if (qx > px || qy > py) changes.push({ a0: lead + px, a1: lead + qx, b0: lead + py, b1: lead + qy });
+  };
+  for (const [cx, cy, length] of common) {
+    close(cx, cy);
+    px = cx + length;
+    py = cy + length;
+  }
+  close(aEnd - lead, bEnd - lead);
+  // The leading and trailing common runs trimmed above are matches too; the changes lie strictly between them.
+  return changes;
 }
 
 const isHigh = (code: number): boolean => code >= 0xd800 && code < 0xdc00;

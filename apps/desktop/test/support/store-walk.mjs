@@ -622,24 +622,6 @@ function insertIntoText(world, text, token, piece, typed) {
   return text.slice(0, at) + token.text + piece + text.slice(at);
 }
 
-/**
- * OPEN FINDING (F-33, on main): a Source session with two typed changes either side of a byte that is not
- * UTF-8 folds as ONE splice (`foldText`), and the byte between them is rewritten as U+FFFD (ff -> ef bf bd).
- * The walk found it on seeds 57, 79, 108, ... The invariant (I6) is not weakened; the generator stops short of
- * it: a draft over such a file takes one typed change at a time. `MARXY_WALK_FINDINGS=1` lifts the
- * restriction, and the walk then fails on those seeds. Remove this when `foldText` keeps the byte.
- */
-const strayBytes = (bytes) => {
-  try {
-    new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-    return false;
-  } catch {
-    return true;
-  }
-};
-const holdsOpenFinding = (view) =>
-  process.env.MARXY_WALK_FINDINGS !== '1' && view.typed.length > 0 && strayBytes(view.doc.buf);
-
 const slotsWith = (model, test = () => true) => [0, 1].filter((slot) => model.views[slot] && test(model.views[slot]));
 const lastHolder = (model, view) => viewsOf(model, view.doc).length === 1;
 const anyUnsaved = (model, doc) => dirty(doc) || viewsOf(model, doc).some(unfolded);
@@ -764,10 +746,10 @@ export const OPS = {
   sourceType: {
     name: 'sourceType',
     weight: 6,
-    applicable: (model) => slotsWith(model, (v) => !v.heldApart && !holdsOpenFinding(v)).length > 0,
+    applicable: (model) => slotsWith(model, (v) => !v.heldApart).length > 0,
     async run(world, model) {
       const d = model.d;
-      const slot = d.pick(slotsWith(model, (v) => !v.heldApart && !holdsOpenFinding(v)));
+      const slot = d.pick(slotsWith(model, (v) => !v.heldApart));
       const view = model.views[slot];
       if (view.mode === 'rendered') view.mode = 'source';
       const token = world.newToken();
