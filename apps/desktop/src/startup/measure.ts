@@ -2,7 +2,7 @@
 // app.ts (B-08). Every mark keeps its name, order and detail format; scripts/perf-harness.mjs,
 // scripts/measure-startup.mjs and the nightly read them by name.
 import type { Shell } from '@marxy/shell-api';
-import { isDocVisible, waitForEnginePaint } from '../paint-signal.mjs';
+import { FRAMES_ONLY_SIGNAL, isDocVisible, waitForEnginePaint } from '../paint-signal.mjs';
 
 /** Module evaluation time: the `script_start` mark reports it. */
 export const t0 = Date.now();
@@ -38,7 +38,7 @@ export interface RenderEvidence {
   readonly heading: string;
 }
 
-export type FirstTextOutcome = 'painted' | 'no_text' | 'no_paint';
+export type FirstTextOutcome = 'painted' | 'frames_only' | 'no_text' | 'no_paint';
 
 export interface LaunchMeasure {
   /** Animation frames counted since `createLaunchMeasure`. */
@@ -124,7 +124,8 @@ export function createLaunchMeasure(
       }
 
       // Counted from here, so the number covers the wait and not the render mark's IPC round trip.
-      // The wait has no deadline of its own: some environments deliver no frames and no paint entries
+      // Frames but no paint entry for about 2 s ends the wait as `frames_only` (F-31, ADR-0013 amended): the
+      // boot goes on, and nothing reports it as a paint. Some environments deliver no frames and no paint entries
       // (a Mac in dark wake, a locked screen) and there it never resolves. A harness launch is ended
       // by the shell's deadline instead, because WebKit aligns in-page timers in a window that cannot
       // paint to about 15 s. A reader is left waiting and gets the document when the display wakes.
@@ -136,6 +137,9 @@ export function createLaunchMeasure(
       const frames = observed - framesAtRender;
 
       await shell.mark('painted', paintedAt, `frames=${frames} since_render_ms=${paintedAt - renderedAt} signal=${signal}`);
+      // A frames-only boot is not a paint, so it is not a cold-start sample: the line above says what happened
+      // (signal=frames-only), and there is no `first_text` for the startup harness to count.
+      if (signal === FRAMES_ONLY_SIGNAL) return 'frames_only';
       // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
       // Anything the check needs beyond the timestamp goes on the `painted` line above.
       await shell.mark('first_text', paintedAt);

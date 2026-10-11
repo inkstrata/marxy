@@ -438,7 +438,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     // misses a lone `---`, a comment, a `<div>`. Only a blank file (an empty file) still fails with finish(1).
     const hasSource = current?.snapshot().buffer.bytes.some((b) => b !== 0x20 && (b < 0x09 || b > 0x0d)) ?? false;
     const textless = outcome === 'no_text' && hasSource;
-    if (outcome !== 'painted' && !textless) return measure.finish(1);
+    if (outcome !== 'painted' && outcome !== 'frames_only' && !textless) return measure.finish(1);
     chunks.release();
     await finishDocumentOpen(file, { firstOpen: true });
     setTimeout(() => void trust.load().then(() => trust.maybeRerenderForLateTrust()), 0);
