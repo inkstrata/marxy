@@ -1,8 +1,9 @@
 // Palette commands for how a file is read (K-04, ADR-0060 item 9): *Show as* for the open file, kept in
 // `kinds.json` in Marxy's data directory, and *Always open this folder as*, a `[[kind]]` table appended to
 // `config.toml` without touching another byte. No dialog, no settings page, no key. Neither writes to the
-// document. A file's kind is decided once when it opens (item 6): the choice takes effect the next time the
-// file is opened (K-05 reads `kinds.json` and the rules at open; K-07's chip reopens it).
+// document. A file's kind is decided once when it opens (item 6), so a choice that was written reopens the open file
+// at once (K-07) and it takes effect now: `AppHandle.open` is the same path an ordinary open takes, so unsaved
+// edits meet its own prompt and the chip adds none. A choice that could not be written reopens nothing.
 import { isUntitled, NO_FOLDER_YET } from '../document/untitled.ts';
 import { KINDS } from '@marxy/core/src/contracts/kinds.ts';
 import type { Kind } from '@marxy/core/src/contracts/kinds.ts';
@@ -20,6 +21,7 @@ import {
 import type { KindsEnvelope } from '@marxy/core/src/kind/show-as.ts';
 import { appendKindRule } from '@marxy/theme/src/config.ts';
 import { notify } from '../notices/index.ts';
+import { kindChipCommands } from './kind-chip.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
 import { appHandle } from './app-handle.ts';
 import type { Command } from './registry.ts';
@@ -97,7 +99,17 @@ async function showAs(kind: Kind | undefined): Promise<void> {
     say(`kinds.json could not be updated (${String(e)}); nothing was changed.`);
     return;
   }
-  say(kind === undefined ? 'This file will be read as detected, or by its folder rule, when next opened.' : `This file will open as ${kind}.`);
+  say(kind === undefined ? 'This file is read as detected, or by its folder rule.' : `This file is shown as ${kind}.`);
+  await reopen(handle, path);
+}
+
+/** The kind is decided at open, so a choice takes effect by opening the file again (the same path as any open). */
+async function reopen(handle: NonNullable<ReturnType<typeof appHandle>>, path: string): Promise<void> {
+  try {
+    await handle.open(path);
+  } catch (e) {
+    say(`The choice was kept, but ${path} could not be opened again (${String(e)}).`);
+  }
 }
 
 /** Appends a `[[kind]]` rule for the open document's folder to config.toml, creating the file if absent. */
@@ -146,13 +158,15 @@ async function alwaysOpenFolderAs(kind: Kind): Promise<void> {
     say(`config.toml could not be written (${String(e)}); nothing was changed.`);
     return;
   }
-  say(`Files in this folder will open as ${kind}.`);
+  say(`Files in this folder open as ${kind}.`);
+  await reopen(handle, path);
 }
 
 const hasDocument = (): boolean => appHandle()?.currentPath() != null;
 
 export function kindCommands(): readonly Command[] {
   return [
+    ...kindChipCommands(),
     ...KINDS.map((kind): Command => ({
       id: `kind.show-as.${kind}`,
       title: `Show this file as ${kind}`,

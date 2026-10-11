@@ -27,6 +27,9 @@ copy_format = "markdown"        # the Copy as row that is first and chosen by Re
 [linux]
 weight_offset = 75              # overrides the WebKitGTK-version table (§05)
 
+[strip]                         # the tools a kind's strip shows, in order, at most four (K-07); a kind not named keeps its own row
+report = ["paths", "changes"]
+
 [[kind]]                        # how a folder's files are read (ADR-0060 item 9); first match wins
 glob = "~/.claude/projects/**/*.jsonl"
 is = "transcript"               # one of the fourteen kinds
@@ -44,6 +47,16 @@ and "Use this theme" (§05) writes `theme`. All three preserve the rest of the f
 it before the first `[table]` header, with the file's own line ending), through one function,
 `setTopLevelKey(bytes, key, tomlValue): Uint8Array` in `packages/theme/src/config.ts`. The fourth is
 "Always open this folder as" (below), which appends one `[[kind]]` table.
+
+### `[strip]` (K-07)
+
+`[strip]` chooses and orders the tools of a kind's strip, the band under the toolbar (design 09). Each key is a kind and
+its value a list of tool names (`STRIP_TOOLS` in `apps/desktop/src/workspace/strip.ts`: `changes`, `outline`,
+`line-numbers`, and the others as their commands are built). A key that is not a kind, a value that is not a list of
+names, an unknown tool name and a repeat each warn and are skipped; more than four warns and keeps the first four. A
+list that is empty is kept: that kind then has no strip. A named tool is drawn only when its command is registered, so
+a list may name a tool that arrives later. Read whenever the focused document or its kind changes, so an edit counts
+at once. Marxy never writes this table.
 
 ### `[[kind]]` (ADR-0060 item 9, K-04)
 

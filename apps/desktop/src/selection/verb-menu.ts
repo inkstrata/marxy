@@ -40,6 +40,14 @@ export interface VerbMenuRow {
   readonly title: string;
   /** The chord as a registry spec (`Mod+C`), or undefined. */
   readonly chord?: string;
+  /** Run in place of the command's `run` (K-07: a row that opens a second menu); the row's `command` is then null. */
+  readonly run?: () => void | Promise<void>;
+  /** Text the menu tells and does nothing with (K-07: why a file is the kind it is): `aria-disabled`, never run, never first focus. */
+  readonly note?: boolean;
+  /** Quiet text at the row's end, where a chord goes (K-07: the tier and where a signal was seen). */
+  readonly detail?: string;
+  /** `data-row-key` for a row with no command. */
+  readonly key?: string;
 }
 
 function isMac(): boolean {
@@ -161,7 +169,12 @@ function focusRow(menu: OpenMenu, index: number): void {
 }
 
 function runRow(ctx: AppContext, opts: VerbMenuOptions, row: VerbMenuRow): void {
+  if (row.note) return;
   closeVerbMenu();
+  if (row.run) {
+    void row.run();
+    return;
+  }
   if (row.command === null) {
     opts.allActions();
     return;
@@ -208,7 +221,8 @@ export function openVerbMenu(at: MenuAnchor, ctx: AppContext, opts: VerbMenuOpti
     item.className = 'marxy-verb-menu-item marxy-menu-row';
     item.setAttribute('role', 'menuitem');
     item.setAttribute('tabindex', '-1');
-    item.dataset.rowKey = row.command?.id ?? 'palette.all-actions';
+    item.dataset.rowKey = row.command?.id ?? row.key ?? 'palette.all-actions';
+    if (row.note) item.setAttribute('aria-disabled', 'true');
     const title = document.createElement('span');
     title.className = 'marxy-verb-menu-title';
     title.textContent = row.title;
@@ -220,6 +234,12 @@ export function openVerbMenu(at: MenuAnchor, ctx: AppContext, opts: VerbMenuOpti
       key.textContent = keyLabel(row.chord, mac);
       item.appendChild(key);
       item.setAttribute('aria-keyshortcuts', ariaShortcut(row.chord, mac));
+    }
+    if (row.detail !== undefined) {
+      const detail = document.createElement('span');
+      detail.className = 'marxy-verb-menu-key marxy-menu-key';
+      detail.textContent = row.detail;
+      item.appendChild(detail);
     }
     item.addEventListener('mousemove', () => {
       if (current && current.active !== i) focusRow(current, i);
@@ -303,6 +323,6 @@ export function openVerbMenu(at: MenuAnchor, ctx: AppContext, opts: VerbMenuOpti
   document.body.appendChild(el);
   place(el, at);
   current = { el, items, rows, returnFocus, active: 0, teardown };
-  focusRow(current, 0);
+  focusRow(current, Math.max(0, rows.findIndex((row) => !row.note)));
   return true;
 }

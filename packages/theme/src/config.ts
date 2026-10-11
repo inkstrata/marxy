@@ -27,6 +27,28 @@ export const MAX_KIND_RULES = 200;
 
 const KIND_KEYS = new Set(['glob', 'is', 'read']);
 
+/** Most tools a kind's strip shows (K-07, mock-v2 03-content-modes). */
+export const MAX_STRIP_TOOLS = 4;
+
+/**
+ * Every tool id a `[strip]` list may name: the ids of `STRIP_TOOLS` in `apps/desktop/src/workspace/strip.ts`, restated
+ * because theme cannot import the app (`strip.test.ts` holds the two equal). A tool whose command is not built yet is
+ * still a known id; the strip draws it only once the command is registered.
+ */
+export const STRIP_TOOL_IDS: readonly string[] = [
+  'focus', 'highlight', 'margin-notes', 'read-aloud',
+  'paths', 'changes', 'split-by-h2',
+  'paged', 'contents', 'justify', 'bookmark',
+  'outline', 'config-table', 'open-repo',
+  'examples-only', 'search-docs', 'prev-next',
+  'line-numbers', 'wrap', 'symbols', 'go-to-line',
+  'collapse-tools', 'only-you', 'only-assistant',
+  'column-stats', 'filter', 'transpose', 'chart',
+  'backlinks', 'append-clipboard', 'daily',
+  'versions',
+  'filter-by-level', 'jump-to-first-error', 'follow-tail',
+];
+
 /** What a config.toml created by the first appended rule starts with. */
 export const CONFIG_TEMPLATE = '# Marxy configuration. Edit freely; Marxy re-reads this file when it changes.\n';
 
@@ -47,6 +69,8 @@ export interface Config {
   readonly linuxWeightOffset: number | null;
   /** Valid `[[kind]]` rules in file order; the first that matches a path wins (detectKind's job). */
   readonly kindRules: readonly KindRule[];
+  /** `[strip]` (K-07): per kind, the tool ids to show in the strip, in order; a kind not named keeps its own row. Ids are known and at most four. */
+  readonly strip: Readonly<Record<string, readonly string[]>>;
 }
 
 export interface ParseConfigResult {
@@ -68,6 +92,7 @@ const DEFAULTS: Config = {
   copyFormat: 'markdown',
   linuxWeightOffset: null,
   kindRules: [],
+  strip: {},
 };
 
 const KNOWN = new Set([
@@ -83,6 +108,7 @@ const KNOWN = new Set([
   'copy_format',
   'linux',
   'kind',
+  'strip',
 ]);
 
 /** The ids `copy_format` takes: the Copy as targets of ADR-0065 item 1 (`apps/desktop/test/copy-as.test.mjs` holds this list equal to core's). */
@@ -168,6 +194,7 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
 
   const unknown = new Set(unknownKeys);
   const kindRules = parseKindRules(raw.kind, ctx.home, warnings, unknown);
+  const strip = parseStrip(raw.strip, warnings);
 
   return {
     config: {
@@ -183,6 +210,7 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
       copyFormat,
       linuxWeightOffset,
       kindRules,
+      strip,
     },
     unknownKeys: [...unknown],
     warnings,
@@ -272,6 +300,42 @@ function parseKindRules(
     rules.push(read === undefined ? { glob, is: entry.is } : { glob, is: entry.is, read });
   }
   return rules;
+}
+
+/**
+ * `[strip]` (K-07): `report = ["changes", "paths"]`. A key that is not a kind, a value that is not a list of strings, an
+ * unknown tool id and a repeat warn and are skipped; more than `MAX_STRIP_TOOLS` warns and truncates. An empty list is
+ * kept: the reader chose no tools for that kind.
+ */
+function parseStrip(rawStrip: unknown, warnings: string[]): Record<string, readonly string[]> {
+  const strip: Record<string, readonly string[]> = {};
+  if (rawStrip === undefined) return strip;
+  if (!isRecord(rawStrip)) {
+    warnings.push('strip must be a table of kind = [tools]; ignored');
+    return strip;
+  }
+  for (const [kind, value] of Object.entries(rawStrip)) {
+    if (!KIND_NAMES.includes(kind)) {
+      warnings.push(`strip.${kind} is not one of the kinds; skipped`);
+      continue;
+    }
+    if (!Array.isArray(value) || value.some((v) => typeof v !== 'string')) {
+      warnings.push(`strip.${kind} must be a list of tool names; skipped`);
+      continue;
+    }
+    const tools: string[] = [];
+    for (const id of value as string[]) {
+      if (!STRIP_TOOL_IDS.includes(id)) warnings.push(`strip.${kind}: "${id}" is not a tool; skipped`);
+      else if (tools.includes(id)) warnings.push(`strip.${kind}: "${id}" is listed twice; the second skipped`);
+      else tools.push(id);
+    }
+    if (tools.length > MAX_STRIP_TOOLS) {
+      warnings.push(`strip.${kind} lists more than ${MAX_STRIP_TOOLS} tools; the rest dropped`);
+      tools.length = MAX_STRIP_TOOLS;
+    }
+    strip[kind] = tools;
+  }
+  return strip;
 }
 
 function tomlString(s: string): string {

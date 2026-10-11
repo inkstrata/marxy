@@ -40,7 +40,7 @@ const mod = async (page) => ((await page.evaluate(() => navigator.platform)) ===
 /** Everything of the toolbar that is in the page. */
 const nodes = (page) =>
   page.evaluate(() => ({
-    toolbar: document.querySelectorAll('.marxy-toolbar, [role="toolbar"]').length,
+    toolbar: document.querySelectorAll('[data-marxy-workspace-region="toolbar"] .marxy-toolbar, [data-marxy-workspace-region="toolbar"] [role="toolbar"]').length,
     items: document.querySelectorAll('[data-marxy-toolbar-item]').length,
     buttons: document.querySelectorAll('[data-marxy-workspace-region="toolbar"] button').length,
   }));
@@ -75,24 +75,24 @@ test('a fill is made on unfold, disposed on fold and made again on the next unfo
     const got = await page.evaluate(async () => {
       const ws = window.__marxyHandle.workspace();
       const log = [];
-      const before = ws.hasFill('strip');
-      const withdraw = ws.fill('strip', (el) => {
+      const before = ws.hasFill('tabs');
+      const withdraw = ws.fill('tabs', (el) => {
         el.textContent = 'stub';
         log.push(`made ${el.getAttribute('data-marxy-workspace-region')}`);
         return () => log.push('disposed');
       });
-      const registered = ws.hasFill('strip');
+      const registered = ws.hasFill('tabs');
       log.push(`folded: ${document.querySelector('[data-marxy-workspace-region="strip"]') === null}`);
       await ws.unfold();
-      log.push(`text: ${ws.region('strip').textContent}`);
+      log.push(`text: ${ws.region('tabs').textContent}`);
       await ws.fold();
       await ws.unfold();
-      log.push(`again: ${ws.region('strip').textContent}`);
+      log.push(`again: ${ws.region('tabs').textContent}`);
       withdraw();
-      log.push(`withdrawn: ${ws.hasFill('strip')}`);
+      log.push(`withdrawn: ${ws.hasFill('tabs')}`);
       await ws.fold();
       await ws.unfold();
-      log.push(`after: ${JSON.stringify(ws.region('strip').textContent)}`);
+      log.push(`after: ${JSON.stringify(ws.region('tabs').textContent)}`);
       // Registered while unfolded, it is made at once.
       ws.fill('status-bar', (el) => void (el.textContent = 'late'));
       log.push(`late: ${ws.region('status-bar').textContent}`);
@@ -101,19 +101,19 @@ test('a fill is made on unfold, disposed on fold and made again on the next unfo
     assert.deepEqual(got, {
       before: false,
       registered: true,
-      log: ['folded: true', 'made strip', 'text: stub', 'disposed', 'made strip', 'again: stub', 'disposed', 'withdrawn: false', 'after: ""', 'late: late'],
+      log: ['folded: true', 'made tabs', 'text: stub', 'disposed', 'made tabs', 'again: stub', 'disposed', 'withdrawn: false', 'after: ""', 'late: late'],
     });
   });
 });
 
 // --- what is drawn ------------------------------------------------------------------------------------------------
 
-test('unfolded with a document open: back, forward, title, Read/Split/Source, Copy and Find, in that order, and nothing else', async () => {
+test('unfolded with a document open: back, forward, title, Read/Split/Source, the kind chip, Copy and Find, in that order, and nothing else', async () => {
   await withPage(1280, async (page) => {
     await unfold(page);
-    assert.deepEqual(await items(page), ['back', 'forward', 'title', 'mode', 'copy', 'find']);
+    assert.deepEqual(await items(page), ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'find']);
     const buttons = await page.evaluate(() => [...document.querySelectorAll('.marxy-toolbar button')].map((b) => b.getAttribute('aria-label')));
-    assert.deepEqual(buttons, ['Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Copy as Markdown', 'Copy as…', 'Find in this pane']);
+    assert.deepEqual(buttons, ['Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Kind: article. How this file is read', 'Copy as Markdown', 'Copy as…', 'Find in this pane']);
     assert.deepEqual(await radios(page), { Read: 'true', Split: 'false', Source: 'false' });
     const wording = await page.evaluate(() => document.querySelector('[data-marxy-workspace-region="toolbar"]').textContent);
     assert.doesNotMatch(wording, /extract|theme/i);
@@ -130,7 +130,7 @@ test('the door: a registered command draws its control, the next mount draws it 
       const stub = (id, title) => ({ id, title, group: 'view', when: () => true, async run() { ran.push(id); } });
       const read = () => [...document.querySelectorAll('[data-marxy-toolbar-item]')].map((el) => el.getAttribute('data-marxy-toolbar-item'));
       const remount = async () => { await ws.fold(); await ws.unfold(); };
-      handle.commands = () => [...real(), stub('transform.open', 'Transform'), stub('export.menu', 'Export'), stub('kind.chip', 'Kind')];
+      handle.commands = () => [...real(), stub('transform.open', 'Transform'), stub('export.menu', 'Export')];
       await remount();
       const added = read();
       document.querySelector('[data-marxy-toolbar-item="transform"] button').click();
@@ -141,7 +141,7 @@ test('the door: a registered command draws its control, the next mount draws it 
     });
     assert.deepEqual(got.added, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'export', 'transform', 'find']);
     assert.deepEqual(got.ran, ['transform.open'], 'the control runs its command');
-    assert.deepEqual(got.removed, ['back', 'forward', 'title', 'mode', 'copy', 'find']);
+    assert.deepEqual(got.removed, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'find']);
   });
 });
 
@@ -166,8 +166,8 @@ test('a panel toggle waits for content in its region: a stub command alone draws
       await new Promise((r) => setTimeout(r, 50));
       return { without, withFill, docked, undocked: pressed() };
     });
-    assert.deepEqual(got.without, ['back', 'forward', 'title', 'mode', 'copy', 'find']);
-    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'mode', 'copy', 'find']);
+    assert.deepEqual(got.without, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'find']);
+    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'find']);
     assert.deepEqual([got.docked, got.undocked], ['true', 'false']);
   });
 });
@@ -351,13 +351,19 @@ test('the reading column has the same left edge and width before and after the t
       const placed = await page.evaluate(() => {
         const region = document.querySelector('[data-marxy-workspace-region="toolbar"]').getBoundingClientRect();
         const bar = document.querySelector('.marxy-toolbar').getBoundingClientRect();
-        const outside = [...document.body.querySelectorAll('.marxy-toolbar, .marxy-toolbar *')].filter((el) => !el.closest('[data-marxy-workspace-region="toolbar"]')).length;
+        const outside = [...document.body.querySelectorAll('.marxy-toolbar:not(.marxy-strip), .marxy-toolbar:not(.marxy-strip) *')].filter((el) => !el.closest('[data-marxy-workspace-region="toolbar"]')).length;
         return { within: bar.left >= region.left - 0.5 && bar.right <= region.right + 0.5 && bar.top >= region.top - 0.5 && bar.bottom <= region.bottom + 0.5, outside };
       });
       assert.deepEqual(placed, { within: true, outside: 0 });
     });
   }
 });
+
+/**
+ * The kind chip (K-07) is the one door the narrowest column cannot also hold: with it the row scrolls, as W-04 designed a
+ * row that does not fit to do, and its name gives way to the glyph first. The fit these tests hold is of every other door.
+ */
+const withoutChip = (page) => page.evaluate(() => document.querySelector('[data-marxy-toolbar-item="kind"]')?.remove());
 
 /** Which buttons lie outside the toolbar region, and how far the row runs past its box. */
 const fitOf = (page) =>
@@ -374,6 +380,7 @@ const fitOf = (page) =>
 test('the controls fit the toolbar region at the default chrome size in the narrowest window, and at chrome_size 26 in a wide one (the title now keeps five ems, W-04)', async () => {
   await withPage(929, async (page) => {
     await unfold(page);
+    await withoutChip(page);
     await page.waitForTimeout(100);
     const fit = await fitOf(page);
     assert.deepEqual(fit.clipped, [], `default chrome at 929 px: ${JSON.stringify(fit)}`);
@@ -425,6 +432,7 @@ const titleOf = (page) =>
 test('W-04: the title keeps its minimum at the narrowest window, at the default size and at chrome_size 26; the row that cannot fit scrolls and shows it', async () => {
   await withPage(929, async (page) => {
     await unfold(page);
+    await withoutChip(page);
     await page.waitForTimeout(100);
     const normal = await titleOf(page);
     assert.equal(normal.minimum, 5 * normal.em, 'the title declares five ems');

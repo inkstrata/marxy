@@ -432,3 +432,31 @@ test('J-04: copy_format names the Copy as row that comes first; markdown is the 
   assert.deepEqual(bad.warnings, ['copy_format was invalid; using markdown']);
   assert.equal(parse('copy_format = 3\n').config.copyFormat, 'markdown');
 });
+
+// --- [strip] (K-07) ---------------------------------------------------------------------------------------------
+
+const parseText = (text: string) => parseConfig(new TextEncoder().encode(text));
+
+test('[strip] chooses and orders a kind\'s tools', () => {
+  const { config, warnings, unknownKeys } = parseText('[strip]\nreport = ["paths", "changes"]\ncode = []\n');
+  assert.deepEqual(config.strip, { report: ['paths', 'changes'], code: [] });
+  assert.deepEqual(warnings, []);
+  assert.deepEqual(unknownKeys, []);
+  assert.deepEqual(parseText('').config.strip, {});
+});
+
+test('[strip] report = ["nope"] warns and is skipped; a repeat, a non-kind and a non-list warn too', () => {
+  const { config, warnings } = parseText('[strip]\nreport = ["nope", "changes", "changes"]\nbogus = ["changes"]\ncode = "wrap"\n');
+  assert.deepEqual(config.strip, { report: ['changes'] });
+  assert.equal(warnings.length, 4, warnings.join('\n'));
+  assert.ok(warnings.some((w) => /"nope" is not a tool/.test(w)));
+});
+
+test('[strip] more than four tools warns and truncates; a strip that is not a table is ignored', () => {
+  const { config, warnings } = parseText('[strip]\ncode = ["wrap", "symbols", "go-to-line", "line-numbers", "paths"]\n');
+  assert.deepEqual(config.strip.code, ['wrap', 'symbols', 'go-to-line', 'line-numbers']);
+  assert.ok(warnings.some((w) => /more than 4/.test(w)));
+  const odd = parseText('strip = 3\n');
+  assert.deepEqual(odd.config.strip, {});
+  assert.equal(odd.warnings.length, 1);
+});
