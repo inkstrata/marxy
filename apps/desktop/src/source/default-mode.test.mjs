@@ -48,3 +48,10 @@ test('every corpus file opens in the mode it did before K-05a', () => {
   assert.ok(names.length > 20);
   for (const name of names) assert.equal(defaultModeForPath(`${dir}${name}`), before(`${dir}${name}`), name);
 });
+
+// V-09: the mode comes from the one file-type table, so the index's other Markdown and text names open Rendered too.
+for (const path of ['/r/a.mdown', '/r/a.mkd', '/r/a.text', '/r/A.MDOWN']) {
+  test(`defaultModeForPath(${path}) -> rendered (the index classes it markdown or text)`, () => {
+    assert.equal(defaultModeForPath(path), 'rendered');
+  });
+}

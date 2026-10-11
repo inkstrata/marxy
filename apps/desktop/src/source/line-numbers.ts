@@ -1,12 +1,12 @@
 // Source gutter defaults and the remembered toggle (config.toml `line_numbers`, L-06.1) (reader-artifacts handbook §04).
 
+import { fileTypeForExtension } from '@marxy/core/src/index-model/file-types.ts';
 import { extensionOf } from './default-mode.ts';
 
-const MARKDOWN = new Set(['.md', '.markdown', '.mdx', '.txt']);
-
 export function defaultLineNumbersForPath(path: string): boolean {
-  const ext = extensionOf(path);
-  return !MARKDOWN.has(ext);
+  // The Markdown and text families read as prose, so no gutter; a name with no extension keeps it.
+  const kind = fileTypeForExtension(extensionOf(path).slice(1))?.kind;
+  return kind !== 'markdown' && kind !== 'text';
 }
 
 /**
