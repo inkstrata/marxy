@@ -24,6 +24,7 @@ import { sourceEditCommands } from './source-edit.ts';
 import { sourceViewCommands } from './source-view.ts';
 import { trustRevokeCommands } from './trust.ts';
 import { viewModeCommands } from './view-mode.ts';
+import { panelCommands } from './panels.ts';
 import { workspaceCommands } from './workspace.ts';
 
 export type { AppContext, Command } from './registry.ts';
@@ -47,6 +48,7 @@ export function commands(): readonly Command[] {
     ...paneSplitSameCommands(),
     ...viewModeCommands(),
     ...workspaceCommands(),
+    ...panelCommands(),
     ...editorCommands(),
     ...collectionCommands(),
     ...kindCommands(),

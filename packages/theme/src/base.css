@@ -791,8 +791,29 @@ body[data-marxy-workspace="unfolded"][data-marxy-mode="source"] #marxy-main:not(
   .marxy-diff-add { border-inline-start: 3px solid currentColor; }
   .marxy-diff-del { border-inline-start: 3px dashed currentColor; }
 }
+/* Peeking (ADR-0058 item 5; W-03). Folded, the pointer resting at an edge shows that edge's panel for as long as it stays:
+   one region, made on `<body>` with `data-marxy-peek` naming it, fixed over the window, so the panes and the reading
+   column do not move. Without the attribute there is no rule at all. The shadow is the theme's; the fade is a
+   fraction of a second and none under reduced motion (the block below). */
+body[data-marxy-peek] > [data-marxy-workspace-region] {
+  position: fixed;
+  z-index: 6;
+  box-sizing: border-box;
+  min-width: 0;
+  background: var(--marxy-color-surface);
+  color: var(--marxy-color-text);
+  font: var(--marxy-size-chrome) var(--marxy-face-chrome);
+  border: 0 solid var(--marxy-color-rule);
+  box-shadow: var(--marxy-shadow-surface);
+  animation: marxy-peek-in 150ms ease-out;
+}
+body[data-marxy-peek] > [data-marxy-workspace-region="toolbar"] { top: 0; left: 0; right: 0; height: var(--marxy-ws-toolbar-h, 52px); border-block-end-width: 1px; }
+body[data-marxy-peek] > [data-marxy-workspace-region="sidebar"] { top: 0; bottom: 0; left: 0; width: var(--marxy-ws-sidebar-w, 252px); max-width: 90vw; overflow: auto; border-inline-end-width: 1px; }
+body[data-marxy-peek] > [data-marxy-workspace-region="inspector"] { top: 0; bottom: 0; right: 0; width: var(--marxy-ws-inspector-w, 300px); max-width: 90vw; overflow: auto; border-inline-start-width: 1px; }
+@keyframes marxy-peek-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   .marxy-divider::before { animation: none !important; }
+  body[data-marxy-peek] > [data-marxy-workspace-region] { animation: none !important; transition-duration: 0s !important; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

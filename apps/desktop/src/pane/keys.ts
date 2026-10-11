@@ -13,6 +13,8 @@ export interface PaneChord {
   readonly code: string;
   readonly shift?: boolean;
   readonly alt?: boolean;
+  /** The Control key as well as `Mod`: a chord of its own on a Mac, with no spelling elsewhere (W-03). */
+  readonly ctrl?: boolean;
   /** The registry command it runs. */
   readonly command: string;
 }
@@ -30,15 +32,22 @@ export const PANE_CHORDS: readonly PaneChord[] = [
   { code: 'Backslash', shift: true, command: 'view.close-pane' },
   { code: 'ArrowLeft', alt: true, command: 'view.focus-left' },
   { code: 'ArrowRight', alt: true, command: 'view.focus-right' },
+  { code: 'KeyS', ctrl: true, command: 'view.toggle-sidebar' },
+  { code: 'KeyI', alt: true, command: 'view.toggle-inspector' },
 ];
 
 /** The chord `event` presses, or null. `Mod` is Command on macOS and Ctrl elsewhere, and only it. */
 export function paneChordFor(event: KeyboardEvent, mac: boolean): PaneChord | null {
-  const mod = mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+  const mod = mac ? event.metaKey : event.ctrlKey && !event.metaKey;
   if (!mod) return null;
   return (
     PANE_CHORDS.find(
-      (chord) => chord.code === event.code && (chord.shift ?? false) === event.shiftKey && (chord.alt ?? false) === event.altKey,
+      (chord) =>
+        chord.code === event.code &&
+        (chord.shift ?? false) === event.shiftKey &&
+        (chord.alt ?? false) === event.altKey &&
+        // `Mod` is Command on a Mac, so Control is a modifier of its own there; off a Mac it is `Mod` itself.
+        (mac ? (chord.ctrl ?? false) === event.ctrlKey : !chord.ctrl),
     ) ?? null
   );
 }
@@ -85,7 +94,14 @@ export function installPaneKeys(deps: PaneKeysDeps): () => void {
     const command = deps.commands().find((c) => c.id === chord.command);
     if (!command) return;
     const ctx = deps.context();
-    if (!command.when(ctx)) return;
+    if (!command.when(ctx)) {
+      // ⌃⌘S is also `Mod+S` to the registry, which ignores Control: held here, it never saves.
+      if (chord.ctrl) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     closeVerbMenu();

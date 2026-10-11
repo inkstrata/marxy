@@ -69,6 +69,7 @@
     "data-marxy-lang",
     "data-marxy-workspace",
     "data-marxy-workspace-region",
+    "data-marxy-peek",
     "data-marxy-toolbar-item",
     "data-marxy-edit"
   ],
