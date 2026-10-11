@@ -589,29 +589,39 @@ mod tests {
     }
 
     #[test]
-    fn an_extension_in_kinds_ts_is_listed_here() {
-        let kinds_ts = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../packages/core/src/index-model/kinds.ts");
-        let source = fs::read_to_string(&kinds_ts).expect("read kinds.ts");
-        let start = source.find("const MARKDOWN").expect("MARKDOWN in kinds.ts");
-        let end = source.find("/** Lowercase extension").expect("extensionOf");
+    fn an_extension_in_the_file_type_table_is_listed_here() {
+        let table_ts = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../packages/core/src/index-model/file-types.ts");
+        let source = fs::read_to_string(&table_ts).expect("read file-types.ts");
+        let start = source.find("const BY_EXTENSION").expect("BY_EXTENSION");
+        let mid = source.find("/** By exact name").expect("BY_NAME");
+        let end = source
+            .find("/**\n * The extension-less")
+            .expect("text family");
         let mut names = Vec::new();
-        for part in source[start..end].split('\'').skip(1).step_by(2) {
-            names.push(part.to_string());
+        for line in source[start..mid].lines().skip(1) {
+            if let Some(key) = line.strip_prefix("  ").and_then(|l| l.split(':').next()) {
+                if !key.is_empty()
+                    && key.chars().all(|c| c.is_ascii_alphanumeric())
+                    && line.contains(": ")
+                {
+                    names.push(key.to_string());
+                }
+            }
         }
         assert!(names.len() >= 50, "parsed {names:?}");
         for name in names {
             assert!(
                 is_listed(std::ffi::OsStr::new(&format!("f.{name}"))),
-                "{name} is in kinds.ts but not in tree.rs"
+                "{name} is in file-types.ts but not in tree.rs"
             );
         }
-        // The special names `classify` accepts whatever their extension.
-        let classify = &source[end..];
+        // The special names the table gives whatever their extension.
+        let by_name = &source[mid..end];
         for name in ["theme.css", "theme.toml", "Dockerfile", "Makefile"] {
             assert!(
-                classify.contains(&format!("'{name}'")),
-                "{name} is no longer special in kinds.ts"
+                by_name.contains(name),
+                "{name} is no longer special in file-types.ts"
             );
             assert!(is_listed(std::ffi::OsStr::new(name)), "{name}");
         }
