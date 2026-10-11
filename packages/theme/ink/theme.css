@@ -1,0 +1,115 @@
+/* Ink: the warm near-black dark and the warm paper light the app shipped before Night and Paper
+   became the default (H-04). The values are those of tokens.css and the old default light block,
+   copied so Ink keeps its look if the contract's fallbacks move. The ground #151412 matches none of
+   Galley's eight themes (its "ink" is a cool #14181b); it is kept as this Ink's ground on purpose,
+   and is the reference the planned `warm` theme is checked against (03-kinds-and-the-look.md).
+   Sets every colour role, so nothing of the default theme's Night or Paper shows through; type and
+   rhythm are the default's. */
+:root {
+  --marxy-weight-body: 380;
+  --marxy-weight-heading: 560;
+  --marxy-weight-strong: 700;
+
+  --marxy-color-bg: #151412;
+  --marxy-color-text: #e8e4dc;
+  --marxy-color-text-strong: #f2eee6;
+  --marxy-color-text-secondary: #a39e94;
+  --marxy-color-text-faint: #a39e94;
+  --marxy-color-accent: #8fb4dd;
+  --marxy-color-accent-strong: #b5cfea;
+  --marxy-color-accent-fg: #151412;
+  --marxy-color-accent-wash: rgba(143, 180, 221, 0.14);
+  --marxy-color-link: var(--marxy-color-accent);
+  --marxy-color-rule: #2a2825;
+  --marxy-color-rule-strong: #3a3833;
+  --marxy-color-edge: #8a867f;
+  --marxy-color-divider: var(--marxy-color-rule);
+  --marxy-color-divider-focus: var(--marxy-color-accent);
+  --marxy-color-quote-rule: #3a3833;
+  --marxy-color-surface: #1f1e1b;
+  --marxy-color-surface-glass: rgba(31, 30, 27, 0.82);
+  --marxy-color-notice: #1f1e1b;
+  --marxy-shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.5);
+  --marxy-color-code-bg: #1d1c19;
+  --marxy-color-code-text: #e3dfd6;
+  --marxy-color-selection: #1f3651;
+  --marxy-color-find: #3a3010;
+  --marxy-color-find-current: #403510;
+  --marxy-color-find-edge: #94701a;
+  --marxy-color-status-ok: #a8c48a;
+  --marxy-color-status-warn: #d4ad73;
+  --marxy-color-status-err: #e8a090;
+  --marxy-color-status-info: #8fb4dd;
+  --marxy-color-status-ok-wash: rgba(168, 196, 138, 0.12);
+  --marxy-color-status-warn-wash: rgba(212, 173, 115, 0.12);
+  --marxy-color-status-err-wash: rgba(232, 160, 144, 0.12);
+  --marxy-color-diff-add: #1b2f28;
+  --marxy-color-diff-del: #2d140b;
+  --marxy-color-diff-add-word: #17352b;
+  --marxy-color-diff-del-word: #4a1e0e;
+  --marxy-tok-keyword: var(--marxy-color-code-text);
+  --marxy-tok-string: #a8c48a;
+  --marxy-tok-comment: #d4ad73;
+  --marxy-tok-number: #c9a0dc;
+  --marxy-tok-function: #8fb4dd;
+  --marxy-tok-type: var(--marxy-color-code-text);
+  --marxy-tok-variable: var(--marxy-color-code-text);
+  --marxy-tok-operator: var(--marxy-color-code-text);
+  --marxy-tok-punctuation: var(--marxy-color-code-text);
+  --marxy-tok-constant: #c9a0dc;
+  --marxy-tok-tag: #8fb4dd;
+  --marxy-tok-attribute: var(--marxy-color-code-text);
+  --marxy-tok-marker: #a39e94;
+  --marxy-tok-heading: #f2eee6;
+  --marxy-tok-link: var(--marxy-color-link);
+}
+:root[data-marxy-variant="light"] {
+  --marxy-weight-body: 400;
+  --marxy-weight-heading: 580;
+  --marxy-weight-strong: 700;
+
+  --marxy-color-bg: #faf8f4;
+  --marxy-color-text: #1c1b19;
+  --marxy-color-text-strong: #0f0e0d;
+  --marxy-color-text-secondary: #5e5a53;
+  --marxy-color-text-faint: #5e5a53;
+  --marxy-color-accent: #2c5f8a;
+  --marxy-color-accent-strong: #1d4569;
+  --marxy-color-accent-fg: #faf8f4;
+  --marxy-color-accent-wash: rgba(44, 95, 138, 0.1);
+  --marxy-color-rule: #e4e0d8;
+  --marxy-color-rule-strong: #d6d1c8;
+  --marxy-color-edge: #7a766d;
+  --marxy-color-divider: var(--marxy-color-rule);
+  --marxy-color-divider-focus: var(--marxy-color-accent);
+  --marxy-color-quote-rule: #d6d1c8;
+  --marxy-color-surface: #f1eee8;
+  --marxy-color-surface-glass: rgba(241, 238, 232, 0.8);
+  --marxy-color-notice: #f1eee8;
+  --marxy-shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.14);
+  --marxy-color-code-bg: #f1eee8;
+  --marxy-color-code-text: #1c1b19;
+  --marxy-color-selection: #dbe9ff;
+  --marxy-color-find: #fcefc0;
+  --marxy-color-find-current: #f8df8f;
+  --marxy-color-find-edge: #8a6200;
+  --marxy-color-status-ok: #356024;
+  --marxy-color-status-warn: #85521a;
+  --marxy-color-status-err: #a3271a;
+  --marxy-color-status-info: #2c5f8a;
+  --marxy-color-status-ok-wash: rgba(53, 96, 36, 0.1);
+  --marxy-color-status-warn-wash: rgba(133, 82, 26, 0.1);
+  --marxy-color-status-err-wash: rgba(163, 39, 26, 0.09);
+  --marxy-color-diff-add: #cce3c6;
+  --marxy-color-diff-del: #ffe7e6;
+  --marxy-color-diff-add-word: #c0e2b8;
+  --marxy-color-diff-del-word: #ffdcdb;
+  --marxy-tok-string: #356024;
+  --marxy-tok-comment: #85521a;
+  --marxy-tok-number: #6f42a8;
+  --marxy-tok-function: #2c5f8a;
+  --marxy-tok-constant: #6f42a8;
+  --marxy-tok-tag: #2c5f8a;
+  --marxy-tok-marker: #5e5a53;
+  --marxy-tok-heading: #0f0e0d;
+}

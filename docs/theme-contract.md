@@ -33,9 +33,10 @@ The full list is `packages/theme/src/tokens.css` (version 2; the v1 names are un
 `--marxy-measure-chars` and `--marxy-avg-char`, with defaults. The token names, units and
 meanings are frozen and need an ADR; the default theme's values are taste and need a story
 with a taste-review queue row. That is the guarantee a theme author gets (ADR-0031): the
-names, the units and the meanings, not 30px. Its `:root` values are the **dark** variant
-(ADR-0024); the default theme's light block overrides them under
-`[data-marxy-variant="light"]`. Tokens may be *added* within version 1 when they carry a
+names, the units and the meanings, not 30px. Its `:root` values are the contract's
+fallbacks (a warm near-black, kept so a contract-1 theme renders as before); the default theme sets Night
+(dark) in `:root` and Paper (light) under `[data-marxy-variant="light"]` (H-04), and `packages/theme/ink`
+is today's warm dark and light as a theme of its own. Tokens may be *added* within version 1 when they carry a
 default (ADR-0024 added the find, notice and code-token colours; ADR-0055 added `--marxy-color-find-edge`); a theme that does not set
 them renders with the defaults.
 The shape:
@@ -84,7 +85,7 @@ each face, weight and size it has measured.
 ## Contract v2 (ADR-0059): shipped
 
 `tokens.css` declares the names below and the loader speaks `contract = 2` (H-03). H-04 sets Night's and
-Paper's values. No v1 name, kind or meaning changed. Each new name is declared in `tokens.css` as `var()` of
+Paper's values: the default theme declares every role in both variants, and `gate:contrast` reports none undeclared for `default` and `ink`. No v1 name, kind or meaning changed. Each new name is declared in `tokens.css` as `var()` of
 the v1 token in brackets, so a contract-1 theme keeps rendering as it does today and loads with a warning that
 its contract-2 roles use their fallbacks. A contract-2 theme that leaves a colour role unset in a variant also
 loads, with a warning naming each unset role. A contract above 2 keeps the old "may not look as intended" warning.
@@ -132,8 +133,8 @@ plain text and is the primary cue; the tint is a second channel only.
 | `--marxy-color-diff-add-word` | background for an added span within a line |
 | `--marxy-color-diff-del-word` | background for a deleted span within a line |
 
-`:root` in `tokens.css` holds the dark defaults; the default theme's light block overrides them
-under `[data-marxy-variant="light"]`. Every pair must meet the typography handbook's
+`:root` in `tokens.css` holds the fallback defaults; the default theme's Night and Paper blocks override them
+under `:root` and `[data-marxy-variant="light"]`. Every pair must meet the typography handbook's
 contrast floor on its tint (ADR-0035); `gate:aesthetics` walks every declared tint background
 against every foreground token in both variants (MARXY-241), which is why the light overrides
 land alongside the tokens rather than waiting on MARXY-235, which applies them to rendered diffs.
