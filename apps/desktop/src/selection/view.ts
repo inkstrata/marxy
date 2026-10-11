@@ -22,7 +22,17 @@ import { splitRefusal } from '../pane/fit.ts';
 import { defaultModeForPath } from '../source/default-mode.ts';
 import { pathsForDocument } from '../render/images.ts';
 import type { NodeMap } from '../render/post.ts';
-import { moveSibling, parentOf, select, type Selection, type SelectionState } from './selection.ts';
+import {
+  extendRun,
+  extendRunTo,
+  moveSibling,
+  parentOf,
+  runBlocks,
+  runRange,
+  select,
+  type Selection,
+  type SelectionState,
+} from './selection.ts';
 import { applyInvisibleMarkers } from '../render/invisibles-dom.ts';
 import { applyLinkDestinations } from '../render/link-dest.ts';
 import { recordDrag } from './drag.ts';
@@ -63,6 +73,7 @@ function clearSelectedClass(article: HTMLElement): void {
 function paintSelected(article: HTMLElement, selection: Selection): void {
   clearSelectedClass(article);
   if (selection.kind === 'node') selection.el.classList.add('marxy-selected');
+  else if (selection.kind === 'blocks') for (const el of selection.els) el.classList.add('marxy-selected');
 }
 
 export type SelectionShell = AppShell & {
@@ -114,6 +125,8 @@ export interface RenderedSelection {
   moveDown(): void;
   moveUp(): void;
   moveParent(): void;
+  /** `Alt+Shift+↓`: the selected block, or run of blocks, grows by the next sibling block (E-05). */
+  extendDown(): void;
   /**
    * Select what a click on `target` selects, without following a link when `link` is `'select'` (the verb
    * menu's right-click, C-13). Synchronous for `'select'`.
@@ -442,8 +455,72 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     } else if (sel.kind === 'section') {
       const el = elementForRange(article, sel.heading.src.start, sel.heading.src.end);
       if (!el) state = select(state, { kind: 'none' });
+    } else if (sel.kind === 'blocks') {
+      state = select(state, resolveRun(sel) ?? { kind: 'none' });
     }
     paint();
+  };
+
+  /** The run's elements: the carrier of each block still on the page, in order. */
+  const elementsOfRun = (doc: Document, first: Block, last: Block): Element[] => {
+    const out: Element[] = [];
+    for (const block of runBlocks(doc, first, last)) {
+      const el = elementForRange(active.target.article, block.src.start, block.src.end);
+      if (el) out.push(el);
+    }
+    return out;
+  };
+
+  /**
+   * A run again after the page was set (E-05): by its two end ranges, on the new page. Both ends must still be
+   * on it as blocks of one container; otherwise null, and nothing stays painted.
+   */
+  const resolveRun = (sel: Extract<Selection, { kind: 'blocks' }>): Selection | null => {
+    const snap = opts.store()?.snapshot();
+    if (!snap) return null;
+    const { article } = active.target;
+    const firstEl = elementForRange(article, sel.first.src.start, sel.first.src.end);
+    const lastEl = elementForRange(article, sel.last.src.start, sel.last.src.end);
+    if (!firstEl || !lastEl) return null;
+    const first = resolve(firstEl, snap.nodeMap)?.node;
+    const last = resolve(lastEl, snap.nodeMap)?.node;
+    if (!first || !last || !isBlock(first) || !isBlock(last)) return null;
+    if (first.src.start > last.src.start) return null;
+    const blocks = runBlocks(snap.ast, first, last);
+    if (blocks.length < 2) return null;
+    return { kind: 'blocks', first, last, range: runRange(first, last), els: elementsOfRun(snap.ast, first, last) };
+  };
+
+  /** Select the run `first`..`last`, painted together; the browser's own selection goes, so nothing competes with it. */
+  const selectRun = (first: Block, last: Block): void => {
+    const doc = opts.store()?.snapshot().ast;
+    if (!doc) return;
+    const els = elementsOfRun(doc, first, last);
+    if (els.length === 0) return;
+    window.getSelection()?.removeAllRanges();
+    state = select(state, { kind: 'blocks', first, last, range: runRange(first, last), els });
+    paint();
+  };
+
+  /** The block a pressed element belongs to: the innermost block carrier at or above it. */
+  const blockOfElement = (raw: Element): Block | null => {
+    const snap = opts.store()?.snapshot();
+    if (!snap) return null;
+    for (let carrier = raw.closest('[data-marxy-s]'); carrier; carrier = carrier.parentElement?.closest('[data-marxy-s]') ?? null) {
+      const resolved = resolve(carrier, snap.nodeMap);
+      if (resolved && isBlock(resolved.node)) return resolved.node;
+    }
+    return null;
+  };
+
+  /** `Shift+click` with a block or a run selected: the run grows to the clicked block's sibling; elsewhere, nothing happens. */
+  const extendTo = (raw: Element): void => {
+    const snap = opts.store()?.snapshot();
+    const target = blockOfElement(raw);
+    if (!snap || !target) return;
+    const run = extendRunTo(snap.ast, state.selection, target);
+    if (!run || run.first === run.last) return;
+    selectRun(run.first, run.last);
   };
 
   /** The block carrier holding `byte`, the narrowest range winning; inline carriers are skipped. */
@@ -534,6 +611,11 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       selectNone();
       return;
     }
+    // Shift+click grows a block selection into a run of its siblings (E-05).
+    if (ev.shiftKey && !ev.altKey && (state.selection.kind === 'node' || state.selection.kind === 'blocks') && active.target.article.contains(raw)) {
+      extendTo(raw);
+      return;
+    }
     await selectAt(raw, { link: ev.altKey ? 'select' : 'follow' }, ev);
   };
 
@@ -596,6 +678,10 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     const { article } = record.target;
     // A click is not a drag until the pointer has moved a few pixels: a hand's jitter must still select.
     const onMouseDown = (ev: MouseEvent): void => {
+      // Shift+press with a block or a run selected extends the run (E-05): the browser must not extend a text selection.
+      if (ev.shiftKey && ev.button === 0 && record === active && (state.selection.kind === 'node' || state.selection.kind === 'blocks')) {
+        ev.preventDefault();
+      }
       pointerDrag = false;
       pointerDown = true;
       downAt = { x: ev.clientX, y: ev.clientY };
@@ -701,11 +787,35 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     },
     moveDown() {
       const doc = opts.store()?.snapshot().ast;
-      if (doc) move(moveSibling(doc, state.selection, 1));
+      if (!doc) return;
+      // A run collapses to its last block (E-05).
+      if (state.selection.kind === 'blocks') {
+        const { last, els } = state.selection;
+        const el = elementForRange(active.target.article, last.src.start, last.src.end) ?? els.at(-1);
+        if (el) move({ kind: 'node', node: last, el });
+        return;
+      }
+      move(moveSibling(doc, state.selection, 1));
     },
     moveUp() {
       const doc = opts.store()?.snapshot().ast;
-      if (doc) move(moveSibling(doc, state.selection, -1));
+      if (!doc) return;
+      if (state.selection.kind === 'blocks') {
+        const { first, els } = state.selection;
+        const el = elementForRange(active.target.article, first.src.start, first.src.end) ?? els[0];
+        if (el) move({ kind: 'node', node: first, el });
+        return;
+      }
+      move(moveSibling(doc, state.selection, -1));
+    },
+    extendDown() {
+      const doc = opts.store()?.snapshot().ast;
+      if (!doc) return;
+      const run = extendRun(doc, state.selection, 1);
+      if (!run) return;
+      // The next block may not be on the page yet (a long document mounts progressively).
+      active.target.mountThrough(run.last.src.start);
+      selectRun(run.first, run.last);
     },
     moveParent() {
       const doc = opts.store()?.snapshot().ast;

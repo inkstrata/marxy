@@ -27,6 +27,11 @@ export function operationInputFor(
         text: textOf(buffer, range),
       };
     }
+    case 'blocks': {
+      // A run is a raw span: one contiguous range with block-aligned ends and no node (E-05).
+      const range = sel.range;
+      return { document, range, text: textOf(buffer, range) };
+    }
     case 'node': {
       const node = sel.node;
       if (node.type === 'heading') {
