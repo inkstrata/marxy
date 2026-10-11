@@ -215,8 +215,11 @@ test('a theme-less page and the default theme resolve every v1 token alike, and 
   assert.ok(v1.length >= 55, `${v1.length} v1 tokens`);
   const bare = resolveRoot(tokensCss);
   const withDefault = resolveRoot(tokensCss, readFileSync(fileURLToPath(new URL('../default/theme.css', import.meta.url)), 'utf8').replace(/:root\[data-marxy-variant="light"\]\s*\{[^}]*\}/, ''));
+  // H-04: the default theme now owns the palette and the weights (Night and Paper); every other v1 token
+  // (rhythm, sizes, families, knobs) still resolves as the contract's own default.
+  const themeSets = (name: string) => /^--marxy-(?:color-|tok-|weight-)/.test(name);
   for (const { name, value } of v1) {
-    assert.equal(withDefault(name), bare(name), name);
+    if (!themeSets(name)) assert.equal(withDefault(name), bare(name), name);
     assert.notEqual(bare(name), undefined, `${name} resolves`);
     assert.doesNotMatch(value, /--marxy-(?:root-|color-(?:surface|text-strong|text-faint|edge|accent-(?:strong|fg|wash)|status|rule-strong)|tok-(?:marker|heading|link)|face-|shadow-|size-chrome)/, `${name} reads a v2 name`);
   }

@@ -44,7 +44,7 @@ before(async () => {
 after(() => server?.close());
 
 test('each face ships with its OFL licence beside it', () => {
-  for (const file of ['Literata.ttf', 'Literata-Italic.ttf', 'JetBrainsMono.ttf', 'Literata-OFL.txt', 'JetBrainsMono-OFL.txt']) {
+  for (const file of ['Literata.ttf', 'Literata-Italic.ttf', 'JetBrainsMono.ttf', 'SourceSerif4.ttf', 'Literata-OFL.txt', 'JetBrainsMono-OFL.txt', 'SourceSerif4-OFL.txt']) {
     assert.ok(existsSync(join(outDir, 'fonts', file)), `dist/fonts/${file}`);
   }
   assert.match(readFileSync(join(outDir, 'fonts', 'Literata-OFL.txt'), 'utf8'), /SIL OPEN FONT LICENSE/i);

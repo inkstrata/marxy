@@ -1,4 +1,4 @@
 name = "marxy default"
 author = "marxy"
-contract = 1
+contract = 2
 variants = ["dark", "light"]
