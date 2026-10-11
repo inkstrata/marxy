@@ -35,7 +35,7 @@ const IDS = (op: { id: string }) => op.id;
 
 test('COPY_PACK lists copy-source, copy-plain and copy-rich, in that order', () => {
   assert.deepEqual(COPY_PACK.map(IDS), ['copy-source', 'copy-plain', 'copy-rich']);
-  assert.deepEqual(COPY_PACK.map((op) => op.title), ['Copy as markdown', 'Copy as plain text', 'Copy as rich text']);
+  assert.deepEqual(COPY_PACK.map((op) => op.title), ['Copy as markdown', 'Copy as plain text (strip markdown)', 'Copy as rich text']);
 });
 
 type Case = { name: string; source: string; plain: string; sourceText?: string };
