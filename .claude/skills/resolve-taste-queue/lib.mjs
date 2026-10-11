@@ -1,7 +1,7 @@
 // Parsing, artifact resolution and write-back for the taste-review harness. No I/O beyond the repo
 // root it is given, so test.mjs can run it against a temp copy.
 import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdirSync, rmSync } from 'node:fs';
-import { join, dirname, basename, extname, relative, resolve, sep } from 'node:path';
+import { join, dirname, basename, extname, resolve, sep } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 
 export const QUEUE_FILE = 'docs/taste-review/queue.md';
