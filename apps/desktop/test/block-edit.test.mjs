@@ -230,6 +230,9 @@ for (const where of ['below', 'above']) {
       assert.ok(held.scrollTop > 500, 'scrolled well into the document');
       const at = await paragraphOnScreen(page, where);
       assert.ok(at !== null, `a paragraph ${where} the reading line`);
+      const heightOf = (start) =>
+        page.evaluate((start) => document.querySelector(`#doc > [data-marxy-s="${start}"]`)?.getBoundingClientRect().height ?? null, start);
+      const setBefore = await heightOf(at);
       await selectBlock(page, at);
       await page.keyboard.press(`${mod}+Enter`);
       await page.waitForSelector('.marxy-block-editor .cm-content');
@@ -238,9 +241,12 @@ for (const where of ['below', 'above']) {
       assert.equal(opened.byteOffset, held.byteOffset);
       assert.ok(Math.abs(opened.top - held.top) <= 1, `opening moved the reading block ${opened.top - held.top}px`);
       await toEnd(page, mod);
-      const typed = ' and a few more words.';
+      // Enough to wrap onto a new line in the editor and in the paragraph set again: the page around it moves.
+      const typed = ' and a few more words, and then a good many more besides, enough to add a whole new line to the paragraph for certain.';
       await page.keyboard.type(typed);
       // (CodeMirror may scroll a few pixels to keep the caret in view as the reader types: that is the reader's doing.)
+      // The page as the reader sees it, a frame on: the line the last key added has been followed by then.
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
       const leaving = await reading(page);
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => document.querySelector('.marxy-block-editor') === null);
@@ -251,6 +257,8 @@ for (const where of ['below', 'above']) {
       const moved = where === 'above' ? Buffer.byteLength(typed) : 0;
       assert.equal(now.byteOffset, held.byteOffset + moved, 'the same block is on the reading line');
       assert.ok(Math.abs(now.top - leaving.top) <= 1, `leaving moved the reading block ${now.top - leaving.top}px`);
+      const setAfter = await heightOf(at);
+      assert.ok(setAfter > setBefore, `the edited paragraph gained a line (${setBefore}px, then ${setAfter}px)`);
       if (where === 'below') assert.ok(Math.abs(now.top - held.top) <= 1, `the block moved ${now.top - held.top}px`);
     });
   });
