@@ -5,6 +5,9 @@
 // store. Lazy-loaded with CodeMirror: it stays off the startup path (MARXY-33).
 
 import {
+  addTableColumn,
+  addTableRow,
+  alignTable,
   deleteLines,
   duplicateLines,
   expandSelection,
@@ -12,6 +15,8 @@ import {
   selectBlock,
   selectSection,
   sortLines,
+  sortTableRows,
+  tableCsv,
   toggleQuoteLines,
   toggleTaskLines,
   type LineEdit,
@@ -26,6 +31,7 @@ import {
   toggleComment,
 } from '@codemirror/commands';
 import type { StructureOp } from './structure-ops.ts';
+import type { TableTool } from '../commands/source-edit.ts';
 import { selectNextOccurrence, selectSelectionMatches } from '@codemirror/search';
 import { EditorSelection, Transaction, type EditorState, type StateCommand } from '@codemirror/state';
 import type { KeyBinding } from '@codemirror/view';
@@ -34,6 +40,8 @@ import type { KeyBinding } from '@codemirror/view';
 export type Target = Parameters<StateCommand>[0];
 
 export type { StructureOp } from './structure-ops.ts';
+
+export type { TableTool } from '../commands/source-edit.ts';
 
 const MARKDOWN_PATH = /\.(md|markdown|mdown|mkd|mdx)$/i;
 
@@ -74,6 +82,24 @@ function apply(target: Target, edit: LineEdit | null): boolean {
     }),
   );
   return true;
+}
+
+/**
+ * A table tool at the caret (the main selection's head), as one transaction: the same `apply` as the other
+ * Source operations, so the file's own line separator is written, the caret lands where the tool puts it and the
+ * undo is one step. False, with nothing changed and nothing said, when the caret is in no table, the file is not
+ * Markdown, or the tool declines (a table it cannot edit without risk, or one it has nothing to do to).
+ */
+export function runTableTool(tool: TableTool, target: Target, path: string): boolean {
+  if (structureKindFor(path) !== 'markdown') return false;
+  const { state } = target;
+  const run = { alignTable, addTableRow, addTableColumn, sortTableRows }[tool];
+  return apply(target, run(textOf(state), state.selection.main.head));
+}
+
+/** The table at the caret as CSV (the text C-07's Copy table as CSV puts on the pasteboard), or null where there is none. */
+export function tableCsvAt(state: EditorState, path: string): string | null {
+  return structureKindFor(path) === 'markdown' ? tableCsv(textOf(state), state.selection.main.head) : null;
 }
 
 const ranges = (state: EditorState): TextRange[] => state.selection.ranges.map((r) => ({ from: r.from, to: r.to }));
