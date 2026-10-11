@@ -41,6 +41,8 @@ export const KIND_ATTRIBUTE = 'data-marxy-kind';
 /** Sets (or, with null, removes) the pane's kind. Nothing is styled by it until a theme or K-05b writes a rule. */
 export function setPaneKind(host: Element | null, kind: Kind | null): void {
   if (host === null) return;
+  // The same kind again writes nothing, so a style recalculation is spent only on a kind that changed (K-05a.1).
+  if (host.getAttribute(KIND_ATTRIBUTE) === kind) return;
   if (kind === null) host.removeAttribute(KIND_ATTRIBUTE);
   else host.setAttribute(KIND_ATTRIBUTE, kind);
 }
