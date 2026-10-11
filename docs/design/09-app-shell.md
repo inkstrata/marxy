@@ -272,7 +272,9 @@ semantics, smart typography applied as in the article.
 
 ## Notices (`#marxy-notices`)
 
-One region, in flow above the article, empty at rest. A notice is a single line with up to two
+One region per pane (D-10), in flow above its article, empty at rest. A notice about a file is said in the
+pane that shows it and in no other, one about the app in the focused pane; the same words twice in a pane
+are one line, and a document opened in a pane clears that pane's notices only. A notice is a single line with up to two
 actions, dismissible, and it never overlaps the text. Kinds in v1: blocked content (§02),
 external change while dirty (§08), file removed, save failed, theme warnings (§05), index
 truncated (§07), operation summary (transient, 4 s). Never a modal dialog.

@@ -234,7 +234,7 @@ test('closing the left pane keeps the right pane\'s Source text: it is folded in
   });
 });
 
-test('the same file twice: a reload from disk the other pane\'s watch reads keeps the Source pane\'s typed text', async () => {
+test('the same file twice: a reload from disk keeps the Source pane\'s typed text, and the store keeps the bytes it had (D-10)', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     await typeInRightSource(page, mod, 'Qz');
     // Still focused in the editor: nothing folded yet.
@@ -247,11 +247,13 @@ test('the same file twice: a reload from disk the other pane\'s watch reads keep
     }, elsewhere);
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'readFile' || c.method === 'peekFile').length > 0);
     await page.waitForTimeout(400);
+    // The watch asks every view of the store before it reloads: the typed text is an unsaved edit the store
+    // cannot see, so the outside write is not adopted (and the stale-write guard stays on what was read).
     assert.ok((await editorText(page, 1)).startsWith('# AlphaQz\n'), 'the typed text is still in the editor');
-    // Kept as an unsaved edit over what disk now holds: in the store, so the left page and a save see it.
-    assert.ok((await storeText(page, 1)).startsWith('# AlphaQz\n'), 'the typed text is in the store');
-    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.store().snapshot().dirty), true);
-    await page.waitForFunction(() => document.querySelector('#doc h1')?.textContent.includes('AlphaQz'));
+    assert.equal(await storeText(page, 1), files['/r/A.md'], 'the store did not adopt the outside write');
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.sourceHasUnfoldedEdits()), true);
+    await page.waitForFunction(() => document.getElementById('marxy-notices-2').textContent.includes('your edits were kept'));
+    assert.ok((await page.evaluate(() => document.getElementById('marxy-notices').textContent)).includes('your edits were kept'), 'said in each pane that shows the file');
   });
 });
 

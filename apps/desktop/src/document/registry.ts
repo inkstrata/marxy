@@ -5,8 +5,10 @@
 // view that asks for it and counts the views holding it, so the last one to let go closes it.
 //
 // Keyed by the store's path as it is now (a rename or a Save as moves it), looked up when asked: a store
-// follows its file, and the registry follows the store. The path is the one the open was given; the
-// canonical form (a symlink and its target as one store) is D-10's.
+// follows its file, and the registry follows the store. The path is the one the open was given. A symlink
+// and its target are two stores: the shell offers no way to resolve a path (`shell-api` has no realpath,
+// and D-10 changes neither it nor the Rust side), so the stale-write guard is what stands behind two
+// buffers for one file reached through a link.
 
 import type { DocumentStore } from './store.ts';
 

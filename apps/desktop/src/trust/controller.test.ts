@@ -17,6 +17,7 @@ function fakeElement(): any {
 (globalThis as any).window = globalThis;
 (globalThis as any).document = {
   getElementById: () => fakeElement(),
+  querySelector: () => null,
   createElement: () => fakeElement(),
   body: fakeElement(),
 };

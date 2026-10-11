@@ -388,7 +388,10 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
 
     let bytes: Uint8Array;
     try {
-      bytes = await opts.shell.readFile(target);
+      // A look at the target, not a load: `peekFile` leaves the stale-write guard where it was. `readFile` would
+      // record these bytes as read, so a link to a file already open (a self link, a neighbour's file) would
+      // let the next save overwrite another program's change.
+      bytes = await (opts.shell.peekFile ?? opts.shell.readFile).call(opts.shell, target);
     } catch {
       notify({ kind: 'info', text: 'That document could not be found.' });
       return;
