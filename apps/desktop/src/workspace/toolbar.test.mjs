@@ -371,7 +371,7 @@ const fitOf = (page) =>
     return { clipped, overflow: bar.scrollWidth - bar.clientWidth, region: Math.round(region.width) };
   });
 
-test('the controls fit the toolbar region at the default chrome size in the narrowest window, and at chrome_size 26 in a wide one', async () => {
+test('the controls fit the toolbar region at the default chrome size in the narrowest window, and at chrome_size 26 in a wide one (the title now keeps five ems, W-04)', async () => {
   await withPage(929, async (page) => {
     await unfold(page);
     await page.waitForTimeout(100);
@@ -379,12 +379,12 @@ test('the controls fit the toolbar region at the default chrome size in the narr
     assert.deepEqual(fit.clipped, [], `default chrome at 929 px: ${JSON.stringify(fit)}`);
     assert.ok(fit.overflow <= 0, JSON.stringify(fit));
   });
-  await withPage(1280, async (page) => {
+  await withPage(1440, async (page) => {
     await page.evaluate(() => document.documentElement.style.setProperty('--marxy-size-chrome', '26px'));
     await unfold(page);
     await page.waitForTimeout(100);
     const fit = await fitOf(page);
-    assert.deepEqual(fit.clipped, [], `chrome_size 26 at 1280 px: ${JSON.stringify(fit)}`);
+    assert.deepEqual(fit.clipped, [], `chrome_size 26 at 1440 px: ${JSON.stringify(fit)}`);
   });
 });
 
@@ -405,6 +405,138 @@ test('at chrome_size 26 in the narrowest window the row is wider than its box, a
     });
     assert.deepEqual(last, { name: 'Find in this pane', inside: true });
   });
+});
+
+/** The title's box and the row's, in px, and the em the title's minimum is measured in. */
+const titleOf = (page) =>
+  page.evaluate(() => {
+    const bar = document.querySelector('.marxy-toolbar');
+    const title = bar.querySelector('[data-marxy-toolbar-item="title"]');
+    return {
+      title: title.getBoundingClientRect().width,
+      minimum: parseFloat(getComputedStyle(title).minWidth),
+      em: parseFloat(getComputedStyle(title).fontSize),
+      overflow: bar.scrollWidth - bar.clientWidth,
+      attachment: getComputedStyle(bar).backgroundAttachment,
+      image: getComputedStyle(bar).backgroundImage,
+    };
+  });
+
+test('W-04: the title keeps its minimum at the narrowest window, at the default size and at chrome_size 26; the row that cannot fit scrolls and shows it', async () => {
+  await withPage(929, async (page) => {
+    await unfold(page);
+    await page.waitForTimeout(100);
+    const normal = await titleOf(page);
+    assert.equal(normal.minimum, 5 * normal.em, 'the title declares five ems');
+    assert.ok(normal.title >= normal.minimum - 0.5, `the title has its minimum at the default size: ${JSON.stringify(normal)}`);
+    assert.ok(normal.overflow <= 0, `and the row fits: ${JSON.stringify(normal)}`);
+    await page.evaluate(() => document.documentElement.style.setProperty('--marxy-size-chrome', '26px'));
+    await page.waitForTimeout(100);
+    const big = await titleOf(page);
+    assert.ok(big.title >= big.minimum - 0.5 && big.title > 100, `the title is not squeezed to nothing at chrome_size 26: ${JSON.stringify(big)}`);
+    assert.ok(big.overflow > 0, `the row scrolls: ${JSON.stringify(big)}`);
+    // The sign: an edge shadow that shows while more is out of sight, and a ground drawn over it once the end is reached.
+    assert.match(big.attachment, /local.*local.*scroll.*scroll/, big.attachment);
+    assert.equal((big.image.match(/linear-gradient/g) ?? []).length, 4, big.image);
+    // Scrolling to the end reaches the last control.
+    await page.evaluate(() => { const bar = document.querySelector('.marxy-toolbar'); bar.scrollLeft = bar.scrollWidth; });
+    const reached = await fitOf(page);
+    assert.equal(reached.overflow > 0, true);
+    const last = await page.evaluate(() => {
+      const region = document.querySelector('[data-marxy-workspace-region="toolbar"]').getBoundingClientRect();
+      const r = [...document.querySelectorAll('.marxy-toolbar button')].at(-1).getBoundingClientRect();
+      return r.right <= region.right + 0.5;
+    });
+    assert.equal(last, true, 'the last control is reachable by scrolling');
+  });
+});
+
+test('W-04: checked, pressed, disabled and focused toolbar controls look different from the rest, from the surface roles', async () => {
+  await withPage(1280, async (page) => {
+    await unfold(page);
+    const look = (label) =>
+      page.evaluate((label) => {
+        const el = [...document.querySelectorAll('.marxy-toolbar button')].find((b) => b.getAttribute('aria-label') === label);
+        const cs = getComputedStyle(el);
+        return { background: cs.backgroundColor, color: cs.color, shadow: cs.boxShadow, outline: cs.outlineStyle, radius: cs.borderTopLeftRadius };
+      }, label);
+    const role = (name) =>
+      page.evaluate((name) => {
+        const probe = document.createElement('i');
+        probe.style.cssText = `color: var(${name}); background: var(${name})`;
+        document.body.append(probe);
+        const c = getComputedStyle(probe).color;
+        probe.remove();
+        return c;
+      }, name);
+    const read = await look('Read');
+    const source = await look('Source');
+    const find = await look('Find in this pane');
+    assert.equal(await page.evaluate(() => document.querySelector('[aria-label="Read"]').getAttribute('aria-checked')), 'true');
+    assert.notEqual(read.background, source.background, 'the checked radio has its own ground');
+    assert.notEqual(read.shadow, 'none', 'and a line under it, not colour alone');
+    assert.equal(source.shadow, 'none');
+    assert.equal(find.radius, '6px');
+    // Pressed (a panel toggle's state) is drawn as checked is.
+    await page.evaluate(() => document.querySelector('[aria-label="Find in this pane"]').setAttribute('aria-pressed', 'true'));
+    const pressed = await look('Find in this pane');
+    assert.equal(pressed.background, read.background);
+    assert.equal(pressed.shadow, read.shadow);
+    // Disabled is the secondary text, whatever else it is.
+    await page.evaluate(() => document.querySelector('[aria-label="Back"]').getAttribute('aria-disabled') === 'true' || document.querySelector('[aria-label="Back"]').setAttribute('aria-disabled', 'true'));
+    const back = await look('Back');
+    assert.equal(back.color, await role('--marxy-color-text-secondary'));
+    assert.notEqual(back.color, source.color);
+    // Focus from the keyboard draws the accent outline.
+    await page.locator('.marxy-toolbar button').nth(2).focus();
+    await page.keyboard.press('ArrowRight');
+    const focused = await page.evaluate(() => { const cs = getComputedStyle(document.activeElement); return { style: cs.outlineStyle, color: cs.outlineColor }; });
+    assert.equal(focused.style, 'solid');
+    assert.equal(focused.color, await role('--marxy-color-accent'));
+  });
+});
+
+test('W-04: under forced-colors a checked or pressed control, a disabled one and the focused one are each distinguishable, in system colours', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 929, height: 900 }, forcedColors: 'active' });
+    await bootTwoPanes(page, { files, open: ['/r/A.md'] });
+    await unfold(page);
+    await page.evaluate(() => document.documentElement.style.setProperty('--marxy-size-chrome', '26px'));
+    await page.evaluate(() => document.querySelector('[aria-label="Find in this pane"]').setAttribute('aria-pressed', 'true'));
+    const look = (label) =>
+      page.evaluate((label) => {
+        const cs = getComputedStyle([...document.querySelectorAll('.marxy-toolbar button')].find((b) => b.getAttribute('aria-label') === label));
+        return { background: cs.backgroundColor, color: cs.color };
+      }, label);
+    const sys = (name) =>
+      page.evaluate((name) => {
+        const el = document.createElement('i');
+        el.style.cssText = `color: ${name}; background: ${name}`;
+        document.body.append(el);
+        const v = getComputedStyle(el).color;
+        el.remove();
+        return v;
+      }, name);
+    const checked = await look('Read');
+    const pressed = await look('Find in this pane');
+    const plain = await look('Source');
+    assert.equal(checked.background, await sys('Highlight'), 'checked is Highlight');
+    assert.equal(checked.color, await sys('HighlightText'));
+    assert.deepEqual(pressed, checked, 'pressed is drawn as checked');
+    assert.notEqual(plain.background, checked.background, 'an unchecked control is not');
+    await page.evaluate(() => document.querySelector('[aria-label="Source"]').setAttribute('aria-disabled', 'true'));
+    assert.equal((await look('Source')).color, await sys('GrayText'), 'disabled is GrayText');
+    await page.locator('.marxy-toolbar button').nth(2).focus();
+    await page.keyboard.press('ArrowRight');
+    const focus = await page.evaluate(() => { const cs = getComputedStyle(document.activeElement); return { style: cs.outlineStyle, color: cs.outlineColor }; });
+    assert.equal(focus.style, 'solid');
+    assert.equal(focus.color, await sys('Highlight'));
+    const bar = await page.evaluate(() => { const b = document.querySelector('.marxy-toolbar'); return { over: b.scrollWidth > b.clientWidth, image: getComputedStyle(b).backgroundImage }; });
+    assert.ok(bar.over && (bar.image.match(/linear-gradient/g) ?? []).length === 4, 'the scroll fade survives: ' + JSON.stringify(bar));
+  } finally {
+    await browser.close();
+  }
 });
 
 // --- keyboard and names -------------------------------------------------------------------------------------------

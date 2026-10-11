@@ -27,6 +27,52 @@
 html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-color-text); }
 ::selection { background: var(--marxy-color-selection); }
 
+/* One chrome for every summoned surface and every menu (W-04; ADR-0059 items 4 and 6, docs/design/05-theme.md
+   "One chrome"). Face and size are the chrome tokens; the ground, outline and elevation are the surface roles; every
+   length below is a ratio of the chrome size (28 px for a row at 13), so the reader's chrome_size scales them and a
+   theme's values are untouched. The ratios live here once: the palette and outline sheets and the verb menu's markup
+   take these classes and keep layout only. Radii are system constants by the surface's size: 6 (a menu, find, a
+   peek), 9 (the palette), 13 (a sheet). The text being read is outside all of this. Notices are not on this list yet: they
+   sit in the page's flow above the article, and their height is pinned to the grid by gate:aesthetics' baselines and its
+   L-05 expected-failure rows, so they keep the text face and caption size until L-05 moves them. */
+.marxy-surface,
+.marxy-verb-menu,
+.marxy-find {
+  font-family: var(--marxy-face-chrome);
+  font-size: var(--marxy-size-chrome);
+  line-height: 1.3;
+  color: var(--marxy-color-text);
+  border-radius: calc(var(--marxy-size-chrome) * 6 / 13);
+}
+.marxy-surface,
+.marxy-verb-menu,
+.marxy-find {
+  box-sizing: border-box;
+  background: var(--marxy-color-surface);
+  border: 1px solid var(--marxy-color-rule);
+  box-shadow: var(--marxy-shadow-surface);
+}
+.marxy-surface-md { border-radius: calc(var(--marxy-size-chrome) * 9 / 13); }
+.marxy-surface-lg { border-radius: calc(var(--marxy-size-chrome) * 13 / 13); }
+/* A row of a menu, the palette or a dropdown: 28 px at 13, padded 5 by 10, 8 after an icon; the shortcut sits at the end. */
+.marxy-menu-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--marxy-size-chrome) * 8 / 13);
+  min-height: round(calc(var(--marxy-size-chrome) * 28 / 13), 1px);
+  padding: calc(var(--marxy-size-chrome) * 5 / 13) calc(var(--marxy-size-chrome) * 10 / 13);
+  cursor: default;
+}
+.marxy-menu-key {
+  flex: none;
+  margin-inline-start: auto;
+  padding-inline-start: calc(var(--marxy-size-chrome) * 16 / 13);
+  color: var(--marxy-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* Notices: one region in flow above the article, empty at rest (docs/design/09-app-shell.md
    §Notices, MARXY-138). A line reads as the app speaking, not page content, so it gets its own
    background and border rather than sitting as bare text; spacing is in grid-unit multiples like
@@ -85,36 +131,15 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
 .marxy-verb-menu {
   position: fixed;
   z-index: 10;
-  box-sizing: border-box;
   min-width: 14em;
   max-width: min(24em, calc(100vw - 8px));
-  padding: 0.25em 0;
-  font-family: var(--marxy-font-text);
-  font-size: var(--marxy-size-caption);
-  line-height: 1.4;
-  color: var(--marxy-color-text);
-  background: var(--marxy-color-bg);
-  border: 1px solid var(--marxy-color-rule);
-  border-radius: var(--marxy-code-radius);
-  box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+  padding-block: calc(var(--marxy-size-chrome) * 4 / 13);
   user-select: none;
   -webkit-user-select: none;
 }
-.marxy-verb-menu-item {
-  display: flex;
-  align-items: baseline;
-  gap: 2em;
-  padding: 0.3em 0.9em;
-  cursor: default;
-  outline: none;
-}
+.marxy-verb-menu-item { outline: none; }
 .marxy-verb-menu-item:focus { background: var(--marxy-color-selection); }
 .marxy-verb-menu-title { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.marxy-verb-menu-key {
-  flex: 0 0 auto;
-  color: var(--marxy-color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
 
 .marxy-article {
   --lb: var(--marxy-line-box);
@@ -633,15 +658,6 @@ a:focus .marxy-link-dest { display: inline; }
   display: flex;
   align-items: center;
   width: min(18rem, calc(100% - 2rem));
-  box-sizing: border-box;
-  border: 1px solid var(--marxy-color-rule);
-  border-radius: 6px;
-  background: var(--marxy-color-notice);
-  color: var(--marxy-color-text);
-  font-family: var(--marxy-font-text);
-  font-size: var(--marxy-size-caption);
-  line-height: 1.4;
-  box-shadow: 0 0.25rem 1.5rem rgb(0 0 0 / 25%);
 }
 .marxy-find-input {
   flex: 1;
@@ -753,15 +769,34 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
   height: var(--marxy-ws-status-h);
   border-block-start-width: 1px;
 }
-/* The toolbar (W-05): layout only, a row in the toolbar region. No ground, border, radius or shadow beyond taking the
-   system button's away: W-04 owns the look, and the states it styles are ARIA (aria-disabled, aria-checked, aria-pressed).
-   The title takes what the controls leave and gives way first, so the controls stay whole as the column narrows; when even they
-   do not fit (chrome_size 26 in the narrowest column) the row scrolls to the control that has focus rather than clipping it for good. */
-.marxy-toolbar { display: flex; align-items: center; gap: 4px; height: 100%; padding-inline: 0.9em; min-width: 0; overflow-x: auto; scrollbar-width: none; user-select: none; -webkit-user-select: none; }
+/* The toolbar (W-05 layout, W-04 states). A row in the toolbar region on the chrome face; the controls are bare until
+   they have a state, and every state is drawn from the surface roles (text, text-secondary, accent and the accent
+   wash on the surface), so each pair is one the contrast gate already holds: hover is the selection ground, checked
+   and pressed are the accent wash with an accent line under the label (never colour alone), disabled is the
+   secondary text, and focus is the accent outline. The title keeps five ems, the most the narrowest column spares it at the default size, and
+   the folder beside it goes first. When the controls and the title together do not fit (chrome_size 26 in the narrowest
+   column) the row scrolls, and an edge that hides controls is faded into the ground, so there is always a visible
+   sign that more is out of sight; the arrow keys and focus bring a control into view. */
+.marxy-toolbar {
+  --marxy-toolbar-fade: calc(var(--marxy-size-chrome) * 2);
+  display: flex; align-items: center; gap: calc(var(--marxy-size-chrome) * 4 / 13); height: 100%; padding-inline: 0.9em; min-width: 0;
+  overflow-x: auto; scrollbar-width: none; user-select: none; -webkit-user-select: none;
+  background:
+    linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-toolbar-fade) 100% no-repeat local,
+    linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-toolbar-fade) 100% no-repeat local,
+    linear-gradient(to right, color-mix(in srgb, var(--marxy-color-text) 28%, transparent), transparent) left center / var(--marxy-toolbar-fade) 100% no-repeat scroll,
+    linear-gradient(to left, color-mix(in srgb, var(--marxy-color-text) 28%, transparent), transparent) right center / var(--marxy-toolbar-fade) 100% no-repeat scroll;
+}
 .marxy-toolbar::-webkit-scrollbar { display: none; }
-.marxy-toolbar button { flex: none; appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.6em; border: 0; background: none; color: inherit; font: inherit; cursor: default; white-space: nowrap; }
+.marxy-toolbar button { flex: none; appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.6em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; cursor: default; white-space: nowrap; }
+.marxy-toolbar button:hover { background: var(--marxy-color-selection); }
+.marxy-toolbar button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-toolbar button[aria-checked="true"],
+.marxy-toolbar button[aria-pressed="true"] { background: var(--marxy-color-accent-wash); box-shadow: inset 0 -2px 0 var(--marxy-color-accent); }
+.marxy-toolbar button[aria-disabled="true"] { color: var(--marxy-color-text-secondary); background: none; box-shadow: none; }
+.marxy-toolbar button[aria-disabled="true"][aria-checked="true"] { box-shadow: inset 0 -2px 0 var(--marxy-color-text-secondary); }
 .marxy-toolbar [data-marxy-toolbar-item] { display: flex; align-items: center; flex: none; gap: 2px; }
-.marxy-toolbar [data-marxy-toolbar-item="title"] { flex: 1 1 0; min-width: 0; gap: 8px; overflow: hidden; white-space: nowrap; }
+.marxy-toolbar [data-marxy-toolbar-item="title"] { flex: 1 1 0; min-width: 5em; gap: 8px; overflow: hidden; white-space: nowrap; }
 .marxy-toolbar-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .marxy-toolbar-folder { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .marxy-toolbar-dirty[hidden] { display: none; }
@@ -781,7 +816,24 @@ body[data-marxy-workspace="unfolded"][data-marxy-mode="source"] #marxy-main:not(
   a { text-decoration: underline; forced-color-adjust: none; }
   del, s { text-decoration: line-through; }
   :is(pre, table):focus-visible { outline: 2px solid ButtonText; outline-offset: 2px; }
-  .marxy-verb-menu { border-color: CanvasText; background: Canvas; color: CanvasText; box-shadow: none; }
+  .marxy-surface, .marxy-verb-menu, .marxy-find { border-color: CanvasText; background: Canvas; color: CanvasText; box-shadow: none; }
+  /* The toolbar's states and scroll fade drop with background and shadow, so each is redrawn in system colours (W-04). */
+  .marxy-toolbar {
+    forced-color-adjust: none;
+    color: CanvasText;
+    background:
+      linear-gradient(to right, Canvas, Canvas) left center / var(--marxy-toolbar-fade) 100% no-repeat local,
+      linear-gradient(to left, Canvas, Canvas) right center / var(--marxy-toolbar-fade) 100% no-repeat local,
+      linear-gradient(to right, GrayText, Canvas) left center / var(--marxy-toolbar-fade) 100% no-repeat scroll,
+      linear-gradient(to left, GrayText, Canvas) right center / var(--marxy-toolbar-fade) 100% no-repeat scroll;
+  }
+  .marxy-toolbar button { color: CanvasText; }
+  .marxy-toolbar button:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
+  .marxy-toolbar button:focus-visible { outline: 2px solid Highlight; }
+  .marxy-toolbar button[aria-checked="true"],
+  .marxy-toolbar button[aria-pressed="true"] { background: Highlight; color: HighlightText; box-shadow: none; }
+  .marxy-toolbar button[aria-disabled="true"] { color: GrayText; background: none; }
+  .marxy-toolbar button[aria-disabled="true"][aria-checked="true"] { background: none; color: GrayText; outline: 1px dashed GrayText; outline-offset: -1px; }
   .marxy-verb-menu-item:focus { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .marxy-verb-menu-item:focus .marxy-verb-menu-key { color: HighlightText; }
   .marxy-divider::before { background: CanvasText; animation: none !important; forced-color-adjust: none; }

@@ -73,6 +73,28 @@ Role tokens the base needs beyond the contract's list are **derived** in `base.c
 to the contract. Constraint 4 by construction: `h1..h6 { color: inherit; border: 0; }` in base,
 and the theme lint forbids any heading rule setting a colour or a border.
 
+## One chrome (W-04)
+
+Every summoned surface (palette, verb menu, find, outline, a peek) and every menu reads one spec, in one block of
+`base.css`; the palette and outline runtime sheets and the verb menu's markup take its classes and keep layout only.
+Face and size are `--marxy-face-chrome` and `--marxy-size-chrome`; a raised surface has `--marxy-color-surface`,
+`--marxy-shadow-surface` and a `--marxy-color-rule` outline. Every length is a ratio of the chrome size (the numbers are
+at 13 px), so the reader's `chrome_size` scales them. The text being read is not part of this, and nor yet are notices: they sit in flow above the article and `gate:aesthetics` pins their height to the grid (its baselines and the L-05 expected-failure rows), so they keep the text face and caption size until L-05. A new surface takes
+`.marxy-surface` (and `-md` or `-lg`), a new menu row `.marxy-menu-row` and `.marxy-menu-key`; no literal shadow colour,
+radius or font face goes in those rules (`packages/theme/src/chrome-spec.test.ts`; computed in
+`apps/desktop/test/chrome-surfaces.test.mjs`).
+
+| Part | Rule | At 13 / 16 / 26 px |
+| --- | --- | --- |
+| Face, size | `font-family: var(--marxy-face-chrome)`, `font-size: var(--marxy-size-chrome)` | |
+| Ground, edge, elevation | `--marxy-color-surface`, `1px solid --marxy-color-rule`, `box-shadow: var(--marxy-shadow-surface)` | |
+| Radius | `.marxy-surface` (menu, find, peek) `size × 6 / 13`; `-md` (palette) `× 9 / 13`; `-lg` (outline sheet) `× 13 / 13` | 6 / 9 / 13 px at 13 |
+| Menu row | `min-height: round(size × 28 / 13)`, padding `size × 5 / 13` by `size × 10 / 13`, gap after an icon `size × 8 / 13` | 28 / 34 / 56 px high |
+| Shortcut | `.marxy-menu-key`: pushed to the end, so its right edge is one x on every row; `size × 16 / 13` of space before it | |
+| Forced colours | a `CanvasText` border, `Canvas` ground, no shadow | |
+| Toolbar states | hover: the selection ground; checked and pressed: `--marxy-color-accent-wash` and a 2 px accent line under the label; disabled: `--marxy-color-text-secondary`; focus: a 2 px accent outline. Every pair is one the contrast gate holds (text, text-secondary, accent on surface or accent-wash) | |
+| Toolbar width | the title keeps `5em`; a row that still cannot fit scrolls, with the edge that hides controls faded into the ground | |
+
 ## Loader (`loader.ts`)
 
 ```ts
