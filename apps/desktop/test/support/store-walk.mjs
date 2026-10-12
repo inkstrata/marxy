@@ -29,11 +29,14 @@ import { runTableTool } from '../../src/source/structure.ts';
 import { addStep, applyToStore, createChain, eolOf, openedOf, output, replacesExactly } from '../../src/transform/chain.ts';
 import { conflictCopyPath, openDocumentStore } from '../../src/document/store.ts';
 import { createStoreRegistry } from '../../src/document/registry.ts';
+import { guardSaveAsDialog } from '../../src/document/save-as-guard.ts';
 import { oneWatchPerStore, watchDocument } from '../../src/document/live-reload.ts';
 import { save } from '../../src/save.ts';
+import { CONCEALED_REFUSAL, readConverted, readForPaste } from '../../src/paste/read-clipboard.ts';
+import { pastedText } from '../../src/source/paste.ts';
 import { TabList } from '../../src/workspace/tabs.ts';
 import { createMemoryShell } from '../../src/shell/memory.ts';
-import { clearNotices, notify, SOURCE_HELD_APART } from '../../src/notices/index.ts';
+import { clearNotices, SOURCE_HELD_APART } from '../../src/notices/index.ts';
 import { DISK_CHANGED_CHOOSE, FILE_REMOVED_ON_DISK } from '../../src/notices/disk.ts';
 import { drawers, prng } from './prng.mjs';
 
@@ -269,6 +272,22 @@ export class World {
     this.dom = installDom();
     this.dom.reset();
     this.shell = createMemoryShell(model.originals);
+    // F-33.1: every peek the APP makes (the store's stale-write comparison, a live reload's read) is logged with the step it
+    // ran in, so a failing seed shows what the code looked at. The walk's own reads go through `look`, which logs nothing.
+    this.peeks = [];
+    const peek = this.shell.peekFile.bind(this.shell);
+    this.look = peek;
+    this.shell.peekFile = async (path) => {
+      const step = model.trace.length + 1;
+      try {
+        const bytes = await peek(path);
+        this.peeks.push(`step ${step}: peeked ${path}: ${bytes.length} bytes, ${fingerprint(bytes)}`);
+        return bytes;
+      } catch (error) {
+        this.peeks.push(`step ${step}: peeked ${path}: ${error?.code ?? 'failed'}`);
+        throw error;
+      }
+    };
     this.registry = createStoreRegistry();
     this.writes = [];
     this.checkedWrites = 0;
@@ -343,7 +362,7 @@ export class World {
         const doc = store ? docOf(this.model, store) : undefined;
         let before = null;
         try {
-          before = await shell.peekFile(path);
+          before = await this.look(path);
         } catch {
           // no file there
         }
@@ -368,7 +387,7 @@ export class World {
     const texts = [];
     for (const doc of this.model.docs) texts.push(latin1(doc.store.snapshot().buffer.bytes));
     for (const view of this.model.views) if (view?.draft != null) texts.push(view.draft);
-    for (const stat of await this.shell.readDir(ROOT)) texts.push(latin1(await this.shell.peekFile(stat.path)));
+    for (const stat of await this.shell.readDir(ROOT)) texts.push(latin1(await this.look(stat.path)));
     return texts;
   }
 
@@ -562,25 +581,19 @@ export class World {
     const world = this;
     return {
       store: doc.store,
+      // The real guard (document/save-as-guard.ts, the one open.ts wraps the dialog in), over the walk's own registry and views.
       shell: {
-        async saveDialog() {
-          const picked = world.pick;
-          world.pick = null;
-          if (!picked) return null;
-          // open.ts `pickAround`: a path another pane shows, with unsaved changes there, is refused.
-          const other = world.registry.held(picked);
-          if (other && other !== doc.store) {
-            const otherDoc = docOf(model, other);
-            const unsaved = other.snapshot().dirty || viewsOf(model, otherDoc).some(unfolded);
-            if (unsaved) {
-              const name = picked.slice(picked.lastIndexOf('/') + 1);
-              notify({ kind: 'info', text: `${name} is open in the other pane with changes that are not saved. Save or close it there first; nothing was written.` });
-              return null;
-            }
-          }
-          world.pick = picked; // the write log marks a write to this path as the reader's pick
-          return picked;
-        },
+        saveDialog: guardSaveAsDialog({
+          shell: {
+            async saveDialog() {
+              return world.pick; // the path the reader picks; the write log marks a write to it as the reader's pick
+            },
+          },
+          open: doc.store,
+          stores: world.registry,
+          hasUnfoldedEdits: (other) => viewsOf(model, docOf(model, other)).some(unfolded),
+          pane: undefined,
+        }),
         async setTitle() {},
         async allowAssetScope() {},
       },
@@ -947,6 +960,93 @@ export const OPS = {
     },
   },
 
+  /**
+   * F-33.1: a paste in Source, through `shell-api` (J-05, ADR-0065 §3), not the DOM. (Plain text and Markdown only: converting HTML needs
+   * a DOMParser, which the node layer lacks; paste-source.test.mjs covers it in WebKit.) The pasteboard is the memory shell's;
+   * the app's own `readConverted` / `readForPaste` read it and `pastedText` shapes it for the document's line break; the text
+   * goes into the unfolded Source text like typing does and reaches the buffer on a fold. A concealed item must be refused
+   * with no data read and its text must be nowhere afterwards; text that is not UTF-8 is refused; nothing a paste does writes
+   * a file or touches the store before the fold.
+   */
+  paste: {
+    name: 'paste',
+    weight: 5,
+    applicable: (model) => slotsWith(model, (v) => !v.heldApart).length > 0,
+    async run(world, model) {
+      const d = model.d;
+      const slot = d.pick(slotsWith(model, (v) => !v.heldApart));
+      const view = model.views[slot];
+      const { doc } = view;
+      if (view.mode === 'rendered') view.mode = 'source';
+      const kind = d.weighted([
+        ['text', 4],
+        ['markdown', 2],
+        ['plain', 2],
+        ['concealed', 2],
+        ['notUtf8', 1],
+      ]);
+      const token = world.newToken();
+      // One line break kind per pasted text, as a web page's would be: the document's own must replace it.
+      const nl = d.pick(['\n', '\r\n', '\r']);
+      const html = enc.encode(`<p>${token.text} <strong>bold</strong></p>`);
+      const text = enc.encode(`${token.text} one${nl}two`);
+      const md = enc.encode(`# ${token.text}${nl}${nl}- one${nl}- two${nl}`);
+      const canary = `canary${token.id}`;
+      const board = {
+        markdown: [{ 'public.utf8-plain-text': md }],
+        text: [{ 'public.utf8-plain-text': text }],
+        plain: [{ 'public.html': html, 'public.utf8-plain-text': text }],
+        concealed: [{ 'public.utf8-plain-text': enc.encode(`${canary} ${token.text}`), 'org.nspasteboard.ConcealedType': new Uint8Array() }],
+        notUtf8: [{ 'public.utf8-plain-text': new Uint8Array([...enc.encode(token.text), 0xff, 0xfe]) }],
+      }[kind];
+      world.shell.setPasteboard(board);
+      const reads = world.shell.pasteboardDataReads.length;
+      const writes = world.writes.length;
+      const storeBefore = copy(doc.store.snapshot().buffer.bytes);
+      const mark = world.dom.log.length;
+      // Plain: `pastePlainText` (readForPaste, text only, unconverted). Otherwise `pasteFromClipboard` (readConverted).
+      let got;
+      let inserted = null;
+      if (kind === 'plain') {
+        got = await readForPaste(world.shell, { html: false, text: true });
+        if (got.refused === undefined) inserted = got.text ?? '';
+      } else {
+        got = await readConverted(world.shell);
+        if (got.refused === undefined) inserted = got.converted.kind === 'html' ? got.converted.markdown : (got.payload.text ?? '');
+        if (got.refused === undefined && got.converted.kind === 'html') world.fail('I6', 'the node layer has no DOM: an HTML paste is the browser suites\' (paste-source.test.mjs)');
+      }
+      if (kind === 'concealed' || kind === 'notUtf8') {
+        if (got.refused === undefined) world.fail('I3', `a paste of a ${kind} item was not refused (inserted ${JSON.stringify(inserted)})`);
+        if (kind === 'concealed') {
+          if (got.refused !== CONCEALED_REFUSAL) world.fail('I3', `a concealed item was refused for the wrong reason: ${got.refused}`);
+          if (world.shell.pasteboardDataReads.length !== reads) world.fail('I3', 'a concealed item was read before it was refused');
+        }
+        // A refusal says so and inserts nothing; the token is never owed (it was not typed).
+        token.live = false; // never typed, so never owed
+        const said = `${got.refused}`;
+        const after = await world.everything();
+        if (after.some((t) => t.includes(canary))) world.fail('I3', `the text of a concealed item (${canary}) reached a buffer, a draft or a file`);
+        return `paste (${kind}) in pane ${slot} (${doc.path}): refused, "${said.slice(0, 40)}"`;
+      }
+      if (got.refused !== undefined) world.fail('I3', `a paste of ${kind} was refused: ${got.refused}`);
+      const base = view.draft ?? cmDocText(createBuffer(doc.path, doc.buf));
+      const shaped = pastedText(inserted, { lineBreak: lineSeparatorFor(createBuffer(doc.path, doc.buf)) });
+      const own = lineSeparatorFor(createBuffer(doc.path, doc.buf));
+      for (const other of ['\r\n', '\n', '\r']) {
+        const strip = shaped.split(own).join('');
+        if (other !== own && !own.includes(other) && strip.includes(other)) world.fail('I6', `the pasted text keeps a ${JSON.stringify(other)} in a document whose line break is ${JSON.stringify(own)}`);
+      }
+      if (!shaped.includes(token.text)) world.fail('I3', `the pasted text lost ${token.text}: ${JSON.stringify(shaped)}`);
+      view.draft = insertIntoText(world, base, { text: shaped }, '', view.typed);
+      view.typed.push({ id: token.id, text: shaped });
+      if (world.shell.pasteboardDataReads.length - reads > 2) world.fail('I3', 'a paste read more than the HTML and the text');
+      if (world.writes.length !== writes) world.fail('I1', 'a paste wrote a file');
+      if (!same(copy(doc.store.snapshot().buffer.bytes), storeBefore)) world.fail('I6', 'a paste changed the store before the fold');
+      if (world.dom.log.slice(mark).some((line) => /^Could not/.test(line))) world.fail('I3', 'a paste raised a save notice');
+      return `paste (${kind}) ${token.text} in Source, pane ${slot} (${doc.path}), not folded`;
+    },
+  },
+
   fold: {
     name: 'fold',
     weight: 5,
@@ -1234,7 +1334,7 @@ export const OPS = {
         model.disk.set(doc.path, doc.buf.slice());
         doc.base = doc.buf.slice();
         // The pane's own check that nothing but its own bytes were written (I6): the file is the buffer, exactly.
-        const written = await world.shell.peekFile(doc.path);
+        const written = await world.look(doc.path);
         if (!same(written, doc.buf)) world.fail('I6', `the bytes saved to ${doc.path} are not the buffer's`);
       }
       if (result === 'unchanged') {
@@ -1309,6 +1409,65 @@ export const OPS = {
         }
       }
       return `Save As in pane ${slot}: ${kind} ${target} -> ${result}${other ? ' (open in the other pane)' : ''}`;
+    },
+  },
+
+  /**
+   * F-33.1: Save As onto a path that is open, and has changes that are not saved, in another document (D-10.1). The plain
+   * `saveAs` op reaches this by luck (3 seeds in 40); this one builds it: the other document is made unsaved first (a token
+   * typed in its Source, not folded) when it is not already, then the reader picks its path. The save runs through the real
+   * dialog guard (document/save-as-guard.ts). Nothing may be written, nothing may be allowed to drop, and the other
+   * document keeps its store, its buffer, its draft and its file.
+   */
+  saveAsOntoDirty: {
+    name: 'saveAsOntoDirty',
+    weight: 4,
+    applicable: (model) => model.docs.length >= 2 && model.views.some(Boolean),
+    async run(world, model) {
+      const d = model.d;
+      const slot = d.pick(slotsWith(model));
+      const view = model.views[slot];
+      const { doc } = view;
+      const others = model.docs.filter((x) => x !== doc && (anyUnsaved(model, x) || viewsOf(model, x).some((v) => !v.heldApart)));
+      if (!others.length) return `Save As onto an unsaved open path: no other document could be made unsaved, nothing done`;
+      const target = d.pick(others);
+      let made = '';
+      if (!anyUnsaved(model, target)) {
+        // Make it unsaved the way a reader does: type in its Source.
+        const viewT = viewsOf(model, target).find((v) => !v.heldApart);
+        const token = world.newToken();
+        viewT.mode = 'source';
+        const base = viewT.draft ?? cmDocText(createBuffer(target.path, target.buf));
+        viewT.draft = insertIntoText(world, base, token, '', viewT.typed);
+        viewT.typed.push({ id: token.id, text: token.text });
+        made = ` after typing ${token.text} in ${target.path}`;
+      }
+      await world.foldAll(doc);
+      const heldApart = viewsOf(model, doc).some(unfolded);
+      const targetBuf = target.buf.slice();
+      const targetDisk = copy(model.disk.get(target.path));
+      const targetDrafts = viewsOf(model, target).map((v) => v.draft);
+      const mark = world.dom.log.length;
+      const writes = world.writes.length;
+      const aBuf = doc.buf.slice();
+      const aPath = doc.path;
+      world.pick = target.path;
+      const result = await save(world.saveDeps(view), { as: true });
+      world.pick = null;
+      const said = world.dom.log.slice(mark);
+      if (result !== 'cancelled') world.fail('I5', `Save As ${aPath} -> ${target.path}, open and unsaved elsewhere, gave '${result}', not 'cancelled'${made}`);
+      if (!heldApart && !said.some((line) => line.includes('is open in the other pane with changes that are not saved'))) {
+        world.fail('I5', `Save As onto ${target.path}, open and unsaved elsewhere, was refused with no notice`);
+      }
+      if (world.writes.length !== writes) world.fail('I1', `Save As onto ${target.path}, open and unsaved elsewhere, wrote ${world.writes.slice(writes).map((w) => w.path).join(', ')}`);
+      const held = world.registry.held(target.path);
+      if (held !== target.store) world.fail('I5', `${target.path} no longer belongs to the store that held its unsaved text after a refused Save As`);
+      if (world.registry.held(aPath) !== doc.store || doc.store.snapshot().path !== aPath) world.fail('I5', `${aPath} moved although Save As was refused`);
+      if (!same(copy(target.store.snapshot().buffer.bytes), targetBuf)) world.fail('I3', `${target.path}'s buffer changed in a refused Save As`);
+      if (!same(copy(model.disk.get(target.path)), targetDisk) || !same(await world.look(target.path).catch(() => null), targetDisk)) world.fail('I1', `${target.path} on disk changed in a refused Save As`);
+      if (viewsOf(model, target).some((v, i) => v.draft !== targetDrafts[i])) world.fail('I3', `Source text typed in ${target.path} changed in a refused Save As`);
+      if (!same(copy(doc.store.snapshot().buffer.bytes), aBuf)) world.fail('I6', `${aPath}'s buffer changed in a refused Save As`);
+      return `Save As in pane ${slot} onto ${target.path}, unsaved in another document${made}: refused, nothing written`;
     },
   },
 
@@ -1489,7 +1648,7 @@ export const INVARIANTS = {
         seen.add(stat.path);
         const want = model.disk.get(stat.path);
         if (want == null) return `${stat.path} is on disk and the model never put a file there`;
-        if (!same(await world.shell.peekFile(stat.path), want)) return `${stat.path} on disk is not the last write the model knows of`;
+        if (!same(await world.look(stat.path), want)) return `${stat.path} on disk is not the last write the model knows of`;
       }
       for (const [path, bytes] of model.disk) if (bytes != null && !seen.has(path)) return `${path} should be on disk and is not`;
     },
@@ -1580,12 +1739,24 @@ export function seedsFromEnv(env = process.env, fallback = 40) {
   return Array.from({ length: count }, (_, i) => i + 1);
 }
 
-export function describeFailure(seed, failure, trace) {
+/** How many of the app's peeks a failure prints. */
+const PEEKS_SHOWN = 15;
+
+/** A short stable name for some bytes (FNV-1a), enough to tell two peeks of one path apart. */
+function fingerprint(bytes) {
+  let h = 0x811c9dc5;
+  for (const b of bytes) h = Math.imul(h ^ b, 0x01000193) >>> 0;
+  return h.toString(16).padStart(8, '0');
+}
+
+export function describeFailure(seed, failure, trace, peeks = []) {
   return [
     `store walk failed on seed ${seed} in ${failure.invariant ?? 'a step'}: ${failure.message}`,
     `replay: MARXY_WALK_SEED=${seed} node --test --experimental-strip-types apps/desktop/test/store-walk.test.mjs`,
     'steps:',
     ...trace.map((line, i) => `  ${i + 1}. ${line}`),
+    // F-33.1: what the app peeked at, newest last. A failure from a stale-write comparison shows which bytes it compared.
+    ...(peeks.length ? [`peeks (the last ${Math.min(peeks.length, PEEKS_SHOWN)} of ${peeks.length}):`, ...peeks.slice(-PEEKS_SHOWN).map((line) => `  ${line}`)] : []),
   ].join('\n');
 }
 
@@ -1613,7 +1784,7 @@ export async function runWalk(seed, { steps } = {}) {
       } catch (error) {
         model.trace.push(`${op.name}: threw ${error?.message ?? error}`);
         const failure = error instanceof WalkFailure ? error : { invariant: 'step', message: `${op.name} threw: ${error?.stack ?? error}` };
-        throw new Error(describeFailure(seed, failure, model.trace));
+        throw new Error(describeFailure(seed, failure, model.trace, world.peeks));
       }
       for (const [key, invariant] of Object.entries(INVARIANTS)) {
         let problem;
@@ -1622,7 +1793,7 @@ export async function runWalk(seed, { steps } = {}) {
         } catch (error) {
           problem = `the check threw: ${error?.stack ?? error}`;
         }
-        if (problem) throw new Error(describeFailure(seed, { invariant: `${key} (${invariant.name})`, message: problem }, model.trace));
+        if (problem) throw new Error(describeFailure(seed, { invariant: `${key} (${invariant.name})`, message: problem }, model.trace, world.peeks));
       }
       model.allowed.clear();
       model.dropped.clear();
@@ -1630,11 +1801,11 @@ export async function runWalk(seed, { steps } = {}) {
     // Whatever was never read is read now: a parse made this late is the parse of the bytes the walk ended with (V-11.1).
     for (const doc of model.docs) {
       const problem = parseDisagreement(doc);
-      if (problem) throw new Error(describeFailure(seed, { invariant: 'I8 (a late parse is the parse of the bytes)', message: problem }, model.trace));
+      if (problem) throw new Error(describeFailure(seed, { invariant: 'I8 (a late parse is the parse of the bytes)', message: problem }, model.trace, world.peeks));
     }
     const files = {};
-    for (const stat of await world.shell.readDir(ROOT)) files[stat.path] = Buffer.from(await world.shell.peekFile(stat.path)).toString('hex');
-    return { trace: model.trace.slice(), files };
+    for (const stat of await world.shell.readDir(ROOT)) files[stat.path] = Buffer.from(await world.look(stat.path)).toString('hex');
+    return { trace: model.trace.slice(), files, peeks: world.peeks.slice() };
   } finally {
     console.warn = originalWarn;
     await world.end();
