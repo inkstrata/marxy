@@ -210,7 +210,17 @@ export async function startApp(
     async open(path, opts) {
       const { target, focus, ...rest } = opts ?? {};
       if (target !== 'other') {
-        await panes.openIn('focused', path, rest);
+        // The pane that receives the document is the one focused now. `openIn` may wait for the reader's choice over
+        // unsaved edits and focus can move meanwhile, so focus goes back to that pane before the caller's `onLanded`
+        // (a Jump to source there acts on the focused pane), as the beside branch does.
+        const pane = panes.focused;
+        await panes.openIn('focused', path, {
+          ...rest,
+          onLanded() {
+            if (focus !== 'stay' && panes.panes.includes(pane) && panes.focused !== pane) panes.focus(pane);
+            rest.onLanded?.();
+          },
+        });
         return;
       }
       // Beside: the pane that is not focused now. Focus follows the document into it once it is on screen,

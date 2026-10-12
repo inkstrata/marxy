@@ -203,6 +203,29 @@ test('Edit collection over unsaved edits, Save and open: writes linky.md, then c
   }
 });
 
+test('Edit collection in a split: focus moves to the other pane during the prompt; Source is still entered on the pane that got collection.toml', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await bootDirty(browser);
+    await page.evaluate(() => window.__h.panes().openIn('other', '/repo/docs/c.md'));
+    await page.waitForFunction(() => window.__h.panes().panes[1]?.path() === '/repo/docs/c.md');
+    await page.evaluate(() => window.__h.panes().focus(window.__h.panes().panes[0]));
+    await editCollection(page);
+    await asked(page);
+    await page.evaluate(() => window.__h.panes().focus(window.__h.panes().panes[1]));
+    await choose(page, 'Open without saving');
+    await page.waitForFunction(() => window.__h.panes().panes[0].path() === '/collection.toml');
+    await page.waitForFunction(() => window.__h.panes().panes[0].view.mode === 'source');
+    const got = await page.evaluate(() => {
+      const panes = window.__h.panes();
+      return { modes: panes.panes.map((p) => p.view.mode), focused: panes.focused.slot, other: panes.panes[1].path() };
+    });
+    assert.deepEqual(got, { modes: ['source', 'rendered'], focused: 0, other: '/repo/docs/c.md' });
+  } finally {
+    await browser.close();
+  }
+});
+
 // ---- a link to the document's own heading, written with its file name ----
 
 const selfLanded = async (page) => {

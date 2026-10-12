@@ -76,12 +76,10 @@ export function visibleItems(
   );
 }
 
-/** What the toolbar needs to know that the registry does not say: when the page changed, and whether Back has anywhere to go. */
+/** What the toolbar needs to know that the registry does not say: when the page changed. */
 export interface DocumentSignal {
   /** Called when a document opened, changed, saved or closed in any pane, or focus moved. */
   onChange(cb: () => void): () => void;
-  /** The focused pane has left one document for another since the app started (a link followed, a palette open). */
-  hasLeft(): boolean;
 }
 
 /**
@@ -91,32 +89,19 @@ export interface DocumentSignal {
 export function createDocumentSignal(handle: AppHandle): DocumentSignal {
   const panes = handle.panes();
   const listeners = new Set<() => void>();
-  const seen = new WeakMap<object, { last: string | null; left: boolean }>();
-  const note = (pane: { path(): string | null }): void => {
-    const record = seen.get(pane) ?? { last: null, left: false };
-    const path = pane.path();
-    if (path !== null) {
-      if (record.last !== null && record.last !== path) record.left = true;
-      record.last = path;
-    }
-    seen.set(pane, record);
-  };
   const emit = (): void => {
     for (const cb of [...listeners]) cb();
   };
   const watch = (pane: (typeof panes.panes)[number]): (() => void) =>
     pane.content.onDocumentChange(() => {
-      note(pane);
       emit();
     });
-  note(panes.panes[0]!);
   watch(panes.panes[0]!);
   panes.onSplit(() => {
     const second = panes.panes[1];
     return second ? watch(second) : () => {};
   });
-  panes.onChange((e) => {
-    if (e.pane) note(e.pane);
+  panes.onChange(() => {
     emit();
   });
   return {
@@ -126,7 +111,6 @@ export function createDocumentSignal(handle: AppHandle): DocumentSignal {
         listeners.delete(cb);
       };
     },
-    hasLeft: () => seen.get(panes.focused)?.left ?? false,
   };
 }
 
@@ -313,7 +297,7 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
           const index = session?.historyIndex ?? -1;
           const palettePrev = index > 0;
           const paletteNext = index >= 0 && index < (session?.history.length ?? 0) - 1;
-          const has = id === 'nav.back' ? palettePrev || signal.hasLeft() : paletteNext;
+          const has = id === 'nav.back' ? palettePrev || handle.selection.canBack() : paletteNext;
           disable(control, enabled(id, ctx) && has);
         });
       } else {
@@ -402,7 +386,12 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
   el.append(root);
   rove(controls()[0]);
   refresh();
-  const off = signal.onChange(refresh);
+  const offSignal = signal.onChange(refresh);
+  const offHistory = handle.selection.onHistoryChange(refresh);
+  const off = (): void => {
+    offSignal();
+    offHistory();
+  };
   // A door changing its own width (the kind chip, a longer title) or the window changing size refolds the row.
   const relayout = new ResizeObserver(layout);
   relayout.observe(el);

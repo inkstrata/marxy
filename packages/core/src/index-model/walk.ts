@@ -4,7 +4,7 @@ import { isDeniedName } from './deny.ts';
 import { type IgnoreRule, isIgnored, parseIgnore } from './ignore.ts';
 import type { IndexCandidate } from './entry.ts';
 import { classify } from './kinds.ts';
-import { joinPath, relativePath } from './paths.ts';
+import { joinPath, pathUnder } from './paths.ts';
 
 /** One directory listing. The host fills this from `readdir`; the model does not import `node:`. */
 export interface WalkEntry {
@@ -53,8 +53,9 @@ export function collectFiles(root: string, reader: DirectoryReader, options: Wal
     }
     for (const entry of listing) {
       if (isDeniedName(entry.name)) continue;
-      const rel = relativePath(root, entry.path);
-      if (rel.startsWith('../')) continue;
+      // Any `.` or `..` segment is refused, as the watch path does: `foo/../../x.md` does not start with `../`.
+      const rel = pathUnder(root, entry.path);
+      if (rel === undefined) continue;
       if (entry.isDir) {
         loadIgnore(reader, entry.path, rel, rules);
         if (denied(rel, true)) continue;
