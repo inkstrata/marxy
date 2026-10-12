@@ -374,6 +374,50 @@ set's guard (`beforeReplace`, D-08) before it is replaced. Beside only, a link t
 is "That file is not text." A plain click keeps refusing such files. A `#fragment` link scrolls the pane it is in,
 and an external link ignores the modifier. Links never leave the image root, beside or not.
 
+## Library view (Q-03; ADR-0062 item 2)
+
+The palette command **Library** (`library.open`) shows a full-window view in the unfolded workspace, in the cell the
+panes use; folded it is not offered and no element exists. No key opens it (the palette and, later, the sidebar's
+Library row are the doors until the author rules one). The panes are `hidden` and `inert`, not closed: their
+documents, unsaved edits, Source editors and scroll positions are untouched, and the view puts the scroll back when it
+leaves. Folding closes it, and so does any document opening in a pane (the palette's, a link's) or anything about to act
+on the panes from outside `PaneSet.open`: a click on a tab and the tab commands let go of the view first
+(`workspace/pane-cover.ts`), so the "Save and open" prompt of a pane with unsaved edits is never raised under it.
+
+Top to bottom: the scope's name and what it is (a folder's path); the query field with one removable chip per term
+and a completion list; a status line and the sort choice; the results and, on the right, a text preview. The toolbar,
+the tabs and the strip stay as they were.
+
+- **Scopes.** *All files*, each folder `collection.toml` declares (`IndexFeed.declared()`), *Recent* (the palette
+  session, last opened first), *Pinned*, and *Changed since you read* (the palette's own rule). Switching clears the
+  query and the selection. Each scope is a base set; the query narrows it.
+- **Query.** `parseQuery` and `completeQuery` (Q-02), evaluated by core's `evaluateQuery`. An unknown key and an
+  incomplete value are amber chips that say they are searched as text or ignored; `is:dup`, `is:broken`,
+  `is:archived`, `is:error`, `is:captured` say "not available yet" and match nothing. Tab accepts a completion, the
+  arrows move.
+- **Index keys and content keys.** `kind:` (the entry's reader kind), `in:` (a declared folder's name), `path:`,
+  `modified:`, `size:` and `is:` are answered from the index and the session, with no read. Plain words match a title,
+  a path or a heading, and then the lines of the files the index keys left (`shell.searchContent`). `words:`, `has:`
+  and `tasks:` measure those files with `shell.readHead`: each at most once while the view is open, at most 256 KB of
+  it (a longer file is measured on its first 256 KB and says "≥"), within `CONTENT_SEARCH_LIMITS.maxTotalBytes`; past
+  that the status says "measured N of M files". `readFile` is never used (it arms the stale-write guard), and
+  nothing is written. Nothing is read at launch or on opening. Three bounds keep the window answering, and the status
+  line says when one holds: a query is evaluated with its first 64 terms and the first 64 values of a term ("the query
+  is long"); a link is found by a linear scan, not a pattern, so a minified line cannot stall a measure; the line search
+  reads at most 20,000 files ("line search covers the first 20,000 of N files").
+- **Rows.** The kind's glyph, the title, the path under its folder, the kind, the age, a status mark (changed,
+  pinned: an icon with a name, never colour alone) and one line for each reason the file is there: `title`, `path`,
+  `heading "Cache"`, `line 12: ...`, `kind:report`, `changed since you read`; past four lines the last says how many
+  more. The list is windowed (a row is a fixed number of lines, so only the screenful and a few more exist) and is a
+  `listbox` with `aria-activedescendant`.
+- **Keys, inside the view.** `/` or `Mod+F` focuses the field; `Down` or `Return` in the field goes into the list;
+  in the list the arrows, `Home`, `End`, `PageUp` and `PageDown` move; `Return` opens the row in the focused pane
+  and closes the view; `Alt+Return` opens it in the other pane (a second tab is the pane's own: the tab row follows the
+  panes), and in a window too narrow for two columns says so in the status line and stays; `Esc` clears the field, then
+  closes the view and focus goes back to the pane that had it (it does not fold the window).
+- **Not here.** A rendered preview (Q-03.1), facet menus, grouping, density, columns, saved queries, Add source, Index
+  health, bulk actions, near-duplicates and broken paths are later cards.
+
 ## Outline
 
 Built from the AST's headings (`level`, text, `src.start`). Rendered as a `<dialog>` at the
