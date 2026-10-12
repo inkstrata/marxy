@@ -31,8 +31,7 @@ test('the same input and the same steps give the same output, step by step, and 
 test('a step the registry does not have adds nothing, and a not-yet id is not a step', () => {
   const chain = createChain('x\n', ['sort']);
   assert.equal(addStep(chain, 'no-such-transform'), chain);
-  assert.equal(addStep(chain, 'wrap-80'), chain, 'wrap-80 is in NOT_YET');
-  assert.deepEqual(createChain('x', ['wrap-80', 'sort', 'nope']).steps, ['sort']);
+  assert.deepEqual(createChain('x', ['no-such-transform', 'sort', 'nope']).steps, ['sort']);
 });
 
 test('Apply is for chains of edit steps only: a derive or literal step anywhere takes it away', () => {

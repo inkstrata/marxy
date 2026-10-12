@@ -44,7 +44,7 @@ test('a transform has an id, a name and a group, and an unknown id leaves the te
     assert.equal(transformById(t.id), t);
   }
   assert.equal(runTransform('no-such-id', 'x\n'), 'x\n');
-  assert.equal(runTransform('wrap-80', 'x\n'), 'x\n', 'a not-yet id behaves as an unknown id');
+  assert.equal(runTransform('wrap-eighty', 'x\n'), 'x\n', 'an id the catalogue lacks leaves the text alone');
 });
 
 // -------------------------------------------------------------------------------------------------

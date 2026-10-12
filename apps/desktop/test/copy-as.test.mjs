@@ -107,8 +107,8 @@ async function choose(page, id) {
 test('the eight formats of copy_format are the eight targets of core, in menu order', () => {
   const all = copyTargets({ has: () => true, run: (_id, text) => text });
   assert.deepEqual(COPY_FORMATS, all.map((t) => t.id));
-  // Today the registry can run six of them; the menu lists exactly those (J-03.1 adds Slack and Jira).
-  assert.deepEqual(COPY_TARGETS.map((t) => t.id), ['markdown', 'plain', 'rich', 'html', 'json-string', 'quote']);
+  // The registry can run all eight since J-03.1; the menu lists them.
+  assert.deepEqual(COPY_TARGETS.map((t) => t.id), all.map((t) => t.id));
 });
 
 test('each target, for a heading, a table and the document, writes exactly one item', async () => {
@@ -220,7 +220,7 @@ test('copy_format names the first row and Enter copies it; an unknown or unbuilt
     ['quote', 'copy-as.quote'],
     ['json-string', 'copy-as.json-string'],
     ['nope', 'copy-as.markdown'],
-    ['slack', 'copy-as.markdown'], // to-slack is not built (J-03.1): its row is not offered
+    ['slack', 'copy-as.slack'],
   ];
   for (const [value, first] of cases) {
     const { page } = await boot('01-long-technical.md', { '/config': `copy_format = "${value}"\n` });
