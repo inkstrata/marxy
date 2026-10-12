@@ -11,6 +11,7 @@ import type { Operation, OperationInput } from '../contracts/operation.ts';
 import { createBuffer, textOf } from '../buffer/buffer.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import { runTransform, transformById, type TransformContext } from '../transforms/registry.ts';
+import { parseFits } from '../transforms/prose.ts';
 import type { ParsedText } from '../transforms/types.ts';
 import { copyPlain } from './copy-plain.ts';
 import { copyRich } from './copy-rich.ts';
@@ -138,7 +139,7 @@ export function copyAsFromOperation(input: OperationInput, ref: { readonly path?
 export function copyAsFromText(text: string, ref: { readonly path?: string; readonly title?: string; readonly parsed?: ParsedText } = {}): CopyAsInput {
   let whole: OperationInput | null = null;
   // A parse of exactly this text, in an LF text with no byte-order mark, is the document this would build (F-60).
-  const held = ref.parsed !== undefined && ref.parsed.text === text && !text.includes('\r') && !text.startsWith(BOM) ? ref.parsed : undefined;
+  const held = !text.startsWith(BOM) && parseFits(text, ref.parsed) ? ref.parsed : undefined;
   const parsed = (): OperationInput => {
     if (whole === null) {
       const bytes = new TextEncoder().encode(text);

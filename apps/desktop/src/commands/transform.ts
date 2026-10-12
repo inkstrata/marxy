@@ -83,9 +83,13 @@ async function renderedTarget(ctx: AppContext): Promise<SheetTarget | string> {
   const exact = replacesExactly(text, bytes.subarray(range.start, range.end));
   const opened = openedOf(store);
   const origin = focusOrigin(handle.panes());
+  // The whole document, read from the store's bytes: the store's own parse of them, if it holds one. Never for a selection.
+  const whole = scope === 'document' && range.start === 0 && range.end === bytes.length;
+  const held = whole && exact ? store.textParse() : null;
   return {
     text,
     scope,
+    ...(held === null ? {} : { parsed: held }),
     eol: eolOf(snap.buffer.eol),
     markdown: isMarkdown(snap.path),
     ...(exact ? {} : { applyRefusal: NOT_UTF8 }),
@@ -111,9 +115,13 @@ async function sourceTarget(): Promise<SheetTarget | string> {
   const text = state.doc.sliceString(from, to, state.lineBreak);
   const doc = state.doc;
   const path = editor.buffer.path;
+  // With nothing selected, the editor's whole text. The store's parse is offered when it is that text exactly (it is not
+  // while typing has not been folded in, or for a file with CRLF or a byte-order mark): the steps compare the text.
+  const held = main ? null : (appHandle()?.document()?.textParse() ?? null);
   return {
     text,
     scope: main ? 'selection' : 'document',
+    ...(held === null ? {} : { parsed: held }),
     eol: state.lineBreak === '\r\n' || state.lineBreak === '\r' ? (state.lineBreak as Eol) : null,
     markdown: isMarkdown(path),
     // The editor's text holds a byte that is not UTF-8 as a lone surrogate and writes it back as that byte (F-34.1), so

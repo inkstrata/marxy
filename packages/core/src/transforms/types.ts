@@ -6,6 +6,13 @@ import type { Document } from '../contracts/ast.ts';
  * A parse the caller already holds: `doc` is `parseMarkdown` of exactly the bytes of `text` (F-60). A cache and
  * nothing more: it is used only when `text` is the very string the transform body is about to read, and then
  * gives the same result the body would have got by parsing. With any other text it is ignored.
+ *
+ * The default-options contract (F-60.1): `doc` must have been made with the standard parse options, as
+ * `parseMarkdown(bytes)` or `parseMarkdown(bytes, { file })` makes it, never with `gfm`, `frontmatter` or `math`
+ * turned off, because the transform bodies parse with the defaults and a parse made otherwise would read
+ * differently. Core cannot see the options a parse was made with, so this is the caller's promise, and the one
+ * app caller is the document store, which only ever parses with the defaults. A cheap check backs it: the parse's
+ * root must end at the text's UTF-8 byte length (`parseFits` in `prose.ts`), or the parse is ignored.
  */
 export interface ParsedText {
   readonly text: string;

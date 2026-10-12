@@ -735,3 +735,31 @@ test('Add another step runs only the new step, on the step before it', async () 
     ], 'sort ran once, and dedupe ran once on its result');
   });
 });
+
+test('F-60.1: the sheet on the whole document reads the store\'s parse (no parse is made), a selection parses its own text, and the output is the same', async () => {
+  const DOC = '# Shopping 日本\n\nSome intro.\n\n---\n\n- pear\n- apple\n- mango\n\n---\n\nTail paragraph.\n';
+  await withApp({ [A]: DOC }, async (page, s) => {
+    await page.evaluate(async () => {
+      // The parser the app runs from (the same module): its call counter, which only a test reads.
+      const url = performance.getEntriesByType('resource').map((e) => e.name).find((n) => /\/parse\/parse\.ts/.test(n));
+      window.__parseCount = (await import(url)).parseCount;
+    });
+    const count = () => page.evaluate(() => window.__parseCount());
+
+    const whole = await count();
+    await s.choose('Remove horizontal rules');
+    assert.equal(await count(), whole, 'the sheet on the whole document makes no parse of its own');
+    const sheet = await s.sheet();
+    assert.equal(sheet.after, runTransform('strip-hr', DOC), 'and gives what a from-scratch parse gives');
+    assert.notEqual(sheet.after, DOC);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
+
+    const selected = await count();
+    await s.select('#doc ul');
+    await s.choose('Remove horizontal rules');
+    assert.ok((await count()) > selected, 'a selection is a text of its own: it parses');
+    const list = listRange(DOC);
+    assert.equal((await s.sheet()).after, runTransform('strip-hr', list.text));
+  });
+});

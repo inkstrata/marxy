@@ -9,7 +9,7 @@
 // here writes except `save`; `dirty` is derived as `buffer ≠ disk` (§5). Transitions run one at a time
 // on the store's own queue (§2).
 
-import { codeLanguageOf, createBuffer, isCodeFile, parseCode, parseMarkdown, reparseMarkdown, splice, type Buffer, type Document, type Edit } from '@marxy/core';
+import { codeLanguageOf, createBuffer, isCodeFile, parseCode, parseMarkdown, reparseMarkdown, splice, type Buffer, type Document, type Edit, type ParsedText } from '@marxy/core';
 import { buildNodeMap, type NodeMap } from '../render/post.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
 import { isUntitled } from './untitled.ts';
@@ -80,6 +80,18 @@ export interface DocumentStore {
    * other store has always parsed.
    */
   parsed(): boolean;
+  /**
+   * The current bytes as text with the store's own parse of them, for a transform or Copy as to reuse instead of
+   * parsing the same bytes again (F-60.1); one pair per buffer version, made on the first ask and held until the bytes
+   * change (a new array: `bytesVersion`). Null, and the caller parses for itself, when the pair would not be exactly
+   * what the caller reads: the bytes have not been parsed yet (a lazy store: asking never forces the parse), they are
+   * not valid UTF-8 (the text is not the bytes), or the text has a byte-order mark or a CR (a transform reads LF text
+   * without the mark, and the parse's offsets are for the bytes), or the file is a code file: its AST is one code
+   * block per slice of the bytes (V-10, `astOf`), not a Markdown parse of the text, and a transform reads the text as
+   * Markdown. The parse is the store's, made with the standard parse options and nothing else (`ParsedText`), so it
+   * is what `parseMarkdown(bytes)` gives. Pure: it changes nothing.
+   */
+  textParse(): ParsedText | null;
   /** Called after every committed transition. A subscriber that throws is logged and skipped. */
   subscribe(cb: (snap: DocumentSnapshot, change: Transition) => void): () => void;
   /**
@@ -273,6 +285,24 @@ function parsed(path: string, buffer: Buffer, made?: Preparsed, lazy?: { readonl
   return { buffer, tree: treeOf(ast, buildNodeMap(ast)) };
 }
 
+const strictDecoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+
+/**
+ * `ast`, the parse of `bytes`, with their text: what a transform reads when it is run on the whole document (F-60.1).
+ * Null unless the text is exactly the bytes (valid UTF-8 that encodes back to them), has no byte-order mark and no
+ * CR, so the pair is one the transform registry and Copy as would accept; they check the text again themselves.
+ */
+function textPairOf(bytes: Uint8Array, ast: Document): ParsedText | null {
+  let text: string;
+  try {
+    text = strictDecoder.decode(bytes);
+  } catch {
+    return null;
+  }
+  if (text.includes('\r') || text.startsWith('\ufeff')) return null;
+  return { text, doc: ast };
+}
+
 /** `buffer` answering to `path`: same bytes and tables, a new name. */
 function renamed(buffer: Buffer, path: string): Buffer {
   return buffer.path === path ? buffer : { ...buffer, path };
@@ -352,11 +382,15 @@ export function openDocumentStore(
   /** The disk's bytes a reload refused to adopt over the reader's edits: the pending choice (V-07). */
   let pending: Uint8Array | null = null;
   let queue: Promise<unknown> = Promise.resolve();
+  /** `textParse`'s pair for the bytes it was made for: replaced when the bytes are another array, so never one of an older version. */
+  let heldPair: { readonly bytes: Uint8Array; readonly ast: Document; readonly pair: ParsedText | null } | null = null;
   const subscribers = new Set<(snap: DocumentSnapshot, change: Transition) => void>();
 
   const commit = (next: Omit<State, 'version' | 'bytesVersion'>, change: Transition): void => {
     const version = state.version + 1;
     state = { ...next, version, bytesVersion: next.buffer.bytes === state.buffer.bytes ? state.bytesVersion : version };
+    // The pair held for older bytes is let go at once, so a 1 MB text is not kept for a buffer that no longer exists.
+    if (heldPair !== null && heldPair.bytes !== state.buffer.bytes) heldPair = null;
     snap = freezeSnapshot(state);
     for (const cb of [...subscribers]) {
       try {
@@ -394,6 +428,14 @@ export function openDocumentStore(
     snapshot: () => snap,
 
     parsed: () => state.tree.made,
+    textParse() {
+      if (!state.tree.made || isCodeFile(state.path)) return null;
+      const bytes = state.buffer.bytes;
+      const ast = state.tree.get().ast;
+      // The pair is for these bytes and this very parse: a rename re-parses the same bytes, so the bytes alone are not the key.
+      if (heldPair?.bytes !== bytes || heldPair.ast !== ast) heldPair = { bytes, ast, pair: textPairOf(bytes, ast) };
+      return heldPair.pair;
+    },
 
     subscribe(cb) {
       subscribers.add(cb);

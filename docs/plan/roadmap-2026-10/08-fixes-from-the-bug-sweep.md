@@ -739,8 +739,9 @@ a gate (ADR-0032).
 `changelog.d/F-60.1.md`. Commitment 3; fast.
 
 The store exposes the current parse with its text, built once per `bytesVersion` and only when the bytes round-trip
-as UTF-8 (`replacesExactly`). A document-scope Transform target carries it, and `runChain` passes it to the first
-step only (a later step's text is new); Copy as passes it from Rendered with no selection, and from Source with no
+as UTF-8 (`replacesExactly`). A document-scope Transform target carries it, and `runChain` hands it to every step
+(core uses it only for a step whose text is exactly the parse's, which is the first, or a later one after steps that
+changed nothing); Copy as passes it from Rendered with no selection, and from Source with no
 selection once Source is folded. A selection passes nothing. A target opened at one version and run after an edit
 holds the old version's pair, whose text no longer matches what the step reads, so it parses; Apply's
 `openedOf`/stale check is unchanged.

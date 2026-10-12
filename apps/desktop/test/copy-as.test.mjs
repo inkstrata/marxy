@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { webkit } from 'playwright';
 import { build } from 'vite';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { COPY_TARGETS, copyAsFromOperation, copyTargets, createBuffer, parseMarkdown, sectionRange, textOf } from '../../../packages/core/src/index.ts';
+import { COPY_TARGETS, copyAsFromOperation, copyAsFromText, copyTargets, createBuffer, parseMarkdown, sectionRange, textOf } from '../../../packages/core/src/index.ts';
 import { copyRich } from '../../../packages/core/src/operations/copy-rich.ts';
 import { COPY_FORMATS } from '../../../packages/theme/src/config.ts';
 
@@ -367,5 +367,30 @@ test('⇧⌘C leaves the open palette alone, and Copy as… from the palette sti
     await page.waitForSelector(MENU);
   } finally {
     await page.close();
+  }
+});
+
+test('F-60.1: Copy as Jira of the whole document, from Rendered and from Source, reads the store\'s parse (no parse is made) and gives what a from-scratch parse gives', async () => {
+  const jira = COPY_TARGETS.find((t) => t.id === 'jira');
+  const file = '28-llm-answer.md';
+  const text = readFileSync(join(corpusDir, file), 'utf8').replace(/^\ufeff/, '');
+  assert.ok(!text.includes('\r'), `${file} is an LF file`);
+  for (const view of ['rendered', 'source']) {
+    const { page, docPath } = await boot(file);
+    try {
+      if (view === 'source') {
+        await page.keyboard.press(`${await mod(page)}+KeyE`);
+        await page.waitForSelector('#marxy-source .cm-editor');
+      }
+      await page.mouse.move(3, 3);
+      await openMenu(page);
+      const before = await page.evaluate(() => window.marxySelection.parseCount());
+      await choose(page, 'jira');
+      assert.equal(await page.evaluate(() => window.marxySelection.parseCount()), before, `${view}: Copy as Jira made no parse`);
+      const [one] = await calls(page, 'clipboardWriteItem');
+      assert.equal(one.reps[TEXT], jira.build(copyAsFromText(text, { path: docPath })).text, `${view}: the bytes are a from-scratch parse's`);
+    } finally {
+      await page.close();
+    }
   }
 });

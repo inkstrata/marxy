@@ -28,13 +28,38 @@ export function parseText(lf: string): Document {
   return doc;
 }
 
+/** The UTF-8 length of `s` in bytes, counted without building the bytes (a document may be megabytes). */
+export function utf8Length(s: string): number {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x80) n += 1;
+    else if (c < 0x800) n += 2;
+    else if (c >= 0xd800 && c < 0xdc00 && i + 1 < s.length && (s.charCodeAt(i + 1) & 0xfc00) === 0xdc00) {
+      n += 4;
+      i += 1;
+    } else n += 3;
+  }
+  return n;
+}
+
 /**
- * Runs `fn` with `parsed` standing in for the parse of `lf`, when `parsed` is a parse of exactly `lf` (F-60). The
+ * Whether `parsed` may stand in for the parse of `lf` (F-60, F-60.1): it is a parse of exactly this string, the string
+ * has no CR (the parse's offsets are the bytes of the text as it was handed, and a transform reads LF text), and the
+ * parse's root ends where the text's UTF-8 bytes do. The last is a cheap guard that a parse made from other bytes,
+ * or of another version of the same document, is never taken for this one even if its `text` was labelled wrongly.
+ */
+export function parseFits(lf: string, parsed: ParsedText | undefined): parsed is ParsedText {
+  return parsed !== undefined && parsed.text === lf && !lf.includes('\r') && parsed.doc.src.end === utf8Length(lf);
+}
+
+/**
+ * Runs `fn` with `parsed` standing in for the parse of `lf`, when `parsed` fits it (`parseFits`; F-60). The
  * cache the call found is put back afterwards, so what a caller holds never changes what a later call without
- * `parsed` reads. A `parsed` of any other text, or with a CR in it, is ignored and `fn` parses as it always did.
+ * `parsed` reads. A `parsed` that does not fit is ignored and `fn` parses as it always did.
  */
 export function withParse<T>(lf: string, parsed: ParsedText | undefined, fn: () => T): T {
-  if (parsed === undefined || parsed.text !== lf || lf.includes('\r')) return fn();
+  if (!parseFits(lf, parsed)) return fn();
   const before = last;
   last = { text: lf, doc: parsed.doc };
   try {
