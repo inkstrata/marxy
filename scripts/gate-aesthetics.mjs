@@ -552,19 +552,23 @@ const EXPECTED_FAILURES = [
   // K-05b: the article profile's column is narrower (Source Serif 4 is a narrower face than Literata at the same character
   // count), so this fence's fixed width passes the column by 1.03 px at 960 px and 16 px text. The same cause as the rows above (a
   // wide block grows to the right only, H1): L-04 clears it with the rest, and the row is held both ways like them.
-  ...rowsFor('room/even', 'L-04', ["960x16-dark", "960x16-light"], ["29-hidden-characters.md"]),
+  // The fence passes the column by 1.03 px with CoreText's metrics only: on Linux (FreeType) it fits, so the row is macOS's (F-69).
+  ...rowsFor('room/even', 'L-04', ["960x16-dark", "960x16-light"], ["29-hidden-characters.md"]).map((row) => ({ ...row, platforms: ['darwin'] })),
 ];
 
 /**
  * Judge the cases a run found against a table of expected failures. A row is `{ check, document, cells,
- * story }`: `check` is `check/sub`, and it stands for the case in each of its cells. Returns the messages
+ * story, platforms? }`: `check` is `check/sub`, and it stands for the case in each of its cells; `platforms`
+ * (`process.platform` values) limits it to the machines whose metrics make the case occur, and a row that does not
+ * apply here is neither enforced nor reported stale. Returns the messages
  * of failures: a case with no row, and a row whose case did not occur in a cell that was measured.
  * `measured` is what the run measured, so a narrowed run judges only its own cells.
  */
-function judgeExpected(found, measured, table) {
+function judgeExpected(found, measured, table, platform = process.platform) {
   const out = [];
   const listed = new Set();
   for (const row of table) {
+    if (row.platforms !== undefined && !row.platforms.includes(platform)) continue;
     for (const cell of row.cells) {
       const key = `${row.check}|${row.document}|${cell}`;
       listed.add(key);
@@ -1628,6 +1632,9 @@ async function selftest(browser, origin) {
     ['a listed row whose case passes fails', judgeExpected(new Map(), ran, [row]).length === 1],
     ['a listed failure that occurs passes', judgeExpected(occurs, ran, [row]).length === 0],
     ['a row for a cell this run did not measure is not judged', judgeExpected(new Map(), new Set(), [row]).length === 0],
+    ['a darwin-scoped row is not reported stale on linux', judgeExpected(new Map(), ran, [{ ...row, platforms: ['darwin'] }], 'linux').length === 0],
+    ['a darwin-scoped row is still enforced on darwin', judgeExpected(new Map(), ran, [{ ...row, platforms: ['darwin'] }], 'darwin').length === 1],
+    ['a darwin-scoped row does not list a failure that occurs on linux', judgeExpected(occurs, ran, [{ ...row, platforms: ['darwin'] }], 'linux').length === 1],
   ];
   const wrongTable = tableCases.filter(([, ok]) => !ok).map(([name]) => name);
   if (wrongTable.length) throw new Error(`selftest: the expected-failure table is not held both ways: ${wrongTable.join('; ')}`);
