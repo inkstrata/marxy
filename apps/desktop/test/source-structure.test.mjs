@@ -517,11 +517,26 @@ const files = {
   '/r/B.md': '# Bravo\n\nbravo one\nbravo two\n\n- [ ] task\n',
 };
 
+/** The chords below say Meta for Mod; off macOS the app's Mod is Control, so press that instead. */
+async function modIsMeta(page) {
+  if ((await page.evaluate(() => navigator.platform)) === 'MacIntel') return;
+  const press = page.keyboard.press.bind(page.keyboard);
+  page.keyboard.press = (chord, options) => press(chord.replace(/\bMeta\b/g, 'Control'), options);
+}
+
+/** The literal `Ctrl+Shift+...` Source chords are a Mac's only: off macOS the registry never matches them (`registryChord`). */
+async function skipOffMac(page, t) {
+  if ((await page.evaluate(() => navigator.platform)) === 'MacIntel') return false;
+  t.skip('the Ctrl+Shift Source chords exist on macOS only');
+  return true;
+}
+
 async function withPanes(fn) {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 1470, height: 900 } });
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    await modIsMeta(page);
     await fn(page);
   } finally {
     await browser.close();
@@ -559,8 +574,9 @@ async function bothInSource(page) {
   await page.waitForSelector('#marxy-source-2 .cm-content');
 }
 
-browserTest('the keys work from inside the editor, past the pane listener, and each runs once', async () => {
+browserTest('the keys work from inside the editor, past the pane listener, and each runs once', async (t) => {
   await withPanes(async (page) => {
+    if (await skipOffMac(page, t)) return;
     await bothInSource(page);
     await page.keyboard.press('Meta+Alt+ArrowLeft');
     await caretAt(page, 0, 'alpha one', 2);
@@ -597,8 +613,9 @@ browserTest('the keys work from inside the editor, past the pane listener, and e
   });
 });
 
-browserTest('with two panes in Source, an operation changes its own pane\'s document and nothing else, until folded', async () => {
+browserTest('with two panes in Source, an operation changes its own pane\'s document and nothing else, until folded', async (t) => {
   await withPanes(async (page) => {
+    if (await skipOffMac(page, t)) return;
     await bothInSource(page);
     const leftBefore = await editorText(page, 0);
     const storesBefore = [await storeText(page, 0), await storeText(page, 1)];
@@ -624,8 +641,9 @@ browserTest('in Rendered no Source key does anything, and Source gains no elemen
     assert.deepEqual([await storeText(page, 0), await storeText(page, 1)], [files['/r/A.md'], files['/r/B.md']]);
     await page.keyboard.press('Meta+e');
     await page.waitForSelector('#marxy-source .cm-content');
-    // The editor's own elements, by class with the generated and state classes left out.
-    const frame = () => page.evaluate(() => [...new Set([...document.querySelectorAll('#marxy-source *')].map((e) => `${e.tagName}.${String(e.className).split(/\s+/).filter((c) => c.startsWith('cm-') && c !== 'cm-focused').join('.')}`))].filter((c) => !/cm-(cursor|selection|layer)/.test(c)).sort().join('|'));
+    // The editor's own elements, by class with the generated and state classes left out. Syntax-highlight spans (class-less once the
+    // generated classes go) are text colour, and the grammar attaches after mount (V-14): they may appear between the two readings.
+    const frame = () => page.evaluate(() => [...new Set([...document.querySelectorAll('#marxy-source *')].map((e) => `${e.tagName}.${String(e.className).split(/\s+/).filter((c) => c.startsWith('cm-') && c !== 'cm-focused').join('.')}`))].filter((c) => !/cm-(cursor|selection|layer)/.test(c) && c !== 'SPAN.').sort().join('|'));
     const before = await frame();
     await caretAt(page, 0, 'alpha one', 2);
     for (const chord of ['Control+Shift+B', 'Control+Shift+S', 'Control+Shift+ArrowRight', 'Meta+d', 'Meta+Shift+l', 'Meta+l']) await page.keyboard.press(chord);
