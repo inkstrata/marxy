@@ -7,8 +7,11 @@ import {
   emptyStateSections,
   relativeAge,
   spokenAge,
+  suggestedCommands,
+  SUGGESTED_COMMAND_IDS,
   type EmptyStateInput,
 } from './empty-state.ts';
+import type { AppContext, Command } from '../commands/registry.ts';
 import { emptySession, markRead, recordOpen, togglePin, type PaletteSession } from './session.ts';
 
 const NOW = 1_800_000_000_000;
@@ -158,4 +161,13 @@ test('relativeAge: a zero, negative or missing time has no age (F-49)', () => {
   assert.equal(relativeAge(now, -5), '');
   assert.equal(relativeAge(now, undefined), '');
   assert.equal(relativeAge(now, Number.NaN), '');
+});
+
+test('suggestedCommands lists the named commands that apply, in the written order, and no others', () => {
+  const c = (id: string, ok = true): Command => ({ id, title: id, group: 'view', when: () => ok, run: async () => {} });
+  const all = [c('x.other'), ...[...SUGGESTED_COMMAND_IDS].reverse().map((id) => c(id))];
+  const ctx = {} as AppContext;
+  assert.deepEqual(suggestedCommands(all, ctx).map((cmd) => cmd.id), [...SUGGESTED_COMMAND_IDS]);
+  const none = [c(SUGGESTED_COMMAND_IDS[0]!, false)];
+  assert.deepEqual(suggestedCommands(none, ctx), []);
 });

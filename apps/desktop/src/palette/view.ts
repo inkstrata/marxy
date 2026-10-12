@@ -27,7 +27,8 @@ import {
 } from './content.ts';
 import { paletteChordFor } from './chords.ts';
 import type { PaletteKey } from './keys.ts';
-import { keyLabel, paletteCommands } from './commands.ts';
+import { drillText, keyLabel, paletteCommands, paletteGroupOf, type PaletteGroup } from './commands.ts';
+import { toolbarIconElement, type ToolbarGlyph } from '../workspace/toolbar-icons.ts';
 import {
   changedSinceRead,
   emptyStateSections,
@@ -36,6 +37,7 @@ import {
   type EmptySection,
   type EmptySectionKind,
   EMPTY_STATE_LIMIT,
+  suggestedCommands,
 } from './empty-state.ts';
 import { setOpenListener } from './history.ts';
 import { createIndexFeed, type IndexFeed } from './index-feed.ts';
@@ -69,6 +71,8 @@ export interface PaletteModel {
   readonly contentHits?: readonly ContentHit[];
   /** The empty phase only: `hits` is these sections' rows in order, so a row index never counts a label. */
   readonly sections?: readonly EmptySection[];
+  /** The empty phase only: commands listed after the sections as Suggested; selection runs on past `hits`. */
+  readonly suggested?: readonly Command[];
 }
 
 export interface PaletteDeps {
@@ -207,6 +211,7 @@ function queryPalette(
   scopeNotice: string | undefined,
   emptySections: () => readonly EmptySection[],
   content: ContentState,
+  suggestedFn: () => readonly Command[],
 ): PaletteModel {
   const phase = palettePhase(query, section);
   if (phase === 'content') {
@@ -245,6 +250,7 @@ function queryPalette(
       selected: 0,
       notice: scopeNotice,
       sections,
+      suggested: suggestedFn(),
     };
   }
   const trimmed = query.trim();
@@ -274,66 +280,143 @@ async function renderPath(deps: PaletteDeps, path: string, byteOffset?: number, 
 
 function injectPaletteStyles(doc: Document): void {
   if (doc.getElementById('marxy-palette-style')) return;
+  // Lengths are ratios of the chrome size (13 px), as in base.css: the reader's chrome_size scales them (W-04).
   adoptRuntimeSheet(doc, 'marxy-palette-style', `
     #marxy-palette {
-      margin: 2rem auto 0;
+      margin: 11vh auto 0;
       padding: 0;
       border-color: var(--marxy-color-rule-strong);
-      width: min(640px, 90vw);
+      width: min(860px, calc(100vw - 2rem));
+      overflow: hidden;
+    }
+    #marxy-palette[open] {
+      display: flex;
+      flex-direction: column;
+      max-height: min(70vh, calc(100vh - 11vh - 1rem));
     }
     #marxy-palette::backdrop { background: rgb(0 0 0 / 25%); }
+    #marxy-palette .marxy-palette-field {
+      display: flex;
+      align-items: center;
+      gap: calc(var(--marxy-size-chrome) * 10 / 13);
+      padding: 0 calc(var(--marxy-size-chrome) * 14 / 13);
+      flex: none;
+      min-height: calc(var(--marxy-size-chrome) * 51 / 13);
+      border-bottom: 1px solid var(--marxy-color-edge);
+    }
     #marxy-palette .marxy-palette-query {
       box-sizing: border-box;
-      width: 100%;
+      flex: 1;
+      min-width: 0;
       border: 0;
-      border-bottom: 1px solid var(--marxy-color-edge);
-      padding: 0.75rem 1rem;
+      padding: calc(var(--marxy-size-chrome) * 12 / 13) 0;
       font: inherit;
+      font-size: calc(var(--marxy-size-chrome) * 17 / 13);
       background: transparent;
       color: inherit;
     }
+    #marxy-palette .marxy-palette-query::placeholder { color: var(--marxy-color-text-secondary); }
+    #marxy-palette .marxy-palette-query:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); }
+    #marxy-palette .marxy-palette-esc,
+    #marxy-palette .marxy-palette-keycap {
+      flex: none;
+      padding: 0 calc(var(--marxy-size-chrome) * 6 / 13);
+      border: 1px solid var(--marxy-color-rule-strong);
+      border-radius: calc(var(--marxy-size-chrome) * 4 / 13);
+      background: transparent;
+      color: var(--marxy-color-text-secondary);
+      font: inherit;
+      font-size: 0.85em;
+      line-height: 1.5;
+      white-space: nowrap;
+    }
+    #marxy-palette .marxy-palette-esc:focus-visible,
+    #marxy-palette .marxy-palette-mode:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+    #marxy-palette .marxy-palette-modes {
+      flex: none;
+      display: flex;
+      gap: calc(var(--marxy-size-chrome) * 4 / 13);
+      padding: calc(var(--marxy-size-chrome) * 7 / 13) calc(var(--marxy-size-chrome) * 12 / 13);
+      border-bottom: 1px solid var(--marxy-color-rule);
+      overflow-x: auto;
+    }
+    #marxy-palette .marxy-palette-mode {
+      display: inline-flex;
+      align-items: center;
+      gap: calc(var(--marxy-size-chrome) * 5 / 13);
+      height: calc(var(--marxy-size-chrome) * 24 / 13);
+      padding: 0 calc(var(--marxy-size-chrome) * 9 / 13);
+      border: 1px solid var(--marxy-color-rule-strong);
+      border-radius: calc(var(--marxy-size-chrome) * 12 / 13);
+      background: transparent;
+      color: var(--marxy-color-text-secondary);
+      font: inherit;
+      font-size: 0.95em;
+      white-space: nowrap;
+      cursor: default;
+    }
+    #marxy-palette .marxy-palette-mode[aria-pressed="true"] { background: var(--marxy-color-accent-wash); border-color: transparent; color: var(--marxy-color-text); }
+    #marxy-palette .marxy-palette-mode-prefix { font-size: 0.9em; }
+    /* W-13 adds the preview as a second column here; until then the list takes the width. */
+    #marxy-palette .marxy-palette-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; }
     #marxy-palette .marxy-palette-results {
       list-style: none;
       margin: 0;
-      padding: 0.25rem 0;
-      max-height: 50vh;
+      padding: calc(var(--marxy-size-chrome) * 6 / 13);
+      min-height: 0;
       overflow: auto;
+    }
+    /* Two lines in the palette alone (Q16); menus keep the 28 px row of base.css. */
+    #marxy-palette .marxy-palette-row {
+      min-height: round(calc(var(--marxy-size-chrome) * 46 / 13), 1px);
+      border-radius: calc(var(--marxy-size-chrome) * 7 / 13);
     }
     #marxy-palette .marxy-palette-row.marxy-palette-hit {
       flex-direction: column;
       align-items: stretch;
+      justify-content: center;
       gap: 0;
     }
-    #marxy-palette .marxy-palette-row:has(.marxy-palette-age) .marxy-palette-title {
-      flex: 1;
+    #marxy-palette .marxy-palette-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    #marxy-palette .marxy-palette-title,
+    #marxy-palette .marxy-palette-sub {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    #marxy-palette .marxy-palette-sub { color: var(--marxy-color-text-secondary); font-size: 0.85em; }
     #marxy-palette .marxy-kind-glyph {
-      display: inline-block;
+      display: inline-flex;
       flex: none;
       align-self: center;
-      inline-size: 1em;
-      block-size: 1em;
-      vertical-align: -0.15em;
-      color: var(--marxy-lang, var(--marxy-color-text-secondary, #a39e94));
+      color: var(--marxy-lang, var(--marxy-color-text-secondary));
+      inline-size: calc(var(--marxy-size-chrome) * 16 / 13);
+      block-size: calc(var(--marxy-size-chrome) * 16 / 13);
     }
+    #marxy-palette .marxy-palette-glyph { display: inline-flex; flex: none; align-self: center; color: var(--marxy-color-text-secondary); }
     #marxy-palette .marxy-kind-glyph svg { display: block; inline-size: 100%; block-size: 100%; }
+    #marxy-palette .marxy-palette-key {
+      padding: 0 calc(var(--marxy-size-chrome) * 6 / 13);
+      border: 1px solid var(--marxy-color-rule-strong);
+      border-radius: calc(var(--marxy-size-chrome) * 4 / 13);
+      font-size: 0.85em;
+    }
     #marxy-palette .marxy-palette-group { list-style: none; }
     #marxy-palette .marxy-palette-group > ol { list-style: none; margin: 0; padding: 0; }
     #marxy-palette .marxy-palette-section {
       display: block;
-      padding: 0.55rem 1rem 0.15rem;
-      font-size: 0.8em;
-      color: var(--marxy-color-text-secondary, #a39e94);
+      padding: calc(var(--marxy-size-chrome) * 8 / 13) calc(var(--marxy-size-chrome) * 10 / 13) calc(var(--marxy-size-chrome) * 4 / 13);
+      font-size: 0.85em;
+      font-weight: 650;
+      color: var(--marxy-color-text-secondary);
       cursor: default;
       user-select: none;
     }
-    #marxy-palette .marxy-palette-group:first-child > .marxy-palette-section { padding-top: 0.25rem; }
     #marxy-palette .marxy-palette-age {
-      color: var(--marxy-color-text-secondary, #a39e94);
+      flex: none;
+      margin-inline-start: auto;
+      color: var(--marxy-color-text-secondary);
       font-size: 0.85em;
       font-variant-numeric: tabular-nums;
     }
@@ -343,30 +426,20 @@ function injectPaletteStyles(doc: Document): void {
       width: 0.4em;
       height: 0.4em;
       border-radius: 50%;
-      background: var(--marxy-color-accent, #8fb4dd);
+      background: var(--marxy-color-accent);
     }
     #marxy-palette .marxy-palette-row[aria-selected="true"] {
       background: var(--marxy-color-accent-wash);
     }
-    #marxy-palette .marxy-palette-heading {
-      opacity: 0.75;
-      margin-left: 0.35rem;
-    }
     #marxy-palette .marxy-palette-hit-head { display: flex; gap: 0.6em; align-items: baseline; }
-    #marxy-palette .marxy-palette-hit-head .marxy-palette-title {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
     #marxy-palette .marxy-palette-line {
       flex: none;
-      color: var(--marxy-color-text-secondary, #a39e94);
+      color: var(--marxy-color-text-secondary);
       font-size: 0.85em;
       font-variant-numeric: tabular-nums;
     }
     #marxy-palette .marxy-palette-preview {
-      color: var(--marxy-color-text-secondary, #a39e94);
+      color: var(--marxy-color-text-secondary);
       font-size: 0.85em;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -374,21 +447,86 @@ function injectPaletteStyles(doc: Document): void {
     }
     #marxy-palette .marxy-palette-match {
       background: transparent;
-      color: var(--marxy-color-text, #eee);
+      color: var(--marxy-color-text);
       font-weight: 600;
       text-decoration: underline;
     }
     #marxy-palette .marxy-palette-notice {
+      flex: none;
       margin: 0;
       padding: 0.5rem 1rem;
       font-size: 0.9em;
       opacity: 0.8;
       border-top: 1px solid var(--marxy-color-rule-strong);
     }
+    #marxy-palette .marxy-palette-foot {
+      flex: none;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: calc(var(--marxy-size-chrome) * 4 / 13) calc(var(--marxy-size-chrome) * 14 / 13);
+      padding: calc(var(--marxy-size-chrome) * 7 / 13) calc(var(--marxy-size-chrome) * 14 / 13);
+      border-top: 1px solid var(--marxy-color-rule);
+      color: var(--marxy-color-text-secondary);
+      font-size: 0.9em;
+    }
+    #marxy-palette .marxy-palette-foot > span { display: inline-flex; align-items: center; gap: calc(var(--marxy-size-chrome) * 5 / 13); }
+    #marxy-palette .marxy-palette-foot-end { margin-inline-start: auto; }
   `);
 }
 
 type PaletteOwnerDocument = Pick<Document, 'createElement' | 'getElementById' | 'head'>;
+
+/** Modes the chips offer. `prefix` is what the query starts with; Headings is the list section, not a prefix. */
+interface ModeChip {
+  readonly label: string;
+  readonly prefix: '' | '>' | '/' | null;
+  readonly headings?: true;
+}
+const MODE_CHIPS: readonly ModeChip[] = [
+  { label: 'Everything', prefix: '' },
+  { label: 'Commands', prefix: '>' },
+  { label: 'Headings', prefix: null, headings: true },
+  { label: 'Content', prefix: '/' },
+];
+
+const PROMPT = 'Search files, or type > for commands, / for content';
+
+type FooterMode = 'files' | 'commands' | 'content';
+
+/** The footer's hints for the active mode: the chord labels come from the registry spellings, never retyped. */
+function fillFooter(foot: HTMLElement, doc: PaletteOwnerDocument, mac: boolean, mode: FooterMode): void {
+  foot.className = 'marxy-palette-foot';
+  const hint = (keys: readonly string[], what: string, end = false): HTMLElement => {
+    const one = doc.createElement('span') as HTMLElement;
+    if (end) one.className = 'marxy-palette-foot-end';
+    for (const key of keys) {
+      const cap = doc.createElement('kbd') as HTMLElement;
+      cap.className = 'marxy-palette-keycap';
+      cap.textContent = key;
+      one.appendChild(cap);
+    }
+    one.append(` ${what}`);
+    return one;
+  };
+  const chord = (spec: string) => keyLabel(spec, mac);
+  const move = hint(['\u2191', '\u2193'], 'move');
+  const items =
+    mode === 'commands'
+      ? [move, hint([chord('Enter')], 'run'), hint([chord('Mod+/')], 'transforms', true), hint([chord('Mod+Shift+P')], 'commands')]
+      : mode === 'content'
+        ? [move, hint([chord('Enter')], 'open'), hint([chord('Mod+Enter')], 'open beside')]
+        : [
+            move,
+            hint([chord('Enter')], 'open'),
+            hint([chord('Mod+Enter')], 'open beside'),
+            hint([chord('Mod+.')], 'pin'),
+            hint([chord('Tab')], 'headings'),
+            hint([chord('Mod+Shift+P')], 'commands', true),
+            hint([chord('Mod+/')], 'transforms'),
+          ];
+  foot.replaceChildren(...items);
+}
 
 function ensurePaletteStructure(
   dialog: HTMLElement,
@@ -397,30 +535,80 @@ function ensurePaletteStructure(
   input: HTMLInputElement;
   list: HTMLOListElement;
   notice: HTMLParagraphElement;
+  esc: HTMLButtonElement;
+  chips: readonly HTMLButtonElement[];
 } {
-  if (dialog.querySelector('.marxy-palette-query')) {
-    return {
-      input: dialog.querySelector('.marxy-palette-query') as HTMLInputElement,
-      list: dialog.querySelector('.marxy-palette-results') as HTMLOListElement,
-      notice: dialog.querySelector('.marxy-palette-notice') as HTMLParagraphElement,
-    };
-  }
+  const found = () => ({
+    input: dialog.querySelector('.marxy-palette-query') as HTMLInputElement,
+    list: dialog.querySelector('.marxy-palette-results') as HTMLOListElement,
+    notice: dialog.querySelector('.marxy-palette-notice') as HTMLParagraphElement,
+    esc: dialog.querySelector('.marxy-palette-esc') as HTMLButtonElement,
+    chips: [...dialog.querySelectorAll('.marxy-palette-mode')] as HTMLButtonElement[],
+  });
+  if (dialog.querySelector('.marxy-palette-query')) return found();
   dialog.classList.add('marxy-surface', 'marxy-surface-md');
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-label', 'Palette');
+  const mac = isMacPlatform();
+  const doc = owner as Document;
+  const field = owner.createElement('div') as HTMLDivElement;
+  field.className = 'marxy-palette-field';
+  const search = toolbarIconElement(doc, 'find');
+  search.classList.add('marxy-palette-glyph');
   const input = owner.createElement('input') as HTMLInputElement;
   input.className = 'marxy-palette-query';
-  input.setAttribute('aria-label', 'Search titles, headings and paths');
+  input.setAttribute('role', 'combobox');
+  input.setAttribute('aria-label', 'Search files, commands and content');
+  input.setAttribute('aria-autocomplete', 'list');
+  input.setAttribute('aria-expanded', 'true');
+  input.setAttribute('aria-controls', 'marxy-palette-listbox');
+  input.placeholder = PROMPT;
   input.autocomplete = 'off';
   input.spellcheck = false;
+  // A real button: the pointer's way to Esc. Out of the tab order, because Tab inside the field switches the
+  // list section and Esc is the keyboard's own way to close.
+  const esc = owner.createElement('button') as HTMLButtonElement;
+  esc.type = 'button';
+  esc.className = 'marxy-palette-esc';
+  esc.setAttribute('aria-label', 'Close palette');
+  esc.tabIndex = -1;
+  esc.textContent = 'esc';
+  field.append(search, input, esc);
+  const modes = owner.createElement('div') as HTMLDivElement;
+  modes.className = 'marxy-palette-modes';
+  modes.setAttribute('role', 'group');
+  modes.setAttribute('aria-label', 'Search mode');
+  for (const mode of MODE_CHIPS) {
+    const chip = owner.createElement('button') as HTMLButtonElement;
+    chip.type = 'button';
+    chip.className = 'marxy-palette-mode';
+    chip.tabIndex = -1;
+    chip.setAttribute('aria-pressed', 'false');
+    chip.append(mode.label);
+    if (mode.prefix) {
+      const prefix = owner.createElement('span') as HTMLSpanElement;
+      prefix.className = 'marxy-palette-mode-prefix';
+      prefix.setAttribute('aria-hidden', 'true');
+      prefix.textContent = mode.prefix;
+      chip.append(prefix);
+    }
+    modes.appendChild(chip);
+  }
+  const body = owner.createElement('div') as HTMLDivElement;
+  body.className = 'marxy-palette-body';
   const list = owner.createElement('ol') as HTMLOListElement;
   list.className = 'marxy-palette-results';
+  list.id = 'marxy-palette-listbox';
   list.setAttribute('role', 'listbox');
+  list.setAttribute('aria-label', 'Results');
+  body.appendChild(list);
   const notice = owner.createElement('p') as HTMLParagraphElement;
   notice.className = 'marxy-palette-notice';
   notice.hidden = true;
-  dialog.replaceChildren(input, list, notice);
-  return { input, list, notice };
+  const foot = owner.createElement('div') as HTMLElement;
+  fillFooter(foot, owner, mac, 'files');
+  dialog.replaceChildren(field, modes, body, notice, foot);
+  return found();
 }
 
 function labelForHit(hit: IndexHit): string {
@@ -451,36 +639,105 @@ function selectionChords(): { readonly copyId?: string } {
   return chordCache;
 }
 
+/** The glyph each command group leads its rows with: U-03's toolbar set, and K-18's document icon for File. */
+const GROUP_GLYPH: Readonly<Record<PaletteGroup, ToolbarGlyph | null>> = {
+  Navigate: 'sidebar',
+  File: null,
+  View: 'read',
+  Copy: 'copy',
+  Source: 'source',
+  Extract: 'export',
+  Transform: 'transform',
+};
+
+function groupGlyph(doc: Document, group: PaletteGroup): HTMLElement {
+  const glyph = GROUP_GLYPH[group];
+  if (glyph === null) return kindIconElement(doc, 'docs');
+  const el = toolbarIconElement(doc, glyph);
+  el.classList.add('marxy-palette-glyph');
+  return el;
+}
+
+/** `aria-selected="true"` on the row the keys act on; no attribute on the others. */
+function markSelected(row: Element, on: boolean): void {
+  if (on) row.setAttribute('aria-selected', 'true');
+  else row.removeAttribute('aria-selected');
+}
+
+/** One named group of rows. The label is not an option: the arrow keys count `.marxy-palette-row` only. */
+function groupShell(doc: Document, text: string, n: number): { group: HTMLLIElement; rows: HTMLOListElement } {
+  const group = doc.createElement('li') as HTMLLIElement;
+  group.className = 'marxy-palette-group';
+  group.setAttribute('role', 'group');
+  const label = doc.createElement('span') as HTMLSpanElement;
+  label.className = 'marxy-palette-section';
+  label.id = `marxy-palette-section-${n}`;
+  label.textContent = text;
+  group.setAttribute('aria-labelledby', label.id);
+  const rows = doc.createElement('ol') as HTMLOListElement;
+  rows.setAttribute('role', 'none');
+  group.append(label, rows);
+  return { group, rows };
+}
+
+function fragmentOf(doc: Document): DocumentFragment {
+  return 'createDocumentFragment' in doc ? (doc as Document).createDocumentFragment() : document.createDocumentFragment();
+}
+
+/** A command row: glyph, the title over its group, and the chord (or a chevron for a row that opens a list). */
+function commandRow(doc: Document, cmd: Command, selected: boolean, copyId: string | undefined): HTMLLIElement {
+  const group = paletteGroupOf(cmd);
+  const row = doc.createElement('li') as HTMLLIElement;
+  row.className = 'marxy-palette-row marxy-menu-row';
+  row.dataset.rowKey = cmd.id;
+  row.setAttribute('role', 'option');
+  const text = doc.createElement('span') as HTMLSpanElement;
+  text.className = 'marxy-palette-text';
+  const title = doc.createElement('span') as HTMLSpanElement;
+  title.className = 'marxy-palette-title';
+  title.textContent = cmd.title;
+  // No second line: the group header above already names the group.
+  text.append(title);
+  row.append(groupGlyph(doc, group), text);
+  const spec = cmd.key ?? (cmd.id === copyId ? 'Mod+C' : undefined);
+  if (spec !== undefined) {
+    const key = doc.createElement('span') as HTMLSpanElement;
+    key.className = 'marxy-palette-key marxy-menu-key';
+    key.textContent = keyLabel(spec, isMacPlatform());
+    row.appendChild(key);
+  } else if (drillText(cmd.id) !== undefined) {
+    const more = doc.createElement('span') as HTMLSpanElement;
+    more.className = 'marxy-palette-key marxy-menu-key';
+    more.setAttribute('aria-hidden', 'true');
+    more.textContent = '›';
+    row.appendChild(more);
+  }
+  markSelected(row, selected);
+  return row;
+}
+
 function paintOperationRows(
   list: HTMLOListElement,
   cmds: readonly Command[],
   selected: number,
 ): void {
   const doc = ownerDocumentOf(list);
-  const next =
-    'createDocumentFragment' in doc
-      ? (doc as Document).createDocumentFragment()
-      : document.createDocumentFragment();
+  const next = fragmentOf(doc);
   const { copyId } = selectionChords();
+  // A header whenever the group changes; the list is sorted by group (commands.ts), so each group is one run.
+  let rows: HTMLOListElement | null = null;
+  let current: PaletteGroup | null = null;
+  let n = 0;
   for (let i = 0; i < cmds.length; i++) {
     const cmd = cmds[i]!;
-    const row = doc.createElement('li') as HTMLLIElement;
-    row.className = 'marxy-palette-row marxy-menu-row';
-    row.dataset.rowKey = cmd.id;
-    row.setAttribute('role', 'option');
-    const title = doc.createElement('span') as HTMLSpanElement;
-    title.className = 'marxy-palette-title';
-    title.textContent = cmd.title;
-    row.appendChild(title);
-    const spec = cmd.key ?? (cmd.id === copyId ? 'Mod+C' : undefined);
-    if (spec !== undefined) {
-      const key = doc.createElement('span') as HTMLSpanElement;
-      key.className = 'marxy-palette-key marxy-menu-key';
-      key.textContent = keyLabel(spec, isMacPlatform());
-      row.appendChild(key);
+    const group = paletteGroupOf(cmd);
+    if (rows === null || group !== current) {
+      const shell = groupShell(doc, group, n++);
+      next.appendChild(shell.group);
+      rows = shell.rows;
+      current = group;
     }
-    row.toggleAttribute('aria-selected', i === selected);
-    next.appendChild(row);
+    rows.appendChild(commandRow(doc, cmd, i === selected, copyId));
   }
   list.replaceChildren(next);
 }
@@ -496,6 +753,16 @@ const SECTION_LABELS: Record<EmptySectionKind, string> = {
   changed: 'Changed since you read',
   recent: 'Recent',
 };
+
+/** The folder a document sits in, from its root's own folder name down: `repo/docs`. */
+function folderLine(entry: IndexEntry): string {
+  const slash = entry.path.lastIndexOf('/');
+  if (slash <= 0) return '';
+  const dir = entry.path.slice(0, slash);
+  const root = entry.root;
+  if (root.length > 1 && (dir === root || dir.startsWith(`${root}/`))) return dir.slice(root.lastIndexOf('/') + 1);
+  return dir;
+}
 
 function documentRow(
   doc: Document,
@@ -516,14 +783,21 @@ function documentRow(
   // only for an entry that records none, the path alone (no bytes are read).
   const kind = hit.entry.readerKind ?? detectKind({ path: hit.entry.path, head: new Uint8Array() }).kind;
   const icon = kindIconElement(doc, kind, kind === 'code' ? langOfPath(hit.entry.path) : undefined);
+  // The title over its folder (U-04): two lines at the palette's 46 px.
+  const text = doc.createElement('span') as HTMLSpanElement;
+  text.className = 'marxy-palette-text';
+  const title = doc.createElement('span') as HTMLSpanElement;
+  title.className = 'marxy-palette-title';
+  title.textContent = labelForHit(hit);
+  const sub = doc.createElement('span') as HTMLSpanElement;
+  sub.className = 'marxy-palette-sub';
+  sub.textContent = folderLine(hit.entry);
+  text.append(title, sub);
   if (age === undefined) {
-    row.replaceChildren(icon, doc.createTextNode(labelForHit(hit)));
+    row.replaceChildren(icon, text);
     row.removeAttribute('aria-label');
   } else {
-    const title = doc.createElement('span') as HTMLSpanElement;
-    title.className = 'marxy-palette-title';
-    title.textContent = labelForHit(hit);
-    row.replaceChildren(icon, title);
+    row.replaceChildren(icon, text);
     if (decor.changed(hit)) {
       const mark = doc.createElement('span') as HTMLSpanElement;
       mark.className = 'marxy-palette-changed';
@@ -542,7 +816,7 @@ function documentRow(
       `${labelForHit(hit)}, ${spokenAge(age)}${decor.changed(hit) ? ', changed since you read' : ''}`,
     );
   }
-  row.toggleAttribute('aria-selected', selected);
+  markSelected(row, selected);
   if (hit.heading !== undefined) {
     const heading = hit.entry.headings[hit.heading];
     if (heading !== undefined) row.dataset.marxyS = String(heading.byteOffset);
@@ -552,36 +826,31 @@ function documentRow(
   return row;
 }
 
-/** The empty phase: a quiet label before each section, then its rows. Labels are not options. */
+/**
+ * The empty phase: a header before each section, then its rows, then the suggested commands. Headers are
+ * not options. `selected` counts rows across all of them.
+ */
 function paintEmptyRows(
   list: HTMLOListElement,
   sections: readonly EmptySection[],
+  suggested: readonly Command[],
   selected: number,
   decor: RowDecor,
 ): void {
   const doc = ownerDocumentOf(list);
-  const next =
-    'createDocumentFragment' in doc
-      ? (doc as Document).createDocumentFragment()
-      : document.createDocumentFragment();
+  const next = fragmentOf(doc);
   let index = 0;
   let n = 0;
   for (const section of sections) {
-    // One group per section, named by its label. The label is not an option: the arrow keys count
-    // `.marxy-palette-row` only.
-    const group = doc.createElement('li') as HTMLLIElement;
-    group.className = 'marxy-palette-group';
-    group.setAttribute('role', 'group');
-    const label = doc.createElement('span') as HTMLSpanElement;
-    label.className = 'marxy-palette-section';
-    label.id = `marxy-palette-section-${n++}`;
-    label.textContent = SECTION_LABELS[section.kind];
-    group.setAttribute('aria-labelledby', label.id);
-    const rows = doc.createElement('ol') as HTMLOListElement;
-    rows.setAttribute('role', 'none');
-    for (const hit of section.hits) rows.appendChild(documentRow(doc, hit, decor, index++ === selected));
-    group.append(label, rows);
-    next.appendChild(group);
+    const shell = groupShell(doc, SECTION_LABELS[section.kind], n++);
+    for (const hit of section.hits) shell.rows.appendChild(documentRow(doc, hit, decor, index++ === selected));
+    next.appendChild(shell.group);
+  }
+  if (suggested.length > 0) {
+    const shell = groupShell(doc, 'Suggested', n++);
+    const { copyId } = selectionChords();
+    for (const cmd of suggested) shell.rows.appendChild(commandRow(doc, cmd, index++ === selected, copyId));
+    next.appendChild(shell.group);
   }
   list.replaceChildren(next);
 }
@@ -633,7 +902,7 @@ function paintContentRows(
     appendInvisibleSegments(preview, after);
     row.append(head, preview);
     row.setAttribute('aria-label', `${titleOf(hit.path)}, line ${hit.line}: ${namedInvisibles(hit.preview)}`);
-    row.toggleAttribute('aria-selected', i === selected);
+    markSelected(row, i === selected);
     next.appendChild(row);
   }
   list.replaceChildren(next);
@@ -644,22 +913,23 @@ function paintRows(
   hits: readonly IndexHit[],
   selected: number,
   decor: RowDecor,
+  label: string,
 ): void {
   const doc = ownerDocumentOf(list);
   const keyed = new Map<string, HTMLLIElement>();
-  for (const child of list.children) {
-    if (child instanceof HTMLLIElement && child.dataset.rowKey) {
-      keyed.set(child.dataset.rowKey, child);
-    }
+  for (const child of list.querySelectorAll('li[data-row-key]')) {
+    if (child instanceof HTMLLIElement && child.dataset.rowKey) keyed.set(child.dataset.rowKey, child);
   }
-  const next =
-    'createDocumentFragment' in doc
-      ? (doc as Document).createDocumentFragment()
-      : document.createDocumentFragment();
-  for (let i = 0; i < hits.length; i++) {
-    const hit = hits[i]!;
-    const key = `${hit.entry.path}:${hit.heading ?? 'doc'}`;
-    next.appendChild(documentRow(doc, hit, decor, i === selected, keyed.get(key)));
+  const next = fragmentOf(doc);
+  if (hits.length > 0) {
+    // One group, named for what the rows are; a row already on screen is patched, not rebuilt (C-04).
+    const shell = groupShell(doc, label, 0);
+    for (let i = 0; i < hits.length; i++) {
+      const hit = hits[i]!;
+      const key = `${hit.entry.path}:${hit.heading ?? 'doc'}`;
+      shell.rows.appendChild(documentRow(doc, hit, decor, i === selected, keyed.get(key)));
+    }
+    next.appendChild(shell.group);
   }
   list.replaceChildren(next);
 }
@@ -674,7 +944,7 @@ function recordKeystrokePaint(ms: number, shell: AppShell): void {
 
 export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   injectPaletteStyles(document);
-  const { input, list, notice } = ensurePaletteStructure(deps.dialog, document);
+  const { input, list, notice, esc, chips } = ensurePaletteStructure(deps.dialog, document);
   let session = emptySession('/');
   const feed = createIndexFeed({
     currentRoot: () => session.currentRoot,
@@ -689,6 +959,20 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   let emptyNow = now();
   let emptyCache: { entries: readonly IndexEntry[]; session: PaletteSession; sections: readonly EmptySection[] } | undefined;
   let target: PaletteTarget = 'here';
+  // The suggested commands are asked for once a summons (they read the app's context), never per keystroke.
+  let suggestedCache: readonly Command[] | undefined;
+  const suggested = (): readonly Command[] => {
+    if (target === 'split') return [];
+    if (suggestedCache === undefined) {
+      try {
+        suggestedCache = withPaletteListing(() => suggestedCommands(commands(), buildAppContext()));
+      } catch {
+        // Mounted before the app's context exists: nothing to suggest yet; the next summons asks again.
+        return [];
+      }
+    }
+    return suggestedCache;
+  };
   /** The paths the panes showed as the palette was summoned (beside mode leaves them out). */
   let visible: readonly string[] = [];
   /** Set when a second pane was refused: shown in place of the notice, until the next key. */
@@ -774,7 +1058,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     else search.update(phrase);
   };
   const query = (text: string) =>
-    queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), foldCopies(), feed.notice(), emptySections, contentState);
+    queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), foldCopies(), feed.notice(), emptySections, contentState, suggested);
   const decor: RowDecor = {
     // Empty: every row has its age. Typed: only a document in a watched root does.
     age: (hit) =>
@@ -785,17 +1069,45 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       watched(hit.entry.root) && changedSinceRead(hit.entry, baselineMs(hit.entry.root), now()),
   };
   const rowCountOf = (m: PaletteModel): number =>
-    m.phase === 'operations' ? m.operationCommands.length : m.phase === 'content' ? (m.contentHits?.length ?? 0) : m.hits.length;
+    m.phase === 'operations'
+      ? m.operationCommands.length
+      : m.phase === 'content'
+        ? (m.contentHits?.length ?? 0)
+        : m.hits.length + (m.suggested?.length ?? 0);
   const paintModel = () => {
     if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
     else if (model.phase === 'content') paintContentRows(list, model.contentHits ?? [], titleOf, selected);
     else paintDocuments();
+    syncActive();
+  };
+  /** The highlighted row is the field's active descendant, so a screen reader hears it and its group. */
+  const syncActive = () => {
+    const rows = list.querySelectorAll('.marxy-palette-row');
+    for (let i = 0; i < rows.length; i++) rows[i]!.id = `marxy-palette-opt-${i}`;
+    const current = rows[selected];
+    if (current) input.setAttribute('aria-activedescendant', current.id);
+    else input.removeAttribute('aria-activedescendant');
+  };
+  /** Which chip is on: the prefix the query starts with, or the Headings section. */
+  let footerMode: FooterMode = 'files';
+  const syncChips = () => {
+    const mode: FooterMode = model.phase === 'operations' ? 'commands' : model.phase === 'content' ? 'content' : 'files';
+    const foot = deps.dialog.querySelector('.marxy-palette-foot');
+    if (mode !== footerMode && foot instanceof HTMLElement) {
+      footerMode = mode;
+      fillFooter(foot, document, isMacPlatform(), mode);
+    }
+    const prefix = model.phase === 'operations' ? '>' : model.phase === 'content' ? '/' : '';
+    MODE_CHIPS.forEach((mode, i) => {
+      const on = mode.headings ? prefix === '' && section === 'headings' : mode.prefix === prefix && !(prefix === '' && section === 'headings');
+      chips[i]?.setAttribute('aria-pressed', String(on));
+    });
   };
   const paintDocuments = () => {
     if (model.phase === 'empty' && model.sections !== undefined) {
-      paintEmptyRows(list, model.sections, selected, decor);
+      paintEmptyRows(list, model.sections, model.suggested ?? [], selected, decor);
     } else {
-      paintRows(list, model.hits, selected, decor);
+      paintRows(list, model.hits, selected, decor, section === 'headings' ? 'Headings' : 'Files');
     }
   };
   let section: PaletteListSection = 'documents';
@@ -808,6 +1120,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     model = query(input.value);
     selected = Math.min(selected, Math.max(0, rowCountOf(model) - 1));
     paintModel();
+    syncChips();
     const line = refusal ?? (target === 'split' ? (model.notice ? `Open beside. ${model.notice}` : 'Open beside') : model.notice);
     if (line) {
       notice.textContent = line;
@@ -826,6 +1139,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     // The pane focused now, once: a second summons (the beside chord pressed in the palette) keeps it.
     origin ??= deps.focusOrigin?.() ?? null;
     chordCache = undefined;
+    suggestedCache = undefined;
     emptyNow = now();
     emptyCache = undefined;
     if (!deps.dialog.open) deps.dialog.showModal();
@@ -859,20 +1173,61 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     if (open && !deps.dialog.open) dismiss();
   });
 
+  /** Runs a command row; a row that opens a list (U-04) turns the query into that list instead of closing. */
+  const runCommandRow = (cmd: Command | undefined) => {
+    if (cmd === undefined) return;
+    const drill = drillText(cmd.id, input.value);
+    if (drill !== undefined) {
+      input.value = `>${drill}`;
+      selected = 0;
+      repaint();
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      return;
+    }
+    runPaletteCommand(cmd);
+  };
+  /** The row at `index` in the empty phase's suggested group, or undefined. */
+  const suggestedAt = (index: number): Command | undefined =>
+    model.phase === 'empty' ? model.suggested?.[index - model.hits.length] : undefined;
+
   list.addEventListener('click', (event) => {
     const eventTarget = event.target as { closest?: (s: string) => Element | null } | null;
     const row = eventTarget?.closest?.('.marxy-palette-row') as HTMLElement | null | undefined;
     if (!row) return;
-    // Section labels sit between rows in the empty phase: count rows only.
+    // Group labels sit between rows: count rows only.
     const index = Array.prototype.indexOf.call(list.querySelectorAll('.marxy-palette-row'), row);
     if (index < 0) return;
     if (model.phase === 'operations') {
-      runPaletteCommand(model.operationCommands[index]);
+      runCommandRow(model.operationCommands[index]);
     } else if (model.phase === 'content') {
       void activateContentHit(model.contentHits?.[index], target === 'split');
+    } else if (suggestedAt(index) !== undefined) {
+      runCommandRow(suggestedAt(index));
     } else {
       void activateHit(model.hits[index], target === 'split');
     }
+  });
+
+  esc.addEventListener('click', () => dismiss());
+  chips.forEach((chip, i) => {
+    chip.addEventListener('click', () => {
+      const mode = MODE_CHIPS[i]!;
+      // The prefix is swapped and the words after it are kept (the mock: "clicking swaps the prefix and keeps the query").
+      const rest = input.value.replace(/^\s*[>/]\s?/, '');
+      if (mode.headings) {
+        section = 'headings';
+        input.value = rest;
+      } else {
+        section = 'documents';
+        input.value = `${mode.prefix}${rest}`;
+      }
+      selected = 0;
+      syncContent();
+      repaint();
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
   });
 
   /**
@@ -929,6 +1284,12 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     await renderPath(deps, hit.path, hit.byteOffset, select);
   };
 
+  /** A long list (149 commands) scrolls to keep the highlighted row in view; the group headers are not stops. */
+  const scrollSelectedIntoView = () => {
+    const row = list.querySelectorAll('.marxy-palette-row')[selected] as HTMLElement | undefined;
+    row?.scrollIntoView?.({ block: 'nearest' });
+  };
+
   input.addEventListener('input', () => {
     selected = 0;
     refusal = undefined;
@@ -964,20 +1325,24 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       event.preventDefault();
       selected = Math.max(0, Math.min(rowCount - 1, selected + 1));
       paintModel();
+      scrollSelectedIntoView();
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       selected = Math.max(0, selected - 1);
       paintModel();
+      scrollSelectedIntoView();
       return;
     }
     if (event.key === 'Enter') {
       event.preventDefault();
       if (model.phase === 'operations') {
-        runPaletteCommand(model.operationCommands[selected]);
+        runCommandRow(model.operationCommands[selected]);
       } else if (model.phase === 'content') {
         void activateContentHit(model.contentHits?.[selected], target === 'split' || isMod(event));
+      } else if (suggestedAt(selected) !== undefined) {
+        runCommandRow(suggestedAt(selected));
       } else {
         void activateHit(model.hits[selected], target === 'split' || isMod(event));
       }
