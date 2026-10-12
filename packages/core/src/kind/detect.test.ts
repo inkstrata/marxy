@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { KINDS } from '../contracts/kinds.ts';
 import type { Kind } from '../contracts/kinds.ts';
-import { KIND_HEAD_BYTES, KIND_PREFIX_BYTES, detectKind } from './detect.ts';
+import { KIND_HEAD_BYTES, KIND_PREFIX_BYTES, detectKind, speakerOf } from './detect.ts';
 import type { DetectInput } from './detect.ts';
 
 const bytes = (text: string): Uint8Array => new TextEncoder().encode(text);
@@ -147,6 +147,28 @@ test('speaker headings: a product or model name is not a speaker', () => {
   assert.equal(kindOf('x.md', lines('## Claude', 'a', '## ChatGPT', 'b', '## Cursor', 'c', '## GPT-5', 'd')), 'article');
   assert.equal(kindOf('x.md', lines('## You', 'a', '## Claude', 'b')), 'article');
   assert.equal(kindOf('x.md', lines('## You', 'a', '## Assistant', 'b')), 'transcript');
+});
+
+test('speakerOf: a speaker word alone, or with a name after " · ", ": " or " — ", is a speaker (K-11)', () => {
+  const table: Array<[string, ReturnType<typeof speakerOf>]> = [
+    ['You', { role: 'you' }], ['user', { role: 'you' }], ['HUMAN', { role: 'you' }],
+    ['Assistant', { role: 'assistant' }], ['Agent', { role: 'assistant' }],
+    ['System', { role: 'system' }], ['Tool', { role: 'tool' }],
+    ['Tool:', { role: 'tool' }],
+    ['Tool · bash', { role: 'tool', name: 'bash' }],
+    ['Tool: edit', { role: 'tool', name: 'edit' }],
+    ['Assistant — Claude', { role: 'assistant', name: 'Claude' }],
+    ['You · Ian', { role: 'you', name: 'Ian' }],
+    ['Tool use', null], ['Assistant professor', null], ['Tools', null], ['Tool ·', null], ['Tool:bash', null],
+    ['Tool - bash', null], ['Claude', null], ['', null], ['Summary', null],
+  ];
+  for (const [text, want] of table) assert.deepEqual(speakerOf(text), want, JSON.stringify(text));
+});
+
+test('speaker headings with a name after the word count in detection, as in rendering (K-11)', () => {
+  assert.equal(kindOf('x.md', lines('## You', 'a', '### Tool · bash', 'b')), 'transcript');
+  assert.equal(kindOf('x.md', lines('## Tool: a', 'a', '## Tool · b', 'b')), 'article'); // one role
+  assert.equal(kindOf('x.md', lines('## Tool use', 'a', '## You', 'b')), 'article');
 });
 
 test('shape counts only prose, never lines inside a code fence', () => {

@@ -41,6 +41,7 @@ export const SCREENS = {
   '02-source-folded': 'Source, folded (mock 01-workspace, Source)',
   '03-split': 'Split view (mock 01-workspace, Split)',
   '03-code': 'A code file in the reader (mock 01-workspace, doc=indexer-rs)',
+  '03-transcript': 'A Markdown transcript in the reader (mock 01-workspace, doc=indexer-chat)',
   '04-palette': 'The palette, files (mock 04-palette)',
   '04-palette-commands': 'The palette, commands (mock 04-palette)',
   '05-library': 'The library (mock 05-collections)',
@@ -159,6 +160,7 @@ const files = Object.fromEntries(docs.filter((d) => d.src).map((d) => [toPath(d.
 const PLAN = toPath(docs.find((d) => d.id === 'pg16-plan').path);
 const HANDOFF = toPath(docs.find((d) => d.id === 'auth-handoff').path);
 const RS = toPath(docs.find((d) => d.id === 'indexer-rs').path);
+const CHAT = toPath(docs.find((d) => d.id === 'indexer-chat').path);
 const ARTICLE = toPath(docs.find((d) => d.id === 'ragged-right').path);
 const entries = docs.filter((d) => d.src).map((d, i) => ({
   path: toPath(d.path),
@@ -233,6 +235,7 @@ const APP_STATES = {
   async '02-source-folded'(page) { await page.evaluate(() => window.__cmd('view.mode-source')); await settle(page, 800); },
   async '03-split'(page) { await unfoldedWithTabs(page); await page.evaluate(() => window.__cmd('view.mode-split')); await settle(page, 1000); },
   async '03-code'(page) { await openDoc(page, RS); await settle(page, 900); },
+  async '03-transcript'(page) { await openDoc(page, CHAT); await settle(page, 900); },
   async '04-palette'(page) {
     await openDoc(page, HANDOFF); await settle(page, 200); await openDoc(page, RS); await settle(page, 200); await openDoc(page, PLAN); await settle(page, 500);
     await page.keyboard.press('Meta+KeyP');
@@ -279,7 +282,7 @@ const APP_STATES = {
   },
   async '08-narrow'(page) { await unfoldedWithTabs(page); },
 };
-const APP_OPTS = { '08-narrow': { width: NARROW }, '03-code': {} };
+const APP_OPTS = { '08-narrow': { width: NARROW }, '03-code': {}, '03-transcript': {} };
 
 // ---------- the mock ----------
 async function openMock(browser, theme, file, { width = W, height = H, hash = '' } = {}) {
@@ -312,6 +315,7 @@ const MOCK_STATES = {
   '02-source-folded': { file: '01-workspace.html', run: async (page) => { await page.keyboard.press('Meta+Digit3'); await settle(page, 600); } },
   '03-split': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.keyboard.press('Meta+Digit2'); await settle(page, 700); } },
   '03-code': { file: '01-workspace.html', hash: '#doc=indexer-rs', run: async () => {} },
+  '03-transcript': { file: '01-workspace.html', hash: '#doc=indexer-chat', run: async () => {} },
   '04-palette': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('')); await settle(page, 600); } },
   '04-palette-commands': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('>')); await settle(page, 600); } },
   '05-library': { file: '05-collections.html', run: async () => {} },

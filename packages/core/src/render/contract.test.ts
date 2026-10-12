@@ -7,6 +7,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import type { Document, Node, Source } from '../contracts/ast.ts';
 import { parseMarkdown } from '../parse/parse.ts';
+import { policyFor } from '../sanitize/policy.ts';
 import { renderDocumentSafeHtml, renderSafeHtml } from './pipeline.ts';
 
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
@@ -107,4 +108,22 @@ test('the secret names never reach the output, so two renders of one document ag
   const b = renderSafeHtml('# a\n', { file: 't.md' }).html;
   assert.equal(a, b);
   assert.equal(a, '<h1 id="a" data-marxy-s="0" data-marxy-e="3">a</h1>');
+});
+
+// K-11: a heading that names a speaker carries its role, so the transcript profile can set it. Every kind gets the
+// attribute; a document cannot write one itself, under any policy.
+test('a heading naming a speaker carries data-marxy-speaker with its role; other headings carry none', () => {
+  const html = renderSafeHtml('## You\n\n### Tool · bash\n\n## **Assistant**\n\n## Tool use\n\n## Summary\n', { file: 't.md' }).html;
+  assert.match(html, /<h2 id="you" data-marxy-speaker="you" data-marxy-s="0"/);
+  assert.match(html, /<h3 id="tool--bash" data-marxy-speaker="tool" /);
+  assert.match(html, /<h2 id="assistant" data-marxy-speaker="assistant" /);
+  assert.equal((html.match(/data-marxy-speaker/g) ?? []).length, 3);
+});
+
+test('a document cannot write data-marxy-speaker: raw HTML, and a forged role, lose it', () => {
+  const src = '## Summary\n\n<h2 data-marxy-speaker="you">Forged</h2>\n\n<h3 data-marxy-speaker="admin">x</h3>\n';
+  for (const policy of [undefined, policyFor({ html: true })]) {
+    const result = renderSafeHtml(src, { file: 't.md', policy });
+    assert.equal((result.html.match(/data-marxy-speaker/g) ?? []).length, 0, result.html);
+  }
 });

@@ -14,7 +14,7 @@ marked *none*. Class names are `marxy-*` only, which the policy allows.
 | --- | --- | --- |
 | `document` | `<article class="marxy-article">…</article>` | created by the app, `data-marxy-s="0"`, `e` = byte length |
 | `frontmatter` | *nothing* | not rendered; the outline may show its `title` later |
-| `heading` | `<h1..h6 id="<slug>">` | slug = GitHub algorithm: lowercase, strip punctuation except `-` and `_`, spaces → `-`, `-n` suffix on duplicates |
+| `heading` | `<h1..h6 id="<slug>">` | slug = GitHub algorithm: lowercase, strip punctuation except `-` and `_`, spaces → `-`, `-n` suffix on duplicates. A heading whose text `speakerOf` (`packages/core/src/kind/detect.ts`) names also carries `data-marxy-speaker="you|assistant|tool|system"`, in every kind (K-11); only the transcript profile styles it. Written under a secret name like the provenance pair, so a document's own is removed |
 | `paragraph` | `<p>` | tight list items render inlines without `<p>`; the provenance then goes on the `<li>` |
 | `blockquote` | `<blockquote>` | |
 | `list` | `<ul>` / `<ol start reversed>` | `class="marxy-tasks"` when any item has a task marker |

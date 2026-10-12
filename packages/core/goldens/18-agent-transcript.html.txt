@@ -19,7 +19,7 @@ none.</p>
 </code></pre>
 <p data-marxy-s="926" data-marxy-e="1016">That function is fine on <code data-marxy-s="951" data-marxy-e="955">''</code>: it returns <code data-marxy-s="968" data-marxy-e="974">stem</code>. The stale title is not
 coming from here.</p>
-<h2 id="tool-the-row-that-was-served" data-marxy-s="1018" data-marxy-e="1050">Tool: the row that was served</h2>
+<h2 id="tool-the-row-that-was-served" data-marxy-speaker="tool" data-marxy-s="1018" data-marxy-e="1050">Tool: the row that was served</h2>
 <pre class="language-json" data-marxy-s="1052" data-marxy-e="1200"><code class="language-json" data-marxy-s="1060" data-marxy-e="1197">{
   "path": "docs/brief.md",
   "title": "The product, distilled",
@@ -32,7 +32,7 @@ coming from here.</p>
 title field was copied from the previous row when <code data-marxy-s="1329" data-marxy-e="1335">hash</code> matched. Empty
 files all share that hash, so a file that used to have a heading keeps it
 after being truncated.</p>
-<h2 id="tool-the-skip" data-marxy-s="1449" data-marxy-e="1466">Tool: the skip</h2>
+<h2 id="tool-the-skip" data-marxy-speaker="tool" data-marxy-s="1449" data-marxy-e="1466">Tool: the skip</h2>
 <pre class="language-sh" data-marxy-s="1468" data-marxy-e="1579"><code class="language-sh" data-marxy-s="1474" data-marxy-e="1576">rg -n "hash === previous.hash" /Users/reader/Dev/shelf/packages/index/src/scan/build-row-from-stat.ts
 </code></pre>
 <pre class="language-text" data-marxy-s="1581" data-marxy-e="1725"><code class="language-text" data-marxy-s="1589" data-marxy-e="1722">/Users/reader/Dev/shelf/packages/index/src/scan/build-row-from-stat.ts:41:  if (previous &amp;&amp; hash === previous.hash) return previous;

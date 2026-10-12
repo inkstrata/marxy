@@ -356,10 +356,10 @@ test('the avg-char check never rewrites the theme: loadTheme leaves the declared
   assert.match(css, /--marxy-avg-char:0\.9\}/);
 });
 
-test('the default theme gives article, readme and report a profile, written as the loader would compile it (K-05b)', () => {
+test('the default theme gives article, readme, report and transcript a profile, written as the loader would compile it (K-05b)', () => {
   const css = readFileSync(fileURLToPath(new URL('../default/theme.css', import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   const scopes = new Map([...css.matchAll(/\[data-marxy-kind="([a-z]+)"\]\s*\{([^}]*)\}/g)].map((m) => [m[1]!, m[2]!]));
-  assert.deepEqual([...scopes.keys()].sort(), ['article', 'readme', 'report']);
+  assert.deepEqual([...scopes.keys()].sort(), ['article', 'readme', 'report', 'transcript']);
   const globalOnly = ['--marxy-color-surface', '--marxy-shadow-surface', '--marxy-face-chrome', '--marxy-size-chrome', '--marxy-typeset'];
   const roots = ['--marxy-root-size-body', '--marxy-root-size-code', '--marxy-root-size-caption', '--marxy-root-line-box', '--marxy-root-line-box-code', '--marxy-root-lh-h1', '--marxy-root-lh-h2'];
   for (const [kind, body] of scopes) {

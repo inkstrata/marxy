@@ -6,7 +6,7 @@
 import type { Block, Document, Inline, ListItem, Source, TableCell, TableRow } from '../contracts/ast.ts';
 import { MAX_NESTING_DEPTH, nestedTooDeepText } from '../parse/from-mdast.ts';
 import { parseMarkdown, type ParseOptions } from '../parse/parse.ts';
-import { DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, REMOTE_IMAGE_ATTR, withProvenance, type Policy, type ProvenanceNames } from '../sanitize/policy.ts';
+import { DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, REMOTE_IMAGE_ATTR, SPEAKER_ATTR, withProvenance, type Policy, type ProvenanceNames } from '../sanitize/policy.ts';
 import { sanitizeHtml, type Removal } from '../sanitize/sanitize-html.ts';
 import { blockedImagesFrom, type BlockedImage } from './images.ts';
 import { headingIdsForDocument } from './heading-ids.ts';
@@ -220,7 +220,7 @@ function secretNames(): ProvenanceNames {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   const nonce = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-  return { start: `data-marxy-${nonce}-s`, end: `data-marxy-${nonce}-e` };
+  return { start: `data-marxy-${nonce}-s`, end: `data-marxy-${nonce}-e`, speaker: `data-marxy-${nonce}-k` };
 }
 
 /**
@@ -232,5 +232,6 @@ function publish(html: string, secret: ProvenanceNames, remoteAttr: string): str
   return html
     .replaceAll(` ${remoteAttr}="`, ` ${REMOTE_IMAGE_ATTR}="`)
     .replaceAll(` ${secret.start}="`, ` ${PROVENANCE_ATTRIBUTES.start}="`)
-    .replaceAll(` ${secret.end}="`, ` ${PROVENANCE_ATTRIBUTES.end}="`);
+    .replaceAll(` ${secret.end}="`, ` ${PROVENANCE_ATTRIBUTES.end}="`)
+    .replaceAll(` ${secret.speaker!}="`, ` ${SPEAKER_ATTR}="`);
 }

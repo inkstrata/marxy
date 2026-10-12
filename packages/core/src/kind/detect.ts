@@ -100,7 +100,12 @@ const FORMAT_KIND: Record<string, Kind> = {
 const BUILD_FILES = new Set(['makefile', 'dockerfile', 'gnumakefile', 'justfile', 'rakefile', 'gemfile', 'procfile']);
 const ROLES = new Set(['user', 'assistant', 'system', 'tool', 'human', 'ai', 'agent', 'developer', 'function']);
 const MESSAGE_TYPES = new Set(['user', 'assistant', 'system', 'tool', 'tool_use', 'tool_result', 'message']);
-const SPEAKERS = new Set(['you', 'user', 'human', 'assistant', 'agent', 'tool', 'system']);
+/** The speaker words, each to the role it names. `you`, `user` and `human` are one reader; `assistant` and `agent` one writer. */
+const SPEAKERS = new Map<string, Speaker['role']>([
+  ['you', 'you'], ['user', 'you'], ['human', 'you'],
+  ['assistant', 'assistant'], ['agent', 'assistant'],
+  ['tool', 'tool'], ['system', 'system'],
+]);
 const WORKING = new Set(['summary', 'context', 'risk', 'next step', 'open question', 'verified', 'recommendation']);
 const DOCS_SECTIONS = new Set(['parameter', 'return', 'error', 'example']);
 
@@ -197,6 +202,25 @@ const headingText = (line: string): string | null => {
   return m ? m[1]!.replace(/[*_`]/g, '').replace(/:$/, '').trim() : null;
 };
 
+/** A speaker heading's role and the name after the speaker word, when it has one (`Tool · bash` is `tool` and `bash`). */
+export interface Speaker {
+  readonly role: 'you' | 'assistant' | 'tool' | 'system';
+  readonly name?: string;
+}
+
+/**
+ * Whether a heading's text names a speaker (K-11): a speaker word alone, or followed by ` · `, `: ` or ` — ` and a
+ * name. Detection and Rendered share this one rule, so a file is read as a transcript by the headings that are
+ * then set as speakers. A heading that merely begins with a speaker word (`Tool use`, `Assistant professor`) is none.
+ */
+export function speakerOf(text: string): Speaker | null {
+  const m = /^(\S+?)(?:(?: · | — |: )(\S.*))?$/.exec(text.trim().replace(/:$/, '').trim());
+  if (m === null) return null;
+  const role = SPEAKERS.get(m[1]!.toLowerCase());
+  if (role === undefined) return null;
+  return m[2] === undefined ? { role } : { role, name: m[2].trim() };
+}
+
 const singular = (word: string): string => word.toLowerCase().replace(/s$/, '');
 
 const TIMESTAMP = /^\[?(?:\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?|\d{2}:\d{2}:\d{2}(?:[.,]\d+)?)\]?[\s|\-[]*(?:TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|ERR|FATAL|CRITICAL|CRIT)\b/i;
@@ -230,9 +254,9 @@ function shapes(body: string, markup: boolean, path: string): Shape[] {
 
   const speakers = nonBlank.filter((l) => {
     const h = headingText(l.text);
-    return h !== null && SPEAKERS.has(h.toLowerCase());
+    return h !== null && speakerOf(h) !== null;
   });
-  const roles = new Set(speakers.map((l) => headingText(l.text)!.toLowerCase()));
+  const roles = new Set(speakers.map((l) => speakerOf(headingText(l.text)!)!.role));
   if (speakers.length >= THRESHOLDS.speakerHeadings && roles.size >= THRESHOLDS.speakerRoles) {
     out.push({ kind: 'transcript', signal: 'speaker headings', at: `line ${speakers[0]!.n}`, strength: speakers.length });
   }
