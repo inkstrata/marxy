@@ -13,7 +13,8 @@ import type { RenderedView } from '../view/rendered-view.ts';
 import { applyWeightOffset, platformOf } from './offset.ts';
 import { applyReaderConfig, peekConfigRead, readReaderConfig, takeConfigNotices, takeConfigRead } from './reader-config.ts';
 import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme-document.ts';
-import { inferHomeFromConfig, resolveThemeDir, startUserTheme, themeDirFromConfig, type UserThemeContext } from './user-theme.ts';
+import { bundledThemeName } from './bundled-themes.ts';
+import { applyBundledTheme, currentThemeName, inferHomeFromConfig, resolveThemeChoice, startUserTheme, type ThemeChoice, type UserThemeContext } from './user-theme.ts';
 
 /** What the launch's kind decision has from the pre-paint config read (K-05a.1). */
 export interface LaunchKindInputs {
@@ -77,11 +78,19 @@ export function createAppConfig(shell: AppShell, views: () => readonly RenderedV
   let held: readonly string[] = [];
   const context = (): UserThemeContext => ({ shell, views });
 
-  /** The theme directory: from the bytes the pre-paint read already has, else from the file (A-14). */
-  async function themeDir(): Promise<string | null> {
+  /** What `theme` names: from the bytes the pre-paint read already has, else from the file (A-14). */
+  async function themeChoice(): Promise<ThemeChoice | null> {
     const read = takeConfigRead();
-    if (read === null) return themeDirFromConfig(shell);
-    return resolveThemeDir(parseConfig(read.bytes).config.theme, read.path);
+    if (read !== null) return resolveThemeChoice(shell, parseConfig(read.bytes).config.theme, read.path);
+    if (shell.configPaths === undefined) return null;
+    // No answer is no theme, not a failed open (V-11).
+    try {
+      const { config } = await shell.configPaths();
+      const { config: parsed } = parseConfig(await shell.readFile(config));
+      return resolveThemeChoice(shell, parsed.theme, config);
+    } catch {
+      return null;
+    }
   }
 
   return {
@@ -89,12 +98,17 @@ export function createAppConfig(shell: AppShell, views: () => readonly RenderedV
       if (applied) return;
       applied = true;
       try {
-        applyAppConfig(
-          root,
-          await readReaderConfig(shell, (paths) => {
-            if (opts?.kinds) later = readKindsFile(shell, paths.data).then((read) => (choices = read));
-          }),
-        );
+        const config = await readReaderConfig(shell, (paths) => {
+          if (opts?.kinds) later = readKindsFile(shell, paths.data).then((read) => (choices = read));
+        });
+        applyAppConfig(root, config);
+        // H-05: a bundled theme is applied with the variant, before the first document is read onto the page, so the first
+        // text is in Dusk and Night never shows. A folder of the same name beside config.toml is looked for after.
+        const bundled = bundledThemeName(config.theme);
+        if (bundled !== null) {
+          await applyBundledTheme(bundled, root.ownerDocument);
+          void shell.mark('bundled_theme', Date.now(), `name=${bundled}`);
+        }
         const read = peekConfigRead();
         if (read !== null) {
           const parsed = parseConfig(read.bytes, { home: inferHomeFromConfig(read.path) });
@@ -110,9 +124,21 @@ export function createAppConfig(shell: AppShell, views: () => readonly RenderedV
     async startUserTheme() {
       for (const text of takeConfigNotices()) notify({ kind: 'refused', text });
       reportConfigWarnings(held);
-      const dir = await themeDir();
+      const choice = await themeChoice();
       userTheme?.stop();
-      userTheme = await startUserTheme(context(), dir);
+      userTheme = null;
+      if (choice?.kind === 'bundled') {
+        // Already applied before first text; apply it here only when the pre-paint read did not (no pre-paint config).
+        if (currentThemeName() !== choice.name) {
+          await applyBundledTheme(choice.name);
+          for (const view of views()) await view.relayoutForTheme();
+        }
+        return;
+      }
+      if (choice?.shadows) {
+        notify({ kind: 'info', text: `Using the theme folder ${choice.shadows} beside config.toml, not the bundled ${choice.shadows} theme.` });
+      }
+      userTheme = await startUserTheme(context(), choice?.dir ?? null);
     },
     async offerThemeDocument(file) {
       await maybeThemeDocumentNotice(context(), file, async (dir) => {

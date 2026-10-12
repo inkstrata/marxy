@@ -1,6 +1,6 @@
 // The reader's own settings from config.toml: light variant and text size, applied before first
 // text and changed by command (A-14), and the Source line-number choice (L-06.1). Only `variant`, `size`,
-// `chrome_size` and `line_numbers` are read or written here.
+// `chrome_size`, `line_numbers` and `theme` (H-05) are read or written here.
 import { applyVariant, parseConfig, resolveVariantPreference, setTopLevelKey } from '@marxy/theme';
 import type { Config } from '@marxy/theme';
 import type { AppShell } from '../app.ts';
@@ -181,7 +181,7 @@ let writes: Promise<void> = Promise.resolve();
  * created; a file that exists but cannot be read is left alone. Writes run one after another, so
  * three quick presses are three read-modify-writes in order, not three that overwrite each other.
  */
-export function writeReaderKey(shell: WriteShell, key: 'variant' | 'size' | 'line_numbers' | 'chrome_size', tomlValue: string): Promise<void> {
+export function writeReaderKey(shell: WriteShell, key: 'variant' | 'size' | 'line_numbers' | 'chrome_size' | 'theme', tomlValue: string): Promise<void> {
   const run = async (): Promise<void> => {
     if (shell.configPaths === undefined) return;
     const { config } = await shell.configPaths();

@@ -190,9 +190,43 @@ test('H-04: Night is the default dark and Paper the default light; Ink keeps the
   const ink = readFileSync(new URL('../ink/theme.css', import.meta.url), 'utf8');
   assert.equal(propsInBlock(ink, ':root')['--marxy-color-bg'], '#151412');
   assert.equal(propsInBlock(ink, ':root[data-marxy-variant="light"]')['--marxy-color-bg'], '#faf8f4');
-  for (const dir of ['default', 'ink']) {
+  for (const dir of ['default', 'ink', 'warm', 'fjord', 'high-contrast']) {
     assert.match(readFileSync(new URL(`../${dir}/theme.toml`, import.meta.url), 'utf8'), /^contract = 2$/m, dir);
   }
+});
+
+// ---- H-05: Dusk and Sepia, Fjord, high contrast --------------------------------------------------------------------
+const CODE_ROLE_TOKENS = ['builtin', 'property', 'decorator', 'self', 'escape', 'mark'].map((r) => `--marxy-tok-${r}`);
+const themeCss = (dir) => readFileSync(new URL(`../${dir}/theme.css`, import.meta.url), 'utf8');
+
+test('H-05: warm is Dusk dark and Sepia light, and each block sets every colour role and the six code roles', () => {
+  const css = themeCss('warm');
+  const dusk = propsInBlock(css, ':root');
+  const sepia = propsInBlock(css, ':root[data-marxy-variant="light"]');
+  assert.equal(dusk['--marxy-color-bg'], '#1b1814');
+  assert.equal(sepia['--marxy-color-bg'], '#f6efe0');
+  const roles = Object.keys(readDarkTokens()).filter((n) => /^--marxy-(color|tok)-/.test(n));
+  for (const [what, block] of [['dusk', dusk], ['sepia', sepia]]) {
+    for (const role of roles) assert.ok(role in block, `${what} lacks ${role}`);
+    for (const role of CODE_ROLE_TOKENS) assert.ok(role in block, `${what} lacks ${role}`);
+  }
+});
+
+test('H-05: fjord is dark only and holds its dark values under the light variant, so Paper never shows through', () => {
+  const css = themeCss('fjord').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(css, /:root,\s*:root\[data-marxy-variant="light"\]\s*\{/);
+  assert.equal(propsInBlock(css, ':root')['--marxy-color-bg'], '#242933');
+  assert.match(readFileSync(new URL('../fjord/theme.toml', import.meta.url), 'utf8'), /^variants = \["dark"\]$/m);
+  for (const role of CODE_ROLE_TOKENS) assert.ok(role in propsInBlock(css, ':root'), role);
+});
+
+test('H-05: high contrast is white on black and black on white, with its code roles', () => {
+  const css = themeCss('high-contrast');
+  assert.equal(propsInBlock(css, ':root')['--marxy-color-bg'], '#000000');
+  assert.equal(propsInBlock(css, ':root')['--marxy-color-text'], '#ffffff');
+  assert.equal(propsInBlock(css, ':root[data-marxy-variant="light"]')['--marxy-color-bg'], '#ffffff');
+  assert.equal(propsInBlock(css, ':root[data-marxy-variant="light"]')['--marxy-color-text'], '#000000');
+  for (const role of CODE_ROLE_TOKENS) assert.ok(role in propsInBlock(css, ':root[data-marxy-variant="light"]'), role);
 });
 
 // ---- V-13 (ADR-0068): a hue per code role, built in OKLCH ------------------------------------------------------

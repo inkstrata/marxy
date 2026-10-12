@@ -134,6 +134,39 @@ test('variant = "light" in config is on the root before the file_read mark', asy
   }
 });
 
+test('H-05: theme = "warm" paints the first text in Dusk: the theme is on the page before the file_read mark', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page } = await boot(browser, '# mine\ntheme = "warm"\n');
+    const r = await page.evaluate(() => ({
+      themeAt: window.__h.shell.calls.find((c) => c.method === 'mark' && c.args[0] === 'bundled_theme')?.args[1],
+      fileRead: window.__h.shell.calls.find((c) => c.method === 'mark' && c.args[0] === 'file_read').args[1],
+      bg: getComputedStyle(document.documentElement).getPropertyValue('--marxy-color-bg').trim(),
+    }));
+    assert.ok(r.themeAt !== undefined && r.themeAt <= r.fileRead, JSON.stringify(r));
+    assert.equal(r.bg, '#1b1814');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('H-05: Theme: Dusk and Sepia applies Sepia on the light variant and writes only the theme line', async () => {
+  const browser = await launchWebkit();
+  try {
+    const before = '# keep me\nvariant = "light" # paper\nsize = 20\n\n[linux]\nweight_offset = 75\n';
+    const { page, mod } = await boot(browser, before);
+    const bg = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--marxy-color-bg').trim());
+    assert.equal(await bg(), '#fbfaf8');
+    await runPaletteCommand(page, mod, '>Dusk and Sepia');
+    assert.equal(await bg(), '#f6efe0');
+    const after = await configOf(page);
+    assert.equal((after.match(/^theme = "warm"$/gm) ?? []).length, 1, after);
+    assert.equal(after.replace(/^theme = "warm"\n/m, ''), before, 'every other byte is as it was');
+  } finally {
+    await browser.close();
+  }
+});
+
 test('size = 24 gives a 36 px line and every block on the 18 px grid', async () => {
   const browser = await launchWebkit();
   try {

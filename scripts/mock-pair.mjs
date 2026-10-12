@@ -3,7 +3,7 @@
 // size, in Night and Paper, written as <out>/<screen>-<night|paper>-{app,mock}.png plus an index.html. The app reads
 // the mock's own corpus (mock-v2/shared/corpus.js) at the same paths. The mock loads its web fonts from a CDN; the app
 // page never does. Local tooling for a human to look at: it is not on the pull-request path and compares no pixels.
-//   node scripts/mock-pair.mjs <screen...|all> --out <dir> [--theme night|paper] [--side app|mock] [--list]
+//   node scripts/mock-pair.mjs <screen...|all> --out <dir> [--theme night|paper|ink|dusk|sepia|fjord|hc-dark|hc-light] [--side app|mock] [--list]
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,10 +13,26 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MOCK = join(ROOT, 'docs/plan/direction-2026-10/mock-v2');
 
 const W = 1440, H = 900, NARROW = 760;
+// `app` is the `theme` line the app's config gets (H-05): none for Night and Paper, a bundled name for the rest.
 export const THEMES = [
   { id: 'night', scheme: 'dark', mock: 'night', label: 'Night' },
   { id: 'paper', scheme: 'light', mock: 'paper', label: 'Paper' },
+  { id: 'ink', scheme: 'dark', mock: 'ink', label: 'Ink', app: 'ink' },
+  { id: 'dusk', scheme: 'dark', mock: 'dusk', label: 'Dusk', app: 'warm' },
+  { id: 'sepia', scheme: 'light', mock: 'sepia', label: 'Sepia', app: 'warm' },
+  { id: 'fjord', scheme: 'dark', mock: 'fjord', label: 'Fjord', app: 'fjord' },
+  { id: 'hc-dark', scheme: 'dark', mock: 'hc-dark', label: 'High contrast dark', app: 'high-contrast' },
+  { id: 'hc-light', scheme: 'light', mock: 'hc-light', label: 'High contrast light', app: 'high-contrast' },
 ];
+/** What `all` and a bare run use: Night and Paper, as before. The others are named with --theme. */
+export const DEFAULT_THEMES = ['night', 'paper'];
+/** The bytes of the app's /config for a theme. */
+export function configFor(theme) {
+  const lines = [];
+  if (theme.scheme === 'light') lines.push('variant = "light"');
+  if (theme.app) lines.push(`theme = "${theme.app}"`);
+  return lines.length ? `${lines.join('\n')}\n` : null;
+}
 /** The screens, with the mock page each moves toward and a one-line caption for the index. */
 export const SCREENS = {
   '01-folded': 'Folded: the reading page alone (mock 01-workspace)',
@@ -41,7 +57,7 @@ export function pairFiles(screen, theme) {
 
 /** Parses argv (without node and script). Throws an Error with a usable message on a bad argument. */
 export function parseArgs(argv) {
-  const opts = { screens: [], out: null, themes: THEMES.map((t) => t.id), sides: ['app', 'mock'], list: false, label: '' };
+  const opts = { screens: [], out: null, themes: [...DEFAULT_THEMES], sides: ['app', 'mock'], list: false, label: '' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const value = () => {
@@ -173,7 +189,8 @@ async function bootApp(browser, theme, { width = W, height = H, open = PLAN } = 
   });
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
-  const all = theme.scheme === 'light' ? { ...files, '/config': 'variant = "light"\n' } : files;
+  const config = configFor(theme);
+  const all = config === null ? files : { ...files, '/config': config };
   const encoded = Object.fromEntries(Object.entries(all).map(([p, t]) => [p, support.b64(t)]));
   await page.evaluate(
     async ({ encoded, entries, open }) => {

@@ -32,6 +32,10 @@ export const FLOORS = [
   { fg: ['tok-*', 'code-text'], floor: 4.5, grounds: ['code-bg', 'bg', 'selection@code-bg', 'line@code-bg', ...DIFFS.map(d => `${d}@code-bg`)] },
   { fg: ['edge', 'find-edge', 'divider-focus'], floor: 3, grounds: ['bg', 'surface', 'code-bg'] },
 ];
+// H-05: the high-contrast theme holds a stricter floor: 7:1 where the table says 4.5 (every text and code role on every
+// ground it meets), 4.5:1 where it says 3 (edges). Rows at 7 stay at 7.
+export const HIGH_CONTRAST_THEMES = ['high-contrast'];
+export const HIGH_CONTRAST_FLOORS = FLOORS.map(row => ({ ...row, floor: row.floor === 4.5 ? 7 : row.floor === 3 ? 4.5 : row.floor }));
 // Roles contract v2 adds that a v1 theme lacks; reported when absent even though no row names them as a
 // token wildcard match.
 const V2_TOKENS = ['tok-marker', 'tok-heading', 'tok-link', 'tok-builtin', 'tok-property', 'tok-decorator', 'tok-self', 'tok-escape', 'tok-mark'];
@@ -219,7 +223,7 @@ export function auditTheme(themeName, css, variants) {
       const missing = new Set();
       const declared = r => name(r) in tokens;
       const roleMissing = r => { if (!declared(r) || (r === 'surface-glass' && !declared('surface'))) missing.add(r); };
-      for (const row of FLOORS) {
+      for (const row of HIGH_CONTRAST_THEMES.includes(themeName) ? HIGH_CONTRAST_FLOORS : FLOORS) {
         const fgs = row.fg.flatMap(f => (f === 'tok-*' ? [...new Set([...Object.keys(tokens).filter(t => t.startsWith('--marxy-tok-')).map(t => t.slice(8)), ...V2_TOKENS])] : [f]));
         const grounds = row.grounds.flatMap(g => (g === 'surface' ? ['surface', 'surface-glass'] : [g]));
         for (const fg of fgs) {
