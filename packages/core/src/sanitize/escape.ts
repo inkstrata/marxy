@@ -36,7 +36,7 @@ const NAMED_REFERENCES: ReadonlyMap<string, string> = new Map([
   ['QUOT', '"'], ['apos', "'"], ['colon', ':'], ['sol', '/'], ['bsol', '\\'], ['num', '#'],
   ['percnt', '%'], ['excl', '!'], ['quest', '?'], ['lpar', '('], ['rpar', ')'], ['period', '.'],
   ['comma', ','], ['semi', ';'], ['equals', '='], ['commat', '@'], ['dollar', '$'], ['ast', '*'],
-  ['plus', '+'], ['lowbar', '_'], ['hyphen', '-'], ['grave', '`'], ['NewLine', '\n'], ['Tab', '\t'],
+  ['plus', '+'], ['lowbar', '_'], ['hyphen', '\u2010'], ['grave', '`'], ['NewLine', '\n'], ['Tab', '\t'],
   ['nbsp', '\u00a0'], ['sp', ' '],
 ]);
 
