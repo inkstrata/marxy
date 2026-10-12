@@ -156,7 +156,12 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, opt
  * U+00A0, U+FEFF and U+2028, which a browser keeps, so a value Marxy accepted could be one the browser rejects.
  */
 function trimAsciiWhitespace(value: string): string {
-  return value.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '');
+  const space = (code: number): boolean => code === 0x09 || code === 0x0a || code === 0x0c || code === 0x0d || code === 0x20;
+  let start = 0;
+  let end = value.length;
+  while (start < end && space(value.charCodeAt(start))) start++;
+  while (end > start && space(value.charCodeAt(end - 1))) end--;
+  return value.slice(start, end);
 }
 
 function removeFrom(input: string, tag: StartTag, name: string, removed: Removal[]): number {
