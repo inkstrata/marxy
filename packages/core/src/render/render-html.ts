@@ -167,7 +167,8 @@ function block(node: Block, tight: boolean, ctx: Context): string {
       // The `<pre>` carries the lowercased language too, so the theme's diagram-caption rule can
       // look one step past the caption (`p:has(+ pre.language-mermaid)`). A two-step `:has()` into
       // the `<code>` costs WebKit time in proportion to the article on every appended block (B-25.1).
-      const preLanguage = !safeLang ? '' : ` class="language-${escapeAttribute(lang)}"`;
+      const preClasses = [...(safeLang ? [`language-${escapeAttribute(lang)}`] : []), ...(node.run ? ['marxy-run'] : [])];
+      const preLanguage = preClasses.length === 0 ? '' : ` class="${preClasses.join(' ')}"`;
       // The `<pre>` is the whole fence; the `<code>` is the content between the fence lines.
       return `${caption}<pre${preLanguage}${prov(node.src, ctx)}><code${language}${prov(node.content, ctx)}>${value}</code></pre>`;
     }

@@ -367,7 +367,14 @@ what the table calls source.
     numbers, never selectable;
   - a language with no grammar falls back to plain monospace, never to a guess (`06-code.md`, "Choosing one
     for a reader").
-- Text files (`.txt`, `.log`) stay as they are.
+- Text files (`.txt`, `.log`) stay as they are, and so do the files that have their own reading: `.html`/`.htm`
+  (trust-gated), `.log` (K-08), `.csv`/`.tsv` (K-10) and `.jsonl`. Only the V-09 `source` files outside that list render as code.
+
+*Amended in V-10's PR.* The gutter of line numbers is not built there: Source has the exact gutter (V-12), and a
+Rendered gutter needs a counter that runs across the pieces and a reserved column before the lines are split, which
+is its own change to `04-code-typography.md`. The pieces are drawn as one block (`marxy-run`, joined in `base.css`);
+the file's AST has `CodeBlock.run` to say so (an added field, ADR-0045). Shiki colours each piece alone, so a string
+or docstring that spans a 200-line boundary is coloured from the boundary.
 
 **Why chunks.** Commitment 5: first text never waits for the whole file. A-02's first-screens path then works
 unchanged.

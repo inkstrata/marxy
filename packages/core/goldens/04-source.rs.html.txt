@@ -1,4 +1,4 @@
-<pre class="language-rust" data-marxy-s="0" data-marxy-e="4423"><code class="language-rust" data-marxy-s="0" data-marxy-e="4423">// Tauri shell for the marxy spike. Same frontend as the Electron shell; only this crate differs.
+<pre class="language-rust marxy-run" data-marxy-s="0" data-marxy-e="4423"><code class="language-rust" data-marxy-s="0" data-marxy-e="4423">// Tauri shell for the marxy spike. Same frontend as the Electron shell; only this crate differs.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use ignore::WalkBuilder;
 use nucleo_matcher::{pattern::{CaseMatching, Normalization, Pattern}, Config, Matcher, Utf32Str};

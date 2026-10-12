@@ -446,6 +446,10 @@ pre {
   text-indent: 2ch hanging each-line;
   tab-size: var(--marxy-tab-size, 4);
 }
+/* The pieces of a code file read as code (V-10, 200 lines each) are one block to the eye: they meet with no gap,
+   square at the join. */
+pre.marxy-run + pre.marxy-run { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+pre.marxy-run:has(+ pre.marxy-run) { margin-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 /* One source line (the highlight pass wraps each and sets --marxy-indent to its leading whitespace).
    A whole row of the block, so its own wrapped rows hang 2ch past the line's own indentation — a
    wrapped line must never look dedented, which in Python or YAML reads as a different statement —

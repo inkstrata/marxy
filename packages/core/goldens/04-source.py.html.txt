@@ -1,4 +1,4 @@
-<pre class="language-python" data-marxy-s="0" data-marxy-e="9956"><code class="language-python" data-marxy-s="0" data-marxy-e="9956">#!/usr/bin/env python3
+<pre class="language-python marxy-run" data-marxy-s="0" data-marxy-e="9956"><code class="language-python" data-marxy-s="0" data-marxy-e="9956">#!/usr/bin/env python3
 """Turn the spike's raw results into results/summary.md, with the decision-rule thresholds applied mechanically.
 
 usage (from tools/measure so uv's venv is used):

@@ -4,7 +4,7 @@
 // store owns the bytes; the view subscribes to the store it shows and sets the page again when they
 // change. Nothing here is held at module scope, so a second view can be created beside the first.
 
-import { byteToUtf16, contentHash, utf16ToByte, type Buffer, type Document } from '@marxy/core';
+import { byteToUtf16, contentHash, isCodeFile, utf16ToByte, type Buffer, type Document } from '@marxy/core';
 import { offsetThroughEdit } from '@marxy/core/src/position/restore.ts';
 import { blockedImagesFrom, renderDocumentSafeHtml, renderDocumentSafeHtmlInSlices } from '@marxy/core/src/render/index.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
@@ -1579,6 +1579,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       case 'save':
         // A Save as moved the store to another name: the parse the page resolves through follows it.
         if (change.renamedFrom !== undefined && shown) {
+          // The name changed what the file is read as (a scratch Markdown page saved as `.py`, or the reverse, V-10):
+          // the page is set again from the new parse, as for a rename, not kept under it.
+          if (isCodeFile(change.renamedFrom) !== isCodeFile(change.path)) break;
           const was = shown;
           shown = openDocumentOf(snapshot.ast, snapshot.nodeMap, was.blocks, was.render, () => was.html);
         }

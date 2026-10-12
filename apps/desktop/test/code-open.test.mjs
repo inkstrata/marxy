@@ -447,6 +447,59 @@ test('Rendered of a .py is the code, byte for byte, in one highlighted block wit
   await page.close();
 });
 
+/** The article's top-level elements, by tag. */
+const pageTags = (page) => page.evaluate(() => [...document.querySelector('#doc').children].map((c) => c.tagName));
+
+test('Save As that makes a Markdown page a code file, or the reverse, sets the page again (V-10)', async () => {
+  const page = await freshPage();
+  await startSampled(page, FILES, ['/repo/note.md']);
+  await started(page);
+  await page.waitForSelector('#doc h1');
+  const key = await modifier(page);
+  await page.evaluate(() => window.__h.shell.queueSaveDialog('/repo/note2.py'));
+  await page.keyboard.press(`${key}+Shift+KeyS`);
+  await page.waitForFunction(() => window.__h.openDocument().path === '/repo/note2.py');
+  await drained(page);
+  await page.waitForFunction(() => document.querySelector('#doc pre') !== null);
+  assert.deepEqual(await pageTags(page), ['PRE'], 'a .py is code, not the Markdown page it was');
+  assert.equal(await page.evaluate(() => document.querySelectorAll('#doc h1').length), 0);
+  await page.evaluate(() => window.__h.shell.queueSaveDialog('/repo/note3.md'));
+  await page.keyboard.press(`${key}+Shift+KeyS`);
+  await page.waitForFunction(() => window.__h.openDocument().path === '/repo/note3.md');
+  await drained(page);
+  await page.waitForFunction(() => document.querySelector('#doc h1') !== null);
+  assert.deepEqual(await pageTags(page), ['H1', 'P'], 'a .md is read as Markdown again');
+  await page.close();
+});
+
+test('a long .py is pieces of 200 lines drawn as one block, and .log and .html stay as they were (V-10)', async () => {
+  const page = await freshPage();
+  const long = Array.from({ length: 450 }, (_, i) => `x${i} = ${i}  # line`).join('\n') + '\n';
+  const files = { ...FILES, '/repo/long.py': long, '/repo/a.log': '# not a heading\nline\n', '/repo/a.html': '<h2>Hello</h2>\n' };
+  await startSampled(page, files, ['/repo/long.py']);
+  await started(page);
+  for (let i = 0; i < 3; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);
+  await drained(page);
+  await page.waitForSelector('#doc pre.marxy-run');
+  const seen = await page.evaluate(() => {
+    const pres = [...document.querySelectorAll('#doc pre')];
+    const gap = pres.length > 1 ? pres[1].getBoundingClientRect().top - pres[0].getBoundingClientRect().bottom : null;
+    return { n: pres.length, runs: pres.every((p) => p.classList.contains('marxy-run')), gap, text: pres.map((p) => p.textContent).join('') };
+  });
+  assert.equal(seen.n, 3);
+  assert.ok(seen.runs);
+  assert.equal(seen.gap, 0, 'the pieces meet with no gap');
+  assert.equal(seen.text, long, 'the pieces together are the file');
+  for (const [path, check] of [['/repo/a.log', () => document.querySelectorAll('#doc h1').length], ['/repo/a.html', () => document.querySelectorAll('#doc h2').length]]) {
+    await page.evaluate((p) => window.__h.open(p), path);
+    await drained(page);
+    if ((await mode(page)) === 'source') for (let i = 0; i < 1; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);
+    await drained(page);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#doc pre.marxy-run').length), 0, `${path} is not read as code`);
+  }
+  await page.close();
+});
+
 test('text typed in a .py before the parse was ever made is saved as typed, and Rendered parses it', async () => {
   const page = await freshPage();
   await startSampled(page, FILES, ['/repo/x.py']);

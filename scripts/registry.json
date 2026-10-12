@@ -92,6 +92,7 @@
     "data-marxy-facet-on"
   ],
   "classes": [
+    "marxy-run",
     "marxy-toolbar-glyph",
     "marxy-strip-kind",
     "marxy-toolbar-word",

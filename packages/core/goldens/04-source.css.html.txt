@@ -1,4 +1,4 @@
-<pre class="language-css" data-marxy-s="0" data-marxy-e="2549"><code class="language-css" data-marxy-s="0" data-marxy-e="2549">@font-face { font-family: 'Literata'; src: url('./fonts/Literata-var.ttf') format('truetype'); font-weight: 200 900; font-style: normal; }
+<pre class="language-css marxy-run" data-marxy-s="0" data-marxy-e="2549"><code class="language-css" data-marxy-s="0" data-marxy-e="2549">@font-face { font-family: 'Literata'; src: url('./fonts/Literata-var.ttf') format('truetype'); font-weight: 200 900; font-style: normal; }
 @font-face { font-family: 'Literata'; src: url('./fonts/Literata-Italic-var.ttf') format('truetype'); font-weight: 200 900; font-style: italic; }
 @font-face { font-family: 'Quattro'; src: url('./fonts/Quattro-var.ttf') format('truetype'); font-weight: 300 700; }
 @font-face { font-family: 'iAMono'; src: url('./fonts/iAMono-var.ttf') format('truetype'); font-weight: 300 700; }

@@ -34,6 +34,7 @@ function details(node: Node): string {
     case 'codeBlock':
       if (node.lang) fields.push(`lang=${node.lang}`);
       if (node.info) fields.push(`info=${quote(node.info)}`);
+      if (node.run) fields.push('run');
       fields.push(`content=[${node.content.start},${node.content.end})`, `value=${quote(node.value)}`);
       break;
     case 'table': fields.push(`align=${node.align.map((a) => a ?? '-').join(',')}`); break;
@@ -77,7 +78,7 @@ for (const name of fixtures) {
   if (!compare(name, new URL(`${base}.html.txt`, goldens), html, 'rendered')) failed++;
 }
 
-// Code files (V-10): the corpus's `04-source.*` are read as code, one block over all their bytes, never as Markdown.
+// Code files (V-10): the corpus's `04-source.*` are read as code, code blocks of at most 200 lines over all their bytes, never as Markdown.
 const codeFixtures = readdirSync(corpus).filter((name) => /^\d\d-/.test(name) && !name.endsWith('.md') && isCodeFile(name)).sort();
 if (codeFixtures.length === 0) {
   console.error('golden: no code files in the corpus');
@@ -89,7 +90,7 @@ for (const name of codeFixtures) {
   const violations = checkInvariants(document, bytes);
   if (violations.length > 0 || document.children.some((child) => child.type !== 'codeBlock')) {
     failed++;
-    console.error(`golden: ${name} is not one clean code block: ${violations.map((v) => v.detail).join('; ')}`);
+    console.error(`golden: ${name} is not clean code blocks: ${violations.map((v) => v.detail).join('; ')}`);
     continue;
   }
   if (!compare(name, new URL(`${name}.ast.txt`, goldens), `${serialise(document).join('\n')}\n`, 'parsed')) failed++;

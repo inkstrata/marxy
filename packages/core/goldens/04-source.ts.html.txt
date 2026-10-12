@@ -1,4 +1,4 @@
-<pre class="language-typescript" data-marxy-s="0" data-marxy-e="8973"><code class="language-typescript" data-marxy-s="0" data-marxy-e="8973">import { getBridge, type Bridge } from './bridge';
+<pre class="language-typescript marxy-run" data-marxy-s="0" data-marxy-e="8973"><code class="language-typescript" data-marxy-s="0" data-marxy-e="8973">import { getBridge, type Bridge } from './bridge';
 const scriptStart = Date.now();
 const app = document.getElementById('app')!;
 const raf = () =&gt; new Promise&lt;number&gt;(r =&gt; requestAnimationFrame(r));
