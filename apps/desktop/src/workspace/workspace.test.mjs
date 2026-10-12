@@ -114,17 +114,20 @@ test('unfolding puts the six regions in the page, in order, and nothing else out
         children: regions.map((r) => r.childElementCount + r.textContent.length),
         parents: [...new Set(regions.map((r) => r.parentElement.tagName))],
         shown: regions.map((r) => !r.hidden),
+        docked: regions.map((r) => window.__marxyHandle.workspace().arrangement[r.getAttribute('data-marxy-workspace-region')]),
         visible,
         order: [...document.body.children].map((c) => c.getAttribute('data-marxy-workspace-region') ?? c.id).filter(Boolean),
       };
     });
     assert.equal(got.attribute, 'unfolded');
     assert.deepEqual(got.names, ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar']);
-    // The toolbar is the one region with content here (W-05; toolbar.test.mjs); the strip (K-07) has a fill but nothing for an article.
-    assert.deepEqual(got.children.map((n, i) => (got.names[i] === 'toolbar' ? n > 0 : n === 0)), [true, true, true, true, true, true], `only the toolbar holds content (${got.children})`);
+    // The toolbar and the tab row (W-06: one tab for the one document) hold content here; the strip (K-07) has a fill but nothing for an article.
+    assert.deepEqual(got.children.map((n, i) => (got.names[i] === 'toolbar' || got.names[i] === 'tabs' ? n > 0 : n === 0)), [true, true, true, true, true, true], `only the toolbar and the one tab hold content (${got.children})`);
     assert.deepEqual(got.parents, ['BODY']);
-    // The strip is docked too (the arrangement says so) but holds nothing for an article, so its band is hidden (K-07).
-    assert.deepEqual(got.shown, [true, true, true, false, false, true], 'a 1280 px window docks everything but the inspector; an empty strip is hidden from what is on it');
+    // The strip and the tabs are docked too (the arrangement says so). The strip holds nothing for an article, so its band is hidden (K-07);
+    // one document is one tab, and the tab row shows from two (W-06).
+    assert.deepEqual(got.shown, [true, true, false, false, false, true], 'a 1280 px window docks everything but the inspector; an empty strip and a row of one tab are hidden from what is on them');
+    assert.deepEqual(got.docked, [true, true, true, true, false, true], 'and the arrangement still says docked');
     assert.deepEqual(got.visible, [], 'a stray element outside the regions is what the gate would fail');
     assert.deepEqual(got.order.slice(0, 6), ['sidebar', 'toolbar', 'tabs', 'strip', 'marxy-main', 'inspector']);
   });
@@ -378,7 +381,9 @@ test('fold, unfold, quit, relaunch: it opens folded, and unfolding brings back t
     const shown = await page.evaluate(() =>
       Object.fromEntries([...document.querySelectorAll('[data-marxy-workspace-region]')].map((r) => [r.getAttribute('data-marxy-workspace-region'), !r.hidden])),
     );
-    assert.deepEqual(shown, { sidebar: false, toolbar: true, tabs: true, strip: false, inspector: true, 'status-bar': true });
+    // The tab row is docked (the saved file says so) and hides itself below two tabs (W-06).
+    assert.deepEqual(shown, { sidebar: false, toolbar: true, tabs: false, strip: false, inspector: true, 'status-bar': true });
+    assert.deepEqual(await page.evaluate(() => window.__marxyHandle.workspace().arrangement), { sidebar: false, toolbar: true, tabs: true, strip: false, inspector: true, 'status-bar': true });
   }, { '/data/workspace.json': kept });
 });
 
@@ -396,7 +401,8 @@ test('a corrupt workspace file is kept beside itself, the window opens folded, a
     assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().mode), 'folded');
     await unfold(page);
     const shown = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-workspace-region]')].map((r) => !r.hidden));
-    assert.deepEqual(shown, [true, true, true, false, false, true], 'the strip is docked and empty (K-07): hidden from what is on it');
+    assert.deepEqual(shown, [true, true, false, false, false, true], 'the strip is docked and empty (K-07) and the tab row holds one tab (W-06): each hidden from what is on it');
+    assert.deepEqual(await page.evaluate(() => Object.values(window.__marxyHandle.workspace().arrangement)), [true, true, true, true, false, true], 'the defaults dock all but the inspector');
     const kept = await page.evaluate(async () => {
       const shell = window.__marxyHandle.shell;
       const bad = [];

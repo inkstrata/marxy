@@ -111,6 +111,32 @@ both. Its menu lists each folded door's command in the verb menu's chrome, so ev
 keyboard and nothing is clipped. Back, Forward, the title, the switch and Copy never fold; where even they do not fit
 (`chrome_size` 26 in the narrowest column) the row scrolls as before.
 
+**Tabs (W-06; ADR-0058 item 5).** Unfolded, the `tabs` region holds `div.marxy-tabs[role="tablist"]`
+(`workspace/tabs-view.ts`; the list itself is `workspace/tabs.ts`, pure). A tab is a document a pane has shown since the
+window unfolded: the kind's glyph, the file's name, an unsaved dot, and a close button; its accessible name adds the
+folder (`A.md, in notes`) and says when it has unsaved changes or is shown in the other pane. The row follows the panes
+and never leads them: every signal (a document landing, a save, a Save As, focus moving) re-reads what the panes show
+(`TabList.sync`), so a document the reader refused to leave at the unsaved-changes prompt gets no tab, and a Save As
+(the same store under a new path) moves its tab instead of adding one. A new tab goes right of the tab the reader was on,
+the active tab is the focused pane's document, and the other pane's document has `data-marxy-tab-shown` (as does the
+active one if it is shown, so both tabs of a Split are marked and one is `data-marxy-tab-active`). At most 24 tabs;
+one more drops the oldest that no pane shows. A scratch document (`untitled`) and a bundled page (`marxy:`) are tabs
+only while a pane shows them. Folding forgets the tab list; nothing is remembered across a fold or a launch.
+
+**A tab keeps no unsaved edits** (the author's ruling of 2026-10-11; a version that keeps them is W-06.1). Only a
+document a pane shows can be dirty, so quit, fold, a closed pane and the close guard see what they always saw.
+Clicking a tab is `focused.content.open(path)` and nothing else, so leaving a document with unsaved edits asks (Save,
+Discard, Dismiss) exactly as opening over it does, and Dismiss leaves the pane, the buffer and the row as they were.
+A tab whose document the other pane shows is not opened a second time: the click moves focus to that pane. The close
+button on a tab no pane shows forgets it; on a document a pane shows it opens the nearest other tab there first
+(the right neighbour, else the left, preferring one the other pane is not showing), asking the same way, and the tab
+goes once that has landed. Below two tabs the band hides itself (`region.hidden`, on the element, as the strip does;
+`workspace.arrangement.tabs` is unchanged), and the last tab has no close button. In a row too wide for the window each
+tab shrinks to six ems and the row scrolls with its edges faded, the active tab scrolled into view; the page never
+scrolls sideways. The row is one tab stop; arrows, Home and End move within it, Return shows the tab and Delete closes
+it. Palette commands: `tab.next`, `tab.previous`, `tab.close` (no keys: ⌘W closes the window and ⌃Tab is the author's
+to rule), available only while the row holds two tabs or more.
+
 **Remembered panels.** Which regions are docked is `workspace.json` in the data directory beside `layout.json`
 (`{ version, panels: { sidebar, toolbar, tabs, strip, inspector, status-bar } }`; same version guard and quarantine).
 It is read when the reader unfolds (the first time in a session) and written when they fold or quit while unfolded,
