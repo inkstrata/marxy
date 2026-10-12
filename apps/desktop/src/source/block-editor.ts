@@ -64,7 +64,7 @@ export async function openBlockEditor(
     tabSizeCompartment: new Compartment(),
     lineSeparatorCompartment: new Compartment(),
   };
-  const extensions = await baseExtensions(buffer, false, compartments);
+  const extensions = await baseExtensions(buffer, false, compartments, true);
   const leave = (): boolean => {
     keys.leave();
     return true;

@@ -7,7 +7,9 @@ import { cmDocText, lineSeparatorFor } from './buffer-commit.ts';
 import { languageExtension, LARGE_FILE_BYTES } from './language.ts';
 import { setLineNumbersChoice } from './line-numbers.ts';
 import { marxyHighlighting } from './highlight-style.ts';
-import { liveMarxyTheme } from './theme-bridge.ts';
+import { liveMarxyTheme, sourceHang, type SourceLook } from './theme-bridge.ts';
+import { fileTypeOf } from '@marxy/core/src/index-model/file-types.ts';
+import { isUntitled } from '../document/untitled.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
 import { save } from '../save.ts';
 import { tabSizeForFile } from './tab-width.ts';
@@ -92,6 +94,17 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
   return wrapper;
 }
 
+/**
+ * Whether Source wraps this file's lines (K-R3 (a), V-12): Markdown and the text family do, with a hang; a code
+ * file scrolls sideways, because a wrapped Python or YAML line reads as another statement
+ * (06-code.md, "Wrap or scroll?"). A scratch document is Markdown until it is named.
+ */
+export function sourceWraps(path: string): boolean {
+  if (isUntitled(path)) return true;
+  const kind = fileTypeOf(path)?.kind;
+  return kind === 'markdown' || kind === 'text';
+}
+
 /** Whether wrapping and grammar should be disabled for this buffer. */
 export function isLargeSourceFile(buffer: Buffer): boolean {
   return buffer.bytes.length > LARGE_FILE_BYTES;
@@ -122,7 +135,18 @@ async function gutterExtensions(folding: boolean): Promise<Extension[]> {
   const { lineNumbers } = await import('@codemirror/view');
   if (!folding) return [lineNumbers()];
   const { foldGutter } = await import('@codemirror/language');
-  return [lineNumbers(), foldGutter()];
+  // The fold column is first, so the numbers sit against the text at an exact distance. A chevron shows while the
+  // pointer is over the gutter; a folded line's marker stays (nothing hidden silently, commitment 4).
+  return [foldGutter({ markerDOM: foldMarker }), lineNumbers()];
+}
+
+/** A fold gutter marker: the chevron, with a class that says whether it opens or closes a fold. */
+function foldMarker(open: boolean): HTMLElement {
+  const marker = document.createElement('span');
+  marker.className = open ? 'marxy-fold-open' : 'marxy-fold-closed';
+  marker.textContent = open ? '⌄' : '›';
+  marker.title = open ? 'Fold line' : 'Unfold line';
+  return marker;
 }
 
 function isMacPlatform(): boolean {
@@ -134,6 +158,7 @@ export async function baseExtensions(
   buffer: Buffer,
   lineNumbers: boolean,
   compartments?: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment?: Compartment },
+  island = false,
 ): Promise<Extension[]> {
   const { history, defaultKeymap, historyKeymap } = await import('@codemirror/commands');
   const { EditorState } = await import('@codemirror/state');
@@ -150,6 +175,10 @@ export async function baseExtensions(
   const sepComp = compartments?.lineSeparatorCompartment ?? lineSeparatorCompartment;
   const tabComp = compartments?.tabSizeCompartment ?? tabSizeCompartment;
 
+  // The in-place block editor is the one caller that passes `island`: an island inside Rendered's page, which keeps
+  // Rendered's code metrics. Every other mount is Source and wears its own (V-12, ADR-0067).
+  const wraps = sourceWraps(buffer.path) && !isLargeSourceFile(buffer);
+  const look: SourceLook = island ? 'island' : wraps ? 'prose' : 'code';
   const exts: Extension[] = [
     // The read-back of a save joins the edit before it (stray-bytes.ts `readBack`); every other join is the default's.
     history({ joinToEvent: (tr, adjacent) => adjacent || tr.annotation(readBack) === true }),
@@ -187,12 +216,14 @@ export async function baseExtensions(
     // A compartment: a reload that changes the file's line-ending class swaps it (F-25).
     sepComp.of(EditorState.lineSeparator.of(lineSeparator)),
     tabComp.of(EditorState.tabSize.of(tabSize)),
-    liveMarxyTheme(themeCompartment),
+    liveMarxyTheme(themeCompartment, look),
     marxyHighlighting(),
     lnComp.of(lnOn ? await gutterExtensions(!isLargeSourceFile(buffer)) : []),
   ];
   if (!isLargeSourceFile(buffer)) {
-    exts.push(EditorView.lineWrapping);
+    // The island wraps as it always has; Source wraps Markdown with a hang and scrolls code (K-R3 (a)).
+    if (look === 'island' || wraps) exts.push(EditorView.lineWrapping);
+    if (wraps && look === 'prose') exts.push(sourceHang());
     exts.push(...(await foldingExtensions()));
     const lang = await languageExtension(buffer.path, buffer.bytes.length);
     if (lang) exts.push(lang);

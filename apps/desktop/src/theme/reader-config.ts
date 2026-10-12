@@ -92,6 +92,26 @@ export function codeSizeFor(sizePx: number): number {
 }
 
 /**
+ * The Source editor's type for a body size: seven-tenths of it, to the half pixel (14 of 20). Source holds no
+ * prose, so it is not set on the prose grid; the ratio is the author's ruling K-R1 (a), ADR-0067. Inside prose the
+ * research sets code at 0.85 to 0.9 em of the text around it (06-code.md, "Size and the monospace quirk"); an
+ * editor that is the whole window has no text around it, and the cited incumbent, GitHub, sets code at 13 px
+ * (reader-artifacts/04-code-typography.md, "Leading").
+ */
+export function sourceSizeFor(sizePx: number): number {
+  return Math.round(sizePx * 0.7 * 2) / 2;
+}
+
+/**
+ * The Source line box for a body size: one and a half times its type, to the whole pixel (21 of 14), inside the
+ * handbook's 1.5 to 1.6 for code (06-code.md, "Line length, tabs and line height"). A whole pixel keeps every
+ * row, every number and every caret on the same pixel at every size.
+ */
+export function sourceLineBoxFor(sizePx: number): number {
+  return Math.round(sourceSizeFor(sizePx) * 1.5);
+}
+
+/**
  * The custom properties a body size overrides, name to value. The code line box is the body line
  * box, two grid units, so a code line is a whole number of units at every size (design-language
  * constraint 5). The default size overrides nothing: the stylesheet's own values stand.
@@ -102,6 +122,8 @@ export function sizeProperties(sizePx: number): Record<string, string> {
     '--marxy-line-box': `${lineBoxFor(sizePx)}px`,
     '--marxy-size-code': `${codeSizeFor(sizePx)}px`,
     '--marxy-line-box-code': `${lineBoxFor(sizePx)}px`,
+    '--marxy-size-source': `${sourceSizeFor(sizePx)}px`,
+    '--marxy-line-box-source': `${sourceLineBoxFor(sizePx)}px`,
   };
 }
 
