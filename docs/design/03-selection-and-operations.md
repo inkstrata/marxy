@@ -193,6 +193,23 @@ table, `apps/desktop/src/selection/verbs.ts`, so the order is written in one pla
 `listItem`, or a paragraph whose parent `listItem` has a task marker, is `task`. Any other block is
 `block`; an inline node is `inline`.
 
+**Derived selections (ADR-0061, ADR-0071).** A selection in a derived view is a `DerivedNode`, never a `Node`, so
+no operation's `canApply` sees it and nothing it resolves to reaches a splice. ADR-0061 names `turn`, `tool` and
+`derived-text` (K-12 adds their rows). ADR-0071 adds **`cell`**, built by K-10b: a click on a cell of the CSV or TSV table
+lens selects it.
+
+- **Bytes.** A `cell` resolves to the whole raw field, quotes included, delimiter and record terminator excluded: for
+  `a,"x ""y""",b` the middle cell's range is the 9 bytes `"x ""y"""`. An empty field resolves to its empty range; an
+  absent cell (a short row) has no bytes and offers the row's verbs only.
+- **Copy.** `⌘C` copies the cell's decoded value (`x "y"`) as plain text, one pasteboard item, no HTML and no formula
+  prefix: it is the text the reader is reading. In a CSV the raw field is the *Copy as* target **Source field (CSV)**,
+  and a menu row. A TSV field is never decoded (TSV has no quoting; ADR-0071 item 1): its value is its bytes between
+  tabs, a leading `"` reads as written, and the cell is never marked. A cell whose decoding collapsed a `""` carries `data-marxy-decoded` and a mark visible at rest.
+- **Menu.** Copy · Copy as… · Source field (CSV) · Column stats · Sort by this column · Jump to source · Open in Source.
+  The stats and the sort read; the sort orders the view, never the file. Transform may run on the value with its result
+  to the sheet or the clipboard, never Apply. No operation, no edit of a cell, no Source for one block.
+- A drag inside the grid is `derived-text` and copies what it covers as displayed.
+
 **Widening.** A click on a table cell offers the table's verbs, and a click on a task item's text
 offers "Toggle task". The node's own operation input is tried first, then the enclosing `table` or
 `listItem`; the palette and the keyboard share the rule.

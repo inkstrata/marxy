@@ -5,6 +5,8 @@
 - **Amends:** ADR-0003 (one buffer, one AST): a file may also be read through a second pure function
   of the same buffer. ADR-0004 (editing is transformation), ADR-0023 (provenance in the DOM),
   ADR-0045 (contracts change by pull request) and ADR-0054 (the verb menu) are read, not changed.
+- **Amended by:** [ADR-0071](0071-decoded-table-cells.md) (2026-10-12): a second deriver, `delimited-table`, for CSV
+  and TSV, with the `csv-field` decoding, the `cell` node and the `cell` selection.
 - **Decides:** research proposal P10
   (`docs/research/reader-artifacts/proposals/P10-derived-transcript-view.md`), which was blocked by
   the AST contract. Kind `transcript` is named by ADR-0060 (kinds, K-01).
