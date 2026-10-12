@@ -3,6 +3,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { COLLECTION_SAYS, CONFLICT_COPY_FAILED, CONFLICT_DISCARDED, conflictCopySaved, KIND_SAYS, layoutLeftOut, said } from './config-copy.ts';
+import { NO_FOLDER_YET } from '../document/untitled.ts';
+import { CONCEALED_REFUSAL, NOTHING_TO_PASTE } from '../paste/read-clipboard.ts';
+import { DISK_CHANGED_CHOOSE, DISK_CHANGED_EDITS_KEPT, FILE_REMOVED_ON_DISK, fileRefusedText } from './disk.ts';
+import { KIND_WORDS } from './glyphs.ts';
 import type { NoticeKind } from './index.ts';
 
 const boom = new Error('boom');
@@ -67,4 +71,23 @@ test('said joins the parts that have something to say', () => {
 test('a copy saved over a vanished file says the text is still open; over a file still there, that it shows the disk', () => {
   assert.match(conflictCopySaved('x.md', true).text, /your text is still open here/);
   assert.match(conflictCopySaved('x.md', false).text, /now shows what is on disk/);
+});
+
+test('no notice text starts with its own kind word: the pill already says "Not done", "Done" or "Note"', () => {
+  const words = new Set(Object.values(KIND_WORDS).map((w) => w.toLowerCase()));
+  const texts = [
+    ...table.map(([, got]) => got.text),
+    NO_FOLDER_YET,
+    CONCEALED_REFUSAL,
+    NOTHING_TO_PASTE,
+    DISK_CHANGED_CHOOSE,
+    DISK_CHANGED_EDITS_KEPT,
+    FILE_REMOVED_ON_DISK,
+    fileRefusedText('A.md', 'is no longer a regular file'),
+    layoutLeftOut('B.md', true),
+  ];
+  for (const text of texts) {
+    assert.doesNotMatch(text, /^(not|done|note|needs you)\b/i, text);
+    assert.ok(![...words].some((w) => text.toLowerCase().startsWith(`${w}:`) || text.toLowerCase().startsWith(`${w} `)), text);
+  }
 });

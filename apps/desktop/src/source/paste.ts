@@ -52,7 +52,7 @@ function stand(view: EditorView): () => boolean {
     !view.state.readOnly;
 }
 
-const MOVED = 'Not pasted: the document changed while the clipboard was being read.';
+const MOVED = 'The document changed while the clipboard was being read · nothing was pasted.';
 
 /** Shells that answered once (they have a native pasteboard) and shells that said `unsupported` (they have none). */
 const answered = new WeakSet<object>();

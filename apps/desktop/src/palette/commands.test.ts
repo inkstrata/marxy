@@ -219,5 +219,5 @@ test('Take theirs also counts Source text unfolded in the OTHER pane: the fold r
   );
   assert.equal(dec.decode(store.snapshot().buffer.bytes), '# Theirs\n');
   assert.equal(store.snapshot().canUndo, false);
-  assert.match(said.join(' '), /discarded and cannot be brought back with Undo/);
+  assert.match(said.join(' '), /discarded and Undo cannot bring them back/);
 });

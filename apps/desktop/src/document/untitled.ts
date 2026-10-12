@@ -38,4 +38,4 @@ export function documentName(path: string): string {
 }
 
 /** The notice said wherever a feature needs a folder the document does not have. */
-export const NO_FOLDER_YET = 'Not done: this document is not saved yet, so it has no folder · nothing was changed · Save it first.';
+export const NO_FOLDER_YET = 'This document is not saved yet, so it has no folder · nothing was changed · Save it first.';

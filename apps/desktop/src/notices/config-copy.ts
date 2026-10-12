@@ -21,19 +21,19 @@ const why = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 export const COLLECTION_SAYS = {
   noConfigAdd: (): Said => ({
     kind: 'refused',
-    text: said('Not added to the collection: this build keeps no configuration folder', 'collection.toml is unchanged'),
+    text: said('This build keeps no configuration folder, so there is no collection to add to', 'collection.toml is unchanged'),
   }),
   noConfigEdit: (): Said => ({
     kind: 'refused',
-    text: said('Collection not opened: this build keeps no configuration folder', 'nothing was changed'),
+    text: said('This build keeps no configuration folder, so there is no collection to edit', 'nothing was changed'),
   }),
   wholeDisk: (): Said => ({
     kind: 'refused',
-    text: said('Not added to the collection: this is a whole disk, too large to index', 'collection.toml is unchanged', 'Open a document in a smaller folder.'),
+    text: said('This is a whole disk, too large to index, so it was not added to the collection', 'collection.toml is unchanged', 'Open a document in a smaller folder.'),
   }),
   ownFolder: (): Said => ({
     kind: 'refused',
-    text: said("Not added to the collection: this folder holds Marxy's own settings and state", 'collection.toml is unchanged'),
+    text: said("This folder holds Marxy's own settings and state, so it was not added to the collection", 'collection.toml is unchanged'),
   }),
   readFailed: (e: unknown): Said => ({
     kind: 'error',
@@ -67,13 +67,13 @@ export const KIND_SAYS = {
   }),
   noDataFolder: (): Said => ({
     kind: 'refused',
-    text: said('Not changed: this build keeps no data folder, so a choice of kind cannot be kept', 'the file is shown as before'),
+    text: said('This build keeps no data folder, so a choice of kind cannot be kept', 'the file is shown as before'),
   }),
   newerKinds: (): Said => ({
     kind: 'refused',
-    text: said('Not changed: kinds.json was written by a newer Marxy', 'the file is unchanged', 'Update Marxy to change it.'),
+    text: said('kinds.json was written by a newer Marxy', 'the file is unchanged', 'Update Marxy to change it.'),
   }),
-  nothingToForget: (): Said => ({ kind: 'refused', text: said('Nothing to forget: this file has no chosen kind', 'nothing was changed') }),
+  nothingToForget: (): Said => ({ kind: 'refused', text: said('This file has no chosen kind to forget', 'nothing was changed') }),
   refusedShowAs: (notice: string): Said => ({ kind: 'refused', text: notice }),
   updateFailed: (e: unknown): Said => ({
     kind: 'error',
@@ -87,7 +87,7 @@ export const KIND_SAYS = {
   }),
   noConfigFolder: (): Said => ({
     kind: 'refused',
-    text: said('Rule not added: this build keeps no configuration folder', 'config.toml is unchanged'),
+    text: said('This build keeps no configuration folder, so a rule cannot be added', 'config.toml is unchanged'),
   }),
   configReadFailed: (e: unknown): Said => ({
     kind: 'error',
@@ -127,7 +127,7 @@ export function conflictCopySaved(copyName: string, stillDirty: boolean): Said {
 
 export const CONFLICT_DISCARDED: Said = {
   kind: 'done',
-  text: said('Your unsaved edits were discarded and cannot be brought back with Undo', 'this file now shows what is on disk'),
+  text: said('You took the version on disk', 'your unsaved edits were discarded and Undo cannot bring them back', 'This file now shows what is on disk.'),
 };
 
 export const CONFLICT_COPY_FAILED = (reason: string): Said => ({

@@ -383,7 +383,7 @@ test('the document changing while the pasteboard is read: nothing is inserted an
     await s.select([1]);
     await s.paste({ 'text/html': 'x' });
     await page.keyboard.type('Q');
-    await page.waitForFunction(() => document.body.textContent.includes('the document changed while'));
+    await page.waitForFunction(() => document.body.textContent.includes('The document changed while'));
     assert.equal(await s.doc(), 'XQY\n', 'only the typing');
     assert.equal(await s.undoSteps(), 1, 'the typing, and no paste');
   });
