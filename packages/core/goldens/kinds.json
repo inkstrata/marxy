@@ -456,6 +456,18 @@
       }
     ]
   },
+  "36-change.diff": {
+    "kind": "diff",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .diff",
+        "kind": "diff",
+        "at": "36-change.diff",
+        "decisive": true
+      }
+    ]
+  },
   "README.md": {
     "kind": "readme",
     "reasons": [

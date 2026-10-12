@@ -1,0 +1,2 @@
+document [0,1125)
+  codeBlock [0,1125) lang=diff run content=[0,1125) value="diff --git a/src/greet.ts b/src/greet.ts\nindex 3f1c2aa..9b7d0e4 100644\n--- a/src/greet.ts\n+++ b/src/greet.ts\n@@ -1,9 +1,…"

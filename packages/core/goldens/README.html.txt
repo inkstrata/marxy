@@ -59,3 +59,8 @@ level word inside a message that is not a level; a tab inside a line; and two AN
 (ESC, 0x1B, four of them on purpose). Every name, host and number is invented; the host is
 <code data-marxy-s="4631" data-marxy-e="4655">harbor.example.invalid</code> (RFC 2606). Do not let an editor or formatter strip the ESC bytes:
 <code data-marxy-s="4723" data-marxy-e="4739">.gitattributes</code> marks <code data-marxy-s="4746" data-marxy-e="4766">fixtures/corpus/**</code> as <code data-marxy-s="4770" data-marxy-e="4777">-text</code>.</p>
+<h2 data-marxy-s="4780" data-marxy-e="4797">36-change.diff</h2>
+<p data-marxy-s="4799" data-marxy-e="5263">Original text written for K-09: a unified diff in the shape <code data-marxy-s="4859" data-marxy-e="4869">git diff</code> writes, two files and three hunks. It has
+added, removed and context lines, an <code data-marxy-s="4949" data-marxy-e="4956">index</code> line, hunk headers with a function name after the second <code data-marxy-s="5014" data-marxy-e="5018">@@</code>, one added line
+long enough to wrap in the reader (the hang past the marker column), and a <code data-marxy-s="5110" data-marxy-e="5139">\ No newline at end of file</code> note. Every name
+is invented. A <code data-marxy-s="5172" data-marxy-e="5179">.diff</code> opens in Read; the goldens move only if the code-file parse or the kind table does.</p>

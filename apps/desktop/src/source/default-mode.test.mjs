@@ -41,9 +41,9 @@ for (const path of ['/repo/LICENSE', '/repo/AUTHORS', '/repo/Makefile', '/repo/R
 }
 
 // No other file's opening mode changes: every file in the corpus opens as the rule that was here before K-05a said.
-test('every corpus file opens in the mode it did before K-05a, but a log (K-08)', () => {
+test('every corpus file opens in the mode it did before K-05a, but a log (K-08) and a diff (K-09)', () => {
   // K-08: a log is read, so `.log` opens Rendered; nothing else in the corpus changed.
-  const before = (path) => (['.md', '.markdown', '.mdx', '.txt', '.log'].includes(extensionOf(path)) ? 'rendered' : 'source');
+  const before = (path) => (['.md', '.markdown', '.mdx', '.txt', '.log', '.diff', '.patch'].includes(extensionOf(path)) ? 'rendered' : 'source');
   const dir = fileURLToPath(new URL('../../../../fixtures/corpus/', import.meta.url));
   const names = readdirSync(dir);
   assert.ok(names.length > 20);
@@ -60,6 +60,12 @@ for (const path of ['/r/a.mdown', '/r/a.mkd', '/r/a.text', '/r/A.MDOWN']) {
 // K-08: a log, and an `.out` that is usually one, open in Read; the other files the table calls source still open in Source.
 for (const path of ['/r/build.log', '/r/BUILD.LOG', '/r/make.out']) {
   test(`defaultModeForPath(${path}) -> rendered (a log is read)`, () => {
+    assert.equal(defaultModeForPath(path), 'rendered');
+  });
+}
+// K-09: a diff or a patch opens in Read; on main neither was in the table, so each opened in Source.
+for (const path of ['/r/change.diff', '/r/fix.patch', '/r/FIX.PATCH']) {
+  test(`defaultModeForPath(${path}) -> rendered (a diff is read)`, () => {
     assert.equal(defaultModeForPath(path), 'rendered');
   });
 }
