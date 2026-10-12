@@ -305,8 +305,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
    * Everything one open document started: the view's page (its typesetter, resize observer, pending grid
    * pass and Source editor), the watch and the store. Run before the next document replaces it.
    */
-  function teardownDocument(): void {
-    view.clear();
+  function teardownDocument(keepSourceShowing = false): void {
+    view.clear(keepSourceShowing);
     // The store goes with its page: a transition still queued on it is refused, not applied elsewhere.
     // Its watch closes with it (document/live-reload.ts). One another pane still shows stays open, and
     // only this open path's watch on it closes.
@@ -432,7 +432,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       preparsed = { ast, nodeMap: await buildNodeMapInSlices(ast, yieldToEventLoop, undefined, () => closed) };
       if (closed) throw new Error('closed while the document was read');
     }
-    teardownDocument();
+    // Source, if it shows, stays on screen with the old text until the next document's page replaces it (V-15).
+    teardownDocument(true);
     // The kind is decided here, once per open, from the file's own first bytes (`decideKind`), before the page is
     // touched. A reload of this document never comes back through here; only an open does. `rejoin` shows the same
     // document again and keeps its kind. The launch's document is decided from the reads the pre-paint config
