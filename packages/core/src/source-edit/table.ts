@@ -186,22 +186,37 @@ interface Ctx extends Located {
 
 const DELIMITER_CELL = /^:?-+:?$/;
 
+/** Why a table tool declined a table it found under the caret (V-02.1); a caret in no table, or nothing to do, is not a refusal. */
+export type TableRefusal = 'columns' | 'shape' | 'closing-pipe' | 'rewrite';
+interface Refused {
+  readonly refused: TableRefusal;
+}
+const refuse = (refused: TableRefusal): Refused => ({ refused });
+/** What a tool says: the edit, a refusal with its reason, or null (no table under the caret, or nothing to do). */
+export type TableOutcome = LineEdit | Refused | null;
+
 function context(text: string, caret: number): Ctx | null {
+  const c = contextOf(text, caret);
+  return c && !('refused' in c) ? c : null;
+}
+
+function contextOf(text: string, caret: number): Ctx | Refused | null {
   const loc = locate(text, caret);
   if (!loc) return null;
   const rows = splitRows(text, loc.from, loc.to, loc.quotes);
   // The parse and this file must read the same table: the same rows (the delimiter row is not one of its
   // rows) and the same cells in each.
   const parsed = loc.table.children;
-  if (rows.length < 2 || rows.length - 1 !== parsed.length) return null;
+  if (rows.length < 2 || rows.length - 1 !== parsed.length) return refuse('shape');
   for (let i = 0; i < rows.length; i++) {
     if (i === 1) continue;
-    if (rows[i]!.cells.length !== parsed[i === 0 ? 0 : i - 1]!.children.length) return null;
+    if (rows[i]!.cells.length !== parsed[i === 0 ? 0 : i - 1]!.children.length) return refuse('columns');
   }
   const columns = rows[0]!.cells.length;
   const delimiter = rows[1]!;
-  if (columns === 0 || delimiter.cells.length !== columns || loc.table.align.length !== columns) return null;
-  for (const cell of delimiter.cells) if (!DELIMITER_CELL.test(text.slice(cell.trimFrom, cell.trimTo))) return null;
+  if (columns === 0 || delimiter.cells.length !== columns) return refuse('columns');
+  if (loc.table.align.length !== columns) return refuse('shape');
+  for (const cell of delimiter.cells) if (!DELIMITER_CELL.test(text.slice(cell.trimFrom, cell.trimTo))) return refuse('shape');
   // The caret's row: the last whose line starts at or before it.
   let line = 0;
   for (let i = 0; i < rows.length; i++) if (rows[i]!.start <= caret) line = i;
@@ -301,8 +316,16 @@ function caretIn(row: Row, col: number, rel: number): number {
  * Applies `splices` (inside the span, in the old text's offsets), checks the result against `expect`, and
  * returns it as one splice over the part that changed, with the caret at `target` of the new table.
  */
-function finish(c: Ctx, splices: readonly TextSplice[], expect: Expect, target: Place): LineEdit | null {
-  if (splices.length === 0) return null;
+function finish(c: Ctx, splices: readonly TextSplice[], expect: Expect, target: Place): TableOutcome {
+  const out = finishEdit(c, splices, expect, target);
+  if (out === 'nothing') return null;
+  if (out) return out;
+  // A ragged table is the usual reason an edit does not read back as asked: say that first.
+  return refuse(c.rows.some((r, i) => i !== 1 && r.cells.length !== c.columns) ? 'columns' : 'rewrite');
+}
+
+function finishEdit(c: Ctx, splices: readonly TextSplice[], expect: Expect, target: Place): LineEdit | 'nothing' | null {
+  if (splices.length === 0) return 'nothing';
   const sorted = [...splices].sort((a, b) => a.from - b.from);
   let out = '';
   let at = 0;
@@ -314,7 +337,7 @@ function finish(c: Ctx, splices: readonly TextSplice[], expect: Expect, target: 
     delta += s.insert.length - (s.to - s.from);
   }
   out += c.text.slice(at);
-  if (out === c.text) return null;
+  if (out === c.text) return 'nothing';
   // Everything outside the span is the old text, by construction; say so again where it is cheap.
   if (out.slice(0, c.from) !== c.text.slice(0, c.from) || out.slice(c.from + c.span.length + delta) !== c.text.slice(c.to)) return null;
   const after = factsAfter(c, c.text, out);
@@ -347,8 +370,14 @@ function cellTexts(rows: readonly Row[], text: string): string[][] {
  * this table's span and nothing else. Null when the caret is in no table or the table is already aligned.
  */
 export function alignTable(text: string, caret: number): LineEdit | null {
-  const c = context(text, caret);
-  if (!c) return null;
+  const out = alignTableOutcome(text, caret);
+  return out && !('refused' in out) ? out : null;
+}
+
+/** `alignTable` with the reason when it declines a table it found (V-02.1). */
+export function alignTableOutcome(text: string, caret: number): TableOutcome {
+  const c = contextOf(text, caret);
+  if (!c || 'refused' in c) return c;
   const aligned = alignedSpan(c, c.span);
   if (aligned === c.span) return null;
   const grid = c.facts.grid;
@@ -384,14 +413,20 @@ function newRowText(c: Ctx): string {
  * the table's container prefix and the line ending of the row it follows. Null outside a table.
  */
 export function addTableRow(text: string, caret: number): LineEdit | null {
-  const c = context(text, caret);
-  if (!c) return null;
+  const out = addTableRowOutcome(text, caret);
+  return out && !('refused' in out) ? out : null;
+}
+
+/** `addTableRow` with the reason when it declines a table it found (V-02.1). */
+export function addTableRowOutcome(text: string, caret: number): TableOutcome {
+  const c = contextOf(text, caret);
+  if (!c || 'refused' in c) return c;
   const after = Math.max(c.place.line, 1);
   const row = c.rows[after]!;
   // The ending that separates this row from the next, or (last row) the one that separates the rows above it.
   const ending = row.ending !== '' ? row.ending : c.rows[after - 1]!.ending;
   const prefix = text.slice(c.rows[1]!.start, c.rows[1]!.contentFrom);
-  if (ending === '') return null;
+  if (ending === '') return refuse('rewrite');
   const body = c.facts.grid.map((r) => [...r]);
   // The parse's row `after - 1` (the delimiter row is not one) is the row the new one follows.
   body.splice(after, 0, Array.from({ length: c.columns }, () => ''));
@@ -423,8 +458,14 @@ function newCellRaw(c: Ctx, rowIndex: number, col: number): string {
  * (an empty cell there would be read as the pipe that closes the row), so the tool refuses (null).
  */
 export function addTableColumn(text: string, caret: number): LineEdit | null {
-  const c = context(text, caret);
-  if (!c) return null;
+  const out = addTableColumnOutcome(text, caret);
+  return out && !('refused' in out) ? out : null;
+}
+
+/** `addTableColumn` with the reason when it declines a table it found (V-02.1). */
+export function addTableColumnOutcome(text: string, caret: number): TableOutcome {
+  const c = contextOf(text, caret);
+  if (!c || 'refused' in c) return c;
   // A cell beyond the header's (a row with too many) is not a column the table has: add after the last one.
   const col = Math.min(c.place.col, c.columns - 1);
   const splices: TextSplice[] = [];
@@ -432,7 +473,7 @@ export function addTableColumn(text: string, caret: number): LineEdit | null {
     const row = c.rows[i]!;
     if (row.cells.length <= col) continue;
     const pipe = row.cells[col]!.pipeAfter;
-    if (pipe === null) return null;
+    if (pipe === null) return refuse('closing-pipe');
     splices.push({ from: pipe + 1, to: pipe + 1, insert: `${newCellRaw(c, i, col)}|` });
   }
   const grid = c.facts.grid;
@@ -451,8 +492,15 @@ export function addTableColumn(text: string, caret: number): LineEdit | null {
  * already that, there are no body rows, or the caret's row has no cell.
  */
 export function sortTableRows(text: string, caret: number): LineEdit | null {
-  const c = context(text, caret);
-  if (!c || c.rows.length < 3 || c.rows[c.place.line]!.cells.length === 0) return null;
+  const out = sortTableRowsOutcome(text, caret);
+  return out && !('refused' in out) ? out : null;
+}
+
+/** `sortTableRows` with the reason when it declines a table it found (V-02.1). */
+export function sortTableRowsOutcome(text: string, caret: number): TableOutcome {
+  const c = contextOf(text, caret);
+  if (!c || 'refused' in c) return c;
+  if (c.rows.length < 3 || c.rows[c.place.line]!.cells.length === 0) return null;
   const col = c.place.col;
   const key = (i: number): string => {
     const cell = c.rows[i]!.cells[col];
