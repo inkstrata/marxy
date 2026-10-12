@@ -275,28 +275,43 @@ export function liveMarxyTheme(compartment: Compartment, look: SourceLook = 'cod
   const follow = ViewPlugin.fromClass(
     class {
       private readonly observer: MutationObserver | null;
+      private readonly themeObserver: MutationObserver | null;
+      private watchedMarker: Element | null = null;
       private queued = false;
+      private light = isLightVariant();
       constructor(private readonly view: EditorView) {
-        this.observer =
-          typeof MutationObserver === 'undefined'
-            ? null
-            : new MutationObserver(() => this.schedule());
+        const hasObserver = typeof MutationObserver !== 'undefined';
+        this.observer = hasObserver ? new MutationObserver(() => this.schedule(true)) : null;
         this.observer?.observe(document.documentElement, { attributes: true, attributeFilter: ['data-marxy-variant', 'style'] });
-        // A theme applied (or changed) rewrites the `#marxy-theme` marker in the head; its color-scheme may differ.
-        this.observer?.observe(document.head, { childList: true, subtree: true, characterData: true });
+        // A theme applied or changed rewrites the `#marxy-theme` marker in the head, and its color-scheme may differ (Fjord is
+        // dark under the light variant, H-05). Only that marker is watched, never the head's subtree: CodeMirror injects its own
+        // styles there on every reconfigure, and watching them would loop. The reconfigure runs only when light/dark changed.
+        this.themeObserver = hasObserver ? new MutationObserver(() => { this.watchMarker(); this.schedule(false); }) : null;
+        this.themeObserver?.observe(document.head, { childList: true });
+        this.watchMarker();
       }
-      schedule(): void {
+      private watchMarker(): void {
+        const marker = document.getElementById('marxy-theme');
+        if (marker === null || marker === this.watchedMarker) return;
+        this.watchedMarker = marker;
+        this.themeObserver?.observe(marker, { childList: true, characterData: true, subtree: true });
+      }
+      schedule(always: boolean): void {
         if (this.queued) return;
         this.queued = true;
         // Not inside CodeMirror's own update cycle.
         queueMicrotask(() => {
           this.queued = false;
           if (!this.view.dom.isConnected) return;
+          const light = isLightVariant();
+          if (!always && light === this.light) return;
+          this.light = light;
           this.view.dispatch({ effects: compartment.reconfigure(marxyCodeMirrorTheme(look)) });
         });
       }
       destroy(): void {
         this.observer?.disconnect();
+        this.themeObserver?.disconnect();
       }
     },
   );
