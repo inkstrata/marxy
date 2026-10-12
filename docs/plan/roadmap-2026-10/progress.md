@@ -285,6 +285,9 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 | F-53 | Rendering one long paragraph is linear | sonnet | ready | — | — | From the hunt (H-0008); 6,400 log lines take 2.6 s. |
 | F-54 | A document nested too deep shows its source and says so | sonnet (high) | ready | — | — | From the hunt (H-0001, H-0006); blank page at 508 quotes. |
 | F-55 | Remove list markers drops its false idempotent flag | sonnet (low) | ready | — | — | From the hunt (H-0002); gate only. |
+| F-60 | Transforms and Copy as take the parse they are given, and measure a large parse | sonnet (high) | ready | — | — | From F-59 (2 MB parses in 2.6 to 10 s). Core half; optional `parsed`, differential, `pnpm perf --parse`. Adversarial review. |
+| F-60.1 | Transform, the verbs and Copy as reuse the open document's parse | sonnet | ready | — | — | After F-60. App half: the store's parse per version; one parse per version across the sheet and Copy as. Adversarial review. |
+| X-24 | Card F-60 | planner | in review | — | — | This PR. |
 | X-23 | Board the hunt's findings | planner | in review | — | — | This PR. H-0010 parked (micromark, upstream). |
 | F-40 | Undo after a save adds no byte; a block edit keeps its endings | sonnet | merged | [#605](https://github.com/inkstrata/marxy/pull/605) | — | From the F-34.2 adversarial review; older than F-34.2. Mod+Z after a save that made mixed endings uniform appended `0D 0A`; a block edit rewrote untouched endings. ADR-0069. |
 | F-40.1 | Deleting only a CR in a mixed-ending block is written | sonnet | merged | [#611](https://github.com/inkstrata/marxy/pull/611) | — | From F-40. foldSlice widened a cut that split a CRLF and the deletion vanished; fixed in `core`; 20,000-case property. |
