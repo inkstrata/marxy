@@ -132,7 +132,9 @@ async function setLevel(level: Level): Promise<void> {
         notify({ kind: 'done', text: 'All lines shown · the file is unchanged' });
         return;
       }
-      const counted = await counting;
+      // The file may have changed on disk while the pieces were worked through: the notice counts the file as it is now.
+      const now = store.snapshot().buffer;
+      const counted = now === buffer ? await counting : await countHidden(now.text, level.min, yieldNow, { aborted: () => !current() || mine !== latest });
       if (counted === null || mine !== latest) return;
       if (counted.hidden === 0) {
         notify({ kind: 'info', fades: true, text: `Nothing in this log is below ${level.label} · every line is shown · the file is unchanged` });

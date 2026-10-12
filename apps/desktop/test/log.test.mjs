@@ -518,6 +518,34 @@ test('a log with no level words cannot be filtered, and says so: the tool is off
     await page.waitForFunction(() => document.querySelector('[data-tool="filter-by-level"]')?.getAttribute('aria-disabled') === null);
   }));
 
+test('a file that changes on disk while a level is being set: the notice when it is done counts the new file', () =>
+  withPage(async (page) => {
+    const rows = (n, level) => Array.from({ length: n }, (_, i) => `2026-10-12T09:00:00.${String(i % 1000).padStart(3, '0')}Z ${level.padEnd(5)} worker   handled request ${i} for /v1/tide/${i % 997}\n`).join('');
+    const old = rows(30_000, 'INFO') + rows(10, 'WARN');
+    await bootTwoPanes(page, { files: { ...files, '/r/grow.log': old }, open: ['/r/grow.log'], guard: true });
+    await page.waitForSelector('#doc pre.language-log');
+    await page.evaluate(PAGE_HELPERS);
+    await page.evaluate(async () => {
+      const { buildAppContext } = await import('/src/selection/bind.ts');
+      const handle = window.__marxyHandle;
+      await handle.commands().find((c) => c.id === 'log.filter-level').run(buildAppContext(handle));
+    });
+    await page.click('[data-row-key="log.level.warn"]');
+    // Another program appends a thousand ERROR lines while the page is still being worked through.
+    const grown = old + rows(1000, 'ERROR');
+    const busy = await page.evaluate(async ([path, text]) => {
+      const busy = document.querySelector('#doc').classList.contains('marxy-log-filter-busy');
+      await window.__outside(path, text);
+      return busy;
+    }, ['/r/grow.log', grown]);
+    assert.equal(busy, true, 'the file changed while the level was being set');
+    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent.startsWith('Warn and above')), null, { timeout: 60_000 });
+    await page.waitForTimeout(500);
+    const notices = await page.evaluate(() => [...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent).filter((t) => t.startsWith('Warn and above')));
+    const total = 30_000 + 10 + 1000;
+    assert.deepEqual(notices, [`Warn and above · 30,000 lines of ${total.toLocaleString('en-US')} hidden · the file is unchanged`], 'the numbers are the new file\'s');
+  }));
+
 /** The longest the main thread may be held while a level is set on a log of tens of megabytes: generous, for a loaded machine (measured at about 60 ms). */
 const LONGEST_BLOCK_MS = 250;
 
