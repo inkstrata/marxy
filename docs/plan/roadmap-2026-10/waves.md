@@ -9,7 +9,7 @@ stale). The ledger was brought level with GitHub on 2026-10-12 (X-26).
 1. **Done:** waves 1 to 3 (foundations, the new Night and Paper look, editing verbs) and waves 4 to 7 (the unfolded workspace, Copy as, kinds, keys, paste, toolbar, Transform, code opens in Source).
 2. **Current:** wave 8, filling the unfolded window. Tabs, sidebar and library view are merged; only the inspector's Links tab (W-09, #607) is in review.
 3. **Next:** the design pass (X-21, Opus, running): an aesthetics and usability pass on the chrome and Source view, moving toward the mock-v2 mockup, with the notifications pass (X-19) folded in. New UI surfaces wait for the author's ruling on its direction (see Design pass).
-4. **Carded:** wave 9 (themes, five kinds, the sidebar's trees); see its section. Its author questions proceed on their defaults, except K-20's placement and K-10b's ADR question.
+4. **Carded:** wave 9 (themes, five kinds, the sidebar's trees); see its section. Its author questions proceed on their defaults, except K-20's placement and K-10b's ADR question. Wave 10 is carded too (the inspector, Source's editing tools, new files, the menu bar); its V-06 and W-20 wait for ADR rulings.
 5. **Not blocked:** every author ruling and open ADR was settled on 2026-10-11 (X-18); a few small questions wait with defaults (below).
 6. **Ledger lag:** 18 states below come from GitHub, not from progress.md; the lead's ledger PR will catch up.
 
@@ -181,13 +181,33 @@ folders and saved queries from the sidebar. Cards and the dispatch order are in
 | --- | --- | --- | --- | --- |
 | Choose Ink, Dusk and Sepia, Fjord or a high-contrast theme; the choice is remembered | Palette: "Theme: …"; folded or unfolded | [H-05](../direction-2026-10/18-cards-wave-9.md#h-05--more-themes-ink-made-reachable-dusk-and-sepia-fjord-hc-dark-and-hc-light) | merged | [#673](https://github.com/inkstrata/marxy/pull/673) |
 | An article shows its byline and dek from its front matter | Automatic for an article, in Read | [K-20](../direction-2026-10/18-cards-wave-9.md#k-20--read-an-article-the-byline-and-the-dek-from-its-front-matter) | ready | — |
-| A Markdown transcript sets each speaker as an outdented label | Automatic for a transcript, in Read | [K-11](../direction-2026-10/18-cards-wave-9.md#k-11--read-a-markdown-transcript-speakers-outdented-turns-spaced) | in review | [#675](https://github.com/inkstrata/marxy/pull/675) |
+| A Markdown transcript sets each speaker as an outdented label | Automatic for a transcript, in Read | [K-11](../direction-2026-10/18-cards-wave-9.md#k-11--read-a-markdown-transcript-speakers-outdented-turns-spaced) | merged | [#675](https://github.com/inkstrata/marxy/pull/675) |
 | A log opens in Read with level words, timestamps and escapes shown; filter by level, jump to the first error | Automatic at open; the strip's tools (unfolded) or the palette | [K-08](../direction-2026-10/18-cards-wave-9.md#k-08--read-a-log-read-by-default-level-words-timestamps-escapes-shown-and-a-level-filter) | ready | — |
 | A diff or patch opens in Read, unified as written, with its lines tinted | Automatic at open | [K-09](../direction-2026-10/18-cards-wave-9.md#k-09--read-a-diff-read-by-default-unified-as-authored-tinted) | ready | — |
-| Fold a JSON or YAML file to a depth, each fold saying how many lines it hides | Source; palette "Fold to depth 1…4" | [K-10a](../direction-2026-10/18-cards-wave-9.md#k-10a--read-data-the-depth-lens-in-source) | ready | — |
+| Fold a JSON or YAML file to a depth, each fold saying how many lines it hides | Source; palette "Fold to depth 1…4" | [K-10a](../direction-2026-10/18-cards-wave-9.md#k-10a--read-data-the-depth-lens-in-source) | merged | [#683](https://github.com/inkstrata/marxy/pull/683) |
 | See a CSV or TSV as a table with sticky headers, sorting and column stats | The strip's Table tool (unfolded) or the palette | [K-10b](../direction-2026-10/18-cards-wave-9.md#k-10b--read-data-the-table-lens-for-csv-and-tsv) | ready | — |
 | Browse repositories and folders as trees in the sidebar | Unfolded window; `⌃⌘S` | [W-08](../direction-2026-10/18-cards-wave-9.md#w-08--the-sidebar-ii-repositories-and-folders-as-lazy-trees) | merged | [#672](https://github.com/inkstrata/marxy/pull/672) |
-| Save a library query as a smart collection and open it from the sidebar | Library: "Save as smart collection"; the sidebar | [Q-07](../direction-2026-10/18-cards-wave-9.md#q-07--smart-collections-in-the-sidebar-and-save-as-smart-collection) | in review | [#678](https://github.com/inkstrata/marxy/pull/678) |
+| Save a library query as a smart collection and open it from the sidebar | Library: "Save as smart collection"; the sidebar | [Q-07](../direction-2026-10/18-cards-wave-9.md#q-07--smart-collections-in-the-sidebar-and-save-as-smart-collection) | merged | [#678](https://github.com/inkstrata/marxy/pull/678) |
+
+## Wave 10 (carded): the inspector fills, Source gets its editing tools, new files and the menu bar
+
+See where you are in the status bar, move sections from the inspector's outline, go back to an earlier version of a file,
+format and replace in Source with a preview, be told quietly what is wrong with a file, find broken paths and near copies
+in the library, start or fork a file, and find every command in the menu bar. Cards and the dispatch order (three lanes,
+five steps) are in [`19-cards-wave-10.md`](../direction-2026-10/19-cards-wave-10.md). V-06 waits for the ruling on
+ADR-0072 (local versions), and W-20 for the ruling on ADR-0011's menu note.
+
+| Feature | How to reach it | Story | State | PR |
+| --- | --- | --- | --- | --- |
+| See the file's kind, a measure, where you are, its encoding, the theme and the text size at the window's foot; click an item to open its inspector tab | Unfolded window, the status bar | [W-11](../direction-2026-10/19-cards-wave-10.md#w-11--the-status-bar-what-the-file-is-and-where-you-are-one-click-from-its-inspector-tab) | ready | — |
+| List a document's headings with words per section in the inspector; jump to one, move a whole section up or down, promote or demote it | Inspector › Outline (`⌥⌘I`); `⌥↑` `⌥↓` on a row | [W-10](../direction-2026-10/19-cards-wave-10.md#w-10--the-inspectors-outline-tab-jump-words-per-section-move-a-section) | ready | — |
+| Go back to an earlier version of a file, see what changed since you read it, and restore a version as a copy beside the original | Inspector › Versions; palette "Show changes since you read" | [V-06](../direction-2026-10/19-cards-wave-10.md#v-06--the-inspectors-versions-tab-what-changed-earlier-copies-restore-beside-the-original) | ready | — |
+| Bold, italic, inline code, strikethrough and link in Source, and insert a table, fence, rule, details block or footnote; show whitespace and a column guide | Source: `⌘B`, `⌘I`, ``⌃` ``; palette `>Insert`, "Show whitespace", "Column guide" | [V-08](../direction-2026-10/19-cards-wave-10.md#v-08--formatting-commands-and-inserts-in-source-show-whitespace-and-the-column-guide) | ready | — |
+| Replace across a file in Source after a preview of every change, applied as one undo step | Source: `⌥⌘F`, then Replace all… | [V-03](../direction-2026-10/19-cards-wave-10.md#v-03--find-and-replace-in-source-with-a-preview-of-every-change) | ready | — |
+| See where a Markdown file has an unclosed fence, a skipped heading level or a missing path, as quiet marks at Source's right edge; go to the next one | Source's right edge and bottom bar; palette "Go to next note" | [V-04](../direction-2026-10/19-cards-wave-10.md#v-04--notes-about-a-file-quiet-marks-at-the-edge-a-count-and-go-to-next-note) | ready | — |
+| Find files that mention paths that do not exist, and files that are near copies of each other | Library: `is:broken`, `is:dup`; the sidebar's built-in smart collections | [Q-06](../direction-2026-10/19-cards-wave-10.md#q-06--broken-paths-and-near-duplicates-in-the-library) | ready | — |
+| Start a new file, a new file in a folder, or a fork of the open file written beside it | `⌘N`, `⇧⌘N`; the toolbar's and tab bar's +; a sidebar folder's menu; the palette | [W-14](../direction-2026-10/19-cards-wave-10.md#w-14--new-file-new-file-here-fork-this-file) | ready | — |
+| Find every command in the macOS menu bar, with its shortcut | The menu bar (macOS) | [W-20](../direction-2026-10/19-cards-wave-10.md#w-20--the-native-menu-bar-every-command-findable-every-shortcut-checked) | ready | — |
 
 ## Waiting on the author
 
