@@ -96,6 +96,7 @@
     "--marxy-col"
   ],
   "classes": [
+    "marxy-run",
     "marxy-toolbar-glyph",
     "marxy-strip-kind",
     "marxy-toolbar-word",

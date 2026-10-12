@@ -19,7 +19,7 @@ import { parseConfig } from '@marxy/theme';
 import { isUntitled } from '../document/untitled.ts';
 import { htmlFromRange } from '../selection/copy-html.ts';
 import { operationInputFor, operationInputsFor } from '../selection/input.ts';
-import { textFromRange } from '../selection/copy-text.ts';
+import { codeRunSourceText, textFromRange } from '../selection/copy-text.ts';
 import { ancestorsOf } from '../selection/verbs.ts';
 import { openVerbMenu, type MenuAnchor, type VerbMenuRow } from '../selection/verb-menu.ts';
 import { appHandle } from './app-handle.ts';
@@ -84,7 +84,7 @@ function renderedInput(): CopyAsInput | null {
     const live = range && !range.collapsed && runtime.article.contains(range.commonAncestorContainer) ? range : null;
     const src = sel.src;
     const exact = src && sel.version === runtime.version && src.end <= buffer.bytes.length ? textOf(buffer, src) : sel.text;
-    const plain = live ? textFromRange(live) : sel.text;
+    const plain = live ? (sel.version === runtime.version ? codeRunSourceText(live, runtime.article, buffer.bytes) : null) ?? textFromRange(live) : sel.text;
     return {
       markdown: () => exact,
       plain: () => plain,

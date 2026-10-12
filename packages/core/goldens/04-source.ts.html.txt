@@ -1,0 +1,122 @@
+<pre class="language-typescript marxy-run" data-marxy-s="0" data-marxy-e="8973"><code class="language-typescript" data-marxy-s="0" data-marxy-e="8973">import { getBridge, type Bridge } from './bridge';
+const scriptStart = Date.now();
+const app = document.getElementById('app')!;
+const raf = () =&gt; new Promise&lt;number&gt;(r =&gt; requestAnimationFrame(r));
+const frames = async (n: number) =&gt; { for (let i = 0; i &lt; n; i++) await raf(); };
+
+async function main() {
+  const b = await getBridge();
+  await b.mark('script_start', scriptStart, b.name);
+  const argv = await b.args();
+  const opt = (k: string, d = '') =&gt; { const a = argv.find(x =&gt; x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
+  const mode = opt('mode', new URLSearchParams(location.search).get('mode') || 'doc');
+  const file = opt('file');
+  try {
+    if (mode === 'doc') await docMode(b, file);
+    else if (mode === 'specimen') await specimenMode(b, +opt('offset', '0'), +opt('size', '17'));
+    else if (mode === 'typeset') await typesetMode(b, file);
+    else if (mode === 'cm6') await cm6Mode(b, file);
+    else if (mode === 'index') await indexMode(b, opt('root'));
+  } catch (e) { await b.mark('error', Date.now(), String(e)); }
+  await frames(2);
+  if (opt('shot')) { await b.screenshot(opt('shot')); await b.mark('shot', Date.now(), opt('shot')); }
+  await b.mark('ready', Date.now());
+  if (argv.includes('--quit')) await b.quit();
+}
+
+async function docMode(b: Bridge, file: string) {
+  const src = await b.readFile(file);
+  await b.mark('file_read', Date.now());
+  const { default: MarkdownIt } = await import('markdown-it');
+  const md = new MarkdownIt({ html: false, linkify: false, typographer: true });
+  const html = md.render(src);
+  await b.mark('parsed', Date.now());
+  app.innerHTML = `&lt;article class="column"&gt;${html}&lt;/article&gt;`;
+  await frames(1);
+  await b.mark('first_paint_frame', Date.now());
+  await document.fonts.ready;
+  await frames(1);
+  await b.mark('first_text', Date.now(), 'fonts-ready');
+}
+
+async function specimenMode(b: Bridge, offset: number, size: number) {
+  const faces = [['Literata', 'Literata'], ['Quattro', 'Quattro']];
+  const weights = [300, 350, 400, 450, 500, 550, 600, 650, 700];
+  const methods = ['font-weight', 'fvs'];
+  const text = size === 17 ? 'Hamburgefonstiv 0123 qu' : 'Hamburgefo 01';
+  const lh = size === 17 ? 24 : 44;
+  let html = '&lt;div class="spec"&gt;';
+  for (const wgt of weights) {
+    html += '&lt;div class="row"&gt;';
+    for (const [face, fam] of faces) for (const m of methods) {
+      const req = wgt - offset;
+      const style = m === 'font-weight' ? `font-weight:${req}` : `font-weight:400;font-variation-settings:'wght' ${req}`;
+      html += `&lt;div class="cell"&gt;&lt;div class="label"&gt;${face} ${m} ${size}px w${wgt}${offset ? ` (req ${req})` : ''}&lt;/div&gt;&lt;div class="sample" data-face="${face}" data-size="${size}" data-weight="${wgt}" data-method="${m}" style="font-family:'${fam}';font-size:${size}px;line-height:${lh}px;height:${lh}px;${style}"&gt;${text}&lt;/div&gt;&lt;/div&gt;`;
+    }
+    html += '&lt;/div&gt;';
+  }
+  if (size === 17) {
+    const req400 = 400 - offset, req600 = 600 - offset;
+    html += `&lt;div style="padding:12px 10px 0;width:640px"&gt;&lt;div class="label"&gt;reading size: Literata 17/28, requested ${req400} body / ${req600} heading, 68ch&lt;/div&gt;
+    &lt;div style="font-family:'Literata';font-size:21px;line-height:28px;font-weight:${req600};letter-spacing:-0.006em"&gt;The reader is judged on the fourth page&lt;/div&gt;
+    &lt;div style="font-family:'Literata';font-size:17px;line-height:28px;font-weight:${req400};max-width:68ch"&gt;Every vertical space is an integer multiple of the body line box. Headings, code blocks, images, lists, blockquotes and math all land on it. The purpose is not tidiness on the first screen — it is that a long document never accumulates drift. &lt;em&gt;Italic at seventeen pixels&lt;/em&gt; and &lt;strong&gt;bold inline&lt;/strong&gt; and &lt;code style="font-family:'JetBrainsMono';font-size:14px"&gt;inline code&lt;/code&gt; in the run of text.&lt;/div&gt;
+    &lt;div style="font-family:'Quattro';font-size:17px;line-height:28px;font-weight:${req400};max-width:68ch;margin-top:6px"&gt;Quattro at seventeen: every vertical space is an integer multiple of the body line box, and a long document never accumulates drift.&lt;/div&gt;&lt;/div&gt;`;
+  }
+  html += '&lt;/div&gt;';
+  app.innerHTML = html;
+  await document.fonts.ready;
+  await frames(2);
+  const pos = await b.innerPosition();
+  const samples = [...document.querySelectorAll&lt;HTMLElement&gt;('.sample')].map((el, i) =&gt; { const r = el.getBoundingClientRect(); return { id: i, face: el.dataset.face, size: +el.dataset.size!, weight: +el.dataset.weight!, method: el.dataset.method, x: r.x, y: r.y, w: r.width, h: r.height }; });
+  const manifest = { dpr: window.devicePixelRatio, offset, size, origin: { x: pos.x, y: pos.y }, scale: pos.scale, inner: { w: innerWidth, h: innerHeight }, ua: navigator.userAgent, samples };
+  await b.mark('layout', Date.now(), JSON.stringify(manifest));
+}
+
+async function typesetMode(b: Bridge, file: string) {
+  const src = await b.readFile(file);
+  const { default: MarkdownIt } = await import('markdown-it');
+  const md = new MarkdownIt({ html: false, typographer: true });
+  // take the first eight real paragraphs
+  const div = document.createElement('div'); div.innerHTML = md.render(src);
+  const paras = [...div.querySelectorAll('p')].filter(p =&gt; p.textContent!.length &gt; 220).slice(0, 4).map(p =&gt; p.outerHTML).join('');
+  const box = (cls: string, cap: string) =&gt; `&lt;div class="box ${cls}"&gt;&lt;p class="cap"&gt;${cap}&lt;/p&gt;${paras}&lt;/div&gt;`;
+  app.innerHTML = `&lt;div class="ts"&gt;${box('native', 'native ragged (engine)')}${box('pretty', 'text-wrap: pretty (engine)')}${box('justify', 'native justify (engine)')}${box('justif', 'justif Knuth–Plass justify + hanging')}&lt;/div&gt;`;
+  await document.fonts.ready;
+  const { justify } = await import('justif');
+  const { hyphenateEnUS } = await import('justif/hyphenate/en-us');
+  const t0 = performance.now();
+  const c = justify(document.querySelectorAll('.justif p:not(.cap)'), { hyphenate: hyphenateEnUS, onSkip: (el: any, why: any) =&gt; console.log('skip', why) });
+  await c.ready;
+  await b.mark('justif_ms', Date.now(), String(Math.round(performance.now() - t0)));
+  await frames(2);
+}
+
+async function cm6Mode(b: Bridge, file: string) {
+  const src = await b.readFile(file);
+  await b.mark('file_read', Date.now(), String(src.length));
+  const { EditorView, lineNumbers } = await import('@codemirror/view');
+  const { EditorState } = await import('@codemirror/state');
+  const t0 = performance.now();
+  const view = new EditorView({ state: EditorState.create({ doc: src, extensions: [lineNumbers()] }), parent: app });
+  await frames(1);
+  await b.mark('cm6_interactive', Date.now(), String(Math.round(performance.now() - t0)));
+  const sc = view.scrollDOM; const deltas: number[] = []; let last = performance.now();
+  for (let i = 0; i &lt; 240; i++) { sc.scrollTop += 1200; await raf(); const now = performance.now(); deltas.push(now - last); last = now; }
+  const s = [...deltas].sort((a, b2) =&gt; a - b2); const q = (p: number) =&gt; s[Math.min(s.length - 1, Math.floor(p * s.length))];
+  await b.mark('cm6_scroll', Date.now(), JSON.stringify({ frames: deltas.length, mean: +(deltas.reduce((a, c) =&gt; a + c, 0) / deltas.length).toFixed(2), p50: +q(0.5).toFixed(2), p95: +q(0.95).toFixed(2), max: +s[s.length - 1].toFixed(2), over16: deltas.filter(d =&gt; d &gt; 16.7).length, over100: deltas.filter(d =&gt; d &gt; 100).length, scrollTop: sc.scrollTop, lines: view.state.doc.lines }));
+}
+
+async function indexMode(b: Bridge, root: string) {
+  app.innerHTML = `&lt;div class="column"&gt;&lt;p&gt;indexing ${root}&lt;/p&gt;&lt;input id="q" style="font:16px monospace;width:100%"&gt;&lt;ol id="res"&gt;&lt;/ol&gt;&lt;/div&gt;`;
+  const r = await b.indexBuild(root);
+  await b.mark('index_build', Date.now(), JSON.stringify(r));
+  const words = ['ma', 'mar', 'marx', 'read', 'readme', 'src', 'src/ind', 'index', 'pack', 'packag', 'package.json', 'config', 'tsx', 'main', 'main.rs', 'lib', 'test', 'spec', 'doc', 'docs/', 'md', 'plan', 'report', 'css', 'theme', 'json', 'cargo', 'toml', 'yaml', 'lock', 'node', 'dist', 'build', 'view', 'mode', 'x', 'xy', 'xyz', 'q', 'qq'];
+  const queries: string[] = []; while (queries.length &lt; 200) for (const w of words) { for (let i = 1; i &lt;= w.length &amp;&amp; queries.length &lt; 200; i++) queries.push(w.slice(0, i)); }
+  const lat: number[] = []; const backend: number[] = []; const res = document.getElementById('res')!; const input = document.getElementById('q') as HTMLInputElement;
+  for (const q of queries) { input.value = q; const t0 = performance.now(); const out = await b.indexQuery(q); res.innerHTML = out.top.slice(0, 12).map(x =&gt; `&lt;li&gt;${x}&lt;/li&gt;`).join(''); await raf(); lat.push(performance.now() - t0); backend.push(out.ms); }
+  const st = (xs: number[]) =&gt; { const s = [...xs].sort((a, c) =&gt; a - c); const q = (p: number) =&gt; +s[Math.min(s.length - 1, Math.floor(p * s.length))].toFixed(2); return { p50: q(0.5), p95: q(0.95), max: q(1) }; };
+  await b.mark('index_query', Date.now(), JSON.stringify({ count: r.count, queries: queries.length, roundtrip_incl_render: st(lat), backend_only: st(backend) }));
+}
+
+main();
+</code></pre>

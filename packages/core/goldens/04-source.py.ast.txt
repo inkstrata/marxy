@@ -1,0 +1,2 @@
+document [0,9956)
+  codeBlock [0,9956) lang=python run content=[0,9956) value="#!/usr/bin/env python3\n\"\"\"Turn the spike's raw results into results/summary.md, with the decision-rule thresholds applie…"

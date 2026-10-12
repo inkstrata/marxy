@@ -23,6 +23,7 @@
 
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { TRANSFORMS, createBuffer, parseMarkdown } from '@marxy/core';
+import { astOf } from '../../src/document/store.ts';
 import { effectForOpenDocument } from '@marxy/core/src/position/watch-events.ts';
 import { cmDocText, lineSeparatorFor } from '../../src/source/buffer-commit.ts';
 import { runTableTool } from '../../src/source/structure.ts';
@@ -110,6 +111,8 @@ export function fixtures() {
       new Uint8Array([0xe2, 0x82]),
       enc.encode('\n'),
     ),
+    // A code file (V-10): read as code blocks, never as Markdown. A rename to a Markdown name or a Save as changes what it is read as.
+    [`${ROOT}/e.py`]: enc.encode('# not a heading\n\ndef f():\n\t# tab *star* _under_\n    return "é"\n'),
     // Short, and no ending after the last line.
     [`${ROOT}/d.md`]: enc.encode('# Tiny\n\nno trailing newline'),
   };
@@ -275,7 +278,7 @@ const opensLazily = (path) => [...path].reduce((n, c) => n + c.charCodeAt(0), 0)
 const parseDisagreement = (doc) => {
   const snap = doc.store.snapshot();
   const held = JSON.stringify(snap.ast);
-  const fresh = JSON.stringify(parseMarkdown(snap.buffer.bytes, { file: snap.path }));
+  const fresh = JSON.stringify(astOf(snap.path, snap.buffer.bytes));
   return held === fresh ? null : `${snap.path}: the store's parse (${doc.store.parsed() ? 'made' : 'not made'} before this read) is not the parse of its ${snap.buffer.bytes.length} bytes`;
 };
 const docOf = (model, store) => model.docs.find((doc) => doc.store === store);
@@ -1385,12 +1388,12 @@ export const OPS = {
         ['self', 1],
       ]);
       let target;
-      if (kind === 'fresh') target = `${ROOT}/s${model.nextFresh++}.md`;
+      if (kind === 'fresh') target = `${ROOT}/s${model.nextFresh++}${d.pick(['.md', '.py'])}`;
       else if (kind === 'otherPane') target = d.pick(otherDocs).path;
       else if (kind === 'self') target = doc.path;
       else {
         const closed = present(model).filter((p) => p !== doc.path && !model.docs.some((x) => x.path === p));
-        target = closed.length ? d.pick(closed) : `${ROOT}/s${model.nextFresh++}.md`;
+        target = closed.length ? d.pick(closed) : `${ROOT}/s${model.nextFresh++}.py`;
       }
       await world.foldAll(doc);
       const mark = world.dom.log.length;

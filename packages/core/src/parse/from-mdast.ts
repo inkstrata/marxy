@@ -62,7 +62,7 @@ export function documentFromMdast(root: md.Root, context: ConvertContext): Docum
 }
 
 /** Byte offset of the start of every line, for `sectionRange`; computed on first use. */
-function lineStarts(ctx: ConvertContext): number[] {
+export function lineStarts(ctx: ConvertContext): number[] {
   const starts = [ctx.offsets.at(0)];
   let cursor = 0;
   for (let ending = nextLineEnding(ctx.text, cursor); ending !== undefined; ending = nextLineEnding(ctx.text, cursor)) {

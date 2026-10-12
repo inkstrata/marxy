@@ -418,6 +418,215 @@ for (const [what, breakIt] of [
   });
 }
 
+test('Rendered of a .py is the code, byte for byte, in one highlighted block with no heading (V-10)', async () => {
+  const page = await freshPage();
+  const py = '# Inventory\n\n## section one\ndef f():\n\t# tab comment *not emphasis*\n    return 1  # _x_\n';
+  await startSampled(page, { ...FILES, '/repo/inv.py': py }, ['/repo/inv.py']);
+  await started(page);
+  for (let i = 0; i < 3; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);
+  await drained(page);
+  assert.equal(await mode(page), 'rendered');
+  await page.waitForFunction(() => document.querySelector('#doc pre > code')?.dataset.marxyDone === 'highlight', null, { timeout: 15000 });
+  const seen = await page.evaluate(() => ({
+    headings: document.querySelectorAll('#doc h1, #doc h2, #doc h3').length,
+    blocks: document.querySelectorAll('#doc pre').length,
+    others: [...document.querySelector('#doc').children].filter((c) => c.tagName !== 'PRE').map((c) => c.tagName),
+    text: document.querySelector('#doc pre > code').textContent,
+    lang: document.querySelector('#doc pre > code').className,
+    ranges: [document.querySelector('#doc pre > code').dataset.marxyS, document.querySelector('#doc pre > code').dataset.marxyE],
+    coloured: document.querySelectorAll('#doc pre > code span[class^="marxy-tok-"]').length,
+  }));
+  assert.equal(seen.headings, 0, 'a # comment is not a heading');
+  assert.equal(seen.blocks, 1, 'one block covers the file');
+  assert.deepEqual(seen.others, []);
+  assert.equal(seen.text, py, 'the file text, byte for byte, tabs and underscores kept');
+  assert.match(seen.lang, /language-python/);
+  assert.deepEqual(seen.ranges, ['0', String(new TextEncoder().encode(py).length)]);
+  assert.ok(seen.coloured > 0, 'the code is coloured by role');
+  assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-outline-item, #outline li').length), 0, 'a code file has no outline yet (K-13)');
+  await page.close();
+});
+
+/** The article's top-level elements, by tag. */
+const pageTags = (page) => page.evaluate(() => [...document.querySelector('#doc').children].map((c) => c.tagName));
+
+test('Save As that makes a Markdown page a code file, or the reverse, sets the page again (V-10)', async () => {
+  const page = await freshPage();
+  await startSampled(page, FILES, ['/repo/note.md']);
+  await started(page);
+  await page.waitForSelector('#doc h1');
+  const key = await modifier(page);
+  await page.evaluate(() => window.__h.shell.queueSaveDialog('/repo/note2.py'));
+  await page.keyboard.press(`${key}+Shift+KeyS`);
+  await page.waitForFunction(() => window.__h.openDocument().path === '/repo/note2.py');
+  await drained(page);
+  await page.waitForFunction(() => document.querySelector('#doc pre') !== null);
+  assert.deepEqual(await pageTags(page), ['PRE'], 'a .py is code, not the Markdown page it was');
+  assert.equal(await page.evaluate(() => document.querySelectorAll('#doc h1').length), 0);
+  await page.evaluate(() => window.__h.shell.queueSaveDialog('/repo/note3.md'));
+  await page.keyboard.press(`${key}+Shift+KeyS`);
+  await page.waitForFunction(() => window.__h.openDocument().path === '/repo/note3.md');
+  await drained(page);
+  await page.waitForFunction(() => document.querySelector('#doc h1') !== null);
+  assert.deepEqual(await pageTags(page), ['H1', 'P'], 'a .md is read as Markdown again');
+  await page.close();
+});
+
+test('a long .py is pieces of 200 lines drawn as one block, and .log and .html stay as they were (V-10)', async () => {
+  const page = await freshPage();
+  const long = Array.from({ length: 450 }, (_, i) => `x${i} = ${i}  # line`).join('\n') + '\n';
+  const files = { ...FILES, '/repo/long.py': long, '/repo/a.log': '# not a heading\nline\n', '/repo/a.html': '<h2>Hello</h2>\n' };
+  await startSampled(page, files, ['/repo/long.py']);
+  await started(page);
+  for (let i = 0; i < 3; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);
+  await drained(page);
+  await page.waitForSelector('#doc pre.marxy-run');
+  const seen = await page.evaluate(() => {
+    const pres = [...document.querySelectorAll('#doc pre')];
+    const gap = pres.length > 1 ? pres[1].getBoundingClientRect().top - pres[0].getBoundingClientRect().bottom : null;
+    return { n: pres.length, runs: pres.every((p) => p.classList.contains('marxy-run')), gap, text: pres.map((p) => p.textContent).join('') };
+  });
+  assert.equal(seen.n, 3);
+  assert.ok(seen.runs);
+  assert.equal(seen.gap, 0, 'the pieces meet with no gap');
+  assert.equal(seen.text, long, 'the pieces together are the file');
+  for (const [path, check] of [['/repo/a.log', () => document.querySelectorAll('#doc h1').length], ['/repo/a.html', () => document.querySelectorAll('#doc h2').length]]) {
+    await page.evaluate((p) => window.__h.open(p), path);
+    await drained(page);
+    if ((await mode(page)) === 'source') for (let i = 0; i < 1; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);
+    await drained(page);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#doc pre.marxy-run').length), 0, `${path} is not read as code`);
+  }
+  await page.close();
+});
+
+/** The text of the last copy the page made. */
+const copied = (page) =>
+  page.evaluate(() => {
+    const call = window.__h.shell.calls.filter((c) => c.method === 'clipboardWriteItem').at(-1);
+    return call ? new TextDecoder().decode(call.args[0].find((r) => r.type === 'public.utf8-plain-text').bytes) : null;
+  });
+/** Equal, or a short account of where they first differ (a diff of 20,000 characters says nothing). */
+const sameText = (actual, expected, what) => {
+  if (actual === expected) return;
+  let i = 0;
+  while (i < Math.min(actual?.length ?? 0, expected.length) && actual[i] === expected[i]) i++;
+  assert.fail(`${what}: ${actual?.length} characters against ${expected.length}, first difference at ${i}: ${JSON.stringify((actual ?? '').slice(i - 10, i + 20))} against ${JSON.stringify(expected.slice(i - 10, i + 20))}`);
+};
+const openRendered = async (page, path) => {
+  await started(page);
+  for (let i = 0; i < 3; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);
+  await drained(page);
+  await page.waitForSelector('#doc pre.marxy-run');
+  await page.waitForFunction(() => document.querySelectorAll('#doc pre.marxy-run').length === 4);
+};
+const LONG = Array.from({ length: 700 }, (_, i) => `v_${i} = ${i}  # line *s* _u_`).join('\n') + '\n';
+
+test('Mod+A, Mod+C on a 700-line .py copies the file, not a blank line more at each piece (V-10)', async () => {
+  const page = await freshPage();
+  await startSampled(page, { ...FILES, '/repo/big.py': LONG }, ['/repo/big.py']);
+  await openRendered(page);
+  await page.locator('#doc pre').first().click();
+  await page.keyboard.press(`${await modifier(page)}+KeyA`);
+  await page.keyboard.press(`${await modifier(page)}+KeyC`);
+  await page.waitForFunction(() => window.__h.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
+  sameText(await copied(page), LONG, 'Mod+A copy');
+  await page.close();
+});
+
+test('a shift-click selection across a piece boundary copies the file bytes between its ends (V-10)', async () => {
+  const page = await freshPage();
+  await startSampled(page, { ...FILES, '/repo/big.py': LONG }, ['/repo/big.py']);
+  await openRendered(page);
+  const pres = page.locator('#doc pre');
+  await pres.nth(0).click();
+  await pres.nth(2).click({ modifiers: ['Shift'] });
+  await page.evaluate(() => {
+    window.__native = null;
+    document.addEventListener('copy', (e) => { window.__native = e.clipboardData.getData('text/plain'); });
+  });
+  await page.keyboard.press(`${await modifier(page)}+KeyC`);
+  await page.waitForFunction(() => window.__native !== null);
+  const text = await page.evaluate(() => window.__native);
+  const upTo600 = LONG.split('\n').slice(0, 600).join('\n') + '\n';
+  sameText(text, upTo600, 'the three pieces');
+  await page.close();
+});
+
+/** Two pieces chosen as blocks, then every copy event the page sees recorded: whether it was prevented and what it carries. */
+async function piecesChosen(page) {
+  await startSampled(page, { ...FILES, '/repo/big.py': LONG }, ['/repo/big.py']);
+  await openRendered(page);
+  const pres = page.locator('#doc pre');
+  await pres.nth(0).click();
+  await pres.nth(2).click({ modifiers: ['Shift'] });
+  await page.evaluate(() => {
+    window.__copies = [];
+    document.addEventListener('copy', (e) => window.__copies.push({ prevented: e.defaultPrevented, data: e.clipboardData.getData('text/plain') }));
+  });
+}
+
+test('a copy in the find field is the find field\'s, with pieces chosen in the page (V-10)', async () => {
+  const page = await freshPage();
+  await piecesChosen(page);
+  const mod = await modifier(page);
+  await page.keyboard.press(`${mod}+KeyF`);
+  await page.keyboard.type('hello world');
+  await page.keyboard.press(`${mod}+KeyA`);
+  await page.keyboard.press(`${mod}+KeyC`);
+  const seen = await page.evaluate(() => window.__copies);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].prevented, false, 'the page did not take the copy');
+  assert.ok(!seen[0].data.includes('v_100'), 'and put no code on it');
+  await page.close();
+});
+
+test('a copy in the palette field is the palette\'s, with pieces chosen in the page (V-10)', async () => {
+  const page = await freshPage();
+  await piecesChosen(page);
+  const mod = await modifier(page);
+  await page.keyboard.press(`${mod}+KeyK`);
+  await page.waitForSelector('#marxy-palette[open] input');
+  await page.keyboard.type('abc');
+  await page.keyboard.press(`${mod}+KeyA`);
+  await page.keyboard.press(`${mod}+KeyC`);
+  const seen = await page.evaluate(() => window.__copies);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].prevented, false);
+  assert.ok(!seen[0].data.includes('v_100'));
+  await page.close();
+});
+
+test('a copy in Source is the editor\'s selection, with pieces chosen in Rendered before (V-10)', async () => {
+  const page = await freshPage();
+  await piecesChosen(page);
+  const mod = await modifier(page);
+  await page.keyboard.press(`${mod}+KeyE`);
+  await page.waitForSelector('.cm-editor');
+  await drained(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.press(`${mod}+ArrowUp`);
+  await page.keyboard.press('Shift+End');
+  await page.keyboard.press(`${mod}+KeyC`);
+  const seen = await page.evaluate(() => window.__copies);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].data, 'v_0 = 0  # line *s* _u_', 'the editor\'s own text, not the code of the old pieces');
+  await page.close();
+});
+
+test('a CRLF .py copies with its CRLF (V-10)', async () => {
+  const page = await freshPage();
+  const crlf = LONG.replaceAll('\n', '\r\n');
+  await startSampled(page, { ...FILES, '/repo/crlf.py': crlf }, ['/repo/crlf.py']);
+  await openRendered(page);
+  await page.locator('#doc pre').first().click();
+  await page.keyboard.press(`${await modifier(page)}+KeyA`);
+  await page.keyboard.press(`${await modifier(page)}+KeyC`);
+  await page.waitForFunction(() => window.__h.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
+  sameText(await copied(page), crlf, 'CRLF copy');
+  await page.close();
+});
+
 test('text typed in a .py before the parse was ever made is saved as typed, and Rendered parses it', async () => {
   const page = await freshPage();
   await startSampled(page, FILES, ['/repo/x.py']);

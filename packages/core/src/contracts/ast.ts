@@ -37,7 +37,7 @@ export interface Paragraph extends NodeBase { readonly type: 'paragraph'; readon
 export interface Blockquote extends NodeBase { readonly type: 'blockquote'; readonly children: readonly Block[]; }
 export interface List extends NodeBase { readonly type: 'list'; readonly ordered: boolean; readonly start?: number; readonly tight: boolean; readonly children: readonly ListItem[]; }
 export interface ListItem extends NodeBase { readonly type: 'listItem'; readonly task?: 'checked' | 'unchecked'; readonly children: readonly Block[]; }
-export interface CodeBlock extends NodeBase { readonly type: 'codeBlock'; readonly lang?: string; readonly info?: string; readonly value: string; /** byte range of the content only, excluding the fence lines */ readonly content: Source; }
+export interface CodeBlock extends NodeBase { readonly type: 'codeBlock'; readonly lang?: string; readonly info?: string; readonly value: string; /** byte range of the content only, excluding the fence lines */ readonly content: Source; /** Set on each piece of a code file read as code (V-10): the pieces tile the file and are drawn as one block. */ readonly run?: true; }
 export interface HtmlBlock extends NodeBase { readonly type: 'htmlBlock'; readonly value: string; }
 export interface ThematicBreak extends NodeBase { readonly type: 'thematicBreak'; }
 export interface Table extends NodeBase { readonly type: 'table'; readonly align: readonly ('left' | 'center' | 'right' | null)[]; readonly children: readonly TableRow[]; }

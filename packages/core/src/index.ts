@@ -4,6 +4,8 @@ export * from './contracts/index-entry.ts';
 export * from './contracts/position.ts';
 export { parseCount, parseMarkdown } from './parse/parse.ts';
 export type { ParseOptions } from './parse/parse.ts';
+export { codeLanguageOf, isCodeFile, parseCode } from './parse/code.ts';
+export type { CodeParseOptions } from './parse/code.ts';
 export { reparseMarkdown } from './parse/reparse.ts';
 export { Abandoned, lastChunkedParse, parseMarkdownChunked } from './parse/chunked.ts';
 export type { ChunkedParseOptions } from './parse/chunked.ts';
