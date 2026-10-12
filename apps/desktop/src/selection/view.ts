@@ -145,6 +145,10 @@ export interface RenderedSelection {
   selectBlockAtByte(byte: number): void;
   /** One step back in the link history; true when it moved (the caller then has nothing left to do). */
   back(): boolean;
+  /** Whether `back()` would move: the link history of the focused pane has a step before the page it is heading for. */
+  canBack(): boolean;
+  /** `cb` runs whenever the link history moves (a step taken, one recorded, a pending step settled). Returns the off switch. */
+  onHistoryChange(cb: () => void): () => void;
   /** The block carrier (`[data-marxy-s]`) last pressed on in this article, or null: where Jump to source starts. */
   lastPointerCarrier(): Element | null;
   /** The first pane's page was set again: re-resolve the selection on it and mark it. */
@@ -340,6 +344,11 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
    * `nextPath` joins `record`'s history after the document the pane shows now. Called when the open commits,
    * before the page flips, so the history and `currentPath()` never disagree across an await (F-21).
    */
+  const historyListeners = new Set<() => void>();
+  const historyMoved = (): void => {
+    for (const cb of [...historyListeners]) cb();
+  };
+
   const recordNavOpen = (record: PaneRecord, nextPath: string): void => {
     const { nav } = record;
     const current = record.target.currentPath();
@@ -349,6 +358,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     nav.history = kept;
     nav.index = kept.length - 1;
     nav.pendingBack = null;
+    historyMoved();
   };
 
   /**
@@ -371,6 +381,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     if (landed) {
       landed.nav.history = [target];
       landed.nav.index = 0;
+      historyMoved();
       if (fragment) landFragment(landed, fragment);
     }
     if (panes.focused !== from) panes.focus(from);
@@ -839,6 +850,16 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       const doc = opts.store()?.snapshot().ast;
       if (doc) move(parentOf(doc, state.selection));
     },
+    onHistoryChange(cb) {
+      historyListeners.add(cb);
+      return () => {
+        historyListeners.delete(cb);
+      };
+    },
+    canBack() {
+      const { nav } = active;
+      return (nav.pendingBack ?? nav.index) > 0;
+    },
     back() {
       const { nav, target } = active;
       // A second press before the first open has committed steps on from where the first is heading. The
@@ -848,7 +869,12 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       if (from <= 0) return false;
       const index = from - 1;
       nav.pendingBack = index;
-      const settle = (): void => { if (nav.pendingBack === index) nav.pendingBack = null; };
+      historyMoved();
+      const settle = (): void => {
+        if (nav.pendingBack !== index) return;
+        nav.pendingBack = null;
+        historyMoved();
+      };
       // The step back counts once the open commits, before the page flips, so a press while it is still
       // finishing steps on from it; a Dismiss over unsaved edits keeps the place.
       void target.open(nav.history[index]!, { onCommitted: () => { nav.index = index; settle(); } }).then(settle, settle);

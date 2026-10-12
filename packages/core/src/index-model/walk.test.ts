@@ -52,3 +52,21 @@ test('a file and a folder with a backslash in the name keep it from walk to open
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('a listing entry whose path climbs out of the root through a .. segment is not indexed', () => {
+  const root = '/repo';
+  const entry = (name: string, path: string, isDir = false) => ({ name, path, isDir, mtimeMs: 0, size: 1 });
+  const reader = {
+    readDir: (dir: string) => dir === root
+      ? [
+          entry('ok.md', '/repo/ok.md'),
+          entry('passwd.md', '/repo/foo/../../etc/passwd.md'),
+          entry('inside.md', '/repo/foo/../inside.md'),
+          entry('dot.md', '/repo/./dot.md'),
+          entry('up', '/repo/../up', true),
+        ]
+      : [],
+    readText: () => undefined,
+  };
+  assert.deepEqual(collectFiles(root, reader).map((f) => f.path), ['/repo/ok.md']);
+});

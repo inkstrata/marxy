@@ -287,12 +287,33 @@ test('Back is aria-disabled on the first document and enabled after a second is 
   });
 });
 
-test('Back is still enabled for a document opened while the window was folded', async () => {
+test('W-05.2: follow a link, Back once: Back is disabled again at the start of the link history', async () => {
+  await withPage(1280, async (page) => {
+    await unfold(page);
+    const back = () => page.evaluate(() => document.querySelector('[aria-label="Back"]').getAttribute('aria-disabled'));
+    await page.locator('article#doc a[href="./B.md"]').click();
+    await page.waitForFunction(() => window.__marxyHandle.currentPath() === '/r/B.md');
+    assert.equal(await back(), null, 'enabled after the link');
+    await control(page, 'Back').click();
+    await page.waitForFunction(() => window.__marxyHandle.currentPath() === '/r/A.md');
+    await page.waitForFunction(() => document.querySelector('[aria-label="Back"]').getAttribute('aria-disabled') === 'true');
+    assert.equal(await page.evaluate(() => window.__marxyHandle.selection.canBack()), false);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.selection.back()), false, 'and pressing it would do nothing');
+  });
+});
+
+test('Back is enabled for a link followed while the window was folded, and not for a document merely opened', async () => {
+  await withPage(1280, async (page) => {
+    await page.locator('article#doc a[href="./B.md"]').click();
+    await page.waitForFunction(() => window.__marxyHandle.currentPath() === '/r/B.md');
+    await unfold(page);
+    assert.equal(await page.evaluate(() => document.querySelector('[aria-label="Back"]').getAttribute('aria-disabled')), null);
+  });
   await withPage(1280, async (page) => {
     await page.evaluate(() => window.__marxyHandle.open('/r/B.md'));
     await page.waitForFunction(() => window.__marxyHandle.currentPath() === '/r/B.md');
     await unfold(page);
-    assert.equal(await page.evaluate(() => document.querySelector('[aria-label="Back"]').getAttribute('aria-disabled')), null);
+    assert.equal(await page.evaluate(() => document.querySelector('[aria-label="Back"]').getAttribute('aria-disabled')), 'true', 'Back would do nothing');
   });
 });
 
