@@ -202,10 +202,13 @@ test('to-jira: a pipe in code in a cell, literal -word-, and inline HTML', () =>
 
 test('wrap-80: a word in mid-paragraph is never glued whatever character it starts with', () => {
   for (const unit of ['|x ', '>x ', '>= ', '<x ', '$$x ', '|a|b| ']) {
+    // (A run of `>x` cannot be broken without opening a quote, so for that one the line runs long instead: see below.)
+    if (unit.startsWith('>')) continue;
     const text = unit.repeat(50).trimEnd();
     const out = run('wrap-80', `start ${text}\n`);
     assert.ok(longest(out) <= 80, JSON.stringify(unit));
     assert.equal(signature(out), signature(`start ${text}\n`), `${unit}: the document changed shape`);
+    assert.equal(out.replace(/\s+/g, ''), `start ${text}`.replace(/\s+/g, ''), `${unit}: more than whitespace changed`);
     assert.equal(run('wrap-80', out), out, `${unit}: not idempotent`);
   }
 });
@@ -221,5 +224,19 @@ test('wrap-80: every line is at most 80 columns for random words starting with e
     for (const line of out.split('\n')) assert.ok(line.length <= 80 || !line.includes(' '), `${JSON.stringify(line)} in ${JSON.stringify(text)}`);
     assert.equal(signature(out), signature(text), `shape changed: ${JSON.stringify(text)}`);
     assert.equal(run('wrap-80', out), out, `not idempotent: ${JSON.stringify(text)}`);
+    assert.equal(out.replace(/\s+/g, ''), text.replace(/\s+/g, ''), `more than whitespace changed: ${JSON.stringify(text)}`);
   }
+});
+
+test('wrap-80: nothing but whitespace changes; a break before `>x` moves one word earlier, and a run of them runs long', () => {
+  // Only one word on the line: nothing earlier to move, so the line runs past 80 and `tail` takes the break.
+  assert.equal(run('wrap-80', `${'a'.repeat(76)} >x tail\n`), `${'a'.repeat(76)} >x\ntail\n`);
+  // The break falls before `>x`: `abcde` moves down with it.
+  const words = 'word '.repeat(15);
+  assert.equal(run('wrap-80', `${words}abcde >x tail\n`), `${words.trimEnd()}\nabcde >x tail\n`);
+  const run50 = run('wrap-80', `start ${'>x '.repeat(50).trimEnd()}\n`);
+  assert.ok(run50.split('\n').every((l) => !l.startsWith('>')), 'no line opens a quote');
+  assert.ok(!run50.includes('\\'), 'no character is added');
+  assert.equal(run50.replace(/\s+/g, ''), `start${'>x'.repeat(50)}`);
+  assert.equal(run('wrap-80', run50), run50);
 });

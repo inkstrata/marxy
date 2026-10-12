@@ -21,8 +21,8 @@ const ATOMS = new Set(['code', 'mathInline', 'html', 'taskMarker']);
 const HTML_BLOCK = /^<(?:\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section|source|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[\s>/]|$)|(?:script|pre|style|textarea)(?:[\s>]|$)|!--|\?|![A-Za-z]|!\[CDATA\[)/i;
 const MARKER = /^(?:[-*+:]$|#{1,6}$|\d{1,9}[.)]$|[-=_*]{2,}$|[`~]{3,}|\$\$$|[|:]*-[|:-]*$|\[\^[^\]]*\]:)/;
 const blockStart = (w: string): boolean => MARKER.test(w) || (w[0] === '<' && HTML_BLOCK.test(w));
-// A word that starts with `>` would open a quote at the start of a line; it can always be written `\>` instead.
-const quoteStart = (w: string): boolean => w[0] === '>';
+// A word that starts with `>` would open a quote at the start of a line.
+const opensBlock = (w: string): boolean => blockStart(w) || w[0] === '>';
 
 const ASCII = /^[\x20-\x7e]*$/;
 const widthOf = (s: string): number => (ASCII.test(s) ? s.length : displayWidth(s));
@@ -66,34 +66,50 @@ function pieces(text: string, atoms: readonly [number, number][]): Piece[] {
 
 const endsWithOddBackslashes = (w: string): boolean => /(?<!\\)(?:\\\\)*\\$/.test(w);
 
-/** `text`'s words filled to `columns`; `start` is the column the first word begins at, `cont` the prefix of the other lines. */
+/**
+ * `text`'s words filled to `columns`; `start` is the column the first word begins at, `cont` the prefix of the other
+ * lines. Only the whitespace between words changes. A word that would open a block at the start of a line is never
+ * put there: the break moves one word earlier, and when that is not possible the line runs past the limit.
+ */
 function fill(text: string, atoms: readonly [number, number][], start: number, cont: string, columns: number): string {
   const contWidth = prefixWidth(cont);
-  const out: string[] = [];
+  // One entry per word on the current line: the separator written before it and the word.
+  type Item = { sep: string; word: string; width: number };
+  const lines: Item[][] = [[]];
   let col = start;
-  let first = true;
   let prev = '';
   for (const p of pieces(text, atoms)) {
     const w = widthOf(p.word);
-    if (first) {
-      out.push(p.word);
+    const line = lines[lines.length - 1]!;
+    if (line.length === 0 && lines.length === 1) {
+      line.push({ sep: '', word: p.word, width: w });
       col += w;
-      first = false;
     } else {
+      const sep = p.newline || p.sep === '' ? ' ' : p.sep;
       // The decision counts a run of spaces as one, so a line that was a break once is a break again (idempotence).
-      const glued = blockStart(p.word) || endsWithOddBackslashes(prev);
-      if (glued || col + 1 + w <= columns) {
-        const sep = p.newline || p.sep === '' ? ' ' : p.sep;
-        out.push(sep, p.word);
+      if (blockStart(p.word) || endsWithOddBackslashes(prev) || col + 1 + w <= columns) {
+        line.push({ sep, word: p.word, width: w });
         col += widthOf(sep) + w;
       } else {
-        out.push('\n', cont, quoteStart(p.word) ? `\\${p.word}` : p.word);
-        col = contWidth + w + (quoteStart(p.word) ? 1 : 0);
+        const last = line[line.length - 1]!;
+        const before = line[line.length - 2];
+        // Moving `last` down keeps `p.word` off the start of the line; `last` itself must be fine there.
+        if (opensBlock(p.word) && before !== undefined && !opensBlock(last.word) && !endsWithOddBackslashes(before.word)) {
+          line.pop();
+          lines.push([{ sep: '', word: last.word, width: last.width }, { sep, word: p.word, width: w }]);
+          col = contWidth + last.width + widthOf(sep) + w;
+        } else if (opensBlock(p.word)) {
+          line.push({ sep, word: p.word, width: w });
+          col += widthOf(sep) + w;
+        } else {
+          lines.push([{ sep: '', word: p.word, width: w }]);
+          col = contWidth + w;
+        }
       }
     }
     prev = p.word;
   }
-  return out.join('');
+  return lines.map((l) => l.map((i) => i.sep + i.word).join('')).join(`\n${cont}`);
 }
 
 export const wrap80: TransformDef = {
