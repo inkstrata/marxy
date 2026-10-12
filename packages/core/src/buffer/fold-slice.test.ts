@@ -58,6 +58,13 @@ const rows: Row[] = [
   row('a typed U+FFFD is EF BF BD, and the stray beside it keeps its byte', new Uint8Array([0x61, 0xff, 0x0a, 0x62, 0x0a]), [0, 4], 'a\udcff\u{fffd}b', new Uint8Array([0x61, 0xff, 0xef, 0xbf, 0xbd, 0x62, 0x0a])),
   row('a U+FFFD the file holds stays EF BF BD beside a stray', new Uint8Array([0x61, 0xef, 0xbf, 0xbd, 0xff, 0x0a]), [0, 6], 'b\u{fffd}\udcff\n', new Uint8Array([0x62, 0xef, 0xbf, 0xbd, 0xff, 0x0a])),
   row('BOM before the slice is untouched', new Uint8Array([0xef, 0xbb, 0xbf, ...bytesOf('a\r\nb\r\n')]), [3, 7], 'a\nc', new Uint8Array([0xef, 0xbb, 0xbf, ...bytesOf('a\r\nc\r\n')])),
+  // F-40: a block that mixes endings. The editor's text names every ending of the block as it is; only a line break
+  // the reader made (a bare LF) follows the first ending, and only when the part replaced has no bare LF of its own.
+  row('mixed, CRLF first: an edit across a bare LF leaves it (F-40)', 'line1\r\nline2\nline3\r\nline4', [0, 26], 'Xline1\r\nline2\nline3\r\nline4Y', 'Xline1\r\nline2\nline3\r\nline4Y'),
+  row('mixed, lone CR first: an edit across a bare LF and a CRLF leaves both (F-40)', 'a\rb\nc\r\nd', [0, 9], 'Xa\rb\nc\r\ndY', 'Xa\rb\nc\r\ndY'),
+  row('mixed, lone CR first: an edit across a CRLF leaves it a CRLF (F-40)', 'a\rb\r\nc', [0, 7], 'Xa\rb\r\ncY', 'Xa\rb\r\ncY'),
+  row('mixed, CRLF first: a new line break in a part with no bare LF follows the first ending', 'a\r\nb\r\nc\nd', [0, 11], 'a\n\r\nb\r\nc\nd', 'a\r\n\r\nb\r\nc\nd'),
+  row('mixed, CRLF first: a new line break beside a bare LF of the part is written as typed', 'a\r\nb\r\nc\nd', [0, 11], 'a\n\r\nb\r\nc\ndY', 'a\n\r\nb\r\nc\ndY'),
   row('CR-only slice takes CR for new lines', 'a\rb\rc', [0, 5], 'a\nb\nX\nc'.replace(/\n/g, '\r'), 'a\rb\rX\rc'),
 ];
 

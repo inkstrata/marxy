@@ -38,6 +38,22 @@ const lineNumbersCompartment = new Compartment();
 const tabSizeCompartment = new Compartment();
 const lineSeparatorCompartment = new Compartment();
 const themeCompartment = new Compartment();
+/** Holds the editor's history, so `clearHistory` can drop it: CodeMirror has no other way to forget what it can undo. */
+const historyCompartment = new Compartment();
+
+/**
+ * Forgets everything the editor can undo or redo. The history is a list of changes in the positions of the text they
+ * were made in, and mapping them through a change from outside (the document replaced, the line separator swapped, a
+ * Rendered undo) does not make them mean the same thing: an undo then inserts or deletes at a place the reader never
+ * edited, and the bytes it writes are bytes nobody asked for (F-40, ADR-0069). The store's history is the one that
+ * survives such a change (ADR-0037); the editor starts a new one.
+ */
+export function clearHistory(view: EditorView): void {
+  const held = historyCompartment.get(view.state);
+  if (held === undefined) return;
+  view.dispatch({ effects: historyCompartment.reconfigure([]) });
+  view.dispatch({ effects: historyCompartment.reconfigure(held) });
+}
 
 /**
  * The live editor in each Source mount, newest last (D-01). One per mount, not one per page: two panes
@@ -181,7 +197,7 @@ export async function baseExtensions(
   const look: SourceLook = island ? 'island' : wraps ? 'prose' : 'code';
   const exts: Extension[] = [
     // The read-back of a save joins the edit before it (stray-bytes.ts `readBack`); every other join is the default's.
-    history({ joinToEvent: (tr, adjacent) => adjacent || tr.annotation(readBack) === true }),
+    historyCompartment.of(history({ joinToEvent: (tr, adjacent) => adjacent || tr.annotation(readBack) === true })),
     // Several selections: next and all occurrences (V-01) add ranges, which a single-selection state drops.
     EditorState.allowMultipleSelections.of(true),
     // Paste with HTML on the pasteboard becomes Markdown (J-05); any other paste is the editor's own.

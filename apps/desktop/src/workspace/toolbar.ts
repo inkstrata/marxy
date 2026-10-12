@@ -49,10 +49,12 @@ export const TOOLBAR_ITEMS: readonly ToolbarItem[] = [
 
 /**
  * Which doors fold into the *More* menu when the row would overflow, and in what order: the lowest number goes first
- * (the mockup's toolbar, right to left). A door not listed (back, forward, the title, the switch, Copy and the sidebar toggle)
- * never folds; the inspector's toggle folds last of all (W-09: it is drawn once the inspector has content, and it must not push the row past a narrow window). Kept apart from `TOOLBAR_ITEMS` so a story adding a door adds one line to each.
+ * (the mockup's toolbar, right to left). A door not listed (back, forward, the title, the switch and Copy) never folds.
+ * The two panel toggles fold last, the inspector's (W-09: drawn once the inspector has content) just before the sidebar's (W-07: drawn once
+ * the sidebar is filled). With both present the row must still fit at 929 px and at chrome_size 26, as the title keeps its five ems: in the
+ * narrowest window the toggles are then in More, and `Ctrl+Mod+S` and `Ctrl+Mod+I` still dock the panels. Kept apart from `TOOLBAR_ITEMS` so a story adding a door adds one line to each.
  */
-export const FOLD_ORDER: Readonly<Record<string, number>> = { transform: 1, export: 2, new: 3, kind: 4, find: 5, inspector: 6 };
+export const FOLD_ORDER: Readonly<Record<string, number>> = { transform: 1, export: 2, new: 3, kind: 4, find: 5, inspector: 6, sidebar: 7 };
 
 /** The switch's three choices, in order. */
 export const MODE_CHOICES: readonly { readonly command: string; readonly label: string }[] = [

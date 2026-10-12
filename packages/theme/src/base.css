@@ -867,6 +867,26 @@ button.marxy-link-row:hover { background: var(--marxy-color-selection); }
 .marxy-link-dest, .marxy-link-status { color: var(--marxy-color-text-secondary); }
 .marxy-link-mismatch { color: var(--marxy-color-text); font-weight: 600; }
 .marxy-link-mismatch::before { content: "\26A0\FE0E  "; }
+/* The sidebar (W-07 layout; W-04 owns the look). One column in the `sidebar` region, 252 px (`--marxy-ws-sidebar-w`; the
+   panel scrolls, the page does not): an optional Library row, then two sections, each a header button (the title, and a
+   quiet count once folded) over a list of rows. A row is the kind's glyph, the title and a quiet age; the title shrinks
+   to an ellipsis first, so at `chrome_size` 26 the row still fits the column and the age is never pushed out. Nothing
+   is drawn in a row but those three; a changed file is told by its age in the accent, and by its accessible name. */
+.marxy-sidebar { display: flex; flex-direction: column; gap: 0.6em; min-width: 0; padding: 0.6em 0.5em; user-select: none; -webkit-user-select: none; }
+.marxy-sidebar button { appearance: none; -webkit-appearance: none; margin: 0; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; line-height: 1.3; text-align: start; cursor: default; }
+.marxy-sidebar button:hover { background: var(--marxy-color-selection); }
+.marxy-sidebar button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-sidebar-library { display: block; width: 100%; padding: 0.35em 0.6em; }
+.marxy-sidebar-section { min-width: 0; }
+.marxy-sidebar-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5em; width: 100%; padding: 0.3em 0.6em; color: var(--marxy-color-text-secondary); }
+.marxy-sidebar-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marxy-sidebar-count { flex: none; }
+.marxy-sidebar-list { list-style: none; margin: 0; padding: 0; }
+.marxy-sidebar-row { display: flex; align-items: center; gap: 0.5em; width: 100%; min-width: 0; padding: 0.3em 0.6em; white-space: nowrap; }
+.marxy-sidebar-row .marxy-kind-glyph { flex: none; display: inline-flex; }
+.marxy-sidebar-name { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.marxy-sidebar-age { flex: none; color: var(--marxy-color-text-secondary); }
+.marxy-sidebar-row-changed .marxy-sidebar-age { color: var(--marxy-color-accent); }
 
 /* The panes: the middle of the grid, below the bands. A split fills what the bands leave (index.html gives it the window's height). */
 body[data-marxy-workspace="unfolded"] #marxy-main { grid-column: 2; grid-row: 4; min-height: var(--marxy-ws-panes-h); }
@@ -917,6 +937,9 @@ body[data-marxy-workspace="unfolded"][data-marxy-mode="source"] #marxy-main:not(
   .marxy-tab[data-marxy-tab-active] > button { color: HighlightText; }
   .marxy-inspector-tab[data-marxy-inspector-tab-active] { background: Highlight; color: HighlightText; }
   .marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible { outline-color: Highlight; }
+  .marxy-sidebar button:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
+  .marxy-sidebar button:focus-visible { outline: 2px solid Highlight; }
+  .marxy-sidebar-head, .marxy-sidebar-age { color: GrayText; }
   .marxy-verb-menu-item:focus { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .marxy-verb-menu-item:focus .marxy-verb-menu-key { color: HighlightText; }
   .marxy-divider::before { background: CanvasText; animation: none !important; forced-color-adjust: none; }

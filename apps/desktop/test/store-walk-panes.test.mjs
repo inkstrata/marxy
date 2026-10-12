@@ -10,6 +10,8 @@
 //   I3  every token typed is still in a buffer, an editor or a file (unless a step that says so dropped it)
 //   I4  an outside write is announced: a clean store shows it, a dirty one holds it for a choice and says so
 //   I5  one store per path, one watch per store
+//   I8  a Mod+Z in a Source editor lands on text some editor, buffer or file held before (it adds no byte nobody
+//       typed: F-40; the editor's history does not outlive a change made outside it)
 // W-06 adds the tab row: the walk unfolds the window and clicks real tabs and close buttons (tabSwitch, tabClose),
 // and every step also asks the page the row's own questions (a tab for each document a pane shows, none twice).
 // What only the node layer covers: the exact history/baseline arithmetic (I6, I7) and the weighted mix of
@@ -178,19 +180,27 @@ function openSeed(seed) {
       let nextFresh = 1;
       let nextOutside = 1;
 
+      /** Every text an editor, a buffer or a file held after a step (I8's states the reader had). */
+      const had = new Set();
+      const remember = (seen) => {
+        for (const t of everywhere(seen)) had.add(t);
+      };
       const everywhere = (seen) => [...seen.panes.map((p) => p.buffer), ...seen.panes.map((p) => p.editor), ...Object.values(seen.files)].filter((t) => t != null);
       const found = (seen) => {
         const texts = everywhere(seen);
         return tokens.filter((t) => t.live && texts.some((x) => x.includes(t.text)));
       };
       /** After a step: whatever the step says it may drop, and then nothing else is missing. */
-      const check = async (step, { mayDrop, announced = null } = {}) => {
+      const check = async (step, { mayDrop, announced = null, sourceUndone = null } = {}) => {
         await settle(page);
         const seen = await look(page);
         const drops = typeof mayDrop === 'function' ? mayDrop(seen) : [];
         const dump = seen.panes.map((p) => `  pane ${p.slot}: ${name(p.path)} ${p.mode}, dirty=${p.dirty}, unfolded=${p.unfolded}, held change=${p.conflict}, buffer ${p.buffer?.length} chars, disk baseline ${p.base?.length} chars, said ${JSON.stringify(p.notices)}`).join('\n');
         const fail = (rule, message) => assert.fail(`panes walk failed on seed ${seed} in ${rule}: ${message}\nafter: ${step}\n${dump}\nreplay: MARXY_WALK_SEED=${seed} node --test --experimental-strip-types apps/desktop/test/store-walk-panes.test.mjs\nsteps:\n${log.map((l, i) => `  ${i}. ${l}`).join('\n')}`);
         if (seen.violations.length) fail('I1 (no silent overwrite)', seen.violations.join('; '));
+        if (sourceUndone && !had.has(sourceUndone.text)) {
+          fail('I8 (Source undo adds no byte)', `Mod+Z in pane ${sourceUndone.slot} left text no editor, buffer or file ever held: ${JSON.stringify(sourceUndone.text)}`);
+        }
         const there = new Set(found(seen).map((t) => t.id));
         for (const token of tokens) {
           if (!token.live || there.has(token.id)) continue;
@@ -230,6 +240,7 @@ function openSeed(seed) {
             }
           }
         }
+        remember(seen);
         return seen;
       };
 
@@ -244,9 +255,10 @@ function openSeed(seed) {
       const OPS = {
         edit: {
           weight: 5,
-          applicable: (s) => s.panes.some((p) => p.mode === 'rendered'),
+          // A task to tick: a delete in Source (F-40) may have taken the last one out of the file.
+          applicable: (s) => s.panes.some((p) => p.mode === 'rendered' && /\[[ x]\]/.test(p.buffer ?? '')),
           async run(s) {
-            const p = d.pick(s.panes.filter((q) => q.mode === 'rendered'));
+            const p = d.pick(s.panes.filter((q) => q.mode === 'rendered' && /\[[ x]\]/.test(q.buffer ?? '')));
             await tickTask(page, p.slot);
             return { label: `tick a task in pane ${p.slot} (${name(p.path)})` };
           },
@@ -292,6 +304,34 @@ function openSeed(seed) {
             }, p.slot);
             // An undo takes back what the reader typed: those tokens are dropped by design.
             return { label: `undo in pane ${p.slot}`, mayDrop: (after) => tokens.filter((t) => t.live && !found(after).some((f) => f.id === t.id)).map((t) => t.id) };
+          },
+        },
+        // F-40: a key in the Source editor takes back what its own history holds, and nothing a change from outside
+        // (a Rendered undo, a task ticked, a write by another program) put in the text since.
+        sourceDelete: {
+          weight: 4,
+          applicable: () => true,
+          async run(s) {
+            const p = d.pick(s.panes);
+            await toSource(page, p.slot);
+            await typeAtLineEnd(page, p.slot, 1 + d.int(12), '');
+            await page.keyboard.press(d.pick(['Delete', 'Backspace']));
+            return { label: `delete a character or a line break in Source, pane ${p.slot} (${name(p.path)})`, mayDrop: (after) => tokens.filter((t) => t.live && !found(after).some((f) => f.id === t.id)).map((t) => t.id) };
+          },
+        },
+        sourceUndo: {
+          weight: 6,
+          applicable: (s) => s.panes.some((p) => p.mode === 'source'),
+          async run(s) {
+            const p = d.pick(s.panes.filter((q) => q.mode === 'source'));
+            await focusPane(page, p.slot);
+            await page.focus(`${p.slot === 0 ? '#marxy-source' : '#marxy-source-2'} .cm-content`);
+            const times = 1 + d.int(3);
+            for (let i = 0; i < times; i++) await page.keyboard.press(`${mod}+z`);
+            const text = (await look(page)).panes[p.slot].editor;
+            // What the reader took back with their own history is not lost: those tokens are withdrawn.
+            for (const t of tokens) if (t.live && p.editor?.includes(t.text) && !text?.includes(t.text)) t.live = false;
+            return { label: `Mod+Z x${times} in Source, pane ${p.slot} (${name(p.path)})`, sourceUndone: { slot: p.slot, text } };
           },
         },
         save: {
@@ -415,7 +455,7 @@ function openSeed(seed) {
               },
               { slot: p.slot, id: choice === 'mine' ? 'document.keep-mine-as-copy' : 'document.take-version-on-disk' },
             );
-            return { label: `${choice === 'mine' ? 'keep mine as a copy' : 'take the version on disk'} in pane ${p.slot}`, mayDrop: choice === 'theirs' ? () => tokensIn(p.buffer) : undefined };
+            return { label: `${choice === 'mine' ? 'keep mine as a copy' : 'take the version on disk'} in pane ${p.slot}`, mayDrop: choice === 'theirs' ? () => tokensIn(s.panes.filter((q) => q.path === p.path).flatMap((q) => [q.buffer, q.editor]).join('\n')) : undefined };
           },
         },
         // The shape D-10 fixed: unsaved edits, another program writes, a Cmd-click on a link to the open file, a save.
@@ -447,13 +487,14 @@ function openSeed(seed) {
         },
       };
 
+      remember(await state());
       for (let n = 0; n < STEPS; n++) {
         const s = await state();
         const ops = Object.values(OPS).filter((o) => o.applicable(s));
         const op = d.weighted(ops.map((o) => [o, o.weight]));
         const done = await op.run(s);
         log.push(done.label);
-        await check(done.label, { mayDrop: done.mayDrop, announced: done.announced ?? null });
+        await check(done.label, { mayDrop: done.mayDrop, announced: done.announced ?? null, sourceUndone: done.sourceUndone ?? null });
       }
     } finally {
       await page.close();

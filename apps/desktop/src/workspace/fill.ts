@@ -8,6 +8,7 @@ import { mountKindChip, mountStrip } from './kind-chip.ts';
 import { mountInspector, registerInspectorTab } from './inspector.ts';
 import { LINKS_TAB } from './links-tab.ts';
 import { installPeek } from './peek.ts';
+import { mountSidebar } from './sidebar-view.ts';
 import { mountTabs } from './tabs-view.ts';
 import { createDocumentSignal, mountToolbar } from './toolbar.ts';
 
@@ -20,6 +21,8 @@ export function installWorkspaceFills(handle: AppHandle): void {
   // the strip shows the focused kind's tools. Neither exists folded (K-07).
   workspace.fill('toolbar', (el) => mountKindChip(el, handle, signal));
   workspace.fill('strip', (el) => mountStrip(el, handle, signal));
+  // Recent, Pinned and what changed since it was read; the toolbar's sidebar toggle and the left edge's peek light up once this exists (W-07).
+  workspace.fill('sidebar', (el) => mountSidebar(el, handle, signal));
   // The documents opened since the window unfolded, one click apart; the band hides itself below two (W-06). Folded there are no tabs.
   workspace.fill('tabs', (el) => mountTabs(el, handle, signal));
   // The inspector: a strip of the tabs registered (Links is the only one; Outline, Metadata and Versions register theirs, W-10, W-17, V-06) and the selected panel. Folded there is none.

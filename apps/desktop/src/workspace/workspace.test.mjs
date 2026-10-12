@@ -121,8 +121,8 @@ test('unfolding puts the six regions in the page, in order, and nothing else out
     });
     assert.equal(got.attribute, 'unfolded');
     assert.deepEqual(got.names, ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar']);
-    // The toolbar, the tab row (W-06: one tab for the one document) and the inspector (W-09: its strip of tabs, though undocked here) hold content; the strip (K-07) has a fill but nothing for an article.
-    assert.deepEqual(got.children.map((n, i) => (['toolbar', 'tabs', 'inspector'].includes(got.names[i]) ? n > 0 : n === 0)), [true, true, true, true, true, true], `only the toolbar, the one tab and the inspector's strip hold content (${got.children})`);
+    // The sidebar (W-07: its element, empty here, as no palette feeds it), the toolbar, the tab row (W-06: one tab for the one document) and the inspector (W-09: its strip of tabs, though undocked here) hold content; the strip (K-07) has a fill but nothing for an article.
+    assert.deepEqual(got.children.map((n, i) => (['sidebar', 'toolbar', 'tabs', 'inspector'].includes(got.names[i]) ? n > 0 : n === 0)), [true, true, true, true, true, true], `only the sidebar, the toolbar, the one tab and the inspector's strip hold content (${got.children})`);
     assert.deepEqual(got.parents, ['BODY']);
     // The strip and the tabs are docked too (the arrangement says so). The strip holds nothing for an article, so its band is hidden (K-07);
     // one document is one tab, and the tab row shows from two (W-06).

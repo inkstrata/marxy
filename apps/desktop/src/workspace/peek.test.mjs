@@ -127,11 +127,23 @@ test('no peek with a button down, with a dialog open, or for a region with nothi
     assert.deepEqual(await peeked(page), [], 'a dialog is open');
     await page.evaluate(() => document.getElementById('stray').remove());
 
-    await rest(page, 3, 450, 300);
-    assert.deepEqual(await peeked(page), [], 'the sidebar has no fill today');
+    // W-09 fills the inspector, so no region is empty in the app now; take its fill away to test a region with nothing in it.
+    await ws(page, '(() => { const real = w.hasFill.bind(w); w.hasFill = (r) => r !== "inspector" && real(r); return true; })()');
     await rest(page, 1277, 450, 300);
-    assert.deepEqual(await peeked(page), [], 'nor the inspector');
-    assert.equal(await ws(page, 'w.peek("sidebar")'), false);
+    assert.deepEqual(await peeked(page), [], 'the inspector has no fill here');
+  });
+});
+
+test('W-07: the left edge peeks the sidebar the app fills, with no stub, and the panes do not move', async () => {
+  await withPage(async (page) => {
+    const before = await column(page);
+    await rest(page, 3, 450, 300);
+    assert.deepEqual(await peeked(page), ['sidebar'], 'on main nothing fills the sidebar and nothing peeks');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('[data-marxy-workspace-region="sidebar"] .marxy-sidebar').length), 1, 'the real sidebar is in it');
+    assert.deepEqual(await column(page), before);
+    await page.mouse.move(640, 450);
+    await page.waitForTimeout(300);
+    assert.deepEqual(await peeked(page), []);
   });
 });
 
@@ -218,10 +230,9 @@ test('the panel keys dock from folded and toggle when unfolded, from inside Code
     assert.equal((await docked()).inspector, false);
 
     if (await mac(page)) {
-      // The sidebar has no fill: the chord does nothing, and is not Save either.
+      // The chord is not Save: it docks the sidebar (W-07 fills it) and writes no document.
       await page.keyboard.press('Control+Meta+s');
       assert.equal(await page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && JSON.stringify(c.args).includes('A.md')).length), 0, 'Control+Command+S is not Save');
-      await stubFill(page, 'sidebar');
       const was = (await ws(page, 'w.arrangement.sidebar'));
       await page.keyboard.press('Control+Meta+s');
       assert.equal(await ws(page, 'w.arrangement.sidebar'), !was, 'toggles the sidebar when unfolded');
@@ -236,6 +247,8 @@ test('the panel keys dock from folded and toggle when unfolded, from inside Code
 test('a panel with nothing in it has no key: the chord does nothing', async () => {
   await withPage(async (page) => {
     const m = await mod(page);
+    // W-09 fills the inspector, so no region is empty in the app now; take its fill away to test a region with nothing in it.
+    await ws(page, '(() => { const real = w.hasFill.bind(w); w.hasFill = (r) => r !== "inspector" && real(r); return true; })()');
     await page.keyboard.press(`${m}+Alt+i`);
     await page.waitForTimeout(100);
     assert.equal(await mode(page), 'folded');
