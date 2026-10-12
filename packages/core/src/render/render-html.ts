@@ -11,7 +11,13 @@ import { parseAlert } from './alerts.ts';
 import { headingIdsForDocument } from './heading-ids.ts';
 import { renderFrontmatterHead } from './frontmatter.ts';
 import { linkHostMismatchLabel } from './link-host.ts';
-import { smartenParagraphTextNode, type ParagraphTypo } from './typography.ts';
+import {
+  advanceSiblingRun,
+  SIBLING_RUN_START,
+  smartenParagraphTextNode,
+  type ParagraphTypo,
+  type SiblingRun,
+} from './typography.ts';
 
 /** One class-safe token: what the sanitiser's `language-*` class pattern allows, with no whitespace. */
 const LANGUAGE_TOKEN = /^[a-z0-9#+._-]{1,32}$/;
@@ -349,14 +355,18 @@ function plainInlineText(nodes: readonly Inline[]): string {
 
 function inlines(nodes: readonly Inline[], ctx: Context, typo: RenderTypo = NO_WIDONT): string {
   let text = '';
-  for (const node of nodes) text += inline(node, nodes, ctx, typo);
+  let run = SIBLING_RUN_START;
+  for (const node of nodes) {
+    text += inline(node, run, ctx, typo);
+    run = advanceSiblingRun(run, node);
+  }
   return text;
 }
 
-function inline(node: Inline, siblings: readonly Inline[], ctx: Context, typo: RenderTypo): string {
+function inline(node: Inline, run: SiblingRun, ctx: Context, typo: RenderTypo): string {
   switch (node.type) {
     case 'text': {
-      let value = smartenParagraphTextNode(siblings, node, typo);
+      let value = smartenParagraphTextNode(node, typo, run);
       if (
         typo.lastText === node &&
         typo.wordsInParagraph >= WIDONT_MIN_WORDS &&
