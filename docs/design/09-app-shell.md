@@ -137,8 +137,30 @@ scrolls sideways. The row is one tab stop; arrows, Home and End move within it, 
 it. Palette commands: `tab.next`, `tab.previous`, `tab.close` (no keys: ⌘W closes the window and ⌃Tab is the author's
 to rule), available only while the row holds two tabs or more.
 
+**Sidebar (W-07; ADR-0058).** The `sidebar` region (252 px, `--marxy-ws-sidebar-w`) holds `nav.marxy-sidebar`
+(`workspace/sidebar-view.ts`; the lists are `workspace/sidebar.ts`, pure). Two sections, each a header button that folds
+it (`aria-expanded`; folded, it keeps its header and a quiet count): **Recent**, the last eight documents opened, newest
+first, and **Pinned · Changed since you read**, the pinned documents and then the files in watched folders modified
+after they were read. They are C-12's lists (`emptyStateSections`, `changedSinceRead`: no rule of the sidebar's own),
+so a document is in one list only, and a row is the kind glyph, the title and a quiet age (`relativeAge`, the file's
+modified time as in the palette); a changed file's age is in the accent. A section with no rows is not drawn. Nothing
+reads the disk: the rows come from the palette's feed and session and the index service's watch state, so a pinned or
+recent file the feed's scope cap leaves out has no row, as in the palette. A click or Return opens the row in the focused
+pane (`AppHandle.open`: the unsaved-changes prompt, history and read time are the open's own); `Mod`-click or `Mod+Return`
+opens it beside, in a pane made if need be. `Alt`-click on a header folds or opens every section as the clicked one
+does. A *Library* row opens the sidebar only when the command `library.open` is registered (Q-03 registers it); there is
+no Repositories, Folders or Smart-collections section (W-08, Q-07) and no pin control (the palette's `Mod+.` stays the only
+one). The list is one tab stop; arrows, Home and End move within it; each row and header has an accessible name (title,
+pinned or changed, age in words). The sidebar redraws when a document opens or saves, the index patches, and when the
+pointer or focus comes back after a pin made in the palette; the palette mounts after the app, so a sidebar made before
+it looks again every 200 ms until it exists. The folded sections are `sidebar: { collapsed: [...] }` in `workspace.json`,
+read when the sidebar is first drawn (never at launch), written when a section is folded, unknown ids dropped. With
+the sidebar docked or undocked the reading column does not move (the side columns are one width, see the workspace
+grid above). This is also what makes `view.toggle-sidebar` (`Ctrl+Mod+S`), the toolbar's sidebar toggle and the left
+edge's peek appear.
+
 **Remembered panels.** Which regions are docked is `workspace.json` in the data directory beside `layout.json`
-(`{ version, panels: { sidebar, toolbar, tabs, strip, inspector, status-bar } }`; same version guard and quarantine).
+(`{ version, panels: { sidebar, toolbar, tabs, strip, inspector, status-bar }, sidebar?: { collapsed: [...] } }`; same version guard and quarantine; `sidebar` is absent until a section is first folded, W-07).
 It is read when the reader unfolds (the first time in a session) and written when they fold or quit while unfolded,
 never at launch. With nothing remembered every region is docked except the inspector, which opens by default only in
 a window of 1600 px or more (ADR-0058 item 6). The command `view.toggle-workspace` ("Fold or unfold the workspace")

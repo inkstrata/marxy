@@ -77,6 +77,8 @@
     "data-marxy-library",
     "data-marxy-library-row",
     "data-marxy-query-chip",
+    "data-marxy-sidebar-section",
+    "data-marxy-sidebar-row",
     "data-marxy-edit"
   ],
   "classPrefix": "marxy-",

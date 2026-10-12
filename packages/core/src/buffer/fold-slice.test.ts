@@ -65,6 +65,10 @@ const rows: Row[] = [
   row('mixed, lone CR first: an edit across a CRLF leaves it a CRLF (F-40)', 'a\rb\r\nc', [0, 7], 'Xa\rb\r\ncY', 'Xa\rb\r\ncY'),
   row('mixed, CRLF first: a new line break in a part with no bare LF follows the first ending', 'a\r\nb\r\nc\nd', [0, 11], 'a\n\r\nb\r\nc\nd', 'a\r\n\r\nb\r\nc\nd'),
   row('mixed, CRLF first: a new line break beside a bare LF of the part is written as typed', 'a\r\nb\r\nc\nd', [0, 11], 'a\n\r\nb\r\nc\ndY', 'a\n\r\nb\r\nc\ndY'),
+  // F-40.1: deleting only the CR of a CRLF is a real edit; the LF it leaves is the old one, not a new line break.
+  row('mixed, CRLF first: deleting only a CR of a CRLF is written (F-40.1)', 'a\r\n\r\nb\nc', [0, 9], 'a\n\r\nb\nc', 'a\n\r\nb\nc'),
+  row('mixed: deleting the CR of the second of two CRLFs is written (F-40.1)', 'a\r\n\r\nb\nc', [0, 9], 'a\r\n\nb\nc', 'a\r\n\nb\nc'),
+  row('mixed, lone CR first: deleting only the CR of a CRLF is written (F-40.1)', 'a\r\r\nb\r\nc', [0, 10], 'a\r\nb\r\nc', 'a\r\nb\r\nc'),
   row('CR-only slice takes CR for new lines', 'a\rb\rc', [0, 5], 'a\nb\nX\nc'.replace(/\n/g, '\r'), 'a\rb\rX\rc'),
 ];
 
@@ -271,4 +275,35 @@ test('foldSlice: text that names the bytes already there folds to nothing, thoug
   assert.equal(foldSlice(buffer, slice, 'x\udcc3\udca9y'), null);
   // And one byte more is only that byte.
   assert.equal(applied(buffer, slice, 'x\udcc3\udca9yz'), hexOf(bytes('x', [0xc3, 0xa9], 'yz')));
+});
+
+// F-40.1: in a block that mixes endings the text names every byte, so deleting any one character (a CR above all)
+// is written as exactly that byte gone, whichever of CR, LF and CRLF its neighbours are.
+test('property: deleting one character of a mixed-ending block writes exactly that byte gone', () => {
+  const pieces = ['a', 'bc', '\n', '\r\n', '\r', '\r\n\r\n', '\n\n', 'é', ' '];
+  let seed = 40_1;
+  const rand = (n: number): number => {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    return (seed >>> 0) % n;
+  };
+  let cases = 0;
+  for (let i = 0; i < 20_000; i++) {
+    let block = '';
+    for (let k = 1 + rand(8); k > 0; k--) block += pieces[rand(pieces.length)]!;
+    const kinds = Number(block.includes('\r\n')) + Number(/\r(?!\n)/.test(block)) + Number(/(?<!\r)\n/.test(block));
+    if (kinds < 2) continue;
+    const at = rand(block.length);
+    const buffer = buf(`pre\r\n${block}\npost`);
+    const start = 5;
+    const slice = src(start, start + bytesOf(block).length);
+    const text = block.slice(0, at) + block.slice(at + 1);
+    const result = foldSlice(buffer, slice, text);
+    assert.ok(result, `deleting ${JSON.stringify(block[at])} at ${at} of ${JSON.stringify(block)} wrote nothing`);
+    const next = splice(buffer, result.range, result.replacement);
+    assert.equal(hex(next.bytes), hex(bytesOf(`pre\r\n${text}\npost`)), JSON.stringify([block, at]));
+    cases++;
+  }
+  assert.ok(cases > 5_000, `${cases} mixed cases`);
 });

@@ -116,12 +116,12 @@ test('a fill is made on unfold, disposed on fold and made again on the next unfo
 
 // --- what is drawn ------------------------------------------------------------------------------------------------
 
-test('unfolded with a document open: back, forward, title, Read/Split/Source, the kind chip, Copy, Transform (W-21) and Find, in that order, and nothing else', async () => {
+test('unfolded with a document open: back, forward, title, Read/Split/Source, the kind chip, Copy, Transform (W-21) and Find, in that order, and the sidebar toggle before them (W-07), and nothing else', async () => {
   await withPage(1280, async (page) => {
     await unfold(page);
-    assert.deepEqual(await items(page), ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
+    assert.deepEqual(await items(page), ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
     const buttons = await page.evaluate(() => [...document.querySelectorAll('.marxy-toolbar button')].filter((b) => !b.closest('[hidden]')).map((b) => b.getAttribute('aria-label')));
-    assert.deepEqual(buttons, ['Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Kind: article. How this file is read', 'Copy as Markdown', 'Copy as…', 'Transform', 'Find in this pane']);
+    assert.deepEqual(buttons, ['Show or hide the sidebar', 'Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Kind: article. How this file is read', 'Copy as Markdown', 'Copy as…', 'Transform', 'Find in this pane']);
     assert.deepEqual(await radios(page), { Read: 'true', Split: 'false', Source: 'false' });
     const wording = await page.evaluate(() => document.querySelector('[data-marxy-workspace-region="toolbar"]').textContent);
     assert.doesNotMatch(wording, /extract|theme/i);
@@ -147,9 +147,9 @@ test('the door: a registered command draws its control, the next mount draws it 
       await remount();
       return { added, ran, removed: read() };
     });
-    assert.deepEqual(got.added, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'export', 'transform', 'find']);
+    assert.deepEqual(got.added, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'export', 'transform', 'find']);
     assert.deepEqual(got.ran, ['transform.open'], 'the control runs its command');
-    assert.deepEqual(got.removed, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
+    assert.deepEqual(got.removed, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
   });
 });
 
@@ -162,10 +162,13 @@ test('a panel toggle waits for content in its region: a stub command alone draws
       const toggles = [{ id: 'view.toggle-sidebar', title: 'Sidebar', group: 'view', when: () => true, async run() { ws.setPanel('sidebar', !ws.arrangement.sidebar); } }];
       const read = () => [...document.querySelectorAll('[data-marxy-toolbar-item]:not([data-marxy-toolbar-item="more"])')].map((el) => el.getAttribute('data-marxy-toolbar-item'));
       handle.commands = () => [...real(), ...toggles];
+      // The sidebar has a real fill since W-07; for the first leg `hasFill` says it has none, as it did before.
+      const realHasFill = ws.hasFill.bind(ws);
+      ws.hasFill = (region) => region !== 'sidebar' && realHasFill(region);
       await ws.unfold();
       const without = read();
       await ws.fold();
-      ws.fill('sidebar', () => {});
+      ws.hasFill = realHasFill;
       await ws.unfold();
       const withFill = read();
       const pressed = () => document.querySelector('[data-marxy-toolbar-item="sidebar"] button').getAttribute('aria-pressed');
@@ -475,7 +478,8 @@ test('at chrome_size 26 in the narrowest window the row is wider than its box, a
     const before = await fitOf(page);
     assert.ok(before.overflow > 0, `this is the case the PR reports: ${JSON.stringify(before)}`);
     // The row scrolls to a control that takes focus (Tab, or End in the row): none is out of reach.
-    await page.locator('.marxy-toolbar button').first().focus();
+    // (the first control, the sidebar's toggle, is folded into More here: the first one in the row is Back)
+    await page.locator('[data-marxy-toolbar-item="back"] button').focus();
     await page.keyboard.press('End');
     const last = await page.evaluate(() => {
       const region = document.querySelector('[data-marxy-workspace-region="toolbar"]').getBoundingClientRect();
@@ -632,13 +636,15 @@ test('every control has an accessible name; Tab reaches the toolbar once, arrows
     // From the top of the page: the first Tab lands in the toolbar, and the next leaves it.
     await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
     await page.keyboard.press('Tab');
-    assert.equal(await active(), 'Back', 'the first Tab reaches the toolbar');
+    assert.equal(await active(), 'Show or hide the sidebar', 'the first Tab reaches the toolbar');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await active(), 'Back');
     await page.keyboard.press('ArrowRight');
     assert.equal(await active(), 'Forward');
     await page.keyboard.press('End');
     assert.equal(await active(), 'Find in this pane');
     await page.keyboard.press('ArrowRight');
-    assert.equal(await active(), 'Back', 'the row wraps');
+    assert.equal(await active(), 'Show or hide the sidebar', 'the row wraps');
     await page.keyboard.press('End');
     await page.keyboard.press('Tab');
     assert.equal(await page.evaluate(() => document.activeElement?.closest('.marxy-toolbar') === null), true, 'the next Tab leaves the toolbar');
