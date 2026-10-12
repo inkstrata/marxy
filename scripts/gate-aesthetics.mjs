@@ -564,8 +564,19 @@ const EXPECTED_FAILURES = [
  * of failures: a case with no row, and a row whose case did not occur in a cell that was measured.
  * `measured` is what the run measured, so a narrowed run judges only its own cells.
  */
+const ROW_PLATFORMS = ['darwin', 'linux', 'win32'];
+/** Throws on a row whose `platforms` is not a non-empty array of known `process.platform` names (a typo would scope a row to nowhere). */
+function checkRowPlatforms(row) {
+  if (row.platforms === undefined) return;
+  const p = row.platforms;
+  if (!Array.isArray(p) || p.length === 0 || p.some((x) => !ROW_PLATFORMS.includes(x))) {
+    throw new Error(`expected-failure row ${row.check} ${row.document}: platforms must be a non-empty array of ${ROW_PLATFORMS.join(', ')}; got ${JSON.stringify(p)}`);
+  }
+}
+
 function judgeExpected(found, measured, table, platform = process.platform) {
   const out = [];
+  for (const row of table) checkRowPlatforms(row);
   const listed = new Set();
   for (const row of table) {
     if (row.platforms !== undefined && !row.platforms.includes(platform)) continue;
@@ -1634,6 +1645,11 @@ async function selftest(browser, origin) {
     ['a row for a cell this run did not measure is not judged', judgeExpected(new Map(), new Set(), [row]).length === 0],
     ['a darwin-scoped row is not reported stale on linux', judgeExpected(new Map(), ran, [{ ...row, platforms: ['darwin'] }], 'linux').length === 0],
     ['a darwin-scoped row is still enforced on darwin', judgeExpected(new Map(), ran, [{ ...row, platforms: ['darwin'] }], 'darwin').length === 1],
+    ...[['a string', 'darwin'], ['an empty array', []], ['an unknown name', ['macos']]].map(([what, platforms]) => {
+      let threw = false;
+      try { judgeExpected(new Map(), ran, [{ ...row, platforms }], 'darwin'); } catch { threw = true; }
+      return [`platforms as ${what} throws`, threw];
+    }),
     ['a darwin-scoped row does not list a failure that occurs on linux', judgeExpected(occurs, ran, [{ ...row, platforms: ['darwin'] }], 'linux').length === 1],
   ];
   const wrongTable = tableCases.filter(([, ok]) => !ok).map(([name]) => name);
