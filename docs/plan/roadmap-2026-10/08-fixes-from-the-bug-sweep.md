@@ -648,3 +648,109 @@ false claim fails.
 
 **Acceptance:** the kit's generator yields `- 1. x` and `* - [ ] x`; with the flag left on, the property test
 is red (checked once, in the PR); with the flag off, green.
+
+## Reusing the open document's parse (2026-10-12)
+
+**The finding (F-59, an investigation with no pull request).** Parsing is linear, at about 4.5 µs a byte, all of
+it in micromark: a 2 MB document takes about 2.6 s when it is prose and 9 to 10 s when it is dense with blocks.
+The open path parses in slices (`parseMarkdownChunked`, D-15), so first text does not wait. But the store already
+holds the parse of the open document, and Transform (W-21, J-06), the copy targets that run a transform, and Copy
+as from Source parse the whole document again: on a 2 MB file, opening the Transform sheet and then copying as
+Jira costs two more full parses, up to 20 s with the window busy. The nightly `pnpm perf` has no figure for a large
+parse, only `parse_long_technical_ms` on one corpus file.
+
+**Where the open document is parsed again** (`git grep -n "parseText\|parseMarkdown("` in `apps/desktop/src` and
+`packages/core/src/transforms`, `operations`; tests and the property kit left out):
+
+| Call site | What it parses | Can it take the store's parse? |
+| --- | --- | --- |
+| `transforms/prose.ts` `parseText(lf)`, reached from `clean.ts`, `convert.ts`, `extract.ts`, `markup.ts`, `wrap.ts` (and the `protectedSpans`, `atxHeadings` defaults) | the text a transform is given, LF and without its BOM; one-entry cache | **Yes, the first step over a whole document.** The sheet (`transform/sheet.ts` `runChain`, `chain.ts` `runStep`) runs every chain from its input again on each added step, and step two's parse evicts the one-entry cache, so the input is parsed again each time |
+| `operations/copy-as.ts` `copyAsFromText` | Source with no selection: the whole editor text, for plain and rich text | **Yes**, when the text is the store's buffer |
+| `operations/copy-as.ts` targets `slack`, `jira`, `quote` → `runTransform` → `parseText` | the copied markdown; for no selection, the whole document, in Rendered as in Source | **Yes**, through the same context as Transform |
+| `operations/html-clean.ts` `sectionOf` | a range that cuts through a top-level block, parsed as its own document | No: it is the range's text, not the document (a whole-document range is already `covered` and reuses the store's blocks) |
+| `operations/list-markers.ts` `shape(replacement)` | the edited list, to prove it nests the same | No: new text, small |
+| `document/store.ts`, `document/live-reload.ts` (`reparseMarkdown`), `frontispiece/index.ts` | the store's own parse, its incremental reparse, a built-in page | They are the parse; nothing to reuse |
+
+A transform or a copy over a **selection** parses the selection's text as a document of its own, and keeps doing
+so: the store's tree over the same bytes is not the same document (a selection that starts inside a list, a
+reference whose definition lies outside it), and its offsets count from the file's start, not the selection's.
+
+**What must be true for the reuse to be safe.**
+
+- **The parse is of exactly this text.** The store offers `{ text, doc }`: `doc` is its tree at one version
+  (keyed by `bytesVersion`, memoised there, never rebuilt per caller), and `text` the decoding of exactly those
+  bytes. It offers nothing when the bytes do not decode and encode back to themselves (`replacesExactly`, not
+  UTF-8), since then the tree's byte offsets are not the text's. Core uses `doc` only when `text === lf`, the very
+  string the body is about to read; anything else parses as today. So a file with a BOM or a CR, whose LF body is
+  not the buffer, parses as it does now (reusing those through an offset map is not this story), and so does
+  Source text not yet folded into the store.
+- **A selection still sees provenance for its own bytes.** Because the guard is equality of the whole text, a
+  transform over a selection can never be handed the whole document's tree; `nodesOf` maps `src` through
+  `indexOf(lf)` of the text it was given, as now.
+- **Transforms stay pure `string → string`.** `parsed` is an optional cache in `TransformContext`, never an input
+  to the result: with it, without it, or with a parse of some other text, the output is the same bytes, and the
+  fidelity property kit says so. Nothing in a transform may read `src.file` or the document's path (the store's
+  tree names the file; `parseText` names `transform`); the differential below catches one that does.
+- **The store's tree is the parse of its bytes.** After an edit the tree comes from `reparseMarkdown`, and on open
+  from `parseMarkdownChunked`; both are held equal to `parseMarkdown` by `reparse.test.ts` and `chunked.test.ts`.
+  The differential runs on an edited version too, so a reparse that drifted shows here as well.
+
+Two stories, in order, each one pull request: core learns to take a parse, then the app hands it the store's.
+
+### F-60 — Transforms and Copy as take the parse they are given, and measure a large parse
+
+**Model:** sonnet (high) · **Size:** M · **Review:** adversarial (every edit path) · *From F-59.* · **Paths:**
+`packages/core/src/transforms/types.ts`, `registry.ts`, `prose.ts`, `packages/core/src/operations/copy-as.ts`,
+`packages/core/src/parse/parse.ts` (a parse counter only), the transform property kit
+(`packages/core/src/operations/testing/`), `packages/core/src/transforms/parsed-reuse.test.ts` (new),
+`scripts/perf-harness.mjs`, `.github/workflows/nightly.yml` (the one flag), `changelog.d/F-60.md`. Commitment 3;
+fast.
+
+`TransformContext` gains `parsed?: { readonly text: string; readonly doc: Document }`. The registry's wrapper,
+after it sets the BOM aside and normalises endings, seeds `prose.ts`'s cache with `parsed.doc` only when
+`parsed.text === lf`; no transform body changes. `CopyAsInput` (and `copyAsFromText`'s `ref`) take the same
+optional `parsed`: `copyAsFromText` uses it for plain and rich text when its text matches, and the copy targets
+pass it to `runTransform`. `parseMarkdown` counts its calls behind a read-only `parseCount()`, as
+`lastChunkedParse` does: for a test to read, and nothing behaves differently by it. `pnpm perf` gains `--parse`
+(Node, no browser, like `--palette`): `parseMarkdown` over a generated prose document and a block-dense one at
+256 KB, 1 MB and 2 MB, median of three, recorded as `parse_large` rows; the nightly passes the flag. A figure, not
+a gate (ADR-0032).
+
+**Acceptance:**
+- **The differential** (`parsed-reuse.test.ts`; red if the guard is dropped): for every transform and every corpus
+  file, as given and LF-normalised, plus one edited version made by `reparseMarkdown`, `runTransform(id, t)` and
+  `runTransform(id, t, { parsed: { text: t, doc: parseMarkdown(bytes, { file: path }) } })` are byte for byte the
+  same, and so are all seven Copy as targets built by `copyAsFromText` with and without `parsed`. A `parsed` whose
+  `text` differs from the input by one character is ignored: the output equals the run without it.
+- **The property kit**: for every transform over generated documents, the run with a matching `parsed` equals the
+  run without, and the run with a mismatched one does too.
+- **The count** (`parsed-reuse.test.ts`; red on main, where every call parses): with a matching `parsed`,
+  `parseCount()` does not move across a whole-document `clean` step and the `jira` target; without it, it does.
+- **Byte-identical to main**: the existing transform and Copy as tests and every golden are unchanged; the PR shows
+  once that the differential's no-`parsed` outputs equal `origin/main`'s over the corpus.
+- **The figure**: `node scripts/perf-harness.mjs --parse --record <file>` writes the six `parse_large` rows and
+  exits non-zero when one has no sample; the nightly's record carries them.
+
+### F-60.1 — Transform, the verbs and Copy as reuse the open document's parse
+
+**Model:** sonnet (medium) · **Size:** S · **Review:** adversarial (every edit path) · *After F-60.* ·
+**Paths:** `apps/desktop/src/document/store.ts` (the memoised `{ text, doc }`), `apps/desktop/src/commands/transform.ts`,
+`apps/desktop/src/transform/sheet.ts`, `chain.ts`, `apps/desktop/src/commands/copy-as.ts`, and their tests,
+`changelog.d/F-60.1.md`. Commitment 3; fast.
+
+The store exposes the current parse with its text, built once per `bytesVersion` and only when the bytes round-trip
+as UTF-8 (`replacesExactly`). A document-scope Transform target carries it, and `runChain` passes it to the first
+step only (a later step's text is new); Copy as passes it from Rendered with no selection, and from Source with no
+selection once Source is folded. A selection passes nothing. A target opened at one version and run after an edit
+holds the old version's pair, whose text no longer matches what the step reads, so it parses; Apply's
+`openedOf`/stale check is unchanged.
+
+**Acceptance:**
+- **One parse per buffer version** (a desktop unit test with the store and `parseCount()`; red on main, which
+  counts three): open a 1 MB LF document, open the Transform sheet on the whole document, add a second step, close
+  it, then Copy as Jira and Copy as Plain text from Source with no selection; `parseCount()` moved by exactly one,
+  the store's own. After an edit, the same sequence moves it by none beyond the edit's reparse.
+- **Nothing reused that does not match**: the same sequence on a CRLF file, a file with a BOM, a file that is not
+  UTF-8, and a selection parses as on main (the count shows it) and gives the same bytes.
+- **Byte-identical**: the transform and Copy as tests and the desktop lite suite unchanged; `pnpm gate:fidelity`
+  unchanged.
