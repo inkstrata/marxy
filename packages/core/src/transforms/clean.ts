@@ -168,6 +168,8 @@ export const normalizeBullets: TransformDef = {
     const positions = new Map<Node, number>();
     walk(doc, (n) => {
       (n.children ?? []).forEach((child, i) => {
+        // Only lists are looked up below; a map entry per node of a large document is memory the walk then waits on.
+        if ((child as Node).type !== 'list') return;
         parents.set(child as Node, n);
         positions.set(child as Node, i);
       });
