@@ -1,0 +1,70 @@
+/* Fjord: a cool blue-grey dark theme (H-05). It has no light form: under the light variant it still applies as dark,
+   so the selector names both and the default's Paper never shows through. Values from mock-v2/shared/tokens.css, the
+   quiet text roles nudged toward the strong text where the gate needed it. */
+:root,
+:root[data-marxy-variant="light"] {
+  /* Dark whatever the variant: native scrollbars and controls follow it, and Source's base theme reads it. */
+  color-scheme: dark;
+  --marxy-weight-body: 380;
+  --marxy-weight-heading: 600;
+  --marxy-weight-strong: 620;
+
+  --marxy-color-bg: #242933;
+  --marxy-color-text: #dde3ec;
+  --marxy-color-text-strong: #eef1f6;
+  --marxy-color-text-secondary: #bac3d1;
+  --marxy-color-text-faint: #bbc3d0;
+  --marxy-color-accent: #8cc4d4;
+  --marxy-color-accent-strong: #b6dce6;
+  --marxy-color-accent-fg: #1f232b;
+  --marxy-color-accent-wash: rgba(140, 196, 212, 0.12);
+  --marxy-color-link: var(--marxy-color-accent);
+  --marxy-color-rule: #3a4150;
+  --marxy-color-rule-strong: #4b5568;
+  --marxy-color-edge: #7e8aa0;
+  --marxy-color-divider: var(--marxy-color-rule);
+  --marxy-color-divider-focus: var(--marxy-color-accent);
+  --marxy-color-quote-rule: #4b5568;
+  --marxy-color-surface: #313846;
+  --marxy-color-surface-glass: rgba(42, 48, 59, 0.78);
+  --marxy-color-notice: var(--marxy-color-surface);
+  --marxy-shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.45);
+  --marxy-color-code-bg: #1f232b;
+  --marxy-color-code-text: #dde3ec;
+  --marxy-color-selection: #3a4a55;
+  --marxy-color-find: #484643;
+  --marxy-color-find-current: #545048;
+  --marxy-color-find-edge: #ebcb8b;
+  --marxy-color-status-ok: #b0cf98;
+  --marxy-color-status-warn: #ebcb8b;
+  --marxy-color-status-err: #eea0a6;
+  --marxy-color-status-info: #8cc4d4;
+  --marxy-color-status-ok-wash: rgba(176, 207, 152, 0.12);
+  --marxy-color-status-warn-wash: rgba(235, 203, 139, 0.12);
+  --marxy-color-status-err-wash: rgba(238, 160, 166, 0.12);
+  --marxy-color-diff-add: #363f40;
+  --marxy-color-diff-del: #3c3741;
+  --marxy-color-diff-add-word: #3f4947;
+  --marxy-color-diff-del-word: #483e48;
+  --marxy-tok-keyword: #a9c1e0;
+  --marxy-tok-string: #b8d2a1;
+  --marxy-tok-comment: #b1bbcc;
+  --marxy-tok-number: #d4b0cc;
+  --marxy-tok-function: #8cc4d4;
+  --marxy-tok-type: #9fd3d1;
+  --marxy-tok-variable: var(--marxy-color-code-text);
+  --marxy-tok-operator: #b3bdcc;
+  --marxy-tok-punctuation: var(--marxy-color-code-text);
+  --marxy-tok-constant: #d4b0cc;
+  --marxy-tok-tag: #8cc4d4;
+  --marxy-tok-attribute: #9fd3d1;
+  --marxy-tok-marker: #b8c0ce;
+  --marxy-tok-heading: #eef1f6;
+  --marxy-tok-builtin: #8cc4d4;
+  --marxy-tok-property: var(--marxy-color-code-text);
+  --marxy-tok-decorator: #d4b0cc;
+  --marxy-tok-self: #a9c1e0;
+  --marxy-tok-escape: #b8d2a1;
+  --marxy-tok-mark: #b8c0ce;
+  --marxy-tok-link: var(--marxy-color-link);
+}

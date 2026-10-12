@@ -254,6 +254,32 @@ the empty state are the ground so a white frame never appears (the Tauri window'
 declared on `:root` so form controls and scrollbars follow the variant. Themes that declare
 only one variant are used for both with the default theme's other block filling the gaps.
 
+## Bundled themes (H-05)
+
+Five sets of colours ship, each a directory under `packages/theme/` with a `theme.css` and a `theme.toml`, and each passes
+`pnpm gate:contrast` in every variant it declares.
+
+| Directory | Dark | Light | Notes |
+| --- | --- | --- | --- |
+| `default` | Night | Paper | In `index.html`; the base every other sheet is laid over. Not selectable by name. |
+| `ink` | Ink | Ink's own light | The warm near-black and its paper (H-04). |
+| `warm` | Dusk | Sepia | Amber on brown-black; rust on cream. |
+| `fjord` | Fjord | none | Dark only. Its selector names `:root` and the light variant, so it applies as dark whatever the variant. The palette says so: *Theme: Fjord (dark only)*. |
+| `high-contrast` | HC dark | HC light | Holds a stricter floor: 7:1 for every text and code role on every ground it meets, 4.5:1 for edges (`HIGH_CONTRAST_FLOORS` in `scripts/gate-contrast.mjs`). |
+
+A theme sets every colour role of contract 2 and the six code roles V-13 added; type and rhythm are the default's. The values
+are those of `mock-v2/shared/tokens.css`, carried into the contract's role names (`doc` is `bg`, `fg` is `text`, `raised` is
+`surface`, `inset` is `code-bg`, `line` is `rule`, the `tk-` ramp is the `tok-` ramp); translucent selection, find and diff
+grounds are composited over the ground, as the default's are. Where the gate needed it, the quiet text roles (faint, marker, comment)
+are nudged toward the strong text.
+
+**Choosing one.** `theme = "warm"` in `config.toml`: a bare name with no `/` that matches a bundled directory is the bundled
+theme. A directory of that name beside `config.toml` still wins, and a notice says so. Any other value is a path, as before.
+The bundled sheet is imported `?inline` through a dynamic import (`apps/desktop/src/theme/bundled-themes.ts`), applied with the
+variant before the first document is read, so the first text is already in the chosen theme and a launch carries only that one
+sheet. The palette's *Theme: Night and Paper*, *Ink*, *Dusk and Sepia*, *Fjord (dark only)* and *High contrast* apply at once
+and write only the `theme` line (`theme = ""` for Night and Paper); the one in force is not offered.
+
 ## Tests
 
 - `packages/theme/scripts/lint-default-theme.mjs`: headings set no colour or border (in the theme

@@ -1,0 +1,4 @@
+name = "marxy warm"
+author = "marxy"
+contract = 2
+variants = ["dark", "light"]

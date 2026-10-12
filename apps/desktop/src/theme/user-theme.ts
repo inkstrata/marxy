@@ -1,9 +1,10 @@
 // User theme load, apply, watch, and config resolution (docs/design/05-theme.md §App side). MARXY-177.
 import { joinPath, normalizePath, dirname } from '@marxy/core/src/index-model/paths.ts';
-import { applyTheme, avgCharWarnings, loadTheme, parseConfig } from '@marxy/theme';
+import { applyTheme, avgCharWarnings, loadTheme } from '@marxy/theme';
 import type { WatchEvent } from '@marxy/shell-api';
 import { notify } from '../notices/index.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
+import { bundledThemeCss, bundledThemeName, type BundledThemeName } from './bundled-themes.ts';
 import { afterFirstPaint, measureAverageAdvance } from './measure-face.ts';
 
 export interface UserThemeShell {
@@ -23,6 +24,53 @@ export interface UserThemeContext {
   readonly shell: UserThemeShell;
   /** Every view the app shows: each is set again, with its reader kept in place, when a theme applies (B-13). */
   views(): readonly RenderedView[];
+}
+
+/** The theme in force, for the palette: a bundled name, 'folder' for a theme directory, null for Night and Paper. */
+let current: BundledThemeName | 'folder' | null = null;
+let running: { stop(): void } | null = null;
+
+export function currentThemeName(): BundledThemeName | 'folder' | null {
+  return current;
+}
+
+/**
+ * H-05: applies a bundled theme now, or Night and Paper for null, and stops following any theme folder. The
+ * default theme's own stylesheet is in index.html, so Night and Paper is the theme sheet emptied.
+ */
+export async function applyBundledTheme(name: BundledThemeName | null, doc: Document = document): Promise<void> {
+  const css = name === null ? '' : await bundledThemeCss(name);
+  running?.stop();
+  running = null;
+  applyTheme(css, doc);
+  current = name;
+}
+
+export type ThemeChoice =
+  | { readonly kind: 'bundled'; readonly name: BundledThemeName }
+  | { readonly kind: 'dir'; readonly dir: string; readonly shadows: BundledThemeName | null };
+
+/**
+ * What `theme` in config.toml names. A bare name with no `/` that matches a bundled directory is the bundled theme,
+ * unless a directory of that name sits beside config.toml, which still wins (and `shadows` says which it hid).
+ */
+export async function resolveThemeChoice(
+  shell: Pick<UserThemeShell, 'readFile'>,
+  raw: string | null,
+  configPath: string,
+): Promise<ThemeChoice | null> {
+  const bundled = bundledThemeName(raw);
+  const dir = resolveThemeDir(raw, configPath);
+  if (bundled === null) return dir === null ? null : { kind: 'dir', dir, shadows: null };
+  if (dir !== null) {
+    try {
+      await shell.readFile(joinPath(dir, 'theme.css'));
+      return { kind: 'dir', dir, shadows: bundled };
+    } catch {
+      /* no folder of that name: the bundled theme */
+    }
+  }
+  return { kind: 'bundled', name: bundled };
 }
 
 /** Expands `~` and resolves relative theme paths against the config file's directory. */
@@ -98,6 +146,7 @@ async function applyLoadedTheme(ctx: UserThemeContext, dir: string): Promise<voi
     (abs) => ctx.shell.assetUrl(abs),
   );
   applyTheme(css);
+  current = 'folder';
   const notice = themeNoticeText(manifest.name, warnings);
   if (notice !== null) notify({ kind: 'info', text: notice });
   checkAvgCharAfterPaint(css, manifest.name);
@@ -112,13 +161,16 @@ export async function startUserTheme(ctx: UserThemeContext, dir: string | null):
   let generation = 0;
 
   const stop = (): void => {
+    if (running === self) running = null;
     generation += 1;
     watchClose?.();
     watchClose = undefined;
     if (debounce !== undefined) clearTimeout(debounce);
   };
 
-  if (dir === null) return { stop };
+  const self = { stop };
+  running = self;
+  if (dir === null) return self;
 
   const gen = generation;
   try {
@@ -130,10 +182,10 @@ export async function startUserTheme(ctx: UserThemeContext, dir: string | null):
       kind: 'error',
       text: msg.includes('theme.css') ? `Theme at ${where} could not be read: theme.css not found.` : `Theme at ${where} could not be read: ${msg}.`,
     });
-    return { stop };
+    return self;
   }
 
-  if (gen !== generation) return { stop };
+  if (gen !== generation) return self;
 
   // The theme is applied; a folder that cannot be watched only means a later edit is not followed. The open
   // this runs after must not fail for it (V-11).
@@ -155,25 +207,5 @@ export async function startUserTheme(ctx: UserThemeContext, dir: string | null):
     console.warn(`marxy: the theme folder ${displayPath(dir)} is not watched: ${String(e)}`);
   }
 
-  return { stop };
-}
-
-/** Reads `theme` from config.toml when the shell exposes `configPaths`. */
-export async function themeDirFromConfig(shell: UserThemeShell): Promise<string | null> {
-  if (shell.configPaths === undefined) return null;
-  // No answer is no theme, not a failed open (V-11).
-  let config: string;
-  try {
-    ({ config } = await shell.configPaths());
-  } catch {
-    return null;
-  }
-  let bytes: Uint8Array;
-  try {
-    bytes = await shell.readFile(config);
-  } catch {
-    return null;
-  }
-  const { config: parsed } = parseConfig(bytes);
-  return resolveThemeDir(parsed.theme, config);
+  return self;
 }

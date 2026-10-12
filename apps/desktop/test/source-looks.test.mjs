@@ -461,3 +461,47 @@ test('L-11 a search match carries the edge; the current match is outlined', asyn
     await browser.close();
   }
 });
+
+test('H-05: a theme that is dark under the light variant gives Source the dark base theme, and the head is not watched in a loop', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await boot(page, '/src/a.ts', TS);
+    const editorClass = () => page.evaluate(() => document.querySelector('#marxy-source .cm-editor').className);
+    await setVariant(page, 'dark');
+    await page.waitForTimeout(150);
+    const dark = await editorClass();
+    await setVariant(page, 'light');
+    await page.waitForTimeout(150);
+    const light = await editorClass();
+    // CodeMirror marks its base theme on the editor: ͼ3 is the dark base theme, ͼ2 the light one.
+    const base = (cls) => (cls.split(' ').includes('ͼ3') ? 'dark' : cls.split(' ').includes('ͼ2') ? 'light' : 'none');
+    assert.deepEqual([base(dark), base(light)], ['dark', 'light']);
+    // What applyTheme does for Fjord: a sheet that keeps color-scheme dark under the light variant, then the marker is rewritten.
+    // Count what lands in the head meanwhile: a reconfigure injects a style, so a loop shows as a count that keeps growing.
+    const added = await page.evaluate(async () => {
+      let count = 0;
+      new MutationObserver((records) => { for (const r of records) count += r.addedNodes.length; }).observe(document.head, { childList: true });
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(':root[data-marxy-variant="light"] { color-scheme: dark; }');
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+      const marker = document.getElementById('marxy-theme') ?? document.head.appendChild(Object.assign(document.createElement('template'), { id: 'marxy-theme' }));
+      marker.textContent = ':root[data-marxy-variant="light"] { color-scheme: dark; }';
+      await new Promise((r) => setTimeout(r, 600));
+      return count;
+    });
+    assert.ok(added <= 4, `${added} nodes were added to the head after one theme change`);
+    assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), 'dark');
+    assert.equal(base(await editorClass()), 'dark', 'Source wears the dark base theme under Fjord with the light variant');
+    // Stable: no further reconfigure after it settled.
+    const later = await page.evaluate(async () => {
+      let count = 0;
+      new MutationObserver((records) => { for (const r of records) count += r.addedNodes.length; }).observe(document.head, { childList: true });
+      await new Promise((r) => setTimeout(r, 500));
+      return count;
+    });
+    assert.equal(later, 0);
+  } finally {
+    await browser.close();
+  }
+});

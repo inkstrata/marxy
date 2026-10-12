@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { FLOORS, auditAll, auditTheme, findThemes, over, parseColour, ratio } from './gate-contrast.mjs';
+import { FLOORS, HIGH_CONTRAST_FLOORS, auditAll, auditTheme, findThemes, over, parseColour, ratio } from './gate-contrast.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const hex = ([r, g, b]) => `#${[r, g, b].map(c => c.toString(16).padStart(2, '0')).join('')}`;
@@ -173,4 +173,37 @@ test('H-02: the CLI exits 0 and prints the not-declared count; --md prints a tab
   assert.equal(cli.status, 0, cli.stdout + cli.stderr);
   assert.match(cli.stdout, /gate-contrast: \d+ pairs checked, 0 failing, 0 roles not yet declared/);
   assert.match(run(['--md']).stdout, /\| Role \| Against \| Floor \| dark \| light \|/);
+});
+
+test('H-05: five theme directories are audited and pass, each variant of each', () => {
+  const themes = findThemes();
+  assert.deepEqual(themes.map(t => t.name).sort(), ['default', 'fjord', 'high-contrast', 'ink', 'warm']);
+  assert.deepEqual(themes.find(t => t.name === 'warm').variants, ['dark', 'light']);
+  assert.deepEqual(themes.find(t => t.name === 'fjord').variants, ['dark']);
+  assert.deepEqual(themes.find(t => t.name === 'high-contrast').variants, ['dark', 'light']);
+  const all = auditAll(themes);
+  assert.deepEqual(all.failures, []);
+  for (const name of ['warm', 'fjord', 'high-contrast']) assert.ok(all.byTheme[name].checks.length > 200, name);
+  assert.ok(all.undeclared.every(u => u.roles.length === 0), 'every theme declares every role');
+});
+
+test('H-05: a value lowered below its floor in warm/theme.css fails the gate (a fixture of the real theme)', () => {
+  const warm = findThemes().find(t => t.name === 'warm');
+  const lowered = warm.css.replace(/(--marxy-color-text-secondary:\s*)#[0-9a-f]{6}/i, '$1#5a5045');
+  assert.notEqual(lowered, warm.css);
+  const r = auditTheme('warm', lowered, ['dark']);
+  assert.ok(r.failures.some(f => /warm · dark · root: text-secondary on bg/.test(f)), r.failures.join('\n'));
+});
+
+test('H-05: high contrast holds 7:1 where the others hold 4.5, and 4.5:1 for edges where the others hold 3', () => {
+  assert.equal(HIGH_CONTRAST_FLOORS.length, FLOORS.length);
+  for (const [i, row] of FLOORS.entries()) assert.equal(HIGH_CONTRAST_FLOORS[i].floor, row.floor === 4.5 ? 7 : row.floor === 3 ? 4.5 : row.floor);
+  // #6b6b6b on white is about 5.3, above 4.5 and below 7: the same sheet passes as an ordinary theme and fails as high contrast.
+  const sheet = css({ ...BASE, 'color-text-secondary': '#6b6b6b' });
+  const text = r => r.failures.filter(f => /text-secondary on bg/.test(f));
+  assert.equal(text(audit(sheet)).length, 0);
+  assert.equal(text(auditTheme('high-contrast', sheet, ['dark'])).length, 1);
+  const edge = css({ ...BASE, 'color-edge': '#8a8a8a' });
+  assert.equal(audit(edge).failures.filter(f => /edge on bg/.test(f)).length, 0);
+  assert.equal(auditTheme('high-contrast', edge, ['dark']).failures.filter(f => /edge on bg/.test(f)).length, 1);
 });
