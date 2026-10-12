@@ -158,7 +158,8 @@ test('the toolbar shows Transform once transform.open is registered, and the but
     assert.equal(await page.locator('[data-marxy-toolbar-item="transform"]').count(), 0, 'folded: no toolbar at all');
     await page.evaluate(() => window.__marxyHandle.workspace().unfold());
     const items = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-toolbar-item]')].map((el) => el.getAttribute('data-marxy-toolbar-item')));
-    assert.deepEqual(items, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find', 'more']);
+    // The full list and its order are toolbar.test.mjs's to pin; here only that Transform is drawn, after Copy.
+    assert.ok(items.includes('transform') && items.indexOf('transform') > items.indexOf('copy') && items.includes('copy'), items.join());
     const button = page.locator('[data-marxy-toolbar-item="transform"] button');
     assert.equal(await button.getAttribute('aria-label'), 'Transform');
     assert.equal(await button.getAttribute('aria-disabled'), null, 'a document is open');
