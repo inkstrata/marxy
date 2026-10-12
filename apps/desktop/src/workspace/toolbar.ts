@@ -256,6 +256,19 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
         top.append(radio);
         return { id: choice.command, radio };
       });
+      // ARIA radio group: an arrow moves to the neighbouring choice and selects it. At either end the arrow is the
+      // toolbar's (it moves on to the next control, selecting nothing), so the row stays one tab stop and reachable.
+      top.addEventListener('keydown', (event) => {
+        const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+        if (step === 0) return;
+        const from = radios.findIndex(({ radio }) => radio === document.activeElement);
+        const to = radios[from + step];
+        if (from < 0 || !to) return;
+        event.preventDefault();
+        event.stopPropagation();
+        to.radio.focus();
+        to.radio.click();
+      });
       syncs.push((ctx) => {
         const panes = handle.panes();
         const [left, right] = panes.panes;
@@ -273,7 +286,7 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
       top.setAttribute('role', 'group');
       top.setAttribute('aria-label', 'Copy');
       const menu = registry.get('copy-as.menu')!;
-      const copy = button('', 'Copy', 'Copy', 'copy');
+      const copy = button('', 'Copy', `Copy (${keyLabel(menu.key ?? '', mac)})`, 'copy');
       copy.classList.add('marxy-toolbar-copy');
       const chevron = button('', menu.title, tipFor(menu, mac), 'chevron');
       chevron.classList.add('marxy-toolbar-copy-menu');
@@ -287,7 +300,7 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
         const command = registry.get(target);
         if (command) {
           copy.setAttribute('aria-label', command.title);
-          copy.title = tipFor(command, mac);
+          copy.title = `${command.title} (${keyLabel(menu.key ?? '', mac)})`;
         }
       };
       void learn();

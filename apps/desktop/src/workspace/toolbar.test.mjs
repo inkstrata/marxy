@@ -692,3 +692,21 @@ test('U-03: controls are glyphs with a tooltip, only Read / Split / Source carry
     assert.match(got.sidebarTip, /\(.+\)$/, 'the tooltip names the key');
   });
 });
+
+test('U-03: the view control follows ARIA radio semantics (an arrow selects the neighbour, the end hands on to the toolbar) and Copy shows its shortcut from the start', async () => {
+  await withPage(1700, async (page) => {
+    await unfold(page);
+    const tip = await page.evaluate(() => document.querySelector('[data-marxy-toolbar-item="copy"] .marxy-toolbar-copy').title);
+    assert.match(tip, /\(.+\)$/, `Copy's tooltip names its key: ${tip}`);
+    await page.locator('[role="radio"][aria-label="Read"]').focus();
+    await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(() => document.querySelector('[role="radio"][aria-checked="true"]')?.textContent === 'Split');
+    assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Split', 'focus moved with the selection');
+    await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(() => document.querySelector('[role="radio"][aria-checked="true"]')?.textContent === 'Source');
+    await page.keyboard.press('ArrowRight');
+    const after = await page.evaluate(() => ({ at: document.activeElement.getAttribute('role'), checked: document.querySelector('[role="radio"][aria-checked="true"]').textContent }));
+    assert.deepEqual(after, { at: null, checked: 'Source' }, 'past the end the toolbar moves on and nothing is selected');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-toolbar:not(.marxy-strip) button[tabindex="0"]').length), 1, 'one tab stop');
+  });
+});
