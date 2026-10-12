@@ -126,7 +126,7 @@ test('unfolding puts the six regions in the page, in order, and nothing else out
     assert.deepEqual(got.parents, ['BODY']);
     // The strip and the tabs are docked too (the arrangement says so). The strip holds nothing for an article, so its band is hidden (K-07);
     // one document is one tab, and the tab row shows from two (W-06).
-    assert.deepEqual(got.shown, [true, true, false, false, false, true], 'a 1280 px window docks everything but the inspector; an empty strip and a row of one tab are hidden from what is on them');
+    assert.deepEqual(got.shown, [true, true, false, false, false, false], 'a 1280 px window docks everything but the inspector; an empty strip, a row of one tab and a status bar with no fill are hidden from what is on them');
     assert.deepEqual(got.docked, [true, true, true, true, false, true], 'and the arrangement still says docked');
     assert.deepEqual(got.visible, [], 'a stray element outside the regions is what the gate would fail');
     assert.deepEqual(got.order.slice(0, 6), ['sidebar', 'toolbar', 'tabs', 'strip', 'marxy-main', 'inspector']);
@@ -163,6 +163,48 @@ test('the column does not move when the sidebar alone is docked either', async (
     const got = await column(page);
     assert.equal(got.x, folded.x);
     assert.equal(got.width, folded.width);
+  });
+});
+
+test('U-01: the bands reach the window edge, no region shows empty, and the column holds still in every state', async () => {
+  await withPage(1440, async (page) => {
+    const folded = await column(page);
+    const same = (got, what) => {
+      assert.equal(got.x, folded.x, `x ${what}`);
+      assert.equal(got.width, folded.width, `width ${what}`);
+    };
+    const edges = (name) => page.evaluate((n) => {
+      const el = document.querySelector(`[data-marxy-workspace-region="${n}"]`);
+      const r = el.getBoundingClientRect();
+      return { left: r.left, right: r.right, shown: !el.hidden };
+    }, name);
+    await unfold(page);
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', false));
+    const bar = await edges('toolbar');
+    assert.equal(bar.right, 1440, 'the toolbar runs to the window edge (it ended at 1188)');
+    assert.equal(bar.left, 252, 'and starts at the sidebar edge');
+    assert.equal((await edges('status-bar')).shown, false, 'a status bar with no fill is not drawn');
+    same(await column(page), 'unfolded, sidebar docked');
+    // The bands stop at the inspector's edge while it is docked.
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
+    const withInspector = await edges('toolbar');
+    assert.equal(withInspector.right, (await edges('inspector')).left, 'the toolbar ends at the inspector');
+    same(await column(page), 'inspector docked');
+    // No sidebar: the bands start at the window edge.
+    await page.evaluate(() => {
+      const ws = window.__marxyHandle.workspace();
+      ws.setPanel('inspector', false);
+      ws.setPanel('sidebar', false);
+    });
+    assert.equal((await edges('toolbar')).left, 0, 'with no sidebar the toolbar starts at the left edge');
+    same(await column(page), 'sidebar undocked');
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('sidebar', true));
+    same(await column(page), 'sidebar docked again');
+    await fold(page);
+    same(await column(page), 'folded again');
+    // A peek floats over the folded page.
+    const peeked = await page.evaluate(() => window.__marxyHandle.workspace().peek('sidebar'));
+    if (peeked) same(await column(page), 'a sidebar peek');
   });
 });
 
@@ -381,8 +423,8 @@ test('fold, unfold, quit, relaunch: it opens folded, and unfolding brings back t
     const shown = await page.evaluate(() =>
       Object.fromEntries([...document.querySelectorAll('[data-marxy-workspace-region]')].map((r) => [r.getAttribute('data-marxy-workspace-region'), !r.hidden])),
     );
-    // The tab row is docked (the saved file says so) and hides itself below two tabs (W-06).
-    assert.deepEqual(shown, { sidebar: false, toolbar: true, tabs: false, strip: false, inspector: true, 'status-bar': true });
+    // The tab row is docked (the saved file says so) and hides itself below two tabs (W-06); the status bar has no fill, so it is not drawn (U-01).
+    assert.deepEqual(shown, { sidebar: false, toolbar: true, tabs: false, strip: false, inspector: true, 'status-bar': false });
     assert.deepEqual(await page.evaluate(() => window.__marxyHandle.workspace().arrangement), { sidebar: false, toolbar: true, tabs: true, strip: false, inspector: true, 'status-bar': true });
   }, { '/data/workspace.json': kept });
 });
@@ -401,7 +443,7 @@ test('a corrupt workspace file is kept beside itself, the window opens folded, a
     assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().mode), 'folded');
     await unfold(page);
     const shown = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-workspace-region]')].map((r) => !r.hidden));
-    assert.deepEqual(shown, [true, true, false, false, false, true], 'the strip is docked and empty (K-07) and the tab row holds one tab (W-06): each hidden from what is on it');
+    assert.deepEqual(shown, [true, true, false, false, false, false], 'the strip is docked and empty (K-07), the tab row holds one tab (W-06) and the status bar has no fill (U-01): each hidden from what is on it');
     assert.deepEqual(await page.evaluate(() => Object.values(window.__marxyHandle.workspace().arrangement)), [true, true, true, true, false, true], 'the defaults dock all but the inspector');
     const kept = await page.evaluate(async () => {
       const shell = window.__marxyHandle.shell;

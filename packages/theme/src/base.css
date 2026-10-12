@@ -744,6 +744,12 @@ body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="toolba
 body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="tabs"][hidden]) { --marxy-ws-tabs-h: 0px; }
 body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="strip"][hidden]) { --marxy-ws-strip-h: 0px; }
 body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="status-bar"][hidden]) { --marxy-ws-status-h: 0px; }
+/* The bands reach the window's edge (U-01; the author's Q12): from the sidebar's edge to the right edge of the window, or to the
+   inspector's edge while it is docked; with no sidebar, from the left edge. Only the bands stretch. The panes stay in column 2 of
+   the symmetric grid, so the reading column is centred on the window and does not move when a panel docks (ADR-0058 item 6). */
+body[data-marxy-workspace="unfolded"] { --marxy-ws-band-from: 2; --marxy-ws-band-to: -1; }
+body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="sidebar"][hidden]) { --marxy-ws-band-from: 1; }
+body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="inspector"]:not([hidden])) { --marxy-ws-band-to: 3; }
 body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region] {
   box-sizing: border-box;
   min-width: 0;
@@ -768,7 +774,7 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="inspector"
 body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="toolbar"],
 body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="tabs"],
 body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="strip"] {
-  grid-column: 2;
+  grid-column: var(--marxy-ws-band-from) / var(--marxy-ws-band-to);
   position: sticky;
   align-self: start;
   border-block-end-width: 1px;
