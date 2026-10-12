@@ -258,12 +258,11 @@ test('recorded: unsaved is read across every pane of the document: a save from t
   });
 });
 
-// ---- F-47: a deleted file that comes back is an outside change -------------------------------------------------
-// The store walk found it (the panes walk, seed 90): the reader saves, another program deletes the file, then
-// writes it again with other bytes. The buffer was clean, so the watch adopted the new bytes and the text the
-// reader last saved, which the deletion had left nowhere else, was gone with no question asked.
+// ---- F-47: a file another program deletes and writes again ---------------------------------------------------
+// The panes walk (seed 90) reached a clean buffer whose file was deleted and written again by another program. A clean
+// buffer adopts the new bytes, as it does for an overwrite in place; a buffer with unsaved edits keeps them and holds the
+// change for a choice. These pin both, through the real watch.
 
-const RETURNED = 'The file came back changed on disk; your version was kept.';
 const THEIRS = '# Theirs\n\nWritten by another program after it deleted the file.\n';
 /** Waits for the app to have written `n` of the documents (its own index and history files are not counted). */
 const writesReach = (page, n) => page.waitForFunction((n) => window.__appWrites.filter((w) => w.path.startsWith('/r/')).length === n, n);
@@ -272,91 +271,27 @@ const gone = (page, path) =>
     window.__marxyHandle.shell.remove(p);
     window.__marxyHandle.shell.emit([{ kind: 'removed', path: p }]);
   }, path);
-const choose = (page, slot, id) =>
-  page.evaluate(
-    async ({ slot, id }) => {
-      const { commands } = await import('/src/commands/index.ts');
-      const store = window.__marxyHandle.panes().panes[slot].view.store();
-      return commands().find((c) => c.id === id).run({ document: store, showNotice: () => {} });
-    },
-    { slot, id },
-  );
 
-/** Source typing saved, then the file deleted and written again by another program (the watch says each). */
-async function savedThenDeletedThenRewritten(page, mod, rewrite) {
-  await toSource(page, 0);
-  await typeAtLineEnd(page, 0, 1, 'Qz');
-  await page.keyboard.press(`${mod}+s`);
-  await writesReach(page, 1);
-  await gone(page, '/r/A.md');
-  await page.waitForFunction((t) => document.getElementById('marxy-notices').textContent.includes(t), REMOVED);
-  await outside(page, '/r/A.md', rewrite);
-  await page.waitForTimeout(500);
-}
-
-test('F-47: saved, deleted by another program, written again with other bytes: the saved text stays and the new version is offered', async () => {
+test('F-47: unsaved edits survive the file being deleted and written again, and the change is held, not taken', async () => {
   await withPanes(['/r/A.md'], async (page, mod) => {
-    await savedThenDeletedThenRewritten(page, mod, THEIRS);
-    assert.ok((await storeText(page, 0)).startsWith('# AlphaQz\n'), 'the text the reader saved is still in the buffer');
+    await toSource(page, 0);
+    await typeAtLineEnd(page, 0, 1, 'Qz');
+    await page.evaluate(() => window.__marxyHandle.panes().panes[0].content.foldSource());
+    await gone(page, '/r/A.md');
+    await page.waitForFunction((t) => document.getElementById('marxy-notices').textContent.includes(t), REMOVED);
+    await outside(page, '/r/A.md', THEIRS);
+    await page.waitForFunction((t) => document.getElementById('marxy-notices').textContent.includes(t), KEPT);
+    assert.ok((await storeText(page, 0)).startsWith('# AlphaQz\n'), 'the edit is still in the buffer');
     assert.ok((await editorText(page, 0)).startsWith('# AlphaQz\n'), 'and in the editor');
     assert.equal(await disk(page, '/r/A.md'), THEIRS, 'the other program\'s file is not written over');
-    const said = await texts(page, 0);
-    assert.ok(said.some((t) => t.startsWith(RETURNED) && t.includes('Take the version on disk')), `the pane asks (${said.join(' | ')})`);
-    // A save is refused, as over any outside change.
     await page.keyboard.press(`${mod}+s`);
     await page.waitForTimeout(400);
-    assert.equal(await disk(page, '/r/A.md'), THEIRS);
-    assert.equal((await appWrites(page)).length, 1, 'the only write is the reader\'s first save');
+    assert.equal(await disk(page, '/r/A.md'), THEIRS, 'a save is refused');
+    assert.deepEqual((await appWrites(page)).map((w) => w.path), [], 'nothing was written');
   });
 });
 
-test('F-47: taking the version on disk after a delete and rewrite is the reader\'s choice, and clears the question', async () => {
-  await withPanes(['/r/A.md'], async (page, mod) => {
-    await savedThenDeletedThenRewritten(page, mod, THEIRS);
-    const outcome = await choose(page, 0, 'document.take-version-on-disk');
-    assert.ok(outcome === undefined || outcome === true || outcome?.result !== 'failed', JSON.stringify(outcome));
-    await page.waitForFunction(() => document.getElementById('marxy-notices').textContent.includes('Theirs') === false);
-    assert.equal(await storeText(page, 0), THEIRS);
-    assert.deepEqual((await texts(page, 0)).filter((t) => t.startsWith(RETURNED)), [], 'the question is gone');
-    // The file is settled: the next outside write to a clean buffer is read in, as before.
-    await outside(page, '/r/A.md', THEIRS + '\nMore.\n');
-    await page.waitForFunction(() => document.getElementById('doc').textContent.includes('More.'));
-  });
-});
-
-test('F-47: keeping mine after a delete and rewrite writes a copy beside the file and never over the other program\'s', async () => {
-  await withPanes(['/r/A.md'], async (page, mod) => {
-    await savedThenDeletedThenRewritten(page, mod, THEIRS);
-    await choose(page, 0, 'document.keep-mine-as-copy');
-    await writesReach(page, 2);
-    const writes = await appWrites(page);
-    assert.notEqual(writes[1].path, '/r/A.md', 'the copy has a name of its own');
-    assert.ok(writes[1].text.startsWith('# AlphaQz\n'), 'the copy holds the text the reader saved');
-    assert.equal(await disk(page, '/r/A.md'), THEIRS);
-  });
-});
-
-test('F-47: the file written again with the bytes the reader saved is not a change, and the question never comes', async () => {
-  await withPanes(['/r/A.md'], async (page, mod) => {
-    await toSource(page, 0);
-    await typeAtLineEnd(page, 0, 1, 'Qz');
-    await page.keyboard.press(`${mod}+s`);
-    await writesReach(page, 1);
-    const saved = await disk(page, '/r/A.md');
-    await gone(page, '/r/A.md');
-    await page.waitForFunction((t) => document.getElementById('marxy-notices').textContent.includes(t), REMOVED);
-    await outside(page, '/r/A.md', saved);
-    await page.waitForTimeout(400);
-    assert.deepEqual((await texts(page, 0)).filter((t) => t.startsWith(RETURNED)), []);
-    // Settled: a later write by another program reloads into a clean buffer, as it always has.
-    await toSource(page, 0);
-    await outside(page, '/r/A.md', THEIRS);
-    await page.waitForFunction(() => document.getElementById('marxy-source').textContent.includes('Theirs'));
-    assert.equal(await storeText(page, 0), THEIRS);
-  });
-});
-
-test('F-47: a save after the delete writes the file back, and a later outside write reloads into the clean buffer', async () => {
+test('F-47: a clean buffer adopts the file written again after a delete, as it adopts an overwrite', async () => {
   await withPanes(['/r/A.md'], async (page, mod) => {
     await toSource(page, 0);
     await typeAtLineEnd(page, 0, 1, 'Qz');
@@ -364,13 +299,9 @@ test('F-47: a save after the delete writes the file back, and a later outside wr
     await writesReach(page, 1);
     await gone(page, '/r/A.md');
     await page.waitForFunction((t) => document.getElementById('marxy-notices').textContent.includes(t), REMOVED);
-    await typeAtLineEnd(page, 0, 1, 'Ab');
-    await page.keyboard.press(`${mod}+s`);
-    await writesReach(page, 2);
-    assert.ok((await disk(page, '/r/A.md')).startsWith('# AlphaQzAb\n'), 'the reader\'s save recreated the file');
     await outside(page, '/r/A.md', THEIRS);
     await page.waitForFunction(() => document.getElementById('marxy-source').textContent.includes('Theirs'));
     assert.equal(await storeText(page, 0), THEIRS);
-    assert.deepEqual((await texts(page, 0)).filter((t) => t.startsWith(RETURNED)), []);
+    assert.deepEqual((await texts(page, 0)).filter((t) => t.startsWith(KEPT)), [], 'nothing to choose over a clean buffer');
   });
 });

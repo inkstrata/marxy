@@ -11,7 +11,7 @@ import { classify } from '@marxy/core/src/index-model/kinds.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import type { AppShell } from '../app.ts';
-import { clearDiskChangedChooseNotices, diskChangedChooseNotice, diskReturnedChangedNotice, fileRemovedNotice } from '../notices/disk.ts';
+import { clearDiskChangedChooseNotices, diskChangedChooseNotice, fileRemovedNotice } from '../notices/disk.ts';
 import { paneOf, type NoticeTarget } from '../notices/index.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
 import type { DocumentStore } from './store.ts';
@@ -109,12 +109,6 @@ export async function watchDocument(
   let watchedPath = store.snapshot().path;
   /** The watch being moved to the store's new folder, awaited by a rename follow. */
   let moving: Promise<void> = Promise.resolve();
-  /**
-   * The file was seen gone (removed, or unreadable) and nothing has settled it since: the buffer is the only copy
-   * of the text the reader last saved, so a version that comes back different is an outside change to offer, never
-   * to adopt over it (F-47). Settled by a save, a reload, a rename, or the file coming back as it was.
-   */
-  let removed = false;
 
   async function readOpenFileWithRetry(path: string): Promise<Uint8Array | null> {
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -144,11 +138,10 @@ export async function watchDocument(
       // Every view is asked, at the turn the store would commit: Source text typed in any pane that shows
       // it is an unsaved edit the store cannot see, and an outside write must not be adopted over it (and
       // the stale-write guard armed on it), or a save would write over the other program's change.
-      outcome = await store.reload(bytes, { holds: holdsTheReadersText });
+      outcome = await store.reload(bytes, { holds: unfoldedSourceInAnyView });
     } finally {
       for (const view of places.keys()) view.expectReloadAt(null);
     }
-    if (outcome === 'unchanged') removed = false;
     if (outcome === 'kept') {
       say(conflictNotice);
       return;
@@ -189,14 +182,6 @@ export async function watchDocument(
     return views().some((view) => view.sourceHasUnfoldedEdits());
   }
 
-  /**
-   * Text the store must not adopt a change over: Source text typed and not yet folded in, or the only copy of a
-   * file that has been deleted (the file back with other bytes is a change to choose, as over unsaved edits).
-   */
-  function holdsTheReadersText(): boolean {
-    return removed || unfoldedSourceInAnyView();
-  }
-
   /** Unsaved changes: the buffer differs from disk, or a view's Source holds text not yet folded in. */
   function hasUnsavedChanges(): boolean {
     return store.snapshot().dirty || unfoldedSourceInAnyView();
@@ -204,8 +189,7 @@ export async function watchDocument(
 
   /** The pane `view` draws in: a notice about the file is said in the panes that show it, and in no other. */
   const targetOf = (view: RenderedView): NoticeTarget => ({ pane: paneOf(view.host?.article) });
-  const conflictNotice = (target: NoticeTarget): void =>
-    (deps.onConflict ?? (removed && !unfoldedSourceInAnyView() && !store.snapshot().dirty ? diskReturnedChangedNotice : diskChangedChooseNotice))(target);
+  const conflictNotice = (target: NoticeTarget): void => (deps.onConflict ?? diskChangedChooseNotice)(target);
   const say = (notice: (target: NoticeTarget) => void): void => {
     for (const view of views()) notice(targetOf(view));
   };
@@ -224,7 +208,6 @@ export async function watchDocument(
       return;
     }
     if (effect.action === 'gone') {
-      removed = true;
       refreshIndexForWatch(events, path, null);
       say(fileRemovedNotice);
       return;
@@ -247,7 +230,6 @@ export async function watchDocument(
     const read = performance.now();
     refreshIndexForWatch(events, path, diskBytes);
     if (diskBytes === null) {
-      removed = true;
       say(fileRemovedNotice);
       return;
     }
@@ -256,7 +238,7 @@ export async function watchDocument(
     // store keeps a dirty buffer. Bytes equal to the buffer change nothing the reader could lose.
     // The store is told, so the change is held for the reader's choice (V-07) like a dirty buffer's.
     if (unfoldedSourceInAnyView()) {
-      if (!sameBytes(diskBytes, buffer.bytes) && (await store.reload(diskBytes, { holds: holdsTheReadersText })) === 'kept') {
+      if (!sameBytes(diskBytes, buffer.bytes) && (await store.reload(diskBytes, { holds: unfoldedSourceInAnyView })) === 'kept') {
         say(conflictNotice);
       }
       return;
@@ -318,8 +300,6 @@ export async function watchDocument(
   };
   const unsubscribe = store.subscribe((snap, change) => {
     if (change.kind === 'close') return close();
-    // The file is on disk again as the store knows it: what a save wrote, what a choice adopted, the new name.
-    if (change.kind === 'save' || change.kind === 'reload' || change.kind === 'rename') removed = false;
     if (snap.path === watchedPath) return;
     watchedPath = snap.path;
     moving = watchFolderOf(snap.path);

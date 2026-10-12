@@ -194,8 +194,6 @@ function openSeed(seed) {
       log.push(`open ${first} and ${second}, window unfolded`);
       const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
       const tokens = [];
-      /** Paths another program deleted and the store has not settled since (F-47): the buffer is the only copy, so a version that comes back is offered. */
-      const gone = new Set();
       let nextToken = 0;
       let nextFresh = 1;
       let nextOutside = 1;
@@ -210,6 +208,8 @@ function openSeed(seed) {
         const texts = everywhere(seen);
         return tokens.filter((t) => t.live && texts.some((x) => x.includes(t.text)));
       };
+      /** What an outside write replaces: the file's text and the text of a buffer nothing unsaved is in (the file may be gone, or changed unseen). */
+      const replacedBy = (s, path) => (s.files[path] ?? '') + '\n' + s.panes.filter((p) => p.path === path && !p.dirty && !s.panes.some((q) => q.storeIndex === p.storeIndex && q.unfolded)).map((p) => p.buffer ?? '').join('\n');
       /** After a step: whatever the step says it may drop, and then nothing else is missing. */
       const check = async (step, { mayDrop, announced = null, sourceUndone = null, noHeldApart = false, undoLanded = null } = {}) => {
         await settle(page);
@@ -252,7 +252,6 @@ function openSeed(seed) {
         }
         if (seen.watches !== seen.stores) fail('I5 (one store per path)', `${seen.watches} live watch(es) for ${seen.stores} store(s) on ${paths.join(', ')}`);
         // Unsaved Source text in any pane on the store counts: the store holds the change for a choice then too.
-        const wasGone = new Set(gone);
         const unsaved = (p) => seen.panes.some((q) => q.storeIndex === p.storeIndex && q.unfolded);
         if (announced) {
           // I4: the outside write to `announced.path` was delivered: a clean store shows it; a dirty one holds it and says so.
@@ -261,7 +260,7 @@ function openSeed(seed) {
             if (announced.deleted) {
               if (p.buffer === null) fail('I4 (an outside write is announced)', `${p.path} was deleted and its pane lost the buffer`);
               if (!p.notices.some((n) => n.includes('removed from disk'))) fail('I4 (an outside write is announced)', `${p.path} was deleted and ${p.slot === 0 ? 'the left' : 'the right'} pane did not say so`);
-            } else if (p.base !== announced.text && !p.dirty && !unsaved(p) && !wasGone.has(p.path)) {
+            } else if (p.base !== announced.text && !p.dirty && !unsaved(p)) {
               if (p.buffer !== announced.text) fail('I4 (an outside write is announced)', `a clean pane on ${p.path} does not show what another program wrote`);
             } else if (p.base !== announced.text) {
               if (!p.conflict) fail('I4 (an outside write is announced)', `${p.path} has unsaved edits, another program wrote it, and no change is held for a choice`);
@@ -269,9 +268,6 @@ function openSeed(seed) {
             }
           }
         }
-        // A deleted file is settled once the store's baseline is the file again (a save, a choice, the same bytes back).
-        if (announced?.deleted) gone.add(announced.path);
-        for (const p of seen.panes) if (gone.has(p.path) && !(announced?.deleted && p.path === announced.path) && p.base === seen.files[p.path]) gone.delete(p.path);
         remember(seen);
         return seen;
       };
@@ -496,7 +492,7 @@ function openSeed(seed) {
           async run(s) {
             const open = [...new Set(s.panes.map((p) => p.path))];
             const path = d.chance(0.85) ? d.pick(open) : d.pick(PATHS);
-            const old = s.files[path] ?? '';
+            const old = replacedBy(s, path);
             const announced = d.chance(0.85);
             const text = `${old}\nOUTSIDE ${nextOutside++}\n`;
             await page.evaluate(({ path, text, announced }) => window.__outside(path, text, announced ? undefined : []), { path, text, announced });
@@ -513,9 +509,7 @@ function openSeed(seed) {
               window.__marxyHandle.shell.remove(path);
               window.__marxyHandle.shell.emit([{ kind: 'removed', path }]);
             }, path);
-            // The file's text goes with it, but not an open buffer's copy: that stays (F-47), and a version that comes back is offered.
-            const held = s.panes.flatMap((q) => [q.buffer, q.editor]).filter((t) => t != null);
-            return { label: `another program deletes ${name(path)}`, mayDrop: () => tokensIn(old).filter((id) => !held.some((t) => t.includes(tokens[id].text))), announced: { path, deleted: true } };
+            return { label: `another program deletes ${name(path)}`, mayDrop: () => tokensIn(old), announced: { path, deleted: true } };
           },
         },
         resolve: {
@@ -549,7 +543,7 @@ function openSeed(seed) {
             await settle(page);
             await tickTask(page, p.slot).catch(() => {});
             await settle(page);
-            const old = (await look(page)).files[p.path] ?? '';
+            const old = replacedBy(await look(page), p.path);
             await page.evaluate(({ path, text }) => window.__outside(path, text), { path: p.path, text: `${old}\nOUTSIDE ${nextOutside++}\n` });
             await settle(page);
             await focusPane(page, p.slot);
