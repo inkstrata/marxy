@@ -113,8 +113,9 @@ const farAbove = (page, screens, where = 0.5) =>
 async function deepAt1Mb(page, fraction) {
   await boot(page, { '/docs/big.md': b64(BIG) }, ['/docs/big.md']);
   await page.evaluate(() => window.__h.contentComplete());
-  // The typesetter's idle pass over the whole document is done (K-05b: the kind's profile re-sets the page once after first text,
-  // and the height holds still while it does; the paragraphs far above are set only when the pass is done).
+  // The typesetter's idle pass over the whole document is done. The paragraphs far above are set only when it is, and `settle`
+  // cannot tell: under K-05b's profiles setting a paragraph no longer changes the page's height (the line boxes are the grid's
+  // already), so the height holds still for a second while the pass is still working.
   await page.evaluate(async () => {
     const t = performance.now();
     while (!window.__h.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'typeset_done') && performance.now() - t < 90_000) {

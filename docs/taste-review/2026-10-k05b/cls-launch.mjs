@@ -1,9 +1,12 @@
-// K-05b: what the reader sees when the kind attribute lands after first text. A document opened at launch is
-// shown first and decided right after (open.ts `bootDocument`), so a profile that changes the face, size or
-// column moves the page once. This boots each page as the launch document, records the page's block rects
-// every frame from before boot (the aesthetics gate's own `snapshotBlocks` and `movedFraction`), and prints the
-// moved fraction across the frame in which `data-marxy-kind` first appears. The gate itself starts measuring
-// after `ready`, when the attribute is already on, so it cannot see this.
+// K-05b: what the reader sees when a launch document's kind profile changes the face, size or column. This boots each
+// page as the launch document, records the page's block rects every frame from before boot (the aesthetics gate's own
+// `snapshotBlocks` and `movedFraction`), and prints the layout shift from the first frame with text on: the sum of the
+// moved fraction across every consecutive pair of frames (the layout-shift score; the gate fails any value above 0).
+// On a head that decides the kind before first paint (K-05a.1) the attribute is on in the first frame with text and
+// the score is 0; on a head that decides it just after first text (K-05a), the attribute lands in a later frame and the
+// page moves (worst frame 0.24 readme, 0.38 article, 0.45 report; summed over the launch 0.43, 0.38, 0.75, measured on
+// K-05b's first head, before K-05a.1). The gate itself starts measuring after
+// `ready`, when the attribute is already on, so it cannot see either.
 //
 //   node docs/taste-review/2026-10-k05b/cls-launch.mjs
 import { readFileSync } from 'node:fs';
@@ -51,17 +54,24 @@ try {
         await handle.ready;
         await new Promise((r) => setTimeout(r, 600));
         stop = true;
-        const at = frames.findIndex((f) => f.kind !== null);
+        // K-05a.1 decides the kind before the first paint, so the attribute is on in the first frame that has text.
+        // The shift is then the sum of the moved fraction across every consecutive pair of frames from first text
+        // on (the layout-shift score), which is 0 when nothing moves after first text, whatever the cause.
         const withText = frames.findIndex((f) => f.blocks.length > 0);
-        if (at < 1) return { error: 'the attribute never landed or landed before any frame', at, withText };
-        const before = frames[at - 1];
-        const after = frames[at];
+        if (withText < 0) return { error: 'no frame ever had text' };
+        let cls = 0;
+        let worst = 0;
+        for (let i = withText + 1; i < frames.length; i += 1) {
+          const m = movedFraction(frames[i - 1].blocks, frames[i].blocks);
+          cls += m;
+          worst = Math.max(worst, m);
+        }
         return {
-          kind: after.kind,
-          framesTextFirst: withText >= 0 && withText < at,
-          cls: before.blocks.length ? movedFraction(before.blocks, after.blocks) : null,
-          blocksBefore: before.blocks.length,
-          gapMs: Math.round(after.t - frames[withText].t),
+          kind: frames[withText].kind,
+          kindOnAtFirstText: frames[withText].kind !== null,
+          cls: Number(cls.toFixed(4)),
+          worstFrame: Number(worst.toFixed(4)),
+          frames: frames.length - withText,
         };
       }, { files, path });
       console.log(`${variant} ${key}: ${JSON.stringify(result)}`);
