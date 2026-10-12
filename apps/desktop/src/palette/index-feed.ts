@@ -29,6 +29,8 @@ export interface IndexFeed {
   setWatchNotice(text: string | undefined): void;
   /** collection.toml's folders, in file order. */
   setDeclared(roots: readonly string[]): void;
+  /** The folders `setDeclared` was last given: what the library offers as scopes (Q-03). */
+  declared(): readonly string[];
   /** The open document's repository root. Until set, the session's current root stands in. */
   setCurrent(root: string | undefined): void;
   /** Read the session again (recent roots, read times) and rebuild. */
@@ -141,6 +143,7 @@ export function createIndexFeed(source: IndexFeedSource): IndexFeed {
       watchNotice = text;
       changed();
     },
+    declared: () => declared,
     setDeclared(roots) {
       if (sameList(roots, declared)) return;
       declared = [...roots];

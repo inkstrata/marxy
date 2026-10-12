@@ -78,7 +78,8 @@ equality was not byte equality, and no diff over that text can make it so.
   editor's fold: it is taken outside the history, and the editor's history is dropped with it, because every change in
   it was made at positions the new text no longer has (mapped through a whole-text replace they all landed at the end,
   and a Mod+Z wrote a CRLF there; mapped through a Rendered undo they put back a character that undo had taken out).
-  Source's Mod+Z then has nothing to undo until the reader types again. The store's undo in Rendered is byte-exact
+  Source's Mod+Z then has nothing to undo until the reader types again. A key typed in the same task as a save's fold (before the fold settles) is not a change from outside: the fold goes
+  again over the text the editor holds, so the key stays in the editor and the store, and the next write has it (F-42). The store's undo in Rendered is byte-exact
   throughout, and steps back over every fold (F-40).
 - Searching Source for U+FFFD does not find a stray byte (it is a different character there); the marker shows it.
 - A line copied with no selection (CodeMirror's line-wise copy) that holds a stray byte pastes back as text at the
@@ -88,7 +89,8 @@ equality was not byte equality, and no diff over that text can make it so.
   did not edit keeps its bytes, however many edits are made around it, and the editor marks it like Source (F-34.2).
   Line endings are the same: only a line break the reader made (a bare LF) takes the block's first ending, and an ending the
   text already holds is never rewritten; in a block that mixes endings, edited across one of its bare LFs, a new break stays
-  an LF (F-40).
+  an LF (F-40). In such a block the text names every ending, so an LF that the cut was widened over (the other half of a CRLF
+  whose CR was deleted) is the file's own and is never converted: deleting only a CR is written (F-40.1).
   Its copy, cut and paste carry the private type as Source's do. The block's text is read for the page (the notice that
   names a kept block) through `readableText`.
 - The Source table tools work on a table that holds a stray byte: they run on a copy with each such code unit stood in

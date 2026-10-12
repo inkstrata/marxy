@@ -115,10 +115,10 @@ export type AppHandle = {
   save(opts?: { as?: boolean }): Promise<SaveResult>;
   /**
    * Shows `text` as a scratch document (E-13): it renders and edits like any document, is called "Untitled",
-   * and no file exists until Save As. Resolves true once it is on screen, false when the open was refused
-   * (the reader dismissed the unsaved-changes prompt). Opens in the other pane when two are shown.
+   * and no file exists until Save As. Resolves true when the open was not refused, false when it was; over unsaved edits it
+   * resolves while the prompt stands, so `onLanded` is what says it is on screen. Opens in the other pane when two are shown.
    */
-  openScratch(text: string, opts?: { readonly label?: string }): Promise<boolean>;
+  openScratch(text: string, opts?: { readonly label?: string; readonly onLanded?: () => void }): Promise<boolean>;
   /**
    * The open document's store subscription, seen through the app (ADR-0037): called with the document
    * on every committed transition and on each open, which moves the subscription to the new store, and

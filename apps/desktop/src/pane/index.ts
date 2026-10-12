@@ -51,9 +51,10 @@ export type AppPanes = PaneSet<AppPane> & {
   debugCounts(): { typesetters: number; resizeObservers: number };
   /**
    * Shows `bytes` as a scratch document (E-13): in the other pane when two are open (D's rule), else the
-   * focused one. Asks first over unsaved edits there, as any open does. The pane, or null when refused.
+   * focused one. Asks first over unsaved edits there, as any open does: the pane then comes back before the reader has
+   * answered, and `onLanded` runs only if the answer opens the scratch. The pane, or null when refused.
    */
-  openScratch(bytes: Uint8Array, opts?: { readonly label?: string }): Promise<Pane<AppPane> | null>;
+  openScratch(bytes: Uint8Array, opts?: { readonly label?: string; readonly onLanded?: () => void }): Promise<Pane<AppPane> | null>;
 };
 
 export function createPanes(deps: PanesDeps): AppPanes {
@@ -174,8 +175,11 @@ export function createPanes(deps: PanesDeps): AppPanes {
     void panes.focused.content.refreshTitle();
   });
   return Object.assign(panes, {
-    openScratch(bytes: Uint8Array, opts?: { readonly label?: string }) {
-      return panes.openIn(panes.panes.length > 1 ? 'other' : 'focused', untitled.next(), { scratch: { bytes, label: opts?.label } });
+    openScratch(bytes: Uint8Array, opts?: { readonly label?: string; readonly onLanded?: () => void }) {
+      return panes.openIn(panes.panes.length > 1 ? 'other' : 'focused', untitled.next(), {
+        scratch: { bytes, label: opts?.label },
+        onLanded: opts?.onLanded,
+      });
     },
     debugCounts() {
       let typesetters = 0;

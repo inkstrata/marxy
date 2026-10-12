@@ -266,3 +266,71 @@ test('Block editor: a line break typed in a mixed-ending block follows its first
     assert.equal(hex(await t.buf()), hex(expected));
   });
 });
+
+// 4. A keystroke in the same task as Mod+S (F-42). The save folds the editor's text into the store (async) and then took
+//    the store's bytes back into the editor, which deleted what had been typed while it waited. Nothing typed is lost:
+//    the keystroke stays in the editor and the store, and the next save writes it.
+for (const [name, orig, prior] of [
+  ['an edit before the save', B('# T\n\nhello world\n\nbye\n'), 'x'],
+  ['no edit before the save', B('# T\n\nhello world\n\nbye\n'), null],
+  ['a stray byte in the file', B('# T\n\nhello ', [0xff], ' world\n\nbye\n'), 'x'],
+  ['a mixed-ending file made uniform', B('# T\r\n\r\nhello\nworld\r\n\r\nbye\r\n'), 'Delete'],
+]) {
+  test(`Source: a keystroke typed in the same task as Mod+S is kept and saved next (${name})`, async () => {
+    await withApp(orig, async (t) => {
+      await t.toSource();
+      await t.caretAfter('hello');
+      if (prior) await t.page.keyboard.press(prior);
+      // Mod+S and a keystroke in one task: no await between them, so the save's fold has not settled.
+      await t.cm(
+        `const dom = ed.view.contentDOM;
+         dom.dispatchEvent(new KeyboardEvent('keydown', { key: 's', code: 'KeyS', metaKey: arg.mod === 'Meta', ctrlKey: arg.mod === 'Control', bubbles: true, cancelable: true }));
+         const at = ed.view.state.selection.main.head;
+         ed.view.dispatch({ changes: { from: at, insert: 'Q' }, selection: { anchor: at + 1 }, userEvent: 'input.type' });`,
+        { mod: t.mod },
+      );
+      await t.page.waitForTimeout(500);
+      assert.ok((await t.doc()).includes(0x51), `the keystroke was dropped: ${hex(await t.doc())}`);
+      // The keystroke is in the editor and the store. The first save may already have written it (the fold takes it in
+      // before the write); either way a second Mod+S leaves the disk holding it.
+      assert.equal(hex(await t.buf()), hex(await t.doc()), 'the store holds it too');
+      await t.page.keyboard.press(`${t.mod}+s`);
+      await t.page.waitForTimeout(500);
+      assert.equal(hex(await t.disk()), hex(await t.doc()), 'the disk is what the editor names');
+      assert.ok((await t.disk()).includes(0x51), 'the save wrote the keystroke');
+      // It was this pane's own keystroke, not another pane's change: nothing says the text was held apart.
+      assert.ok(!(await t.page.evaluate(() => document.body.innerText)).includes('Source in the other pane'));
+    });
+  });
+}
+
+// F-40.1: deleting only a CR inside a mixed-ending block is an edit and is written (it was folded to nothing).
+for (const [name, file, line, back, cutAt] of [
+  ['the CR of a CRLF', B('# T\r\n\r\nline1\r\nline2\nline3\r\nline4\r\n\r\nnext\r\n'), 0, 0, 'line1\r'],
+  ['the CR of a CRLF beside a bare LF', B('# T\r\n\r\nline1\nline2\r\nline3\r\n\r\nnext\r\n'), 1, 0, 'line2\r'],
+  // (a lone CR takes two arrow steps in WebKit, hence 6)
+  ['a lone CR inside a line', B('# T\r\n\r\nline1\r\nline2\rline3\r\nline4\r\n\r\nnext\r\n'), 1, 6, 'line2\r'],
+]) {
+  test(`Block editor: deleting only ${name} of a mixed-ending block is written, and nothing else moves`, async () => {
+    await withApp(file, async (t) => {
+      const ast = parseMarkdown(file, { file: 'x' });
+      const node = ast.children.find((c) => c.type === 'paragraph');
+      await t.page.evaluate((b) => window.__marxyHandle.selection.selectBlockAtByte(b), node.src.start);
+      await t.page.keyboard.press(`${t.mod}+Enter`);
+      await t.page.waitForSelector('.marxy-block-editor .cm-content');
+      // The caret just after the CR, by keys; then the real Backspace key.
+      await t.page.keyboard.press(t.mod === 'Meta' ? 'Meta+ArrowUp' : 'Control+Home');
+      for (let i = 0; i < line; i++) await t.page.keyboard.press('ArrowDown');
+      await t.page.keyboard.press('End');
+      for (let i = 0; i < back; i++) await t.page.keyboard.press('ArrowLeft');
+      await t.page.keyboard.press('Backspace');
+      await t.page.keyboard.press('Escape');
+      await t.page.waitForFunction(() => document.querySelector('.marxy-block-editor') === null);
+      const cr = file.indexOf(cutAt) + cutAt.length - 1;
+      const expected = B(file.subarray(0, cr), file.subarray(cr + 1));
+      assert.equal(hex(await t.buf()), hex(expected), 'exactly the CR is gone');
+      await t.save();
+      assert.equal(hex(await t.disk()), hex(expected), 'and the save writes it');
+    });
+  });
+}
