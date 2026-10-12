@@ -13,11 +13,16 @@ export const WRAP_COLUMNS = 80;
 // Inline nodes whose bytes are never broken: a code span or math reads its spaces as content, a task box is `[ ]`.
 const ATOMS = new Set(['code', 'mathInline', 'html', 'taskMarker']);
 
-// A word that would change what the line is if it began one stays on the line before it: a lone list marker, `>`, a
-// run of `#`, an ordered marker (`1.`), a rule or setext underline, a fence, `$$`, a table row (`|`), a lone definition
-// colon, an HTML block opener or a footnote definition. A word that merely starts with `*`, `_` or `-` (`**bold**`,
-// `--flag`) is not a marker and wraps like any other.
-const BLOCK_START = /^(?:[-*+:]$|>|#{1,6}$|\d{1,9}[.)]$|[-=_*]{2,}$|[`~]{3,}|\$\$|\||<[A-Za-z/!?]|\[\^[^\]]*\]:)/;
+// A word that would change what the line is if it began one stays on the line before it. Only a whole word that is a
+// marker counts: a lone list marker or definition colon, a run of `#`, an ordered marker (`1.`), a rule or setext
+// underline, a fence, a lone `$$`, a table delimiter row, a footnote definition, or one of CommonMark's HTML block
+// openers (type 7 cannot interrupt a paragraph). A word that merely starts with `*`, `_`, `|` or `<` (`**bold**`,
+// `|x`, `<x`) wraps like any other.
+const HTML_BLOCK = /^<(?:\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section|source|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[\s>/]|$)|(?:script|pre|style|textarea)(?:[\s>]|$)|!--|\?|![A-Za-z]|!\[CDATA\[)/i;
+const MARKER = /^(?:[-*+:]$|#{1,6}$|\d{1,9}[.)]$|[-=_*]{2,}$|[`~]{3,}|\$\$$|[|:]*-[|:-]*$|\[\^[^\]]*\]:)/;
+const blockStart = (w: string): boolean => MARKER.test(w) || (w[0] === '<' && HTML_BLOCK.test(w));
+// A word that starts with `>` would open a quote at the start of a line; it can always be written `\>` instead.
+const quoteStart = (w: string): boolean => w[0] === '>';
 
 const ASCII = /^[\x20-\x7e]*$/;
 const widthOf = (s: string): number => (ASCII.test(s) ? s.length : displayWidth(s));
@@ -76,14 +81,14 @@ function fill(text: string, atoms: readonly [number, number][], start: number, c
       first = false;
     } else {
       // The decision counts a run of spaces as one, so a line that was a break once is a break again (idempotence).
-      const glued = BLOCK_START.test(p.word) || endsWithOddBackslashes(prev);
+      const glued = blockStart(p.word) || endsWithOddBackslashes(prev);
       if (glued || col + 1 + w <= columns) {
         const sep = p.newline || p.sep === '' ? ' ' : p.sep;
         out.push(sep, p.word);
         col += widthOf(sep) + w;
       } else {
-        out.push('\n', cont, p.word);
-        col = contWidth + w;
+        out.push('\n', cont, quoteStart(p.word) ? `\\${p.word}` : p.word);
+        col = contWidth + w + (quoteStart(p.word) ? 1 : 0);
       }
     }
     prev = p.word;

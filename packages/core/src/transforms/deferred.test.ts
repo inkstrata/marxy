@@ -199,3 +199,27 @@ test('to-jira: a pipe in code in a cell, literal -word-, and inline HTML', () =>
   assert.equal(run('to-jira', 'a -no- and +yes+ and well-known, 1 - 2 and why??\n'), 'a \\-no\\- and \\+yes\\+ and well-known, 1 - 2 and why\\?\\?\n');
   assert.equal(run('to-jira', 'x <b>raw</b> y\n'), 'x raw y\n');
 });
+
+test('wrap-80: a word in mid-paragraph is never glued whatever character it starts with', () => {
+  for (const unit of ['|x ', '>x ', '>= ', '<x ', '$$x ', '|a|b| ']) {
+    const text = unit.repeat(50).trimEnd();
+    const out = run('wrap-80', `start ${text}\n`);
+    assert.ok(longest(out) <= 80, JSON.stringify(unit));
+    assert.equal(signature(out), signature(`start ${text}\n`), `${unit}: the document changed shape`);
+    assert.equal(run('wrap-80', out), out, `${unit}: not idempotent`);
+  }
+});
+
+test('wrap-80: every line is at most 80 columns for random words starting with each special character', () => {
+  let seed = 7;
+  const rnd = (n: number): number => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+  const specials = ['|', '>', '<', '*', '_', '-', ':', '=', '+', '#', '~', '.', '1'];
+  for (let round = 0; round < 40; round++) {
+    const words = Array.from({ length: 30 + rnd(30) }, () => specials[rnd(specials.length)]! + 'abcdefghijkl'.slice(0, 1 + rnd(11)));
+    const text = `start ${words.join(' ')}\n`;
+    const out = run('wrap-80', text);
+    for (const line of out.split('\n')) assert.ok(line.length <= 80 || !line.includes(' '), `${JSON.stringify(line)} in ${JSON.stringify(text)}`);
+    assert.equal(signature(out), signature(text), `shape changed: ${JSON.stringify(text)}`);
+    assert.equal(run('wrap-80', out), out, `not idempotent: ${JSON.stringify(text)}`);
+  }
+});
