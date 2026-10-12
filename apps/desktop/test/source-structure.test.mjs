@@ -624,8 +624,9 @@ browserTest('in Rendered no Source key does anything, and Source gains no elemen
     assert.deepEqual([await storeText(page, 0), await storeText(page, 1)], [files['/r/A.md'], files['/r/B.md']]);
     await page.keyboard.press('Meta+e');
     await page.waitForSelector('#marxy-source .cm-content');
-    // The editor's own elements, by class with the generated and state classes left out.
-    const frame = () => page.evaluate(() => [...new Set([...document.querySelectorAll('#marxy-source *')].map((e) => `${e.tagName}.${String(e.className).split(/\s+/).filter((c) => c.startsWith('cm-') && c !== 'cm-focused').join('.')}`))].filter((c) => !/cm-(cursor|selection|layer)/.test(c)).sort().join('|'));
+    // The editor's own elements, by class with the generated and state classes left out. Syntax-highlight spans (class-less once the
+    // generated classes go) are text colour, and the grammar attaches after mount (V-14): they may appear between the two readings.
+    const frame = () => page.evaluate(() => [...new Set([...document.querySelectorAll('#marxy-source *')].map((e) => `${e.tagName}.${String(e.className).split(/\s+/).filter((c) => c.startsWith('cm-') && c !== 'cm-focused').join('.')}`))].filter((c) => !/cm-(cursor|selection|layer)/.test(c) && c !== 'SPAN.').sort().join('|'));
     const before = await frame();
     await caretAt(page, 0, 'alpha one', 2);
     for (const chord of ['Control+Shift+B', 'Control+Shift+S', 'Control+Shift+ArrowRight', 'Meta+d', 'Meta+Shift+l', 'Meta+l']) await page.keyboard.press(chord);
