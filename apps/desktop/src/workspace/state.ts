@@ -8,7 +8,7 @@
 // whenever the region is, and let go when it is taken out.
 
 import { LAYOUT_MAX_BYTES } from '@marxy/core/src/layout/persistence.ts';
-import { WorkspacePersistence, type RememberedPanels } from '@marxy/core/src/layout/workspace-storage.ts';
+import { WorkspacePersistence, type RememberedPanels, type SidebarState } from '@marxy/core/src/layout/workspace-storage.ts';
 import type { AppShell } from '../app-types.ts';
 import { WORKSPACE_REGIONS, mountRegions, setRegionOpen, unmountRegions, type Arrangement, type WorkspaceRegion } from './regions.ts';
 
@@ -34,6 +34,9 @@ export function arrangementFor(remembered: RememberedPanels, windowWidth: number
 export interface WorkspaceStore {
   load(): Promise<RememberedPanels>;
   save(panels: Arrangement): Promise<void>;
+  /** The sidebar's folded sections (W-07): read the first time the sidebar is drawn, written when the reader folds one. */
+  loadSections(): Promise<SidebarState>;
+  saveSections(sidebar: SidebarState): Promise<void>;
 }
 
 type StateShell = Pick<AppShell, 'readHead' | 'writeFileAtomic' | 'configPaths'>;
@@ -69,6 +72,12 @@ export function workspaceStoreFor(shell: StateShell): WorkspaceStore | null {
     },
     async save(panels) {
       await (await open()).write(panels);
+    },
+    async loadSections() {
+      return (await open()).savedSidebar();
+    },
+    async saveSections(sidebar) {
+      await (await open()).writeSidebar(sidebar);
     },
   };
 }
@@ -116,6 +125,12 @@ export interface Workspace {
   fill(region: WorkspaceRegion, mount: RegionFill): () => void;
   /** Whether anything is registered to fill `region`: what a control that lives in another region asks. */
   hasFill(region: WorkspaceRegion): boolean;
+  /**
+   * The sidebar's folded sections (W-07), kept in workspace.json beside the panels by the one store. Nothing has
+   * been read until the first call, so a launch still touches nothing; a window with no store remembers none.
+   */
+  loadSections(): Promise<SidebarState>;
+  saveSections(sidebar: SidebarState): Promise<void>;
   onChange(cb: (mode: WorkspaceMode) => void): () => void;
   /** Writes the panels if they changed since they were last written: quit while unfolded. */
   flush(): Promise<void>;
@@ -137,6 +152,8 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
   let mode: WorkspaceMode = 'folded';
   let arrangement: Arrangement | null = null;
   let remembered: RememberedPanels | null = null;
+  /** The sidebar's folded sections: read with the panels at the first unfold, or by the sidebar if it is drawn first (a peek). */
+  let sections: SidebarState | null = null;
   let regions: ReadonlyMap<WorkspaceRegion, HTMLElement> = new Map();
   /** What fills each region, and the disposer of the content now in the page (null while folded). */
   interface Fill { readonly mount: RegionFill; dispose: (() => void) | null }
@@ -215,9 +232,12 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     if (remembered === null) {
       try {
         remembered = store ? await store.load() : {};
+        // The same file, already open: no second read, and a read that failed is not tried again behind its back.
+        sections ??= store ? await store.loadSections() : { collapsed: [] };
       } catch (error) {
         console.warn(`marxy: the remembered workspace panels could not be read: ${String(error)}`);
-        remembered = {};
+        remembered ??= {};
+        sections ??= { collapsed: [] };
       }
     }
     unpeekNow();
@@ -312,6 +332,28 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     },
 
     hasFill: (name) => (fills.get(name)?.length ?? 0) > 0,
+
+    async loadSections() {
+      if (sections) return sections;
+      if (!store) return { collapsed: [] };
+      try {
+        sections = await store.loadSections();
+        return sections;
+      } catch (error) {
+        console.warn(`marxy: the sidebar's folded sections could not be read: ${String(error)}`);
+        return { collapsed: [] };
+      }
+    },
+
+    async saveSections(sidebar) {
+      sections = sidebar;
+      if (!store) return;
+      try {
+        await store.saveSections(sidebar);
+      } catch (error) {
+        console.warn(`marxy: the sidebar's folded sections could not be saved: ${String(error)}`);
+      }
+    },
 
     onChange(cb) {
       listeners.add(cb);
