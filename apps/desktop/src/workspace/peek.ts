@@ -88,6 +88,13 @@ export function installPeek(workspace: Workspace, clock?: DwellClock): () => voi
     workspace.peek(edge);
   }, DWELL_MS, clock);
 
+  // The client size is read on attach and on resize, never per pointermove: reading it there can force layout.
+  const size = { width: 0, height: 0 };
+  const measure = (): void => {
+    size.width = document.documentElement.clientWidth;
+    size.height = document.documentElement.clientHeight;
+  };
+
   const hide = (): void => {
     workspace.unpeek();
     dwell.reset();
@@ -95,8 +102,7 @@ export function installPeek(workspace: Workspace, clock?: DwellClock): () => voi
 
   const onMove = (event: PointerEvent): void => {
     buttons = event.buttons;
-    const root = document.documentElement;
-    const at = edgeFor(event.clientX, event.clientY, root.clientWidth, root.clientHeight);
+    const at = edgeFor(event.clientX, event.clientY, size.width, size.height);
     const peeked = workspace.peeked;
     if (peeked !== null) {
       // Inside the peek or still at its edge: it stays. Anywhere else it goes, and the dwell starts over.
@@ -119,6 +125,8 @@ export function installPeek(workspace: Workspace, clock?: DwellClock): () => voi
   const attach = (): void => {
     if (on) return;
     on = true;
+    measure();
+    window.addEventListener('resize', measure);
     document.addEventListener('pointermove', onMove, { passive: true });
     document.documentElement.addEventListener('pointerleave', onLeave);
     document.addEventListener('click', onClick);
@@ -127,6 +135,7 @@ export function installPeek(workspace: Workspace, clock?: DwellClock): () => voi
   const detach = (): void => {
     if (!on) return;
     on = false;
+    window.removeEventListener('resize', measure);
     document.removeEventListener('pointermove', onMove);
     document.documentElement.removeEventListener('pointerleave', onLeave);
     document.removeEventListener('click', onClick);

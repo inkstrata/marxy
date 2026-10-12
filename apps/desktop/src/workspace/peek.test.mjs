@@ -323,3 +323,41 @@ test('in a Source editor Esc does nothing to the workspace', async () => {
     assert.equal(await mode(page), 'unfolded');
   });
 });
+
+test('Esc closes an open peek and leaves the window folded; the next Esc does nothing', async () => {
+  await withPage(async (page) => {
+    await rest(page, 500, 4, 300);
+    assert.deepEqual(await peeked(page), ['toolbar']);
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await peeked(page), [], 'the peek is gone');
+    assert.equal(await mode(page), 'folded');
+    await page.keyboard.press('Escape');
+    assert.equal(await mode(page), 'folded');
+  });
+});
+
+test('the peek reads the window size on resize, not on each pointer move', async () => {
+  await withPage(async (page) => {
+    await page.setViewportSize({ width: 600, height: 900 });
+    await page.waitForTimeout(100);
+    await rest(page, 596, 450, 300);
+    assert.deepEqual(await peeked(page), ['inspector'], 'the right edge follows the new width');
+  });
+});
+
+test('in a block edit Esc keeps the edit and closes no peek, folds nothing', async () => {
+  await withPage(async (page) => {
+    await ws(page, 'w.unfold()');
+    await page.evaluate(() => window.__marxyHandle.selection.selectBlockAtByte(0));
+    await page.waitForFunction(() => window.__marxyHandle.selection.state().selection.kind === 'node');
+    await page.keyboard.press(`${await mod(page)}+Enter`);
+    await page.waitForSelector('.cm-content');
+    await page.keyboard.type('KEPT');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150);
+    assert.equal(await mode(page), 'unfolded', 'Esc in a block edit does not fold');
+    assert.equal(await ws(page, 'w.peeked'), null);
+    assert.equal(await page.locator('.cm-content').count(), 0, 'the edit was left');
+    assert.match(await page.evaluate(() => document.body.innerText), /KEPT/, 'the edit is kept');
+  });
+});
