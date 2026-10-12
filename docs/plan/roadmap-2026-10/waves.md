@@ -116,7 +116,7 @@ Make every summoned surface look alike, let panels peek from the edges, and open
 | The Transform sheet runs off the main thread and keeps every byte | [W-21.1](progress.md) | merged | [#600](https://github.com/inkstrata/marxy/pull/600) |
 | The transforms are linear on large text | [J-03.2](progress.md) | merged | [#591](https://github.com/inkstrata/marxy/pull/591) |
 | Defer the Markdown parse of a file that opens in Source | [V-11.1](progress.md) | merged | [#602](https://github.com/inkstrata/marxy/pull/602) |
-| Notices on the chrome spec, with baselines | [W-04.1](progress.md) | ready | — |
+| Notices on the chrome spec, with baselines | [W-04.1](progress.md) | parked | — |
 | Esc closes an open peek | [W-03.1](progress.md) | ready | — |
 | A notice when Add column refuses | [V-02.1](progress.md) | ready | — |
 | The five transforms still deferred | [J-03.1](../direction-2026-10/09-cards-wave-2.md#j-031--the-five-deferred-transforms) | ready | — |
@@ -129,7 +129,7 @@ Fill the unfolded window's regions: tabs, a sidebar, an inspector and a library 
 | --- | --- | --- | --- | --- |
 | Tabs for the documents opened in this window; click to switch (asks about unsaved edits); close with the x | Unfolded window | [W-06](../direction-2026-10/15-cards-wave-8.md#w-06--tabs-the-documents-opened-in-this-unfolded-window-one-click-apart) | merged | [#601](https://github.com/inkstrata/marxy/pull/601) |
 | A sidebar with Recent, Pinned and files changed since you read; each section folds and is remembered | Unfolded window; `⌃⌘S` | [W-07](../direction-2026-10/15-cards-wave-8.md#w-07--the-sidebar-i-recent-pinned-and-changed-since-you-read-each-section-foldable) | merged | [#606](https://github.com/inkstrata/marxy/pull/606) |
-| An inspector with a Links tab listing every link as written, flagging a label that names another host | Unfolded window; `⌥⌘I` | [W-09](../direction-2026-10/15-cards-wave-8.md#w-09--the-inspector-shell-and-its-links-tab) | in review | [#607](https://github.com/inkstrata/marxy/pull/607) |
+| An inspector with a Links tab listing every link as written, flagging a label that names another host | Unfolded window; `⌥⌘I` | [W-09](../direction-2026-10/15-cards-wave-8.md#w-09--the-inspector-shell-and-its-links-tab) | merged | [#607](https://github.com/inkstrata/marxy/pull/607) |
 | A library view: scopes, a query field with chips, results that say why they matched, and a preview | Palette command "Library" (unfolded window) | [Q-03](../direction-2026-10/15-cards-wave-8.md#q-03--the-library-view-scopes-a-query-field-results-that-say-why-they-matched-a-preview) | merged | [#609](https://github.com/inkstrata/marxy/pull/609) |
 | A chip showing the file's kind with a menu to show it as another kind, and a strip of tools for the kind | Unfolded toolbar | [K-07](../direction-2026-10/14-cards-waves-6-7.md#k-07--the-kind-chip-and-the-per-kind-tool-strip) | merged | [#586](https://github.com/inkstrata/marxy/pull/586) |
 | Source has its own text size, line height, gutter and wrapping | Automatic in Source | [V-12](../direction-2026-10/13-code-view.md#v-12--source-has-its-own-metrics) | merged | [#594](https://github.com/inkstrata/marxy/pull/594) |
@@ -147,8 +147,8 @@ Fill the unfolded window's regions: tabs, a sidebar, an inspector and a library 
 | A setext heading starting with `#` keeps its first character | [F-41](progress.md) | merged | [#604](https://github.com/inkstrata/marxy/pull/604) |
 | A key typed with Mod+S in Source is kept | [F-42](progress.md) | merged | [#610](https://github.com/inkstrata/marxy/pull/610) |
 | Read, source or split from split returns to one pane | [F-44](progress.md) | merged | [#615](https://github.com/inkstrata/marxy/pull/615) |
-| Notices float over the pane instead of pushing the page | [F-46](progress.md) | in review | [#618](https://github.com/inkstrata/marxy/pull/618) |
-| Keys typed while Mod+E or Save's title refresh works are kept | [F-42.1](progress.md) | in review | [#619](https://github.com/inkstrata/marxy/pull/619) |
+| Notices float over the pane instead of pushing the page | [F-46](progress.md) | merged | [#618](https://github.com/inkstrata/marxy/pull/618) |
+| Keys typed while Mod+E or Save's title refresh works are kept | [F-42.1](progress.md) | merged | [#619](https://github.com/inkstrata/marxy/pull/619) |
 | A no-displacement guard for command-opened surfaces | [F-45](progress.md) | merged | [#614](https://github.com/inkstrata/marxy/pull/614) |
 | strip-citations parses once; strip-emoji skips an idle parse | [W-21.2](progress.md) | merged | [#612](https://github.com/inkstrata/marxy/pull/612) |
 
