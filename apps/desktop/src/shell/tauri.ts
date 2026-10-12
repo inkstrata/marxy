@@ -49,11 +49,22 @@ const readBytes = async (path: string): Promise<Uint8Array> => {
     // Rust rejects with a bare string; callers (trust.json, reader config) tell a missing file from a
     // failed read by `code`, as shell-api's ShellError documents.
     const error = shellErrorFromInvoke(err) as ReturnType<typeof shellErrorFromInvoke> & { path?: string };
-    if (isNotFound(err)) error.code = 'not-found';
+    if (isRefused(err)) error.code = 'refused';
+    else if (isNotFound(err)) error.code = 'not-found';
     error.path = path;
     throw error;
   }
 };
+
+/**
+ * `read_file` refuses a file above the ceiling and one that is not a regular file (F-52) with a bare string;
+ * the open file's live reload tells that from a removed file (F-52.1). The phrases are `fs.rs`'s.
+ */
+function isRefused(err: unknown): boolean {
+  if (err && typeof err === 'object' && 'code' in err && (err as ShellError).code === 'refused') return true;
+  const text = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+  return /: too large to open \(|: not a regular file \(/.test(text);
+}
 
 /** `read_file` rejects with a bare "path: No such file or directory (os error 2)" string. */
 function isNotFound(err: unknown): boolean {
