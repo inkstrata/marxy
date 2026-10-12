@@ -235,8 +235,12 @@ export interface RenderedView {
   debugCounts(): { typesetters: number; resizeObservers: number };
   /** Opens and mode switches in this view run one at a time on this queue. */
   serially<T>(fn: () => Promise<T>): Promise<T>;
-  /** Releases everything the shown document started (today's `teardownDocument`); the view can show again. */
-  clear(): void;
+  /**
+   * Releases everything the shown document started (today's `teardownDocument`); the view can show again.
+   * `keepSourceShowing`: an open is under way and Source stays on screen, with the old text in it, until the next
+   * document's first screens replace it (V-15); `show` takes it away.
+   */
+  clear(keepSourceShowing?: boolean): void;
   /** `clear`, and the view's own wiring on its article: nothing of it is left. */
   destroy(): void;
 }
@@ -451,6 +455,13 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   let sourceEntryPlace: number | null = null;
   /** Bumped each time Source is shown, so a late measurement of an earlier visit is dropped. */
   let sourceSession = 0;
+  /**
+   * Where the last leave of Source landed Rendered: the exact byte it came from, and what Rendered read as its
+   * place once it was there (the block under the reading line is a paragraph, a whole code file, never a line).
+   * Going back to Source from the place it landed on, with nothing changed, returns to that byte, not to the
+   * start of the block (V-15).
+   */
+  let swapPlace: { path: string; version: number; exact: number; landed: ReadingPosition } | null = null;
   /** `sourceReadingPosition` (source/mode-switch.ts), loaded with the editor: CM6 stays on the lazy chunk. */
   let sourceReadingPositionIn:
     | ((buffer: Buffer, view: never, readingLinePx: number) => { readonly byteOffset: number; readonly fraction: number })
@@ -619,6 +630,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const editor = await ensureSourceEditor();
     plainText = false;
     setModeChrome('source');
+    dropRetiredSource();
     editor.scrollToByte(byteOffset);
     // Where Source landed, as the reading line reads it: near either end of a document the window
     // cannot put the entered line on the reading line, so "untouched" is "still here", not "on that line".
@@ -653,6 +665,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const reason = (e instanceof Error ? e.message : String(e)).trim().replace(/\.$/, '');
     console.warn(`marxy: Source could not be mounted: ${reason}`);
     setModeChrome('rendered');
+    dropRetiredSource();
     // No page was ever made for this file (it opens in Source): the reader still gets its text, as it is.
     const bare = mount === null;
     if (bare) showPlainText();
@@ -707,9 +720,26 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const path = openPathNow();
     if (!shown || !path) return;
     const pos = currentPosition(scroller, shown.blocks, path, 'rendered');
-    lastReadingByteOffset = pos.byteOffset;
-    lastReadingFraction = pos.fraction;
-    await showSource(pos.byteOffset);
+    const exact = exactPlaceOf(pos, path);
+    lastReadingByteOffset = exact ?? pos.byteOffset;
+    lastReadingFraction = exact === null ? pos.fraction : 0;
+    await showSource(lastReadingByteOffset);
+  }
+
+  /**
+   * The byte Source was left at, when `pos` is still the place Rendered landed on after that leave: the same
+   * document and bytes, the same block, the reading line within a few pixels of where it was put. Null otherwise
+   * (the reader scrolled, or the bytes changed), and the block's start is the place.
+   */
+  function exactPlaceOf(pos: ReadingPosition, path: string): number | null {
+    const kept = swapPlace;
+    swapPlace = null;
+    const snapshot = store?.snapshot();
+    if (!kept || !snapshot || !shown || kept.path !== path || kept.version !== snapshot.version) return null;
+    if (kept.landed.byteOffset !== pos.byteOffset) return null;
+    const block = blockContaining(shown, pos.byteOffset);
+    const height = block?.el.getBoundingClientRect().height ?? 0;
+    return Math.abs(pos.fraction - kept.landed.fraction) * height <= 4 ? kept.exact : null;
   }
 
   async function leaveSourceForRendered(): Promise<void> {
@@ -756,6 +786,10 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     lastReadingByteOffset = byteOffset;
     lastReadingFraction = fraction;
     await showRendered(byteOffset, fraction);
+    const now = open.snapshot();
+    swapPlace = shown && store === open && viewMode === 'rendered'
+      ? { path: now.path, version: now.version, exact: byteOffset, landed: currentPosition(scroller, shown.blocks, now.path, 'rendered') }
+      : null;
   }
 
   /** Whether `editor` was held apart by the fold that just ran, so Source stays and says why (as at the top of `leaveSourceForRendered`). */
@@ -907,6 +941,11 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const openPath = openPathNow();
     const blocks = shown?.blocks ?? null;
     if (!set || !openPath || !blocks) return;
+    // Source is showing: the hidden page is not set again for a theme, it is set whole when Rendered next shows (V-15).
+    if (viewMode === 'source') {
+      pageStale = true;
+      return;
+    }
     // The offset is read with the place and put back with it: what sits above the article (a notice that
     // comes or goes while the page is set) is not the reader's place, and the page leaves it where it was.
     const offset = contentOffset();
@@ -1162,7 +1201,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * N opens leave one of each and not N — each old observer would otherwise relayout on every resize.
    * The store is not the view's: whoever opened it closes it.
    */
-  function clear(): void {
+  function clear(keepSourceShowing = false): void {
     blockEdit?.discard();
     blockEdit = null;
     mount?.cancel();
@@ -1173,6 +1212,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     shown = null;
     pageStale = false;
     plainText = false;
+    swapPlace = null;
     releaseAnchor();
     destroyTypeset();
     disconnectResizeObserver();
@@ -1181,11 +1221,23 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // or the next Source entry would reuse an editor holding the previous document (F-12). Only this
     // mount's: another view's editor is its own (D-01).
     const shared = activeSourceEditorIn?.(sourceHost) ?? null;
-    sourceEditor?.destroy();
-    if (shared && shared !== sourceEditor) shared.destroy();
+    if (sourceEditor) retiredSource.add(sourceEditor);
+    if (shared) retiredSource.add(shared);
     sourceEditor = null;
     heldApart = false;
-    sourceHost.replaceChildren();
+    // An open that is coming leaves Source on screen, with the old text in it, until the next document can take
+    // its place (`dropRetiredSource`): an editor emptied now is a frame of nothing (V-15).
+    if (!keepSourceShowing || viewMode !== 'source') dropRetiredSource();
+  }
+
+  /** Editors of a document that was closed, still on screen while Source waits for what replaces it. */
+  const retiredSource = new Set<MountedSourceEditor>();
+
+  /** The editors `clear` retired go, and so does whatever is left in Source's mount. */
+  function dropRetiredSource(): void {
+    for (const editor of retiredSource) editor.destroy();
+    retiredSource.clear();
+    if (sourceEditor === null) sourceHost.replaceChildren();
   }
 
   /** Source text the reader typed and has not yet folded into the store: the store cannot see it. */
@@ -1259,6 +1311,17 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       settlePage(Promise.resolve());
       return;
     }
+    if (viewMode === 'source' && sourceEditor) {
+      // Source shows and the window is its scroller: the place goes back into the editor, not onto the hidden
+      // article, whose block list has nothing measured to place it by (F-04). The article is not set, gridded or
+      // anchored for a reader who cannot see it: it is marked stale, and `showRendered` sets it once, in view (V-15).
+      pageStale = true;
+      lastReadingByteOffset = position.byteOffset;
+      lastReadingFraction = 0;
+      sourceEditor.scrollToByte(position.byteOffset);
+      settlePage(Promise.resolve());
+      return;
+    }
     const t0 = performance.now();
     // A file that opened in Source has no page yet (V-11): Source has the new bytes, and Rendered is made from
     // them when the reader first asks for it, so nothing is made now for a page nobody sees.
@@ -1268,13 +1331,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const fell = unmade ? null : reload ? splicePage(snapshot) : 'not a reload';
     if (fell !== null) rerenderFromBuffer(landing ?? position.byteOffset);
     const typesetting = fell === null ? (typeset?.ready ?? Promise.resolve()) : typesetDocument();
-    if (viewMode === 'source' && sourceEditor) {
-      // Source shows and the window is its scroller: the place goes back into the editor, not onto the
-      // hidden article, whose block list has nothing measured to place it by (F-04).
-      lastReadingByteOffset = position.byteOffset;
-      lastReadingFraction = 0;
-      sourceEditor.scrollToByte(position.byteOffset);
-    } else if (landing !== null) {
+    if (landing !== null) {
       landOn(landing, { from: spanned });
     } else {
       holdPosition({ ...position, path: snapshot.path });
@@ -1624,6 +1681,11 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (!store) return;
     if (plainText) return showPlainText();
     if (pageUnmade()) return;
+    // Source is showing (a trust change reaches here): the page is set when Rendered next shows (V-15).
+    if (viewMode === 'source' && sourceEditor) {
+      pageStale = true;
+      return;
+    }
     pageStale = false;
     const { path: file, ast, nodeMap, buffer } = store.snapshot();
     // The page is about to go: a block open in place goes with it, its text kept (a trust change, a fold of
@@ -1779,7 +1841,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     next: DocumentStore,
     opts?: { at?: number; start?: Promise<unknown>; onMounted?: () => void; sliced?: boolean; source?: boolean },
   ): Promise<RenderEvidence> {
-    if (store !== null) clear();
+    if (store !== null) clear(true);
     pageStale = false;
     store = next;
     follow(next);
@@ -1811,6 +1873,12 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const { html, removed, blockedImages } = slices ?? renderDocumentSafeHtml(ast, trust.policyFor(file));
     console.info(`marxy: sanitiser removed ${removed.length}`);
     shown = { ast, html, nodeMap, blocks: [], render: renderRecord(ast, removed, trust.grantsFor(file).html) };
+    // A document opened from Source takes Rendered's place now, with its page laid out and visible for every pass
+    // below, not set while hidden behind the old document's text until the open ends (V-15).
+    if (viewMode === 'source') {
+      setModeChrome('rendered');
+      dropRetiredSource();
+    }
     // Only the first screens go in now (A-02); images are checked before any block reaches the page.
     mountDocument(html, file, opts?.at, opts?.start, inert);
     afterRender();

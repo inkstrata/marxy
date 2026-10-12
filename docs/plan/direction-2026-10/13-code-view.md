@@ -10,12 +10,12 @@ Models: every story runs on Sonnet first (the author, 2026-10-10), medium, high 
 
 | Story | Problem | On main |
 | --- | --- | --- |
-| V-10 | `# comment` in a `.py` file becomes a heading in Rendered | **does not reproduce**: re-check, then park or narrow to K-13 |
+| V-10 | `# comment` in a `.py` file becomes a heading in Rendered | **reproduces** (re-checked 2026-10-12 on `main` 57578662: Rendered of `inventory.py` has an `h1` per `# section` line, and the rest is set as prose with `marxy-lb` breaks and hanging punctuation). The first survey missed it; V-10 stays a story of its own |
 | V-11 | A code file shows as a Markdown page before Source mounts; `⌘E` during the open lands in Rendered | **reproduces** (Rendered at the first 60 ms sample) |
 | V-12 | Source wears 18 on 30 px, no hanging indent on a wrapped line | **reproduces** |
 | V-13 | Highlighting gaps; the modes colour code differently | **reproduces** (checked 2026-10-12 against `main`) |
 | V-09, V-14 | Four extension tables disagree; about nine grammars (no Go, shell, TOML, C) | **reproduces** |
-| V-15 | Rendered typeset while hidden; stale editor after a reload | not checked |
+| V-15 | Rendered typeset while hidden; stale editor after a reload | **partly**: a reload, a theme relayout and a trust change set the hidden article (reproduces); the round trip lands on a block start, not the line (reproduces); an open from Source shows an empty overlay for the frames of the open (reproduces). Already right on `main`: the edit shows in Rendered after Source, the CRLF reload leaves the document clean, a Show source and an immediate open leave no editor behind (opens and mode switches share one queue), the block under the reading line holds still after a Source scroll |
 | V-16 | Tab width 4 in Source, 8 in Rendered | **reproduces** |
 
 **Rulings.** K-R2 was ruled (generous). The lead proceeds on the recommended defaults of K-R1 (14 on 21 px), K-R3
@@ -642,14 +642,24 @@ The aesthetics baselines move. Regenerate them in this PR, alone in its wave (`0
 - `apps/desktop/test/mode-swap.test.mjs` (new)
 - `changelog.d/V-15.md`
 
-**Acceptance.** WebKit tests, each failing on `main`:
+**Acceptance.** WebKit tests (`apps/desktop/test/mode-swap.test.mjs`). Checked against `main` on 2026-10-12: the
+first, second and fourth already pass there and stay as guards; the others fail on `main`.
 - Enter Source on a long `.md`, type a character, scroll far, press Mod+E. The block under the reading line is
-  the same block one second later, and every paragraph carries the typeset class.
-- In Source, write the file externally with LF changed to CRLF, then leave. The document is not dirty.
+  the same block one second later, and every paragraph carries the typeset class. *(Passes on `main`.)*
+- In Source, write the file externally with LF changed to CRLF, then leave. The document is not dirty. *(Passes
+  on `main`.)*
 - In Source, open another `.md` with a stored position. No frame shows an empty `#marxy-source`, and the
-  landing byte is at the reading line.
+  landing byte is at the reading line. *(Fails on `main` when the open's IPC is slow.)*
 - "Show source", then an immediate open of another file: the next Mod+E commits nothing into the new store.
-- Scroll `inventory.py` to line 45, then go Source → Rendered → Source: the top line is 45 (32 on `main`).
+  *(Passes on `main`: an open and a mode switch share one queue, so the late editor cannot install. No per-open
+  generation is needed.)*
+- Scroll `inventory.py` to a line, then go Source → Rendered → Source: the line on the reading line is the same.
+  *(Fails on `main`: the block's start. The card's "top line 45 against 32" assumed V-10's line-exact blocks; the
+  view remembers the byte it left Source at instead, so it holds for every file, V-10 or not.)*
+- While Source shows, a reload, a theme relayout and a trust change leave `#doc` untouched (no mutation, no
+  repaint measure); Rendered, when it comes, is current and typeset. *(Fails on `main`.)*
+- An edit typed in Source shows in Rendered for `.md` and `.py` with LF, CRLF, a BOM, both and stray bytes, and no
+  other byte moves; for a `.py` before its Markdown parse was ever made, even with the switch made at once.
 
 **Do not.** Change the reading-position model (F-04's), only when it runs.
 
