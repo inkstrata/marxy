@@ -96,16 +96,16 @@ fn clipboard_payload(text: String, html: Option<String>) -> ClipboardPayload {
 }
 
 /// The document's bytes exactly as they are on disk: no decoding, no line-ending or byte-order-mark
-/// handling, because everything above this reads what the reader's file actually contains.
+/// handling, because everything above this reads what the reader's file actually contains. A symlink is
+/// followed; a target that is not a regular file, or is above 256 MB, is refused before it is read (F-52).
 ///
 /// Returned as a raw IPC body, which the webview receives as an `ArrayBuffer`. A `Vec<u8>` would be
 /// serialised as a JSON array of numbers: about 3.7 bytes of JSON per byte of document, built here
 /// and parsed there, on the cold-start path.
 #[tauri::command]
 fn read_file(path: String) -> Result<tauri::ipc::Response, String> {
-    std::fs::read(&path)
+    commands::fs::read_regular_file(&path, commands::fs::MAX_OPEN_BYTES)
         .map(tauri::ipc::Response::new)
-        .map_err(|e| format!("{path}: {e}"))
 }
 
 /// The first `max_bytes` of a regular file, at most 256 KB, as a raw IPC body (C-11.2). A narrower
