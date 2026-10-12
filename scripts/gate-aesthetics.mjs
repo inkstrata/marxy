@@ -1642,8 +1642,20 @@ async function selftest(browser, origin) {
     ['an unlisted failure fails', judgeExpected(occurs, ran, []).length === 1],
     ['a listed row whose case passes fails', judgeExpected(new Map(), ran, [row]).length === 1],
     ['a listed failure that occurs passes', judgeExpected(occurs, ran, [row]).length === 0],
-    ['a render over 10 s is logged, not failed', slowRenderLine(12_345, () => 'x.md', { width: 320, size: 20, variant: 'dark' }) === 'slow render: x.md, 320px at 20, dark, 12345 ms'],
-    ['a render of 10 s or less is not logged', slowRenderLine(10_000, () => 'x.md', { width: 320, variant: 'dark' }) === null],
+    ['a render over 10 s is logged with its size, not failed', slowRenderLine(12_345, 'x.md', 99, { width: 320, size: 20, variant: 'dark' }) === 'slow render: x.md, 99 bytes, 320px at 20, dark, 12345 ms'],
+    ['a render of 10 s or less is not logged', slowRenderLine(10_000, 'x.md', 99, { width: 320, variant: 'dark' }) === null],
+    ['the render path emits the slow line', (() => { const out = []; reportRender(11_000, 'a crafted page', { width: 320, variant: 'dark' }, (l) => out.push(l)); return out.length === 1 && /^slow render: \(crafted page\), 14 bytes, 320px at 20, dark, 11000 ms$/.test(out[0]); })()],
+    ['the render path stays quiet for a fast render', (() => { const out = []; reportRender(900, 'a crafted page', { width: 320, variant: 'dark' }, (l) => out.push(l)); return out.length === 0; })()],
+    ['the typeset wait is a cap of at least 60 s', Number(/TYPESET_DONE_CAP_MS = ([\d_]+)/.exec(readFileSync(join(root, 'apps/desktop/src/harness/gate-entry.ts'), 'utf8'))?.[1].replaceAll('_', '')) >= 60_000],
+    ['the third mark timeout stops the run, naming all three; other errors never count', (() => {
+      let tripped = null;
+      const t = makeMarkTimeouts(MARK_TIMEOUT_LIMIT, (seen) => { tripped = [...seen]; });
+      const timeout = new Error('gate render: no typeset_done or no_text mark within 60000 ms');
+      t.note(new Error('something else'), 'z'); t.note(timeout, 'a'); t.note(timeout, 'b');
+      const early = tripped === null;
+      t.note(timeout, 'c');
+      return early && tripped?.join() === 'a,b,c';
+    })()],
     ['a row for a cell this run did not measure is not judged', judgeExpected(new Map(), new Set(), [row]).length === 0],
     ['a darwin-scoped row is not reported stale on linux', judgeExpected(new Map(), ran, [{ ...row, platforms: ['darwin'] }], 'linux').length === 0],
     ['a darwin-scoped row is still enforced on darwin', judgeExpected(new Map(), ran, [{ ...row, platforms: ['darwin'] }], 'darwin').length === 1],
@@ -1720,26 +1732,56 @@ async function renderCorpus(page, origin, source, opts) {
   await page.goto(`${origin}/gate.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.marxyGate?.render === 'function');
   const t0 = Date.now();
-  const result = await page.evaluate(async ({ source, opts }) => window.marxyGate.render(source, opts), { source, opts });
-  const ms = Date.now() - t0;
-  // Slowness stays visible and never fails (F-74; ADR-0032): the wait inside the render is a cap, not a budget.
-  const slow = slowRenderLine(ms, () => corpusNameOf(source), opts);
-  if (slow !== null) console.log(slow);
+  let result;
+  try {
+    result = await page.evaluate(async ({ source, opts }) => window.marxyGate.render(source, opts), { source, opts });
+  } catch (e) {
+    markTimeouts.note(e, `${corpusNameOf(source)} ${opts.width}px ${opts.variant}`);
+    throw e;
+  }
+  reportRender(Date.now() - t0, source, opts);
   return result;
 }
 
-const SLOW_RENDER_MS = 10_000;
-/** The log line for a render that took over 10 s, or null: slowness is shown, never failed. */
-function slowRenderLine(ms, nameOf, opts) {
-  if (ms <= SLOW_RENDER_MS) return null;
-  return `slow render: ${nameOf()}, ${opts.width}px at ${opts.size ?? 20}, ${opts.variant}${opts.theme ? ' (theme)' : ''}, ${ms} ms`;
+/** Slowness stays visible and never fails (F-74; ADR-0032): the wait inside the render is a cap, not a budget. */
+function reportRender(ms, source, opts, log = console.log) {
+  const line = slowRenderLine(ms, corpusNameOf(source), Buffer.byteLength(source), opts);
+  if (line !== null) log(line);
 }
+
+const SLOW_RENDER_MS = 10_000;
 let corpusNames = null;
 /** The corpus file a source is, for the slow-render line; a source that is none is `(crafted page)`. */
 function corpusNameOf(source) {
   corpusNames ??= new Map(corpusFiles().map((f) => [readFileSync(join(corpusDir, f), 'utf8'), f]));
   return corpusNames.get(source) ?? '(crafted page)';
 }
+/** The log line for a render that took over 10 s, or null: slowness is shown, never failed. */
+function slowRenderLine(ms, name, bytes, opts) {
+  if (ms <= SLOW_RENDER_MS) return null;
+  return `slow render: ${name}, ${bytes} bytes, ${opts.width}px at ${opts.size ?? 20}, ${opts.variant}${opts.theme ? ' (theme)' : ''}, ${ms} ms`;
+}
+
+/**
+ * A real break (the typesetter never finishing) would cost the whole cap for every remaining page, so the run stops
+ * at the third render that hit it, naming them (F-74). `onTrip` is the exit; the selftest passes its own.
+ */
+const MARK_TIMEOUT_LIMIT = 3;
+function makeMarkTimeouts(limit, onTrip) {
+  const seen = [];
+  return {
+    seen,
+    note(error, what) {
+      if (!/gate render: no .* mark within \d+ ms/.test(String(error?.message ?? error))) return;
+      seen.push(what);
+      if (seen.length >= limit) onTrip(seen);
+    },
+  };
+}
+const markTimeouts = makeMarkTimeouts(MARK_TIMEOUT_LIMIT, (seen) => {
+  console.error(`aesthetics gate stopped: ${seen.length} renders never finished typesetting (the typesetter is broken, not slow):\n - ${seen.join('\n - ')}`);
+  process.exit(1);
+});
 
 /** Documents whose font/image window (snaps[0]→[1]) scored movement; used by --repeat. */
 function fontWindowOffenders(result, ctx) {
