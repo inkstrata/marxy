@@ -73,14 +73,22 @@ equality was not byte equality, and no diff over that text can make it so.
   the two bytes, and put it beside `é`: the second Mod+Z was not exact). Two edges, both visible and neither changing a
   byte: when the caret moved after the typing, the history cannot join and the read-back is a step of its own, so the
   first Mod+Z after the save shows the two bytes boxed again and the next takes the typing back; and a read-back
-  is a new step, so a redo that was pending is gone. A change from outside (a reload from disk) is not the editor's
-  fold and is still taken outside the history. The store's undo in Rendered is byte-exact throughout.
+  is a new step, so a redo that was pending is gone. A change from outside (a reload from disk, a Rendered undo,
+  another pane's fold, or the line separator swapped because a save made the file's endings uniform or mixed) is not the
+  editor's fold: it is taken outside the history, and the editor's history is dropped with it, because every change in
+  it was made at positions the new text no longer has (mapped through a whole-text replace they all landed at the end,
+  and a Mod+Z wrote a CRLF there; mapped through a Rendered undo they put back a character that undo had taken out).
+  Source's Mod+Z then has nothing to undo until the reader types again. The store's undo in Rendered is byte-exact
+  throughout, and steps back over every fold (F-40).
 - Searching Source for U+FFFD does not find a stray byte (it is a different character there); the marker shows it.
 - A line copied with no selection (CodeMirror's line-wise copy) that holds a stray byte pastes back as text at the
   caret, not as a whole line, because CodeMirror compares the pasted text with the filtered copy.
 - The block editor in Rendered (ADR-0048) holds the Source text of its block (`sourceTextOfRange`), folds it through
   `foldSlice` over that text, and applies the bytes (`store.apply` takes bytes as well as text), so a stray byte the reader
   did not edit keeps its bytes, however many edits are made around it, and the editor marks it like Source (F-34.2).
+  Line endings are the same: only a line break the reader made (a bare LF) takes the block's first ending, and an ending the
+  text already holds is never rewritten; in a block that mixes endings, edited across one of its bare LFs, a new break stays
+  an LF (F-40).
   Its copy, cut and paste carry the private type as Source's do. The block's text is read for the page (the notice that
   names a kept block) through `readableText`.
 - The Source table tools work on a table that holds a stray byte: they run on a copy with each such code unit stood in

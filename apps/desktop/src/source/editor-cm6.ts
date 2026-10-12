@@ -3,7 +3,7 @@
 import { encodeSourceText, type Buffer } from '@marxy/core';
 import { Compartment, EditorState, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { baseExtensions, editorDocConfig, toggleLineNumbersInView, type SourceEditor, type SourceEditorOptions } from './editor.ts';
+import { baseExtensions, clearHistory, editorDocConfig, toggleLineNumbersInView, type SourceEditor, type SourceEditorOptions } from './editor.ts';
 import { resolveLineNumbers } from './line-numbers.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
 import { readBack } from './stray-bytes.ts';
@@ -49,14 +49,17 @@ export async function createSourceEditor(
           annotations: Transaction.addToHistory.of(false),
         });
       }
-      // New bytes from outside (a reload from disk), or the editor's own fold read back differently (two stray
-      // bytes made neighbours that now spell a character, F-34.1): not the reader's edit, so Mod+Z must not bring
-      // the old text back. Only the part that differs is replaced, so the caret and the history map through it.
+      // New bytes from outside (a reload from disk, a Rendered undo, another pane's fold), or the editor's own fold read
+      // back differently (two stray bytes made neighbours that now spell a character, F-34.1): not the reader's edit,
+      // so Mod+Z must not bring the old text back. Only the part that differs is replaced, so the caret maps through it.
       if (separatorChanged) {
         view.dispatch({
           changes: { from: 0, to: view.state.doc.length, insert: nextDoc },
           annotations: Transaction.addToHistory.of(false),
         });
+        // A line break in the old text is not one in the new (a lone LF among CRLFs is a line break in one and
+        // a character in the other), so no change the history holds still means what it did (F-40).
+        clearHistory(view);
         return;
       }
       const part = differingPart(textNow(), nextDoc, view.state.lineBreak);
@@ -69,7 +72,11 @@ export async function createSourceEditor(
         view.dispatch({ changes: part, annotations: [readBack.of(true), Transaction.time.of(0)] });
         return;
       }
+      // The text changed under the editor's history by something that is not the reader's typing: a change in one
+      // place moves the places every older change was made at, and an undo would write at the wrong one. The history
+      // goes; Rendered's undo (the store's, ADR-0037) is the one that still steps over this change (F-40).
       view.dispatch({ changes: part, annotations: Transaction.addToHistory.of(false) });
+      clearHistory(view);
     },
     scrollToByte(byteOffset: number) {
       scrollSourceToByte(buffer, view, byteOffset, readingLine());
