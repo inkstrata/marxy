@@ -1,6 +1,6 @@
 # ADR-0069 — The Source text holds every byte: a byte that is not UTF-8 is its own code unit
 
-- **Status:** proposed (F-34.1; amended by F-34.2)
+- **Status:** accepted (author, 2026-10-11, X-18; the default, as proposed)
 - **Date:** 2026-10-11
 - **Reads:** commitment 3 (faithful to the bytes) and commitment 4 (nothing hidden silently) in `AGENTS.md` and
   ADR-0052; ADR-0003 (one buffer); ADR-0005 (Source mode).

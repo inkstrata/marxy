@@ -1,6 +1,6 @@
 # ADR-0060 — Kinds: fourteen ways a file is read, detected from its bytes, its path and the reader's rules
 
-- **Status:** proposed
+- **Status:** accepted (author, 2026-10-11, X-18; the default, as proposed)
 - **Date:** 2026-10-10
 - **Amends:** ADR-0005 ("Markdown opens Rendered; anything else opens Source" becomes "a file's kind
   decides which mode it opens in"). Builds on ADR-0059 (a kind is a theme scope; `data-marxy-kind` is

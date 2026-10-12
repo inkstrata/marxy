@@ -1,6 +1,6 @@
 # ADR-0061 — Derived views: a read-only tree beside the AST, derived from the bytes, with provenance to the lines it came from
 
-- **Status:** proposed (K-02); accepting it is the author's act
+- **Status:** accepted (author, 2026-10-11, X-18; the default, as proposed)
 - **Date:** 2026-10-10
 - **Amends:** ADR-0003 (one buffer, one AST): a file may also be read through a second pure function
   of the same buffer. ADR-0004 (editing is transformation), ADR-0023 (provenance in the DOM),
