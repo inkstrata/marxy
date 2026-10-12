@@ -29,6 +29,7 @@ export type MemoryShell = Pick<
   | 'platform'
   | 'startupMarks'
   | 'readDir'
+  | 'realPath'
   | 'setTitle'
   | 'saveDialog'
   | 'onCloseRequested'
@@ -45,6 +46,8 @@ export type MemoryShell = Pick<
   emit(events: WatchEvent[]): void;
   /** Delete `path` from the store, as another program would (harness; recorded, emits nothing). */
   remove(path: string): void;
+  /** Make `from` a symlink to the folder `to` for `realPath` (harness; the store itself holds no links). */
+  link(from: string, to: string): void;
   queueSaveDialog(path: string | null): void;
   /** Next writeFileAtomic rejects with this shell error code (harness). */
   rejectNextWrite(code: 'permission' | 'io'): void;
@@ -120,6 +123,7 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
   const record = (method: string, args: readonly unknown[] = []) => { calls.push({ method, args }); };
   const listeners: Array<(events: readonly WatchEvent[]) => void> = [];
   const closeListeners: Array<() => void> = [];
+  const links = new Map<string, string>();
   let queuedSave: string | null | undefined;
   let writeReject: 'permission' | 'io' | null = null;
   const assetScopes = new Set<string>();
@@ -169,6 +173,26 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
       const bytes = store.get(path);
       if (!bytes) throw notFound(path);
       return bytes.slice(0, Math.min(maxBytes, HEAD_CAP_BYTES));
+    },
+    async realPath(path) {
+      record('realPath', [path]);
+      // Segment by segment, as the OS does: a link is replaced by its target before a later `..` pops it.
+      let out: string[] = [];
+      let todo = path.split('/').filter((s) => s !== '' && s !== '.');
+      for (let hops = 0; todo.length > 0; ) {
+        const seg = todo.shift()!;
+        if (seg === '..') { out.pop(); continue; }
+        out.push(seg);
+        const target = links.get(`/${out.join('/')}`);
+        if (target !== undefined && ++hops < 40) {
+          out = [];
+          todo = [...target.split('/').filter((s) => s !== '' && s !== '.'), ...todo];
+        }
+      }
+      return `/${out.join('/')}`;
+    },
+    link(from, to) {
+      links.set(from.replace(/\/$/, ''), to);
     },
     async stat(path) {
       record('stat', [path]);

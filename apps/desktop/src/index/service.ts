@@ -157,6 +157,8 @@ export type IndexServiceShell = IndexLoadShell &
     /** The patch path's two narrow reads (C-11.2): one file's stat, and at most the head of a markdown file. */
     stat(path: string): Promise<{ path: string; size: number; mtimeMs: number; isDir: boolean } | null>;
     readHead(path: string, maxBytes: number): Promise<Uint8Array>;
+    /** A path with every symlink and `..` resolved by the OS (F-37.1); a shell without it keeps the spelling it was given. */
+    realPath?(path: string): Promise<string>;
     configPaths?(): Promise<{ config: string; data: string }>;
     writeFileAtomic?(path: string, bytes: Uint8Array): Promise<void>;
   };
@@ -494,11 +496,31 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     }
   };
 
+  /**
+   * Every root is keyed by its canonical path (F-37.1): the shell lists and watches canonical paths, so a root kept under a
+   * symlink's spelling would index nothing, never match a watch event, and appear twice beside its real path. `spelled`
+   * remembers which spelling the reader used, so `dropRoot(link)` still finds the root `ensureRoot(link)` made.
+   */
+  const spelled = new Map<string, string>();
+  const canonical = async (root: string): Promise<string> => {
+    const known = spelled.get(root);
+    if (known !== undefined) return known;
+    let real = normalizePath(root);
+    try {
+      if (shell.realPath) real = normalizePath(await shell.realPath(root));
+    } catch {
+      // A root the shell cannot resolve (it is gone, or unreadable) keeps the spelling it was given.
+    }
+    spelled.set(root, real);
+    return real;
+  };
+  const keyOf = (root: string): string => spelled.get(root) ?? normalizePath(root);
+
   const rootFor = (path: string): Promise<string> => {
     const key = dirname(normalizePath(path));
     let cached = rootCache.get(key);
     if (!cached) {
-      cached = detectRoot(shell, path).catch(() => {
+      cached = detectRoot(shell, path).then(canonical).catch(() => {
         rootCache.delete(key);
         return key;
       });
@@ -734,7 +756,8 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       watchedChanged();
       await state.pending;
     },
-    async ensureRoot(root, opts) {
+    async ensureRoot(spelling, opts) {
+      const root = await canonical(spelling);
       if (opts?.watch !== undefined) declaredWatch.set(root, opts.watch);
       const existing = roots.get(root);
       if (existing) {
@@ -764,7 +787,8 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       publish();
       for (const root of order) rewalk(root);
     },
-    dropRoot(root) {
+    dropRoot(spelling) {
+      const root = keyOf(spelling);
       declaredWatch.delete(root);
       revalidatedAt.delete(root);
       if (roots.delete(root)) {
@@ -773,7 +797,8 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       }
       watchedChanged();
     },
-    undeclare(root) {
+    undeclare(spelling) {
+      const root = keyOf(spelling);
       declaredWatch.delete(root);
       watchedChanged();
     },
@@ -789,8 +814,8 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       return undefined;
     },
     roots: () => order,
-    baselineMs: (root) => roots.get(root)?.baselineMs,
-    isWatched,
+    baselineMs: (root) => roots.get(keyOf(root))?.baselineMs,
+    isWatched: (root) => isWatched(keyOf(root)),
     watchedRoots,
     onWatchedRootsChange(cb) {
       watchedListeners.add(cb);
@@ -798,7 +823,8 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
         watchedListeners.delete(cb);
       };
     },
-    refresh(root) {
+    refresh(spelling) {
+      const root = keyOf(spelling);
       if (coveredByLiveWatch(root)) return;
       rewalk(root);
     },
