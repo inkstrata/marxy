@@ -5,7 +5,7 @@
 
 export type ToolbarGlyph =
   | 'sidebar' | 'inspector' | 'back' | 'forward' | 'new' | 'read' | 'split' | 'source'
-  | 'copy' | 'chevron' | 'export' | 'transform' | 'find';
+  | 'copy' | 'chevron' | 'export' | 'transform' | 'find' | 'folder' | 'branch';
 
 /** Inner SVG markup per glyph: `path`, `rect` and `circle` only, no colour attribute. */
 export const TOOLBAR_GLYPHS: Readonly<Record<ToolbarGlyph, string>> = {
@@ -19,6 +19,8 @@ export const TOOLBAR_GLYPHS: Readonly<Record<ToolbarGlyph, string>> = {
   source: '<path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5M9 3l-2 10"/>',
   copy: '<rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"/>',
   chevron: '<path d="m4.5 6.5 3.5 3.5 3.5-3.5"/>',
+  folder: '<path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z"/>',
+  branch: '<circle cx="4.5" cy="3.5" r="1.5"/><circle cx="4.5" cy="12.5" r="1.5"/><circle cx="11.5" cy="5.5" r="1.5"/><path d="M4.5 5v6M11.5 7a4 4 0 0 1-4 4H6"/>',
   export: '<path d="M8 10V2.5M5 5.2 8 2.5l3 2.7M3 9v3.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9"/>',
   transform: '<path d="m3 13 6-6M11 2.5v3M9.5 4h3M13 8.5v2M12 9.5h2"/>',
   find: '<circle cx="7" cy="7" r="4.5"/><path d="m10.4 10.4 3.1 3.1"/>',

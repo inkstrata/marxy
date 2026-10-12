@@ -210,7 +210,7 @@ leaves `layout.json` as it was until the reader changes the layout.
 
 The unfolded window's panels: `{ "version": 1, "panels": { "sidebar", "toolbar", "tabs", "strip", "inspector",
 "status-bar" }, "sidebar": { "collapsed": ["recent", ...] } }`. `panels` is which regions were docked; `sidebar`
-(W-07) is which of the sidebar's sections the reader folded, by id (`SIDEBAR_SECTION_IDS`), and is absent until
+(W-07) is which of the sidebar's sections the reader folded, by id (`SIDEBAR_SECTION_IDS`: recent, pinned, and from W-08 repos and folders), and is absent until
 one is first folded. An unknown id, a repeat or a value of the wrong shape is dropped, never an error. The file is
 read when the reader first unfolds (or peeks the sidebar) and never at launch; `panels` is written when they fold
 or quit while unfolded, `sidebar` the moment a section is folded or opened, each keeping the other's last word
@@ -224,7 +224,7 @@ newer-version rules as `layout.json`.
 | `index/<sha1(root)>.json` | §07 envelope, with an optional `baselineMs` (when Marxy first indexed the root; set once, never moved; `version` stays 1) | 50 000 entries; files older than 90 days unused are deleted at startup | shell |
 | `positions.json` | §08 | 5 000 paths, LRU | app |
 | `layout.json` | the split: two columns at most, ratio, focus (above) | 2 columns | app |
-| `workspace.json` | the docked panels, the sidebar's folded sections (above) | 6 regions, 2 sections | app |
+| `workspace.json` | the docked panels, the sidebar's folded sections (above) | 6 regions, 4 sections | app |
 | `history.json` | opens, pins, recent roots (§07) | 500 opens, 12 roots | app |
 | `trust.json` | per-document grants: HTML, image hosts ([§12](13-trust.md)) | 2 000 paths, LRU | app |
 

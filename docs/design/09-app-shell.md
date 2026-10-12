@@ -169,7 +169,7 @@ recent file the feed's scope cap leaves out has no row, as in the palette. A cli
 pane (`AppHandle.open`: the unsaved-changes prompt, history and read time are the open's own); `Mod`-click or `Mod+Return`
 opens it beside, in a pane made if need be. `Alt`-click on a header folds or opens every section as the clicked one
 does. A *Library* row opens the sidebar only when the command `library.open` is registered (Q-03 registers it); there is
-no Repositories, Folders or Smart-collections section (W-08, Q-07) and no pin control (the palette's `Mod+.` stays the only
+no Smart-collections section (Q-07) and no pin control (the palette's `Mod+.` stays the only
 one). The list is one tab stop; arrows, Home and End move within it; each row and header has an accessible name (title,
 pinned or changed, age in words). The sidebar redraws when a document opens or saves, the index patches, and when the
 pointer or focus comes back after a pin made in the palette; the palette mounts after the app, so a sidebar made before
@@ -178,6 +178,25 @@ read when the sidebar is first drawn (never at launch), written when a section i
 the sidebar docked or undocked the reading column does not move (the side columns are one width, see the workspace
 grid above). This is also what makes `view.toggle-sidebar` (`Ctrl+Mod+S`), the toolbar's sidebar toggle and the left
 edge's peek appear.
+
+**Repositories and Folders (W-08).** After Pinned, two more sections, each a header that folds like the others
+(`repos`, `folders` in `SIDEBAR_SECTION_IDS`; `workspace.json` keeps them). They list the index service's roots
+(`IndexService.roots()`): a root is a **repository** when its own checkout holds a `.git` (some entry of it has a
+`checkoutKey` whose checkout is the root), and then the checkouts of one repository (git worktrees, C-15's group) are one row
+with a quiet "N checkouts" when there are several, a branch glyph (the glyph only says repository; the branch's name waits for
+W-18's git facts) and a quiet count of the files changed since read, counted through the palette's feed and once per path
+inside the repository however many checkouts hold it. Every other root is a **folder**. A section with no rows is not drawn.
+A row opens inline as a tree (`role="tree"`; each row a `treeitem` with `aria-level`, folders `aria-expanded`), to any depth,
+with chevrons and indentation guides. A folder is listed with `readDir` when it opens, one level and nothing deeper, folders
+first and then files by name; closing a folder forgets what was open under it. An open folder lists again when the index
+patches a path appearing or going away under it, or a walk ends, so it shows the disk; a modified file costs no read. A file
+row opens in the focused pane (`Mod`-click beside) and carries the kind glyph (from the index's entry, else the name; no file
+is read to draw a row) and, when it changed since read, a dot and "changed since you read" in its accessible name. The tree
+is part of the sidebar's one tab stop: arrows move, → opens a closed folder or steps into an open one, ← closes an open folder
+or steps out to its parent (on a section header, ← folds and → opens). A folder shows at most 500 children and says how
+many it does not draw. Which folders are open is held while the window lives; a launch starts closed. `readDir` leaves out
+symlinks and deny-listed names without a count, so the tree can show fewer names than the disk holds; a count needs a
+`shell-api` field and is its own story. *New file here* is not drawn (W-14 registers it).
 
 **Remembered panels.** Which regions are docked is `workspace.json` in the data directory beside `layout.json`
 (`{ version, panels: { sidebar, toolbar, tabs, strip, inspector, status-bar }, sidebar?: { collapsed: [...] } }`; same version guard and quarantine; `sidebar` is absent until a section is first folded, W-07).

@@ -19,6 +19,9 @@ export { SIDEBAR_SECTION_IDS, type SidebarSectionId };
 export const SIDEBAR_SECTIONS: readonly { readonly id: SidebarSectionId; readonly title: string }[] = [
   { id: 'recent', title: 'Recent' },
   { id: 'pinned', title: 'Pinned · Changed since you read' },
+  // W-08: these two are trees (`sidebar-tree.ts`), drawn after the lists above; `sidebarSections` never fills them.
+  { id: 'repos', title: 'Repositories' },
+  { id: 'folders', title: 'Folders' },
 ];
 
 /** Documents in Recent. */
@@ -49,6 +52,8 @@ export function sidebarSections(input: SidebarInput): readonly SidebarSection[] 
   const byId: Record<SidebarSectionId, SidebarRow[]> = {
     recent: rowsOf(['recent']).slice(0, SIDEBAR_RECENT_LIMIT),
     pinned: [...rowsOf(['pinned']), ...rowsOf(['changed'])],
+    repos: [],
+    folders: [],
   };
   return SIDEBAR_SECTIONS.flatMap(({ id, title }) => (byId[id].length > 0 ? [{ id, title, rows: byId[id] }] : []));
 }

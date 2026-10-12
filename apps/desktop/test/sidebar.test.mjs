@@ -72,7 +72,9 @@ const mac = (page) => page.evaluate(() => navigator.platform.toUpperCase().inclu
 const mod = async (page) => ((await mac(page)) ? 'Meta' : 'Control');
 const sidebar = (page) => page.locator('[data-marxy-workspace-region="sidebar"]');
 const drawn = (page) => page.waitForSelector('.marxy-sidebar [data-marxy-sidebar-row], .marxy-sidebar [data-marxy-sidebar-section]');
-const sections = (page) =>
+/** W-07's two lists; the trees (W-08) are `allSections`. */
+const sections = async (page) => (await allSections(page)).filter((s) => s.id === 'recent' || s.id === 'pinned');
+const allSections = (page) =>
   page.evaluate(() =>
     [...document.querySelectorAll('.marxy-sidebar [data-marxy-sidebar-section]')].map((s) => ({
       id: s.getAttribute('data-marxy-sidebar-section'),
@@ -164,7 +166,7 @@ test('the lists follow a document opened while the sidebar is up', async () => {
     await drawn(page);
     assert.deepEqual((await sections(page))[0].rows, ['/r/a.md']);
     await page.evaluate(() => window.__marxyHandle.open('/r/b.md'));
-    await page.waitForFunction(() => document.querySelectorAll('.marxy-sidebar-section [data-marxy-sidebar-row]').length === 2);
+    await page.waitForFunction(() => document.querySelectorAll('[data-marxy-sidebar-section="recent"] [data-marxy-sidebar-row]').length === 2);
     assert.deepEqual((await sections(page))[0].rows, ['/r/b.md', '/r/a.md']);
   });
 });
@@ -546,5 +548,247 @@ test('a row shows its age from a known time, and no age at all when the time is 
     assert.equal(ages['/r/a.md'].text, '3h');
     assert.equal(ages['/r/c.md'].text, null, 'a zero time shows no age');
     assert.ok(!/ago/.test(ages['/r/c.md'].label), 'and none is spoken');
+  });
+});
+
+// --- Repositories and Folders (W-08): lazy trees over the index's roots ---------------------------------------
+
+const GIT = (name) => `gitdir: /gitrepo/.git/worktrees/${name}\n`;
+const treeData = {
+  // Two worktrees of one repository (their `.git` is a file naming the shared gitdir), and a plain folder.
+  '/wt-a/.git': GIT('a'), '/wt-b/.git': GIT('b'),
+  '/wt-a/README.md': '# Readme a\n', '/wt-b/README.md': '# Readme b\n',
+  '/wt-a/docs/guide.md': '# Guide a\n', '/wt-b/docs/guide.md': '# Guide b\n',
+  '/wt-a/docs/deep/inner.md': '# Inner a\n', '/wt-a/src/main.rs': 'fn main() {}\n',
+  '/plain/notes.md': '# Plain notes\n', '/plain/sub/more.md': '# More\n',
+};
+const treeEntry = (root, rel, title, over = {}) => ({ path: `${root}/${rel}`, root, title, headings: [], mtimeMs: 1, size: 10, kind: 'markdown', ...over });
+
+/** The harness app with the two worktrees and the plain folder held by the index; the worktrees are declared (watched), as collection.toml would. */
+async function bootTrees(page, { feedOver = {} } = {}) {
+  await boot(page, { open: ['/r/a.md', '/r/b.md', '/r/c.md'], data: treeData });
+  await page.evaluate(
+    async ({ extra }) => {
+      const h = window.__marxyHandle;
+      await h.index.ensureRoot('/wt-a', { watch: true });
+      await h.index.ensureRoot('/wt-b', { watch: true });
+      await h.index.ensureRoot('/plain');
+      await h.index.settled();
+      h.palette.setIndexEntries(extra);
+    },
+    {
+      extra: [
+        ...entries.map((e) => (e.path === '/r/c.md' ? { ...e, mtimeMs: Date.now() + 5000 } : e)),
+        treeEntry('/wt-a', 'README.md', 'Readme a', feedOver['/wt-a/README.md']),
+        treeEntry('/wt-b', 'README.md', 'Readme b', feedOver['/wt-b/README.md']),
+        treeEntry('/wt-a', 'docs/guide.md', 'Guide a', feedOver['/wt-a/docs/guide.md']),
+        treeEntry('/wt-b', 'docs/guide.md', 'Guide b', feedOver['/wt-b/docs/guide.md']),
+        treeEntry('/plain', 'notes.md', 'Plain notes'),
+      ],
+    },
+  );
+  await unfold(page);
+  await page.waitForSelector('[data-marxy-sidebar-tree="repos"]');
+}
+const readDirCalls = (page, from = 0) =>
+  page.evaluate((from) => window.__marxyHandle.shell.calls.slice(from).filter((c) => c.method === 'readDir').map((c) => c.args[0]), from);
+const callCount = (page) => page.evaluate(() => window.__marxyHandle.shell.calls.length);
+const treeRows = (page, tree) =>
+  page.evaluate((tree) => [...document.querySelectorAll(`[data-marxy-sidebar-tree="${tree}"] [role="treeitem"]`)].map((b) => [b.getAttribute('data-marxy-sidebar-row'), Number(b.getAttribute('aria-level')), b.getAttribute('aria-expanded')]), tree);
+const label = (page, path) => page.evaluate((path) => document.querySelector(`[role="treeitem"][data-marxy-sidebar-row="${path}"]`)?.getAttribute('aria-label') ?? null, path);
+
+test('two worktrees of one repository and a plain folder: one Repositories row with 2 checkouts, and Folders for the rest', async () => {
+  await withPage(async (page) => {
+    await bootTrees(page);
+    const all = await allSections(page);
+    assert.deepEqual(all.map((s) => s.id), ['recent', 'pinned', 'repos', 'folders'], 'Repositories and Folders follow the lists; a section with no rows is not drawn');
+    assert.deepEqual(all.find((s) => s.id === 'repos').rows, ['/wt-a'], 'one row, the first checkout held');
+    assert.deepEqual(all.find((s) => s.id === 'folders').rows.sort(), ['/plain', '/r']);
+    assert.equal(await label(page, '/wt-a'), 'wt-a, repository, 2 checkouts');
+    const quiet = await page.evaluate(() => document.querySelector('[role="treeitem"][data-marxy-sidebar-row="/wt-a"]').textContent);
+    assert.match(quiet, /2 checkouts/);
+    assert.equal(await label(page, '/plain'), 'plain, folder');
+    assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-sidebar-tree="repos"] [role="treeitem"] .marxy-toolbar-glyph svg') !== null), true, 'the branch glyph');
+    assert.equal(await page.evaluate(() => /main|master/.test(document.querySelector('[data-marxy-sidebar-tree="repos"]').textContent)), false, 'the glyph says repository, not a branch name');
+  });
+});
+
+test('opening a folder reads it and nothing deeper; closing it and opening it again lists the disk afresh', async () => {
+  await withPage(async (page) => {
+    await bootTrees(page);
+    let mark = await callCount(page);
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/wt-a"]');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/wt-a/README.md"]');
+    assert.deepEqual(await readDirCalls(page, mark), ['/wt-a'], 'the folder, and not docs/ or src/ below it');
+    // Folders first, then files by name; the shell lists no .git.
+    assert.deepEqual((await treeRows(page, 'repos')).map((r) => r.slice(0, 2)), [['/wt-a', 1], ['/wt-a/docs', 2], ['/wt-a/src', 2], ['/wt-a/README.md', 2]]);
+    mark = await callCount(page);
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/wt-a/docs"]');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/wt-a/docs/guide.md"]');
+    assert.deepEqual(await readDirCalls(page, mark), ['/wt-a/docs'], 'one level, not docs/deep');
+    assert.deepEqual((await treeRows(page, 'repos')).map((r) => r.slice(0, 2)).slice(1, 5), [['/wt-a/docs', 2], ['/wt-a/docs/deep', 3], ['/wt-a/docs/guide.md', 3], ['/wt-a/src', 2]]);
+    // Close the top: everything under it goes, and reopening reads the top again (and only the top).
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/wt-a"]');
+    assert.deepEqual(await treeRows(page, 'repos'), [['/wt-a', 1, 'false']]);
+    mark = await callCount(page);
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/wt-a"]');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/wt-a/README.md"]');
+    assert.deepEqual(await readDirCalls(page, mark), ['/wt-a']);
+    assert.equal((await treeRows(page, 'repos')).some(([p]) => p === '/wt-a/docs/guide.md'), false, 'what was open under it starts closed');
+  });
+});
+
+test('a file written into an open folder appears without a click, and one that goes disappears', async () => {
+  await withPage(async (page) => {
+    await bootTrees(page);
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/plain"]');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/plain/notes.md"]');
+    await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      await h.shell.writeFileAtomic('/plain/fresh.md', new TextEncoder().encode('# Fresh\n'));
+      h.index.applyEvents([{ kind: 'created', path: '/plain/fresh.md' }]);
+    });
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/plain/fresh.md"]');
+    assert.deepEqual((await treeRows(page, 'folders')).map(([p]) => p).filter((p) => p.startsWith('/plain')), ['/plain', '/plain/sub', '/plain/fresh.md', '/plain/notes.md']);
+    await page.evaluate(() => {
+      const h = window.__marxyHandle;
+      h.shell.remove('/plain/fresh.md');
+      h.index.applyEvents([{ kind: 'removed', path: '/plain/fresh.md' }]);
+    });
+    await page.waitForFunction(() => !document.querySelector('[role="treeitem"][data-marxy-sidebar-row="/plain/fresh.md"]'));
+  });
+});
+
+test('a modified file costs the open folder no read', async () => {
+  await withPage(async (page) => {
+    await bootTrees(page);
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/plain"]');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/plain/notes.md"]');
+    const mark = await callCount(page);
+    await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      await h.shell.writeFileAtomic('/plain/notes.md', new TextEncoder().encode('# Plain notes, edited\n'));
+      h.index.applyEvents([{ kind: 'modified', path: '/plain/notes.md' }]);
+      await h.index.settled();
+    });
+    assert.deepEqual(await readDirCalls(page, mark), []);
+  });
+});
+
+test('a file changed since it was read carries the mark, named in its accessible name; the repository counts changed paths once', async () => {
+  await withPage(async (page) => {
+    // README.md changed in both worktrees (one path), docs/guide.md in one: two files changed in the repository.
+    const future = { mtimeMs: Date.now() + 9000 };
+    await bootTrees(page, { feedOver: { '/wt-a/README.md': future, '/wt-b/README.md': future, '/wt-b/docs/guide.md': future } });
+    assert.equal(await label(page, '/wt-a'), 'wt-a, repository, 2 checkouts, 2 changed since you read');
+    assert.equal(await page.evaluate(() => document.querySelector('[role="treeitem"][data-marxy-sidebar-row="/wt-a"] .marxy-sidebar-badge').textContent), '2');
+    // /r is the current repository (watched): c.md was read and has been modified since.
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/r"]');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/r/c.md"]');
+    assert.equal(await label(page, '/r/c.md'), 'c.md, changed since you read');
+    assert.equal(await label(page, '/r/d.md'), 'd.md');
+    const marks = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-sidebar-tree="folders"] .marxy-sidebar-mark')].map((m) => [m.parentElement.getAttribute('data-marxy-sidebar-row'), m.textContent.length > 0]));
+    assert.deepEqual(marks, [['/r/c.md', true]], 'a shape, not only a colour, and only on the changed file');
+  });
+});
+
+test('the tree has the tree roles, and the arrows act as the mock says', async () => {
+  await withPage(async (page) => {
+    await bootTrees(page);
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('[role="tree"]')].map((t) => [t.getAttribute('data-marxy-sidebar-tree'), t.getAttribute('aria-label')])), [['repos', 'Repositories'], ['folders', 'Folders']]);
+    assert.deepEqual(await treeRows(page, 'repos'), [['/wt-a', 1, 'false']]);
+    await page.focus('[role="treeitem"][data-marxy-sidebar-row="/wt-a"]');
+    const focused = () => page.evaluate(() => document.activeElement.getAttribute('data-marxy-sidebar-row'));
+    await page.keyboard.press('ArrowRight');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/wt-a/docs"]');
+    assert.equal(await focused(), '/wt-a', '→ opens a closed folder and keeps the focus');
+    assert.deepEqual(await treeRows(page, 'repos'), [['/wt-a', 1, 'true'], ['/wt-a/docs', 2, 'false'], ['/wt-a/src', 2, 'false'], ['/wt-a/README.md', 2, null]]);
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await focused(), '/wt-a/docs', '→ on an open folder steps into it');
+    await page.keyboard.press('ArrowRight');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/wt-a/docs/guide.md"]');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), '/wt-a/docs/guide.md');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await focused(), '/wt-a/docs/guide.md', '→ on a file does nothing');
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await focused(), '/wt-a/docs', '← on a file or closed folder steps out to the parent');
+    await page.keyboard.press('ArrowLeft');
+    assert.equal((await treeRows(page, 'repos')).find(([p]) => p === '/wt-a/docs')[2], 'false', '← on an open folder closes it');
+    assert.equal(await focused(), '/wt-a/docs');
+    // One tab stop: exactly one button in the sidebar is in the tab order.
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-sidebar button[tabindex="0"]').length), 1);
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/wt-a/docs/guide.md"]');
+  });
+});
+
+test('a file row opens in the focused pane, and Command-click opens it beside', async () => {
+  await withPage(async (page) => {
+    await bootTrees(page);
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/plain"]');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/plain/notes.md"]');
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/plain/notes.md"]');
+    await page.waitForFunction(() => window.__marxyHandle.panes().focused.path() === '/plain/notes.md');
+    assert.equal((await paths(page)).length, 1);
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/plain/notes.md"]', { modifiers: [(await mac(page)) ? 'Meta' : 'Control'] });
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 2);
+  });
+});
+
+test('a folded Repositories survives fold, unfold and a launch; an unknown id in workspace.json is dropped', async () => {
+  await withPage(async (page) => {
+    await bootTrees(page);
+    await page.click('[data-marxy-sidebar-section="repos"] .marxy-sidebar-head');
+    const repos = async (p) => (await allSections(p)).find((s) => s.id === 'repos');
+    assert.deepEqual(await repos(page), { id: 'repos', expanded: 'false', count: '1', rows: [] });
+    assert.deepEqual(JSON.parse(await workspaceFile(page)).sidebar, { collapsed: ['repos'] });
+    await fold(page);
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-section="repos"]');
+    assert.equal((await repos(page)).expanded, 'false');
+    const bytes = JSON.stringify({ version: 1, panels: { sidebar: true }, sidebar: { collapsed: ['repos', 'gone'] } });
+    await withPage(async (second) => {
+      await bootTrees(second);
+      await second.evaluate(async (bytes) => {
+        const h = window.__marxyHandle;
+        await h.shell.writeFileAtomic('/data/workspace.json', new TextEncoder().encode(bytes));
+      }, bytes);
+    });
+    await withPage(async (second) => {
+      await boot(second, { open: ['/r/a.md'], data: { ...treeData, '/data/workspace.json': bytes } });
+      await second.evaluate(async () => {
+        const h = window.__marxyHandle;
+        await h.index.ensureRoot('/wt-a', { watch: true });
+        await h.index.settled();
+      });
+      await unfold(second);
+      await second.waitForSelector('[data-marxy-sidebar-section="repos"]');
+      assert.equal((await repos(second)).expanded, 'false', 'a launch after it keeps it');
+      await second.click('[data-marxy-sidebar-section="repos"] .marxy-sidebar-head');
+      assert.deepEqual(JSON.parse(await workspaceFile(second)).sidebar, { collapsed: [] }, 'the unknown id was never kept');
+    });
+  });
+});
+
+test('the trees are honest about their size: a huge folder is one listing capped at 500 rows, said aloud, and the reading column does not move', async () => {
+  await withPage(async (page) => {
+    const many = Object.fromEntries(Array.from({ length: 620 }, (_, i) => [`/big/f${String(i).padStart(4, '0')}.txt`, 'x']));
+    await boot(page, { open: ['/r/a.md'], data: many });
+    await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      await h.index.ensureRoot('/big');
+      await h.index.settled();
+    });
+    const before = await column(page);
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-tree="folders"]');
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/big"]');
+    await page.waitForSelector('.marxy-sidebar-note');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('[data-marxy-sidebar-tree="folders"] [role="treeitem"][aria-level="2"]').length), 500);
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-sidebar-note').textContent), '120 more not shown');
+    const after = await column(page);
+    assert.deepEqual(after, before);
   });
 });

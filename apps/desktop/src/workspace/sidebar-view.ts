@@ -1,6 +1,7 @@
 // The sidebar (W-07; ADR-0058): the `sidebar` region while it is shown, unfolded or peeking. Two foldable sections,
 // Recent and Pinned (the changed files after the pinned), drawn from `sidebarSections` over the palette's feed and
-// session; a *Library* row above them when the command `library.open` is registered (Q-03). Layout is base.css
+// session; a *Library* row above them when the command `library.open` is registered (Q-03). After them, Repositories and
+// Folders (W-08): the index's roots as lazy trees (`sidebar-tree.ts`), a folder listed with `readDir` only when it opens. Layout is base.css
 // (`.marxy-sidebar`); state is ARIA and data attributes (`data-marxy-sidebar-section`, `data-marxy-sidebar-row`), and
 // the stylesheet draws it.
 //
@@ -19,7 +20,19 @@ import type { AppContext, Command } from '../commands/registry.ts';
 import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
 import { relativeAge, spokenAge } from '../palette/empty-state.ts';
 import { buildAppContext, openPalette } from '../selection/bind.ts';
+import { changedPredicate } from '../library/scopes.ts';
 import { SIDEBAR_SECTIONS, sidebarSections, type SidebarMark, type SidebarSection } from './sidebar.ts';
+import {
+  changedByGroup,
+  closeWithin,
+  splitRoots,
+  staleDirs,
+  visibleRows,
+  type FolderRow,
+  type Listing,
+  type RepositoryRow,
+  type TreeRow,
+} from './sidebar-tree.ts';
 import type { DocumentSignal } from './toolbar.ts';
 import { toolbarIconElement } from './toolbar-icons.ts';
 
@@ -30,6 +43,12 @@ const PALETTE_WAIT_MS = 200;
 const isMac = (): boolean => typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 
 const kindOf = (entry: IndexEntry): Kind => entry.readerKind ?? (entry.kind === 'source' ? 'code' : 'article');
+
+/** Entries asked of `checkoutKey` per root to learn whether the root is itself a checkout; a plain folder costs this many, once per draw. */
+/** One level of indentation in a tree, in em. */
+const TREE_STEP_EM = 1.1;
+
+const GROUP_PROBE_CAP = 64;
 
 const MARK_WORDS: Record<SidebarMark, string> = { pinned: ', pinned', changed: ', changed since you read', recent: '' };
 
@@ -51,15 +70,19 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
   let waiting: ReturnType<typeof setTimeout> | null = null;
   let offFeed: (() => void) | null = null;
   let feedOf: unknown = null;
+  /** The folders open in the trees, and what `readDir` last said of each. Held while the window lives; a launch starts closed. */
+  let expanded = new Set<string>();
+  const listings = new Map<string, Listing>();
+  const reading = new Set<string>();
+  const readAgain = new Set<string>();
+  let wasIndexing = handle.index.indexing();
 
   const libraryCommand = (): Command | undefined =>
     (handle.commands() as readonly Command[]).find((c) => c.id === LIBRARY_COMMAND);
 
-  const sectionsNow = (): readonly SidebarSection[] => {
+  const sectionsNow = (byPath: ReadonlyMap<string, IndexEntry>): readonly SidebarSection[] => {
     const p = palette();
     if (!p) return [];
-    const byPath = new Map<string, IndexEntry>();
-    for (const entry of p.feed.entries()) byPath.set(entry.path, entry);
     return sidebarSections({
       entriesByPath: byPath,
       session: p.session,
@@ -67,6 +90,100 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       watched: (r) => handle.index.isWatched(r),
       baselineMs: (r) => handle.index.baselineMs(r),
     });
+  };
+
+  interface TreeTop {
+    readonly row: RepositoryRow | FolderRow;
+    readonly changed: number;
+    readonly open: boolean;
+    readonly children: readonly TreeRow[];
+  }
+  interface TreeModel {
+    readonly repos: readonly TreeTop[];
+    readonly folders: readonly TreeTop[];
+    readonly isChanged: (path: string) => boolean;
+    readonly signature: unknown;
+  }
+
+  /** The two trees, from live state: the index's roots, the palette's feed (the counts) and the listings read so far. */
+  const treeModel = (feedEntries: readonly IndexEntry[], byPath: ReadonlyMap<string, IndexEntry>): TreeModel => {
+    const p = palette()!;
+    const changed = changedPredicate({
+      session: p.session,
+      nowMs: Date.now(),
+      watched: (r) => handle.index.isWatched(r),
+      baselineMs: (r) => handle.index.baselineMs(r),
+    });
+    // A root is a repository when its own checkout holds a `.git`: some entry of it is keyed to a checkout that is the root.
+    const groupOf = new Map<string, string>();
+    const probed = new Map<string, number>();
+    for (const entry of handle.index.entries()) {
+      if (groupOf.has(entry.root)) continue;
+      const n = probed.get(entry.root) ?? 0;
+      if (n >= GROUP_PROBE_CAP) continue;
+      probed.set(entry.root, n + 1);
+      const key = handle.index.checkoutKey(entry.path);
+      if (key !== undefined && key.checkout === entry.root) groupOf.set(entry.root, key.group);
+    }
+    const split = splitRoots(handle.index.roots(), (root) => groupOf.get(root));
+    const perGroup = changedByGroup(feedEntries, (path) => handle.index.checkoutKey(path), changed);
+    const top = (row: RepositoryRow | FolderRow): TreeTop => {
+      const open = expanded.has(row.root);
+      return {
+        row,
+        changed: row.kind === 'repository' ? (perGroup.get(row.id) ?? 0) : 0,
+        open,
+        children: open ? visibleRows(row.root, expanded, listings) : [],
+      };
+    };
+    const repos = split.repositories.map(top);
+    const folders = split.folders.map(top);
+    const isChanged = (path: string): boolean => {
+      const entry = byPath.get(path);
+      return entry !== undefined && changed(entry);
+    };
+    const signature = [repos, folders].map((tops) =>
+      tops.map((t) => [t.row.id, t.row.name, t.row.root, t.row.kind === 'repository' ? t.row.checkouts.length : 0, t.changed, t.open, t.children.map((r) => [r.kind, r.path, r.depth, r.kind === 'dir' ? [r.expanded, r.loading] : r.kind === 'file' ? isChanged(r.path) : r.text])]),
+    );
+    return { repos, folders, isChanged, signature };
+  };
+
+  /** Lists `dir` with `readDir`, one level. A change that arrives while it reads asks for one more read after it. */
+  const list = async (dir: string): Promise<void> => {
+    if (reading.has(dir)) {
+      readAgain.add(dir);
+      return;
+    }
+    reading.add(dir);
+    if (!listings.has(dir)) listings.set(dir, 'loading');
+    try {
+      const stats = await handle.shell.readDir(dir);
+      if (!disposed && expanded.has(dir)) listings.set(dir, stats);
+    } catch {
+      if (!disposed && expanded.has(dir)) listings.set(dir, 'failed');
+    } finally {
+      reading.delete(dir);
+      if (readAgain.delete(dir) && !disposed && expanded.has(dir)) void list(dir);
+      else draw();
+    }
+  };
+
+  const setOpen = (dir: string, open: boolean): void => {
+    if (open === expanded.has(dir)) return;
+    if (open) {
+      expanded.add(dir);
+      void list(dir);
+    } else {
+      // Closing a folder closes what was open under it, so opening it again lists the disk afresh.
+      expanded = closeWithin(expanded, dir);
+      for (const key of [...listings.keys()]) if (!expanded.has(key)) listings.delete(key);
+    }
+    draw();
+  };
+
+  /** Every open folder is listed again: after a walk that the watch did not patch (a refused watch, a rescan). */
+  const relistOpen = (): void => {
+    for (const dir of expanded) if (listings.has(dir)) void list(dir);
   };
 
   const openPath = (path: string, beside: boolean): void => {
@@ -113,10 +230,14 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     if (disposed || collapsed === null) return;
     const hadFocus = root.contains(document.activeElement);
     const focusKey = refocus ?? (document.activeElement as HTMLElement | null)?.dataset?.stop;
-    const sections = sectionsNow();
-    const library = libraryCommand() !== undefined;
     // The palette's own list (one entry per path, under the scope's cap), so the foot agrees with the palette and the library.
-    const feedCount = palette()?.feed.entries().length ?? 0;
+    const feedEntries = palette()?.feed.entries() ?? [];
+    const byPath = new Map<string, IndexEntry>();
+    for (const entry of feedEntries) byPath.set(entry.path, entry);
+    const sections = sectionsNow(byPath);
+    const model = palette() ? treeModel(feedEntries, byPath) : null;
+    const library = libraryCommand() !== undefined;
+    const feedCount = feedEntries.length;
     // What the tree watches are now (live or refused), not what was declared; a walk under way hides the count.
     const watching = handle.index.watchState();
     const indexing = handle.index.indexing();
@@ -125,7 +246,7 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       id: s.id,
       rows: s.rows.map((r) => [r.entry.path, r.entry.title, r.entry.mtimeMs, r.mark, relativeAge(Date.now(), r.entry.mtimeMs)]),
     }));
-    const key = JSON.stringify([library, [...collapsed], rows, sectionsKeyKinds(sections), feedCount, watching, indexing, active]);
+    const key = JSON.stringify([library, [...collapsed], rows, sectionsKeyKinds(sections), model?.signature ?? null, feedCount, watching, indexing, active]);
     if (key === drawn) return;
     drawn = key;
     root.replaceChildren();
@@ -133,6 +254,10 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     root.append(searchField());
     if (library) root.append(libraryRow());
     for (const section of sections) root.append(sectionNode(section, active));
+    if (model) {
+      if (model.repos.length > 0) root.append(treeSectionNode('repos', 'Repositories', model.repos, model.isChanged, byPath, active));
+      if (model.folders.length > 0) root.append(treeSectionNode('folders', 'Folders', model.folders, model.isChanged, byPath, active));
+    }
     if (indexing || feedCount > 0) root.append(footNode(feedCount, watching, indexing));
     rove();
     if (hadFocus && focusKey) (stopFor(focusKey) ?? stopsOf()[0])?.focus();
@@ -188,25 +313,22 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     return button;
   };
 
-  const sectionNode = (section: SidebarSection, active: string): HTMLElement => {
-    const folded = collapsed!.has(section.id);
-    const node = document.createElement('section');
-    node.className = 'marxy-sidebar-section';
-    node.setAttribute('data-marxy-sidebar-section', section.id);
-    const count = section.rows.length;
+  /** A section's header button: it folds the section; folded, it keeps a quiet count. */
+  const headerNode = (id: SidebarSectionId, title: string, spoken: string, count: number): HTMLButtonElement => {
+    const folded = collapsed!.has(id);
     const header = document.createElement('button');
     header.type = 'button';
     header.className = 'marxy-sidebar-head';
-    header.dataset.stop = `header:${section.id}`;
+    header.dataset.stop = `header:${id}`;
     header.setAttribute('aria-expanded', String(!folded));
-    header.setAttribute('aria-label', `${section.title}, ${count} ${count === 1 ? 'document' : 'documents'}`);
-    header.title = `${section.title}. ${mac ? '⌥' : 'Alt'}-click ${folded ? 'opens' : 'folds'} every section`;
-    const title = document.createElement('span');
-    title.className = 'marxy-sidebar-title';
-    title.textContent = section.title;
+    header.setAttribute('aria-label', `${title}, ${spoken}`);
+    header.title = `${title}. ${mac ? '⌥' : 'Alt'}-click ${folded ? 'opens' : 'folds'} every section`;
+    const label = document.createElement('span');
+    label.className = 'marxy-sidebar-title';
+    label.textContent = title;
     const chevron = toolbarIconElement(document, 'chevron');
     chevron.classList.add('marxy-sidebar-chevron');
-    header.append(chevron, title);
+    header.append(chevron, label);
     if (folded) {
       const quiet = document.createElement('span');
       quiet.className = 'marxy-sidebar-count';
@@ -215,8 +337,17 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       header.append(quiet);
     }
     header.addEventListener('mousedown', (event) => event.preventDefault());
-    header.addEventListener('click', (event) => setCollapsed(section.id, event.altKey));
-    node.append(header);
+    header.addEventListener('click', (event) => setCollapsed(id, event.altKey));
+    return header;
+  };
+
+  const sectionNode = (section: SidebarSection, active: string): HTMLElement => {
+    const folded = collapsed!.has(section.id);
+    const node = document.createElement('section');
+    node.className = 'marxy-sidebar-section';
+    node.setAttribute('data-marxy-sidebar-section', section.id);
+    const count = section.rows.length;
+    node.append(headerNode(section.id, section.title, `${count} ${count === 1 ? 'document' : 'documents'}`, count));
     if (folded) return node;
 
     const list = document.createElement('ul');
@@ -252,15 +383,169 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     return node;
   };
 
+  /** One tree row: a button that is the `treeitem`; `depth` is its `aria-level` (the section's own rows are level 1). */
+  const nodeButton = (sectionId: SidebarSectionId, path: string, depth: number, name: string, spoken: string, open: boolean | null): { item: HTMLLIElement; button: HTMLButtonElement; label: HTMLSpanElement } => {
+    const item = document.createElement('li');
+    item.setAttribute('role', 'none');
+    // The guides: one rule per level above this row, drawn on the item so a hovered button keeps them.
+    item.style.backgroundSize = `${(depth - 1) * TREE_STEP_EM}em 100%`;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'marxy-sidebar-node';
+    button.dataset.stop = `tree:${sectionId}:${path}`;
+    button.setAttribute('role', 'treeitem');
+    button.setAttribute('aria-level', String(depth));
+    if (open !== null) button.setAttribute('aria-expanded', String(open));
+    button.setAttribute('data-marxy-sidebar-row', path);
+    button.setAttribute('data-marxy-sidebar-depth', String(depth));
+    button.setAttribute('aria-label', spoken);
+    button.title = path;
+    button.style.paddingInlineStart = `${0.6 + (depth - 1) * TREE_STEP_EM}em`;
+    const chevron = document.createElement('span');
+    chevron.className = 'marxy-sidebar-chevron marxy-sidebar-node-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    if (open !== null) chevron.append(toolbarIconElement(document, 'chevron'));
+    const label = document.createElement('span');
+    label.className = 'marxy-sidebar-name';
+    label.textContent = name;
+    button.append(chevron);
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    item.append(button);
+    return { item, button, label };
+  };
+
+  const quiet = (text: string, extra = ''): HTMLSpanElement => {
+    const span = document.createElement('span');
+    span.className = `marxy-sidebar-age${extra}`;
+    span.textContent = text;
+    span.setAttribute('aria-hidden', 'true');
+    return span;
+  };
+
+  const treeSectionNode = (
+    id: 'repos' | 'folders',
+    title: string,
+    tops: readonly TreeTop[],
+    isChanged: (path: string) => boolean,
+    byPath: ReadonlyMap<string, IndexEntry>,
+    active: string,
+  ): HTMLElement => {
+    const node = document.createElement('section');
+    node.className = 'marxy-sidebar-section';
+    node.setAttribute('data-marxy-sidebar-section', id);
+    const count = tops.length;
+    const noun = id === 'repos' ? (count === 1 ? 'repository' : 'repositories') : count === 1 ? 'folder' : 'folders';
+    node.append(headerNode(id, title, `${count} ${noun}`, count));
+    if (collapsed!.has(id)) return node;
+
+    const tree = document.createElement('ul');
+    tree.className = 'marxy-sidebar-list marxy-sidebar-tree';
+    tree.setAttribute('role', 'tree');
+    tree.setAttribute('aria-label', title);
+    tree.setAttribute('data-marxy-sidebar-tree', id);
+    for (const top of tops) {
+      const row = top.row;
+      const bits: string[] = [row.kind === 'repository' ? 'repository' : 'folder'];
+      if (row.kind === 'repository' && row.checkouts.length > 1) bits.push(`${row.checkouts.length} checkouts`);
+      if (top.changed > 0) bits.push(`${top.changed} changed since you read`);
+      const { item, button, label } = nodeButton(id, row.root, 1, row.name, [row.name, ...bits].join(', '), top.open);
+      button.classList.add('marxy-sidebar-node-top');
+      button.append(toolbarIconElement(document, row.kind === 'repository' ? 'branch' : 'folder'), label);
+      if (row.kind === 'repository' && row.checkouts.length > 1) button.append(quiet(`${row.checkouts.length} checkouts`));
+      if (top.changed > 0) button.append(quiet(String(top.changed), ' marxy-sidebar-badge'));
+      button.addEventListener('click', () => setOpen(row.root, !top.open));
+      tree.append(item);
+      for (const child of top.children) tree.append(childNode(id, child, isChanged, byPath, active));
+    }
+    node.append(tree);
+    return node;
+  };
+
+  const childNode = (id: SidebarSectionId, row: TreeRow, isChanged: (path: string) => boolean, byPath: ReadonlyMap<string, IndexEntry>, active: string): HTMLLIElement => {
+    if (row.kind === 'note') {
+      const item = document.createElement('li');
+      item.setAttribute('role', 'none');
+      const text = document.createElement('span');
+      text.className = 'marxy-sidebar-note';
+      text.style.paddingInlineStart = `${0.6 + (row.depth - 1) * TREE_STEP_EM}em`;
+      text.textContent = row.text;
+      item.append(text);
+      return item;
+    }
+    if (row.kind === 'dir') {
+      const { item, button, label } = nodeButton(id, row.path, row.depth, row.name, `${row.name}, folder${row.loading ? ', loading' : ''}`, row.expanded);
+      if (row.loading) button.setAttribute('aria-busy', 'true');
+      button.append(toolbarIconElement(document, 'folder'), label);
+      button.addEventListener('click', () => setOpen(row.path, !row.expanded));
+      return item;
+    }
+    const changed = isChanged(row.path);
+    const { item, button, label } = nodeButton(id, row.path, row.depth, row.name, `${row.name}${changed ? ', changed since you read' : ''}`, null);
+    if (row.path === active) button.setAttribute('aria-current', 'true');
+    // The glyph is the index's word for the kind where it holds the file, else a guess from the name; no file is read to draw a row.
+    const entry = byPath.get(row.path);
+    const kind: Kind = entry ? kindOf(entry) : langOfPath(row.path) !== undefined ? 'code' : 'article';
+    button.append(kindIconElement(document, kind, kind === 'code' ? langOfPath(row.path) : undefined), label);
+    if (changed) {
+      const mark = document.createElement('span');
+      mark.className = 'marxy-sidebar-mark';
+      mark.setAttribute('aria-hidden', 'true');
+      mark.textContent = '\u25cf';
+      button.append(mark);
+    }
+    button.addEventListener('click', (event) => openPath(row.path, mac ? event.metaKey : event.ctrlKey));
+    return item;
+  };
+
   root.addEventListener('keydown', (event) => {
     const stops = stopsOf();
     const at = stops.indexOf(document.activeElement as HTMLButtonElement);
     if (at < 0) return;
     const mod = mac ? event.metaKey : event.ctrlKey;
-    if (event.key === 'Enter' && mod && stops[at]!.classList.contains('marxy-sidebar-row')) {
+    const isFileRow = stops[at]!.classList.contains('marxy-sidebar-row') || (stops[at]!.getAttribute('role') === 'treeitem' && !stops[at]!.hasAttribute('aria-expanded'));
+    if (event.key === 'Enter' && mod && isFileRow) {
       event.preventDefault();
       openPath(stops[at]!.getAttribute('data-marxy-sidebar-row')!, true);
       return;
+    }
+    const focused = stops[at]!;
+    const go = (target: HTMLButtonElement | undefined): void => {
+      if (!target) return;
+      event.preventDefault();
+      for (const b of stops) b.tabIndex = b === target ? 0 : -1;
+      target.focus();
+    };
+    if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
+      const right = event.key === 'ArrowRight';
+      if (focused.getAttribute('role') === 'treeitem') {
+        // The tree's keys: → opens a closed folder, or steps into an open one; ← closes an open folder, or steps out to its parent.
+        const level = Number(focused.getAttribute('aria-level'));
+        const path = focused.getAttribute('data-marxy-sidebar-row')!;
+        const state = focused.getAttribute('aria-expanded');
+        if (right && state === 'false') {
+          event.preventDefault();
+          setOpen(path, true);
+        } else if (right && state === 'true') {
+          const next = stops[at + 1];
+          if (next && Number(next.getAttribute('aria-level')) > level) go(next);
+        } else if (!right && state === 'true') {
+          event.preventDefault();
+          setOpen(path, false);
+        } else if (!right) {
+          go([...stops.slice(0, at)].reverse().find((b) => b.getAttribute('role') === 'treeitem' && Number(b.getAttribute('aria-level')) < level));
+        }
+        return;
+      }
+      if (focused.classList.contains('marxy-sidebar-head')) {
+        // A header: → opens its section, ← folds it.
+        const id = focused.dataset.stop!.slice('header:'.length) as SidebarSectionId;
+        const folded = focused.getAttribute('aria-expanded') === 'false';
+        if (right === folded) {
+          event.preventDefault();
+          setCollapsed(id, false);
+        }
+        return;
+      }
     }
     const to =
       event.key === 'ArrowDown' ? stops[Math.min(at + 1, stops.length - 1)]
@@ -297,7 +582,19 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
   };
   // The foot follows the watch state and the walks, which the feed does not announce.
   const offWatched = handle.index.onWatchedRootsChange(refresh);
-  const offStatus = handle.index.onStatusChange(refresh);
+  const offStatus = handle.index.onStatusChange(() => {
+    // A walk that ended may have changed what is on disk without a watch patch to say so: the open folders list again.
+    const now = handle.index.indexing();
+    if (wasIndexing && !now) relistOpen();
+    wasIndexing = now;
+    draw();
+  });
+  // An open folder lists again when the index reports a path appearing or going away under it (a patch from the watch);
+  // a changed file changes no name and costs no read.
+  const offIndex = handle.index.subscribe((_entries, patch) => {
+    if (!patch) return;
+    for (const dir of staleDirs(listings, patch.upserted.map((e) => e.path), patch.removed)) if (expanded.has(dir)) void list(dir);
+  });
   const offSignal = signal.onChange(() => {
     attach();
   });
@@ -324,6 +621,7 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     offSignal();
     offWatched();
     offStatus();
+    offIndex();
     root.remove();
   };
 }

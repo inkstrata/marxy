@@ -148,9 +148,9 @@ test('the sidebar field round trips, and a file without one is written without o
 });
 
 test('unknown section ids, repeats and non-strings are dropped, and the rest come in the sidebar order', () => {
-  const loaded = parseWorkspaceFile(enc({ version: 1, panels: {}, sidebar: { collapsed: ['pinned', 'folders', 3, 'recent', 'pinned'] } }));
+  const loaded = parseWorkspaceFile(enc({ version: 1, panels: {}, sidebar: { collapsed: ['pinned', 'folders', 'drawers', 3, 'repos', 'recent', 'pinned'] } }));
   assert.equal(loaded.kind, 'ok');
-  assert.deepEqual(loaded.envelope.sidebar, { collapsed: ['recent', 'pinned'] });
+  assert.deepEqual(loaded.envelope.sidebar, { collapsed: ['recent', 'pinned', 'repos', 'folders'] });
   for (const sidebar of ['x', 3, null, [], { collapsed: 'recent' }]) {
     const odd = parseWorkspaceFile(enc({ version: 1, panels: {}, sidebar }));
     assert.equal(odd.kind, 'ok');

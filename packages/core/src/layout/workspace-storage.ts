@@ -25,10 +25,10 @@ export type WorkspaceRegion = (typeof WORKSPACE_REGIONS)[number];
 export type RememberedPanels = Partial<Record<WorkspaceRegion, boolean>>;
 
 /**
- * The sidebar's sections, top to bottom (W-07; W-08 adds its own). The ids are the values of
+ * The sidebar's sections, top to bottom (W-07; W-08 adds Repositories and Folders). The ids are the values of
  * `data-marxy-sidebar-section`; the desktop app's sidebar titles them.
  */
-export const SIDEBAR_SECTION_IDS = ['recent', 'pinned'] as const;
+export const SIDEBAR_SECTION_IDS = ['recent', 'pinned', 'repos', 'folders'] as const;
 export type SidebarSectionId = (typeof SIDEBAR_SECTION_IDS)[number];
 
 /** What the sidebar remembers (W-07): which of its sections the reader folded. */
