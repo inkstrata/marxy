@@ -145,7 +145,7 @@ test('a document with neither says so, and the tab follows the focused document'
   });
 });
 
-test('a Source-default file is never parsed for the tab: its paths are listed from the bytes, Links say why they are absent, and Rendered fills them', async () => {
+test('a Source-default file is never parsed for the tab: its paths are listed from the bytes, Links say why they are absent, and Rendered, which reads it as code, finds no links', async () => {
   await withPage(1700, async (page) => {
     await page.evaluate(() => { window.__h = window.__marxyHandle; });
     await openFile(page, '/r/s.py', () => document.querySelector('.marxy-links')?.textContent.includes('Links are listed for Markdown'));
@@ -156,10 +156,14 @@ test('a Source-default file is never parsed for the tab: its paths are listed fr
     assert.deepEqual((await rowsOf(page)).map((r) => [r.kind, r.text, r.status]), [['path', 'src/helper.py', 'found']]);
     assert.equal(await page.evaluate(() => window.__h.document().parsed()), false, 'listing them did not parse the file');
     // The reader's own switch to Rendered makes the parse, and the tab looks again.
-    await page.keyboard.press('Meta+e');
+    await page.keyboard.press('ControlOrMeta+e');
     await page.waitForFunction(() => window.__h.document().parsed() === true, null, { timeout: 5000 });
-    await page.waitForFunction(() => document.querySelector('[data-marxy-link-row=link]') !== null, null, { timeout: 5000 });
-    assert.deepEqual((await rowsOf(page)).filter((r) => r.kind === 'link').map((r) => r.dest), ['https://x.example']);
+    // A code file is code, not Markdown (V-10): `[not a link](...)` in it is not a link, so the tab looks again and now
+    // says there are none, where before the parse it said why it did not list them.
+    await page.waitForFunction(() => document.querySelector('.marxy-links')?.textContent.includes('No links in this document'), null, { timeout: 5000 });
+    const after = await page.evaluate(() => document.querySelector('.marxy-links').textContent);
+    assert.ok(!after.includes('Links are listed for Markdown'), after);
+    assert.deepEqual((await rowsOf(page)).map((r) => [r.kind, r.text, r.status]), [['path', 'src/helper.py', 'found']]);
   }, { dock: true });
 });
 
