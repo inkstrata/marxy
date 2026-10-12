@@ -472,7 +472,7 @@ test('Save As that makes a Markdown page a code file, or the reverse, sets the p
   await page.close();
 });
 
-test('a long .py is pieces of 200 lines drawn as one block, and .log and .html stay as they were (V-10)', async () => {
+test('a long .py is pieces of 200 lines drawn as one block, and .html stays as it was (V-10; a .log is read as a log since K-08, test/log.test.mjs)', async () => {
   const page = await freshPage();
   const long = Array.from({ length: 450 }, (_, i) => `x${i} = ${i}  # line`).join('\n') + '\n';
   const files = { ...FILES, '/repo/long.py': long, '/repo/a.log': '# not a heading\nline\n', '/repo/a.html': '<h2>Hello</h2>\n' };
@@ -490,7 +490,7 @@ test('a long .py is pieces of 200 lines drawn as one block, and .log and .html s
   assert.ok(seen.runs);
   assert.equal(seen.gap, 0, 'the pieces meet with no gap');
   assert.equal(seen.text, long, 'the pieces together are the file');
-  for (const [path, check] of [['/repo/a.log', () => document.querySelectorAll('#doc h1').length], ['/repo/a.html', () => document.querySelectorAll('#doc h2').length]]) {
+  for (const [path] of [['/repo/a.html']]) {
     await page.evaluate((p) => window.__h.open(p), path);
     await drained(page);
     if ((await mode(page)) === 'source') for (let i = 0; i < 1; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);

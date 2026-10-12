@@ -2,7 +2,7 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { invisibleSegments, markInvisibles, shouldFlagInvisible } from './invisibles.ts';
+import { invisibleLabel, invisibleSegments, markInvisibles, shouldFlagInvisible } from './invisibles.ts';
 
 const prose = { inCode: false, sourceStart: 10 };
 const code = { inCode: true, sourceStart: 10 };
@@ -76,4 +76,17 @@ test('U+202E in output is isolated and labelled 202E', () => {
 test('👩‍💻 is not marked', () => {
   const html = markInvisibles('👩\u200d💻', prose);
   assert.ok(!html.includes('marxy-invisible'));
+});
+
+// K-08: ESC is shown, never interpreted, as the control picture; every other control keeps its hex label.
+test('ESC is drawn as the control picture, marked for the theme, over its own byte; other controls keep their hex label (K-08)', () => {
+  const html = markInvisibles('a\u001b[31mred\u001b[0m\u0007', code);
+  assert.equal((html.match(/marxy-invisible-esc/g) ?? []).length, 2, 'both ESC bytes');
+  assert.equal((html.match(/marxy-invisible-glyph[^>]*>␛</g) ?? []).length, 2);
+  assert.ok(!html.includes('>001B<'), 'no hex label for ESC');
+  assert.match(html, /marxy-invisible-glyph[^>]*>0007</, 'BEL keeps its hex label');
+  assert.equal((html.match(/marxy-invisible-byte[^>]*>\u001b</g) ?? []).length, 2, 'the byte is under the picture, as text, never an escape sequence');
+  assert.ok(html.includes('[31m') && html.includes('[0m'), 'the rest of the sequence is ordinary text');
+  assert.equal(invisibleLabel(0x1b), '␛');
+  assert.equal(invisibleLabel(0x7), '0007');
 });

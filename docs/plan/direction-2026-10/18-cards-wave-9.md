@@ -270,6 +270,12 @@ hidden lines is one text line, "14 lines below Warn", which a click shows; the f
 3. Default mode for `.out`, which is often not a log. *Recommended:* Read, as `.log`; `detectKind` already falls back from its
    shape.
 
+*Amended in K-08's PR.* Taken as recommended: question 1, the strip only, no log bar; question 2, `␛` for ESC in every
+Rendered page and the hex label for every other control; question 3, `.out` opens in Read as `.log` does. Three departures
+from the card: (1) **no line-number gutter**: V-10 did not build one (its own amendment, `13-code-view.md`), and a gutter
+needs each piece's first line number in the markup, which is a contract change; (2) a hidden run is wrapped in one element, so the filter reaches every piece of a log of tens of megabytes without a span a line; (3) `.out` joins the Tauri file
+associations, because the file-type table and the associations are one list (V-09).
+
 ---
 
 ### K-09 — Read a diff: Read by default, unified as authored, tinted

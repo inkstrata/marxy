@@ -246,6 +246,12 @@ export function installCommandKeys(handle: AppHandle): void {
     if (!runtime || !event.clipboardData || !sel || sel.rangeCount === 0 || sel.isCollapsed) return;
     const range = sel.getRangeAt(0);
     if (!runtime.article.contains(range.commonAncestorContainer)) return;
+    if (runtime.article.classList.contains('marxy-log-filter-busy')) {
+      // Still being filtered (K-08): nothing is copied that the filter is about to hide.
+      notify({ kind: 'refused', text: 'Still filtering this log · nothing was copied · try again when the filter is done' });
+      event.preventDefault();
+      return;
+    }
     const text = codeRunSourceText(range, runtime.article, runtime.buffer.bytes);
     if (text === null) return;
     event.clipboardData.setData('text/plain', text);

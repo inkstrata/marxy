@@ -437,6 +437,25 @@
       }
     ]
   },
+  "35-build.log": {
+    "kind": "log",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .log",
+        "kind": "log",
+        "at": "35-build.log",
+        "decisive": true
+      },
+      {
+        "tier": 4,
+        "signal": "timestamp and level word open most lines",
+        "kind": "log",
+        "at": "line 1",
+        "decisive": false
+      }
+    ]
+  },
   "README.md": {
     "kind": "readme",
     "reasons": [

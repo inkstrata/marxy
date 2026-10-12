@@ -22,6 +22,8 @@ export { smarten } from './typography.ts';
 export type { SmartenContext } from './typography.ts';
 export {
   invisibleHexLabel,
+  invisibleLabel,
+  isEscape,
   invisibleSegments,
   markInvisibles,
   shouldFlagInvisible,

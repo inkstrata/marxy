@@ -1,4 +1,4 @@
-document [0,4132)
+document [0,4779)
   htmlBlock [0,72) value="<!-- Inventory and provenance for the fixture corpus the gates walk. -->"
   heading [74,90) level=1
     text [76,90) value="Fixture corpus"
@@ -138,3 +138,25 @@ document [0,4132)
     softBreak [4035,4036)
     code [4036,4056) value="pnpm gate:licences"
     text [4056,4131) value=" is unaffected because nothing copyleft entered the lockfile or the corpus."
+  heading [4133,4148) level=2
+    text [4136,4148) value="35-build.log"
+  paragraph [4150,4778)
+    text [4150,4249) value="Original text written for K-08: a service log in the usual shape (an ISO timestamp, a level word, a"
+    softBreak [4249,4250)
+    text [4250,4343) value="component, a message), with every case a log reader meets: DEBUG, INFO, WARN, ERROR and FATAL"
+    softBreak [4343,4344)
+    text [4344,4439) value="heads; stack frames and a blank line that continue an error; a hint that continues a warning; a"
+    softBreak [4439,4440)
+    text [4440,4539) value="level word inside a message that is not a level; a tab inside a line; and two ANSI escape sequences"
+    softBreak [4539,4540)
+    text [4540,4630) value="(ESC, 0x1B, four of them on purpose). Every name, host and number is invented; the host is"
+    softBreak [4630,4631)
+    code [4631,4655) value="harbor.example.invalid"
+    text [4655,4722) value=" (RFC 2606). Do not let an editor or formatter strip the ESC bytes:"
+    softBreak [4722,4723)
+    code [4723,4739) value=".gitattributes"
+    text [4739,4746) value=" marks "
+    code [4746,4766) value="fixtures/corpus/**"
+    text [4766,4770) value=" as "
+    code [4770,4777) value="-text"
+    text [4777,4778) value="."

@@ -1,0 +1,2 @@
+document [0,3377)
+  codeBlock [0,3377) lang=log run content=[0,3377) value="2026-10-12T09:30:00.104Z INFO  boot     lanternfish 2.4.1 starting (pid 4121, 8 workers)\n2026-10-12T09:30:00.118Z DEBUG …"

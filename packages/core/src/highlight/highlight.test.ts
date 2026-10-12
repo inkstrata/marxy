@@ -73,7 +73,8 @@ test('every allow-listed language id produces highlight tokens for a one-line sa
     assert.ok(sample, `missing sample for ${id}`);
     const tokens = await highlight(sample, id);
     assert.ok(tokens && tokens.length > 0, `${id} returned no tokens`);
-    assert.ok(tokens.some((line) => line.some((t) => t.scope)), `${id} returned no scoped tokens`);
+    // A log has no grammar (K-08): its runs are classes (the level word, the timestamp), never a token scope.
+    assert.ok(tokens.some((line) => line.some((t) => t.scope || (id === 'log' && t.className))), `${id} returned no scoped tokens`);
   }
 });
 

@@ -10,6 +10,8 @@ import { fileTypeOf, tableExtensions } from './file-types.ts';
 const OLD_MARKDOWN = ['md', 'mdx', 'markdown', 'mdown', 'mkd'];
 const OLD_TEXT = ['txt', 'text'];
 const OLD_SOURCE = 'ts tsx js jsx mjs cjs mts cts rs py go java kt kts c h cc cpp cxx hpp hh rb php swift sh bash zsh json toml yaml yml html htm xml sql graphql lua r ex exs hs vue svelte css scss log csv tsv jsonl'.split(' ');
+// K-08: a log is read, not edited; its kind stays `source`, so the index and the Tauri associations are as they were.
+const READ_FIRST = ['log', 'out'];
 // BY_EXT in apps/desktop/src/source/language.ts before V-09: extension -> CodeMirror id.
 const OLD_CM: Record<string, string> = {
   md: 'markdown', markdown: 'markdown', mdx: 'markdown', txt: 'markdown', ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
@@ -23,11 +25,22 @@ test('every old allow-list extension keeps its kind and mode', () => {
     for (const ext of list) {
       const t = fileTypeOf(`/r/file.${ext}`);
       assert.equal(t?.kind, kind, ext);
-      assert.equal(t?.mode, mode, ext);
+      assert.equal(t?.mode, READ_FIRST.includes(ext) ? 'rendered' : mode, ext);
       assert.equal(classify(`/r/file.${ext}`), kind, ext);
     }
   }
-  assert.equal(tableExtensions().length, OLD_MARKDOWN.length + OLD_TEXT.length + OLD_SOURCE.length);
+  assert.equal(tableExtensions().length, OLD_MARKDOWN.length + OLD_TEXT.length + OLD_SOURCE.length + 1, '`.out` is the one extension K-08 adds');
+});
+
+test('a .log and an .out open in Read, as logs (K-08); no other source file does', () => {
+  for (const name of ['a.log', 'a.out', 'A.LOG', '/r/dir.d/build.out']) {
+    const t = fileTypeOf(`/r/${name}`);
+    assert.equal(t?.mode, 'rendered', name);
+    assert.equal(t?.kind, 'source', name);
+    assert.equal(t?.shiki, 'log', name);
+    assert.equal(t?.indexed, true, name);
+  }
+  for (const ext of OLD_SOURCE.filter((e) => !READ_FIRST.includes(e))) assert.equal(fileTypeOf(`/r/f.${ext}`)?.mode, 'source', ext);
 });
 
 test('every old BY_EXT extension keeps its CodeMirror id, V-14 adds Go, C, C++, Java, shell and TOML; only .mdown, .mkd and .text gain one (as .txt has)', () => {

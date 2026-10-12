@@ -564,6 +564,13 @@ pre {
 }
 /* The pieces of a code file read as code (V-10, 200 lines each) are one block to the eye: they meet with no gap,
    square at the join. */
+/* A log's pieces are laid out only when they are near the screen (K-08): a log of tens of megabytes is thousands of pieces, and
+   a change of one's height, which the level filter makes in all of them, would otherwise cost the layout of every one. The
+   room of one not yet laid out is a full piece (200 lines) until it has been, and then what it was. */
+pre.language-log.marxy-run {
+  content-visibility: auto;
+  contain-intrinsic-size: auto calc(var(--marxy-line-box-code) * 200 + var(--marxy-half) * 2);
+}
 pre.marxy-run + pre.marxy-run { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
 pre.marxy-run:has(+ pre.marxy-run) { margin-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 /* One source line (the highlight pass wraps each and sets --marxy-indent to its leading whitespace).
@@ -603,12 +610,62 @@ a code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em);
 .marxy-diff-del { background: var(--marxy-color-diff-del); }
 .marxy-diff-add-word { background: var(--marxy-color-diff-add-word); }
 .marxy-diff-del-word { background: var(--marxy-color-diff-del-word); }
+/* The level word is weight 700 (Reader Artifacts 10-spec, "Log level"): the mono face's own bold, whatever the text face's
+   strong weight is, and no hue. The platform's weight offset still applies. */
 .marxy-log-level {
-  --marxy-wght: calc(var(--marxy-weight-strong) + var(--marxy-weight-offset));
+  --marxy-wght: calc(700 + var(--marxy-weight-offset));
   font-weight: var(--marxy-wght);
   color: inherit;
 }
-/* ESC itself is drawn by the invisible-character marker (MARXY-236); the buffer keeps the byte. */
+/* A log (K-08). The level word is weight 700 (above) and the leading timestamp is the comment colour: neither adds a hue
+   to a level, so a log reads without colour. A line at ERROR or above, and the lines that continue it, carry a rule at
+   their left edge. Every log line holds the rule's 2px (transparent when there is none) so the text does not move
+   between lines; the wrapped-row rule below it is placed from the text's edge. In forced colours the rule is a border
+   in a system colour and the others stay clear. */
+.marxy-log-time { color: var(--marxy-tok-comment); }
+pre.language-log .marxy-line {
+  box-sizing: border-box;
+  border-inline-start: 2px solid transparent;
+  padding-inline-start: 1ch;
+  background-origin: content-box;
+}
+pre.language-log .marxy-log-error { border-inline-start-color: var(--marxy-color-text); }
+/* The level filter (K-08). A hidden run is wrapped, newlines and all, in one element that is not drawn; a piece every line of
+   which is hidden takes no room. */
+.marxy-log-hidden-text { display: none; }
+.marxy-log-hidden-piece { display: none; }
+/* While a level is being set, a piece the filter has not presented yet is not drawn, and says so: no line below the level is
+   ever painted. Its room is the room it has (content-visibility below), so the page does not jump as pieces are presented. */
+.marxy-log-filtering pre.language-log.marxy-run:not(.marxy-log-seen) { position: relative; }
+.marxy-log-filtering pre.language-log.marxy-run:not(.marxy-log-seen) > code { visibility: hidden; }
+.marxy-log-filtering pre.language-log.marxy-run:not(.marxy-log-seen)::before {
+  content: 'Filtering\2026';
+  position: absolute;
+  top: var(--marxy-half);
+  left: var(--marxy-half);
+  color: var(--marxy-color-text-secondary);
+}
+.marxy-log-hidden-run {
+  display: block;
+  box-sizing: border-box;
+  padding-inline-start: calc(var(--marxy-line-box-code) / 12 + 1ch);
+  white-space: normal;
+  text-indent: 0;
+  color: var(--marxy-color-text-secondary);
+  cursor: pointer;
+}
+.marxy-log-hidden-run:hover { color: var(--marxy-color-text); text-decoration: underline; text-underline-offset: 0.18em; }
+.marxy-log-hidden-run:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+/* ESC is drawn by the invisible-character marker (MARXY-236) as the control picture, bare, in the comment colour (K-08);
+   the buffer keeps the byte, and a copy takes it. Every other control keeps its hex label in a box. */
+.marxy-invisible-esc .marxy-invisible-glyph {
+  min-width: 0;
+  padding: 0;
+  font-size: 1em;
+  color: var(--marxy-tok-comment);
+  border: 0;
+  background: none;
+}
 .marxy-line-omitted {
   position: absolute;
   width: 1px;
@@ -1358,4 +1415,10 @@ body[data-marxy-peek] > [data-marxy-workspace-region="inspector"] { top: 0; bott
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* A log's error rule, in forced colours (K-08): the border is the rule, in a system colour; the others stay clear. */
+@media (forced-colors: active) {
+  pre.language-log .marxy-line { border-inline-start-color: Canvas; }
+  pre.language-log .marxy-log-error { border-inline-start-color: CanvasText; }
 }

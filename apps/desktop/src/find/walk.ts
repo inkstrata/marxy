@@ -24,7 +24,29 @@ export const NON_CONTENT = [
   '.katex',
   '.marxy-elided', '.marxy-line-omitted', '.marxy-link-dest', '.marxy-link-host-label', '.marxy-invisible-glyph',
   '.marxy-notices', '.marxy-notice', '.marxy-find-slot',
+  // A log the level filter is on (K-08): the lines it hides are not read, and neither are the words that stand for them.
+  '.marxy-log-hidden-text', '.marxy-log-hidden-piece', '.marxy-log-hidden-run',
 ].join(', ');
+/** The runs of a log the level filter hides, and the pieces it hides whole (K-08). */
+const FILTERED_OUT = '.marxy-log-hidden-text, .marxy-log-hidden-piece';
+/** What `NON_CONTENT` skips, less the filter's own hiding: the text a hidden run holds is still the file's. */
+const STILL_SKIPPED = NON_CONTENT.split(', ').filter((s) => !s.startsWith('.marxy-log-hidden')).join(', ');
+
+/** The text the level filter hides in the article, as pieces: what a match there is in, for the count of matches find cannot show. */
+export function hiddenText(article: HTMLElement): string[] {
+  const pieces: string[] = [];
+  for (const holder of article.querySelectorAll<HTMLElement>(FILTERED_OUT)) {
+    const walker = article.ownerDocument.createTreeWalker(holder, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
+        return (node as Element).matches(STILL_SKIPPED) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+      },
+    });
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) pieces.push((node as Text).data);
+  }
+  return pieces;
+}
+
 /** The marker around an invisible character: a match touching its byte covers all of it. */
 const INVISIBLE = '.marxy-invisible';
 

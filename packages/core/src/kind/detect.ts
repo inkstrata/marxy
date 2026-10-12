@@ -223,7 +223,13 @@ export function speakerOf(text: string): Speaker | null {
 
 const singular = (word: string): string => word.toLowerCase().replace(/s$/, '');
 
-const TIMESTAMP = /^\[?(?:\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?|\d{2}:\d{2}:\d{2}(?:[.,]\d+)?)\]?[\s|\-[]*(?:TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|ERR|FATAL|CRITICAL|CRIT)\b/i;
+/**
+ * A log line's head: a timestamp, a separator, a level word. The groups are what K-08 reads a log by: (1) any opening
+ * bracket, (2) the timestamp, (3) what stands between it and the level (the closing bracket, spaces, a `[thread]` as log4j
+ * writes it, a `local.` as Laravel writes it), (4) the level word. Detection only tests it; the log's line classes
+ * (`highlight/line-classes.ts`) and the level filter read the groups, so one pattern says what a log line is.
+ */
+export const TIMESTAMP = /^(\[?)(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?|\d{2}:\d{2}:\d{2}(?:[.,]\d+)?)(\]?[\s|\-[]*(?:\[[^\]\r\n]{1,64}\][\s|\-]*|[A-Za-z][\w-]{0,31}\.)*)(TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|ERR|FATAL|CRITICAL|CRIT|SEVERE|ALERT|EMERG|EMERGENCY)\b/i;
 const PROMPT = /^(?:\$ \S.*|[\w.-]+@[\w.-]+[ :].*?[ ][%$#](?: .*)?)$/;
 
 interface Shape { kind: Kind; signal: string; at: string; strength: number }

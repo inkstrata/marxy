@@ -27,8 +27,8 @@
 import { readingLine } from '@marxy/core/src/position/blocks.ts';
 import type { Pane } from '../pane/pane-set.ts';
 import { compileQuery } from './query.ts';
-import { findAll, type Span } from './text-index.ts';
-import { placeRange, walkText, type Walked } from './walk.ts';
+import { buildTextIndex, findAll, type Span } from './text-index.ts';
+import { hiddenText, placeRange, walkText, type Walked } from './walk.ts';
 
 export const FIND_HIGHLIGHT = 'marxy-find';
 export const FIND_CURRENT_HIGHLIGHT = 'marxy-find-current';
@@ -177,9 +177,18 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     probeRange = null;
   }
 
+  /** Matches in the lines a log's level filter hides (K-08): find cannot show them, and says there are more. */
+  let hiddenMore = 0;
+  function countHidden(walkedArticle: HTMLElement, re: RegExp | null): void {
+    const pieces = re ? hiddenText(walkedArticle) : [];
+    hiddenMore = pieces.length === 0 ? 0 : findAll(buildTextIndex(pieces), re!).length;
+  }
+
   function paintCount(): void {
     if (!countEl) return;
-    countEl.textContent = query.length === 0 ? '' : `${spans.length === 0 ? 0 : current + 1} of ${spans.length}`;
+    const busy = pane.article.classList.contains('marxy-log-filter-busy') ? ' · still filtering' : '';
+    const more = (hiddenMore > 0 ? ` · ${hiddenMore} more in hidden lines` : '') + busy;
+    countEl.textContent = query.length === 0 ? '' : `${spans.length === 0 ? 0 : current + 1} of ${spans.length}${more}`;
   }
 
   /** The Range of the current match: one held in the window, else its own, from a fresh walk. */
@@ -230,6 +239,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       const re = compileQuery(query);
       indexText = walked.index.text;
       spans = re ? findAll(walked.index, re) : [];
+      countHidden(pane.article, re);
       current = spans.length === 0 ? -1 : Math.min(current, spans.length - 1);
       whole = spans.length <= WHOLE_LIMIT;
       heldCount = 0;
@@ -455,12 +465,14 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     const re = compileQuery(query);
     if (!re) {
       current = -1;
+      hiddenMore = 0;
       paintCount();
       return;
     }
     const walked = walkText(pane.article);
     indexText = walked.index.text;
     spans = findAll(walked.index, re);
+    countHidden(pane.article, re);
     whole = spans.length <= WHOLE_LIMIT;
     const api = highlightApi();
     via = api ? 'highlights' : 'overlay';

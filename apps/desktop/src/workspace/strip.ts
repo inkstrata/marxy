@@ -36,7 +36,7 @@ export const STRIP_TOOLS: Readonly<Record<Kind, readonly StripTool[]>> = {
   data: [tool('column-stats', 'Column stats'), tool('filter', 'Filter'), tool('transpose', 'Transpose'), tool('chart', 'Chart')],
   notes: [tool('backlinks', 'Backlinks'), tool('append-clipboard', 'Append clipboard'), tool('daily', 'Daily')],
   changelog: [tool('versions', 'Versions'), CHANGES],
-  log: [tool('filter-by-level', 'Filter by level'), tool('wrap', 'Wrap'), tool('jump-to-first-error', 'Jump to first error'), tool('follow-tail', 'Follow tail')],
+  log: [tool('filter-by-level', 'Filter by level', 'log.filter-level'), tool('wrap', 'Wrap'), tool('jump-to-first-error', 'Jump to first error', 'log.first-error'), tool('follow-tail', 'Follow tail')],
   terminal: [tool('wrap', 'Wrap')],
   diff: [],
   html: [],

@@ -21,6 +21,8 @@ export interface FileType {
 const md = (shiki: string): FileType => ({ kind: 'markdown', mode: 'rendered', cm: 'markdown', shiki, indexed: true });
 const text = (cm?: string): FileType => ({ kind: 'text', mode: 'rendered', cm, indexed: true });
 const src = (cm?: string, shiki?: string): FileType => ({ kind: 'source', mode: 'source', cm, shiki, indexed: true });
+/** A source file that opens in Read (K-08): a log is read, not edited, and Source is one action away. */
+const readSrc = (shiki: string): FileType => ({ kind: 'source', mode: 'rendered', shiki, indexed: true });
 
 /** By lowercase extension, no dot. */
 const BY_EXTENSION: Readonly<Record<string, FileType>> = {
@@ -76,8 +78,10 @@ const BY_EXTENSION: Readonly<Record<string, FileType>> = {
   svelte: src(undefined, 'svelte'),
   css: src('css', 'css'),
   scss: src(undefined, 'scss'),
-  // Logs and data (K-06): listed so the palette finds them; ADR-0060 decides how each is read.
-  log: src(),
+  // Logs and data (K-06): listed so the palette finds them; ADR-0060 decides how each is read. A log opens in Read
+  // (K-08); `.out` is often not a log, and `detectKind` falls back from its shape.
+  log: readSrc('log'),
+  out: readSrc('log'),
   csv: src(),
   tsv: src(),
   jsonl: src(undefined, 'json'),

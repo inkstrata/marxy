@@ -1,8 +1,9 @@
 // Trusted-DOM markers for invisible characters after sanitise and after highlight (MARXY-236).
 
 import {
-  invisibleHexLabel,
+  invisibleLabel,
   invisibleSegments,
+  isEscape,
   type InvisibleContext,
   type InvisibleSegment,
 } from '@marxy/core/src/render/index.ts';
@@ -12,6 +13,7 @@ const PLAIN_ASCII = /^[\t\n\r\x20-\x7e]*$/;
 
 const GLYPH = 'marxy-invisible-glyph';
 const MARKER = 'marxy-invisible';
+const HIDDEN_RUN = 'marxy-log-hidden-run';
 
 function contextForText(node: Text): InvisibleContext {
   const el = node.parentElement?.closest('[data-marxy-s]');
@@ -22,11 +24,11 @@ function contextForText(node: Text): InvisibleContext {
 
 function markerNode(doc: Document, cp: number, bidi: boolean): HTMLElement {
   const wrap = doc.createElement('code');
-  wrap.className = MARKER;
+  wrap.className = isEscape(cp) ? `${MARKER} marxy-invisible-esc` : MARKER;
   const glyph = doc.createElement('code');
   glyph.className = GLYPH;
   glyph.setAttribute('aria-hidden', 'true');
-  glyph.textContent = invisibleHexLabel(cp);
+  glyph.textContent = invisibleLabel(cp);
   const byte = doc.createElement('code');
   byte.className = bidi ? 'marxy-invisible-byte marxy-invisible-bidi' : 'marxy-invisible-byte';
   byte.setAttribute('aria-hidden', 'true');
@@ -94,12 +96,15 @@ export function appendInvisibleSegments(parent: Element, segments: readonly Invi
   }
 }
 
-/** Source bytes of a code element, omitting display-only glyph labels. */
+/**
+ * Source bytes of a code element, omitting display-only text: the glyph labels of the markers, and the words that stand for
+ * a run of lines the log filter hides (K-08), which are not in the file.
+ */
 export function sourceTextFromCode(code: HTMLElement): string {
-  if (code.querySelector(`.${GLYPH}`) === null) return code.textContent ?? '';
+  if (code.querySelector(`.${GLYPH}, .${HIDDEN_RUN}`) === null) return code.textContent ?? '';
   const parts: string[] = [];
   const walk = (node: Node): void => {
-    if (node instanceof Element && node.classList.contains(GLYPH)) return;
+    if (node instanceof Element && (node.classList.contains(GLYPH) || node.classList.contains(HIDDEN_RUN))) return;
     if (node.nodeType === Node.TEXT_NODE) {
       parts.push(node.textContent ?? '');
       return;
