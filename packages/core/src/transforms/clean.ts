@@ -165,14 +165,18 @@ export const normalizeBullets: TransformDef = {
     const doc = parseText(lf);
     const index = indexOf(lf);
     const parents = new Map<Node, Node>();
+    const positions = new Map<Node, number>();
     walk(doc, (n) => {
-      for (const child of n.children ?? []) parents.set(child as Node, n);
+      (n.children ?? []).forEach((child, i) => {
+        parents.set(child as Node, n);
+        positions.set(child as Node, i);
+      });
     });
     const edits: { start: number; end: number; text: string }[] = [];
     for (const { node, span } of nodesOf<List>(lf, doc, ['list'])) {
       if (node.ordered) continue;
       // A list that would join the unordered list beside it once its marker matches is left as written.
-      if (mergesWithNeighbour(doc, node, false, parents.get(node))) continue;
+      if (mergesWithNeighbour(doc, node, false, parents.get(node), positions.get(node))) continue;
       // The list's own text, so reading its markers costs its length, not the document's.
       const spans = markerSpans(node, lf.slice(span.start, span.end), node.src.start);
       if (!spans || spans.length !== node.children.length) continue;
