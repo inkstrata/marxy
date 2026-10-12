@@ -3,11 +3,14 @@
 // session; a *Library* row above them when the command `library.open` is registered (Q-03). After them, Repositories and
 // Folders (W-08): the index's roots as lazy trees (`sidebar-tree.ts`), a folder listed with `readDir` only when it opens. Last, Smart
 // collections (Q-07): the `[[query]]` tables of collection.toml, each row opening the library on its query, with a count the
-// index alone can give (`sidebar.ts`, `smartRows`); a row's menu has *Edit in collection.toml*. Layout is base.css
+// index alone can give (`sidebar.ts`, `smartRows`); a row's menu has *Edit in collection.toml*. Before them, the two built-ins
+// (Q-06), *Broken paths* (`is:broken`) and *Near-duplicates* (`is:dup`), each drawn only when it has matches: their counts
+// come from the library's checks, run while the section is open and off the redraw path (`library/checks.ts`). Layout is base.css
 // (`.marxy-sidebar`); state is ARIA and data attributes (`data-marxy-sidebar-section`, `data-marxy-sidebar-row`), and
 // the stylesheet draws it.
 //
-// It reads the palette's feed and session and the index service's watch state, never the disk, and it adds no way
+// It reads the palette's feed and session and the index service's watch state, and the disk only through the library's
+// checks for the two built-ins (which read, never write) and `readDir` for an open folder; it adds no way
 // to pin or unpin (the palette's `Mod+.` stays the only one). A row opens its document with `AppHandle.open`, as the
 // palette does, so the unsaved-changes prompt, the history and the read time are the open's own.
 //
@@ -24,6 +27,7 @@ import { relativeAge, spokenAge } from '../palette/empty-state.ts';
 import { buildAppContext, openPalette } from '../selection/bind.ts';
 import { changedPredicate, type ScopeInput } from '../library/scopes.ts';
 import { collectionOf, editQueryInSource } from '../collection/load.ts';
+import { BuiltinCounts, checksFor, type BuiltinCount } from '../library/checks.ts';
 import { openVerbMenu } from '../selection/verb-menu.ts';
 import { SIDEBAR_SECTIONS, sidebarSections, SmartCounts, smartRows, type SidebarMark, type SidebarSection, type SmartRow } from './sidebar.ts';
 import {
@@ -53,6 +57,9 @@ const TREE_STEP_EM = 1.1;
 
 /** Entries asked of `checkoutKey` per root to learn whether the root is itself a checkout; a plain folder costs this many, once per draw. */
 const GROUP_PROBE_CAP = 64;
+
+/** A row of Smart collections: a saved query, or one of the two built-ins (Q-06). */
+type DrawnSmart = SmartRow & { readonly builtin?: 'dup' | 'broken'; readonly partial?: BuiltinCount['partial'] };
 
 const MARK_WORDS: Record<SidebarMark, string> = { pinned: ', pinned', changed: ', changed since you read', recent: '' };
 
@@ -87,6 +94,12 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
   let offQueries: (() => void) | null = null;
   /** The saved queries' counts, made off the path of a redraw; a landed count redraws. */
   const counts = new SmartCounts(() => draw());
+  /** The built-ins' counts (Q-06): the library's checks over every file, run while the section is open; a landed count redraws. */
+  const builtins = new BuiltinCounts(checksFor(handle), () => draw());
+  const offThreshold = checksFor(handle).onThreshold(() => draw());
+  // Docking the sidebar again asks for the built-ins' counts; undocking it lets a run go.
+  const shown = new MutationObserver(() => draw());
+  shown.observe(el, { attributes: true, attributeFilter: ['hidden'] });
 
   const libraryCommand = (): Command | undefined =>
     (handle.commands() as readonly Command[]).find((c) => c.id === LIBRARY_COMMAND);
@@ -271,7 +284,17 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
         : null,
       `${handle.index.roots().filter((r) => handle.index.isWatched(r)).join('\0')}|${handle.index.watchState()}`,
     );
-    const smart = smartRows(queries, (q) => counts.get(q));
+    // The built-ins ask for the checks while the sidebar is shown and the section open (nothing is read while either is
+    // folded away), and show only with matches, or while a check its budget stopped has not finished (its count a floor).
+    builtins.request(!el.hidden && !collapsed.has('smart') && p ? feedEntries : null);
+    const found = builtins.get();
+    const builtin = (name: string, q: string, kind: 'broken' | 'dup', c: BuiltinCount | undefined): DrawnSmart[] =>
+      c !== undefined && (c.count > 0 || c.partial !== null) ? [{ name, q, count: c.count, builtin: kind, partial: c.partial }] : [];
+    const smart: DrawnSmart[] = [
+      ...builtin('Broken paths', 'is:broken', 'broken', found?.broken),
+      ...builtin('Near-duplicates', 'is:dup', 'dup', found?.dupGroups),
+      ...smartRows(queries, (q) => counts.get(q)),
+    ];
     // What the tree watches are now (live or refused), not what was declared; a walk under way hides the count.
     const watching = handle.index.watchState();
     const indexing = handle.index.indexing();
@@ -328,7 +351,7 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     });
   };
 
-  const smartSectionNode = (rows: readonly SmartRow[]): HTMLElement => {
+  const smartSectionNode = (rows: readonly DrawnSmart[]): HTMLElement => {
     const node = document.createElement('section');
     node.className = 'marxy-sidebar-section';
     node.setAttribute('data-marxy-sidebar-section', 'smart');
@@ -341,21 +364,31 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'marxy-sidebar-row marxy-sidebar-row-smart';
-      button.dataset.stop = `smart:${row.name}`;
-      button.setAttribute('data-marxy-sidebar-row', `smart:${row.name}`);
+      // A built-in has a key of its own, so a saved query of the same name is another row; it has no menu (nothing to edit).
+      const key = row.builtin === undefined ? `smart:${row.name}` : `smart-builtin:${row.builtin}`;
+      button.dataset.stop = key;
+      button.setAttribute('data-marxy-sidebar-row', key);
       button.title = row.q;
-      button.setAttribute('aria-haspopup', 'menu');
-      button.setAttribute('aria-label', `${row.name}, smart collection${row.count === null ? '' : `, ${row.count} ${row.count === 1 ? 'file' : 'files'}`}`);
+      if (row.builtin === undefined) button.setAttribute('aria-haspopup', 'menu');
+      const unit = row.builtin === 'dup' ? ['group', 'groups'] : ['file', 'files'];
+      const units = (n: number): string => `${n.toLocaleString('en-US')} ${n === 1 ? unit[0] : unit[1]}`;
+      const part = row.partial ?? null;
+      // A count its read budget cut short is a floor, and says how far the check got (commitment 4).
+      const spoken = row.count === null ? '' : part === null ? `, ${units(row.count)}` : row.count === 0
+        ? `, not finished, ${part.checked.toLocaleString('en-US')} of ${part.of.toLocaleString('en-US')} files checked`
+        : `, at least ${units(row.count)}, ${part.checked.toLocaleString('en-US')} of ${part.of.toLocaleString('en-US')} files checked`;
+      button.setAttribute('aria-label', `${row.name}, ${row.builtin === undefined ? 'smart collection' : 'built-in'}${spoken}`);
+      if (part !== null) button.title = `${row.q}: ${part.checked.toLocaleString('en-US')} of ${part.of.toLocaleString('en-US')} files checked so far`;
       const name = document.createElement('span');
       name.className = 'marxy-sidebar-name';
       name.textContent = row.name;
       button.append(toolbarIconElement(document, 'find'), name);
-      if (row.count !== null) button.append(quiet(row.count.toLocaleString('en-US')));
+      if (row.count !== null) button.append(quiet(part === null ? row.count.toLocaleString('en-US') : row.count === 0 ? 'not finished' : `${row.count.toLocaleString('en-US')}+`));
       button.addEventListener('mousedown', (event) => event.preventDefault());
       button.addEventListener('click', () => void openSmart(row));
       button.addEventListener('contextmenu', (event) => {
         event.preventDefault();
-        smartMenu(row, { x: event.clientX, y: event.clientY });
+        if (row.builtin === undefined) smartMenu(row, { x: event.clientX, y: event.clientY });
       });
       item.append(button);
       list.append(item);
@@ -602,7 +635,7 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     const at = stops.indexOf(document.activeElement as HTMLButtonElement);
     if (at < 0) return;
     const mod = mac ? event.metaKey : event.ctrlKey;
-    const smartRow = stops[at]!.dataset.stop?.startsWith('smart:') === true;
+    const smartRow = /^smart(?:-builtin)?:/.test(stops[at]!.dataset.stop ?? '');
     if (smartRow && (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))) {
       const rect = stops[at]!.getBoundingClientRect();
       const row = followed?.queries().find((x) => `smart:${x.name}` === stops[at]!.dataset.stop);
@@ -727,6 +760,9 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
   return () => {
     disposed = true;
     counts.cancel();
+    builtins.cancel();
+    offThreshold();
+    shown.disconnect();
     if (waiting !== null) clearTimeout(waiting);
     offFeed?.();
     offQueries?.();

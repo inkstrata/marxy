@@ -6,8 +6,13 @@
 //
 // What it reads, and when: nothing at launch and nothing on opening. A query with plain words asks the shell to
 // search the lines of the files the index keys left (`searchContent`); a content key (`words:`, `has:`, `tasks:`)
-// measures those files with `readHead`, each at most once (measure.ts). It never writes, and never uses `readFile`,
-// which arms the stale-write guard. The list is windowed: only the rows on screen exist.
+// measures those files with `readHead`, each at most once (measure.ts); `is:dup` and `is:broken` run the library's checks
+// (checks.ts), which read only the files they need, with `readHead`, and `stat`. It never writes, and never uses
+// `readFile`, which arms the stale-write guard. The list is windowed: only the rows on screen exist.
+//
+// Near copies (`is:dup`, Q-06) are shown as groups: the newest of a group is the row, the others are folded under it as
+// reasons, and the preview lists them with Compare (E-17's diff) and Open. A file with broken paths names them under its
+// row, and opens with the inspector's Links tab.
 //
 // Keys, inside the view only (no global key opens it; `library.open` is a palette command): `/` or `Mod+F` focuses
 // the field; Down goes into the list; Return opens the row in the focused pane and `Alt+Return` in the other; Esc
@@ -23,7 +28,10 @@ import {
   parseQuery,
   termNote,
   textTerms,
+  usesChecks,
   usesContentKeys,
+  groupsCopies,
+  type DupFacts,
   type LineMatches,
   type Query,
   type QueryContext,
@@ -43,8 +51,11 @@ import { coverPanes } from '../workspace/pane-cover.ts';
 import { queryContext } from '../workspace/sidebar.ts';
 import type { Workspace } from '../workspace/state.ts';
 import { activeItem, chooseFacet, facetMenus, type FacetMenu } from './facets.ts';
-import { MeasureCache, measureFiles } from './measure.ts';
-import { libraryRow, sortChoices, sortHits, whyCount, type LibraryRow, type SortKey } from './rows.ts';
+import { MeasureCache, MEASURE_READ_BYTES, measureFiles } from './measure.ts';
+import { canNamePaths, checksFor, type BrokenRun, type DupRun } from './checks.ts';
+import { copySimilarity, foldCopies, libraryRow, sortChoices, sortHits, whyCount, type LibraryRow, type SortKey } from './rows.ts';
+import { MAX_DUP_THRESHOLD, MIN_DUP_THRESHOLD } from '@marxy/core/src/index-model/near-dup.ts';
+import { changesDocument, TOO_LARGE, NO_DIFFERENCE } from '../commands/compare.ts';
 import {
   changedPredicate,
   libraryScopes,
@@ -78,6 +89,8 @@ const OVERSCAN = 4;
 const SUGGEST_MAX = 8;
 /** Matching lines the preview lists. */
 const PREVIEW_LINES = 8;
+/** The pause before a check its read budget stopped goes on from where it stopped (Q-06). */
+const CONTINUE_MS = 400;
 /** Line matches asked of the shell for one text term. */
 const LINES_PER_TERM = 5000;
 
@@ -141,6 +154,9 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   let queryNote: string | null = null;
   let lineCapNote: string | null = null;
   let measuring: string | null = null;
+  let checking: string | null = null;
+  /** The checks' last answers for this view, and what they were made over: the scope and the feed's entries. */
+  let checked: { readonly scope: ScopeId; readonly feed: readonly IndexEntry[]; dup: DupRun | null; broken: BrokenRun | null } | null = null;
   let searching = false;
   let gen = 0;
   let abort: AbortController | null = null;
@@ -177,6 +193,8 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   let saveButton!: HTMLButtonElement;
   let saveForm!: HTMLFormElement;
   let saveName!: HTMLInputElement;
+  let alikeLabel!: HTMLElement;
+  let alikeEl!: HTMLSelectElement;
   let noticesEl: HTMLElement | null = null;
   let openMenu: { readonly button: HTMLButtonElement; readonly menu: HTMLElement } | null = null;
   let rowH = 30;
@@ -231,6 +249,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     if (timer !== undefined) clearTimeout(timer);
     timer = undefined;
     measuring = null;
+    checking = null;
     searching = false;
 
     const scopeInputs = input();
@@ -245,18 +264,58 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     baseEntries = base;
     drawHeaderFacts();
     drawFacets();
-    const baseCtx = context(scopeInputs);
+    const asks = usesChecks(query);
+    const lib = checksFor(handle);
+    if (checked === null || checked.scope !== scopeId || checked.feed !== scopeInputs.entries) checked = { scope: scopeId, feed: scopeInputs.entries, dup: null, broken: null };
+    const held = checked;
+    // The sidebar's built-ins may have run the checks over these very entries already.
+    held.dup ??= lib.dupFor(base);
+    held.broken ??= lib.brokenFor(base);
+    alikeLabel.hidden = !asks.dup;
+    alikeEl.value = String(lib.threshold);
     const wantsLines = textTerms(query).some((t) => t.text.length >= CONTENT_MIN_CHARS);
     const wantsMeasure = usesContentKeys(query);
+    // The files the index keys leave, before any check has answered: what a search, a measure or the path check may read.
+    const candidates = wantsLines || wantsMeasure || asks.broken ? indexCandidates(query, base, context(scopeInputs)) : [];
+    // A path check made for another query covers this one only if it looked at every file this one leaves.
+    // A file counts as covered once it was checked, not once it was asked about: a run its budget stopped is continued.
+    const brokenCovers = held.broken !== null && candidates.every((e) => !canNamePaths(e) || held.broken!.checkedPaths.has(e.path));
+    /** The files the checks asked for read only in part. */
+    const partlyChecked = (): Set<string> => new Set([...(asks.dup && held.dup ? held.dup.cut : []), ...(asks.broken && held.broken ? held.broken.cut : [])]);
+    /** What the checks have answered for this scope: absent for a check not run yet, so its terms wait. */
+    let factsAt: { readonly threshold: number; readonly run: DupRun; readonly facts: Map<string, DupFacts> } | null = null;
+    const checksCtx = (): Partial<QueryContext> => {
+      const out: { dups?: Map<string, DupFacts>; broken?: ReadonlyMap<string, readonly string[]>; partly?: Set<string> } = {};
+      if (asks.dup && held.dup) {
+        if (factsAt?.run !== held.dup || factsAt.threshold !== lib.threshold) factsAt = { threshold: lib.threshold, run: held.dup, facts: lib.dupFacts(held.dup) };
+        out.dups = factsAt.facts;
+      }
+      if (asks.broken && held.broken && (brokenCovers || held.broken.entries === candidates)) out.broken = held.broken.broken;
+      // Files read only in their first 256 KB: their rows say so.
+      const partly = partlyChecked();
+      if (partly.size > 0) out.partly = partly;
+      return out;
+    };
+    const baseCtx = context(scopeInputs, checksCtx());
+    const wantsChecks = (asks.dup && held.dup === null) || (asks.broken && !brokenCovers);
+    const grouped = groupsCopies(query);
     const typing = textTerms(query).some((t) => !t.negated);
     const keep = opts.keepActive === true ? hits[active]?.entry.path : undefined;
 
     const evaluate = (): QueryHit[] =>
-      evaluateQuery(query, base, { ...baseCtx, lines: linesFor(query), measures: wantsMeasure ? cache.forEntries(base) : undefined });
+      evaluateQuery(query, base, { ...baseCtx, ...checksCtx(), lines: linesFor(query), measures: wantsMeasure ? cache.forEntries(base) : undefined });
     let first = true;
     const show = (all: readonly QueryHit[], note?: string): void => {
-      // A hit still waiting for a measure is not shown: it might not match.
-      const shown = all.filter((h) => !h.unmeasured);
+      // A hit still waiting for a measure or a check is not shown: it might not match.
+      let shown = all.filter((h) => !h.unmeasured);
+      let groupsNote: string | undefined;
+      const dups = grouped ? checksCtx().dups : undefined;
+      if (dups !== undefined) {
+        const files = shown.length;
+        shown = foldCopies(shown, dups);
+        const groups = new Set(shown.map((h) => dups.get(h.entry.path)?.group).filter((g) => g !== undefined)).size;
+        if (groups > 0) groupsNote = `${groups.toLocaleString('en-US')} ${groups === 1 ? 'group' : 'groups'} of near copies, ${files.toLocaleString('en-US')} files`;
+      }
       // A new query starts at the top; the stages of one query, landing later, leave the reader where they have scrolled to.
       if (first && keep === undefined) listEl.scrollTop = 0;
       // A later stage keeps the row the reader has moved to since, not the one the query started on.
@@ -265,18 +324,66 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
       hits = sortHits(shown, sortKey(typing));
       const at = kept === undefined ? -1 : hits.findIndex((h) => h.entry.path === kept);
       active = at >= 0 ? at : 0;
-      status = statusLine(shown.length, base.length, note);
+      status = statusLine(shown.length, base.length, [groupsNote, note, checkNote()].filter(Boolean).join(' · ') || undefined);
       drawResults();
+    };
+    /** What a check left out: the files its read budget did not reach, the files it read in part, the files it never reads. */
+    const checkNote = (): string | undefined => {
+      const parts: string[] = [];
+      if (asks.broken && held.broken?.overBudget !== true) parts.push('paths checked in Markdown and text files');
+      const partly = partlyChecked().size;
+      if (partly > 0) parts.push(`${partly.toLocaleString('en-US')} ${partly === 1 ? 'file' : 'files'} only partly checked (the first 256 KB)`);
+      if (asks.dup && held.dup?.overBudget) parts.push(`near copies: read ${held.dup.read.toLocaleString('en-US')} of ${held.dup.of.toLocaleString('en-US')} candidates`);
+      if (asks.broken && held.broken?.overBudget) parts.push(`paths checked in ${held.broken.checked.toLocaleString('en-US')} of ${held.broken.of.toLocaleString('en-US')} Markdown and text files so far`);
+      return parts.length > 0 ? parts.join(' · ') : undefined;
     };
 
     show(evaluate());
 
-    const candidates = wantsLines || wantsMeasure ? indexCandidates(query, base, baseCtx) : [];
     // The line search reads at most CONTENT_FILE_CAP files (searchLines); the palette says so, and so does the library.
     if (wantsLines && candidates.length > CONTENT_FILE_CAP) {
       lineCapNote = `line search covers the first ${CONTENT_FILE_CAP.toLocaleString('en-US')} of ${candidates.length.toLocaleString('en-US')} files`;
     }
     const run = async (): Promise<void> => {
+      if (wantsChecks) {
+        // Broken paths are looked for in the files the other terms leave; near copies over the whole scope, since a copy
+        // the other terms leave out is still a copy.
+        let lastDraw = 0;
+        const progress = (what: string) => (done: number, of: number): void => {
+          if (mine !== gen) return;
+          // Called once a file: the words are made only when they are drawn.
+          const now = performance.now();
+          if (now - lastDraw > 150) {
+            lastDraw = now;
+            checking = `${what} ${done.toLocaleString('en-US')} of ${of.toLocaleString('en-US')} files`;
+            drawStatus();
+          }
+        };
+        if (asks.broken && !brokenCovers) {
+          checking = 'Checking paths';
+          drawStatus();
+          const result = await lib.runBroken(candidates, { signal: controller.signal, onProgress: progress('Checking paths in') });
+          if (mine !== gen || result === null) return;
+          held.broken = result;
+        }
+        if (asks.dup && held.dup === null) {
+          checking = 'Looking for near copies';
+          drawStatus();
+          const result = await lib.runDups(base, { signal: controller.signal, onProgress: progress('Comparing') });
+          if (mine !== gen || result === null) return;
+          held.dup = result;
+        }
+        checking = null;
+        show(evaluate());
+        // A run its read budget stopped is continued after a quiet moment, from the files not read yet, until each is read once.
+        if (held.broken?.overBudget === true || held.dup?.overBudget === true) {
+          setTimeout(() => {
+            if (mine !== gen || !root) return;
+            if (held.dup?.overBudget === true) held.dup = null;
+            refresh({ keepActive: true });
+          }, CONTINUE_MS);
+        }
+      }
       if (wantsLines) {
         searching = true;
         status = statusLine(hits.length, base.length);
@@ -314,13 +421,14 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
         show(evaluate());
       }
     };
-    if (wantsLines || wantsMeasure) {
+    if (wantsLines || wantsMeasure || wantsChecks) {
       timer = setTimeout(() => {
         timer = undefined;
         void run().catch((error: unknown) => {
           if (mine !== gen || controller.signal.aborted) return;
           searching = false;
           measuring = null;
+          checking = null;
           status = `The files could not be searched: ${error instanceof Error ? error.message : String(error)}`;
           drawStatus();
         });
@@ -374,6 +482,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   function drawStatus(): void {
     const parts = [status];
     if (searching) parts.push('searching file contents');
+    if (checking) parts.push(checking);
     if (measuring) parts.push(measuring);
     statusEl.textContent = parts.filter(Boolean).join(' · ');
   }
@@ -613,7 +722,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
       option.selected = c === current;
       return option;
     }));
-    listEl.setAttribute('aria-busy', measuring || searching ? 'true' : 'false');
+    listEl.setAttribute('aria-busy', measuring || searching || checking ? 'true' : 'false');
     listEl.setAttribute('aria-rowcount', String(hits.length + 1));
     for (const [key, head] of headCells) {
       const sorted = key === current;
@@ -761,6 +870,36 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
       for (const [line, text] of [...found].sort((a, b) => a[0] - b[0]).slice(0, PREVIEW_LINES)) list.append(el('li', undefined, `${line}: ${text}`));
       previewEl.append(list);
     }
+    // The paths it names that do not exist (Q-06), as the row says them.
+    const missing = hit.why.flatMap((r) => (r.kind === 'missing' ? [r.path] : []));
+    if (missing.length > 0) {
+      previewEl.append(el('h4', 'marxy-library-preview-head', 'Missing paths'));
+      const list = el('ul', 'marxy-library-preview-lines');
+      for (const p of missing) list.append(el('li', undefined, p));
+      previewEl.append(list);
+    }
+    // Its near copies (Q-06), each with Compare (the newer against the older, E-17's diff) and Open.
+    const copies = hit.why.flatMap((r) => (r.kind === 'copy' ? [r] : []));
+    if (copies.length > 0) {
+      previewEl.append(el('h4', 'marxy-library-preview-head', copies.length === 1 ? '1 near copy' : `${copies.length} near copies`));
+      for (const c of copies) {
+        previewEl.append(el('p', 'marxy-library-preview-path', `${c.rel}${copySimilarity(c)}`));
+        const row = el('div', 'marxy-library-preview-actions');
+        const compare = el('button', undefined, 'Compare');
+        compare.type = 'button';
+        compare.setAttribute('aria-label', `Compare ${e.title} with ${c.rel}`);
+        compare.addEventListener('click', () => void compareCopies(e, c.path));
+        const openCopy = el('button', undefined, 'Open');
+        openCopy.type = 'button';
+        openCopy.setAttribute('aria-label', `Open ${c.rel}`);
+        openCopy.addEventListener('click', () => {
+          closeNow(true);
+          void handle.open(c.path);
+        });
+        row.append(compare, openCopy);
+        previewEl.append(row);
+      }
+    }
     if (e.headings.length > 0) {
       previewEl.append(el('h4', 'marxy-library-preview-head', 'Headings'));
       const list = el('ul', 'marxy-library-preview-headings');
@@ -780,6 +919,30 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     beside.addEventListener('click', () => void openActive(true));
     actions.append(open, beside);
     previewEl.append(actions);
+  }
+
+  /**
+   * Compare (Q-06): E-17's diff of two near copies, the older as before and the newer as after, opened as a scratch document.
+   * Both are read with `readHead`, so a file over its cap is compared in its first 256 KB, and the summary says so.
+   */
+  async function compareCopies(shown: IndexEntry, other: string): Promise<void> {
+    const otherEntry = feed()?.entries().find((x) => x.path === other);
+    const [older, newer] = otherEntry !== undefined && otherEntry.mtimeMs > shown.mtimeMs ? [shown.path, other] : [other, shown.path];
+    let before: Uint8Array;
+    let after: Uint8Array;
+    try {
+      [before, after] = await Promise.all([handle.shell.readHead(older, MEASURE_READ_BYTES), handle.shell.readHead(newer, MEASURE_READ_BYTES)]);
+    } catch (error) {
+      say({ kind: 'error', text: `The two files could not be read: ${error instanceof Error ? error.message : String(error)} · nothing was changed · open each to look` });
+      return;
+    }
+    const cut = before.length >= MEASURE_READ_BYTES || after.length >= MEASURE_READ_BYTES ? ' (the first 256 KB of each)' : '';
+    const rel = (p: string): string => basename(p);
+    const result = changesDocument(rel(newer), before, after, `from ${rel(older)} (older) to ${rel(newer)} (newer)${cut}`);
+    if (result.kind === 'too-large') return say({ kind: 'refused', text: TOO_LARGE });
+    if (result.kind === 'none') return say({ kind: 'done', text: `${NO_DIFFERENCE} between ${rel(older)} and ${rel(newer)}${cut}` });
+    closeNow(true);
+    await handle.openScratch(result.text);
   }
 
   // ---- completions -------------------------------------------------------------------------------------------------
@@ -847,8 +1010,18 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
       }
     }
     const path = hit.entry.path;
+    // A file with broken paths opens with the inspector's Links tab, where each path it names is looked at (Q-06).
+    const links = hit.why.some((r) => r.kind === 'missing');
     closeNow(true);
     await handle.open(path, beside ? { target: 'other' } : undefined);
+    if (links) showLinksTab();
+  }
+
+  /** Docks the inspector and selects its Links tab, as a click on the tab does. */
+  function showLinksTab(): void {
+    if (workspace.mode !== 'unfolded') return;
+    workspace.setPanel('inspector', true);
+    document.querySelector<HTMLButtonElement>('[data-marxy-inspector-tab="links"]')?.click();
   }
 
   // ---- keys ----------------------------------------------------------------------------------------------------------
@@ -1062,7 +1235,24 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     sortEl = el('select');
     sortEl.setAttribute('aria-label', 'Sort results by');
     sortLabel.append(sortEl);
-    bar.append(facetsEl, sortLabel);
+    // The near-duplicates banner's threshold (Q-06): how alike two files must be to be near copies, for the session. Shown
+    // while the query asks about near copies; drawn with the Sort control's classes (no new style).
+    alikeLabel = el('label', 'marxy-library-sort', 'Near copies at ');
+    alikeLabel.hidden = true;
+    alikeEl = el('select');
+    alikeEl.setAttribute('aria-label', 'How alike near copies are, at least');
+    const steps = [MIN_DUP_THRESHOLD, 65, 70, 75, 80, 85, 90, 95, MAX_DUP_THRESHOLD];
+    alikeEl.append(...steps.map((v) => {
+      const option = el('option', undefined, `${v}% alike`);
+      option.value = String(v);
+      return option;
+    }));
+    alikeLabel.append(alikeEl);
+    alikeEl.addEventListener('change', () => {
+      checksFor(handle).threshold = Number(alikeEl.value);
+      refresh({ keepActive: true });
+    });
+    bar.append(facetsEl, sortLabel, alikeLabel);
     statusEl = el('div', 'marxy-library-status');
     statusEl.setAttribute('role', 'status');
 

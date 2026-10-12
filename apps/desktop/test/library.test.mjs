@@ -227,7 +227,7 @@ test('a chip appears for kind:report, and its x removes the token and runs again
   });
 });
 
-test('an unknown key is an amber chip searched as text; is:dup says it is not available yet and matches nothing', async () => {
+test('an unknown key is an amber chip searched as text; is:archived says it is not available yet and matches nothing', async () => {
   await withPage(async (page) => {
     await unfold(page);
     await openLibrary(page);
@@ -239,9 +239,16 @@ test('an unknown key is an amber chip searched as text; is:dup says it is not av
     assert.equal(chip.flag, 'flagged');
     assert.match(chip.text, /searched as text/);
     assert.equal((await rowsOf(page)).length, 0, 'nothing is called model:x');
-    await type(page, 'is:dup');
+    await type(page, 'is:archived');
     chip = await page.evaluate(() => ({ text: document.querySelector('[data-marxy-query-chip]').textContent }));
     assert.match(chip.text, /not available yet/);
+    assert.equal((await rowsOf(page)).length, 0);
+    // Q-06: is:dup is a filter now, not a flagged chip (this fixture holds no near copies).
+    await type(page, 'is:dup');
+    await settle(page, 300);
+    chip = await page.evaluate(() => ({ flag: document.querySelector('[data-marxy-query-chip]').getAttribute('data-marxy-query-chip'), text: document.querySelector('[data-marxy-query-chip]').textContent }));
+    assert.doesNotMatch(chip.text, /not available yet/);
+    assert.equal(chip.flag, '');
     assert.equal((await rowsOf(page)).length, 0);
     await type(page, 'words:>');
     assert.match(await page.evaluate(() => document.querySelector('[data-marxy-query-chip]').textContent), /ignored/);
@@ -360,7 +367,8 @@ test('/ and the find chord focus the field from the list', async () => {
 
 test('nothing is read at launch or on opening, and none for index keys; the lines and the measures read only what the keys left', async () => {
   await withPage(async (page) => {
-    await unfold(page);
+    // Without the sidebar: its built-ins (Q-06) read files on their own while it is docked (sidebar.test.mjs).
+    await unfoldBare(page);
     const launch = await calls(page, 'readHead', 'readFile', 'searchContent');
     await page.evaluate(() => { window.__marxyHandle.shell.calls.length = 0; });
     await openLibrary(page);
@@ -879,4 +887,179 @@ test('switching scope clears the query, and with it the name being asked for', a
     assert.equal(await saveButton(page).isVisible(), false, 'no query, no Save');
     assert.equal(await writesTo(page), 0);
   }, { data: { '/collection.toml': HAND } });
+});
+
+// --- Broken paths and near-duplicates (Q-06) ------------------------------------------------------------------------
+
+const entryFor = (path, text, over = {}) => ({
+  path,
+  root: '/r',
+  title: text.match(/^# (.*)$/m)?.[1] ?? path.split('/').pop(),
+  headings: [],
+  mtimeMs: Date.now() - 86_400_000,
+  size: new TextEncoder().encode(text).length,
+  kind: 'markdown',
+  readerKind: 'report',
+  ...over,
+});
+const BROKEN = '# Broken plan\n\nIt builds `src/app.ts` and `src/gone.ts`, and `nowhere/x.ts` is not checked.\n';
+/** The sidebar's built-ins run the same checks on their own: unfolded without it, every read below is the library's. */
+const unfoldBare = (page) => page.evaluate(() => window.__marxyHandle.workspace().unfold({ sidebar: false }));
+const callMark = (page) => page.evaluate(() => window.__marxyHandle.shell.calls.length);
+const callsAfter = (page, from, ...names) =>
+  page.evaluate(({ from, names }) => window.__marxyHandle.shell.calls.slice(from).filter((c) => names.includes(c.method)).map((c) => ({ method: c.method, path: c.args[0] })), { from, names });
+const checksDone = (page) => page.waitForFunction(() => {
+  const s = document.querySelector('.marxy-library-status')?.textContent ?? '';
+  return !/Checking|Comparing|Looking for/.test(s) && document.querySelector('.marxy-library-results')?.getAttribute('aria-busy') === 'false';
+}, undefined, { timeout: 30_000 });
+
+test('is:broken lists the file that names a missing path, with the path under its row; it opens with the Links tab', async () => {
+  await withPage(async (page) => {
+    await unfoldBare(page);
+    await openLibrary(page);
+    const mark = await callMark(page);
+    await type(page, 'is:broken');
+    await checksDone(page);
+    const rows = await rowsOf(page);
+    assert.deepEqual(rows.map((r) => r.path), ['/r/broken.md']);
+    assert.deepEqual(rows[0].why, ['is:broken (1 missing path)', 'missing: src/gone.ts'], 'the existing path and the unchecked one are not named');
+    assert.match(await page.evaluate(() => document.querySelector('.marxy-library-preview').textContent), /Missing paths\s*src\/gone\.ts/);
+    assert.match(await page.evaluate(() => document.querySelector('.marxy-library-status').textContent), /paths checked in Markdown and text files/, 'the banner says which files are looked at');
+    // Read with readHead, Markdown and text only; never readFile (which arms the stale-write guard); nothing written.
+    const reads = await callsAfter(page, mark, 'readHead', 'readFile', 'writeFileAtomic');
+    assert.equal(reads.filter((c) => c.method !== 'readHead' && c.path.startsWith('/r/')).length, 0, JSON.stringify(reads));
+    assert.ok(reads.some((c) => c.path === '/r/broken.md'));
+    assert.equal(reads.some((c) => c.path === '/r/src/app.ts'), false, 'a source file is not read for paths');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-inspector-tab="links"]')?.getAttribute('aria-selected') === 'true');
+    assert.deepEqual(await paths(page), ['/r/broken.md']);
+    await page.waitForFunction(() => document.querySelector('[data-marxy-link-row="path"] [data-marxy-link-status="not-found"]') !== null);
+  }, { data: { '/r/broken.md': BROKEN }, extraEntries: [entryFor('/r/broken.md', BROKEN)] });
+});
+
+const para2 = (seed, n = 45) => Array.from({ length: n }, (_, i) => `${seed}${(i * 7) % 97}w${i}`).join(' ');
+const plan = (changed) => ['# Plan', ...Array.from({ length: 12 }, (_, i) => para2(i === 5 && changed ? changed : `p${i}`))].join('\n\n');
+const PLANS = {
+  '/r/plans/plan.md': [plan(null), 3],
+  '/r/plans/plan v2.md': [plan('changed'), 1],
+  '/r/plans/plan (copy).md': [plan(null), 2],
+};
+const planData = Object.fromEntries(Object.entries(PLANS).map(([p, [t]]) => [p, t]));
+const planEntries = Object.entries(PLANS).map(([p, [t, age]]) => entryFor(p, t, { mtimeMs: Date.now() - age * 86_400_000 }));
+
+test('is:dup shows each group once, the newest as the row and the others folded under it; the threshold regroups; Compare opens the diff', async () => {
+  await withPage(async (page) => {
+    await unfoldBare(page);
+    await openLibrary(page);
+    const mark = await callMark(page);
+    await type(page, 'is:dup');
+    await checksDone(page);
+    let rows = await rowsOf(page);
+    assert.deepEqual(rows.map((r) => r.path), ['/r/plans/plan v2.md'], 'one row: the newest');
+    assert.equal(rows[0].why[0], 'is:dup (2 near copies)');
+    assert.match(rows[0].why[1], /^near copy: plans\/plan \(copy\)\.md \(9\d% of words alike\)$/);
+    assert.match(rows[0].why[2], /^near copy: plans\/plan\.md \(9\d% of words alike\)$/);
+    assert.match(await page.evaluate(() => document.querySelector('.marxy-library-status').textContent), /1 group of near copies, 3 files/);
+    // Only the three candidates were read for it (the fixture's other names are all different).
+    const read = (await callsAfter(page, mark, 'readHead')).map((c) => c.path);
+    assert.deepEqual([...new Set(read)].sort(), Object.keys(PLANS).sort());
+    // The banner's threshold: at 99 only the two identical files are copies, and nothing is read again.
+    const before = (await calls(page, 'readHead')).length;
+    assert.equal(await page.isVisible('select[aria-label="How alike near copies are, at least"]'), true);
+    await page.selectOption('select[aria-label="How alike near copies are, at least"]', '99');
+    await settle(page);
+    rows = await rowsOf(page);
+    assert.deepEqual(rows.map((r) => [r.path, r.why]), [['/r/plans/plan (copy).md', ['is:dup (1 near copy)', 'near copy: plans/plan.md (100% of words alike)']]]);
+    assert.equal((await calls(page, 'readHead')).length, before);
+    await page.selectOption('select[aria-label="How alike near copies are, at least"]', '85');
+    await settle(page);
+    // Compare: the older copy against the newer, as E-17's diff in a scratch document.
+    await page.click('.marxy-library-preview button[aria-label^="Compare Plan with plans/plan.md"]');
+    await page.waitForFunction(() => !document.querySelector('[data-marxy-library]'));
+    await page.waitForFunction(() => /Changes in plan v2\.md/.test(document.getElementById('doc')?.textContent ?? ''));
+    const text = await page.evaluate(() => document.getElementById('doc').textContent.replace(/\u00ad/g, '').replace(/\s+/g, ' '));
+    assert.match(text, /from plan\.md \(older\) to plan v2\.md \(newer\)/);
+    assert.deepEqual((await calls(page, 'writeFileAtomic')).filter((c) => c.path.startsWith('/r/')), [], 'none of the reader\'s files written (Marxy\'s own state under /data is)');
+  }, { data: planData, extraEntries: planEntries });
+});
+
+test('is:dup over 5,000 files reads only the candidate files, and the page keeps answering while it runs', async () => {
+  const many = Array.from({ length: 5000 }, (_, i) => entryFor(`/r/many/note-${i}x.md`, `# Note ${i}x\n\nwords\n`));
+  await withPage(async (page) => {
+    await unfoldBare(page);
+    await openLibrary(page);
+    const mark = await callMark(page);
+    // A probe: the longest the page went without running a 10 ms timer, from the keystroke to the answer.
+    await page.evaluate(() => {
+      window.__gap = 0;
+      let last = performance.now();
+      window.__probe = setInterval(() => {
+        const now = performance.now();
+        window.__gap = Math.max(window.__gap, now - last);
+        last = now;
+      }, 10);
+    });
+    await type(page, 'is:dup');
+    await checksDone(page);
+    const gap = await page.evaluate(() => {
+      clearInterval(window.__probe);
+      return window.__gap;
+    });
+    const read = [...new Set((await callsAfter(page, mark, 'readHead')).map((c) => c.path))];
+    assert.deepEqual(read.sort(), Object.keys(PLANS).sort(), 'the three plans, and none of the 5,000 notes');
+    assert.equal((await rowsOf(page)).length, 1);
+    assert.ok(gap < 400, `the page went ${gap.toFixed(0)} ms without a turn`);
+  }, { data: planData, extraEntries: [...planEntries, ...many] });
+});
+
+test('a file the checks read only in part says so on its row, and the banner counts it; near copies are scored in words', async () => {
+  const common = Array.from({ length: 30_000 }, (_, i) => `c${(i * 7) % 97}w${i}`).join(' ');
+  const big = `# Big plan\n\nSee \`./gone.md\` first.\n\n${common}\n\nTail of one ${'a '.repeat(4000)}\n`;
+  const bigCopy = `# Big plan\n\nSee \`./gone.md\` first.\n\n${common}\n\nTail of two ${'b '.repeat(4000)}\n`;
+  await withPage(async (page) => {
+    await unfoldBare(page);
+    await openLibrary(page);
+    await type(page, 'is:broken');
+    await checksDone(page);
+    const rows = await rowsOf(page);
+    assert.deepEqual(rows.find((r) => r.path === '/r/big.md').why, ['is:broken (1 missing path)', 'missing: ./gone.md', 'checked the first 256 KB only']);
+    assert.match(await page.evaluate(() => document.querySelector('.marxy-library-status').textContent), /3 files only partly checked \(the first 256 KB\)/, "big.md, big-copy.md and the fixture's long-report.md");
+    await type(page, 'is:dup');
+    await checksDone(page);
+    const dup = (await rowsOf(page))[0];
+    assert.match(dup.why[1], /^near copy: big(-copy)?\.md \(≥\d+% of words alike in the first 256 KB\)$/, 'never a bare "100%" for two files compared in part');
+  }, { data: { '/r/big.md': big, '/r/big-copy.md': bigCopy }, extraEntries: [entryFor('/r/big.md', big), entryFor('/r/big-copy.md', bigCopy)] });
+});
+
+test('the checks\' worker answers as the page does (path mentions and shingles), character references included', async () => {
+  await withPage(async (page) => {
+    const same = await page.evaluate(async () => {
+      const { digestHere, workerDigest } = await import('/src/library/checks-digest.ts');
+      const texts = [
+        '# A &amp; B\n\nSee `src/app.ts` &copy; and `./x/y.md`.\n\n```\n`src/in-code.ts`\n```\n\n---\n\nAfter &nbsp; `docs/z.md`\n',
+        '---\ntitle: `fm/a.md`\n---\n\nBody `b/c.md` &unknown; text\n',
+      ];
+      const w = workerDigest();
+      const out = [];
+      for (const t of texts) {
+        const bytes = new TextEncoder().encode(t);
+        const want = { shingles: true, mentions: true };
+        const a = digestHere(bytes, want);
+        const b = await w(bytes, want);
+        out.push({ mentions: JSON.stringify(a.mentions) === JSON.stringify(b.mentions), shingles: JSON.stringify([...a.shingles]) === JSON.stringify([...b.shingles]), m: b.mentions });
+      }
+      // The worker really ran: a module worker loads here (no `document` in it).
+      const probe = new Worker(new URL('/src/library/checks.worker.ts', location.href), { type: 'module' });
+      const ran = await new Promise((r) => {
+        probe.onmessage = () => r(true);
+        probe.onerror = () => r(false);
+        probe.postMessage({ id: 0, data: new TextEncoder().encode('`a/b.md`'), want: { shingles: false, mentions: true } });
+      });
+      probe.terminate();
+      return { out, ran };
+    });
+    assert.equal(same.ran, true, 'the worker loads and answers');
+    for (const o of same.out) assert.deepEqual([o.mentions, o.shingles], [true, true], JSON.stringify(o.m));
+  });
 });

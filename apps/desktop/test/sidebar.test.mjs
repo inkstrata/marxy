@@ -1113,3 +1113,90 @@ test('a feed patch does not wait on the counts: 50 saved queries over 20,000 ent
     await page.waitForFunction(() => document.querySelector('[data-marxy-sidebar-row="smart:Q49"] .marxy-sidebar-age') !== null, undefined, { timeout: 60_000 });
   }, { width: 1470, height: 900 });
 });
+
+// --- The two built-ins (Q-06) ---------------------------------------------------------------------------------
+
+const BROKEN_NOTE = '# Broken note\n\nIt points at `./gone.md` and at `./a.md`.\n';
+const words45 = (seed) => Array.from({ length: 45 }, (_, i) => `${seed}${(i * 7) % 97}w${i}`).join(' ');
+const planText = (changed) => ['# Plan', ...Array.from({ length: 12 }, (_, i) => words45(i === 5 && changed ? changed : `p${i}`))].join('\n\n');
+const Q06_DATA = { '/r/broken.md': BROKEN_NOTE, '/r/plan.md': planText(null), '/r/plan v2.md': planText('changed') };
+const q06Entry = (path, age) => ({ path, root: '/r', title: Q06_DATA[path].match(/^# (.*)$/m)[1], headings: [], mtimeMs: Date.now() - age * 86_400_000, size: new TextEncoder().encode(Q06_DATA[path]).length, kind: 'markdown' });
+const builtinRows = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('[data-marxy-sidebar-section="smart"] [data-marxy-sidebar-row^="smart-builtin:"]')].map((r) => ({
+      row: r.getAttribute('data-marxy-sidebar-row'),
+      name: r.querySelector('.marxy-sidebar-name').textContent,
+      count: r.querySelector('.marxy-sidebar-age')?.textContent ?? null,
+      label: r.getAttribute('aria-label'),
+    })),
+  );
+
+test('Smart collections shows Broken paths and Near-duplicates only when each has matches, and a row opens the library on it', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: [...entries, q06Entry('/r/broken.md', 2)], data: Q06_DATA });
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-row="smart-builtin:broken"]');
+    assert.deepEqual(await builtinRows(page), [{ row: 'smart-builtin:broken', name: 'Broken paths', count: '1', label: 'Broken paths, built-in, 1 file' }], 'no near copies yet: no Near-duplicates row');
+    // Two near copies join the index: the second built-in appears, after Broken paths.
+    await page.evaluate((all) => window.__marxyHandle.palette.setIndexEntries(all), [...entries, q06Entry('/r/broken.md', 2), q06Entry('/r/plan.md', 3), q06Entry('/r/plan v2.md', 1)]);
+    await page.waitForSelector('[data-marxy-sidebar-row="smart-builtin:dup"]');
+    assert.deepEqual((await builtinRows(page)).map((r) => [r.name, r.count]), [['Broken paths', '1'], ['Near-duplicates', '1']]);
+    // A row opens the library on its query; the library's answer agrees with the count.
+    await page.click('[data-marxy-sidebar-row="smart-builtin:broken"]');
+    await page.waitForSelector('[data-marxy-library]');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-library-row="/r/broken.md"]') !== null);
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-library-field').value), 'is:broken');
+    assert.match(await page.evaluate(() => document.querySelector('[data-marxy-library-row="/r/broken.md"]').textContent), /missing: \.\/gone\.md/);
+    // Nothing of the reader's was written.
+    assert.deepEqual(await page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0].startsWith('/r/')).length), 0);
+  });
+});
+
+test('the built-ins read nothing while their section is folded, and nothing while the sidebar is undocked', async () => {
+  await withPage(async (page) => {
+    const folded = JSON.stringify({ version: 1, panels: { sidebar: true }, sidebar: { collapsed: ['smart'] } });
+    await boot(page, { open: ['/r/a.md'], index: [...entries, q06Entry('/r/broken.md', 2)], data: { ...Q06_DATA, '/data/workspace.json': folded } });
+    await unfold(page);
+    await drawn(page);
+    await page.waitForTimeout(800);
+    assert.equal(await readsOfR(page), 0, 'folded: no check ran');
+    assert.equal(await smartSection(page), false, 'and with nothing known and no saved query, there is no section to draw');
+  });
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: [...entries, q06Entry('/r/broken.md', 2)], data: Q06_DATA });
+    await page.evaluate(() => window.__marxyHandle.workspace().unfold({ sidebar: false }));
+    await page.waitForTimeout(800);
+    assert.equal(await readsOfR(page), 0, 'undocked: no check ran');
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('sidebar', true));
+    await page.waitForSelector('[data-marxy-sidebar-row="smart-builtin:broken"]');
+    assert.ok((await readsOfR(page)) > 0, 'docked: the check ran');
+  });
+});
+const readsOfR = (page) => page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'readHead' && c.args[0].startsWith('/r/')).length);
+
+test('a built-in its read budget cut short shows its count as a floor, "N+", says how far it got, and goes on until whole', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: [...entries, q06Entry('/r/broken.md', 2), q06Entry('/r/plan.md', 3), q06Entry('/r/plan v2.md', 1)], data: Q06_DATA });
+    // A tiny budget, through the module the app itself loaded, so each run reads a file or two.
+    const url = await page.evaluate(() => performance.getEntriesByType('resource').map((r) => r.name).find((n) => n.includes('index-model/content-search.ts')));
+    assert.ok(url, 'the app loaded content-search.ts');
+    await page.evaluate(async (u) => {
+      (await import(u)).CONTENT_SEARCH_LIMITS.maxTotalBytes = 1;
+    }, url);
+    await unfold(page);
+    // The first landings are partial: a floor ("+") or "not finished", with how far the check got in the accessible name.
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-marxy-sidebar-row^="smart-builtin:"]')].some((r) => /files checked/.test(r.getAttribute('aria-label'))));
+    const partial = (await builtinRows(page)).find((r) => /files checked/.test(r.label));
+    assert.match(partial.label, /^(Broken paths|Near-duplicates), built-in, (at least \d+ (file|files|group|groups)|not finished), \d+ of \d+ files checked$/);
+    assert.match(partial.count, /^(\d+\+|not finished)$/);
+    // Later runs go on from where each stopped, and the counts become whole.
+    await page.waitForFunction(() => {
+      const rows = [...document.querySelectorAll('[data-marxy-sidebar-row^="smart-builtin:"]')];
+      return rows.length === 2 && rows.every((r) => !/checked/.test(r.getAttribute('aria-label')));
+    }, undefined, { timeout: 60_000 });
+    assert.deepEqual((await builtinRows(page)).map((r) => [r.name, r.count, r.label]), [
+      ['Broken paths', '1', 'Broken paths, built-in, 1 file'],
+      ['Near-duplicates', '1', 'Near-duplicates, built-in, 1 group'],
+    ]);
+  });
+});

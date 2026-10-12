@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { IndexEntry } from '@marxy/core';
 import type { QueryHit, Reason } from '@marxy/core/src/index-model/query-eval.ts';
-import { libraryRow, MAX_WHY, reasonLine, sortChoices, sortHits, whyCount, whyLines } from './rows.ts';
+import { foldCopies, libraryRow, MAX_WHY, reasonLine, sortChoices, sortHits, whyCount, whyLines } from './rows.ts';
 
 const NOW = 100 * 86_400_000;
 const entry = (path: string, over: Partial<IndexEntry> = {}): IndexEntry => ({
@@ -66,4 +66,29 @@ test('the sort control offers relevance only while words are typed and last open
   assert.deepEqual(sortChoices(false, false), ['modified', 'name', 'path']);
   assert.deepEqual(sortChoices(true, false), ['relevance', 'modified', 'name', 'path']);
   assert.deepEqual(sortChoices(false, true), ['opened', 'modified', 'name', 'path']);
+});
+
+test('a missing path and a near copy are one line each (Q-06)', () => {
+  assert.equal(reasonLine({ kind: 'missing', path: 'src/gone.ts' }), 'missing: src/gone.ts');
+  assert.equal(reasonLine({ kind: 'copy', path: '/r/plans/plan v2.md', rel: 'plans/plan v2.md', similarity: 91 }), 'near copy: plans/plan v2.md (91% of words alike)');
+  assert.equal(reasonLine({ kind: 'copy', path: '/r/a.md', rel: 'a.md', similarity: null }), 'near copy: a.md');
+  // Read in part: a floor, of the first 256 KB, never a bare "100%" (commitment 4).
+  assert.equal(reasonLine({ kind: 'copy', path: '/r/a.md', rel: 'a.md', similarity: 100, partial: true }), 'near copy: a.md (≥100% of words alike in the first 256 KB)');
+  assert.equal(reasonLine({ kind: 'partial' }), 'checked the first 256 KB only');
+});
+
+test('foldCopies keeps the newest hit of each group, in place, and every hit in no group', () => {
+  const a = entry('/r/plan.md', { mtimeMs: NOW - 3_000 });
+  const b = entry('/r/plan v2.md', { mtimeMs: NOW - 1_000 });
+  const c = entry('/r/plan (copy).md', { mtimeMs: NOW - 2_000 });
+  const lone = entry('/r/lone.md');
+  const dups = new Map([
+    [a.path, { group: b.path, copies: [] }],
+    [b.path, { group: b.path, copies: [] }],
+    [c.path, { group: b.path, copies: [] }],
+  ]);
+  assert.deepEqual(foldCopies([hit(a), hit(lone), hit(c), hit(b)], dups).map((h) => h.entry.path), ['/r/lone.md', '/r/plan v2.md']);
+  // With the newest left out by another term, the newest of those left is the row.
+  assert.deepEqual(foldCopies([hit(a), hit(c)], dups).map((h) => h.entry.path), ['/r/plan (copy).md']);
+  assert.deepEqual(foldCopies([hit(lone)], new Map()).map((h) => h.entry.path), ['/r/lone.md']);
 });

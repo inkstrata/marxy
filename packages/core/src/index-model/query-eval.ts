@@ -146,7 +146,16 @@ export type Reason =
   | { readonly kind: 'path' }
   | { readonly kind: 'heading'; readonly text: string; readonly level: number }
   | { readonly kind: 'line'; readonly line: number; readonly preview: string; readonly matchStart: number; readonly matchEnd: number }
-  | { readonly kind: 'field'; readonly label: string; readonly detail?: string };
+  | { readonly kind: 'field'; readonly label: string; readonly detail?: string }
+  /** A path the file names that does not exist (`is:broken`, Q-06). */
+  | { readonly kind: 'missing'; readonly path: string }
+  /**
+   * A near copy of the file (`is:dup`, Q-06): its path under the file's root (or whole), and how alike the two are in words.
+   * `partial`: either file was read only in its first part, so the score is of those parts (commitment 4).
+   */
+  | { readonly kind: 'copy'; readonly path: string; readonly rel: string; readonly similarity: number | null; readonly partial?: true }
+  /** The check read only the first part of this file (`is:dup`, `is:broken`, Q-06): what it says covers that part. */
+  | { readonly kind: 'partial' };
 
 export interface QueryHit {
   readonly entry: IndexEntry;
@@ -155,6 +164,14 @@ export interface QueryHit {
   readonly score: number;
   /** Passes every term that can be answered now but a content key (`words:`, `has:`, `tasks:`) needs the file measured. */
   readonly unmeasured: boolean;
+}
+
+/** What the near-duplicate check found for one file (Q-06): the group it is in, and the other files of the group. */
+export interface DupFacts {
+  /** The group's name: the path of its newest file. */
+  readonly group: string;
+  /** The other files of the group, newest first, each with its similarity to this one (null when not scored). */
+  readonly copies: readonly { readonly path: string; readonly similarity: number | null; readonly partial?: boolean }[];
 }
 
 /** The matching lines of one search, for each text term (by the term's text) and path. */
@@ -175,10 +192,44 @@ export interface QueryContext {
   readonly measures?: ReadonlyMap<string, Measured>;
   /** What a search of the files' lines found. Absent: text matches titles, paths and headings only. */
   readonly lines?: LineMatches;
+  /**
+   * The near-duplicate check's answer (Q-06), by path; a file not in the map is in no group. Absent: the check has not run,
+   * and `is:dup` leaves the hit `unmeasured` (it waits, as a content key does).
+   */
+  readonly dups?: ReadonlyMap<string, DupFacts>;
+  /** The broken-path check's answer (Q-06): the files that name a missing path, with those paths. Absent: `is:broken` waits. */
+  readonly broken?: ReadonlyMap<string, readonly string[]>;
+  /** Files the checks read only in part (their first 256 KB): a hit of `is:dup` or `is:broken` says so. */
+  readonly partly?: ReadonlySet<string>;
 }
 
-/** Statuses that parse and match nothing: what they need does not exist yet (near-duplicates and broken paths are Q-06, archiving Q-05, index health Q-04, the capture inbox P-01). */
-export const UNAVAILABLE_STATUSES: readonly string[] = ['dup', 'broken', 'archived', 'error', 'captured'];
+/** Statuses that parse and match nothing: what they need does not exist yet (archiving Q-05, index health Q-04, the capture inbox P-01). */
+export const UNAVAILABLE_STATUSES: readonly string[] = ['archived', 'error', 'captured'];
+
+/** Statuses answered by reading files when asked (Q-06), never from the index: `is:dup` and `is:broken`. */
+export const CHECKED_STATUSES: readonly string[] = ['dup', 'broken'];
+
+/** Which of the checks the query asks for anywhere (as `is:` or `-is:`): what the caller runs before it evaluates. */
+export function usesChecks(query: Query): { readonly dup: boolean; readonly broken: boolean } {
+  let dup = false;
+  let broken = false;
+  for (const g of query.groups) {
+    for (const t of g) {
+      if (t.kind !== 'field' || t.key !== 'is') continue;
+      for (const v of t.values) {
+        const value = v.toLowerCase();
+        if (value === 'dup') dup = true;
+        if (value === 'broken') broken = true;
+      }
+    }
+  }
+  return { dup, broken };
+}
+
+/** The query asks for near copies, not against them: its results are shown as groups. */
+export function groupsCopies(query: Query): boolean {
+  return query.groups.some((g) => g.some((t) => t.kind === 'field' && t.key === 'is' && !t.negated && t.values.some((v) => v.toLowerCase() === 'dup')));
+}
 
 /** The note a chip carries when its term is not a plain filter, or null. Nothing here changes what the parser said. */
 export function termNote(term: Term): string | null {
@@ -289,6 +340,9 @@ function indexMatcher(t: FieldTerm, ctx: QueryContext): Matcher {
       };
     case 'is':
       return (e) => {
+        // A check that has not run yet (`is:dup`, `is:broken` without their answer) cannot say no: the hit waits.
+        let waiting = false;
+        const extra: Reason[] = [];
         const statuses = values.map((v): boolean => {
           switch (v) {
             case 'changed': return ctx.changed(e);
@@ -300,10 +354,40 @@ function indexMatcher(t: FieldTerm, ctx: QueryContext): Matcher {
               const read = at !== undefined && Math.min(e.mtimeMs, ctx.nowMs) <= at;
               return v === 'read' ? read : !read;
             }
-            default: return false; // dup, broken, archived, error, captured: not built yet
+            case 'dup': {
+              if (ctx.dups === undefined) {
+                waiting = true;
+                return false;
+              }
+              const facts = ctx.dups.get(e.path);
+              if (facts === undefined) return false;
+              for (const c of facts.copies) extra.push({ kind: 'copy', path: c.path, rel: pathUnder(e.root, c.path) ?? c.path, similarity: c.similarity, ...(c.partial === true ? { partial: true as const } : {}) });
+              return true;
+            }
+            case 'broken': {
+              if (ctx.broken === undefined) {
+                waiting = true;
+                return false;
+              }
+              const missing = ctx.broken.get(e.path);
+              if (missing === undefined || missing.length === 0) return false;
+              for (const p of missing) extra.push({ kind: 'missing', path: p });
+              return true;
+            }
+            default: return false; // archived, error, captured: not built yet
           }
         });
-        return hit(statuses.some(Boolean), values.includes('changed') && values.length === 1 ? 'changed since you read' : label);
+        const ok = statuses.some(Boolean);
+        if (!ok && waiting) return { ok: true, pending: true };
+        if (ok && !t.negated && extra.length > 0) {
+          // One check asked alone says how much it found on the term's own line: `is:dup (2 near copies)`.
+          const copies = extra.filter((r) => r.kind === 'copy').length;
+          const missing = extra.length - copies;
+          if (ctx.partly?.has(e.path)) extra.push({ kind: 'partial' });
+          const detail = values.length !== 1 ? undefined : copies > 0 ? `${copies} near ${copies === 1 ? 'copy' : 'copies'}` : `${missing} missing ${missing === 1 ? 'path' : 'paths'}`;
+          return { ok: true, reasons: [{ kind: 'field', label, ...(detail === undefined ? {} : { detail }) }, ...extra] };
+        }
+        return hit(ok, values.includes('changed') && values.length === 1 ? 'changed since you read' : label);
       };
     default:
       return () => PASS;
