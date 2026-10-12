@@ -1,5 +1,7 @@
 # Lead handoff: 2026-10-11 night (X-17), S-13 curated, four PRs merged
 
+What each wave lets the reader do, in plain words: [`waves.md`](waves.md).
+
 **Read first:** this section, then "end of the wave 4–7 session" below (its order and lessons still hold).
 
 ## Done this session (Opus lead, Sonnet agents only)
