@@ -14,6 +14,11 @@
   .marxy-pane { container-type: inline-size; min-width: 0; }
   .marxy-pane:focus { outline: none; }
   .marxy-pane > [role="status"]:empty { display: none; }
+  /* Notices float (F-46): the region is a zero-height layer pinned to its pane's top edge, so raising or dismissing a
+     notice never moves the text. Positioning only; the notice's own look is the theme's. The negative margin takes
+     back the region's half-line of padding, which is the only height it keeps. */
+  .marxy-pane > [role="status"] { position: sticky; top: 0; z-index: 10; height: 0; margin-bottom: calc(var(--marxy-line-box) / -2); pointer-events: none; }
+  .marxy-pane > [role="status"] > * { pointer-events: auto; }
   .marxy-find-slot { position: sticky; top: 0; height: 0; }
   .marxy-find-slot:empty { display: none; }
   #marxy-palette:not([open]) { display: none; }

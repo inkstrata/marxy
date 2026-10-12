@@ -539,8 +539,6 @@ const CODE_BOX_CELLS = ["320x20-dark", "480x20-dark-classic", "720x20-dark", "72
 const NOTICE_EDGE_CELLS = ["320x20-dark", "720x20-dark", "720x20-light", "960x20-dark", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
 // A notice is not a whole number of grid units high (H6).
 const NOTICE_GRID_CELLS = ["320x20-dark", "960x16-dark", "960x16-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light"];
-// A notice scrolls out of sight (H6): in every cell, the document being taller than three screens.
-const NOTICE_SIGHT_CELLS = ["320x20-dark", "720x20-dark", "720x20-light", "960x16-dark", "960x16-light", "960x20-dark", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
 // A notice covers the first line of text in Source (H6).
 const NOTICE_SOURCE_CELLS = ["320x20-dark-source", "960x20-dark-source"];
 // A wide block grows to the right only (H1): every cell with room to grow (720 px and up) in every document that has one.
@@ -551,7 +549,6 @@ const EXPECTED_FAILURES = [
   ...rowsFor('blockEdges/code', 'L-04', CODE_BOX_CELLS, ["02-readme-real-world.md", "03-ai-plan.md", "06-math.md", "09-gfm-everything.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "27-alerts.md", "28-artifact-fences.md", "28-llm-answer.md", "29-hidden-characters.md", "30-notebook-export.md", "32-long-reference.md"]),
   ...rowsFor('noticeColumn/edges', 'L-05', NOTICE_EDGE_CELLS, ["15-prose-volume.md"]),
   ...rowsFor('noticeColumn/grid', 'L-05', NOTICE_GRID_CELLS, ["15-prose-volume.md"]),
-  ...rowsFor('noticeColumn/sight', 'L-05', NOTICE_SIGHT_CELLS, ["15-prose-volume.md"]),
   ...rowsFor('noticeColumn/source', 'L-05', NOTICE_SOURCE_CELLS, ["15-prose-volume.md"]),
   ...rowsFor('room/even', 'L-04', WIDE_BLOCK_CELLS, ["01-long-technical.md", "02-readme-real-world.md", "03-ai-plan.md", "05-pathological-table-and-nesting.md", "06-math.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "28-artifact-fences.md", "28-llm-answer.md", "30-notebook-export.md", "31-essay.md", "32-long-reference.md"]),
   // K-05b: the article profile's column is narrower (Source Serif 4 is a narrower face than Literata at the same character
