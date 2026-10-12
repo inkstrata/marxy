@@ -14,6 +14,8 @@ const OLD_SOURCE = 'ts tsx js jsx mjs cjs mts cts rs py go java kt kts c h cc cp
 const OLD_CM: Record<string, string> = {
   md: 'markdown', markdown: 'markdown', mdx: 'markdown', txt: 'markdown', ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
   mjs: 'javascript', cjs: 'javascript', rs: 'rust', py: 'python', css: 'css', json: 'json', yaml: 'yaml', yml: 'yaml', html: 'html', htm: 'html',
+  // V-14: grammars added.
+  go: 'go', java: 'java', c: 'c', h: 'c', cc: 'cpp', cpp: 'cpp', cxx: 'cpp', hpp: 'cpp', hh: 'cpp', sh: 'shell', bash: 'shell', zsh: 'shell', toml: 'toml',
 };
 
 test('every old allow-list extension keeps its kind and mode', () => {
@@ -28,7 +30,7 @@ test('every old allow-list extension keeps its kind and mode', () => {
   assert.equal(tableExtensions().length, OLD_MARKDOWN.length + OLD_TEXT.length + OLD_SOURCE.length);
 });
 
-test('every old BY_EXT extension keeps its CodeMirror id; only .mdown, .mkd and .text gain one (as .txt has)', () => {
+test('every old BY_EXT extension keeps its CodeMirror id, V-14 adds Go, C, C++, Java, shell and TOML; only .mdown, .mkd and .text gain one (as .txt has)', () => {
   for (const ext of tableExtensions()) assert.equal(fileTypeOf(`/r/f.${ext}`)?.cm, OLD_CM[ext] ?? (['mdown', 'mkd', 'text'].includes(ext) ? 'markdown' : undefined), ext);
 });
 

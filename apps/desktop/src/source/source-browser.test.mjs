@@ -1,7 +1,7 @@
 // CodeMirror Source mode in WebKit: scroll budget, round-trip, undo (MARXY-37).
 
 import { strict as assert } from 'node:assert';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
@@ -225,4 +225,52 @@ test('the same when the typing was undone before the save: the redo is gone, and
   assert.equal(result.redone, false, 'a read-back ends redo');
   assert.equal(result.steps.at(-1), JOIN_FILE);
   assert.ok(result.steps.every((s) => s === JOINED || s === JOIN_FILE), JSON.stringify(result.steps));
+});
+
+// V-14 round 1: the text never waits for the grammar, and a grammar that will not load leaves Source as it is.
+// The Go grammar's chunk is the one build output that holds the Lezer grammar's "PackageClause" node name; the page's
+// requests for it are held or refused.
+function goChunkUrl() {
+  const dir = join(outDir, 'assets');
+  return readdirSync(dir).find((f) => f.endsWith('.js') && readFileSync(join(dir, f), 'utf8').includes('PackageClause'));
+}
+const goText = 'package main\nfunc f() int { return 1 } // c\n';
+
+test('Source shows the text before a slow grammar arrives, and colours it when it does (V-14 round 1)', async () => {
+  const name = goChunkUrl();
+  assert.ok(name, 'the Go grammar chunk was not found in the build');
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await page.route(`**/assets/${name}`, async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+    await page.goto(`${base}src/source/harness-shell.html`);
+    await page.waitForFunction(() => typeof window.marxySourceHarness?.mountTimed === 'function');
+    const r = await page.evaluate(async ({ b }) => window.marxySourceHarness.mountTimed(b, '/a.go', 3000), { b: b64(Buffer.from(goText)) });
+    assert.equal(r.first.text, goText);
+    assert.equal(r.first.coloured, false, 'no colour before the grammar has loaded');
+    assert.ok(r.mountedAt < 1000, `the mount waited ${r.mountedAt} ms on the grammar`);
+    assert.equal(r.later.coloured, true, 'colour once it has');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a grammar that fails to load leaves Source mounted with the exact text, uncoloured (V-14 round 1)', async () => {
+  const name = goChunkUrl();
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await page.route(`**/assets/${name}`, (route) => route.abort());
+    await page.goto(`${base}src/source/harness-shell.html`);
+    await page.waitForFunction(() => typeof window.marxySourceHarness?.mountTimed === 'function');
+    const r = await page.evaluate(async ({ b }) => window.marxySourceHarness.mountTimed(b, '/a.go', 500), { b: b64(Buffer.from(goText)) });
+    assert.equal(r.later.text, goText);
+    assert.equal(r.later.coloured, false);
+    assert.equal(r.inSource, true);
+  } finally {
+    await browser.close();
+  }
 });

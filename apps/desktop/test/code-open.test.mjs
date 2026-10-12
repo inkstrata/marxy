@@ -1,6 +1,6 @@
 // A code file opens straight into Source (V-11). Nothing Markdown-shaped is painted for it, a Mod+E is never
 // lost, reordered or applied to a document it was not pressed on, an empty file still gets Source, and a Source
-// that cannot be mounted says so and leaves the file readable (K-R4). Each test fails on the commit before V-11.
+// whose grammar will not load stays Source, uncoloured (V-14 round 1). Each test fails on the commit before V-11.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -348,46 +348,49 @@ test('a .py launch reports first text from Source', async () => {
   await page.close();
 });
 
-test('when Source cannot be mounted, opening a .py keeps the document and says why', async () => {
+// V-14 round 1: a grammar that will not load costs the colour and nothing else. Source mounts with the exact text.
+const editorText = (page) =>
+  page.evaluate(() => [...document.querySelectorAll('.cm-content .cm-line')].map((l) => l.textContent).join('\n'));
+
+test('when a grammar will not load, opening a .py still opens Source with the exact text and no notice', async () => {
   const page = await freshPage({ failPython: true });
   await startSampled(page, FILES, ['/repo/note.md']);
   await started(page);
   await page.evaluate(() => window.__h.open('/repo/x.py'));
-  assert.equal(await page.evaluate(() => document.querySelector('.cm-editor') !== null), false);
-  assert.equal(await mode(page), 'rendered');
-  const code = await page.evaluate(() => document.querySelector('#doc pre code')?.textContent ?? null);
-  assert.equal(code, PY, 'the file is shown as it is, as plain text');
-  assert.equal(await page.evaluate(() => document.querySelector('#doc h1')), null, 'and not as Markdown');
-  const said = await notices(page);
-  assert.ok(said.some((n) => n.includes('Source could not open x.py')), `notices: ${said.join(' | ')}`);
-  assert.equal(await page.evaluate(() => window.__h.openDocument()?.path), '/repo/x.py', 'the document is still open');
+  await page.waitForSelector('.cm-editor');
+  assert.equal(await mode(page), 'source');
+  assert.equal(await editorText(page), PY.replace(/\n$/, '\n'));
+  assert.equal(await page.evaluate(() => document.querySelector('#doc pre code')), null, 'not the plain-text fallback');
+  assert.ok(!(await notices(page)).some((n) => n.includes('Source could not open')), 'no failure notice');
   await page.close();
 });
 
-test('when Source cannot be mounted, a .py launch shows the file as plain text and says why', async () => {
+test('when a grammar will not load, a .py launch shows Source with the exact text', async () => {
   const page = await freshPage({ failPython: true });
   await startSampled(page, FILES, ['/repo/x.py']);
   await started(page);
-  assert.equal(await page.evaluate(() => document.querySelector('#doc pre code')?.textContent ?? null), PY);
-  const said = await notices(page);
-  assert.ok(said.some((n) => n.includes('Source could not open x.py')), `notices: ${said.join(' | ')}`);
+  await page.waitForSelector('.cm-editor');
+  assert.equal(await mode(page), 'source');
+  assert.equal(await editorText(page), PY);
+  assert.ok(!(await notices(page)).some((n) => n.includes('Source could not open')), 'no failure notice');
   await page.close();
 });
 
-test('when Source cannot be mounted, Mod+E says so instead of doing nothing', async () => {
+test('when a grammar will not load, Mod+E still moves between Source and Rendered, with no unhandled rejection', async () => {
   const page = await freshPage({ failPython: true });
   await startSampled(page, FILES, ['/repo/x.py']);
   await started(page);
-  await page.evaluate(() => document.querySelectorAll('.marxy-notice-dismiss').forEach((b) => b.click()));
-  assert.deepEqual(await notices(page), []);
+  await page.waitForSelector('.cm-editor');
   const rejections = [];
   await page.exposeFunction('__rejection', (m) => rejections.push(m));
   await page.evaluate(() => window.addEventListener('unhandledrejection', (e) => window.__rejection(String(e.reason))));
   await page.keyboard.press(`${await modifier(page)}+KeyE`);
   await drained(page);
-  const said = await notices(page);
-  assert.ok(said.some((n) => n.includes('Source could not open x.py')), `notices: ${said.join(' | ')}`);
   assert.equal(await mode(page), 'rendered');
+  await page.keyboard.press(`${await modifier(page)}+KeyE`);
+  await drained(page);
+  assert.equal(await mode(page), 'source');
+  assert.equal(await editorText(page), PY);
   assert.deepEqual(rejections, []);
   await page.close();
 });

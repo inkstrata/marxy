@@ -79,6 +79,9 @@ fn main() {
 }
 `;
 
+const GO = 'package main\nfunc (s *S) Run(x int) string {\n\tfmt.Println("a\\n", s.y)\n\treturn len(x)\n}\n// c\n';
+const SHELL = 'if [ -n "$X" ]; then echo hi ; fi # c\n';
+
 const FIXTURES = [
   {
     name: 'Python', lang: 'python', path: 'a.py', doc: PYTHON,
@@ -138,6 +141,27 @@ const FIXTURES = [
       gap('field', 'a;', { rendered: null, source: 'property' }, 'the Rust grammar leaves a field access with no scope'),
     ],
   },
+  {
+    name: 'Go', lang: 'go', path: 'a.go', doc: GO,
+    constructs: [
+      c('keyword', 'func', 'keyword'),
+      c('keyword (return)', 'return', 'keyword'),
+      c('comment', '// c', 'comment'),
+      gap('method name', 'Run', { rendered: 'function', source: 'property' }, 'lang-go tags a method name as a property, not a function definition'),
+      gap('builtin type', 'int', { rendered: 'builtin', source: 'type' }, 'Lezer has no list of Go predeclared types'),
+      gap('builtin call', 'len', { rendered: 'builtin', source: 'function' }, 'Lezer cannot tell a predeclared function from any other call'),
+      gap('escape', '\\n', { rendered: 'escape', source: 'string' }, 'the Go grammar does not split an escape out of an interpreted string'),
+    ],
+  },
+  {
+    name: 'shell', lang: 'bash', path: 'a.sh', doc: SHELL,
+    constructs: [
+      c('keyword', 'if', 'keyword'),
+      c('keyword (then)', 'then', 'keyword'),
+      c('builtin', 'echo', 'builtin'),
+      c('comment', '# c', 'comment'),
+    ],
+  },
 ];
 
 for (const fx of FIXTURES) {
@@ -150,20 +174,6 @@ for (const fx of FIXTURES) {
       if (!k.why) assert.equal(source[at], rendered[at], `${fx.name} ${k.label}: the modes disagree`);
       else assert.notEqual(source[at], rendered[at], `${fx.name} ${k.label}: the gap closed, so remove it from the list`);
     }
-  });
-}
-
-// Go and shell have no Source grammar yet (V-14); Rendered's roles are held here so they are right when it lands.
-const RENDERED_ONLY = [
-  { name: 'Go', lang: 'go', doc: 'package main\nfunc (s *S) Run(x int) string {\n\tfmt.Println("a\\n", s.y)\n\treturn len(x)\n}\n// c\n',
-    want: [['func', 'keyword'], ['Run', 'function'], ['int', 'builtin'], ['\\n', 'escape'], ['len', 'builtin'], ['// c', 'comment']] },
-  { name: 'shell', lang: 'bash', doc: 'if [ -n "$X" ]; then echo hi ; fi # c\n',
-    want: [['if', 'keyword'], ['echo', 'builtin'], ['# c', 'comment']] },
-];
-for (const fx of RENDERED_ONLY) {
-  test(`V-13 parity: ${fx.name} (Rendered only until V-14) takes the roles the table gives`, async () => {
-    const rendered = await renderedRoles(fx.lang, fx.doc);
-    for (const [needle, role] of fx.want) assert.equal(rendered[indexOfNth(fx.doc, needle)], role, `${fx.name} ${needle}`);
   });
 }
 

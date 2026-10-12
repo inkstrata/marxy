@@ -53,6 +53,6 @@ rule at all (`escape`, `macroName`, `labelName`, `attributeValue`).
 - Where Lezer cannot tell what Shiki can (Python `self` and builtins have no Lezer tag; the Rust grammar leaves a field
   access and a string escape untagged), the parity test lists the construct as a named gap with its reason. A gap that
   closes fails the test until it is removed.
-- A Lezer grammar for Go and shell is V-14; until then Rendered's roles for those are tested alone.
+- Go and shell have Lezer grammars (V-14: `@codemirror/lang-go`, and the shell mode of `@codemirror/legacy-modes`), so both are in the parity test. Go's gaps are named there: a method name, a predeclared type or function, and an escape in a string.
 - Frontmatter delimiters as `decorator` with a YAML body is not done here: `@lezer/markdown` parses a leading `---`
   block as a rule and a setext heading, so it needs a block parser of its own.
