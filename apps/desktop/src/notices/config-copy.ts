@@ -2,7 +2,7 @@
 // with the kind it is (U-02.1). One template (X-21 ruling 10): what happened · what is unchanged · what to do. A part
 // that has nothing to say is left out, never padded. Nothing here claims a write that did not happen: an outcome says what
 // was written, and every refusal and failure says the file is as it was.
-import type { NoticeKind } from './index.ts';
+import { notify as defaultNotify, type NoticeInput, type NoticeKind } from './index.ts';
 
 /** A notice's kind and its words, said by `notify`. */
 export interface Said {
@@ -134,3 +134,61 @@ export const CONFLICT_COPY_FAILED = (reason: string): Said => ({
   kind: 'error',
   text: said(`Could not save a copy: ${reason.replace(/\.$/, '')}`, 'nothing was changed; your edits are still here', 'Try again, or save somewhere else.'),
 });
+
+// K-07.1: `[strip]` and `[[kind]]` parse warnings of config.toml, shown once.
+
+const MAX_SHOWN = 3;
+const FIX = 'fix it in config.toml';
+
+/** The refusal text for one parser warning, or null when it is not about `[strip]` or `[[kind]]`. Said in plain words, not the parser's. */
+export function configWarningText(warning: string): string | null {
+  const rule = /^kind (\d+) (.*)$/.exec(warning);
+  if (rule !== null) {
+    const [, n, rest] = rule;
+    const label = `[[kind]] rule ${n}`;
+    let m: RegExpExecArray | null;
+    if (/^is not a table/.test(rest!)) return `${label} is not a table, so it is skipped · the other rules apply · ${FIX}`;
+    if (/^has no glob/.test(rest!)) return `${label} has no glob, so it is skipped · the other rules apply · ${FIX}`;
+    if ((m = /^\(glob "(.*)"\) is(?: "(.*)")? not one of the kinds/.exec(rest!)) !== null) {
+      const named = m[2] === undefined ? 'has no kind named in is' : `names "${m[2]}", which is not a kind`;
+      return `${label} (glob "${m[1]}") ${named}, so it is skipped · the other rules apply · ${FIX}`;
+    }
+    if ((m = /^glob "(.*)" is not an absolute path/.exec(rest!)) !== null) {
+      return `${label} has a glob ("${m[1]}") that is not an absolute path or one opening with **, so it is skipped · the other rules apply · ${FIX}`;
+    }
+    if (/^read was not true or false/.test(rest!)) return `${label} has a read that is not true or false, so read is ignored · the rest of the rule applies · ${FIX}`;
+    return `${label} is skipped · the other rules apply · ${FIX}`;
+  }
+  const dropped = /^more than (\d+) kind rules; kind (\d+) dropped$/.exec(warning);
+  if (dropped !== null) return `[[kind]] rule ${dropped[2]} is dropped, since only ${dropped[1]} rules are read · the first ${dropped[1]} apply · ${FIX}`;
+  if (warning.startsWith('kind must be')) return `[[kind]] is not a list of tables, so it is ignored · no kind rules apply · ${FIX}`;
+  if (warning.startsWith('strip must be')) return `[strip] is not a table of kind = [tools], so it is ignored · every strip keeps its default tools · ${FIX}`;
+  let m: RegExpExecArray | null;
+  if ((m = /^strip\.(.+?) is not one of the kinds/.exec(warning)) !== null) return `[strip] ${m[1]} is not a kind, so the entry is ignored · the other entries apply · ${FIX}`;
+  if ((m = /^strip\.(.+?) must be a list of tool names/.exec(warning)) !== null) return `[strip] ${m[1]} is not a list of tool names, so the entry is ignored · the other entries apply · ${FIX}`;
+  if ((m = /^strip\.(.+?): "(.*)" is not a tool/.exec(warning)) !== null) return `[strip] ${m[1]} lists "${m[2]}", which is not a tool, so that tool is left out · the other tools apply · ${FIX}`;
+  if ((m = /^strip\.(.+?): "(.*)" is listed twice/.exec(warning)) !== null) return `[strip] ${m[1]} lists "${m[2]}" twice, so the repeat is left out · the other tools apply · ${FIX}`;
+  if ((m = /^strip\.(.+?) lists more than (\d+) tools/.exec(warning)) !== null) return `[strip] ${m[1]} lists more than ${m[2]} tools, so the rest are left out · the first ${m[2]} apply · ${FIX}`;
+  return null;
+}
+
+/**
+ * Shows each `[strip]` / `[[kind]]` warning of a config read as a `refused` notice. The same set of warnings read again
+ * (a reload of an unchanged file) shows nothing; a changed set shows afresh; a clean read forgets. Nothing is written.
+ */
+export function createConfigWarningReporter(notify: (input: NoticeInput) => unknown = defaultNotify): (warnings: readonly string[]) => void {
+  let shown = '';
+  return (warnings) => {
+    const texts = warnings.map(configWarningText).filter((t): t is string => t !== null);
+    const signature = texts.join('\n');
+    if (signature === shown) return;
+    shown = signature;
+    for (const text of texts.slice(0, MAX_SHOWN)) notify({ kind: 'refused', text });
+    if (texts.length > MAX_SHOWN) {
+      notify({ kind: 'refused', text: `${texts.length - MAX_SHOWN} more problems in config.toml, in [strip] or [[kind]] · the rest of config.toml applies · fix them in config.toml, and any still wrong show when it is next read` });
+    }
+  };
+}
+
+/** The reporter the app uses: one per page, so a re-read of an unchanged config.toml stays quiet. */
+export const reportConfigWarnings = createConfigWarningReporter();
