@@ -316,7 +316,7 @@ function injectPaletteStyles(doc: Document): void {
       color: inherit;
     }
     #marxy-palette .marxy-palette-query::placeholder { color: var(--marxy-color-text-secondary); }
-    #marxy-palette .marxy-palette-query:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; border-radius: 3px; }
+    #marxy-palette .marxy-palette-query:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); }
     #marxy-palette .marxy-palette-esc,
     #marxy-palette .marxy-palette-keycap {
       flex: none;
@@ -347,7 +347,7 @@ function injectPaletteStyles(doc: Document): void {
       height: calc(var(--marxy-size-chrome) * 24 / 13);
       padding: 0 calc(var(--marxy-size-chrome) * 9 / 13);
       border: 1px solid var(--marxy-color-rule-strong);
-      border-radius: 999px;
+      border-radius: calc(var(--marxy-size-chrome) * 12 / 13);
       background: transparent;
       color: var(--marxy-color-text-secondary);
       font: inherit;
@@ -356,7 +356,7 @@ function injectPaletteStyles(doc: Document): void {
       cursor: default;
     }
     #marxy-palette .marxy-palette-mode[aria-pressed="true"] { background: var(--marxy-color-accent-wash); border-color: transparent; color: var(--marxy-color-text); }
-    #marxy-palette .marxy-palette-mode-prefix { font-family: var(--marxy-face-mono); font-size: 0.9em; }
+    #marxy-palette .marxy-palette-mode-prefix { font-size: 0.9em; }
     /* W-13 adds the preview as a second column here; until then the list takes the width. */
     #marxy-palette .marxy-palette-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; }
     #marxy-palette .marxy-palette-results {
