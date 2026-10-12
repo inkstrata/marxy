@@ -34,6 +34,7 @@ import type { RenderedView } from '../view/rendered-view.ts';
 import type { DocumentWatch } from './live-reload.ts';
 import type { StoreRegistry } from './registry.ts';
 import { openDocumentStore, openUntitledStore, type DocumentSnapshot, type DocumentStore, type Preparsed } from './store.ts';
+import { guardSaveAsDialog } from './save-as-guard.ts';
 import { documentName, isUntitled } from './untitled.ts';
 
 /**
@@ -325,28 +326,17 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
 
   /** The store's save, with what only the app can do around it (save.ts). */
   function saveDeps(open: DocumentStore): SaveDeps {
-    // The path the reader picks may be one another pane shows through its own store: a second store for it
-    // would break one-store-per-path, and unsaved text in that pane would be thrown away (D-10.1).
-    const pickAround = async (options: Parameters<AppShell['saveDialog']>[0]): Promise<string | null> => {
-      const picked = await shell.saveDialog(options);
-      if (!picked) return picked;
-      const other = deps.stores?.held(picked) ?? null;
-      if (other && other !== open) {
-        const unsaved = other.snapshot().dirty || deps.viewsOver(other).some((v) => v.sourceHasUnfoldedEdits());
-        if (unsaved) {
-          const { notify } = await import('../notices/index.ts');
-          notify(
-            { kind: 'info', text: `${documentName(picked)} is open in the other pane with changes that are not saved. Save or close it there first; nothing was written.` },
-            { pane: paneOf(doc) },
-          );
-          return null;
-        }
-      }
-      return picked;
-    };
     return {
       store: open,
-      shell: Object.assign(Object.create(shell), { saveDialog: pickAround }) as AppShell,
+      shell: Object.assign(Object.create(shell), {
+        saveDialog: guardSaveAsDialog({
+          shell,
+          open,
+          stores: deps.stores,
+          hasUnfoldedEdits: (other) => deps.viewsOver(other).some((v) => v.sourceHasUnfoldedEdits()),
+          pane: paneOf(doc),
+        }),
+      }) as AppShell,
       foldSource: async () => {
         if (current === open) await foldSource();
       },

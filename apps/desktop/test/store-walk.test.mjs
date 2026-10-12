@@ -11,7 +11,7 @@ import { setFlagsFromString } from 'node:v8';
 import { test } from 'node:test';
 import { cmDocText } from '../src/source/buffer-commit.ts';
 import { openDocumentStore } from '../src/document/store.ts';
-import { INVARIANTS, OPS, runWalk, seedsFromEnv } from './support/store-walk.mjs';
+import { INVARIANTS, OPS, describeFailure, runWalk, seedsFromEnv } from './support/store-walk.mjs';
 
 const seeds = seedsFromEnv();
 
@@ -37,6 +37,7 @@ test('the same seed gives the same step list and the same final bytes', async ()
   assert.ok(first.trace.length >= 20, 'a walk is at least twenty steps');
   assert.deepEqual(again.trace, first.trace);
   assert.deepEqual(again.files, first.files);
+  assert.deepEqual(again.peeks, first.peeks, 'the peeks the app made are the same too');
   const other = await runWalk(8);
   assert.notDeepEqual(other.trace, first.trace, 'a different seed walks a different way');
 });
@@ -80,4 +81,28 @@ test('two changes in one Source session, either side of a byte that is not UTF-8
   const text = cmDocText(store.snapshot().buffer);
   await store.commitSource(`ALPHA${text.slice(5, text.length - 6)}OMEGA\n`);
   assert.deepEqual([...store.snapshot().buffer.bytes], [...enc.encode('ALPHA\n'), 0xff, ...enc.encode('\nOMEGA\n')]);
+});
+
+// F-33.1: a failing seed prints what the app peeked at (the store's stale-write comparison, a live reload's read), so the
+// failure explains itself: which path, in which step, and the bytes it saw.
+test('the app\'s peeks are logged by step, and a failure prints the last of them', async () => {
+  const { peeks, trace } = await runWalk(2);
+  assert.ok(peeks.length > 0, 'a walk makes peeks (every save and every reload compares disk with the baseline)');
+  assert.match(peeks[0], /^step \d+: peeked \/w\/[\w.]+: (\d+ bytes, [0-9a-f]{8}|not-found)$/);
+  const text = describeFailure(2, { invariant: 'I1', message: 'x' }, trace, peeks);
+  assert.match(text, new RegExp(`peeks \\(the last ${Math.min(peeks.length, 15)} of ${peeks.length}\\):`));
+  assert.ok(text.trimEnd().endsWith(peeks.at(-1)), 'the newest peek is last');
+  assert.ok(!describeFailure(2, { invariant: 'I1', message: 'x' }, trace).includes('peeks ('), 'no peeks, no section');
+});
+
+test('the new steps run within the default seeds: paste in all its kinds, and Save As onto an unsaved open path', async () => {
+  const seen = new Set();
+  for (let seed = 1; seed <= 40; seed++) {
+    for (const line of (await runWalk(seed)).trace) {
+      const paste = line.match(/^paste \((\w+)\)/);
+      if (paste) seen.add(`paste ${paste[1]}`);
+      if (/unsaved in another document.*: refused, nothing written$/.test(line)) seen.add('saveAsOntoDirty');
+    }
+  }
+  for (const want of ['paste text', 'paste markdown', 'paste plain', 'paste concealed', 'paste notUtf8', 'saveAsOntoDirty']) assert.ok(seen.has(want), `no seed in the first forty ran ${want}`);
 });
