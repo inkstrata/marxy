@@ -8,6 +8,8 @@ import type { AppPanes } from '../pane/index.ts';
 export interface ScratchOptions {
   /** Names the document in the window title, in place of "Untitled". */
   readonly label?: string;
+  /** Runs once the scratch is on screen: after the unsaved-edits prompt is answered "open", never when it is dismissed. */
+  readonly onLanded?: () => void;
 }
 
 export const SCRATCH_NOTICE = 'Opened as a new document (not saved)';
@@ -17,10 +19,33 @@ export async function openScratch(text: string, opts?: ScratchOptions): Promise<
   return (await appHandle()?.openScratch(text, opts)) ?? false;
 }
 
-/** The app's own implementation (`AppHandle.openScratch`), over its panes. */
+export const BOM_KEPT_NOTICE = 'The text begins with U+FEFF (a byte-order mark): kept as a character, behind a file BOM of its own';
+
+/**
+ * The app's own implementation (`AppHandle.openScratch`), over its panes. The notices wait for the document to land:
+ * `openIn` returns while an unsaved-edits prompt still stands, and a dismissed prompt opens nothing.
+ *
+ * Text that begins with U+FEFF is the reader's text, not a file's BOM: the document reads a leading EF BB BF as
+ * the file's BOM and drops it from the text, so one is written first and the character stays a character.
+ */
 export async function openScratchIn(panes: Pick<AppPanes, 'openScratch'>, text: string, opts?: ScratchOptions): Promise<boolean> {
-  const pane = await panes.openScratch(new TextEncoder().encode(text), opts);
-  if (!pane) return false;
-  notify({ kind: 'info', text: SCRATCH_NOTICE, transient: true }, { pane: pane.host });
-  return true;
+  const keptBom = text.startsWith('\uFEFF');
+  let pane: { readonly host: HTMLElement } | null = null;
+  let landed = false;
+  const announce = (): void => {
+    if (!pane || !landed) return;
+    notify({ kind: 'info', text: SCRATCH_NOTICE, transient: true }, { pane: pane.host });
+    if (keptBom) notify({ kind: 'info', text: BOM_KEPT_NOTICE, transient: true }, { pane: pane.host });
+    opts?.onLanded?.();
+  };
+  const bytes = new TextEncoder().encode(keptBom ? `\uFEFF${text}` : text);
+  pane = await panes.openScratch(bytes, {
+    ...opts,
+    onLanded() {
+      landed = true;
+      announce();
+    },
+  });
+  announce();
+  return pane !== null;
 }

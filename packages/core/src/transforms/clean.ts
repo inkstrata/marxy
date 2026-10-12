@@ -5,7 +5,7 @@
 import type { List, ListItem, Node } from '../contracts/ast.ts';
 import { demoteHeading, promoteHeading } from '../operations/heading-level.ts';
 import { markerSpans, mergesWithNeighbour } from '../operations/list-markers.ts';
-import { applyEdits, atxHeadings, indexOf, mapInline, mapProse, nodesOf, parseText, walk } from './prose.ts';
+import { applyEdits, atxHeadings, indexOf, gapsOf, mapInline, mapOutsideCodeSpans, mapProse, nodesOf, parseText, walk } from './prose.ts';
 import type { TransformDef } from './types.ts';
 
 // An emoji, with its joiners and modifiers. `\p{Extended_Pictographic}` alone would take the copyright sign and
@@ -18,7 +18,12 @@ export const stripEmoji: TransformDef = {
   kind: 'edit',
   outsideCode: true,
   idempotent: true,
-  run: (lf) => mapInline(lf, (p) => p.replace(EMOJI, '')),
+  run(lf) {
+    // Nothing to strip means no parse: the parse is the cost of this transform on a large text (W-21.2), and a text
+    // with no emoji needs neither the protected spans nor the code spans to come back unchanged.
+    if (!new RegExp(EMOJI.source, 'u').test(lf)) return lf;
+    return mapInline(lf, (p) => p.replace(EMOJI, ''));
+  },
 };
 
 export const stripFrontmatter: TransformDef = {
@@ -49,19 +54,57 @@ export const stripCitations: TransformDef = {
   outsideCode: true,
   idempotent: true,
   run(lf) {
-    // Footnote definitions (and their indented continuation lines) go whole, line ending included.
-    const defs = mapProse(lf, (p) => p.replace(/^\[\^[^\]\n]+\]:.*(?:\n[ \t]+\S.*)*\n?/gm, ''));
+    // Nothing a citation could be: no `[1]`, `[^note]` or `【…】`, so no parse (the parse is this transform's cost on a
+    // large text, W-21.2).
+    if (!/\[(?:\d+|\^[^\]\n]+)\]|【/.test(lf)) return lf;
     // `[1]` is a marker unless it is a link's text, a reference's label or a definition; `[^note]` unless it opens a definition.
     // A `[1]` whose label the document defines is a reference link, not a marker.
     const labels = new Set([...lf.matchAll(/^ {0,3}\[(\d+)\]:/gm)].map((m) => m[1]));
-    return mapInline(defs, (p) =>
+    const DEF = /^\[\^[^\]\n]+\]:.*(?:\n[ \t]+\S.*)*\n?/gm;
+    const markers = (p: string): string =>
       p
         .replace(/[ \t]?\[(\d+)\](?![(:[])/g, (m, n: string) => (labels.has(n) ? m : ''))
         .replace(/[ \t]?【[^】\n]*】/g, '')
-        .replace(/\[\^[^\]\n]+\](?!:)/g, ''),
-    );
+        .replace(/\[\^[^\]\n]+\](?!:)/g, '');
+    // With no footnote definition to remove, the text the markers are read from is the text that was parsed, so it is
+    // one walk over the cached parse. (A document with no definition used to parse a second time all the same.)
+    if (!new RegExp(DEF.source, 'm').test(lf)) return mapInline(lf, markers);
+    // Footnote definitions (and their indented continuation lines) go whole, line ending included. Taking one out can
+    // change what the parser makes of the lines around it (a fence it was keeping open, say), so the markers used to
+    // be read from a second parse of the text without them. When every definition stands alone between blank lines and
+    // holds nothing that opens or closes a block, removing it leaves the blocks around it as they were, and the one
+    // parse already made serves; otherwise the second parse is still made, so the output is the same either way.
+    if (standAlone(lf, DEF)) {
+      return mapProse(lf, (prose) => mapOutsideCodeSpans(prose.replace(DEF, ''), markers));
+    }
+    return mapInline(mapProse(lf, (p) => p.replace(DEF, '')), markers);
   },
 };
+
+/** True when removing the definitions `def` matches cannot change how the parser reads the rest of `lf`. */
+function standAlone(lf: string, def: RegExp): boolean {
+  if (lf[0] === '-' || lf[0] === '+') return false; // front matter that may not close lasts the whole file
+  for (const g of gapsOf(lf)) {
+    // Definitions one right after another are one run of lines to take out.
+    const runs: [number, number][] = [];
+    for (const m of lf.slice(g.start, g.end).matchAll(def)) {
+      const start = g.start + m.index;
+      const end = start + m[0].length;
+      const run = runs.at(-1);
+      if (run && run[1] === start) run[1] = end;
+      else runs.push([start, end]);
+    }
+    for (const [start, end] of runs) {
+      const alone = start === 0 || (lf[start - 1] === '\n' && (start === 1 || lf[start - 2] === '\n'));
+      const closed = end >= lf.length || lf[end] === '\n';
+      if (!alone || !closed || /[<>`~$|]/.test(lf.slice(start, end))) return false;
+      let next = end;
+      while (lf[next] === '\n') next++;
+      if (lf[next] === ' ' || lf[next] === '\t') return false;
+    }
+  }
+  return true;
+}
 
 export const stripBold: TransformDef = {
   id: 'strip-bold',

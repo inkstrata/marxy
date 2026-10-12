@@ -78,7 +78,8 @@ equality was not byte equality, and no diff over that text can make it so.
   editor's fold: it is taken outside the history, and the editor's history is dropped with it, because every change in
   it was made at positions the new text no longer has (mapped through a whole-text replace they all landed at the end,
   and a Mod+Z wrote a CRLF there; mapped through a Rendered undo they put back a character that undo had taken out).
-  Source's Mod+Z then has nothing to undo until the reader types again. The store's undo in Rendered is byte-exact
+  Source's Mod+Z then has nothing to undo until the reader types again. A key typed in the same task as a save's fold (before the fold settles) is not a change from outside: the fold goes
+  again over the text the editor holds, so the key stays in the editor and the store, and the next write has it (F-42). The store's undo in Rendered is byte-exact
   throughout, and steps back over every fold (F-40).
 - Searching Source for U+FFFD does not find a stray byte (it is a different character there); the marker shows it.
 - A line copied with no selection (CodeMirror's line-wise copy) that holds a stray byte pastes back as text at the
