@@ -16,6 +16,20 @@ export function normalizePath(path: string): string {
   return slash.replace(/\/+$/, '') || '/';
 }
 
+/** `normalizePath` with `.` segments dropped and `..` segments resolved lexically (a `..` at the top stays at the top). */
+export function collapseDots(path: string): string {
+  const norm = normalizePath(path);
+  const m = /^([A-Za-z]:)?\//.exec(norm);
+  const head = m ? m[0] : '';
+  const out: string[] = [];
+  for (const seg of norm.slice(head.length).split('/')) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') out.pop();
+    else out.push(seg);
+  }
+  return head + out.join('/') || '/';
+}
+
 /** Parent directory of `path`, or the path itself when it is already the root. */
 export function dirname(path: string): string {
   const normalized = normalizePath(path);

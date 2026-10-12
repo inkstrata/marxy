@@ -14,7 +14,7 @@ import {
 import { invalidateByMtime, type IndexSnapshot } from '@marxy/core/src/index-model/persist.ts';
 import { isDeniedName } from '@marxy/core/src/index-model/deny.ts';
 import { isIgnored } from '@marxy/core/src/index-model/ignore.ts';
-import { basename, dirname, joinPath, normalizePath, relativePath } from '@marxy/core/src/index-model/paths.ts';
+import { basename, collapseDots, dirname, joinPath, normalizePath, relativePath } from '@marxy/core/src/index-model/paths.ts';
 
 /** Shell surface the index walk needs (ADR-0026 `readDir`, byte reads for headings). */
 export interface IndexLoadShell {
@@ -85,6 +85,8 @@ export async function walkRoot(
   if (indexDisabled(shell)) {
     return { entries: [], calls: 0, ignoreRules: [] };
   }
+  // The root as the reader named it, minus `.` and `..` segments; the listing is kept under it (see `prefetchDirectoryReader`).
+  root = collapseDots(root);
   let calls = 0;
   const counted: IndexLoadShell = {
     readDir: (dir) => {
@@ -173,7 +175,7 @@ async function pathIsDirectory(shell: IndexLoadShell, path: string): Promise<boo
   const name = basename(path);
   if (name === '/') return true;
   const listing = await shell.readDir(parent);
-  return listing.some((entry) => entry.path === path && entry.isDir);
+  return listing.some((entry) => joinPath(parent, basename(entry.path)) === normalizePath(path) && entry.isDir);
 }
 
 async function prefetchDirectoryReader(
@@ -203,7 +205,9 @@ async function prefetchDirectoryReader(
       const name = basename(stat.path);
       entries.push({
         name,
-        path: normalizePath(stat.path),
+        // The shell lists canonical paths (symlinks resolved, `/private/tmp` for `/tmp`). A child is the folder asked
+        // for plus its name, so a root named through a symlink still finds its files under it (F-37.1).
+        path: joinPath(key, name),
         isDir: stat.isDir,
         mtimeMs: stat.mtimeMs,
         size: stat.size,
