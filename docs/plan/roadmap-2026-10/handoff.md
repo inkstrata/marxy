@@ -1,4 +1,4 @@
-# Lead handoff: 2026-10-11 night (X-17), S-13 curated, five PRs reviewed
+# Lead handoff: 2026-10-11 night (X-17), S-13 curated, four PRs merged
 
 **Read first:** this section, then "end of the wave 4–7 session" below (its order and lessons still hold).
 
@@ -7,29 +7,19 @@
 - **Bug sweep S-13 curated** (`~/Dev/marxy-bugs`, packets P-24 and P-25). All four findings hold on `70801a93`
   (none of their files changed since the baseline): S-13-0001 = W-05.2, S-13-0002 = F-21.1, S-13-0003 → F-38,
   S-13-0004 → F-37 (latent, fixed anyway).
-- **Reviewed, verdict merge, not merged:** the auto-mode classifier refused `lead-merge.mjs` ("merge without
-  review") and the author's global rules say to ask before merging. Each waits for the author's go-ahead or
-  the author's own merge. Verdict files were written in the session scratchpad; re-review if the head moves.
-
-| Story | PR | Reviewed head | Note |
-| --- | --- | --- | --- |
-| F-39 | #596 | 6c526873 | lead verdict (test only); land first |
-| V-12 | #594 | c87f19ad | ADR-0067 proposed |
-| K-05b | #581 | f733f7da | CI red only on the J-03.2 timing flake (F-39) |
-| W-05.2 + F-37 (+ F-21.1) | #595 | 9ea7ccfb | green |
-| F-38 | #593 | 637481e5 | code-owned (sanitiser); red only on F-39's flake |
+- **Merged** (author's go-ahead for the lead to merge, given in this session): F-39 #596, V-12 #594, K-05b #581,
+  W-05.2 + F-37 + F-21.1 #595. K-05b and #595 merged after a clean update from main, with CI green on the combination.
+- **Waiting for the author:** F-38 #593 (code-owned sanitiser; review verdict posted on the PR, head f6d8926e).
 
 ## Next, in order
 
-1. F-39 (#596) first: until it lands, the J-03.2 flake can red `fast` on any PR. Then the others, in table order, rebasing
-   each on the last (V-12 and K-05b both touch the theme tokens).
+1. The author merges F-38 #593.
 2. Then the previous handoff's list: J-06, W-04.1, the small follow-ups, F-36, X-15 (wave 8 cards), F-34.2's
    rerun adversarial review, W-21.1 and V-11.1. New follow-ups: F-37.1 (see its row).
 
 ## For the author
 
-1. **Merges:** say whether the lead may run `lead-merge.mjs` (it needs a permission rule for the classifier),
-   or merge the table above yourself. F-38 is code-owned either way.
+1. **Merge F-38 #593** (code-owned).
 2. **F-38's open ruling:** keep decoding attributes to a fixed point (`&amp;#45;3` becomes `-3`; a browser keeps
    it literal), or decode once?
 3. Still open: ADR-0069, ADR-0067, ADR-0060, ADR-0061.
