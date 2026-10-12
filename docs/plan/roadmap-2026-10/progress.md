@@ -276,6 +276,7 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 | F-39 | The J-03.2 "ten times the text" timing test fails on main under load | sonnet (low) | merged | [#596](https://github.com/inkstrata/marxy/pull/596) | — | Red on #591's own run, #581 and #593. Minimum of 5 runs per side; 20/20 local passes. Lead verdict: merge at 6c526873. |
 | X-17 | Hand off the 2026-10-11 night session (S-13 curated) | lead | merged | [#597](https://github.com/inkstrata/marxy/pull/597) | — | |
 | X-18 | Record the author\'s rulings: open questions resolved to their defaults | lead | in review | — | — | This PR. |
+| X-19 | a design pass on how notifications, errors and command-opened surfaces reach the reader | opus (high) | needs author | — | ../marxy-wt/X-19 (docs/x-19-notifications-design-card) | Card in `direction-2026-10/16-design-pass-notifications.md`. Decides nothing; 11 questions for the author. Blocks W-04.1 and the clipboard UX. |
 
 ## Handoff
 
