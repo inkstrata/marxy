@@ -1,7 +1,8 @@
 // One table across every binding (W-19): the registry's `key`/`keys`, the pane chords, the palette's own
 // summoning chords and the native menu's accelerators. No chord has two owners. A pane chord or a menu item
-// that replays a command's chord is that command's, not a second owner. Source's editor chords are checked
-// against the registry in source-structure.test.mjs.
+// that replays a command's chord is that command's, not a second owner. Source's own keymap bindings (`FOLD_KEYS`)
+// are in the table too, on both platforms. CodeMirror's default keymap is checked against the registry in
+// source-structure.test.mjs.
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -9,16 +10,18 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { PANE_CHORDS } from '../src/pane/keys.ts';
 import { commands } from '../src/commands/index.ts';
-import { registryChord } from '../src/source/structure.ts';
+import { FOLD_KEYS } from '../src/source/depth-fold.ts';
+import { registryChord, canonicalCm } from '../src/source/structure.ts';
 import { PALETTE_CHORDS } from '../src/palette/chords.ts';
 import { setAppHandle } from '../src/commands/app-handle.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MAC = true;
+const PLATFORMS = [true, false];
 
 const PHYSICAL = { Backslash: '\\', ArrowLeft: 'arrowleft', ArrowRight: 'arrowright', Slash: '/' };
 const physical = (code) => PHYSICAL[code] ?? code.replace(/^(Digit|Key)/, '').toLowerCase();
-const paneChord = (c) => registryChord(['Mod', c.ctrl ? 'Ctrl' : null, c.alt ? 'Alt' : null, c.shift ? 'Shift' : null, physical(c.code)].filter(Boolean).join('+'), MAC);
+const paneChord = (c, mac = MAC) => registryChord(['Mod', c.ctrl ? 'Ctrl' : null, c.alt ? 'Alt' : null, c.shift ? 'Shift' : null, physical(c.code)].filter(Boolean).join('+'), mac);
 
 /** Native menu accelerators, from main.rs; an item that replays a command's chord names that owner. */
 const MENU_OWNERS = {
@@ -28,15 +31,15 @@ const MENU_OWNERS = {
   'marxy-go-forward': 'nav.forward',
 };
 
-function menuAccelerators() {
+function menuAccelerators(mac = MAC) {
   const rs = readFileSync(join(here, '..', 'src-tauri', 'src', 'main.rs'), 'utf8');
   const ids = Object.fromEntries([...rs.matchAll(/pub const ([A-Z_]+): &str = "(marxy-[a-z-]+)"/g)].map((m) => [m[1], m[2]]));
   const items = [...rs.matchAll(/Own\(\s*([A-Z_]+),\s*"[^"]*",\s*"CmdOrCtrl\+([^"]+)"/g)].map((m) => ({ id: ids[m[1]], accel: m[2] }));
   assert.ok(items.length >= 7, 'the menu table was found');
-  return items.map(({ id, accel }) => ({ id, chord: registryChord(`Mod+${accel.replace('Shift+', 'Shift+')}`, MAC) }));
+  return items.map(({ id, accel }) => ({ id, chord: registryChord(`Mod+${accel}`, mac) }));
 }
 
-function table() {
+function table(mac = MAC) {
   const owners = new Map();
   const claim = (chord, owner, source) => {
     if (chord === null) return;
@@ -44,10 +47,12 @@ function table() {
     list.push({ owner, source });
     owners.set(chord, list);
   };
-  for (const cmd of commands()) for (const spec of [cmd.key, ...(cmd.keys ?? [])].filter(Boolean)) claim(registryChord(spec, MAC), cmd.id, 'command');
-  for (const chord of PANE_CHORDS) claim(paneChord(chord), chord.command, 'pane');
-  for (const { spec } of PALETTE_CHORDS) claim(registryChord(spec, MAC), 'palette', 'palette');
-  for (const item of menuAccelerators()) claim(item.chord, MENU_OWNERS[item.id] ?? item.id, 'menu');
+  for (const cmd of commands()) for (const spec of [cmd.key, ...(cmd.keys ?? [])].filter(Boolean)) claim(registryChord(spec, mac), cmd.id, 'command');
+  for (const chord of PANE_CHORDS) claim(paneChord(chord, mac), chord.command, 'pane');
+  for (const { spec } of PALETTE_CHORDS) claim(registryChord(spec, mac), 'palette', 'palette');
+  for (const item of menuAccelerators(mac)) claim(item.chord, MENU_OWNERS[item.id] ?? item.id, 'menu');
+  // Source's own keymap: a binding's chord is its `mac` name on a Mac, else its `key`.
+  for (const b of FOLD_KEYS) claim(canonicalCm((mac ? b.mac : b.key) ?? b.key, mac), `source:${b.key}`, 'source');
   return owners;
 }
 
@@ -57,15 +62,15 @@ function table() {
  */
 const SHARED_CHORDS = new Map([['escape', ['selection.clear', 'view.fold-workspace']]]);
 
-test('no chord has two owners across commands, pane chords, the palette and the native menu', () => {
-  for (const [chord, claims] of table()) {
+test('no chord has two owners across commands, pane chords, the palette, the native menu and Source\'s own keymap, on both platforms', () => {
+  for (const mac of PLATFORMS) for (const [chord, claims] of table(mac)) {
     const distinct = new Set(claims.map((c) => c.owner));
     const shared = SHARED_CHORDS.get(chord);
     if (shared) {
       assert.deepEqual([...distinct].sort(), [...shared].sort(), `${chord} is shared by exactly the declared owners`);
       continue;
     }
-    assert.equal(distinct.size, 1, `${chord} is claimed by ${claims.map((c) => `${c.owner} (${c.source})`).join(' and ')}`);
+    assert.equal(distinct.size, 1, `${mac ? 'mac' : 'other'}: ${chord} is claimed by ${claims.map((c) => `${c.owner} (${c.source})`).join(' and ')}`);
   }
 });
 
@@ -139,4 +144,11 @@ test('W-03 chords are in the table: the panel keys and the fold key', () => {
   assert.deepEqual(ownerOf('Mod+Alt+I'), ['view.toggle-inspector']);
   assert.deepEqual(ownerOf('Escape').sort(), ['selection.clear', 'view.fold-workspace']);
   assert.ok(!ownerOf('Mod+S').includes('view.toggle-sidebar'), 'Control+Command+S is not save');
+});
+
+test('Source\'s fold keys are in the table, with the chords CodeMirror reads on each platform', () => {
+  assert.ok(FOLD_KEYS.length >= 2);
+  const sourceOwners = (mac) => [...table(mac)].filter(([, claims]) => claims.some((c) => c.source === 'source')).map(([chord]) => chord).sort();
+  assert.deepEqual(sourceOwners(true), ['alt-meta-[', 'alt-meta-]']);
+  assert.deepEqual(sourceOwners(false), ['ctrl-shift-[', 'ctrl-shift-]']);
 });
