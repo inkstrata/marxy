@@ -850,6 +850,28 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
 .marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 var(--marxy-color-text-secondary); }
 .marxy-tab[data-marxy-tab-active] { background: var(--marxy-color-accent-wash); box-shadow: inset 0 -2px 0 var(--marxy-color-accent); }
 
+/* The inspector's content (W-09): a strip of tabs and the selected panel, in the `inspector` region's column. Layout only; W-04 owns the look.
+   Nothing here changes the region's width, so the reading column does not move. A link's destination is text, never an anchor. */
+.marxy-inspector { display: flex; flex-direction: column; min-height: 100%; }
+.marxy-inspector-tabs { display: flex; gap: 2px; padding: 0.5em 0.6em; border-block-end: 1px solid var(--marxy-color-rule); position: sticky; top: 0; background: var(--marxy-color-surface); z-index: 1; }
+.marxy-inspector-tab { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.7em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: var(--marxy-color-text-secondary); font: inherit; cursor: default; }
+.marxy-inspector-tab:hover { background: var(--marxy-color-selection); }
+.marxy-inspector-tab[data-marxy-inspector-tab-active] { color: var(--marxy-color-text); background: var(--marxy-color-accent-wash); }
+.marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-inspector-panel { flex: 1 1 auto; min-width: 0; padding: 0.4em 0.6em 1em; }
+.marxy-links-heading { margin: 0.9em 0 0.3em; font: inherit; font-weight: 600; color: var(--marxy-color-text-secondary); }
+.marxy-links-list { list-style: none; margin: 0; padding: 0; }
+.marxy-links-empty { margin: 0.2em 0; color: var(--marxy-color-text-secondary); }
+.marxy-link-row { appearance: none; -webkit-appearance: none; display: flex; flex-direction: column; gap: 0.1em; box-sizing: border-box; width: 100%; margin: 0; padding: 0.35em 0.4em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: inherit; font: inherit; text-align: start; cursor: default; overflow-wrap: anywhere; }
+button.marxy-link-row:hover { background: var(--marxy-color-selection); }
+.marxy-link-dest, .marxy-link-status { color: var(--marxy-color-text-secondary); }
+.marxy-link-mismatch { color: var(--marxy-color-text); font-weight: 600; }
+.marxy-link-mismatch::before { content: "\26A0\FE0E  "; }
+@media (forced-colors: active) {
+  .marxy-inspector-tab[data-marxy-inspector-tab-active] { background: Highlight; color: HighlightText; }
+  .marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible { outline-color: Highlight; }
+}
+
 /* The panes: the middle of the grid, below the bands. A split fills what the bands leave (index.html gives it the window's height). */
 body[data-marxy-workspace="unfolded"] #marxy-main { grid-column: 2; grid-row: 4; min-height: var(--marxy-ws-panes-h); }
 body[data-marxy-workspace="unfolded"] #marxy-main[data-marxy-split] { height: var(--marxy-ws-panes-h); }

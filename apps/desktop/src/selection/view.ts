@@ -284,7 +284,16 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     const snap = record.target.store()?.snapshot();
     if (!snap) return null;
     const version = record.shownVersion ?? snap.version;
-    return { article: record.target.article, nodeMap: snap.nodeMap, document: snap.ast, buffer: snap.buffer, version, shell: opts.shell };
+    // `nodeMap` and `document` are read when asked for, not when the runtime is made: a Source-default file's parse is
+    // made on its first read (V-11.1), and the toolbar's strip makes this runtime at every document change (W-09).
+    return {
+      article: record.target.article,
+      get nodeMap() { return snap.nodeMap; },
+      get document() { return snap.ast; },
+      buffer: snap.buffer,
+      version,
+      shell: opts.shell,
+    };
   };
   const runtime = (): SelectionRuntime | null => runtimeOf(active);
 

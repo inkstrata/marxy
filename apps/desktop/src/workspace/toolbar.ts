@@ -49,10 +49,10 @@ export const TOOLBAR_ITEMS: readonly ToolbarItem[] = [
 
 /**
  * Which doors fold into the *More* menu when the row would overflow, and in what order: the lowest number goes first
- * (the mockup's toolbar, right to left). A door not listed (back, forward, the title, the switch, Copy and the panel
- * toggles) never folds. Kept apart from `TOOLBAR_ITEMS` so a story adding a door adds one line to each.
+ * (the mockup's toolbar, right to left). A door not listed (back, forward, the title, the switch, Copy and the sidebar toggle)
+ * never folds; the inspector's toggle folds last of all (W-09: it is drawn once the inspector has content, and it must not push the row past a narrow window). Kept apart from `TOOLBAR_ITEMS` so a story adding a door adds one line to each.
  */
-export const FOLD_ORDER: Readonly<Record<string, number>> = { transform: 1, export: 2, new: 3, kind: 4, find: 5 };
+export const FOLD_ORDER: Readonly<Record<string, number>> = { transform: 1, export: 2, new: 3, kind: 4, find: 5, inspector: 6 };
 
 /** The switch's three choices, in order. */
 export const MODE_CHOICES: readonly { readonly command: string; readonly label: string }[] = [

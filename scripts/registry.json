@@ -74,6 +74,10 @@
     "data-marxy-tab",
     "data-marxy-tab-active",
     "data-marxy-tab-shown",
+    "data-marxy-inspector-tab",
+    "data-marxy-inspector-tab-active",
+    "data-marxy-link-row",
+    "data-marxy-link-status",
     "data-marxy-edit"
   ],
   "classPrefix": "marxy-",

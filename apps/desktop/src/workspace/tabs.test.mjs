@@ -326,7 +326,7 @@ test('every tab has an accessible name; Tab reaches the row once, arrows move wi
     assert.equal(named.length, 6);
     assert.ok(named.every((n) => n !== ''), named.join('|'));
     assert.equal(await page.evaluate(() => document.querySelector('.marxy-tabs').getAttribute('role')), 'tablist');
-    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('[role=tab]')].map((t) => t.tabIndex)), [-1, -1, 0], 'one tab stop: the active tab');
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.marxy-tabs [role=tab]')].map((t) => t.tabIndex)), [-1, -1, 0], 'one tab stop: the active tab');
     const label = () => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName);
     // From the toolbar's last control, Tab goes to the row; the next Tab leaves it.
     await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); document.querySelector('.marxy-toolbar [tabindex="0"]')?.focus(); });
@@ -427,7 +427,7 @@ test('narrow window: 30 tabs at 929 px, at the default chrome size and at chrome
         }, path);
       assert.equal(await inView('/many/note-29-with-a-long-name.md'), true, 'the active tab is scrolled into view');
       // Home then End in the row reach both ends and scroll the row to them.
-      await page.focus('[role=tab][tabindex="0"]');
+      await page.focus('.marxy-tabs [role=tab][tabindex="0"]');
       await page.keyboard.press('Home');
       assert.equal(await inView(await page.evaluate(() => document.activeElement.closest('[data-marxy-tab]').getAttribute('data-marxy-tab'))), true, 'the first tab can be reached');
       await page.keyboard.press('End');

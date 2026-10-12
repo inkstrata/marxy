@@ -1,3 +1,6 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { pathMentions, xPaths } from './extract.ts';
 import { tableOf, type Case } from './testing/rows.ts';
 
 const DOC = [
@@ -19,3 +22,11 @@ tableOf([
   ['x-tables', 'every table as CSV', DOC, 'h1,h2\n1,2'],
   ['x-questions', 'lines ending in ?, outside code', '- Is it done?\nA statement.\n```\nwhy?\n```\nReally?\n', '- Is it done?\nReally?'],
 ] satisfies Case[]);
+
+test('pathMentions is what x-paths prints, and the list the desktop inspector reads', () => {
+  const cases = [DOC, '', 'No paths here, only README.md.', 'Code `a/b.ts` then\n\n```\n`c/d.ts`\n```\n\nand `~/e/f.toml`, `../g/h.md`, `a/b.ts`.\n', '---\nx: `y/z.md`\n---\n\n`p/q.rs`'];
+  for (const lf of cases) assert.equal(xPaths.run(lf, {} as never), pathMentions(lf).join('\n'));
+  assert.deepEqual(pathMentions(cases[3]!), ['a/b.ts', '~/e/f.toml', '../g/h.md']);
+  assert.deepEqual(pathMentions(cases[4]!), ['p/q.rs'], 'front matter is not read');
+  assert.deepEqual(pathMentions(cases[2]!), [], 'a bare file name has no slash');
+});

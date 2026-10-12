@@ -137,6 +137,26 @@ scrolls sideways. The row is one tab stop; arrows, Home and End move within it, 
 it. Palette commands: `tab.next`, `tab.previous`, `tab.close` (no keys: ⌘W closes the window and ⌃Tab is the author's
 to rule), available only while the row holds two tabs or more.
 
+**Inspector (W-09; ADR-0058 item 5).** Unfolded, the `inspector` region holds `div.marxy-inspector`: a `role="tablist"`
+strip and the selected tab's `role="tabpanel"` (`workspace/inspector.ts`). The strip is a table:
+`registerInspectorTab({ id, title, mount })` adds a tab and returns its withdrawal, a tab is drawn only while its builder
+is registered, and the tab shown is kept in memory for the session, never written. Links is registered beside the fill in
+`workspace/fill.ts`; Outline (W-10), Metadata (W-17) and Versions (V-06) register theirs and change nothing here. A panel
+is mounted when its tab is selected and let go when another is, and does no work while the region is hidden. The whole
+region is one tab stop: Left and Right move between tabs, Down enters the panel's rows, Up and Down move through them,
+Up from the first row returns to the tab strip.
+
+*Links* (`workspace/links-tab.ts`) lists, for the focused document, **Links**: each link as written (the link text, the
+real destination as text and never an anchor, and `linkHostMismatchLabel`'s warning when the text names another host),
+a row that moves the document to the link (`handle.open(path, { at })`, the outline's way); and **Paths mentioned**
+(`pathMentions`, the backticked paths with a slash that `x-paths` prints), each *found*, *not found* or *not checked*.
+A path is looked for beside the document and in its repository root (`~/` in the home folder) with `shell.stat`, which
+answers null for a missing path and also for a symlink or a deny-listed folder, so "not found" is said only when every
+folder above the file is a real, listed one; otherwise the row says "not checked". Nothing is fetched or opened from
+here. A file that opens in Source and has not been parsed (`store.parsed()` false) is never parsed for the tab: its paths
+come from the bytes and the link list reads "Links are listed for Markdown" until the reader's first switch to Rendered
+makes the parse. Backlinks are not in the tab (they need a scan of other files; the author has not ruled).
+
 **Remembered panels.** Which regions are docked is `workspace.json` in the data directory beside `layout.json`
 (`{ version, panels: { sidebar, toolbar, tabs, strip, inspector, status-bar } }`; same version guard and quarantine).
 It is read when the reader unfolds (the first time in a session) and written when they fold or quit while unfolded,
