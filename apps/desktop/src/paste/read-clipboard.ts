@@ -93,3 +93,42 @@ export async function readConverted(shell: PasteShell): Promise<ConvertedRead> {
 /** The notice for a paste that converted HTML. */
 export const CONVERTED_NOTICE = 'Pasted as Markdown (converted from HTML)';
 export const NOTHING_TO_PASTE = 'Nothing to paste';
+
+/** Said when the clipboard holds nothing (or only empty text) for a transform to work on. */
+export const NOTHING_TO_TRANSFORM = 'Nothing on the clipboard to transform';
+
+const transformRefusal = (why: string): string => `Not transformed: ${why}`;
+
+export type TransformRead =
+  | Refusal
+  | { readonly refused?: undefined; readonly empty: true }
+  | { readonly refused?: undefined; readonly empty?: false; readonly text: string; readonly kind: 'text' | 'html' };
+
+/**
+ * What a clipboard transform works on (J-06), read on the reader's command and not before: the types, then at most two
+ * representations. A concealed item is refused after the type list and before any read. Plain text is used as it is;
+ * an item with HTML and no text is read as `convertClipboard`'s Markdown. An item with only an image, RTF or a URL is
+ * refused by name. Text that is not valid UTF-8 is refused with its message (nothing is read lossily).
+ */
+export async function readForTransform(shell: PasteShell): Promise<TransformRead> {
+  try {
+    const types = await shell.clipboardTypes();
+    if (types.includes(clipboard.CONCEALED)) return { refused: CONCEALED_REFUSAL.replace('Not pasted', 'Not transformed') };
+    const text = types.includes(clipboard.TEXT) ? await readText(shell, clipboard.TEXT) : null;
+    if (text !== null && text !== '') return { text, kind: 'text' };
+    if (types.includes(clipboard.HTML)) {
+      const html = await readText(shell, clipboard.HTML);
+      if (html !== null && html !== '') {
+        const got = convertClipboard({ html });
+        if (got.markdown !== '') return { text: got.markdown, kind: 'html' };
+      }
+    }
+    const held = types.filter((t) => !t.startsWith('org.nspasteboard.') && t !== clipboard.TEXT && t !== clipboard.HTML);
+    if (held.includes(clipboard.PNG)) return { refused: transformRefusal('the clipboard holds an image, and only text can be transformed.') };
+    if (held.length > 0) return { refused: transformRefusal('the clipboard holds no text (only another format), and only text can be transformed.') };
+    return { empty: true };
+  } catch (err) {
+    const unsupported = (err as { code?: unknown } | null)?.code === 'unsupported';
+    return { refused: refusalFor(err).replace('Not pasted', 'Not transformed'), ...(unsupported ? { unsupported: true as const } : {}) };
+  }
+}

@@ -876,3 +876,108 @@ test('the file deleted while a choice is pending: Keep mine saves the copy and k
   assert.equal(dec.decode(store.snapshot().buffer.bytes), 'two\n');
   assert.equal(store.snapshot().canUndo, true);
 });
+
+// --- A store opened lazily: a file that opens in Source has no parse until something asks (V-11.1) -------------
+
+import { parseMarkdown } from '@marxy/core';
+
+const CODE = '# a comment\n\ndef main():\n    # another\n    return 1\n';
+const lazyStore = (io: StoreIo = recordingIo(), path = '/repo/x.py', bytes = CODE) =>
+  openDocumentStore(io, path, enc.encode(bytes), undefined, { lazy: true });
+/** What the parse of these bytes under this name is, as a string that compares. */
+const parseOf = (bytes: Uint8Array, file: string): string => JSON.stringify(parseMarkdown(bytes, { file }));
+const astOf = (snap: DocumentSnapshot): string => JSON.stringify(snap.ast);
+
+test('lazy: opening, subscribing and reading the buffer and flags make no parse; the first read of the AST makes it, once', () => {
+  const store = lazyStore();
+  assert.equal(store.parsed(), false);
+  const snap = store.snapshot();
+  assert.equal(text(snap), CODE);
+  assert.equal(snap.dirty, false);
+  assert.equal(snap.version, 0);
+  assert.equal(store.parsed(), false, 'bytes, flags and version are not the parse');
+  const first = snap.ast;
+  assert.equal(store.parsed(), true);
+  assert.equal(snap.ast, first, 'the parse is made once');
+  assert.equal(astOf(snap), parseOf(enc.encode(CODE), '/repo/x.py'), 'and it is the parse of the bytes under the file name');
+});
+
+test('lazy: an edit, an undo, a redo and a Source commit made before any parse parse nothing, and the late parse is of the bytes then', async () => {
+  const store = lazyStore();
+  const seen: DocumentSnapshot[] = [];
+  store.subscribe((snap) => seen.push(snap));
+  assert.equal(await store.apply({ range: range(0, 0), replacement: '# typed\n', label: 'edit' }), true);
+  assert.equal(await store.commitSource(`# typed\n${CODE}more\n`), true);
+  assert.equal(await store.undo(), true);
+  assert.equal(await store.undo(), true);
+  assert.equal(await store.redo(), true);
+  assert.equal(store.parsed(), false, 'edits, history and the snapshots they made parsed nothing');
+  assert.equal(seen.length, 5);
+  const now = store.snapshot();
+  assert.equal(text(now), `# typed\n${CODE}`);
+  assert.equal(astOf(now), parseOf(enc.encode(`# typed\n${CODE}`), '/repo/x.py'));
+  assert.equal(store.parsed(), true);
+  // Every snapshot is of its own bytes: an old one read late parses the bytes it had, not the current ones.
+  assert.equal(astOf(seen[0]!), parseOf(enc.encode(`# typed\n${CODE}`), '/repo/x.py'));
+  assert.equal(astOf(seen[1]!), parseOf(enc.encode(`# typed\n${CODE}more\n`), '/repo/x.py'));
+  assert.equal(astOf(seen[3]!), parseOf(enc.encode(CODE), '/repo/x.py'));
+});
+
+test('lazy: a save writes the typed bytes and the late parse of the saved file is right', async () => {
+  const io = recordingIo();
+  const store = lazyStore(io);
+  await store.apply({ range: range(0, 0), replacement: '# typed\n', label: 'edit' });
+  assert.deepEqual((await store.save()).result, 'saved');
+  assert.equal(dec.decode(io.writes[0]!.bytes), `# typed\n${CODE}`);
+  assert.equal(store.snapshot().dirty, false);
+  assert.equal(store.parsed(), false, 'a save is not a parse');
+  assert.equal(astOf(store.snapshot()), parseOf(io.writes[0]!.bytes, '/repo/x.py'));
+});
+
+test('lazy: a rename and a Save as under a new name parse nothing, and the late parse names the new file', async () => {
+  const io = recordingIo();
+  const store = lazyStore(io);
+  await store.rename('/repo/renamed.py');
+  assert.equal(store.parsed(), false);
+  await store.apply({ range: range(0, 0), replacement: '# typed\n', label: 'edit' });
+  assert.equal((await store.save({ to: '/repo/copy.py' })).result, 'saved');
+  assert.equal(store.parsed(), false);
+  const snap = store.snapshot();
+  assert.equal(snap.path, '/repo/copy.py');
+  assert.equal(snap.ast.src.file, '/repo/copy.py', 'provenance names the file it is now');
+  assert.equal(astOf(snap), parseOf(enc.encode(`# typed\n${CODE}`), '/repo/copy.py'));
+});
+
+test('lazy: a reload before any parse makes none, and a reload after one reparses from it; both end at the parse of the new bytes', async () => {
+  const io = recordingIo();
+  const store = lazyStore(io);
+  const fresh = enc.encode('# from another editor\n\nprint(1)\n');
+  assert.equal(await store.reload(fresh), 'reloaded');
+  assert.equal(store.parsed(), false);
+  assert.equal(astOf(store.snapshot()), parseOf(fresh, '/repo/x.py'));
+  const again = enc.encode('# from another editor\n\nprint(2)\n');
+  assert.equal(await store.reload(again), 'reloaded');
+  assert.equal(store.parsed(), true, 'once the parse has been asked for, the store keeps one');
+  assert.equal(astOf(store.snapshot()), parseOf(again, '/repo/x.py'));
+  assert.equal(await store.undo(), false);
+});
+
+test('lazy: a reload into a dirty buffer keeps the typed text and a late parse is of it', async () => {
+  const store = lazyStore();
+  await store.apply({ range: range(0, 0), replacement: '# typed\n', label: 'edit' });
+  assert.equal(await store.reload(enc.encode('# theirs\n')), 'kept');
+  assert.equal(store.parsed(), false);
+  assert.equal(text(store.snapshot()), `# typed\n${CODE}`);
+  assert.equal(astOf(store.snapshot()), parseOf(enc.encode(`# typed\n${CODE}`), '/repo/x.py'));
+});
+
+test('lazy: reading the node map makes the parse too, once, and an eager store has always parsed', () => {
+  const store = lazyStore();
+  const snap = store.snapshot();
+  const map = snap.nodeMap;
+  assert.equal(store.parsed(), true);
+  assert.equal(snap.nodeMap, map, 'the node map is made once');
+  assert.equal(store.snapshot().ast, snap.ast, 'and belongs to the one parse');
+  const eager = openDocumentStore(recordingIo(), PATH, enc.encode('# T\n'));
+  assert.equal(eager.parsed(), true, 'a store opened without lazy has always parsed');
+});

@@ -149,6 +149,9 @@ test('opening a .py at launch never paints a Markdown heading before Source moun
   assert.equal(await mode(page), 'source');
   assert.equal(await editorShown(page), true);
   assert.equal(await page.evaluate(() => document.querySelector('#doc').children.length), 0, 'the article holds no page');
+  assert.equal(await page.evaluate(() => window.__h.document().parsed()), false, 'the Markdown parse of a code file waits for the first ask for Rendered');
+  assert.equal(await page.evaluate(() => window.__h.openDocument().path), '/repo/x.py');
+  assert.equal(await page.evaluate(() => window.__h.document().parsed()), false, 'asking what is open does not parse it');
   await page.close();
 });
 
@@ -166,6 +169,7 @@ test('opening a .py over a Markdown page never paints a heading before Source mo
   assert.equal(paintedBeforeEditor(all), 0, 'an h1 was painted while x.py opened');
   assert.equal(await mode(page), 'source');
   assert.equal(await page.evaluate(() => document.querySelector('.cm-content').textContent.includes('def main')), true);
+  assert.equal(await page.evaluate(() => window.__h.document().parsed()), false, 'an open parses a code file no more than a launch does');
   await page.close();
 });
 
@@ -284,10 +288,12 @@ test('an odd number of presses on a .py ends in Rendered, and Rendered is made t
   await started(page);
   const mod = await modifier(page);
   assert.equal(await page.evaluate(() => document.querySelector('#doc').children.length), 0);
+  assert.equal(await page.evaluate(() => window.__h.document().parsed()), false);
   for (let i = 0; i < 3; i++) await page.keyboard.press(`${mod}+KeyE`);
   await drained(page);
   assert.equal(await mode(page), 'rendered');
   assert.ok(await page.evaluate(() => document.querySelector('#doc').children.length) > 0, 'the page is made on the first ask for Rendered');
+  assert.equal(await page.evaluate(() => window.__h.document().parsed()), true, 'and the parse with it');
   assert.equal(await page.evaluate(() => document.querySelector('#doc').hidden), false);
   await page.close();
 });
@@ -408,3 +414,19 @@ for (const [what, breakIt] of [
     await page.close();
   });
 }
+
+test('text typed in a .py before the parse was ever made is saved as typed, and Rendered parses it', async () => {
+  const page = await freshPage();
+  await startSampled(page, FILES, ['/repo/x.py']);
+  await started(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.press(`${await modifier(page)}+ArrowUp`);
+  await page.keyboard.type('# typed\n');
+  await page.keyboard.press(`${await modifier(page)}+KeyE`);
+  await drained(page);
+  assert.equal(await mode(page), 'rendered');
+  assert.ok((await page.evaluate(() => document.querySelector('#doc').textContent)).includes('typed'));
+  const bytes = await page.evaluate(() => new TextDecoder().decode(window.__h.document().snapshot().buffer.bytes));
+  assert.equal(bytes, `# typed\n${PY}`);
+  await page.close();
+});

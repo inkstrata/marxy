@@ -243,6 +243,15 @@ export class WalkFailure extends Error {
   }
 }
 
+/** A file that opens in Source gets a store that parses when first asked (V-11.1): half the paths, by name, so the walk goes both ways. */
+const opensLazily = (path) => [...path].reduce((n, c) => n + c.charCodeAt(0), 0) % 2 === 0;
+/** The parse the store holds, as text, and the parse of its bytes under its name: what a late-made parse must equal. */
+const parseDisagreement = (doc) => {
+  const snap = doc.store.snapshot();
+  const held = JSON.stringify(snap.ast);
+  const fresh = JSON.stringify(parseMarkdown(snap.buffer.bytes, { file: snap.path }));
+  return held === fresh ? null : `${snap.path}: the store's parse (${doc.store.parsed() ? 'made' : 'not made'} before this read) is not the parse of its ${snap.buffer.bytes.length} bytes`;
+};
 const docOf = (model, store) => model.docs.find((doc) => doc.store === store);
 const viewsOf = (model, doc) => model.views.filter((v) => v !== null && v.doc === doc);
 const unfolded = (view) => view.draft !== null;
@@ -378,7 +387,7 @@ export class World {
     if (!held) bytes = await this.shell.readFile(path);
     if (model.views[slot]) this.detach(slot);
     const holder = { store: null };
-    const store = this.registry.acquire(path, () => openDocumentStore(this.ioFor(holder), path, bytes));
+    const store = this.registry.acquire(path, () => openDocumentStore(this.ioFor(holder), path, bytes, undefined, { lazy: opensLazily(path) }));
     holder.store = store;
     const doc = docOf(model, store) ?? this.newDoc(store, path, bytes);
     await this.watches.watch(store);
@@ -1302,6 +1311,20 @@ export const OPS = {
     },
   },
 
+  readParse: {
+    name: 'readParse',
+    weight: 4,
+    applicable: (model) => model.docs.length > 0,
+    async run(world, model) {
+      // Rendered asked for: the first read of a lazily opened store's parse, after whatever came before it (V-11.1).
+      const doc = model.d.pick(model.docs);
+      const made = doc.store.parsed();
+      const problem = parseDisagreement(doc);
+      if (problem) world.fail('I8', problem);
+      return `the parse of ${doc.path} is read (${made ? 'already made' : 'made now'})`;
+    },
+  },
+
   outsideWrite: {
     name: 'outsideWrite',
     weight: 7,
@@ -1602,6 +1625,11 @@ export async function runWalk(seed, { steps } = {}) {
       }
       model.allowed.clear();
       model.dropped.clear();
+    }
+    // Whatever was never read is read now: a parse made this late is the parse of the bytes the walk ended with (V-11.1).
+    for (const doc of model.docs) {
+      const problem = parseDisagreement(doc);
+      if (problem) throw new Error(describeFailure(seed, { invariant: 'I8 (a late parse is the parse of the bytes)', message: problem }, model.trace));
     }
     const files = {};
     for (const stat of await world.shell.readDir(ROOT)) files[stat.path] = Buffer.from(await world.shell.peekFile(stat.path)).toString('hex');

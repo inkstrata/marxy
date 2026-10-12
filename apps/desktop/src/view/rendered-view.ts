@@ -1666,9 +1666,23 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     next: DocumentStore,
     opts: { at?: number; onMounted?: () => void },
   ): Promise<RenderEvidence> {
-    const { path: file, ast, nodeMap } = next.snapshot();
-    // A page that is not on screen yet: `document()` still answers, from the parse, and the HTML is made when read.
-    shown = openDocumentOf(ast, nodeMap, [], null, () => renderDocumentSafeHtml(ast, trust.policyFor(file)).html);
+    const file = next.snapshot().path;
+    // A page that is not on screen yet: `document()` still answers, and the parse (which the store has not made
+    // for a file that opens in Source) and the HTML are made when read.
+    const unmade: OpenDocument = {
+      get ast() {
+        return next.snapshot().ast;
+      },
+      get nodeMap() {
+        return next.snapshot().nodeMap;
+      },
+      get html() {
+        return renderDocumentSafeHtml(next.snapshot().ast, trust.policyFor(file)).html;
+      },
+      blocks: [],
+      render: null,
+    };
+    shown = unmade;
     pageStale = true;
     await showSource(opts.at ?? 0);
     if (store !== next) throw new Error('the document was replaced while Source was mounted');

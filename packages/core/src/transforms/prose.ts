@@ -108,10 +108,17 @@ export function mapInline(lf: string, f: (piece: string) => string, doc?: Docume
   }, doc);
 }
 
+function isAtxAt(lf: string, at: number, level: number): boolean {
+  for (let i = 0; i < level; i++) if (lf[at + i] !== '#') return false;
+  const next = lf[at + level];
+  return next === undefined || next === ' ' || next === '\t' || next === '\n';
+}
+
 /** The ATX headings of the document (setext headings have no `#` run to edit and are left out), with their spans. */
 export function atxHeadings(lf: string, doc: Document = parseText(lf)): { heading: Heading; span: Span }[] {
   return nodesOf<Heading>(lf, doc, ['heading'])
-    .filter(({ span }) => lf[span.start] === '#')
+    // A setext heading whose text starts with `#` (`#x` over `---`) is not ATX: its level is the underline's, not the run's.
+    .filter(({ node, span }) => isAtxAt(lf, span.start, node.level))
     .map(({ node, span }) => ({ heading: node, span }));
 }
 

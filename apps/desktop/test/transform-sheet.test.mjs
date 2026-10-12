@@ -68,8 +68,10 @@ async function withApp(files, fn, { open = [A], width = 1280 } = {}) {
         await page.keyboard.press(`${mod}+Slash`);
         await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
         await page.locator('#marxy-palette .marxy-palette-query').fill(`>Transform: ${name}`);
-        await page.waitForFunction((name) => document.querySelector('#marxy-palette .marxy-palette-row .marxy-palette-title')?.textContent === `Transform: ${name}`, name);
-        await page.keyboard.press('Enter');
+        // Rows run alphabetically, so J-06's `Transform clipboard: …` row comes first: click the exact title.
+        const row = page.locator('#marxy-palette .marxy-palette-title').filter({ hasText: new RegExp(`^Transform: ${name}$`) });
+        await row.waitFor();
+        await row.click();
         await page.waitForSelector('#marxy-transform[open]');
       },
       sheet: () =>
@@ -125,7 +127,8 @@ test('Mod+/ opens the palette on >Transform and lists exactly TRANSFORMS.length 
     const rows = got.titles.filter((t) => t.startsWith('Transform: '));
     assert.equal(rows.length, TRANSFORMS.length, 'one row per transform that can run');
     assert.deepEqual(rows, TRANSFORMS.map((t) => `Transform: ${t.name}`).sort());
-    assert.deepEqual(got.titles, rows, 'and nothing else is listed under the query');
+    // J-06's `Transform clipboard: …` rows share the group and the word; they are the only other rows under the query.
+    assert.deepEqual(got.titles.filter((t) => !t.startsWith('Transform clipboard: ')), rows, 'and nothing else is listed under the query');
     await page.keyboard.press(`${s.mod}+Slash`);
     assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), false);
     // Mod+Shift+P still opens on every command.
@@ -162,7 +165,7 @@ test('the toolbar shows Transform once transform.open is registered, and the but
     await button.click();
     await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
     assert.equal(await page.evaluate(() => document.querySelector('#marxy-palette .marxy-palette-query').value), '>Transform');
-    assert.equal(await page.locator('#marxy-palette .marxy-palette-row').count(), TRANSFORMS.length);
+    assert.equal(await page.locator('#marxy-palette .marxy-palette-row').filter({ hasNotText: /^Transform clipboard: / }).count(), TRANSFORMS.length);
   });
 });
 
@@ -443,8 +446,9 @@ test('text with bytes that are not UTF-8 in the range: Apply is not offered (it 
     const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
     await page.keyboard.press(`${mod}+Slash`);
     await page.locator('#marxy-palette .marxy-palette-query').fill('>Transform: Sort lines');
-    await page.waitForFunction(() => document.querySelector('#marxy-palette .marxy-palette-row .marxy-palette-title')?.textContent === 'Transform: Sort lines');
-    await page.keyboard.press('Enter');
+    const row = page.locator('#marxy-palette .marxy-palette-title').filter({ hasText: /^Transform: Sort lines$/ });
+    await row.waitFor();
+    await row.click();
     await page.waitForSelector('#marxy-transform[open]');
     const got = await page.evaluate(() => ({
       buttons: [...document.querySelectorAll('#marxy-transform .marxy-transform-actions button')].map((b) => b.firstChild.textContent),
