@@ -18,9 +18,10 @@ import { palette } from '../commands/app-handle.ts';
 import type { AppContext, Command } from '../commands/registry.ts';
 import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
 import { relativeAge, spokenAge } from '../palette/empty-state.ts';
-import { buildAppContext } from '../selection/bind.ts';
+import { buildAppContext, openPalette } from '../selection/bind.ts';
 import { SIDEBAR_SECTIONS, sidebarSections, type SidebarMark, type SidebarSection } from './sidebar.ts';
 import type { DocumentSignal } from './toolbar.ts';
+import { toolbarIconElement } from './toolbar-icons.ts';
 
 const LIBRARY_COMMAND = 'library.open';
 /** How often a sidebar made before the palette looks for it. The palette mounts within the launch, so this ends at once. */
@@ -114,23 +115,59 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     const focusKey = refocus ?? (document.activeElement as HTMLElement | null)?.dataset?.stop;
     const sections = sectionsNow();
     const library = libraryCommand() !== undefined;
+    const feedCount = palette()?.feed.entries().length ?? 0;
+    const watching = handle.index.watchedRoots().length > 0;
+    const active = handle.panes().focused.path() ?? '';
     const rows = sections.map((s) => ({
       id: s.id,
       rows: s.rows.map((r) => [r.entry.path, r.entry.title, r.entry.mtimeMs, r.mark, relativeAge(Date.now(), r.entry.mtimeMs)]),
     }));
-    const key = JSON.stringify([library, [...collapsed], rows, sectionsKeyKinds(sections)]);
+    const key = JSON.stringify([library, [...collapsed], rows, sectionsKeyKinds(sections), feedCount, watching, active]);
     if (key === drawn) return;
     drawn = key;
     root.replaceChildren();
 
+    root.append(searchField());
     if (library) root.append(libraryRow());
-    for (const section of sections) root.append(sectionNode(section));
+    for (const section of sections) root.append(sectionNode(section, active));
+    if (feedCount > 0) root.append(footNode(feedCount, watching));
     rove();
     if (hadFocus && focusKey) (stopFor(focusKey) ?? stopsOf()[0])?.focus();
     rove();
   }
 
   const sectionsKeyKinds = (sections: readonly SidebarSection[]): string[] => sections.flatMap((s) => s.rows.map((r) => kindOf(r.entry)));
+
+  /** The search field: it opens the palette, as ⌘K does. It is not a filter; the sidebar has none yet. */
+  const searchField = (): HTMLElement => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'marxy-sidebar-search';
+    button.dataset.stop = 'search';
+    button.setAttribute('data-marxy-sidebar-search', '');
+    button.setAttribute('aria-label', 'Search documents, opens the palette');
+    button.setAttribute('aria-keyshortcuts', mac ? 'Meta+K' : 'Control+K');
+    const label = document.createElement('span');
+    label.className = 'marxy-sidebar-search-label';
+    label.textContent = 'Search';
+    const chip = document.createElement('kbd');
+    chip.className = 'marxy-sidebar-chip';
+    chip.textContent = mac ? '\u2318K' : 'Ctrl+K';
+    chip.setAttribute('aria-hidden', 'true');
+    button.append(toolbarIconElement(document, 'find'), label, chip);
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', () => openPalette());
+    return button;
+  };
+
+  /** The foot: how many documents the index holds and whether it is watching. Text, not a control. */
+  const footNode = (count: number, watching: boolean): HTMLElement => {
+    const foot = document.createElement('div');
+    foot.className = 'marxy-sidebar-foot';
+    foot.setAttribute('data-marxy-sidebar-foot', '');
+    foot.textContent = `${count} ${count === 1 ? 'document' : 'documents'} indexed${watching ? ', watching' : ''}`;
+    return foot;
+  };
 
   const libraryRow = (): HTMLElement => {
     const button = document.createElement('button');
@@ -145,7 +182,7 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     return button;
   };
 
-  const sectionNode = (section: SidebarSection): HTMLElement => {
+  const sectionNode = (section: SidebarSection, active: string): HTMLElement => {
     const folded = collapsed!.has(section.id);
     const node = document.createElement('section');
     node.className = 'marxy-sidebar-section';
@@ -161,7 +198,9 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     const title = document.createElement('span');
     title.className = 'marxy-sidebar-title';
     title.textContent = section.title;
-    header.append(title);
+    const chevron = toolbarIconElement(document, 'chevron');
+    chevron.classList.add('marxy-sidebar-chevron');
+    header.append(chevron, title);
     if (folded) {
       const quiet = document.createElement('span');
       quiet.className = 'marxy-sidebar-count';
@@ -185,6 +224,7 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       button.dataset.stop = `row:${section.id}:${row.entry.path}`;
       button.setAttribute('data-marxy-sidebar-row', row.entry.path);
       button.title = row.entry.path;
+      if (row.entry.path === active) button.setAttribute('aria-current', 'true');
       const age = relativeAge(now, row.entry.mtimeMs);
       button.setAttribute('aria-label', `${row.entry.title}${MARK_WORDS[row.mark]}${age === '' ? '' : `, ${spokenAge(age)}`}`);
       const kind = kindOf(row.entry);

@@ -224,7 +224,7 @@ test('the real library.open command draws the Library row at the top; with it re
     await drawn(page);
     const library = () => page.evaluate(() => [...document.querySelectorAll('.marxy-sidebar-library')].map((b) => b.textContent));
     assert.deepEqual(await library(), ['Library'], 'the real command (Q-03) is registered');
-    assert.equal(await page.evaluate(() => document.querySelector('.marxy-sidebar').firstElementChild.className), 'marxy-sidebar-library', 'at the top');
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-sidebar-search').nextElementSibling.className), 'marxy-sidebar-library', 'at the top, under the search field');
     await page.evaluate(() => {
       const handle = window.__marxyHandle;
       window.__realCommands = handle.commands.bind(handle);
@@ -283,8 +283,9 @@ test('every row and header has an accessible name; Tab reaches the sidebar once,
     await drawn(page);
     const named = await page.evaluate(() => [...document.querySelectorAll('.marxy-sidebar button')].map((b) => (b.getAttribute('aria-label') ?? '').trim()));
     assert.ok(named.length >= 5 && named.every((n) => n !== ''), named.join('|'));
-    assert.equal(named[0], 'Library', 'the Library row (Q-03) leads');
-    assert.match(named[1], /^Recent, 3 documents$/);
+    assert.match(named[0], /^Search documents/, 'the search field (U-06) leads');
+    assert.equal(named[1], 'Library', 'the Library row (Q-03) follows');
+    assert.match(named[2], /^Recent, 3 documents$/);
     assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-sidebar button[tabindex="0"]').length), 1, 'one tab stop');
     const active = () => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName);
     // The toolbar follows the sidebar in the page: Shift+Tab from its first control reaches the sidebar's one stop.
@@ -306,6 +307,33 @@ test('every row and header has an accessible name; Tab reaches the sidebar once,
     await page.keyboard.press('Enter');
     assert.equal(await page.evaluate(() => document.activeElement?.classList.contains('marxy-sidebar-head')), true);
     assert.equal((await sections(page))[0].expanded, 'false');
+  });
+});
+
+test('the look (U-06): the search field opens the palette; rows are 28 px with the open one marked; heads carry a chevron; the foot counts the index', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: tenOpen.slice(0, 3) });
+    await unfold(page);
+    await drawn(page);
+    const look = await page.evaluate(() => {
+      const px = (sel) => [...document.querySelectorAll(sel)].map((n) => Math.round(n.getBoundingClientRect().height));
+      return {
+        rows: px('.marxy-sidebar-row'),
+        heads: px('.marxy-sidebar-head'),
+        chevrons: document.querySelectorAll('.marxy-sidebar-head .marxy-sidebar-chevron').length,
+        current: [...document.querySelectorAll('.marxy-sidebar-row[aria-current="true"]')].map((n) => n.getAttribute('data-marxy-sidebar-row')),
+        foot: document.querySelector('[data-marxy-sidebar-foot]')?.textContent ?? null,
+        chip: document.querySelector('.marxy-sidebar-chip')?.textContent ?? null,
+      };
+    });
+    assert.ok(look.rows.length >= 3 && look.rows.every((h) => h === 28), JSON.stringify(look));
+    assert.ok(look.heads.every((h) => h >= 28) && look.chevrons === look.heads.length, JSON.stringify(look));
+    assert.deepEqual(look.current, [tenOpen[2]], 'the focused pane\'s document is marked');
+    assert.match(look.foot ?? '', /^\d+ documents indexed/);
+    assert.match(look.chip ?? '', /K$/);
+    assert.equal(await page.evaluate(() => document.querySelector('dialog[open], [data-marxy-palette][open]') !== null), false);
+    await page.click('[data-marxy-sidebar-search]');
+    await page.waitForFunction(() => document.querySelector('dialog[open], [data-marxy-palette]:not([hidden])') !== null);
   });
 });
 
