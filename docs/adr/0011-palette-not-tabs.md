@@ -1,6 +1,6 @@
 # ADR-0011 — The palette is the tab manager; no tab bar
 
-**Status:** accepted, with a reversal criterion; reversed inside the unfolded workspace by ADR-0058 (2026-10-10)
+**Status:** accepted, with a reversal criterion; reversed inside the unfolded workspace by ADR-0058 (2026-10-10); its menu note amended by ADR-0073 (2026-10-12)
 
 ## Decision
 No persistent tab bar. Opening the palette with no query shows the most-recently-used stack,
@@ -22,6 +22,10 @@ held) or on hover at the top edge, never at rest.
 The macOS menu lists Back, Forward and Open Quickly… (the palette) under Go. They only make the
 same keys discoverable and clickable; the palette stays the tab manager, and no tab list or
 document-specific command is added to the menu.
+
+*Amended by ADR-0073 (2026-10-12):* the menu may list any registry command with the key the registry gives it, and still
+never a list of documents, tabs or windows. The palette stays the document manager; the decision and reversal criterion
+above are untouched.
 
 ## Note: a split is not a tab bar (ADR-0057)
 Two documents side by side (D-01 onward) is a summoned state, opened from the palette and closed by

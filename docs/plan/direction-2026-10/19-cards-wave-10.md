@@ -47,6 +47,9 @@ on one each:
 - **W-20** puts document commands in the menu, which ADR-0011's menu note forbids today. It too is placed last in its
   lane.
 
+Both were ruled on 2026-10-12, as recommended: ADR-0072 (local versions) and ADR-0073 (the menu lists commands) are
+accepted, and neither card waits any longer.
+
 **Left for wave 11, and why:**
 
 - **W-12 (settings, with the Privacy page).** Large, Opus, and the foundation of W-16, W-22, H-07's control, J-10 and
@@ -66,7 +69,7 @@ on one each:
 | --- | --- | --- | --- | --- | --- |
 | W-11 | The status bar: kind, a measure, where you are, encoding, theme and size; items open their inspector tab | sonnet / medium | S | lead | `01-unfolded` |
 | W-10 | The inspector's Outline tab: jump, words per section, move a section up or down, promote and demote | sonnet / high | M | lead; `gate:fidelity` | `09-inspector-outline` (*new screen*) |
-| V-06 | The inspector's Versions tab: local snapshots, a diff, restore beside the original | opus / high | M | **adversarial**; **ADR-0072 ruled first** | `09-inspector-versions` (*new screen*) |
+| V-06 | The inspector's Versions tab: local snapshots, a diff, restore beside the original | opus / high | M | **adversarial**; ADR-0072 accepted | `09-inspector-versions` (*new screen*) |
 | V-08 | Formatting commands and inserts in Source; show whitespace and the column guide as settings | sonnet / medium | M | lead | `02-source` |
 | V-03 | Find and replace in Source with a preview of every change before it is made | opus / medium | M | **adversarial** (rewrites the buffer) | none: the mock has no replace page (before/after instead) |
 | V-04 | Notes about a file (unclosed fence, skipped heading level, missing path) as right-edge marks; go to next note | sonnet / medium | M | lead | `02-source` |
@@ -280,7 +283,7 @@ the document live: an external change or an edit relists it.
 
 **Model:** opus (high) · **Size:** M · **Review:** **adversarial** (it keeps copies of the reader's documents and writes
 beside them) · **Depends on:** E-17, W-09 (merged); **W-10** (`fill.ts`, `base.css`, `registry.json`, `mock-pair.mjs`);
-**the ruling on ADR-0072 (question 1), before any code** · **Parallel with:** W-20
+ADR-0072 (accepted 2026-10-12) · **Parallel with:** W-20
 
 **Outcome.** The inspector gains a **Versions** tab for the focused file. At the top is **Changed since you read**,
 present when the bytes on disk differ from the copy kept when you last read the file: a count of lines added and removed,
@@ -300,7 +303,8 @@ limit, is never copied, and the tab says why. Nothing leaves the machine.
 
 **Paths.**
 - New:
-  - `docs/adr/0072-local-versions.md` (question 1; written and ruled before any code);
+  - `docs/adr/0072-local-versions.md`: written and accepted by X-28 (2026-10-12); V-06 reads it and changes it only if
+    the build finds it wrong;
   - `apps/desktop/src/versions/store.ts` (the slots, the manifest and the limits: pure over an injected read and write)
     and its node test;
   - `apps/desktop/src/versions/recorder.ts` (subscribes to each document store's transitions: `open`, `save` and
@@ -348,7 +352,7 @@ limit, is never copied, and the tab says why. Nothing leaves the machine.
 - Read the reader's folders for anything but the file in front of them.
 
 **Questions for the author.**
-1. **(Blocks the card: an ADR and commitment 3.)** Where do versions live? Commitment 3 allows Marxy's state "in plain
+1. Where do versions live? Commitment 3 allows Marxy's state "in plain
    files in the platform's config and data directories, apart from the reader's documents". Copies of the documents
    themselves are a new kind of that state. `docs/design/11-config-and-storage.md` §What is never stored lists "Document
    contents" first, and the research spec's "Changed since last read" line says "Local snapshot only, never written".
@@ -367,6 +371,11 @@ limit, is never copied, and the tab says why. Nothing leaves the machine.
 4. Is *Changed since you read* the copy made at your last read, or the one at the last time the window showed the file?
    *Recommended:* the last read, recorded when a document is opened or reloaded while in front of you, as ADR-0018's
    last-read time is.
+
+**Ruled 2026-10-12:** all four as recommended (the author: "recommended approved"). Versions are plain files under
+`<data>/versions/` (ADR-0072, accepted); 20 per file, 30 days, 200 MB in all, oldest first, never a denied or large file,
+`versions = false` turns it off; fixed slots and no new `shell-api` capability; *Changed since you read* is the last read.
+The card no longer waits on a ruling.
 
 ---
 
@@ -691,8 +700,8 @@ needs an open file. Once `document.new-menu` exists, the toolbar's declared `new
 
 ### W-20 — The native menu bar: every command findable, every shortcut checked
 
-**Model:** sonnet (medium) · **Size:** M · **Review:** lead; **ADR-0011's menu note amended and ruled first** · **Depends
-on:** W-19 (merged); **W-14** (lane order; its keys appear here); **V-08** (its keys appear here); the ruling on question 1
+**Model:** sonnet (medium) · **Size:** M · **Review:** lead; ADR-0011's menu note amended by ADR-0073 (accepted 2026-10-12) · **Depends
+on:** W-19 (merged); **W-14** (lane order; its keys appear here); **V-08** (its keys appear here)
 · **Parallel with:** V-06
 
 **Outcome.** The macOS menu bar grows from seven items to the mock's menus, cut to the commands that exist:
@@ -718,7 +727,8 @@ and none takes a system-wide macOS shortcut: a test fails if one does. Linux kee
     focused pane's context, rather than replaying a chord; the four chord items keep working) and
     `apps/desktop/src/menu/menu-commands.test.ts`;
   - `apps/desktop/test/keys-table.test.mjs` (`MENU_OWNERS`: every item, each accelerator equal to its command's key);
-  - `docs/adr/0011-palette-not-tabs.md` (the menu note, question 1);
+  - `docs/adr/0011-palette-not-tabs.md`: its menu note is already amended by ADR-0073 (X-28, 2026-10-12); read, not
+    written;
   - `docs/design/06-shell.md` (§The native menu, a new section);
   - `docs/design/09-app-shell.md` (§Keyboard map: the menu column).
 - Read: `apps/desktop/src/commands/registry.ts`, `apps/desktop/src/palette/chords.ts`, `apps/desktop/src/pane/keys.ts`,
@@ -742,13 +752,18 @@ and none takes a system-wide macOS shortcut: a test fails if one does. Linux kee
 - Build a menu on Linux.
 
 **Questions for the author.**
-1. **(Blocks the card: an ADR.)** ADR-0011's menu note (MARXY-342) says "no tab list or document-specific command is
+1. ADR-0011's menu note (MARXY-342) says "no tab list or document-specific command is
    added to the menu". The mock's menus are mostly document commands. *Recommended:* amend the note so the menu may list
    any registry command with the key the registry gives it, and still never a list of documents, tabs or windows. The
    palette stays the document manager, and ADR-0011's decision and reversal criterion are untouched.
 2. Close Window: `⌘W` today, `⇧⌘W` in the mock (where `⌘W` closes a tab). *Recommended:* keep `⌘W` for Close Window until
    tabs have their own close command and key. Closing the one window quits, as today.
 3. Disabled or hidden when an item cannot run? *Recommended:* disabled, as the Mac does, so the menus keep their shape.
+
+**Ruled 2026-10-12:** all three as recommended (the author: "recommended approved"). ADR-0073 (accepted) amends ADR-0011's
+menu note: any registry command with its registry key, never a list of documents, tabs or windows. Close Window keeps
+`⌘W` until tabs have their own close; an item that cannot run is disabled, not hidden. The card no longer waits on a
+ruling.
 
 ---
 
@@ -776,7 +791,7 @@ are `base.css` with `registry.json` (W-11, W-10, V-06, V-04), `09-app-shell.md` 
 | 1 | — | V-08 | Q-06 | now, beside wave 9's kinds lane | none |
 | 2 | W-11 | V-03 (after V-08) | — | the kinds lane and V-08 have merged | none (W-11 holds `base.css`, `registry.json`, `09-app-shell.md`; V-03 holds `editor.ts`, `find.ts`, `SURFACES`) |
 | 3 | W-10 (after W-11) | — | W-14 (after Q-06 and V-03) | W-11 and V-03 have merged | none (W-10 holds `base.css`, `registry.json`, `mock-pair.mjs`; W-14 holds `09-app-shell.md`, `sidebar-view.ts`, `SURFACES`) |
-| 4 | V-06 (after W-10; ADR-0072 ruled) | — | W-20 (after W-14; ADR-0011's note ruled) | W-10 and W-14 have merged | none |
+| 4 | V-06 (after W-10; ADR-0072 accepted) | — | W-20 (after W-14; ADR-0073 accepted) | W-10 and W-14 have merged | none |
 | 5 | — | V-04 (after V-03 and V-06) | — | V-06 has merged | — |
 
 At most two Opus stories run at once, counting the kinds lane: Q-06 beside K-08 or K-20 in step 1, V-03 in step 2, and
@@ -786,8 +801,8 @@ must touch a file another running story holds stops and waits, rather than editi
 
 **The author's questions, in one place.** W-11: 1 to 3; W-10: 1 to 3; V-06: 1 to 4; V-08: 1 to 3; V-03: 1, 2; V-04: 1,
 2; Q-06: 1, 2; W-14: 1 to 4; W-20: 1 to 3. Each card proceeds on its recommended default unless the author says
-otherwise. **Two questions block their cards until ruled:**
-- **V-06 question 1:** where local versions live, ADR-0072 under commitment 3.
-- **W-20 question 1:** ADR-0011's menu note.
+otherwise. The two questions that blocked their cards were ruled on 2026-10-12, as recommended:
+- **V-06 question 1:** where local versions live: ADR-0072, accepted.
+- **W-20 question 1:** ADR-0011's menu note: ADR-0073, accepted.
 
 Q-06 question 1 would block only if the author chose a persisted content signature, which would amend ADR-0012.
