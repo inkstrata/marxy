@@ -553,6 +553,67 @@ test('a shift-click selection across a piece boundary copies the file bytes betw
   await page.close();
 });
 
+/** Two pieces chosen as blocks, then every copy event the page sees recorded: whether it was prevented and what it carries. */
+async function piecesChosen(page) {
+  await startSampled(page, { ...FILES, '/repo/big.py': LONG }, ['/repo/big.py']);
+  await openRendered(page);
+  const pres = page.locator('#doc pre');
+  await pres.nth(0).click();
+  await pres.nth(2).click({ modifiers: ['Shift'] });
+  await page.evaluate(() => {
+    window.__copies = [];
+    document.addEventListener('copy', (e) => window.__copies.push({ prevented: e.defaultPrevented, data: e.clipboardData.getData('text/plain') }));
+  });
+}
+
+test('a copy in the find field is the find field\'s, with pieces chosen in the page (V-10)', async () => {
+  const page = await freshPage();
+  await piecesChosen(page);
+  const mod = await modifier(page);
+  await page.keyboard.press(`${mod}+KeyF`);
+  await page.keyboard.type('hello world');
+  await page.keyboard.press(`${mod}+KeyA`);
+  await page.keyboard.press(`${mod}+KeyC`);
+  const seen = await page.evaluate(() => window.__copies);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].prevented, false, 'the page did not take the copy');
+  assert.ok(!seen[0].data.includes('v_100'), 'and put no code on it');
+  await page.close();
+});
+
+test('a copy in the palette field is the palette\'s, with pieces chosen in the page (V-10)', async () => {
+  const page = await freshPage();
+  await piecesChosen(page);
+  const mod = await modifier(page);
+  await page.keyboard.press(`${mod}+KeyK`);
+  await page.waitForSelector('#marxy-palette[open] input');
+  await page.keyboard.type('abc');
+  await page.keyboard.press(`${mod}+KeyA`);
+  await page.keyboard.press(`${mod}+KeyC`);
+  const seen = await page.evaluate(() => window.__copies);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].prevented, false);
+  assert.ok(!seen[0].data.includes('v_100'));
+  await page.close();
+});
+
+test('a copy in Source is the editor\'s selection, with pieces chosen in Rendered before (V-10)', async () => {
+  const page = await freshPage();
+  await piecesChosen(page);
+  const mod = await modifier(page);
+  await page.keyboard.press(`${mod}+KeyE`);
+  await page.waitForSelector('.cm-editor');
+  await drained(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.press(`${mod}+ArrowUp`);
+  await page.keyboard.press('Shift+End');
+  await page.keyboard.press(`${mod}+KeyC`);
+  const seen = await page.evaluate(() => window.__copies);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].data, 'v_0 = 0  # line *s* _u_', 'the editor\'s own text, not the code of the old pieces');
+  await page.close();
+});
+
 test('a CRLF .py copies with its CRLF (V-10)', async () => {
   const page = await freshPage();
   const crlf = LONG.replaceAll('\n', '\r\n');

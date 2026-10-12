@@ -229,6 +229,12 @@ export function installCommandKeys(handle: AppHandle): void {
   // page's text has the HTML parser's LF for a CRLF and a break between one piece and the next.
   document.addEventListener('copy', (event) => {
     const runtime = keysFor?.selection.runtime();
+    // A copy made anywhere but on the page is not ours: a field, the palette and Source's editor copy their own text, and
+    // a blocks selection left behind in the article does not speak for them.
+    const from = event.target instanceof Element ? event.target : event.target instanceof Node ? event.target.parentElement : null;
+    if (!runtime || from?.closest('input, textarea, select, [contenteditable], .cm-editor, #marxy-palette')) return;
+    const onPage = runtime.article.contains(from) || from === document.body || from === document.documentElement;
+    if (!onPage || runtime.article.closest('[hidden]') !== null || runtime.article.hidden) return;
     // Several pieces chosen as blocks (a click and a shift-click) have no DOM selection: their bytes are the range.
     const chosen = keysFor?.selection.state().selection;
     if (runtime && event.clipboardData && chosen?.kind === 'blocks' && runtime.document.children.every((c) => c.type === 'codeBlock' && c.run)) {
