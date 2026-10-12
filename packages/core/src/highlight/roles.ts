@@ -1,6 +1,6 @@
 // The one role table (V-13, ADR-0068). Each syntax role names the Lezer tags that colour it in Source and the
 // TextMate scopes that colour it in Rendered, so one token gets one role in both modes. Source builds its
-// HighlightStyle from `lezer` (apps/desktop/src/source/highlight-style.ts); Rendered builds its Shiki theme and
+// HighlightStyle from `lezer` (the desktop app's Source highlight style); Rendered builds its Shiki theme and
 // scope lookup from `textmate` (scopes.ts). core takes no @lezer dependency, so tags are written as the names
 // `@lezer/highlight` exports: `name`, or `modifier(name)` nested to any depth.
 
@@ -98,7 +98,7 @@ export const ROLES: Readonly<Record<MarxyRole, RoleSpec>> = {
   },
   decorator: {
     // Lezer has no decorator tag. `meta` is what the Python, JS and Rust grammars give an annotation, and
-    // source/language.ts tags a decorator's whole node as `meta` where the grammar nests it.
+    // the desktop app's Source language setup tags a decorator's whole node as `meta` where the grammar nests it.
     lezer: ['meta'],
     textmate: [
       'entity.name.function.decorator',
@@ -134,7 +134,7 @@ export const ROLES: Readonly<Record<MarxyRole, RoleSpec>> = {
   heading: { lezer: ['heading'], textmate: [] },
   marker: { lezer: ['processingInstruction'], textmate: [] },
   link: { lezer: ['link'], textmate: [] },
-  // `contentSeparator` is the rule's own tag; source/language.ts also gives it to quote marks, list marks and task boxes.
+  // `contentSeparator` is the rule's own tag; the desktop app's Source language setup also gives it to quote marks, list marks and task boxes.
   mark: { lezer: ['contentSeparator'], textmate: [] },
 };
 

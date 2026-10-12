@@ -203,12 +203,6 @@ export const V2_COLOUR_ROLES = [
   '--marxy-tok-marker',
   '--marxy-tok-heading',
   '--marxy-tok-link',
-  '--marxy-tok-builtin',
-  '--marxy-tok-property',
-  '--marxy-tok-decorator',
-  '--marxy-tok-self',
-  '--marxy-tok-escape',
-  '--marxy-tok-mark',
 ] as const;
 
 interface Rule {
