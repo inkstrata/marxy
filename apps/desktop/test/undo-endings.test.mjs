@@ -266,3 +266,34 @@ test('Block editor: a line break typed in a mixed-ending block follows its first
     assert.equal(hex(await t.buf()), hex(expected));
   });
 });
+
+// F-40.1: deleting only a CR inside a mixed-ending block is an edit and is written (it was folded to nothing).
+for (const [name, file, line, back, cutAt] of [
+  ['the CR of a CRLF', B('# T\r\n\r\nline1\r\nline2\nline3\r\nline4\r\n\r\nnext\r\n'), 0, 0, 'line1\r'],
+  ['the CR of a CRLF beside a bare LF', B('# T\r\n\r\nline1\nline2\r\nline3\r\n\r\nnext\r\n'), 1, 0, 'line2\r'],
+  // (a lone CR takes two arrow steps in WebKit, hence 6)
+  ['a lone CR inside a line', B('# T\r\n\r\nline1\r\nline2\rline3\r\nline4\r\n\r\nnext\r\n'), 1, 6, 'line2\r'],
+]) {
+  test(`Block editor: deleting only ${name} of a mixed-ending block is written, and nothing else moves`, async () => {
+    await withApp(file, async (t) => {
+      const ast = parseMarkdown(file, { file: 'x' });
+      const node = ast.children.find((c) => c.type === 'paragraph');
+      await t.page.evaluate((b) => window.__marxyHandle.selection.selectBlockAtByte(b), node.src.start);
+      await t.page.keyboard.press(`${t.mod}+Enter`);
+      await t.page.waitForSelector('.marxy-block-editor .cm-content');
+      // The caret just after the CR, by keys; then the real Backspace key.
+      await t.page.keyboard.press(t.mod === 'Meta' ? 'Meta+ArrowUp' : 'Control+Home');
+      for (let i = 0; i < line; i++) await t.page.keyboard.press('ArrowDown');
+      await t.page.keyboard.press('End');
+      for (let i = 0; i < back; i++) await t.page.keyboard.press('ArrowLeft');
+      await t.page.keyboard.press('Backspace');
+      await t.page.keyboard.press('Escape');
+      await t.page.waitForFunction(() => document.querySelector('.marxy-block-editor') === null);
+      const cr = file.indexOf(cutAt) + cutAt.length - 1;
+      const expected = B(file.subarray(0, cr), file.subarray(cr + 1));
+      assert.equal(hex(await t.buf()), hex(expected), 'exactly the CR is gone');
+      await t.save();
+      assert.equal(hex(await t.disk()), hex(expected), 'and the save writes it');
+    });
+  });
+}
