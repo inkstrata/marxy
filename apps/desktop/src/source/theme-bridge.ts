@@ -106,7 +106,16 @@ function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, stri
     look === 'prose'
       ? { width: column, flexGrow: '0', padding: `${LINE} 0` }
       : // A code line never wraps: the content is as wide as the widest line it has drawn, and at least the column.
-        { flexGrow: '0', width: 'max-content', minWidth: `max(0px, min(${column}, calc(100% - ${start} - ${LINE})))`, boxSizing: 'content-box', padding: `${LINE} ${LINE} ${LINE} 0` };
+        {
+          flexGrow: '0',
+          width: 'max-content',
+          minWidth: `max(0px, min(${column}, calc(100% - ${start} - ${LINE})))`,
+          boxSizing: 'content-box',
+          padding: `${LINE} ${LINE} ${LINE} 0`,
+          // CodeMirror's `min-height: 100%` counts the padding in its own border box; this one is a content box, so the
+          // padding comes off, or a scroller with a height (the Source frame's, V-05) would scroll by the padding at rest.
+          minHeight: `calc(100% - 2 * ${LINE})`,
+        };
   return {
     '&': {
       color: text,

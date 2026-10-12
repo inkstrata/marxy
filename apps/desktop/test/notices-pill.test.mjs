@@ -295,11 +295,13 @@ for (const windowState of ['folded', 'unfolded']) {
   withApp(async (page) => {
     await page.keyboard.press('ControlOrMeta+e');
     await page.waitForSelector('#marxy-source .cm-content .cm-line');
-    await page.evaluate(() => document.querySelector('#marxy-source').scrollTo(0, 400));
+    // The editor scrolls in its own scroller, inside the frame (V-05): the bars stay where they are.
+    await page.evaluate(() => document.querySelector('#marxy-source .cm-scroller').scrollTo(0, 400));
     const place = () =>
       page.evaluate(() => {
-        const scroller = document.querySelector('#marxy-source');
-        const first = [...document.querySelectorAll('#marxy-source .cm-line')].find((l) => l.getBoundingClientRect().top >= 0);
+        const scroller = document.querySelector('#marxy-source .cm-scroller');
+        // The first row the reader can see: inside the scroller (rows CodeMirror keeps beyond it are not on screen).
+        const first = [...document.querySelectorAll('#marxy-source .cm-line')].find((l) => l.getBoundingClientRect().top >= scroller.getBoundingClientRect().top);
         const b = first.getBoundingClientRect();
         return { scrollTop: scroller.scrollTop, line: first.textContent.slice(0, 30), top: b.top, left: b.left };
       });

@@ -139,11 +139,13 @@ body[data-marxy-workspace="unfolded"] .marxy-source-frame { max-width: none; }
   clip-path: polygon(0 100%, 50% 0, 100% 100%);
 }
 .marxy-source-ruler-span { position: absolute; bottom: 0; height: 2px; background: var(--marxy-color-accent); }
-/* The editor fills the body beside the strip at the right edge, where marks sit at the height of what they name. Both are in
-   the flow, so a mount with no height of its own (a test page) still holds the whole editor. */
-.marxy-source-body { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
-.marxy-source-body > .cm-editor { flex: 1 1 0; min-width: 0; }
-.marxy-source-marks { order: 2; flex: none; position: relative; width: calc(var(--marxy-size-chrome) * 8 / 13); }
+/* The editor fills the body, with the strip's width kept clear at the right edge, where marks sit at the height of what they
+   name, and the same at the left so the editor's box, and the column in it, stays on the frame's axis (L-07). The editor is
+   in the flow with a height of 100% (a body with a definite height, the app's, fills; one with none, a test page's, is as tall as
+   the text), so the editor's own scroller is what scrolls inside the frame. */
+.marxy-source-body { position: relative; flex: 1 1 auto; min-height: 0; padding-inline: calc(var(--marxy-size-chrome) * 8 / 13); }
+.marxy-source-body > .cm-editor { height: 100%; }
+.marxy-source-marks { position: absolute; top: 0; right: 0; bottom: 0; width: calc(var(--marxy-size-chrome) * 8 / 13); }
 .marxy-source-mark { position: absolute; left: 1px; right: 1px; height: 3px; margin-top: -1.5px; border-radius: 1px; cursor: pointer; }
 .marxy-source-mark::before { content: ""; position: absolute; inset: -3px 0; }
 .marxy-source-mark-invisible { background: var(--marxy-color-accent); }

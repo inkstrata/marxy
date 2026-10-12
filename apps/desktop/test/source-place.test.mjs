@@ -270,10 +270,17 @@ test('V-12 (L-07) a code file\'s column is 100 characters wide, centred, with th
         width: c.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
         ch: parseFloat(cs.fontSize) * 0.6,
         gutterRight: document.querySelector('#marxy-source .cm-gutters').getBoundingClientRect().right,
+        editorLeft: document.querySelector('#marxy-source .cm-editor').getBoundingClientRect().left,
+        editorWidth: document.querySelector('#marxy-source .cm-editor').getBoundingClientRect().width,
+        gutterWidth: document.querySelector('#marxy-source .cm-gutters').getBoundingClientRect().width,
       };
     });
     assert.ok(Math.abs(m.width - 100 * m.ch) <= m.ch, `100 characters wide (${m.width} vs ${100 * m.ch})`);
-    assert.ok(Math.abs(m.left + m.width / 2 - 640) <= 1, `centred on the window (${m.left + m.width / 2})`);
+    // Centred in the frame's editor, which is centred on the window (V-05), unless the gutter needs the room: the frame is
+    // 960 px folded and a 100-character column with its numbers is wider than that allows centring (ADR-0067 item 3's floor).
+    const want = Math.max(m.editorLeft + m.gutterWidth, m.editorLeft + m.editorWidth / 2 - m.width / 2);
+    assert.ok(Math.abs(m.left - want) <= 1, `centred in the frame, as far as the numbers leave room (left ${m.left}, want ${want})`);
+    assert.ok(Math.abs(m.editorLeft + m.editorWidth / 2 - 640) <= 1, `the editor is centred on the window (${m.editorLeft + m.editorWidth / 2})`);
     assert.ok(m.gutterRight <= m.left + 0.01, 'the numbers end where the text begins');
     // A file with a thousand lines has four digits; the text does not move for them.
     const wide = await browser.newPage({ viewport: { width: 1280, height: 800 } });

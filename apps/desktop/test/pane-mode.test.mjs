@@ -283,9 +283,13 @@ test('a right pane scrolled in Source comes back to Rendered at the line on its 
       const { activeSourceEditor } = await import('/src/source/editor.ts');
       const mount = document.getElementById('marxy-source-2');
       const view = activeSourceEditor(mount).view;
-      const top = view.lineBlockAt(later).top + view.documentTop - mount.getBoundingClientRect().top;
-      const scrolling = [mount, view.scrollDOM, mount.parentElement].find((el) => el.scrollHeight > el.clientHeight + 1);
-      scrolling.scrollTop += top - scrolling.clientHeight * 0.4;
+      // The reader scrolls the editor's own scroller (inside the frame's bars, V-05), as CodeMirror's own scrolling does: a
+      // programmatic jump of `scrollTop` is corrected by CodeMirror's scroll anchoring, a scroll effect is not. The line goes
+      // onto the pane's reading line (40 % down the pane, in window coordinates).
+      const pane = mount.parentElement;
+      const readingY = pane.getBoundingClientRect().top + pane.clientHeight * 0.4;
+      const scrolling = [mount, view.scrollDOM, pane].find((el) => el.scrollHeight > el.clientHeight + 1);
+      view.dispatch({ effects: view.constructor.scrollIntoView(later, { y: 'start', yMargin: readingY - view.scrollDOM.getBoundingClientRect().top }) });
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       return scrolling.scrollTop;
     }, later);
