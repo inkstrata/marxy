@@ -34,8 +34,8 @@ export async function openScratchIn(panes: Pick<AppPanes, 'openScratch'>, text: 
   let landed = false;
   const announce = (): void => {
     if (!pane || !landed) return;
-    notify({ kind: 'info', text: SCRATCH_NOTICE, transient: true }, { pane: pane.host });
-    if (keptBom) notify({ kind: 'info', text: BOM_KEPT_NOTICE, transient: true }, { pane: pane.host });
+    notify({ kind: 'done', text: SCRATCH_NOTICE }, { pane: pane.host });
+    if (keptBom) notify({ kind: 'done', text: BOM_KEPT_NOTICE }, { pane: pane.host });
     opts?.onLanded?.();
   };
   const bytes = new TextEncoder().encode(keptBom ? `\uFEFF${text}` : text);

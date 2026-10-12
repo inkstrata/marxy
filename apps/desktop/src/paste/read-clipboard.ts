@@ -92,7 +92,12 @@ export async function readConverted(shell: PasteShell): Promise<ConvertedRead> {
 
 /** The notice for a paste that converted HTML. */
 export const CONVERTED_NOTICE = 'Pasted as Markdown (converted from HTML)';
-export const NOTHING_TO_PASTE = 'Nothing to paste';
+/**
+ * An empty clipboard is neither a refusal nor a failure: the reader asked for nothing that could be done, and J-05's
+ * card says only that the command "says Nothing to paste". So it is a Note that fades like an outcome, not a sticky
+ * "Not done" (U-02's review); the document is unchanged and there is nothing to fix.
+ */
+export const NOTHING_TO_PASTE = 'Nothing to paste · the document is unchanged';
 
 /** Said when the clipboard holds nothing (or only empty text) for a transform to work on. */
 export const NOTHING_TO_TRANSFORM = 'Nothing on the clipboard to transform';

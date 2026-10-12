@@ -78,7 +78,7 @@ export async function loadCollection(
     const head = warnings.slice(0, WARNINGS_SHOWN).join('; ');
     const more = warnings.length - WARNINGS_SHOWN;
     (opts.notify ?? showNotice)({
-      kind: 'info',
+      kind: 'refused',
       text: `${COLLECTION_FILE}: ${head}${more > 0 ? ` and ${more} more` : ''}.`,
     });
   }

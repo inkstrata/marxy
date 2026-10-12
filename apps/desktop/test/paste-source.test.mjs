@@ -318,6 +318,9 @@ test('HTML with no text and nothing readable inserts nothing and says so', async
     await s.select([1]);
     await s.paste({ 'text/html': 'x' });
     await page.waitForFunction(() => document.body.textContent.includes('Nothing to paste'));
+    // An empty paste is a Note that fades, never a sticky "Not done" (U-02.1).
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.marxy-notice')].map((n) => n.dataset.noticeKind)), ['info']);
+    await page.waitForFunction(() => document.querySelector('.marxy-notice') === null, undefined, { timeout: 7000 });
     assert.equal(await s.doc(), 'XY\n');
     assert.equal(await s.undoSteps(), 0, 'no history entry');
   });

@@ -54,7 +54,7 @@ export function pasteCommands(): readonly Command[] {
         const got = await readConverted(shell);
         if (got.refused !== undefined) return ctx.showNotice(got.refused, { kind: 'refused' });
         const { converted } = got;
-        if (converted.markdown === '') return ctx.showNotice(NOTHING_TO_PASTE, { kind: 'refused' });
+        if (converted.markdown === '') return ctx.showNotice(NOTHING_TO_PASTE, { kind: 'info', fades: true });
         // The notice comes once the scratch is on screen, after any unsaved-edits prompt is answered "open".
         await openScratch(converted.markdown, {
           label: 'Pasted',

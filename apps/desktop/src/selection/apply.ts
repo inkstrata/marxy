@@ -38,7 +38,7 @@ export async function apply(
   // A copy has closed the palette and said its notice already (writeCopy); closing it again would be after it.
   if (result.clipboard) return;
   ctx.closePalette();
-  if (result.summary) ctx.showNotice(result.summary, { transient: true });
+  if (result.summary) ctx.showNotice(result.summary, { kind: 'done' });
 }
 
 /**

@@ -4,13 +4,14 @@ import { appendRoot, COLLECTION_TEMPLATE } from '@marxy/core/src/index-model/col
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { isUntitled, NO_FOLDER_YET } from '../document/untitled.ts';
 import { collectionFile, isFilesystemRoot } from '../collection/load.ts';
+import { COLLECTION_SAYS, type Said } from '../notices/config-copy.ts';
 import { notify } from '../notices/index.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
 import { appHandle } from './app-handle.ts';
 import type { Command } from './registry.ts';
 
-const say = (text: string): void => {
-  notify({ kind: 'info', text });
+const say = (said: Said | string): void => {
+  notify(typeof said === 'string' ? { kind: 'refused', text: said } : said);
 };
 
 const notFound = (e: unknown): boolean => (e as { code?: string } | null)?.code === 'not-found';
@@ -24,19 +25,19 @@ async function addThisFolder(): Promise<void> {
   const shell = handle.shell;
   const file = await collectionFile(shell);
   if (file === undefined || !shell.configPaths) {
-    say('This build keeps no configuration folder, so there is no collection to add to.');
+    say(COLLECTION_SAYS.noConfigAdd());
     return;
   }
   const root = await handle.index.rootFor(path);
   if (isFilesystemRoot(root)) {
-    say('This is a whole disk, too large to index; it was not added to the collection.');
+    say(COLLECTION_SAYS.wholeDisk());
     return;
   }
   // Marxy's own config and data folders hold its state (trust, positions, snapshots): never indexed.
   const paths = await shell.configPaths();
   const own = [dirname(paths.config), paths.data].filter((d) => d !== '');
   if (own.some((dir) => dir === root || dir.startsWith(root.endsWith('/') ? root : `${root}/`))) {
-    say("This folder holds Marxy's own settings and state, so it was not added to the collection.");
+    say(COLLECTION_SAYS.ownFolder());
     return;
   }
   let bytes: Uint8Array;
@@ -44,7 +45,7 @@ async function addThisFolder(): Promise<void> {
     bytes = await shell.readFile(file);
   } catch (e) {
     if (!notFound(e)) {
-      say(`collection.toml could not be read (${String(e)}); nothing was changed.`);
+      say(COLLECTION_SAYS.readFailed(e));
       return;
     }
     bytes = new Uint8Array(0);
@@ -55,20 +56,20 @@ async function addThisFolder(): Promise<void> {
     next = appendRoot(bytes, root, { home });
   } catch (e) {
     // Unparseable or not a list of tables: the file is the reader's, left exactly as it is.
-    say(`collection.toml was not changed: ${e instanceof Error ? e.message : String(e)}`);
+    say(COLLECTION_SAYS.notChanged(e));
     return;
   }
   if (next === bytes) {
-    say('Already in the collection');
+    say(COLLECTION_SAYS.already());
     return;
   }
   try {
     await shell.writeFileAtomic(file, next);
   } catch (e) {
-    say(`collection.toml could not be written (${String(e)}); nothing was changed.`);
+    say(COLLECTION_SAYS.writeFailed(e));
     return;
   }
-  say(`Added ${basename(root)} to the collection`);
+  say(COLLECTION_SAYS.added(basename(root)));
 }
 
 /** Opens collection.toml (written from the template first when absent) in Source. */
@@ -78,20 +79,20 @@ async function editCollection(): Promise<void> {
   const shell = handle.shell;
   const file = await collectionFile(shell);
   if (file === undefined) {
-    say('This build keeps no configuration folder, so there is no collection to edit.');
+    say(COLLECTION_SAYS.noConfigEdit());
     return;
   }
   try {
     await shell.readFile(file);
   } catch (e) {
     if (!notFound(e)) {
-      say(`collection.toml could not be read (${String(e)}).`);
+      say(COLLECTION_SAYS.editReadFailed(e));
       return;
     }
     try {
       await shell.writeFileAtomic(file, new TextEncoder().encode(COLLECTION_TEMPLATE));
     } catch (w) {
-      say(`collection.toml could not be created (${String(w)}).`);
+      say(COLLECTION_SAYS.createFailed(w));
       return;
     }
   }

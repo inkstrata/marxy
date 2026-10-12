@@ -15,8 +15,8 @@ import {
 
 after(() => closeHarness());
 
-const REMOVED = 'The file was removed from disk.';
-const KEPT = 'The file changed on disk; your edits were kept.';
+const REMOVED = 'The file was removed from disk · your open copy is unchanged · Save as to keep it.';
+const KEPT = 'The file changed on disk · your edits were kept, so the screen was not reloaded';
 
 test('the same file in two panes is watched once; closing one pane leaves the watch, closing the last closes it', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page) => {

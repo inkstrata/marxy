@@ -88,6 +88,9 @@ test('Mod+V with nothing on the pasteboard opens nothing and says so', async () 
     await s.pasteboard({ [TEXT]: '  \n ' });
     await s.paste();
     await page.waitForFunction(() => document.body.textContent.includes('Nothing to paste'));
+    // An empty paste is a Note that fades, never a sticky "Not done" (U-02.1).
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.marxy-notice')].map((n) => n.dataset.noticeKind)), ['info']);
+    await page.waitForFunction(() => document.querySelector('.marxy-notice') === null, undefined, { timeout: 7000 });
     assert.deepEqual(await s.paths(), [A]);
     await s.pasteboard({});
     await s.paste();

@@ -174,7 +174,7 @@ test('a deleted column is left out with a notice; both deleted is the normal emp
     const one = await boot(browser, { files: { ...withoutB, '/data/layout.json': saved }, argv: [] });
     assert.deepEqual((await shown(one)).paths, ['/r/A.md']);
     const notice = await one.evaluate(() => document.querySelector('#marxy-notices')?.textContent ?? '');
-    assert.match(notice, /B\.md is no longer there, so it was left out of the layout\./);
+    assert.match(notice, /B\.md is no longer there · it was left out of the layout/);
     // The file is not touched while the reader changes nothing.
     await quit(one);
     assert.equal(await writesTo(one, '/data/layout.json'), 0);

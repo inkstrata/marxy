@@ -30,10 +30,18 @@ export interface NoticeInput {
   readonly text: string;
   /** With `info`: an outcome that fades (older call sites). The other kinds say for themselves whether they fade. */
   readonly transient?: boolean;
+  /** With `info`: a note that fades like an outcome but keeps the word Note (an empty paste: nothing done, nothing to fix). */
+  readonly fades?: boolean;
   /** Buttons before Dismiss. A click leaves the notice up; the action removes it (`removeNotice`) if it should go. */
   readonly actions?: readonly NoticeAction[];
   /** Runs when the reader dismisses the notice: the button, or Esc on it. Not when it fades or is replaced. */
   readonly onDismiss?: () => void;
+}
+
+/** The accessible name of a pill's Dismiss: it begins with the visible word, then the kind and the start of the text. */
+export function dismissLabel(kind: NoticeKind, text: string): string {
+  const head = text.length > 60 ? `${text.slice(0, 57).trimEnd()}...` : text;
+  return `Dismiss ${KIND_WORDS[kind]}: ${head}`;
 }
 
 /** How long an outcome stays, and how long it takes to go. */
@@ -241,6 +249,8 @@ export function noticeLine(input: NoticeInput): HTMLElement {
   dismissButton.type = 'button';
   dismissButton.className = 'marxy-notice-dismiss';
   dismissButton.textContent = 'Dismiss';
+  // Said by name, so a reader of a screen reader who tabs through several pills hears which one it closes.
+  dismissButton.setAttribute('aria-label', dismissLabel(kind, input.text));
   dismissButton.addEventListener('click', () => dismissByReader(line, input.onDismiss));
   buttons.append(dismissButton);
   line.append(buttons);
@@ -276,7 +286,7 @@ export function noticeLine(input: NoticeInput): HTMLElement {
     stops[inside ? next : forward ? 0 : stops.length - 1]?.focus({ preventScroll: true });
   });
 
-  if (kind === 'done') {
+  if (kind === 'done' || (kind === 'info' && input.fades === true)) {
     const life: Life = { remaining: FADE_MS, startedAt: null, timer: null, hover: false, focus: false };
     lives.set(line, life);
     line.addEventListener('pointerenter', () => {

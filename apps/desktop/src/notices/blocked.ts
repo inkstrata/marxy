@@ -97,9 +97,8 @@ export function grantSummaryNotice(path: string, html: boolean): void {
   const base = path.split('/').pop() ?? path;
   summaryIds.add(
     notify({
-      kind: 'info',
+      kind: 'done',
       text: `Showing HTML for ${base}. Undo in the palette.`,
-      transient: true,
     }),
   );
 }

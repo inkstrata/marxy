@@ -11,6 +11,7 @@ import { updateTabWidthResolver } from '../source/tab-width.ts';
 import { appHandle } from './app-handle.ts';
 import { basename } from '@marxy/core/src/index-model/paths.ts';
 import type { ShellError } from '@marxy/shell-api';
+import { CONFLICT_COPY_FAILED, CONFLICT_DISCARDED, conflictCopySaved } from '../notices/config-copy.ts';
 import { clearDiskChangedChooseNotices } from '../notices/disk.ts';
 import { SOURCE_HELD_APART } from '../notices/index.ts';
 
@@ -96,16 +97,14 @@ async function resolveDiskConflict(ctx: AppContext, choice: 'mine' | 'theirs'): 
   if (outcome.result === 'failed') {
     const err = outcome.error;
     const said = err && typeof err === 'object' && 'message' in err ? String((err as ShellError).message) : String(err);
-    ctx.showNotice(`Could not save a copy: ${said.replace(/\.$/, '')}. Nothing was changed; your edits are still here.`, { kind: 'error' });
+    const failed = CONFLICT_COPY_FAILED(said);
+    ctx.showNotice(failed.text, { kind: failed.kind });
     return;
   }
   if (outcome.result === 'none') return;
   clearDiskChangedChooseNotices();
-  ctx.showNotice(
-    outcome.copy !== undefined
-      ? `Your version was saved as ${basename(outcome.copy)}. ${store.snapshot().dirty ? 'The file is gone from disk; your text is still open here.' : 'This file now shows what is on disk.'}`
-      : 'Your unsaved edits were discarded and cannot be brought back with Undo. This file now shows what is on disk.',
-  );
+  const done = outcome.copy !== undefined ? conflictCopySaved(basename(outcome.copy), store.snapshot().dirty) : CONFLICT_DISCARDED;
+  ctx.showNotice(done.text, { kind: done.kind });
 }
 
 export function documentCommands(): readonly Command[] {

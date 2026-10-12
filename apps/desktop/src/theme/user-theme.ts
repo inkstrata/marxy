@@ -85,7 +85,7 @@ function checkAvgCharAfterPaint(css: string, themeName: string): void {
       measureAverageAdvance({ family, sizePx: Number.isFinite(bodyPx) && bodyPx > 0 ? bodyPx : undefined }),
     ).then((found) => {
       const text = themeNoticeText(found);
-      if (text !== null) notify({ kind: 'info', text });
+      if (text !== null) notify({ kind: 'refused', text });
     });
   });
 }
@@ -99,7 +99,7 @@ async function applyLoadedTheme(ctx: UserThemeContext, dir: string): Promise<voi
   );
   applyTheme(css);
   const notice = themeNoticeText(warnings);
-  if (notice !== null) notify({ kind: 'info', text: notice });
+  if (notice !== null) notify({ kind: 'refused', text: notice });
   checkAvgCharAfterPaint(css, manifest.name);
   await relayoutKeepingPosition(ctx);
   await ctx.shell.mark('user_theme', Date.now(), `dir=${dir}`);

@@ -355,3 +355,93 @@ nodeTest('the notice key is a pane chord on the physical key, so Option rewritin
   assert.equal(paneChordFor({ ...press, metaKey: false, ctrlKey: true }, false)?.command, 'notices.focus');
   assert.equal(paneChordFor({ ...press, altKey: false }, true), null, 'Mod+N alone is not it');
 });
+
+test('per kind: a Note that fades goes at 4 s; a Note, a block, a refusal, an error and a decision stay (U-02.1)', () =>
+  withApp(async (page) => {
+    // Seven, three show at a time: one pane each would hide the rest, so each kind is raised alone.
+    const table = [
+      { input: { kind: 'done', text: 'An outcome.' }, stays: false },
+      { input: { kind: 'info', text: 'A fading note.', fades: true }, stays: false },
+      { input: { kind: 'info', text: 'A plain note.' }, stays: true },
+      { input: { kind: 'blocked', text: 'A block.' }, stays: true },
+      { input: { kind: 'refused', text: 'A refusal.' }, stays: true },
+      { input: { kind: 'error', text: 'A failure.' }, stays: true },
+      { input: { kind: 'decision', text: 'A choice.', actions: ['Choose'] }, stays: true },
+    ];
+    for (const { input, stays } of table) {
+      await raise(page, input);
+      const kind = await page.evaluate(() => document.querySelector('.marxy-notice').dataset.noticeKind);
+      assert.equal(kind, input.kind, `${input.text}: the kind it was given`);
+      await page.waitForTimeout(4600);
+      assert.equal(await count(page), stays ? 1 : 0, `${input.kind} (${input.text}) ${stays ? 'stays' : 'fades'}`);
+      await page.evaluate(() => document.querySelectorAll('.marxy-notice-dismiss').forEach((b) => b.click()));
+      assert.equal(await count(page), 0);
+    }
+  }));
+
+test('the disk notices are refusals, except the fact that the file was removed (U-02.1)', () =>
+  withApp(async (page) => {
+    const kinds = await page.evaluate(async () => {
+      const disk = await import('/src/notices/disk.ts');
+      const pane = document.querySelector('section.marxy-pane');
+      const out = {};
+      for (const [name, say] of [
+        ['edits-kept', disk.diskChangedEditsKeptNotice],
+        ['choose', disk.diskChangedChooseNotice],
+        ['removed', disk.fileRemovedNotice],
+        ['refused', (t) => disk.fileRefusedNotice(disk.fileRefusedText('A.md', 'is no longer a regular file'), t)],
+      ]) {
+        document.querySelectorAll('.marxy-notice-dismiss').forEach((b) => b.click());
+        say({ pane });
+        out[name] = document.querySelector('.marxy-notice')?.dataset.noticeKind;
+      }
+      return out;
+    });
+    assert.deepEqual(kinds, { 'edits-kept': 'refused', choose: 'refused', removed: 'info', refused: 'refused' });
+  }));
+
+test('every Dismiss is named for the notice it closes, and begins with its visible word (U-02.1)', () =>
+  withApp(async (page) => {
+    await raise(page, { kind: 'refused', text: 'Nothing was pasted.' });
+    await raise(page, { kind: 'error', text: 'Could not save.' });
+    await raise(page, { kind: 'info', text: 'About the left.' });
+    const names = await page.evaluate(() => [...document.querySelectorAll('.marxy-notice-dismiss')].map((b) => ({ visible: b.textContent, name: b.getAttribute('aria-label') })));
+    assert.equal(names.length, 3);
+    for (const n of names) assert.ok(n.name.startsWith(n.visible), `${n.name}: starts with the visible word`);
+    assert.deepEqual(names.map((n) => n.name).sort(), ['Dismiss Not done: Could not save.', 'Dismiss Not done: Nothing was pasted.', 'Dismiss Note: About the left.']);
+    assert.equal(new Set(names.map((n) => n.name)).size, 3, 'no two alike');
+    // The role and name a screen reader gets, not only the attribute.
+    assert.equal(await page.getByRole('button', { name: 'Dismiss Not done: Could not save.', exact: true }).count(), 1);
+  }));
+
+test('in a decision, Tab and Shift+Tab stay among the pill\'s buttons (U-02.1)', () =>
+  withApp(async (page) => {
+    await raise(page, { kind: 'decision', text: 'Save first?', actions: ['Save and go', 'Go without saving'] });
+    const where = () => page.evaluate(() => {
+      const line = document.querySelector('.marxy-notice[data-notice-kind="decision"]');
+      return line.contains(document.activeElement) ? document.activeElement.textContent : `OUT: ${document.activeElement?.tagName}`;
+    });
+    assert.equal(await where(), 'Save and go', 'focus is taken');
+    const forward = [];
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press('Tab');
+      forward.push(await where());
+    }
+    assert.deepEqual(forward, ['Go without saving', 'Dismiss', 'Save and go', 'Go without saving', 'Dismiss']);
+    const back = [];
+    for (let i = 0; i < 4; i++) {
+      await page.keyboard.press('Shift+Tab');
+      back.push(await where());
+    }
+    assert.deepEqual(back, ['Go without saving', 'Save and go', 'Dismiss', 'Go without saving']);
+  }));
+
+test('in a Note, Tab past its last button goes on to the page (U-02.1)', () =>
+  withApp(async (page) => {
+    await raise(page, { kind: 'info', text: 'A note.', actions: ['Do it'] });
+    await page.keyboard.press('ControlOrMeta+Alt+n');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-notice').contains(document.activeElement)), false, 'left the pill');
+  }));
