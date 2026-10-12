@@ -623,11 +623,9 @@ pre.language-log .marxy-line {
   background-origin: content-box;
 }
 pre.language-log .marxy-log-error { border-inline-start-color: var(--marxy-color-text); }
-/* The level filter (K-08). A piece the filter has handled lays its lines out as blocks and drops the newlines between
-   them (they are text, and a hidden line's newline would be an empty row). A hidden run is one line of words. */
-.marxy-log-filtered { white-space: normal; }
-.marxy-log-filtered > .marxy-line { display: block; white-space: pre-wrap; min-height: var(--marxy-line-box-code); }
-.marxy-log-filtered > .marxy-log-hidden { display: none; }
+/* The level filter (K-08). A hidden run is wrapped, newlines and all, in one element that is not drawn; a piece every line of
+   which is hidden takes no room. */
+.marxy-log-hidden-text { display: none; }
 .marxy-log-hidden-piece { display: none; }
 .marxy-log-hidden-run {
   display: block;

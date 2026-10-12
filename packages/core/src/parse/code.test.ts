@@ -2,7 +2,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import type { CodeBlock, Node } from '../contracts/ast.ts';
-import { CODE_CHUNK_LINES, LOG_ENTRY_MAX_LINES, codeLanguageOf, isCodeFile, parseCode } from './code.ts';
+import { CODE_CHUNK_LINES, codeLanguageOf, isCodeFile, parseCode } from './code.ts';
 import { checkInvariants } from './invariants.ts';
 import { outlineFrom } from '../outline/index.ts';
 import { LINE_ENDINGS } from './line-endings.ts';
@@ -116,10 +116,11 @@ test('a log is cut after 200 lines at the end of its entry: a stack trace is nev
   for (const part of parts.slice(1)) assert.match(part, /^2026-/);
 });
 
-test('a log entry longer than the cap is cut at the cap; a file with no head at all is cut at 200 lines like any code (K-08)', () => {
-  const long = pieces(HEAD + FRAME.repeat(LOG_ENTRY_MAX_LINES + 500));
-  assert.equal(long[0]!.split(LINE_ENDINGS).length - 1, LOG_ENTRY_MAX_LINES);
-  assert.ok(long.length >= 2);
+test('an entry of any length stays in one piece with its head; a file with no head at all is cut at 200 lines like any code (K-08)', () => {
+  const long = pieces(HEAD + FRAME.repeat(2500) + HEAD);
+  assert.equal(long.length, 2, 'the entry and the head after it');
+  assert.equal(long[0]!.split(LINE_ENDINGS).length - 1, 2501, 'the head and all 2,500 frames');
+  assert.ok(long[1]!.startsWith('2026-'));
   const none = pieces('some output\n'.repeat(450));
   assert.deepEqual(none.map((p) => p.split(LINE_ENDINGS).length - 1), [200, 200, 50]);
   // The same file as code in another language is cut at 200 whatever its lines look like.

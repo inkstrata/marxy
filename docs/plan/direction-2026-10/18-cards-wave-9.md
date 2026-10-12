@@ -273,9 +273,7 @@ hidden lines is one text line, "14 lines below Warn", which a click shows; the f
 *Amended in K-08's PR.* Taken as recommended: question 1, the strip only, no log bar; question 2, `␛` for ESC in every
 Rendered page and the hex label for every other control; question 3, `.out` opens in Read as `.log` does. Three departures
 from the card: (1) **no line-number gutter**: V-10 did not build one (its own amendment, `13-code-view.md`), and a gutter
-needs each piece's first line number in the markup, which is a contract change; (2) the filter works on the pieces near the
-reader (within two screens) and on the pieces a hidden run crosses, and leaves the rest as the raw text they are, so a log of
-tens of megabytes is filtered where it is read and its cost does not grow with its length; (3) `.out` joins the Tauri file
+needs each piece's first line number in the markup, which is a contract change; (2) a hidden run is wrapped in one element, so the filter reaches every piece of a log of tens of megabytes without a span a line; (3) `.out` joins the Tauri file
 associations, because the file-type table and the associations are one list (V-09).
 
 ---

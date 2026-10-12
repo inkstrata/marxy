@@ -7,7 +7,7 @@ import type { AppPane } from '../pane/index.ts';
 import type { Pane } from '../pane/pane-set.ts';
 import { notify } from '../notices/index.ts';
 import { openVerbMenu, type MenuAnchor, type VerbMenuRow } from '../selection/verb-menu.ts';
-import { countHidden, firstErrorOffset, LEVELS, levelOf, type Level } from '../kinds/log-filter.ts';
+import { countHidden, firstErrorOffset, hasLevelWords, LEVELS, levelOf, NO_LEVEL_WORDS, type Level } from '../kinds/log-filter.ts';
 import { appHandle } from './app-handle.ts';
 import type { AppContext, Command } from './registry.ts';
 
@@ -28,6 +28,25 @@ function focusedLog(): { readonly pane: Pane<AppPane> } | null {
 }
 
 const isLogOpen = (): boolean => focusedLog() !== null;
+
+/** Whether the open log has any line with a level word, asked once for each state of the buffer. */
+const levelWords = new WeakMap<object, boolean>();
+function hasLevels(pane: Pane<AppPane>): boolean {
+  const buffer = pane.view.store()?.snapshot().buffer;
+  if (buffer === undefined) return false;
+  let known = levelWords.get(buffer);
+  if (known === undefined) {
+    known = hasLevelWords(buffer.text);
+    levelWords.set(buffer, known);
+  }
+  return known;
+}
+
+/** Filter by level is offered for a log in Read that has level words to filter by. */
+const canFilter = (): boolean => {
+  const found = focusedLog();
+  return found !== null && hasLevels(found.pane);
+};
 
 /** Under the strip's own button when it is drawn, else the middle of the window. */
 function anchorFor(): MenuAnchor {
@@ -51,6 +70,10 @@ async function setLevel(level: Level): Promise<void> {
   const { pane } = found;
   const store = pane.view.store();
   if (store === null) return;
+  if (!hasLevels(pane)) {
+    notify({ kind: 'info', fades: true, text: `${NO_LEVEL_WORDS} · nothing is hidden · its lines do not open with a timestamp and a level word` });
+    return;
+  }
   const buffer = store.snapshot().buffer;
   const article = pane.article;
   const current = (): boolean => pane.view.store() === store && article.isConnected;
@@ -60,7 +83,7 @@ async function setLevel(level: Level): Promise<void> {
     notify({ kind: 'done', text: 'All lines shown · the file is unchanged' });
     return;
   }
-  const filter = filterFor(article, store, current, () => void pane.view.relayout());
+  const filter = filterFor(article, store, current);
   filter.setLevel(level);
   const counted = await countHidden(buffer.text, level.min, yieldNow, { aborted: () => !current() });
   if (counted === null) return;
@@ -84,6 +107,10 @@ async function jumpToFirstError(ctx: AppContext): Promise<void> {
   const store = pane.view.store();
   if (store === null) return;
   const buffer = store.snapshot().buffer;
+  if (!hasLevels(pane)) {
+    ctx.showNotice(`${NO_LEVEL_WORDS} · nothing moved · its lines do not open with a timestamp and a level word`, { kind: 'info', fades: true });
+    return;
+  }
   const at = firstErrorOffset(buffer.text);
   if (at < 0) {
     ctx.showNotice('No ERROR line in this log · nothing moved · Filter by level to Warn reads the warnings', { kind: 'info', fades: true });
@@ -91,7 +118,7 @@ async function jumpToFirstError(ctx: AppContext): Promise<void> {
   }
   const byte = utf16ToByte(buffer, at);
   pane.view.mountThrough(byte);
-  const { filterOf, piecesOf } = await pageHalf();
+  const { filterOf, linesOf, piecesOf } = await pageHalf();
   const piece = piecesOf(pane.article).find((code) => Number(code.dataset.marxyS) <= byte && byte < Number(code.dataset.marxyE));
   if (!piece) {
     ctx.showNotice('Could not reach the first error · nothing moved · try again once the file has finished opening', { kind: 'refused' });
@@ -106,7 +133,7 @@ async function jumpToFirstError(ctx: AppContext): Promise<void> {
   for (let i = Number(piece.dataset.marxyS); i < byte; i++) {
     if (bytes[i] === 0x0a || (bytes[i] === 0x0d && bytes[i + 1] !== 0x0a)) index++;
   }
-  const line = [...piece.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.classList.contains('marxy-line'))[index];
+  const line = linesOf(piece)[index];
   if (!line) return;
   line.scrollIntoView({ block: 'center' });
   line.tabIndex = -1;
@@ -119,7 +146,8 @@ export function logCommands(): readonly Command[] {
       id: 'log.filter-level',
       title: 'Filter by level',
       group: 'view',
-      when: isLogOpen,
+      when: canFilter,
+      unavailable: () => (isLogOpen() ? NO_LEVEL_WORDS : null),
       async run(ctx) {
         const found = focusedLog();
         const store = found?.pane.view.store();

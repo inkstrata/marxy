@@ -51,6 +51,8 @@ export interface Command {
   /** `false`: a door with a row of its own elsewhere (the toolbar's Transform button), so the palette does not list it. */
   readonly listed?: false;
   when(ctx: AppContext): boolean;
+  /** Why the command is not offered now, when that is worth saying where its button is drawn (the strip's title); null when it is offered or there is nothing to say. */
+  unavailable?(ctx: AppContext): string | null;
   run(ctx: AppContext): Promise<void>;
 }
 

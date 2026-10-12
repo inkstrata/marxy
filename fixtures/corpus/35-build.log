@@ -1,0 +1,49 @@
+2026-10-12T09:30:00.104Z INFO  boot     lanternfish 2.4.1 starting (pid 4121, 8 workers)
+2026-10-12T09:30:00.118Z DEBUG config   reading /etc/lanternfish/site.toml
+2026-10-12T09:30:00.121Z DEBUG config   listen=0.0.0.0:8443 tls=on cache_dir=/var/cache/lanternfish
+2026-10-12T09:30:00.390Z INFO  store    opened shard 0 (12,408 keys, 31 MB)
+2026-10-12T09:30:00.402Z INFO  store    opened shard 1 (12,377 keys, 30 MB)
+2026-10-12T09:30:00.415Z INFO  store    opened shard 2 (12,412 keys, 31 MB)
+2026-10-12T09:30:00.431Z INFO  store    opened shard 3 (12,390 keys, 30 MB)
+2026-10-12T09:30:00.902Z WARN  tls      certificate for harbor.example.invalid expires in 9 days
+    renew with: lanternfish cert renew --host harbor.example.invalid
+2026-10-12T09:30:01.000Z INFO  http     listening on https://0.0.0.0:8443
+2026-10-12T09:30:01.020Z INFO  health   ready; the word ERROR in this message is not a level
+2026-10-12T09:30:05.771Z DEBUG http     GET /v1/tide/0042 200 3 ms
+2026-10-12T09:30:05.802Z DEBUG http     GET /v1/tide/0043 200 2 ms
+2026-10-12T09:30:06.115Z INFO  http     GET /v1/tide/0107 200 41 ms (cache miss)
+2026-10-12T09:30:06.480Z INFO  http     GET /v1/gauges 200 12 ms
+2026-10-12T09:30:07.012Z INFO  sync     peer harbor-b answered in 88 ms
+2026-10-12T09:30:07.340Z INFO  sync     peer harbor-c answered in 91 ms
+2026-10-12T09:30:08.002Z DEBUG sync     merged 4 deltas, 0 conflicts
+2026-10-12T09:30:08.610Z WARN  render   [33mslow frame[0m: 48 ms (budget 16 ms)
+2026-10-12T09:30:09.221Z INFO  http     GET /v1/tide/0108 200 9 ms
+2026-10-12T09:30:09.870Z ERROR loader   gauge 0107: cannot parse reading "4,5" at column 3
+    at parseReading (src/loader/readings.ts:88:41)
+    at loadGauge (src/loader/gauges.ts:140:12)
+    at async refresh (src/loader/index.ts:57:5)
+
+    caused by: RangeError: invalid decimal separator
+        at Decimal.parse (node_modules/decimal/lib/parse.js:213:11)
+2026-10-12T09:30:09.871Z INFO  loader   gauge 0107 skipped; serving the previous reading
+2026-10-12T09:30:10.004Z DEBUG http     GET /v1/tide/0109 200 2 ms
+2026-10-12T09:30:10.350Z INFO  http     GET /v1/tide/0110 200 4 ms
+2026-10-12T09:30:11.000Z INFO  tty      [2Kprogress 60%[0m
+2026-10-12T09:30:12.447Z INFO  http     GET /v1/tide/0111 200 5 ms
+2026-10-12T09:30:13.090Z WARN  cache    eviction rate 4.2/s above 3.0/s for 60 s
+2026-10-12T09:30:14.318Z INFO  http     GET /v1/tide/0112 200 6 ms
+2026-10-12T09:30:15.760Z INFO  http     GET /v1/tide/0113 200 7 ms
+2026-10-12T09:30:16.225Z DEBUG sync     merged 1 delta, 0 conflicts
+2026-10-12T09:30:17.903Z INFO  http     GET /v1/gauges 200 11 ms
+2026-10-12T09:30:18.640Z ERROR sync     peer harbor-b refused the connection (attempt 3 of 3)
+    at connect (src/sync/peer.ts:61:9)
+    at async retry (src/sync/retry.ts:22:7)
+2026-10-12T09:30:18.641Z WARN  sync     continuing without harbor-b	three peers remain
+2026-10-12T09:30:19.100Z INFO  http     GET /v1/tide/0114 200 3 ms
+2026-10-12T09:30:20.512Z INFO  http     GET /v1/tide/0115 200 4 ms
+2026-10-12T09:30:21.066Z INFO  http     GET /v1/tide/0116 200 4 ms
+2026-10-12T09:30:22.700Z INFO  http     GET /v1/tide/0117 200 5 ms
+2026-10-12T09:30:23.390Z FATAL store    shard 2 checksum mismatch; refusing writes
+    at verify (src/store/shard.ts:204:13)
+    at async checkpoint (src/store/checkpoint.ts:77:3)
+2026-10-12T09:30:23.392Z INFO  boot     shutting down (exit 70)

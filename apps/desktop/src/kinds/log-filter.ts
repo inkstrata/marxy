@@ -91,7 +91,7 @@ export async function countHidden(
   let total = 0;
   let at = 0;
   const visit = (start: number, end: number): void => {
-    const head = logHead(text.slice(start, Math.min(end, start + 160)));
+    const head = logHead(text.slice(start, Math.min(end, start + 200)));
     if (head !== null) rank = head.rank;
     total++;
     if (rank < min) hidden++;
@@ -115,8 +115,26 @@ export function firstErrorOffset(text: string): number {
       if (found >= 0) return;
       const first = text.charCodeAt(start);
       if (!(first === 0x5b || (first >= 0x30 && first <= 0x39))) return;
-      if (logHead(text.slice(start, Math.min(end, start + 160)))?.rank === 3) found = start;
+      if (logHead(text.slice(start, Math.min(end, start + 200)))?.rank === 3) found = start;
     }, at, Math.min(text.length, at + 65_536));
   }
   return found;
 }
+
+/** Whether any line of `text` opens with a timestamp and a level word. A log with none cannot be filtered by level. */
+export function hasLevelWords(text: string): boolean {
+  let found = false;
+  let at = 0;
+  while (at < text.length && !found) {
+    at = eachLine(text, (start, end) => {
+      if (found) return;
+      const first = text.charCodeAt(start);
+      if (!(first === 0x5b || (first >= 0x30 && first <= 0x39))) return;
+      if (logHead(text.slice(start, Math.min(end, start + 200))) !== null) found = true;
+    }, at, Math.min(text.length, at + 65_536));
+  }
+  return found;
+}
+
+/** What the log's tools say when there is nothing to filter by. */
+export const NO_LEVEL_WORDS = 'No level words found in this log';

@@ -66,3 +66,22 @@ test('a log with no heads has no rule and no weight: an .out that is not a log r
   assert.ok(lines.flat().every((t) => t.className === undefined));
   assert.ok(lineMetaForHighlight('log', lines).every((m) => m.lineClass === undefined));
 });
+
+test('log4j and Laravel heads are read: a [thread] between the timestamp and the level, a `local.` before it (K-08)', () => {
+  const log4j = '2026-10-12 12:00:00,123 [http-nio-8080-exec-1] ERROR com.example.Service - boom';
+  assert.equal(logHead(log4j)?.rank, 3);
+  assert.deepEqual(logHead(log4j)?.level, [log4j.indexOf('ERROR'), log4j.indexOf('ERROR') + 5]);
+  assert.deepEqual(logHead(log4j)?.time, [0, 23]);
+  const laravel = '[2026-10-12 12:00:00] local.ERROR: Something failed {"exception":"[object]"}';
+  assert.equal(logHead(laravel)?.rank, 3);
+  assert.deepEqual(logHead(laravel)?.time, [1, 20]);
+  assert.deepEqual(logHead(laravel)?.level, [laravel.indexOf('ERROR'), laravel.indexOf('ERROR') + 5]);
+  assert.equal(logHead('[2026-10-12 12:00:00] production.warning: slow')?.rank, 2);
+  assert.equal(logHead('[2026-10-12 12:00:00] local.INFO: ok')?.rank, 1);
+  assert.equal(logHead('2026-10-12 12:00:00,123 [main] DEBUG x')?.rank, 0);
+  assert.equal(logHead('2026-10-12 12:00:00 [pool-1-thread-2] SEVERE x')?.rank, 3);
+  // Still not heads: a level word that is not where the format puts it, and a timestamp with no level.
+  assert.equal(logHead('2026-10-12 12:00:00 the process says ERROR now'), null);
+  assert.equal(logHead('2026-10-12 12:00:00 [main] no level here'), null);
+  assert.equal(logHead('{"time":"2026-10-12T12:00:00Z","level":"error"}'), null, 'JSON lines have no level words in this reading');
+});

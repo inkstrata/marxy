@@ -17,12 +17,12 @@ import { nextLineEnding } from './line-endings.ts';
 /** The most lines in one piece of a code file. */
 export const CODE_CHUNK_LINES = 200;
 /**
- * The most lines in one piece of a log (K-08). A log's piece ends at the end of a log entry (before the next line that
- * opens with a timestamp and a level word) once it has 200 lines, so a stack trace is never cut from the line it
- * belongs to and every piece begins at a head: what the level of a line is can be read from its piece alone. An entry
- * longer than this is cut here, and a piece with no head in it at all is cut at 200 like any other code.
+ * A log's piece ends at the end of a log entry (before the next line that opens with a timestamp and a level word) once
+ * it has 200 lines, however long the entry is (K-08): a stack trace is never cut from the line it belongs to and every
+ * piece begins at a head, so what the level of a line is can be read from its piece alone and the page and the whole-file
+ * count cannot disagree. A piece with no head in its first 200 lines is cut at 200 like any other code: its lines
+ * have no head before them either, so they are in the same (orphan) rank in a piece as in the file.
  */
-export const LOG_ENTRY_MAX_LINES = 1000;
 
 /** Whether the line starting at `at` opens with a timestamp and a level word; only its first characters are read. */
 function isLogHead(text: string, at: number): boolean {
@@ -73,7 +73,7 @@ export function parseCode(bytes: Uint8Array, options: CodeParseOptions = {}): Do
       end = ending === undefined ? text.length : ending.end;
     }
     // A log's piece runs on to the end of its entry (K-08): the next piece opens with a head.
-    while (isLog && sawHead && end < text.length && lines < LOG_ENTRY_MAX_LINES && !isLogHead(text, end)) {
+    while (isLog && sawHead && end < text.length && !isLogHead(text, end)) {
       const ending = nextLineEnding(text, end);
       end = ending === undefined ? text.length : ending.end;
       lines++;

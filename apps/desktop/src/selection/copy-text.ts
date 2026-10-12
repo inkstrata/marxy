@@ -145,35 +145,57 @@ export function codeRunSourceText(range: Range, article: HTMLElement, bytes: Uin
     // The first source index at or after each page index; past the end of the source is the end of it.
     // A page index just past a newline is just past the whole CRLF in the source, not between its CR and its LF (F-68).
     const sourceIndex = (p: number): number => {
-      const i = pageAt.findIndex((v) => v >= p);
-      if (i === -1) return source.length;
-      return source[i] === '\n' && source[i - 1] === '\r' ? i + 1 : i;
+      // `pageAt` never decreases: the first index at or after `p` by bisection (a log piece has thousands of lines).
+      let low = 0;
+      let high = pageAt.length;
+      while (low < high) {
+        const mid = (low + high) >> 1;
+        if (pageAt[mid]! >= p) high = mid;
+        else low = mid + 1;
+      }
+      if (low === pageAt.length) return source.length;
+      return source[low] === '\n' && source[low - 1] === '\r' ? low + 1 : low;
     };
     const first = sourceIndex(from);
     const last = to === Number.POSITIVE_INFINITY ? source.length : sourceIndex(to);
-    out.push(withoutHiddenLines(code, source, first, last));
+    out.push(withoutHiddenRuns(code, source, first, last, sourceIndex));
   }
   return out.join('');
 }
 
+/** How much of the page's copy text a node holds: what `textFromFragment` would keep of it. */
+function pageLength(node: Node): number {
+  if (node.nodeType === Node.TEXT_NODE) return (node as Text).data.length;
+  if (node.nodeType !== Node.ELEMENT_NODE) return 0;
+  for (const cls of (node as Element).classList) if (SKIP.has(cls)) return 0;
+  let n = 0;
+  for (const child of node.childNodes) n += pageLength(child);
+  return n;
+}
+
 /**
- * `source` from `first` to `last`, less the lines the log filter hides in `code` (K-08). A copy takes what the reader sees
- * as well as the bytes of it: a selection from the first line to the last of a filtered log is the lines shown, each as the
- * file has it, and not the thousands between. The page's lines are the piece's lines in order, so the n-th hidden page
- * line is the n-th line of `source`; a piece the filter has not handled has none, and its slice is the slice.
+ * `source` from `first` to `last`, less the runs of lines the log filter hides in `code` (K-08). A copy takes what the
+ * reader sees as well as the bytes of it: a selection from the first line to the last of a filtered log is the lines
+ * shown, each as the file has it, and not the thousands between. A hidden run is one element holding its lines' text and
+ * newlines (`kinds/log-view.ts`), so it is a range of the page's text, and that maps to the source like any other.
  */
-function withoutHiddenLines(code: HTMLElement, source: string, first: number, last: number): string {
-  if (code.querySelector('.marxy-log-hidden') === null) return source.slice(first, last);
-  const pageLines = [...code.children].filter((child) => child.classList.contains('marxy-line'));
+function withoutHiddenRuns(code: HTMLElement, source: string, first: number, last: number, sourceIndex: (page: number) => number): string {
+  if (code.querySelector('.marxy-log-hidden-text') === null) return source.slice(first, last);
   const kept: string[] = [];
+  let from = first;
   let at = 0;
-  for (let n = 0; at < source.length; n++) {
-    let end = at;
-    while (end < source.length && source[end] !== '\n' && source[end] !== '\r') end++;
-    end = source[end] === '\r' && source[end + 1] === '\n' ? end + 2 : Math.min(end + 1, source.length);
-    const hidden = pageLines[n]?.classList.contains('marxy-log-hidden') === true;
-    if (!hidden && end > first && at < last) kept.push(source.slice(Math.max(at, first), Math.min(end, last)));
-    at = end;
+  for (const child of code.childNodes) {
+    const length = pageLength(child);
+    if (child instanceof Element && child.classList.contains('marxy-log-hidden-text')) {
+      const start = Math.max(sourceIndex(at), first);
+      const end = Math.min(sourceIndex(at + length), last);
+      if (end > start) {
+        if (start > from) kept.push(source.slice(from, start));
+        from = Math.max(from, end);
+      }
+    }
+    at += length;
   }
+  if (last > from) kept.push(source.slice(from, last));
   return kept.join('');
 }

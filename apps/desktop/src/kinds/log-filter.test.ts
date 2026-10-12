@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { countHidden, firstErrorOffset, hiddenRuns, keptLines, LEVELS, levelOf, runWords } from './log-filter.ts';
+import { countHidden, firstErrorOffset, hasLevelWords, hiddenRuns, keptLines, LEVELS, levelOf, NO_LEVEL_WORDS, runWords } from './log-filter.ts';
 import { logRanks } from '@marxy/core/src/highlight/line-classes.ts';
 
 const text = readFileSync(new URL('../../../../fixtures/corpus/35-build.log', import.meta.url), 'utf8');
@@ -65,4 +65,20 @@ test('the first error is the first head at ERROR or above; a frame, a message th
   assert.equal(firstErrorOffset('2026-10-12T09:30:00Z INFO a\n2026-10-12T09:30:01Z FATAL b\n'), 28);
   assert.equal(firstErrorOffset(''), -1);
   assert.equal(firstErrorOffset('2026-10-12T09:30:00Z INFO a\r\n2026-10-12T09:30:01Z critical b'), 29);
+});
+
+test('a log has level words when any line opens with a timestamp and a level: ISO, log4j and Laravel do, JSON lines and plain output do not', () => {
+  assert.equal(hasLevelWords(text), true);
+  assert.equal(hasLevelWords('2026-10-12 12:00:00,123 [main] ERROR com.example.App - boom\n'), true);
+  assert.equal(hasLevelWords('[2026-10-12 12:00:00] local.ERROR: boom\n'), true);
+  assert.equal(hasLevelWords('{"time":"2026-10-12T12:00:00Z","level":"error"}\n{"level":"info"}\n'), false);
+  assert.equal(hasLevelWords('make: Entering directory\nERROR: no timestamp\n'), false);
+  assert.equal(hasLevelWords(''), false);
+  assert.equal(hasLevelWords(`${'some output\n'.repeat(20_000)}2026-10-12T12:00:00Z WARN late\n`), true, 'a head far into the file is found');
+  assert.equal(NO_LEVEL_WORDS, 'No level words found in this log');
+});
+
+test('the count and the pieces agree on an entry of any length: 2,500 frames keep the rank of their head', async () => {
+  const body = `2026-10-12T09:00:00Z INFO a\n2026-10-12T09:00:01Z ERROR b\n${'    at frame\n'.repeat(2500)}2026-10-12T09:00:02Z INFO c\n`;
+  assert.deepEqual(await countHidden(body, 3, () => Promise.resolve()), { hidden: 2, total: 2503 });
 });

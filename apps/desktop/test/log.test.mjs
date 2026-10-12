@@ -64,14 +64,14 @@ const open = async (page, path) => {
 
 /** A line's text as the file has it: the markers' labels are the page's, not the file's. */
 const PAGE_HELPERS = `
+  // The text of a piece as the page shows it: the lines the filter hides, the words that stand for them and the markers' labels are not in it.
   window.__lineText = (el) => {
     const copy = el.cloneNode(true);
-    for (const g of copy.querySelectorAll('.marxy-invisible-glyph, .marxy-log-hidden-run')) g.remove();
+    for (const g of copy.querySelectorAll('.marxy-invisible-glyph, .marxy-log-hidden-run, .marxy-log-hidden-text')) g.remove();
     return copy.textContent;
   };
-  window.__shownLines = () => [...document.querySelectorAll('#doc pre.language-log > code > .marxy-line')]
-    .filter((l) => !l.classList.contains('marxy-log-hidden') && l.getClientRects().length > 0)
-    .map((l) => window.__lineText(l));
+  window.__shownLines = () => [...document.querySelectorAll('#doc pre.language-log:not(.marxy-log-hidden-piece) > code')]
+    .flatMap((code) => { const t = window.__lineText(code); const lines = t.split('\\n'); if (lines.at(-1) === '') lines.pop(); return lines; });
   window.__runs = () => [...document.querySelectorAll('#doc .marxy-log-hidden-run')]
     .map((r) => ({ words: r.textContent, count: Number(r.getAttribute('data-marxy-log-hidden')), shown: r.getClientRects().length > 0 }));
 `;
@@ -249,7 +249,7 @@ test('Filter by level: Warn leaves the WARN and ERROR lines with their frames, a
     // The words stand where the lines were: the first run is before the first shown line.
     const order = await page.evaluate(() => {
       const code = document.querySelector('#doc pre.language-log > code');
-      return [...code.children].filter((c) => !c.classList.contains('marxy-log-hidden')).slice(0, 3).map((c) => (c.classList.contains('marxy-log-hidden-run') ? 'words' : 'line'));
+      return [...code.children].filter((c) => !c.classList.contains('marxy-log-hidden-text')).slice(0, 3).map((c) => (c.classList.contains('marxy-log-hidden-run') ? 'words' : 'line'));
     });
     assert.deepEqual(order, ['words', 'line', 'line']);
     // The notice says how many, and what is unchanged.
@@ -262,7 +262,7 @@ test('Filter by level: Warn leaves the WARN and ERROR lines with their frames, a
     assert.deepEqual(await page.evaluate(() => window.__shownLines()), keptLines(fixtureLines, 1).map((i) => fixtureLines[i]));
     await chooseLevel(page, 'all');
     assert.deepEqual(await page.evaluate(() => window.__shownLines()), fixtureLines);
-    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-log-hidden-run, .marxy-log-hidden').length), 0);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-log-hidden-run, .marxy-log-hidden-text, .marxy-log-hidden-piece').length), 0);
     // A view only: the file, and the page's text, are what they were.
     assert.equal(await page.evaluate(() => window.__marxyHandle.document().snapshot().buffer.text), fixture);
   }));
@@ -287,8 +287,8 @@ test('a click on a run of words shows its lines, and nothing else; the filter is
     await open(page, '/r/build.log');
     await coloured(page);
     await page.waitForTimeout(100);
-    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-log-hidden-run, .marxy-log-hidden').length), 0);
-    assert.equal(await page.evaluate(() => [...document.querySelectorAll('#doc pre.language-log > code > .marxy-line')].filter((l) => l.getClientRects().length > 0).length), fixtureLines.length);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-log-hidden-run, .marxy-log-hidden-text').length), 0);
+    assert.equal(await page.evaluate(() => window.__shownLines().length), fixtureLines.length);
   }));
 
 test('a reload while filtered recounts: the runs are those of the new bytes', () =>
@@ -332,10 +332,7 @@ test('a run of hidden lines that crosses pieces is one line of words with the co
     assert.deepEqual(seen.pieces.map((p) => p.hidden), [false, true, true, false]);
     assert.ok(seen.pieces.filter((p) => p.hidden).every((p) => p.room === 0), 'a piece wholly in the run takes no room');
     await page.locator('.marxy-log-hidden-run', { hasText: '650 lines below Error' }).click();
-    // Lines on the page: those of a split piece that are not hidden, the raw lines of one that is not split.
-    const onPage = await page.evaluate(() => [...document.querySelectorAll('#doc pre.language-log > code')]
-      .filter((c) => c.getClientRects().length > 0)
-      .reduce((n, c) => n + (c.dataset.marxyDone === undefined ? window.__lineText(c).replace(/\n$/, '').split('\n').length : [...c.querySelectorAll(':scope > .marxy-line')].filter((l) => !l.classList.contains('marxy-log-hidden')).length), 0));
+    const onPage = await page.evaluate(() => window.__shownLines().length);
     assert.equal(onPage, 650 + 2, 'one click shows all 650, and the 5 after the error stay hidden');
     assert.equal(await page.evaluate(() => document.querySelectorAll('#doc .marxy-log-hidden-piece').length), 0);
   }));
@@ -408,6 +405,119 @@ test('the two tools are offered only for a log in Read', () =>
     assert.equal(await mode(page), 'rendered');
   }));
 
+test('find with a filter on searches the lines shown, never the words of a hidden run, and counts the matches in hidden lines', () =>
+  withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/build.log'] });
+    await coloured(page);
+    await chooseLevel(page, 'warn');
+    const shown = keptLines(fixtureLines, 2).map((i) => fixtureLines[i]);
+    const hiddenLines = fixtureLines.filter((l) => !shown.includes(l));
+    const count = (lines, word) => lines.join('\n').match(new RegExp(word, 'gi'))?.length ?? 0;
+    const inShown = count(shown, 'sync');
+    const inHidden = count(hiddenLines, 'sync');
+    assert.ok(inShown > 0 && inHidden > 0, `the fixture has both (${inShown} shown, ${inHidden} hidden)`);
+    const key = await modifier(page);
+    await page.keyboard.press(`${key}+KeyF`);
+    await page.keyboard.type('sync');
+    await page.waitForFunction(() => /\d+ of \d+/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''));
+    const seen = await page.evaluate(() => ({
+      count: document.querySelector('.marxy-find-count').textContent,
+      ranges: [...(CSS.highlights.get('marxy-find') ?? [])].map((r) => ({ hidden: r.startContainer.parentElement.closest('.marxy-log-hidden-text, .marxy-log-hidden-piece, .marxy-log-hidden-run') !== null })),
+      current: [...(CSS.highlights.get('marxy-find-current') ?? [])].map((r) => r.getClientRects().length),
+    }));
+    assert.equal(seen.count, `1 of ${inShown} · ${inHidden} more in hidden lines`, 'the count says how many more matches the hidden lines hold');
+    assert.equal(seen.ranges.length, inShown, 'every highlight is a match in a line that is shown');
+    assert.ok(seen.ranges.every((r) => !r.hidden));
+    assert.ok(seen.current.every((n) => n > 0), 'the current match is on screen');
+    // The words the filter leaves are not text of the log.
+    await page.keyboard.press(`${key}+KeyA`);
+    await page.keyboard.type('below');
+    await page.waitForFunction(() => document.querySelector('.marxy-find-count')?.textContent?.startsWith('0 of 0'));
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-find-count').textContent), '0 of 0', 'no match in "N lines below Warn"');
+  }));
+
+test('an entry keeps all its continuation lines, however many: the page and the notice agree on 2,500 frames', () =>
+  withPage(async (page) => {
+    const frames = Array.from({ length: 2500 }, (_, i) => `    at frame${i} (src/deep.ts:${i}:1)\n`).join('');
+    const text = `2026-10-12T09:00:00.000Z INFO  start    before\n2026-10-12T09:00:01.000Z ERROR deep     boom\n${frames}2026-10-12T09:00:02.000Z INFO  end      after\n`;
+    await bootTwoPanes(page, { files: { ...files, '/r/deep.log': text }, open: ['/r/deep.log'] });
+    await coloured(page);
+    await chooseLevel(page, 'error');
+    const seen = await page.evaluate(() => ({
+      runs: window.__runs().map((r) => r.words),
+      shown: window.__shownLines().length,
+      notice: [...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent),
+      pieces: document.querySelectorAll('#doc pre.language-log').length,
+      ruleOnLast: (() => { const l = [...document.querySelectorAll('#doc .marxy-line')].find((x) => x.textContent.includes('frame2499')); return l?.classList.contains('marxy-log-error'); })(),
+    }));
+    assert.deepEqual(seen.runs, ['1 line below Error', '1 line below Error'], 'only the two INFO lines are hidden');
+    assert.equal(seen.shown, 2501, 'the error and its 2,500 frames');
+    assert.ok(seen.notice.includes('Error and above · 2 lines of 2,503 hidden · the file is unchanged'), JSON.stringify(seen.notice));
+    assert.equal(seen.ruleOnLast, true, 'the last frame carries the error rule');
+  }));
+
+test('log4j and Laravel levels are read: the level word is bold, the filter works on them', () =>
+  withPage(async (page) => {
+    const log4j = [
+      '2026-10-12 12:00:00,123 [main] INFO  com.example.App - starting',
+      '2026-10-12 12:00:01,456 [http-nio-8080-exec-1] ERROR com.example.Service - boom',
+      '    at com.example.Service.run(Service.java:42)',
+      '2026-10-12 12:00:02,789 [main] DEBUG com.example.App - done',
+      '',
+    ].join('\n');
+    const laravel = [
+      '[2026-10-12 12:00:00] local.INFO: booted',
+      '[2026-10-12 12:00:01] local.ERROR: Something failed {"exception":"[object] (RuntimeException)"}',
+      '#0 /var/www/app/Http/Controller.php(12): fail()',
+      '[2026-10-12 12:00:02] production.warning: slow query',
+      '',
+    ].join('\n');
+    await bootTwoPanes(page, { files: { ...files, '/r/app4j.log': log4j, '/r/laravel.log': laravel }, open: ['/r/app4j.log'] });
+    await coloured(page);
+    const levels = () => page.evaluate(() => [...document.querySelectorAll('#doc .marxy-log-level')].map((l) => [l.textContent, getComputedStyle(l).fontWeight]));
+    assert.deepEqual((await levels()).map((l) => l[0]), ['INFO', 'ERROR', 'DEBUG']);
+    assert.ok((await levels()).every((l) => l[1] === '700'));
+    await chooseLevel(page, 'error');
+    assert.deepEqual(await page.evaluate(() => window.__shownLines()), log4j.split('\n').slice(1, 3));
+    await open(page, '/r/laravel.log');
+    await coloured(page);
+    assert.deepEqual((await levels()).map((l) => l[0]), ['INFO', 'ERROR', 'warning']);
+    await chooseLevel(page, 'warn');
+    assert.deepEqual(await page.evaluate(() => window.__shownLines()), laravel.split('\n').slice(1, 4));
+  }));
+
+test('a log with no level words cannot be filtered, and says so: the tool is off with its reason, and Jump to first error does not say there is no ERROR line', () =>
+  withPage(async (page) => {
+    const json = '{"time":"2026-10-12T09:00:00Z","level":"info","msg":"start"}\n{"time":"2026-10-12T09:00:01Z","level":"error","msg":"boom"}\n';
+    await bootTwoPanes(page, { files: { ...files, '/r/lines.log': json }, open: ['/r/lines.log'] });
+    await page.waitForSelector('#doc pre.language-log');
+    const seen = await page.evaluate(async () => {
+      const { buildAppContext } = await import('/src/selection/bind.ts');
+      const handle = window.__marxyHandle;
+      const ctx = buildAppContext(handle);
+      const filter = handle.commands().find((c) => c.id === 'log.filter-level');
+      const jump = handle.commands().find((c) => c.id === 'log.first-error');
+      const offered = filter.when(ctx);
+      const why = filter.unavailable(ctx);
+      await jump.run(ctx);
+      return { offered, why, jumpOffered: jump.when(ctx), notices: [...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent) };
+    });
+    assert.equal(seen.offered, false, 'Filter by level is off');
+    assert.equal(seen.why, 'No level words found in this log');
+    assert.ok(seen.notices.some((t) => t.startsWith('No level words found in this log · nothing moved · ')), JSON.stringify(seen.notices));
+    assert.ok(!seen.notices.some((t) => t.includes('No ERROR line')), 'it does not say there is no ERROR line');
+    // The strip draws it off, with the reason as its title.
+    await page.evaluate(() => window.__marxyHandle.workspace().unfold());
+    await page.waitForSelector('[data-tool="filter-by-level"]');
+    const button = await page.evaluate(() => { const b = document.querySelector('[data-tool="filter-by-level"]'); return { disabled: b.getAttribute('aria-disabled'), title: b.title }; });
+    assert.equal(button.disabled, 'true');
+    assert.equal(button.title, 'Filter by level: No level words found in this log');
+    // A log that has them is on again.
+    await open(page, '/r/build.log');
+    await page.waitForSelector('#doc pre.language-log');
+    await page.waitForFunction(() => document.querySelector('[data-tool="filter-by-level"]')?.getAttribute('aria-disabled') === null);
+  }));
+
 // ---- commitment 5: a log of tens of megabytes -------------------------------------------------------------------------------
 
 /** A log of about `mb` megabytes made in the page (a base64 argument that size would be the test's own cost). */
@@ -465,7 +575,7 @@ async function bootLarge(page, mb) {
   }, mb);
 }
 
-test(`a log of ${process.env.MARXY_LOG_MB ?? 20} MB: first text arrives before the last chunk is in the page, and a level filter reaches the first screen quickly`, () =>
+test(`a log of ${process.env.MARXY_LOG_MB ?? 20} MB: first text does not wait for the last chunk, and a filter is the whole file's: the notice, the page, a copy and the end of the log agree`, () =>
   withPage(async (page) => {
     const mb = Number(process.env.MARXY_LOG_MB ?? 20);
     const size = await bootLarge(page, mb);
@@ -478,30 +588,124 @@ test(`a log of ${process.env.MARXY_LOG_MB ?? 20} MB: first text arrives before t
     const complete = await page.evaluate(() => window.__complete);
     console.log(`# log ${mb} MB: wholly in the page after ${complete.toFixed(0)} ms`);
     assert.ok(complete > first.at, 'the rest arrived after first text');
-    // The filter: the time from the choice to the first screen showing only what Warn keeps, and to the pieces near it handled.
     await page.evaluate(PAGE_HELPERS);
+
+    // The filter, chosen as a reader does: the time from the choice to the filtered page painted, every piece of the file in it.
     const timing = await page.evaluate(async () => {
-      const { filterFor } = await import('/src/kinds/log-view.ts');
-      const { levelOf } = await import('/src/kinds/log-filter.ts');
-      const pane = window.__marxyHandle.panes().focused;
-      const filter = filterFor(pane.article, pane.view.store(), () => true);
+      const { buildAppContext } = await import('/src/selection/bind.ts');
+      const handle = window.__marxyHandle;
+      await handle.commands().find((c) => c.id === 'log.filter-level').run(buildAppContext(handle));
       const began = performance.now();
-      filter.setLevel(levelOf('warn'));
-      while (document.querySelector('.marxy-log-hidden-run') === null) await new Promise((r) => setTimeout(r, 2));
-      const firstScreen = performance.now() - began;
-      await filter.settled();
-      const shown = window.__shownLines().slice(0, 30);
+      document.querySelector('[data-row-key="log.level.warn"]').click();
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      return { applied: performance.now() - began, runs: document.querySelectorAll('.marxy-log-hidden-run').length };
+    });
+    console.log(`# log ${mb} MB filtered to Warn: ${timing.runs} runs of words on the page, every piece of the file filtered and painted after ${timing.applied.toFixed(0)} ms`);
+    assert.ok(timing.runs > 0);
+    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent.startsWith('Warn and above')), null, { timeout: 120_000 });
+
+    // The model, over the whole file: what Warn hides, and what it keeps.
+    const agree = await page.evaluate(async () => {
+      const { countHidden, keptLines } = await import('/src/kinds/log-filter.ts');
+      const { filterOf } = await import('/src/kinds/log-view.ts');
+      const pane = window.__marxyHandle.panes().focused;
+      const text = pane.view.store().snapshot().buffer.text;
+      const model = await countHidden(text, 2, () => new Promise((r) => setTimeout(r, 0)));
+      const notice = [...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent).find((t) => t.startsWith('Warn and above')) ?? '';
+      const lines = text.split('\n');
+      if (lines.at(-1) === '') lines.pop();
+      const kept = keptLines(lines, 2).map((i) => lines[i]);
+      const pieces = [...document.querySelectorAll('#doc pre.language-log')];
       return {
-        firstScreen,
-        settled: performance.now() - began,
-        hidden: filter.hiddenLines(),
-        shown,
-        handled: document.querySelectorAll('#doc .marxy-log-filtered').length,
-        pieces: document.querySelectorAll('#doc pre.language-log').length,
+        model,
+        noticeHidden: Number(/ ([\d,]+) lines of/.exec(notice)?.[1].replaceAll(',', '')),
+        page: filterOf(pane.article, pane.view.store()).hiddenLines(),
+        pieces: pieces.length,
+        shownMatchKept: window.__shownLines().length === kept.length && window.__shownLines().every((l, i) => l === kept[i]),
+        kept: kept.length,
+        shown: window.__shownLines().length,
       };
     });
-    console.log(`# log ${mb} MB filtered to Warn: first screen ${timing.firstScreen.toFixed(0)} ms, the pieces near it handled in ${timing.settled.toFixed(0)} ms (${timing.handled} of ${timing.pieces} pieces, ${timing.hidden} lines hidden there)`);
-    assert.ok(timing.handled >= 1 && timing.handled < timing.pieces / 4, `${timing.handled} of ${timing.pieces} pieces were handled: the ones near the reader, not the whole log`);
-    assert.ok(timing.hidden > 0);
-    assert.ok(timing.shown.every((l) => / (WARN|ERROR) /.test(l.slice(0, 40)) || l.startsWith('    at ')), `the first screen shows only WARN and ERROR lines and frames: ${JSON.stringify(timing.shown.slice(0, 6))}`);
-  }, { height: 900 }));
+    assert.equal(agree.noticeHidden, agree.model.hidden, 'the notice says what the model hides');
+    assert.equal(agree.page, agree.model.hidden, 'and the page hides exactly that');
+    assert.ok(agree.model.hidden > size.lines * 0.5, 'most lines of this log are below Warn');
+    assert.ok(agree.shownMatchKept, `the page shows the ${agree.kept} lines Warn keeps and no others (${agree.shown} shown)`);
+
+    // Select all and copy: exactly the lines shown, the file's own.
+    const key = await modifier(page);
+    // On an ERROR line: a click on the words of a run would open it.
+    await page.locator('#doc .marxy-log-error').first().click();
+    await page.keyboard.press(`${key}+KeyA`);
+    await page.keyboard.press(`${key}+KeyC`);
+    await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'clipboardWriteItem'), null, { timeout: 120_000 });
+    const copy = await page.evaluate(() => {
+      const call = window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').at(-1);
+      const text = new TextDecoder().decode(call.args[0].find((r) => r.type === 'public.utf8-plain-text').bytes);
+      const shown = window.__shownLines();
+      const same = text === shown.join('\n') + '\n';
+      return { same, lines: text.split('\n').length - 1, shown: shown.length, below: text.split('\n').filter((l) => / (INFO|DEBUG) /.test(l.slice(0, 40))).length };
+    });
+    assert.equal(copy.below, 0, 'no line below Warn is on the clipboard');
+    assert.ok(copy.same, `the copy is the ${copy.shown} lines shown (${copy.lines} on the clipboard)`);
+
+    // A jump to the end, and back to the middle: no frame paints a line below the level.
+    const frames = await page.evaluate(async () => {
+      let violations = 0;
+      let sampled = 0;
+      let running = true;
+      const sample = () => {
+        sampled++;
+        for (const pre of document.querySelectorAll('#doc pre.language-log:not(.marxy-log-hidden-piece)')) {
+          const box = pre.getBoundingClientRect();
+          if (box.bottom < 0 || box.top > window.innerHeight || getComputedStyle(pre).visibility === 'hidden') continue;
+          for (const line of window.__lineText(pre.firstElementChild).split('\n')) if (/ (INFO|DEBUG) /.test(line.slice(0, 40))) violations++;
+        }
+        if (running) requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+      for (const at of [1, 0.5, 0.99, 0.25, 1]) {
+        window.scrollTo(0, (document.documentElement.scrollHeight - window.innerHeight) * at);
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      running = false;
+      return { violations, sampled };
+    });
+    assert.ok(frames.sampled > 5, `${frames.sampled} frames were sampled`);
+    assert.equal(frames.violations, 0, 'no frame showed a line below Warn');
+  }));
+
+test('a filter chosen while the log is still being put on the page filters every piece that arrives, before it is drawn', () =>
+  withPage(async (page) => {
+    await bootLarge(page, 4);
+    await page.waitForFunction(() => window.__firstText !== null, null, { timeout: 60_000 });
+    await page.evaluate(PAGE_HELPERS);
+    const seen = await page.evaluate(async () => {
+      const { filterFor } = await import('/src/kinds/log-view.ts');
+      const { levelOf, countHidden } = await import('/src/kinds/log-filter.ts');
+      const pane = window.__marxyHandle.panes().focused;
+      const filter = filterFor(pane.article, pane.view.store(), () => true);
+      const stillMounting = window.__complete === null;
+      const piecesThen = document.querySelectorAll('#doc pre.language-log').length;
+      filter.setLevel(levelOf('warn'));
+      // Every frame from here on: a line below Warn painted in a piece that is drawn.
+      let violations = 0;
+      let running = true;
+      const sample = () => {
+        for (const pre of document.querySelectorAll('#doc pre.language-log:not(.marxy-log-hidden-piece)')) {
+          if (pre.getBoundingClientRect().height === 0) continue;
+          for (const line of window.__lineText(pre.firstElementChild).split('\n')) if (/ (INFO|DEBUG) /.test(line.slice(0, 40))) violations++;
+        }
+        if (running) requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+      while (window.__complete === null) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 500));
+      running = false;
+      const text = pane.view.store().snapshot().buffer.text;
+      const model = await countHidden(text, 2, () => new Promise((r) => setTimeout(r, 0)));
+      return { stillMounting, piecesThen, piecesNow: document.querySelectorAll('#doc pre.language-log').length, violations, page: filter.hiddenLines(), model: model.hidden };
+    });
+    assert.ok(seen.stillMounting && seen.piecesNow > seen.piecesThen, `${seen.piecesNow} pieces arrived after the filter was chosen with ${seen.piecesThen} there`);
+    assert.equal(seen.violations, 0, 'no frame drew a line below Warn');
+    assert.equal(seen.page, seen.model, 'the page hides what the model hides, the pieces that came later included');
+  }));

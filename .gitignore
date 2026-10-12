@@ -4,6 +4,8 @@ target/
 out/
 .venv/
 *.log
+# the corpus's log fixtures are test inputs, not output
+!/fixtures/corpus/*.log
 .DS_Store
 /results/
 /apps/desktop/src-tauri/gen/schemas/

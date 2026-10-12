@@ -132,6 +132,9 @@ export function mountStrip(el: HTMLElement, handle: AppHandle, signal: DocumentS
       } catch {
         ok = false;
       }
+      // A tool that is off says why where it is drawn, when its command has a reason to give (K-08).
+      const why = ok ? null : (command?.unavailable?.(ctx) ?? null);
+      button.title = why === null ? (command?.title ?? button.title) : `${command?.title}: ${why}`;
       if (ok) button.removeAttribute('aria-disabled');
       else button.setAttribute('aria-disabled', 'true');
     }

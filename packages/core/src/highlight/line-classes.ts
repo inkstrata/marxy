@@ -37,11 +37,11 @@ export function diffMarkerIndentCh(lineClass: string | undefined): number | unde
   return undefined;
 }
 
-/** A level's rank: 0 trace and debug, 1 info and notice, 2 warn, 3 error, fatal and critical. */
+/** A level's rank: 0 trace and debug, 1 info and notice, 2 warn, 3 error, fatal, critical, severe, alert and emergency. */
 export type LogRank = 0 | 1 | 2 | 3;
 
 const RANK_OF_WORD: Readonly<Record<string, LogRank>> = {
-  trace: 0, debug: 0, info: 1, notice: 1, warn: 2, warning: 2, error: 3, err: 3, fatal: 3, critical: 3, crit: 3,
+  trace: 0, debug: 0, info: 1, notice: 1, warn: 2, warning: 2, error: 3, err: 3, fatal: 3, critical: 3, crit: 3, severe: 3, alert: 3, emerg: 3, emergency: 3,
 };
 
 /** A line that opens with a timestamp and a level word: its rank and where the timestamp and the level word sit (UTF-16 offsets). */
