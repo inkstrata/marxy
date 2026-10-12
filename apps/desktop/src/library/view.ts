@@ -16,6 +16,7 @@ import { detectKind, type IndexEntry } from '@marxy/core';
 import { KINDS } from '@marxy/core/src/contracts/kinds.ts';
 import { basename } from '@marxy/core/src/index-model/paths.ts';
 import {
+  capQuery,
   completeQuery,
   evaluateQuery,
   indexCandidates,
@@ -36,6 +37,7 @@ import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
 import { splitRefusal } from '../pane/fit.ts';
 import { focusOrigin } from '../pane/focus.ts';
 import { CONTENT_DEBOUNCE_MS, CONTENT_FILE_CAP, CONTENT_MIN_CHARS } from '../palette/content.ts';
+import { coverPanes } from '../workspace/pane-cover.ts';
 import type { Workspace } from '../workspace/state.ts';
 import { MeasureCache, measureFiles } from './measure.ts';
 import { libraryRow, sortChoices, sortHits, whyCount, type LibraryRow, type SortKey } from './rows.ts';
@@ -131,6 +133,9 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   let tops: number[] = [];
   let active = 0;
   let status = '';
+  /** Said in the status while it holds: the query was cut to its first terms; the line search stopped at the file cap. */
+  let queryNote: string | null = null;
+  let lineCapNote: string | null = null;
   let measuring: string | null = null;
   let searching = false;
   let gen = 0;
@@ -219,7 +224,10 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     const scopeInputs = input();
     if (!scopeInputs) return;
     const text = field.value;
-    const query = parseQuery(text);
+    const capped = capQuery(parseQuery(text));
+    const query = capped.query;
+    queryNote = capped.note;
+    lineCapNote = null;
     drawChips(text, query);
     const base = scopeEntries(scopeId, scopeInputs);
     const baseCtx = context(scopeInputs);
@@ -249,6 +257,10 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     show(evaluate());
 
     const candidates = wantsLines || wantsMeasure ? indexCandidates(query, base, baseCtx) : [];
+    // The line search reads at most CONTENT_FILE_CAP files (searchLines); the palette says so, and so does the library.
+    if (wantsLines && candidates.length > CONTENT_FILE_CAP) {
+      lineCapNote = `line search covers the first ${CONTENT_FILE_CAP.toLocaleString('en-US')} of ${candidates.length.toLocaleString('en-US')} files`;
+    }
     const run = async (): Promise<void> => {
       if (wantsLines) {
         searching = true;
@@ -332,6 +344,8 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   function statusLine(shown: number, total: number, note?: string): string {
     const parts = [shown === total ? `${total.toLocaleString('en-US')} ${total === 1 ? 'file' : 'files'}` : `${shown.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} files`];
     if (note) parts.push(note);
+    if (queryNote) parts.push(queryNote);
+    if (lineCapNote) parts.push(lineCapNote);
     if ([...lineIndex.values()].some((v) => v.truncated)) parts.push(`line matches limited to the first ${LINES_PER_TERM.toLocaleString('en-US')} for a word`);
     if (scopeId === 'all') {
       const notice = feed()?.notice();
@@ -915,6 +929,9 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     // Folding the window closes the library; any document opening anywhere (the palette, a link) does too.
     teardown.push(workspace.onChange((mode) => { if (mode === 'folded') closeNow(false); }));
     teardown.push(panes.onChange((e) => { if (e.kind === 'open') closeNow(false); }));
+    // A click on a tab (or a tab command) opens in a pane without PaneSet.open: it asks the cover to let go first, so the
+    // "Save and open" notice of a pane with unsaved edits is not raised under the view.
+    teardown.push(coverPanes(() => closeNow(false)));
     let pending = 0;
     teardown.push(palette()!.feed.subscribe(() => {
       if (pending !== 0) return;

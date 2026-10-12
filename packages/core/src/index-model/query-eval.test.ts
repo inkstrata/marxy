@@ -5,7 +5,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '../contracts/index-entry.ts';
 import {
+  capQuery,
   evaluateQuery,
+  MAX_QUERY_TERMS,
+  MAX_TERM_VALUES,
   indexCandidates,
   measureText,
   parseQuery,
@@ -17,6 +20,7 @@ import {
   type Measured,
   type QueryContext,
 } from './index.ts';
+import { hasLink } from './query-eval.ts';
 
 const NOW = new Date(2026, 9, 11, 15, 0, 0).getTime();
 const H = 3_600_000;
@@ -270,4 +274,64 @@ test('measureText', () => {
   assert.equal(measureText('1. [ ] numbered task').openTasks, 1);
   assert.equal(measureText('use ~/Dev/marxy/AGENTS.md').hasPaths, true);
   assert.equal(measureText('a plain sentence.\nwith no code or tasks').hasCode, false);
+});
+
+// The regex the scan replaced, kept here as the reference: it is right but quadratic on one long line.
+const LINK_REFERENCE = /\]\([^)\s]+\)|<https?:\/\/[^>\s]+>|\bhttps?:\/\/[^\s)>\]]+|\[\[[^\]\n]+\]\]/;
+
+test('hasLink finds exactly what the old link pattern found, on every short string over its alphabet', () => {
+  const alphabet = ['[', ']', '(', ')', '<', '>', ' ', '\n', 'a', 'http', 's', '://', 'x'];
+  let seen = 0;
+  const walk = (prefix: string, depth: number): void => {
+    assert.equal(hasLink(prefix), LINK_REFERENCE.test(prefix), JSON.stringify(prefix));
+    seen++;
+    if (depth === 0) return;
+    for (const a of alphabet) walk(prefix + a, depth - 1);
+  };
+  walk('', 5);
+  assert.ok(seen > 400_000);
+  for (const text of ['[x](y)', '[[a b]]', '[[a]', '<http://a>', '<https://a b>', 'xhttp://a', ' https://a', 'https://', 'a](b c)](d)', '[[[[a]]'])
+    assert.equal(hasLink(text), LINK_REFERENCE.test(text), text);
+});
+
+test('measureText is linear in a long line: 256 KB of one repeated link opener is measured in well under a second', () => {
+  // Each of these is quadratic under the old pattern (64 KB of `[[` took 40 s, a 256 KB file did not finish in two
+  // minutes). The fastest of several runs, because a load spike only ever makes a run slower and a quadratic scan is
+  // slow on every run (as F-39 did for the transform scaling check); the margin is wide, so only a real blow-up fails.
+  const size = 256 * 1024;
+  const lines: Record<string, string> = {
+    '[[': '[['.repeat(size / 2),
+    '](': ']('.repeat(size / 2),
+    '<http://': '<http://'.repeat(size / 8),
+    'http': 'http'.repeat(size / 4),
+    '[[a ': '[[a '.repeat(size / 4),
+  };
+  for (const [name, text] of Object.entries(lines)) {
+    let fastest = Infinity;
+    for (let i = 0; i < 3; i++) {
+      const t0 = performance.now();
+      measureText(text);
+      fastest = Math.min(fastest, performance.now() - t0);
+    }
+    assert.ok(fastest < 1500, `${JSON.stringify(name)} line: ${fastest.toFixed(0)} ms`);
+  }
+});
+
+test('capQuery keeps the first 64 terms and the first 64 values of a term, and says so; a short query is returned as it is', () => {
+  const short = parseQuery('kind:report cache OR is:read');
+  assert.deepEqual(capQuery(short), { query: short, note: null });
+  const long = parseQuery(Array.from({ length: 5_000 }, (_, i) => `kind:k${i}`).join(' OR '));
+  const capped = capQuery(long);
+  assert.equal(capped.query.groups.flat().length, MAX_QUERY_TERMS);
+  assert.equal(capped.query.groups.length, MAX_QUERY_TERMS, 'each OR group had one term');
+  assert.match(capped.note!, /only the first 64 terms used/);
+  const values = capQuery(parseQuery(`in:${Array.from({ length: 20_000 }, (_, i) => `c${i}`).join(',')}`));
+  const term = values.query.groups[0]![0]!;
+  assert.equal(term.kind === 'field' ? term.values.length : -1, MAX_TERM_VALUES);
+  assert.match(values.note!, /first 64 values of a term/);
+  // The evaluator is quick on what is left, over 20,000 entries.
+  const many = Array.from({ length: 20_000 }, (_, i) => entry(`/r/f${i}.md`));
+  const t0 = performance.now();
+  evaluateQuery(capped.query, many, ctx());
+  assert.ok(performance.now() - t0 < 5_000, 'a capped 5,000-term query over 20,000 entries');
 });

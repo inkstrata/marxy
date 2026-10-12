@@ -60,7 +60,10 @@ export {
   type CompletionContext,
 } from './query.ts';
 export {
+  capQuery,
   evaluateQuery,
+  MAX_QUERY_TERMS,
+  MAX_TERM_VALUES,
   indexCandidates,
   measureText,
   textTerms,

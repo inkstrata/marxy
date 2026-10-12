@@ -464,3 +464,102 @@ test('20,000 entries: only the first screenful has nodes, and the time to it is 
     assert.match(await page.textContent('.marxy-library-status'), /20,00\d files|20,001 files/);
   }, { extraEntries: many });
 });
+
+// --- a tab click while the view shows (the review of #609) ---------------------------------------------------------
+
+const clickTab = (page, path) => page.click(`[data-marxy-tab="${path}"] [role=tab]`);
+
+test('a click on a tab closes the view and shows that document in the focused pane', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await page.evaluate(() => window.__marxyHandle.open('/r/standup.md'));
+    await page.waitForSelector('[data-marxy-tab="/r/A.md"] [role=tab]');
+    assert.deepEqual(await paths(page), ['/r/standup.md']);
+    await openLibrary(page);
+    await clickTab(page, '/r/A.md');
+    await settle(page, 400);
+    assert.equal(await view(page), false, 'the view is closed');
+    assert.deepEqual(await paths(page), ['/r/A.md'], 'the tab shows its document');
+    assert.equal(await page.evaluate(() => { const m = document.getElementById('marxy-main'); return m.hidden || m.inert; }), false, 'the panes are back');
+    assert.equal(await page.locator('#marxy-main').isVisible(), true);
+  });
+});
+
+test('over a pane with unsaved edits a tab click closes the view first, so the prompt is seen, and Dismiss keeps the text', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await page.evaluate(() => window.__marxyHandle.open('/r/standup.md'));
+    await page.evaluate(() => window.__marxyHandle.toggleMode());
+    await page.waitForSelector('.cm-content');
+    await page.click('.cm-content');
+    await page.keyboard.press('ControlOrMeta+ArrowUp');
+    await page.keyboard.type('SOURCE-TYPED ');
+    await settle(page, 150);
+    await openLibrary(page);
+    await clickTab(page, '/r/A.md');
+    await settle(page, 400);
+    assert.equal(await view(page), false, 'the view is closed');
+    const open = page.locator('.marxy-notice button', { hasText: 'Open without saving' });
+    assert.equal(await open.isVisible(), true, 'the prompt can be seen: it is not under the view');
+    assert.equal(await page.locator('#marxy-main').isVisible(), true);
+    assert.deepEqual(await paths(page), ['/r/standup.md'], 'nothing opened yet');
+    await page.locator('.marxy-notice button', { hasText: 'Dismiss' }).click();
+    await settle(page, 200);
+    assert.deepEqual(await paths(page), ['/r/standup.md']);
+    assert.match(await page.evaluate(() => document.querySelector('.cm-content').textContent), /SOURCE-TYPED/, 'Dismiss keeps the text');
+  });
+});
+
+test('a tab command from the palette closes the view too', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await page.evaluate(() => window.__marxyHandle.open('/r/standup.md'));
+    await page.waitForSelector('[data-marxy-tab="/r/A.md"] [role=tab]');
+    await openLibrary(page);
+    await page.evaluate(async () => {
+      const { commands } = await import('/src/commands/index.ts');
+      await commands().find((c) => c.id === 'tab.next').run({});
+    });
+    await settle(page, 400);
+    assert.equal(await view(page), false);
+    assert.deepEqual(await paths(page), ['/r/A.md']);
+  });
+});
+
+// --- limits the reader is told about -----------------------------------------------------------------------------
+
+test('a query of 5,000 terms is cut to its first 64 with a notice, and answers at once', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    const text = Array.from({ length: 5_000 }, (_, i) => `OR kind:note${i}`).join(' ');
+    const ms = await page.evaluate(async (q) => {
+      const field = document.querySelector('.marxy-library-field');
+      const t0 = performance.now();
+      field.value = q;
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => requestAnimationFrame(() => r()));
+      return performance.now() - t0;
+    }, text);
+    await settle(page, 400);
+    assert.ok(ms < 3000, `the window answered the long query in ${ms.toFixed(0)} ms`);
+    assert.match(await page.textContent('.marxy-library-status'), /the query is long: only the first 64 terms used/);
+    assert.ok((await page.locator('[data-marxy-query-chip]').count()) <= 64, 'no more chips than terms used');
+    await type(page, 'cache');
+    assert.doesNotMatch(await page.textContent('.marxy-library-status'), /the query is long/, 'a short query has no notice');
+  });
+});
+
+test('past 20,000 files the line search says it stopped at 20,000', async () => {
+  const many = Array.from({ length: 20_005 }, (_, i) => ({
+    path: `/big/f${i}.md`, root: '/big', title: `File ${i}`, headings: [], mtimeMs: 1_000_000 + i, size: 100, kind: 'markdown', readerKind: 'article',
+  }));
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    await type(page, 'zzzzz');
+    await page.waitForFunction(() => /line search covers the first 20,000 of 20,0\d\d files/.test(document.querySelector('.marxy-library-status').textContent), null, { timeout: 60_000 });
+    await type(page, 'cache');
+    await page.waitForFunction(() => /line search covers the first 20,000 of/.test(document.querySelector('.marxy-library-status').textContent), null, { timeout: 60_000 });
+  }, { extraEntries: many });
+});

@@ -33,9 +33,53 @@ const TOKEN = /[\p{L}\p{N}]/u;
 const FENCE = /^ {0,3}(?:`{3,}|~{3,})/m;
 const TASK = /^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+\[ \]/gm;
 const URL = /\bhttps?:\/\/[^\s)>\]"'`]+/g;
-const LINK = /\]\([^)\s]+\)|<https?:\/\/[^>\s]+>|\bhttps?:\/\/[^\s)>\]]+|\[\[[^\]\n]+\]\]/;
 /** A path-looking word: two or more segments ending in a file with an extension (`src/app.ts`, `./docs/a.md`). */
 const PATH = /(?:^|[\s("'`])(?:~\/|\.{1,2}\/|\/)?(?:[\w.@-]+\/)+[\w.@-]*[\w@-]\.[A-Za-z0-9]{1,8}(?=$|[\s)"'`,.;:])/m;
+
+const isSpace = (c: string): boolean => /\s/.test(c);
+const isWord = (c: string | undefined): boolean => c !== undefined && /\w/.test(c);
+
+/**
+ * Whether the text holds a link: `[x](target)`, `<https://…>`, a bare `https://…` URL, or a `[[wikilink]]`. A hand scan,
+ * linear in the text: a scan for a closing mark that fails stops at the character that ended its run, and no start
+ * inside that run could do better, so the next start is after it. (One regex of the same four shapes is quadratic on a
+ * single long line of `[[` or `](`, which a minified file is.)
+ */
+export function hasLink(text: string): boolean {
+  const n = text.length;
+  // `](target)`: a run of characters that are not a space or `)`, then `)`.
+  for (let i = text.indexOf(']('); i !== -1; i = text.indexOf('](', i + 1)) {
+    let j = i + 2;
+    while (j < n && text[j] !== ')' && !isSpace(text[j]!)) j++;
+    if (j > i + 2 && text[j] === ')') return true;
+    i = Math.max(i, j - 2);
+  }
+  // `<http(s)://target>`
+  for (let i = text.indexOf('<http'); i !== -1; i = text.indexOf('<http', i + 1)) {
+    const k = text.startsWith('s://', i + 5) ? i + 9 : text.startsWith('://', i + 5) ? i + 8 : -1;
+    if (k === -1) continue;
+    let j = k;
+    while (j < n && text[j] !== '>' && !isSpace(text[j]!)) j++;
+    if (j > k && text[j] === '>') return true;
+    i = Math.max(i, j - 5);
+  }
+  // A bare URL: a word boundary, `http(s)://`, and one character that is not a space, `)`, `>` or `]`.
+  for (let i = text.indexOf('http'); i !== -1; i = text.indexOf('http', i + 1)) {
+    if (isWord(text[i - 1])) continue;
+    const k = text.startsWith('s://', i + 4) ? i + 8 : text.startsWith('://', i + 4) ? i + 7 : -1;
+    if (k === -1 || k >= n) continue;
+    const c = text[k]!;
+    if (!isSpace(c) && c !== ')' && c !== '>' && c !== ']') return true;
+  }
+  // `[[target]]`: a run of characters that are not `]` or a newline, then `]]`.
+  for (let i = text.indexOf('[['); i !== -1; i = text.indexOf('[[', i + 1)) {
+    let j = i + 2;
+    while (j < n && text[j] !== ']' && text[j] !== '\n') j++;
+    if (j > i + 2 && text[j] === ']' && text[j + 1] === ']') return true;
+    i = Math.max(i, j - 2);
+  }
+  return false;
+}
 
 /**
  * Counts what the content keys ask about. `words` is the whitespace-separated runs that hold a letter or a number
@@ -50,9 +94,50 @@ export function measureText(text: string): Measure {
     words,
     hasCode: FENCE.test(text),
     hasPaths: PATH.test(text.replace(URL, ' ')),
-    hasLinks: LINK.test(text),
+    hasLinks: hasLink(text),
     openTasks: tasks === null ? 0 : tasks.length,
   };
+}
+
+/** The most terms a query is evaluated with, and the most values one term lists (`in:a,b,c ...`). */
+export const MAX_QUERY_TERMS = 64;
+export const MAX_TERM_VALUES = 64;
+
+/**
+ * The query the evaluator is given: its first `MAX_QUERY_TERMS` terms (across the OR groups, in the order written) and, in
+ * each field term, its first `MAX_TERM_VALUES` values, with a note for the reader when anything was left out. Evaluating
+ * costs terms times entries, and 5,000 OR groups over 20,000 files held the window for 37 s; nobody writes a query that long
+ * to be read, and one pasted in by mistake must not freeze the reader's window. Returns the same object when nothing is cut.
+ */
+export function capQuery(query: Query): { readonly query: Query; readonly note: string | null } {
+  let left = MAX_QUERY_TERMS;
+  let termsCut = false;
+  let valuesCut = false;
+  const groups: Term[][] = [];
+  for (const group of query.groups) {
+    if (left === 0) {
+      termsCut = true;
+      break;
+    }
+    const kept: Term[] = [];
+    for (const term of group) {
+      if (left === 0) {
+        termsCut = true;
+        break;
+      }
+      left--;
+      if (term.kind === 'field' && term.values.length > MAX_TERM_VALUES) {
+        valuesCut = true;
+        kept.push({ ...term, values: term.values.slice(0, MAX_TERM_VALUES) });
+      } else kept.push(term);
+    }
+    groups.push(kept);
+  }
+  if (!termsCut && !valuesCut) return { query, note: null };
+  const parts: string[] = [];
+  if (termsCut) parts.push(`the first ${MAX_QUERY_TERMS} terms`);
+  if (valuesCut) parts.push(`the first ${MAX_TERM_VALUES} values of a term`);
+  return { query: { groups }, note: `the query is long: only ${parts.join(' and ')} used` };
 }
 
 /** Why a file is in the results: one per reason, in the order the query's terms gave them. */

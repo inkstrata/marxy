@@ -380,7 +380,9 @@ The palette command **Library** (`library.open`) shows a full-window view in the
 panes use; folded it is not offered and no element exists. No key opens it (the palette and, later, the sidebar's
 Library row are the doors until the author rules one). The panes are `hidden` and `inert`, not closed: their
 documents, unsaved edits, Source editors and scroll positions are untouched, and the view puts the scroll back when it
-leaves. Folding closes it, and so does any document opening in a pane (the palette's, a link's).
+leaves. Folding closes it, and so does any document opening in a pane (the palette's, a link's) or anything about to act
+on the panes from outside `PaneSet.open`: a click on a tab and the tab commands let go of the view first
+(`workspace/pane-cover.ts`), so the "Save and open" prompt of a pane with unsaved edits is never raised under it.
 
 Top to bottom: the scope's name and what it is (a folder's path); the query field with one removable chip per term
 and a completion list; a status line and the sort choice; the results and, on the right, a text preview. The toolbar,
@@ -399,7 +401,10 @@ the tabs and the strip stay as they were.
   and `tasks:` measure those files with `shell.readHead`: each at most once while the view is open, at most 256 KB of
   it (a longer file is measured on its first 256 KB and says "≥"), within `CONTENT_SEARCH_LIMITS.maxTotalBytes`; past
   that the status says "measured N of M files". `readFile` is never used (it arms the stale-write guard), and
-  nothing is written. Nothing is read at launch or on opening.
+  nothing is written. Nothing is read at launch or on opening. Three bounds keep the window answering, and the status
+  line says when one holds: a query is evaluated with its first 64 terms and the first 64 values of a term ("the query
+  is long"); a link is found by a linear scan, not a pattern, so a minified line cannot stall a measure; the line search
+  reads at most 20,000 files ("line search covers the first 20,000 of N files").
 - **Rows.** The kind's glyph, the title, the path under its folder, the kind, the age, a status mark (changed,
   pinned: an icon with a name, never colour alone) and one line for each reason the file is there: `title`, `path`,
   `heading "Cache"`, `line 12: ...`, `kind:report`, `changed since you read`; past four lines the last says how many
