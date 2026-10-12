@@ -50,19 +50,10 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-/**
- * A file time as milliseconds, or `undefined` when it holds no real time. Zero, a negative, a non-number or a stub
- * (under 1e9) is missing; a value under 1e11 is seconds (that is before 1973 in ms, after 2001 in s) and is scaled.
- */
-export function usableTimeMs(t: number | undefined): number | undefined {
-  if (typeof t !== 'number' || !Number.isFinite(t) || t < 1e9) return undefined;
-  return t < 1e11 ? t * 1000 : t;
-}
-
 /** `now`, `4m`, `3h`, `2d`, `5w`, `1y`: whole units, rounded down. A future time reads `now`; no real time reads ``. */
 export function relativeAge(nowMs: number, rawThenMs: number | undefined): string {
-  const thenMs = usableTimeMs(rawThenMs);
-  if (thenMs === undefined) return '';
+  const thenMs = rawThenMs;
+  if (typeof thenMs !== 'number' || !(thenMs > 0)) return '';
   const delta = nowMs - thenMs;
   if (!(delta >= MINUTE)) return 'now';
   if (delta < HOUR) return `${Math.floor(delta / MINUTE)}m`;
