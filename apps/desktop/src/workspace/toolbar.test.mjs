@@ -559,7 +559,7 @@ test('W-04: checked, pressed, disabled and focused toolbar controls look differe
     assert.notEqual(read.background, source.background, 'the checked radio has its own ground');
     assert.notEqual(read.shadow, 'none', 'and a line under it, not colour alone');
     assert.equal(source.shadow, 'none');
-    assert.equal(find.radius, '6px');
+    assert.ok(parseFloat(find.radius) >= 14, `a round button (U-03): ${find.radius}`);
     // Pressed (a panel toggle's state) is drawn as checked is.
     await page.evaluate(() => document.querySelector('[aria-label="Find in this pane"]').setAttribute('aria-pressed', 'true'));
     const pressed = await look('Find in this pane');
@@ -655,5 +655,58 @@ test('every control has an accessible name; Tab reaches the toolbar once, arrows
     // Return activates: Find opens the pane's find.
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => document.querySelector('.marxy-find-slot input, #marxy-find input, [role="search"] input') !== null);
+  });
+});
+
+// --- U-03: icons with tooltips, words only on the view control, a two-line title -----------------------------------
+
+test('U-03: controls are glyphs with a tooltip, only Read / Split / Source carry words, no svg has a literal colour, the title is two lines, and the kind reads capitalised', async () => {
+  await withPage(1280, async (page) => {
+    await unfold(page);
+    const got = await page.evaluate(() => {
+      const bar = document.querySelector('.marxy-toolbar:not(.marxy-strip)');
+      const visible = [...bar.querySelectorAll('button')].filter((b) => !b.closest('[hidden]'));
+      const name = bar.querySelector('.marxy-toolbar-name').getBoundingClientRect();
+      const folder = bar.querySelector('.marxy-toolbar-folder').getBoundingClientRect();
+      const chip = bar.querySelector('.marxy-kind-chip-name');
+      return {
+        wordless: visible.filter((b) => !b.closest('[role="radiogroup"]') && !b.closest('[data-marxy-toolbar-item="kind"]') && b.textContent.trim() !== '').map((b) => b.getAttribute('aria-label')),
+        noGlyph: visible.filter((b) => !b.closest('[data-marxy-toolbar-item="kind"]') && !b.querySelector('svg')).map((b) => b.getAttribute('aria-label')),
+        noTip: visible.filter((b) => !b.title).map((b) => b.getAttribute('aria-label')),
+        words: [...bar.querySelectorAll('[role="radio"]')].map((r) => r.textContent),
+        colours: [...bar.querySelectorAll('svg, svg *')].filter((n) => /#|rgb|hsl/i.test(n.getAttribute('fill') ?? '') || /#|rgb|hsl/i.test(n.getAttribute('stroke') ?? '')).length,
+        twoLines: folder.top >= name.bottom - 1,
+        nameWeight: getComputedStyle(bar.querySelector('.marxy-toolbar-name')).fontWeight,
+        capitalised: getComputedStyle(chip).textTransform,
+        sidebarTip: bar.querySelector('[aria-label="Show or hide the sidebar"]').title,
+      };
+    });
+    assert.deepEqual(got.wordless, []);
+    assert.deepEqual(got.noGlyph, []);
+    assert.deepEqual(got.noTip, []);
+    assert.deepEqual(got.words, ['Read', 'Split', 'Source']);
+    assert.equal(got.colours, 0);
+    assert.ok(got.twoLines, 'the folder sits under the name');
+    assert.equal(got.nameWeight, '650');
+    assert.equal(got.capitalised, 'capitalize');
+    assert.match(got.sidebarTip, /\(.+\)$/, 'the tooltip names the key');
+  });
+});
+
+test('U-03: the view control follows ARIA radio semantics (an arrow selects the neighbour, the end hands on to the toolbar) and Copy shows its shortcut from the start', async () => {
+  await withPage(1700, async (page) => {
+    await unfold(page);
+    const tip = await page.evaluate(() => document.querySelector('[data-marxy-toolbar-item="copy"] .marxy-toolbar-copy').title);
+    assert.match(tip, /\(.+\)$/, `Copy's tooltip names its key: ${tip}`);
+    await page.locator('[role="radio"][aria-label="Read"]').focus();
+    await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(() => document.querySelector('[role="radio"][aria-checked="true"]')?.textContent === 'Split');
+    assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Split', 'focus moved with the selection');
+    await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(() => document.querySelector('[role="radio"][aria-checked="true"]')?.textContent === 'Source');
+    await page.keyboard.press('ArrowRight');
+    const after = await page.evaluate(() => ({ at: document.activeElement.getAttribute('role'), checked: document.querySelector('[role="radio"][aria-checked="true"]').textContent }));
+    assert.deepEqual(after, { at: null, checked: 'Source' }, 'past the end the toolbar moves on and nothing is selected');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-toolbar:not(.marxy-strip) button[tabindex="0"]').length), 1, 'one tab stop');
   });
 });

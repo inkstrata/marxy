@@ -85,6 +85,11 @@
     "data-marxy-sidebar-row",
     "data-marxy-edit"
   ],
+  "classes": [
+    "marxy-toolbar-glyph",
+    "marxy-toolbar-word",
+    "marxy-toolbar-lines"
+  ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",
   "innerHtmlAllowedIn": [

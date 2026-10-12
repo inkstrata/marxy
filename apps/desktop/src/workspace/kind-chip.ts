@@ -52,7 +52,7 @@ export function mountKindChip(el: HTMLElement, handle: AppHandle, signal: Docume
     drawn = kind;
     const name = document.createElement('span');
     name.className = 'marxy-kind-chip-name';
-    name.textContent = kind;
+    name.textContent = kind; // shown capitalised by the stylesheet (U-03), so the text stays the kind's id
     button.replaceChildren(kindIconElement(document, kind), name);
     // base.css is not this story's: the glyph and the name sit on one line, centred, by the button's own style.
     button.style.display = 'inline-flex';

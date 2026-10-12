@@ -16,6 +16,7 @@ import { keyLabel } from '../palette/commands.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import { openVerbMenu, type VerbMenuRow } from '../selection/verb-menu.ts';
 import type { WorkspaceRegion } from './regions.ts';
+import { toolbarIconElement, type ToolbarGlyph } from './toolbar-icons.ts';
 
 /** How an item is drawn: a button, a panel toggle (pressed while its region is docked), the title, the Read/Split/Source radios, or Copy and its chevron. */
 export type ToolbarKind = 'button' | 'toggle' | 'title' | 'radios' | 'split';
@@ -27,24 +28,24 @@ export interface ToolbarItem {
   /** A panel toggle is drawn only once something fills the region it opens. */
   readonly needsFill?: WorkspaceRegion;
   readonly kind: ToolbarKind;
-  /** The words on the control; its accessible name is the command's title. */
-  readonly label?: string;
+  /** The glyph on the control (Q17: icons with tooltips); its accessible name is the command's title. */
+  readonly icon?: ToolbarGlyph;
 }
 
 /** Left to right. The order is the toolbar's; `visibleItems` only removes. */
 export const TOOLBAR_ITEMS: readonly ToolbarItem[] = [
-  { id: 'sidebar', commands: ['view.toggle-sidebar'], needsFill: 'sidebar', kind: 'toggle', label: 'Sidebar' },
-  { id: 'back', commands: ['nav.back'], kind: 'button', label: '←' },
-  { id: 'forward', commands: ['nav.forward'], kind: 'button', label: '→' },
+  { id: 'sidebar', commands: ['view.toggle-sidebar'], needsFill: 'sidebar', kind: 'toggle', icon: 'sidebar' },
+  { id: 'back', commands: ['nav.back'], kind: 'button', icon: 'back' },
+  { id: 'forward', commands: ['nav.forward'], kind: 'button', icon: 'forward' },
   { id: 'title', commands: [], kind: 'title' },
-  { id: 'new', commands: ['document.new-menu'], kind: 'button', label: '+' },
+  { id: 'new', commands: ['document.new-menu'], kind: 'button', icon: 'new' },
   { id: 'mode', commands: ['view.mode-read', 'view.mode-split', 'view.mode-source'], kind: 'radios' },
-  { id: 'kind', commands: ['kind.chip'], kind: 'button', label: 'Kind' },
-  { id: 'copy', commands: ['copy-as.menu'], kind: 'split', label: 'Copy' },
-  { id: 'export', commands: ['export.menu'], kind: 'button', label: 'Export' },
-  { id: 'transform', commands: ['transform.open'], kind: 'button', label: 'Transform' },
-  { id: 'find', commands: ['view.find'], kind: 'button', label: 'Find' },
-  { id: 'inspector', commands: ['view.toggle-inspector'], needsFill: 'inspector', kind: 'toggle', label: 'Inspector' },
+  { id: 'kind', commands: ['kind.chip'], kind: 'button' },
+  { id: 'copy', commands: ['copy-as.menu'], kind: 'split', icon: 'copy' },
+  { id: 'export', commands: ['export.menu'], kind: 'button', icon: 'export' },
+  { id: 'transform', commands: ['transform.open'], kind: 'button', icon: 'transform' },
+  { id: 'find', commands: ['view.find'], kind: 'button', icon: 'find' },
+  { id: 'inspector', commands: ['view.toggle-inspector'], needsFill: 'inspector', kind: 'toggle', icon: 'inspector' },
 ];
 
 /**
@@ -57,10 +58,10 @@ export const TOOLBAR_ITEMS: readonly ToolbarItem[] = [
 export const FOLD_ORDER: Readonly<Record<string, number>> = { transform: 1, export: 2, new: 3, kind: 4, find: 5, inspector: 6, sidebar: 7 };
 
 /** The switch's three choices, in order. */
-export const MODE_CHOICES: readonly { readonly command: string; readonly label: string }[] = [
-  { command: 'view.mode-read', label: 'Read' },
-  { command: 'view.mode-split', label: 'Split' },
-  { command: 'view.mode-source', label: 'Source' },
+export const MODE_CHOICES: readonly { readonly command: string; readonly label: string; readonly icon: ToolbarGlyph }[] = [
+  { command: 'view.mode-read', label: 'Read', icon: 'read' },
+  { command: 'view.mode-split', label: 'Split', icon: 'split' },
+  { command: 'view.mode-source', label: 'Source', icon: 'source' },
 ];
 
 /** The items to draw: those with a registered command (or none to ask), whose region has content when they need one. */
@@ -130,10 +131,20 @@ async function configuredFormat(handle: AppHandle): Promise<string> {
   }
 }
 
-function button(text: string, name: string, tip: string): HTMLButtonElement {
+/** A control: the glyph alone (Q17), or the glyph and a word (the view control); `text` alone for the `…`. */
+function button(text: string, name: string, tip: string, icon?: ToolbarGlyph): HTMLButtonElement {
   const el = document.createElement('button');
   el.type = 'button';
-  el.textContent = text;
+  if (icon === undefined) el.textContent = text;
+  else {
+    el.append(toolbarIconElement(document, icon));
+    if (text !== '') {
+      const word = document.createElement('span');
+      word.className = 'marxy-toolbar-word';
+      word.textContent = text;
+      el.append(word);
+    }
+  }
   el.setAttribute('aria-label', name);
   el.title = tip;
   // A press must not take focus or the selection from the page: a Copy that has lost the selection copies the document.
@@ -213,7 +224,18 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
       dirty.hidden = true;
       const folder = document.createElement('span');
       folder.className = 'marxy-toolbar-folder';
-      top.append(name, dirty, folder);
+      const lines = document.createElement('span');
+      lines.className = 'marxy-toolbar-lines';
+      lines.append(name, folder);
+      top.append(lines, dirty);
+      // Right-click on the title: Open in external editor, where that command is registered (W-05: a door shows what is behind it).
+      top.addEventListener('contextmenu', (event) => {
+        const command = registry.get('document.open-in-editor');
+        const ctx = buildAppContext(handle);
+        if (!command || !enabled(command.id, ctx)) return;
+        event.preventDefault();
+        openVerbMenu({ x: event.clientX, y: event.clientY }, ctx, { registered: [], allActions: () => {}, rows: [{ command, title: command.title, chord: command.key }], label: 'Document' });
+      });
       syncs.push(() => {
         const snap = handle.document()?.snapshot();
         const path = snap?.path ?? null;
@@ -228,11 +250,24 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
       top.setAttribute('aria-label', 'View');
       const radios = MODE_CHOICES.filter((choice) => registry.has(choice.command)).map((choice) => {
         const command = registry.get(choice.command)!;
-        const radio = button(choice.label, command.title, tipFor(command, mac));
+        const radio = button(choice.label, command.title, tipFor(command, mac), choice.icon);
         radio.setAttribute('role', 'radio');
         bind(radio, choice.command);
         top.append(radio);
         return { id: choice.command, radio };
+      });
+      // ARIA radio group: an arrow moves to the neighbouring choice and selects it. At either end the arrow is the
+      // toolbar's (it moves on to the next control, selecting nothing), so the row stays one tab stop and reachable.
+      top.addEventListener('keydown', (event) => {
+        const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+        if (step === 0) return;
+        const from = radios.findIndex(({ radio }) => radio === document.activeElement);
+        const to = radios[from + step];
+        if (from < 0 || !to) return;
+        event.preventDefault();
+        event.stopPropagation();
+        to.radio.focus();
+        to.radio.click();
       });
       syncs.push((ctx) => {
         const panes = handle.panes();
@@ -251,9 +286,9 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
       top.setAttribute('role', 'group');
       top.setAttribute('aria-label', 'Copy');
       const menu = registry.get('copy-as.menu')!;
-      const copy = button(item.label ?? 'Copy', 'Copy', 'Copy');
+      const copy = button('', 'Copy', `Copy (${keyLabel(menu.key ?? '', mac)})`, 'copy');
       copy.classList.add('marxy-toolbar-copy');
-      const chevron = button('▾', menu.title, tipFor(menu, mac));
+      const chevron = button('', menu.title, tipFor(menu, mac), 'chevron');
       chevron.classList.add('marxy-toolbar-copy-menu');
       chevron.setAttribute('aria-haspopup', 'menu');
       top.append(copy, chevron);
@@ -265,7 +300,7 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
         const command = registry.get(target);
         if (command) {
           copy.setAttribute('aria-label', command.title);
-          copy.title = command.title;
+          copy.title = `${command.title} (${keyLabel(menu.key ?? '', mac)})`;
         }
       };
       void learn();
@@ -281,7 +316,7 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
     } else {
       const id = item.commands.find((c) => registry.has(c))!;
       const command = registry.get(id)!;
-      const control = button(item.label ?? command.title, command.title, tipFor(command, mac));
+      const control = button('', command.title, tipFor(command, mac), item.icon);
       top.append(control);
       if (item.kind === 'toggle') {
         const region = item.needsFill!;
