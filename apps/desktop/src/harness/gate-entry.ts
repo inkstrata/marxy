@@ -42,8 +42,12 @@ const IMAGE = '/corpus/image.png';
 const SECOND = '/corpus/second.md';
 /** The memory shell's `configPaths().config`. */
 const CONFIG = '/config';
-/** How long the typesetter may take to consider every paragraph before the render is refused. */
-const TYPESET_DONE_CAP_MS = 10_000;
+/**
+ * How long the render waits for the typesetter to consider every paragraph before it is refused. A wait, not a
+ * performance budget (ADR-0032: speed is measured in the nightly perf job), so a slow runner does not fail the gate;
+ * the gate prints a line for each render that took over 10 s (F-74).
+ */
+const TYPESET_DONE_CAP_MS = 60_000;
 /** Past app.ts's SNAP_INTERVAL_MS (250), so the last coalesced grid snap is scheduled before this fires. */
 const SNAP_SETTLE_MS = 300;
 
