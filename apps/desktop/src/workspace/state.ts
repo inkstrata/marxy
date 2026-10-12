@@ -179,6 +179,16 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     }
   };
 
+  /** A region with nothing behind it is not drawn (U-01; W-05's rule, made general): the status bar and the inspector show
+   *  only while docked and filled. Hidden from what is on it, so the remembered arrangement stays as the reader left it. */
+  function settleEmpty(): void {
+    if (mode !== 'unfolded' || !arrangement) return;
+    for (const name of ['status-bar', 'inspector'] as const) {
+      const el = regions.get(name);
+      if (el) el.hidden = !(arrangement[name] && (fills.get(name)?.length ?? 0) > 0);
+    }
+  }
+
   function makeFill(entry: Fill, el: HTMLElement): void {
     try {
       entry.dispose = entry.mount(el) ?? null;
@@ -249,6 +259,7 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     }
     body.setAttribute('data-marxy-workspace', 'unfolded');
     mode = 'unfolded';
+    settleEmpty();
     emit();
   }
 
@@ -283,6 +294,7 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
       if (mode !== 'unfolded' || !arrangement || arrangement[name] === open) return;
       arrangement = { ...arrangement, [name]: open };
       setRegionOpen(regions, name, open);
+      settleEmpty();
     },
 
     get peeked() {
@@ -323,11 +335,13 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
       fills.set(name, [...(fills.get(name) ?? []), entry]);
       const el = regions.get(name);
       if (mode === 'unfolded' && el) makeFill(entry, el);
+      settleEmpty();
       return () => {
         dropFill(entry);
         const rest = (fills.get(name) ?? []).filter((e) => e !== entry);
         if (rest.length > 0) fills.set(name, rest);
         else fills.delete(name);
+        settleEmpty();
       };
     },
 
