@@ -53,16 +53,23 @@ export const xQuestions: TransformDef = {
   run: (lf) => proseLines(lf, (l) => /\?\s*$/.test(l)).map((l) => l.replace(/^(\s*)[*+]\s+/, '$1- ').replace(/\s+$/, '')).join('\n'),
 };
 
+/**
+ * The paths the prose of `lf` names: backticked, with a slash and an extension (`src/a.ts`, `./b/c.md`, `~/x/y.toml`), unique,
+ * in order of first mention. Code and front matter are not read. A bare `README.md` is not a mention (no slash). Called by
+ * `x-paths` below and by the desktop inspector's Links tab (W-09).
+ */
+export function pathMentions(lf: string): string[] {
+  const found: string[] = [];
+  for (const line of proseLines(lf, () => true)) {
+    for (const m of line.matchAll(/`([~.\w-]*\/[\w./-]+\.\w{1,6})`/g)) found.push(m[1]!);
+  }
+  return [...new Set(found)];
+}
+
 export const xPaths: TransformDef = {
   id: 'x-paths',
   kind: 'derive',
-  run(lf) {
-    const found: string[] = [];
-    for (const line of proseLines(lf, () => true)) {
-      for (const m of line.matchAll(/`([~.\w-]*\/[\w./-]+\.\w{1,6})`/g)) found.push(m[1]!);
-    }
-    return [...new Set(found)].join('\n');
-  },
+  run: (lf) => pathMentions(lf).join('\n'),
 };
 
 export const xHeadings: TransformDef = {

@@ -116,12 +116,12 @@ test('a fill is made on unfold, disposed on fold and made again on the next unfo
 
 // --- what is drawn ------------------------------------------------------------------------------------------------
 
-test('unfolded with a document open: back, forward, title, Read/Split/Source, the kind chip, Copy, Transform (W-21) and Find, in that order, and the sidebar toggle before them (W-07), and nothing else', async () => {
+test('unfolded with a document open: back, forward, title, Read/Split/Source, the kind chip, Copy, Transform (W-21) and Find, in that order, the sidebar toggle before them (W-07) and the inspector\'s door after them (W-09 filled its region), and nothing else', async () => {
   await withPage(1280, async (page) => {
     await unfold(page);
-    assert.deepEqual(await items(page), ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
+    assert.deepEqual(await items(page), ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
     const buttons = await page.evaluate(() => [...document.querySelectorAll('.marxy-toolbar button')].filter((b) => !b.closest('[hidden]')).map((b) => b.getAttribute('aria-label')));
-    assert.deepEqual(buttons, ['Show or hide the sidebar', 'Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Kind: article. How this file is read', 'Copy as Markdown', 'Copy as…', 'Transform', 'Find in this pane']);
+    assert.deepEqual(buttons, ['Show or hide the sidebar', 'Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Kind: article. How this file is read', 'Copy as Markdown', 'Copy as…', 'Transform', 'Find in this pane', 'Show or hide the inspector']);
     assert.deepEqual(await radios(page), { Read: 'true', Split: 'false', Source: 'false' });
     const wording = await page.evaluate(() => document.querySelector('[data-marxy-workspace-region="toolbar"]').textContent);
     assert.doesNotMatch(wording, /extract|theme/i);
@@ -147,9 +147,9 @@ test('the door: a registered command draws its control, the next mount draws it 
       await remount();
       return { added, ran, removed: read() };
     });
-    assert.deepEqual(got.added, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'export', 'transform', 'find']);
+    assert.deepEqual(got.added, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'export', 'transform', 'find', 'inspector']);
     assert.deepEqual(got.ran, ['transform.open'], 'the control runs its command');
-    assert.deepEqual(got.removed, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
+    assert.deepEqual(got.removed, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
   });
 });
 
@@ -177,8 +177,8 @@ test('a panel toggle waits for content in its region: a stub command alone draws
       await new Promise((r) => setTimeout(r, 50));
       return { without, withFill, docked, undocked: pressed() };
     });
-    assert.deepEqual(got.without, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
-    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find']);
+    assert.deepEqual(got.without, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
+    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
     assert.deepEqual([got.docked, got.undocked], ['true', 'false']);
   });
 });
@@ -642,10 +642,12 @@ test('every control has an accessible name; Tab reaches the toolbar once, arrows
     await page.keyboard.press('ArrowRight');
     assert.equal(await active(), 'Forward');
     await page.keyboard.press('End');
-    assert.equal(await active(), 'Find in this pane');
+    assert.equal(await active(), 'Show or hide the inspector');
     await page.keyboard.press('ArrowRight');
     assert.equal(await active(), 'Show or hide the sidebar', 'the row wraps');
     await page.keyboard.press('End');
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await active(), 'Find in this pane');
     await page.keyboard.press('Tab');
     assert.equal(await page.evaluate(() => document.activeElement?.closest('.marxy-toolbar') === null), true, 'the next Tab leaves the toolbar');
     await page.keyboard.press('Shift+Tab');
