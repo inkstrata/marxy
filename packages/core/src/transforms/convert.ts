@@ -1,9 +1,13 @@
 // The Convert group (J-03), the part that is pure text work or an E operation seen as text: plain text, tables
-// as CSV and JSON, JSON, fence, quote, indent. (Slack, Jira, HTML and TSV in are listed "not yet" in registry.ts.)
+// as CSV and JSON, JSON, fence, quote, indent, and (J-03.1) Slack, Jira wiki, HTML and delimited text in.
 import type { Table } from '../contracts/ast.ts';
+import { alignTablePipes } from '../operations/align-table-pipes.ts';
 import { copyPlain } from '../operations/copy-plain.ts';
 import { copyTableCsv, copyTableJson } from '../operations/copy-table.ts';
 import { formatJsonText } from '../operations/format-json.ts';
+import { stripRendererProvenance } from '../operations/html-clean.ts';
+import { renderDocumentSafeHtml } from '../render/pipeline.ts';
+import { toJira, toSlack } from './markup.ts';
 import { clipboardOf, nodesOf, parseText, splitLinesLf } from './prose.ts';
 import type { TransformDef } from './types.ts';
 
@@ -124,4 +128,70 @@ export const dedent: TransformDef = {
   },
 };
 
-export const CONVERT: readonly TransformDef[] = [toPlain, tableToCsv, tableToJson, jsonPretty, jsonMin, jsonString, fence, quote, unquote, indent, dedent];
+/** Bare HTML: the document through Marxy's own writer and its sanitiser (ADR-0021), as the reader sees it, without the renderer's byte-provenance attributes. */
+export const toHtml: TransformDef = {
+  id: 'to-html',
+  kind: 'derive',
+  run(lf) {
+    const html = stripRendererProvenance(renderDocumentSafeHtml(parseText(lf)).html);
+    return html === '' ? '' : html + '\n';
+  },
+};
+
+/** Delimited text to rows of cells (RFC 4180: a quoted cell may hold the delimiter, a line break and a doubled quote). */
+function parseDelimited(lf: string, delimiter: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell: string[] = [];
+  let quoted = false;
+  let atStart = true;
+  const endCell = (): void => { row.push(cell.join('')); cell = []; atStart = true; };
+  const endRow = (): void => {
+    endCell();
+    if (row.some((c) => c !== '')) rows.push(row);
+    row = [];
+  };
+  for (let i = 0; i < lf.length; i++) {
+    const c = lf[i]!;
+    if (quoted) {
+      if (c !== '"') cell.push(c);
+      else if (lf[i + 1] === '"') { cell.push('"'); i++; } else quoted = false;
+    } else if (c === '"' && atStart) { quoted = true; atStart = false; }
+    else if (c === delimiter) endCell();
+    else if (c === '\n') endRow();
+    else { cell.push(c); atStart = false; }
+  }
+  endRow();
+  return rows;
+}
+
+const NUMBER = /^[-+]?(?:\d[\d,]*(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?%?$/;
+const tableCell = (s: string): string => s.trim().replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
+
+/** Tab-separated text (a spreadsheet's copy) or comma-separated text as a pipe table: the first row is the header, a column of numbers is right-aligned. Text with no delimiter comes back as it was. */
+export const tsvToTable: TransformDef = {
+  id: 'tsv-to-table',
+  kind: 'derive',
+  run(source) {
+    // New text is made from what the reader sees: a stray byte (a lone surrogate in Source text) reads as U+FFFD, as it does to the parser.
+    const lf = source.replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, '\ufffd');
+    const delimiter = lf.includes('\t') ? '\t' : ',';
+    if (!lf.includes(delimiter)) return lf;
+    const rows = parseDelimited(lf, delimiter);
+    if (rows.length === 0) return lf;
+    const width = rows.reduce((m, r) => Math.max(m, r.length), 0);
+    const cols = Array.from({ length: width }, (_, c) => c);
+    const numeric = cols.map((c) => {
+      const cells = rows.slice(1).map((r) => (r[c] ?? '').trim()).filter((s) => s !== '');
+      return cells.length > 0 && cells.every((s) => NUMBER.test(s));
+    });
+    const line = (r: readonly string[]): string => `| ${cols.map((c) => tableCell(r[c] ?? '')).join(' | ')} |`;
+    const delimiterRow = `| ${cols.map((c) => (numeric[c] ? '---:' : '---')).join(' | ')} |`;
+    const table = [line(rows[0]!), delimiterRow, ...rows.slice(1).map(line)].join('\n');
+    // Pad the columns with the same operation Align table pipes runs, so the two agree on widths.
+    const doc = parseText(table);
+    return alignTablePipes.run({ document: doc, range: doc.src, text: table }).replacement + '\n';
+  },
+};
+
+export const CONVERT: readonly TransformDef[] = [toPlain, tableToCsv, tableToJson, jsonPretty, jsonMin, jsonString, fence, quote, unquote, indent, dedent, toSlack, toJira, toHtml, tsvToTable];

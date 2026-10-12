@@ -33,14 +33,8 @@ export interface Transform extends CatalogueEntry {
 /** The catalogue: every id the mockup's transform table names, in its order. */
 export const CATALOGUE: readonly CatalogueEntry[] = catalogue as readonly CatalogueEntry[];
 
-/** Catalogue ids not built yet, each with why. The follow-up story (J-03.1) empties this. One per line, sorted by id (F-32). */
-export const NOT_YET: Readonly<Record<string, string>> = {
-  'to-html': "needs Marxy's renderer (core's HTML writer), which has its own sanitiser rules (ADR-0021); left to J-03.1",
-  'to-jira': 'a Markdown converter (Jira wiki) with nested lists, panels and tables; left to J-03.1',
-  'to-slack': 'a Markdown converter (mrkdwn) that needs the AST walk, not regexes; left to J-03.1',
-  'tsv-to-table': 'reads delimited text, not Markdown; wants the numeric-column alignment from align-table-pipes; left to J-03.1',
-  'wrap-80': 'hard-wrapping needs list-indent and table rules of its own and a reflow property; left to J-03.1',
-};
+/** Catalogue ids not built yet, each with why. Empty since J-03.1; a new catalogue id may be listed here until it is built. One per line, sorted by id (F-32). */
+export const NOT_YET: Readonly<Record<string, string>> = {};
 
 const eolOf = (s: string): string => /\r\n|\n|\r/.exec(s)?.[0] ?? '\n';
 const BOM = '﻿';

@@ -18,11 +18,9 @@ function wholeDocument(source: string): OperationInput {
 
 const byId = (targets = COPY_TARGETS) => new Map(targets.map((t) => [t.id, t]));
 
-test('the targets today are the six the registry can run, in menu order', () => {
-  assert.deepEqual(COPY_TARGETS.map((t) => t.id), ['markdown', 'plain', 'rich', 'html', 'json-string', 'quote']);
-  // A target whose transform is not built is not offered.
-  for (const id of ['to-slack', 'to-jira']) assert.ok(id in NOT_YET);
-  assert.ok(!COPY_TARGETS.some((t) => t.id === 'slack' || t.id === 'jira'));
+test('the targets are the eight the registry can run, in menu order (Slack and Jira since J-03.1)', () => {
+  assert.deepEqual(COPY_TARGETS.map((t) => t.id), ['markdown', 'plain', 'rich', 'html', 'slack', 'jira', 'json-string', 'quote']);
+  assert.deepEqual(Object.keys(NOT_YET), []);
 });
 
 test('a seventh transform appears with no change here', () => {

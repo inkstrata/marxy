@@ -7,6 +7,7 @@ import { demoteHeading, promoteHeading } from '../operations/heading-level.ts';
 import { markerSpans, mergesWithNeighbour } from '../operations/list-markers.ts';
 import { applyEdits, atxHeadings, indexOf, gapsOf, mapInline, mapOutsideCodeSpans, mapProse, mapProseWithTail, nodesOf, parseText, walk } from './prose.ts';
 import type { TransformDef } from './types.ts';
+import { wrap80 } from './wrap.ts';
 
 // An emoji, with its joiners and modifiers. `\p{Extended_Pictographic}` alone would take the copyright sign and
 // the trade mark, so a bare pictograph counts only when it is emoji-presentation or carries U+FE0F.
@@ -280,5 +281,5 @@ export const straightPunct: TransformDef = {
 
 export const CLEAN: readonly TransformDef[] = [
   stripEmoji, stripFrontmatter, stripCitations, stripBold, stripHr, collapseBlank, normalizeBullets,
-  normalizeHeadings, demote, promote, unwrap, smartPunct, straightPunct,
+  normalizeHeadings, demote, promote, unwrap, smartPunct, straightPunct, wrap80,
 ];

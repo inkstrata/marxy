@@ -137,16 +137,17 @@ test('Mod+/ opens the palette on >Transform and lists exactly TRANSFORMS.length 
   });
 });
 
-test('no transform that is NOT_YET has a row, and the palette does not list the toolbar door', async () => {
+test('the five transforms J-03.1 built have rows, and the palette does not list the toolbar door', async () => {
   await withApp({ [A]: LIST_DOC }, async (page, s) => {
     await page.keyboard.press(`${s.mod}+Slash`);
     await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
     await page.locator('#marxy-palette .marxy-palette-query').fill('>');
     await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length > 40);
     const titles = await page.evaluate(() => [...document.querySelectorAll('#marxy-palette .marxy-palette-row .marxy-palette-title')].map((t) => t.textContent));
-    for (const gone of ['Transform: Wrap at 80', 'Transform: Markdown → Slack', 'Transform: Markdown → HTML', 'Transform: Markdown → Jira wiki', 'Transform']) {
-      assert.ok(!titles.includes(gone), gone);
+    for (const there of ['Transform: Hard-wrap at 80', 'Transform: Markdown → Slack', 'Transform: Markdown → HTML', 'Transform: Markdown → Jira wiki', 'Transform: TSV / CSV → Markdown table']) {
+      assert.ok(titles.includes(there), there);
     }
+    assert.ok(!titles.includes('Transform'));
     assert.ok(titles.includes('Transform: Sort lines'));
   });
 });
