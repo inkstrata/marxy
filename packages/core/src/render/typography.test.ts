@@ -248,3 +248,26 @@ test('URL text is not smartened, prose beside it still is', () => {
   assert.match(out, /“q”/);
   assert.match(html('[www.a.com/x--y](https://www.a.com/x--y)\n'), />www\.a\.com\/x--y</);
 });
+
+test('F-53: rendering a paragraph reads each inline of the list once, not once per text node', () => {
+  const lines = 3200;
+  const source = Array.from({ length: lines }, (_, i) => `line ${i} "quoted" -- done`).join('\n') + '\n';
+  const document = parseMarkdown(source);
+  const paragraph = document.children[0];
+  assert.equal(paragraph?.type, 'paragraph');
+  const holder = paragraph as unknown as { children: Inline[] };
+  const inlines = holder.children;
+  let reads = 0;
+  const counted = new Proxy(inlines, {
+    get(target, key, receiver) {
+      if (typeof key === 'string' && /^\d+$/.test(key)) reads += 1;
+      return Reflect.get(target, key, receiver);
+    },
+  });
+  holder.children = counted;
+  renderToUnsanitisedHtml(document);
+  // The renderer makes a handful of linear passes over a paragraph (words, last text, trailing, render);
+  // a walk from the start for every text node would read lines * lines / 2 times.
+  assert.ok(inlines.length >= lines * 2 - 1, `expected a long inline list, got ${inlines.length}`);
+  assert.ok(reads <= inlines.length * 8, `${reads} reads for ${inlines.length} inlines`);
+});

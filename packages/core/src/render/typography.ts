@@ -111,30 +111,36 @@ function lastChar(node: Inline): string | undefined {
   }
 }
 
+/** What the renderer has seen of the sibling list so far, kept as it renders each inline in order. */
+export interface SiblingRun {
+  /** Raw-HTML code-like tags (`code`, `kbd`, `samp`, `pre`) opened and not yet closed. */
+  readonly depth: number;
+  /** The last character the siblings before this one put on the page. */
+  readonly previousChar: string | undefined;
+}
+
+export const SIBLING_RUN_START: SiblingRun = { depth: 0, previousChar: undefined };
+
+/** The run after `sibling`, so a caller walking a list once never rereads the siblings before it. */
+export function advanceSiblingRun(run: SiblingRun, sibling: Inline): SiblingRun {
+  const depth = sibling.type === 'html' ? codeLikeDepthAfterHtml(sibling.value, run.depth) : run.depth;
+  // A sibling that renders nothing (empty text) keeps the character before it; an opening tag resets it.
+  const previousChar =
+    sibling.type !== 'text' || sibling.value !== '' ? lastChar(sibling) : run.previousChar;
+  return { depth, previousChar };
+}
+
 /**
  * Smartens one markdown text run inside a paragraph, skipping text inside raw-HTML code-like tags
  * (`code`, `kbd`, `samp`, `pre`) opened earlier in the same sibling list (MARXY-230, handbook P06).
+ * `run` is what the siblings before `node` left behind; the caller computes it in its one pass.
  */
-export function smartenParagraphTextNode(
-  siblings: readonly Inline[],
-  node: Text,
-  typo: ParagraphTypo,
-): string {
-  let depth = 0;
-  let previousChar: string | undefined;
-  for (const sibling of siblings) {
-    if (sibling.type === 'html') depth = codeLikeDepthAfterHtml(sibling.value, depth);
-    if (sibling === node) {
-      if (depth > 0) return node.value;
-      if (URL_LIKE.test(node.value.trim())) return node.value;
-      return smarten(node.value, {
-        previousChar,
-        atParagraphEnd: typo.lastText === node,
-        wordsInParagraph: typo.wordsInParagraph,
-      });
-    }
-    // A sibling that renders nothing (empty text) keeps the character before it; an opening tag resets it.
-    if (sibling.type !== 'text' || sibling.value !== '') previousChar = lastChar(sibling);
-  }
-  return node.value;
+export function smartenParagraphTextNode(node: Text, typo: ParagraphTypo, run: SiblingRun): string {
+  if (run.depth > 0) return node.value;
+  if (URL_LIKE.test(node.value.trim())) return node.value;
+  return smarten(node.value, {
+    previousChar: run.previousChar,
+    atParagraphEnd: typo.lastText === node,
+    wordsInParagraph: typo.wordsInParagraph,
+  });
 }
