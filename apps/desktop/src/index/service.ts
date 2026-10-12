@@ -502,9 +502,9 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
    * remembers which spelling the reader used, so `dropRoot(link)` still finds the root `ensureRoot(link)` made.
    */
   const spelled = new Map<string, string>();
-  const canonical = async (root: string): Promise<string> => {
+  const canonical = async (root: string, fresh = false): Promise<string> => {
     const known = spelled.get(root);
-    if (known !== undefined) return known;
+    if (known !== undefined && !fresh) return known;
     let real = normalizePath(root);
     try {
       if (shell.realPath) real = normalizePath(await shell.realPath(root));
@@ -757,7 +757,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       await state.pending;
     },
     async ensureRoot(spelling, opts) {
-      const root = await canonical(spelling);
+      const root = await canonical(spelling, true);
       if (opts?.watch !== undefined) declaredWatch.set(root, opts.watch);
       const existing = roots.get(root);
       if (existing) {
@@ -789,6 +789,8 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     },
     dropRoot(spelling) {
       const root = keyOf(spelling);
+      spelled.delete(spelling);
+      rootCache.clear();
       declaredWatch.delete(root);
       revalidatedAt.delete(root);
       if (roots.delete(root)) {
@@ -799,6 +801,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     },
     undeclare(spelling) {
       const root = keyOf(spelling);
+      rootCache.clear();
       declaredWatch.delete(root);
       watchedChanged();
     },

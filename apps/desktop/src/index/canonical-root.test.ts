@@ -140,3 +140,25 @@ test('a symlink inside the root that points outside it adds nothing', async () =
     rmSync(base, { recursive: true, force: true });
   }
 });
+
+test('a link retargeted after its root was dropped indexes the new folder', async () => {
+  const { base, real, link } = fixture();
+  try {
+    const other = join(base, 'other');
+    mkdirSync(other);
+    writeFileSync(join(other, 'b.md'), '# B\n');
+    const index = createIndexService(fsShell());
+    await index.ensureRoot(link);
+    await index.settled();
+    index.dropRoot(link);
+    rmSync(link);
+    symlinkSync(other, link);
+    await index.ensureRoot(link);
+    await index.settled();
+    assert.deepEqual(index.roots(), [other]);
+    assert.deepEqual(index.entries().map((e) => e.path), [`${other}/b.md`]);
+    assert.notEqual(real, other);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
