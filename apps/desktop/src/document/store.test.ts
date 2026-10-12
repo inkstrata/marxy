@@ -326,6 +326,21 @@ test('commitSource with a stale baseVersion resolves false and leaves the store 
   assert.equal(text(store.snapshot()), '# Heading\n\nbody typed\n');
 });
 
+test('commitSource asks `refuse` at its turn, after what was queued before it, and a refused fold leaves the store untouched (F-48)', async () => {
+  const store = openDocumentStore(recordingIo(), PATH, enc.encode('# Title\n\nbody\n'));
+  let refusing = false;
+  // Queued first, as another pane's fold is: it lands before this fold's turn, and the answer is read then.
+  const other = store.commitSource('# Title\n\nbody from the other pane\n');
+  const mine = store.commitSource('# Title\n\nbody\nand mine\n', { refuse: () => refusing });
+  refusing = true;
+  assert.equal(await other, true);
+  assert.equal(await mine, false);
+  assert.equal(text(store.snapshot()), '# Title\n\nbody from the other pane\n');
+  // Not refusing, the fold goes as ever.
+  assert.equal(await store.commitSource('# Title\n\nbody from the other pane\nand mine\n', { refuse: () => false }), true);
+  assert.equal(text(store.snapshot()), '# Title\n\nbody from the other pane\nand mine\n');
+});
+
 test('a transition queued during a slow save: after both, dirty is true and disk is the first bytes', async () => {
   let release!: () => void;
   const gate = new Promise<void>(resolve => {

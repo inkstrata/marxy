@@ -486,6 +486,71 @@ function openSeed(seed) {
             return { label, mayDrop: owner && asked && discard ? () => [...tokensIn(owner.buffer), ...tokensIn(owner.editor)] : undefined };
           },
         },
+        // F-48: a pane leaves the document while the other pane over it types. B has typed in Source and its fold has not
+        // landed (the store is busy: a queue held, as a slow save's write holds it); A types, once before the leave
+        // starts and maybe once while it waits; the store is let go. B's text is in the store or B asked the reader, and
+        // A's is in its editor or the store: I3 finds every token after. The close reopens the document in the other
+        // pane, so the walk goes on over two.
+        leaveWhileTyping: {
+          weight: 4,
+          applicable: (s) => s.panes.length === 2 && s.panes[0].path === s.panes[1].path,
+          async run(s) {
+            const b = d.int(2);
+            const a = 1 - b;
+            const path = s.panes[b].path;
+            const other = d.pick(PATHS.filter((x) => x !== path));
+            const tokenB = newToken();
+            const tokenA = newToken();
+            const midKey = d.chance(0.5) ? newToken() : null;
+            const ways = ['Mod+E', 'close the pane', 'open another document'];
+            if (b === 1) ways.push('Read, in the toolbar');
+            if (s.tabs.some((t) => t !== path)) ways.push('click a tab');
+            const way = d.pick(ways);
+            await toSource(page, a);
+            await toSource(page, b);
+            await typeAtLineEnd(page, b, 1 + d.int(8), tokenB.text);
+            // The texts the editors pass through are states the reader had: a Mod+Z later may land on one (I8).
+            remember(await state());
+            await page.evaluate(() => {
+              const store = window.__marxyHandle.panes().panes[0].view.store();
+              const held = new Promise((resolve) => { window.__release = resolve; });
+              void store.serially(() => held);
+            });
+            const release = () => page.evaluate(() => window.__release());
+            let asked = false;
+            try {
+              await typeAtLineEnd(page, a, 1 + d.int(8), tokenA.text);
+              remember(await state());
+              await page.evaluate(
+                ({ way, b, other, tab }) => {
+                  const set = window.__marxyHandle.panes();
+                  if (way === 'Mod+E') window.__leaving = set.panes[b].view.toggleMode();
+                  else if (way === 'close the pane') window.__leaving = set.close(set.panes[b]);
+                  else if (way === 'open another document') window.__leaving = set.openIn(b, other);
+                  else if (way === 'Read, in the toolbar') [...document.querySelectorAll('[role=radiogroup] [role=radio]')].find((r) => r.textContent === 'Read').click();
+                  else {
+                    set.focus(set.panes[b]);
+                    document.querySelector(`[data-marxy-tab="${tab}"] [role=tab]`).click();
+                  }
+                },
+                { way, b, other, tab: s.tabs.find((t) => t !== path) ?? null },
+              );
+              if (midKey) await typeAtLineEnd(page, a, 1 + d.int(8), midKey.text);
+            } finally {
+              await release();
+            }
+            asked = await answer(page);
+            await page.evaluate(() => window.__leaving).catch(() => {});
+            // A pane that closed is put back, as the reader would, so the walk goes on over two.
+            const left = await page.evaluate(() => window.__marxyHandle.panes().panes.length);
+            if (left < 2) {
+              await page.evaluate((path) => window.__marxyHandle.panes().openIn('other', path), path);
+              await answer(page);
+            }
+            await page.evaluate(() => { window.__leaving = null; });
+            return { label: `pane ${b} types ${tokenB.text}, store busy, pane ${a} types ${tokenA.text}${midKey ? ` and ${midKey.text} mid-leave` : ''}, pane ${b} leaves by ${way}${asked ? ' (asked, Dismiss)' : ''}` };
+          },
+        },
         outsideWrite: {
           weight: 6,
           applicable: () => true,

@@ -279,6 +279,13 @@ function assignHtml(doc: HTMLElement, html: string): void {
   doc.innerHTML = html;
 }
 
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 /** True when the editor's text differs from both the buffer it last took and `next`: text only the editor has. */
 function holdsUnfoldedText(editor: MountedSourceEditor, next: Buffer): boolean {
   const text = editor.docText();
@@ -719,6 +726,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // A key typed while the fold waits is folded too (F-42.1): taking the store's bytes over it would delete it.
     const editor = sourceEditor;
     let changed = await foldEditorInto(open, editor);
+    // Held apart while the fold waited (another pane's fold landed first): that text is still only in this editor.
+    if (keepsSourceHeldApart(editor)) return;
     let byteOffset = lastReadingByteOffset;
     let fraction = lastReadingFraction;
     // The line on the reading line, read before anything moves the window. Still where Source landed when
@@ -743,9 +752,17 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       if (!(await foldEditorInto(open, editor))) break;
       changed = true;
     }
+    if (keepsSourceHeldApart(editor)) return;
     lastReadingByteOffset = byteOffset;
     lastReadingFraction = fraction;
     await showRendered(byteOffset, fraction);
+  }
+
+  /** Whether `editor` was held apart by the fold that just ran, so Source stays and says why (as at the top of `leaveSourceForRendered`). */
+  function keepsSourceHeldApart(editor: MountedSourceEditor): boolean {
+    if (sourceEditor !== editor || !stillHeldApart()) return false;
+    notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: paneOf(doc) });
+    return true;
   }
 
   /**
@@ -1197,6 +1214,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    */
   function replaceSourceBuffer(editor: MountedSourceEditor, next: Buffer): void {
     const old = editor.buffer;
+    // Text a fold of this view made ready against the old bytes is out of date: it would write the change out (F-48).
+    if (!sameBytes(old.bytes, next.bytes)) bytesChangedUnder += 1;
     const before = editor.view.state;
     const { anchor, head } = before.selection.main;
     // Positions through the old text's separator and BOM, back through the new text's (F-23).
@@ -1391,21 +1410,35 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   const foldingText: string[] = [];
 
   /**
+   * How many times the store's bytes changed under this view's editor by something other than its own fold: the
+   * editor took them (`replaceSourceBuffer`), so a fold prepared before is out of date (F-48).
+   */
+  let bytesChangedUnder = 0;
+
+  /**
    * Folds the editor's text into the store, and again for whatever was typed while the fold waited its turn (the
    * store's queue, a save's own steps), until the store reads as the editor; then the editor takes the store's bytes.
    * Taking them over a key typed meanwhile would replace the text and delete it (F-42): that key is folded too, one more
    * history entry, so the next save writes it. Resolves whether any fold changed the store.
+   *
+   * A fold diffs its text against the store at its turn, so one made ready before another pane's fold landed would
+   * write that fold out (F-48: B's text, gone, when A's key came while B left). The store asks this view at the turn
+   * (`refuse`): held apart by then (D-11), or its editor took other bytes, the fold does not go. The text stays in the
+   * editor, held apart or folded again from the bytes it now has; and what the other pane folded stays in the store.
    */
   async function foldEditorInto(open: DocumentStore, editor: MountedSourceEditor): Promise<boolean> {
     let any = false;
     for (;;) {
       const text = editor.docText();
+      const stamp = bytesChangedUnder;
       foldingText.push(text);
       try {
-        any = (await open.commitSource(text)) || any;
+        any = (await open.commitSource(text, { refuse: () => heldApart || bytesChangedUnder !== stamp })) || any;
       } finally {
         foldingText.splice(foldingText.indexOf(text), 1);
       }
+      // Held apart while the fold waited: the editor keeps its text, and taking the store's bytes over it would lose it.
+      if (heldApart) return any;
       if (editor.docText() !== text) continue;
       if (any && sourceEditor === editor && store === open) editor.replaceBuffer(open.snapshot().buffer);
       return any;
