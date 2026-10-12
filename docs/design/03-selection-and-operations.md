@@ -202,8 +202,9 @@ lens selects it.
   `a,"x ""y""",b` the middle cell's range is the 9 bytes `"x ""y"""`. An empty field resolves to its empty range; an
   absent cell (a short row) has no bytes and offers the row's verbs only.
 - **Copy.** `⌘C` copies the cell's decoded value (`x "y"`) as plain text, one pasteboard item, no HTML and no formula
-  prefix: it is the text the reader is reading. The raw field is the *Copy as* target **Source field (CSV)** (or TSV),
-  and a menu row. A cell whose decoding collapsed a `""` carries `data-marxy-decoded` and a mark visible at rest.
+  prefix: it is the text the reader is reading. In a CSV the raw field is the *Copy as* target **Source field (CSV)**,
+  and a menu row. A TSV field is never decoded (TSV has no quoting; ADR-0071 item 1): its value is its bytes between
+  tabs, a leading `"` reads as written, and the cell is never marked. A cell whose decoding collapsed a `""` carries `data-marxy-decoded` and a mark visible at rest.
 - **Menu.** Copy · Copy as… · Source field (CSV) · Column stats · Sort by this column · Jump to source · Open in Source.
   The stats and the sort read; the sort orders the view, never the file. Transform may run on the value with its result
   to the sheet or the clipboard, never Apply. No operation, no edit of a cell, no Source for one block.

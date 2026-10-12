@@ -20,13 +20,16 @@ is a derived view in ADR-0061's sense, and ADR-0061 item 10 says a new decoding 
 The alternative, showing the raw field, needs none, and reads like a parser's debug output on any spreadsheet export that
 quotes its fields.
 
-## The author's rulings (2026-10-12)
+## The rulings (2026-10-12)
 
 1. **The grid shows a quoted field's decoded value** (`"a ""b"""` shows as `a "b"`), and ADR-0061 is amended to admit a
    second deriver and a `cell` selection. This record is that amendment.
 2. **The first row is a header** when every field in it is non-numeric and the fields are distinct. The grid then says
    "Row 1 used as header", and one click makes it a data row again. The choice is the view's; it writes nothing.
 3. **Table takes the first slot of the data strip**; Chart drops off the list until it has a story.
+4. **(Lead, on review of this record.)** TSV fields are not decoded: TSV has no quoting (item 1). The lead also confirmed
+   that a one-cell copy carries no formula guard, that only a collapsed `""` marks a cell, and that an empty field may
+   have an empty range.
 
 ## Decision
 
@@ -35,9 +38,13 @@ quotes its fields.
    declares the decodings its leaves use, and each decoding is an exact, total function from a leaf's bytes to its value.
    This record admits a second deriver, **`delimited-table`**, for a file of kind `data` (ADR-0060) whose extension is
    `.csv` (delimiter `,`) or `.tsv` (delimiter a tab). The delimiter comes from the extension, never from sniffing the
-   content. Its decoding is **`csv-field`**, the same for both delimiters.
+   content. A CSV field's decoding is **`csv-field`** (item 2). **A TSV field is not decoded** (lead ruling, 2026-10-12):
+   IANA `text/tab-separated-values` has no quoting, so a TSV field's value is its raw bytes between tabs, decoded as UTF-8
+   and nothing else (`decoding: 'none'`). It is never marked as decoded, a field starting with `"` reads as written, and a
+   stray quote never makes a row `unreadable`. A TSV record ends at the next `\n` or `\r\n`; a field cannot hold a tab
+   or a line break.
 
-2. **The `csv-field` decoding.** A field is the bytes between two delimiters, or between a delimiter and a record
+2. **The `csv-field` decoding (CSV only).** A field is the bytes between two delimiters, or between a delimiter and a record
    terminator (`\n` or `\r\n` outside quotes), or the start or end of the record.
    - A field whose first byte is not `"` is **verbatim**: its value is its bytes, decoded as UTF-8 and nothing else. Most
      cells of most files are this case, and their displayed text is a substring of the file.
@@ -53,7 +60,7 @@ quotes its fields.
    `unreadable` (a record that is not well formed, shown raw) and `pending` (an unfinished last record while the file is
    still being read). They live in `contracts/derived.ts` beside the transcript's (ADR-0061 item 2), so a `cell` is a
    `DerivedNode`, not a `Node`, and the type checker refuses to hand one to an operation. A `cell` carries `src` (the
-   whole raw field, quotes included), `value`, `decoding: 'csv-field'`, `syntax: 'plain'` (a field is never parsed as
+   whole raw field, quotes included), `value`, `decoding: 'csv-field'` (CSV) or `'none'` (TSV, item 1), `syntax: 'plain'` (a field is never parsed as
    Markdown) and `decoded: boolean`, true when the value differs from the bytes between its quotes, that is, when the
    field held a `""`. ADR-0061's invariants hold with these readings:
    - 4.2, amended: an **empty field** (`a,,b`) has one empty range, at the byte where it would start. It is the only
@@ -62,7 +69,7 @@ quotes its fields.
    - 4.7, accounting, is stated in bytes for this deriver: **every byte of the file is in exactly one of** a cell, a
      delimiter, a record terminator, a leading UTF-8 BOM, an `unreadable` row, a blank line in `dropped`, or the one
      `pending` record. So the fields of a row tile its record between the delimiters, and nothing falls between rows.
-   - A record with an unclosed quote, or with bytes after a closing quote before the next delimiter (`"a"b`), is one
+   - In a CSV, a record with an unclosed quote, or with bytes after a closing quote before the next delimiter (`"a"b`), is one
      `unreadable` row: its own line, shown raw in the code face and marked, never dropped, and parsing resumes at the next
      line. An unclosed quote never swallows the rest of the file.
    - A ragged row keeps its own field count. A row shorter than the widest shows its missing cells as **absent**, marked
@@ -97,8 +104,9 @@ quotes its fields.
      paste it expects. The raw field pasted into a spreadsheet or a message would be read a second time, and `""` would
      come out as two quotes or the outer quotes as text. Copying a cell is faithful to the cell, not to the field, and the
      difference is never silent: a cell where the two differ carries the mark of item 4.
-   - **The raw field is a *Copy as* target**, **Source field (CSV)** (or TSV): the exact bytes of `src`, quotes and
-     doubled quotes included. It is a separate target, not a second representation in every copy, for ADR-0061's reason
+   - **The raw field is a *Copy as* target**, **Source field (CSV)**: the exact bytes of `src`, quotes and
+     doubled quotes included. A TSV cell's value is its bytes, so it needs no such target; its `⌘C` is already the raw
+     field. It is a separate target, not a second representation in every copy, for ADR-0061's reason
      (the paste would depend on the receiving app). It is also a verb-menu row.
    - A single cell's copy carries no formula guard. The guard on table copies (`03-selection-and-operations.md`, "Table
      copies carry no live formula") protects a bulk copy whose cells the reader has not each seen; a cell copy is one value
@@ -112,7 +120,7 @@ quotes its fields.
 
    | Kind | `⌘C` default | Menu (at most seven) |
    | --- | --- | --- |
-   | `cell` | copy the decoded value | Copy · Copy as… · Source field (CSV) · Column stats · Sort by this column · Jump to source · Open in Source |
+   | `cell` | copy the decoded value | Copy · Copy as… · Source field (CSV only) · Column stats · Sort by this column · Jump to source · Open in Source |
 
    - *Column stats* and *Sort by this column* read: the stats are computed from decoded values, and the sort orders the
      view, never the file. A type is inferred for alignment and sort only.
