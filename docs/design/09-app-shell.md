@@ -288,6 +288,7 @@ chrome.
 | `Mod+[` / `Mod+]` | back / forward | history stack (§07) |
 | `Mod+S` | save | byte-faithful, atomic |
 | `Mod+Z` / `Mod+Shift+Z` | undo / redo | in Rendered mode: the operation history (§01); in Source: CodeMirror's |
+| `Cmd+Alt+[` / `Cmd+Alt+]` (`Ctrl+Shift+[` / `Ctrl+Shift+]` elsewhere) | fold / unfold the folds on the caret's line | K-10a: CodeMirror's own keys, in Source only; a placeholder is clickable but not a tab stop, so Tab leaves the editor however many folds there are |
 | `Mod+Shift+E` | open in external editor | at the current block's line |
 | `Mod+=` / `Mod+-` / `Mod+0` | body size ±1 px / reset | persisted in config; re-layout |
 | `Alt+↑` / `Alt+↓` / `Alt+Shift+↑` | move block selection / select parent | §03 |
@@ -695,6 +696,23 @@ language, the notes marks (V-04) and the line-ending and indentation menus (V-08
 caret readout is plain text, not a live region, so a screen reader reads it when asked and does not announce every key. Source's
 scroll position, which the window used to hold, is the editor's own now: `scrollSourceToByte` takes the scroller's offset from the
 window's top off the reading line's margin, so a place round-trips through Rendered unchanged.
+
+### Folds and the depth lens (K-10a)
+
+A fold is a view and nothing else: CodeMirror keeps it as a decoration, so the document, a copy of it (Mod+A, Mod+C copies the
+hidden text too), a save and the bytes are the file's own with it or without it (commitment 3). Nothing is folded at rest and no
+fold is remembered. Every fold's placeholder is text in the flow that says what it hides, `… 42 lines` (`… 1 line`): the number
+of lines that have text under the fold (all between its two ends, and an end line only if something other than white space of it
+is hidden). A click on the placeholder unfolds it, and so does the unfold key with the caret on its line (below); the placeholder is not a tab stop. A change that reaches into a
+fold counts it again; a deletion opens the fold it touches, as CodeMirror does, so no text is deleted out of sight (commitment 4).
+Large files (over 2 MB) have no folding.
+
+For a JSON or YAML file in Source the palette offers **Fold to depth 1** to **4** and **Unfold all** (`source.fold-depth-N`,
+`source.unfold-all`; no keys until the menu bar checks conflicts). Depth counts the containers a value sits in: the file's top
+container is depth 0 and always shows its entries, depth *N* folds every container nested *N* deep, using the range the language
+folds by hand (a bracket's inside; a YAML pair or item, behind an anchor or tag too), so the gutter's chevron undoes one. Fold to depth replaces the folds there
+were; a caret inside a new fold moves to the line it opens on; a depth that folds nothing says so. The lens is not offered for
+TOML (its mode has no tree), for a file over the large-file limit, or in Rendered. A fence in Rendered is not folded.
 
 Languages, MIT only: `@codemirror/lang-markdown`, `-javascript`, `-rust`, `-python`, `-css`,
 `-json`, `-yaml`, `-html`; others plain. Files over 2 MB: no language, no wrapping.

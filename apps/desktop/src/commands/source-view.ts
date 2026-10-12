@@ -4,6 +4,7 @@ import type { AppShell } from '../app.ts';
 import { writeReaderKey } from '../theme/reader-config.ts';
 import { resolveLineNumbers, setLineNumbersChoice } from '../source/line-numbers.ts';
 import { appHandle } from './app-handle.ts';
+import { depthFoldOffered } from '../source/depth-fold-gate.ts';
 
 function byteAttr(el: Element | null | undefined): number | null {
   const s = el?.getAttribute('data-marxy-s');
@@ -33,8 +34,60 @@ function selectionStartByte(ctx: AppContext): number | null {
   return clickedBlockByte();
 }
 
+/** The depth lens is offered for a JSON or YAML file shown in Source that gets folding (K-10a): never for TOML or a large file. */
+function depthLensOffered(ctx: AppContext): boolean {
+  if (document.body.dataset.marxyMode !== 'source') return false;
+  const buffer = ctx.document?.snapshot().buffer;
+  return buffer !== undefined && depthFoldOffered(buffer.path, buffer.bytes.length);
+}
+
+/**
+ * Fold the focused Source editor to `depth`, or open every fold (`depth` null). A view only: nothing here writes the
+ * buffer, and a fold is not remembered. A refusal says what happened, what is unchanged and what to do (X-21, Q10).
+ */
+async function runDepthLens(ctx: AppContext, depth: number | null): Promise<void> {
+  const what = depth === null ? 'unfold' : `fold to depth ${depth}`;
+  const { activeSourceEditor } = await import('../source/editor.ts');
+  const editor = activeSourceEditor();
+  if (!editor) {
+    ctx.showNotice(`Could not ${what} · nothing changed · switch to Source and try again`, { kind: 'refused' });
+    return;
+  }
+  const lens = await import('../source/depth-fold.ts');
+  if (depth === null) {
+    if (lens.unfoldEverything(editor.view) === 0) ctx.showNotice('Nothing is folded · the file is unchanged', { kind: 'info', fades: true });
+    return;
+  }
+  await lens.languageReady(editor.view);
+  const result = lens.foldToDepth(editor.view, depth);
+  if (result.kind === 'unready') {
+    const why = result.why === 'tree' ? 'the file is still being read' : 'the file has not been read for structure yet';
+    ctx.showNotice(`Could not ${what} · ${why}; the file and its folds are unchanged · try again in a moment`, { kind: 'refused' });
+  } else if (result.kind === 'nothing') {
+    ctx.showNotice(`Nothing folds at depth ${depth} · the file is not nested that deep · try a lower depth`, { kind: 'info', fades: true });
+  }
+}
+
+/** *Fold to depth* 1 to 4 and *Unfold all*: palette only, no keys until the menu bar checks conflicts (K-10a, question 2). */
+function depthLensCommands(): readonly Command[] {
+  const levels = [1, 2, 3, 4] as const;
+  return [
+    ...levels.map(
+      (depth): Command => ({
+        id: `source.fold-depth-${depth}`,
+        title: `Fold to depth ${depth}`,
+        group: 'view',
+        when: depthLensOffered,
+        run: (ctx) => runDepthLens(ctx, depth),
+      }),
+    ),
+    { id: 'source.unfold-all', title: 'Unfold all', group: 'view', when: depthLensOffered, run: (ctx) => runDepthLens(ctx, null) },
+  ];
+}
+
 export function sourceViewCommands(): readonly Command[] {
   return [
+    ...depthLensCommands(),
     {
       id: 'view.toggle-line-numbers',
       title: 'Toggle line numbers in Source',
