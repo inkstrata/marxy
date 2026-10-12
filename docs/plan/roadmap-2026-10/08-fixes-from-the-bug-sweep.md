@@ -548,3 +548,103 @@ beside a stray, and either side of one, keeps it exact, Esc keeps the edit, and 
 `fold-slice.test.ts`; red on main), and a property test over random files, slices, moves, copies and typed U+FFFD asserts
 the slice fold writes exactly the bytes the edited slice text names (`fold-text.property.test.ts`); the walk at 2,000
 seeds and `MARXY_WALK_FINDINGS=1` at 300; `gate:fidelity` and the goldens unchanged.
+
+## The hunt (2026-10-11 to 2026-10-12)
+
+The hunt is a loop outside the repository that opens generated files in Marxy and files only what
+its own repro script shows. Small models ran it, so nothing it filed was taken on trust. The lead re-ran
+every core repro on `0de2bdc1`, ran the WebKit one headless, read the code behind the app-tier one, and
+widened each case to the ordinary file nearest it. Seven findings: six confirmed, one parked, none a
+duplicate of a row on the board. H-0005 is worse than filed, and leads.
+
+| Finding | What a reader sees | Verdict at `0de2bdc1` | Story |
+| --- | --- | --- | --- |
+| H-0005-0001 | Collapse blank lines un-indents code inside a list | confirmed, **bytes**, and **on ordinary files**: the filed case was a 9-space line; the lead's widening shows `- item` + blank + 6-space code loses two spaces, and a fenced block in a list item loses the fence's indent (`  ```js` → `` ```js ``), which ends the list. Same inside a quote. Of the 50 transforms, only `collapse-blank` touches code this way | F-51 |
+| H-0003-0001 | Opening a 300 MB log, or a link to `/dev/zero`, takes memory without limit and can stall the computer | confirmed by reading: `read_file` (`main.rs`) is a bare `std::fs::read`, with no regular-file check and no ceiling, while its sibling `read_head` has both. The memory figures (about 10x the file) are the hunt's and were not re-measured; following a symlink is right (F-15) and is not the bug | F-52 |
+| H-0008-0001 | A log with no blank line opens slowly in Rendered: every line re-reads the lines before it | confirmed: 1,600 / 3,200 / 6,400 lines render in 171 / 578 / 2,587 ms (a blank line between them makes it 69 ms at 3,200). `smartenParagraphTextNode` walks the sibling list from its start for every text node | F-53 |
+| H-0001-0001 | A list nested a few hundred deep shows a blank page; at 1,000 levels the parse overflows the stack | confirmed in core (`parseMarkdown`, 1,000 levels: stack overflow). The blank WebKit view at 300 levels and the app's bare `RangeError` at 12,000 are the hunt's, not re-run. `renderSafeHtml` already turns an overflow into the source; the app's open path evidently does not | F-54 |
+| H-0006-0001 | A tower of blockquotes blanks the page with no notice | confirmed headless: 508 levels put 508 `blockquote`s in `#doc` with a zero-height box and no text; at 300 the word is 5,875 px to the right, off the page. The source fallback starts only at 4,001 | F-54 |
+| H-0002-0001 | — (Remove list markers is flagged idempotent, but `- 1. step` changes again on a second run) | confirmed, gate only: the flag is read by the property kit alone, and its generator never stacks markers | F-55 |
+| H-0010-0001 | A line of thousands of unclosed `[a](` takes seconds to open | confirmed (16,000 → 32,000 links: 199 → 4,183 ms), **parked**: the time is in micromark's `resolveAllText`, upstream, and no ordinary file has this shape. Revisit if a real file does; F-53 may remove the render half | — |
+
+Order: F-51 first (bytes); F-52 and F-53 beside it (disjoint paths); F-54 and F-55 when a lane is free.
+None touches chrome, so none waits on X-21. Under the 2026-10-12 rulings nothing here inserts into the
+document's flow or adds a surface: F-52 and F-54 reuse the open-error notice and the source fallback
+that already exist.
+
+### F-51 — Collapse blank lines keeps the indent of code inside a list or quote
+
+**Model:** sonnet (medium) · **Size:** S · **Review:** adversarial (data safety) · *From H-0005-0001.* ·
+**Paths:** `packages/core/src/transforms/prose.ts`, `clean.ts` and their tests, the transform property kit
+(`packages/core/src/operations/testing/`), `changelog.d/F-51.md`. Commitment 3.
+
+A code block inside a container starts, in the AST, after the container's indent (and `> `), so the prose
+gap before it ends with that indent and `collapse-blank`'s trailing-space strip deletes it. Fix the seam,
+not the one transform: `gapsOf` widens a protected span that starts mid-line back to its line start, so no
+`mapProse` caller can touch the bytes before a code block on its own line.
+
+**Acceptance:** `collapse-blank` leaves unchanged `- item\n\n      code\n`, `1. step\n\n       code\n`, a fenced
+block in a list item, indented code in `> - item`, and the hunt's nine-space case, LF and CRLF (`clean.test.ts`;
+red on main); a property case in the kit: for every `outsideCode` transform, over generated documents with indented
+and fenced code nested in lists and quotes, each code block's lines, from their line start, come out byte for byte
+(red on main); existing transform tests and goldens unchanged.
+
+### F-52 — Opening a file refuses what is not a regular file, and a file too large to hold
+
+**Model:** sonnet (medium) · **Size:** S · **Review:** adversarial (the shell) · *From H-0003-0001.* ·
+**Paths:** `apps/desktop/src-tauri/src/main.rs`, `apps/desktop/src-tauri/src/commands/fs.rs` and its tests,
+`apps/desktop/src/shell/tauri.ts` (only if the error shape changes), `changelog.d/F-52.md`. Commitment 5, and
+the machine's own health.
+
+`read_file` follows a symlink (F-15 needs that) and then refuses, before reading, anything whose target is
+not a regular file, and any file above a ceiling, checked again on the opened handle as `read_opened_head`
+does. The reader sees the open-error notice that already exists, naming the size and the ceiling. The
+ceiling is one named constant, **256 MB** by default (the hunt measured about 10x the file in memory; the
+author may move it). Opening a larger log in slices is a later story, not this one.
+
+**Acceptance:** Rust tests: a FIFO, a symlink to `/dev/zero`, and a sparse file one byte over the ceiling
+(`set_len`, so the test writes nothing) are refused without reading; a symlink to a regular file still opens
+(red on main for the first three); `pnpm gate:fidelity` unchanged.
+
+### F-53 — Rendering one long paragraph takes time in proportion to its length
+
+**Model:** sonnet (medium) · **Size:** S · *From H-0008-0001.* · **Paths:**
+`packages/core/src/render/typography.ts`, `render-html.ts` and their tests, `changelog.d/F-53.md`.
+
+`smartenParagraphTextNode` recomputes, for each text node, the code-like depth and the character before it by
+walking the paragraph's siblings from the start. Compute both in the one pass that renders the paragraph and
+hand them in.
+
+**Acceptance:** a test that counts sibling visits (not time; the handoff's lesson) shows one visit per inline for
+a 3,200-line paragraph (red on main); the MARXY-230 cases (text inside raw `code` and `kbd`) and every golden
+unchanged.
+
+### F-54 — A document nested too deep to show says so and shows its source
+
+**Model:** sonnet (high) · **Size:** M · *From H-0001-0001 and H-0006-0001.* · **Paths:**
+`packages/core/src/parse/from-mdast.ts`, `packages/core/src/render/pipeline.ts`, `render-html.ts` and their
+tests, the app's open path that calls the parse outside `renderSafeHtml` (find it first; F-54 names it in the
+PR), `changelog.d/F-54.md`. Commitments 4 and 5.
+
+Past a nesting depth WebKit cannot draw, Rendered is blank with nothing marked. Take the fallback that exists:
+a document whose container nesting passes a cap (**64** levels by default, one named constant) renders as its
+source in the `<pre>` that `unrenderable` already makes, with the notice the app already shows for it, and the
+parse no longer overflows the stack on the app's own path (an explicit depth check before the recursion, not a
+caught `RangeError` alone). How deep a sane document indents before the cap (the column walks off the page from
+about 40 quote levels) is taste, and out of scope.
+
+**Acceptance:** core tests: 65 nested quotes and 65 nested lists render as the fallback; 64 render as markup;
+a 12,000-level list neither throws nor overflows (red on main); a WebKit test that opens the hunt's 508-quote
+tower in the app sees text and the notice (red on main); goldens unchanged.
+
+### F-55 — Remove list markers no longer claims to be idempotent
+
+**Model:** sonnet (low) · **Size:** XS · *From H-0002-0001.* · **Paths:**
+`packages/core/src/transforms/lines.ts`, its test, the property kit's generator, `changelog.d/F-55.md`.
+
+`unnumber` strips one marker per line by design (`- 1. step` → `1. step`, the outer list first). Keep that,
+drop the false `idempotent` flag, and make the kit's generator write lines with stacked markers so the next
+false claim fails.
+
+**Acceptance:** the kit's generator yields `- 1. x` and `* - [ ] x`; with the flag left on, the property test
+is red (checked once, in the PR); with the flag off, green.

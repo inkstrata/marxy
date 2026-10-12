@@ -280,6 +280,12 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 | F-39 | The J-03.2 "ten times the text" timing test fails on main under load | sonnet (low) | merged | [#596](https://github.com/inkstrata/marxy/pull/596) | — | Red on #591's own run, #581 and #593. Minimum of 5 runs per side; 20/20 local passes. Lead verdict: merge at 6c526873. |
 | F-37.1 | Split test proves focus only; a non-canonical root indexes nothing | sonnet | ready | — | — | Follow-up to F-37: the split test proves focus, not the wrong-pane symptom; pre-existing, read_dir returns canonical paths. |
 | F-50 | `scaling.test` parse row flakes under local load | sonnet (low) | ready | — | — | Seen under local load; F-39 took the fastest of several runs for the transform check, not this row. |
+| F-51 | Collapse blank lines keeps the indent of code inside a list or quote | sonnet | ready | — | — | From the hunt (H-0005); bytes, on ordinary files; first. Adversarial review. |
+| F-52 | Opening refuses a non-regular file and one above 256 MB | sonnet | ready | — | — | From the hunt (H-0003); `read_file` has no checks. Adversarial review; the ceiling is the author's to move. |
+| F-53 | Rendering one long paragraph is linear | sonnet | ready | — | — | From the hunt (H-0008); 6,400 log lines take 2.6 s. |
+| F-54 | A document nested too deep shows its source and says so | sonnet (high) | ready | — | — | From the hunt (H-0001, H-0006); blank page at 508 quotes. |
+| F-55 | Remove list markers drops its false idempotent flag | sonnet (low) | ready | — | — | From the hunt (H-0002); gate only. |
+| X-23 | Board the hunt's findings | planner | in review | — | — | This PR. H-0010 parked (micromark, upstream). |
 | F-40 | Undo after a save adds no byte; a block edit keeps its endings | sonnet | merged | [#605](https://github.com/inkstrata/marxy/pull/605) | — | From the F-34.2 adversarial review; older than F-34.2. Mod+Z after a save that made mixed endings uniform appended `0D 0A`; a block edit rewrote untouched endings. ADR-0069. |
 | F-40.1 | Deleting only a CR in a mixed-ending block is written | sonnet | merged | [#611](https://github.com/inkstrata/marxy/pull/611) | — | From F-40. foldSlice widened a cut that split a CRLF and the deletion vanished; fixed in `core`; 20,000-case property. |
 | F-41 | Keep the first character of a setext heading that starts with # | sonnet | merged | [#604](https://github.com/inkstrata/marxy/pull/604) | — | Core normalise fix. |
