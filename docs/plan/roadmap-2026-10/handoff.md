@@ -1,3 +1,36 @@
+# Lead handoff: 2026-10-11 night (X-17), S-13 curated, four PRs merged
+
+**Read first:** this section, then "end of the wave 4–7 session" below (its order and lessons still hold).
+
+## Done this session (Opus lead, Sonnet agents only)
+
+- **Bug sweep S-13 curated** (`~/Dev/marxy-bugs`, packets P-24 and P-25). All four findings hold on `70801a93`
+  (none of their files changed since the baseline): S-13-0001 = W-05.2, S-13-0002 = F-21.1, S-13-0003 → F-38,
+  S-13-0004 → F-37 (latent, fixed anyway).
+- **Merged** (author's go-ahead for the lead to merge, given in this session): F-39 #596, V-12 #594, K-05b #581,
+  W-05.2 + F-37 + F-21.1 #595. K-05b and #595 merged after a clean update from main, with CI green on the combination.
+- **Waiting for the author:** F-38 #593 (code-owned sanitiser; review verdict posted on the PR, head f6d8926e).
+
+## Next, in order
+
+1. The author merges F-38 #593.
+2. Then the previous handoff's list: J-06, W-04.1, the small follow-ups, F-36, X-15 (wave 8 cards), F-34.2's
+   rerun adversarial review, W-21.1 and V-11.1. New follow-ups: F-37.1 (see its row).
+
+## For the author
+
+1. **Merge F-38 #593** (code-owned).
+2. **F-38's open ruling:** keep decoding attributes to a fixed point (`&amp;#45;3` becomes `-3`; a browser keeps
+   it literal), or decode once?
+3. Still open: ADR-0069, ADR-0067, ADR-0060, ADR-0061.
+
+## Lessons
+
+- **Curate against main before boarding.** Two of four sweep findings were already on the board under other ids
+  (W-05.2, F-21.1); grep the ready rows for the symptom before minting a story.
+- **A timing test with a 3× margin flakes on a loaded machine and on CI.** Guard complexity with a margin a
+  quadratic regression cannot hide inside, or count operations.
+
 # Lead handoff: 2026-10-11, end of the wave 4–7 session
 
 **Read first:** this section, then the older sections below (the replan rules still hold), `progress.md`'s
