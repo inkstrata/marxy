@@ -155,7 +155,7 @@ test('the toolbar shows Transform once transform.open is registered, and the but
     assert.equal(await page.locator('[data-marxy-toolbar-item="transform"]').count(), 0, 'folded: no toolbar at all');
     await page.evaluate(() => window.__marxyHandle.workspace().unfold());
     const items = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-toolbar-item]')].map((el) => el.getAttribute('data-marxy-toolbar-item')));
-    assert.deepEqual(items, ['back', 'forward', 'title', 'mode', 'copy', 'transform', 'find']);
+    assert.deepEqual(items, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find', 'more']);
     const button = page.locator('[data-marxy-toolbar-item="transform"] button');
     assert.equal(await button.getAttribute('aria-label'), 'Transform');
     assert.equal(await button.getAttribute('aria-disabled'), null, 'a document is open');
@@ -544,5 +544,120 @@ test('in Source: editing after the sheet opened, then Apply, changes nothing and
     await s.settle();
     assert.equal(await src.doc(), edited);
     assert.match((await s.sheet()).status, /document changed/i);
+  });
+});
+
+// --- Source and bytes that are not UTF-8 (F-34.1) ---------------------------------------------------------------------
+
+const LONE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+const hexOf = (bytes) => [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(' ');
+/** The open store's bytes, once the Source editor's text is folded into it (leaving Source does that). */
+async function foldedBytes(page, s) {
+  await page.keyboard.press(`${s.mod}+e`);
+  await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
+  await s.settle();
+  return page.evaluate(() => [...window.__marxyHandle.document().snapshot().buffer.bytes]);
+}
+const sheetText = (page) => page.evaluate(() => document.getElementById('marxy-transform').textContent);
+
+test('in Source, a file with a byte that is not UTF-8 takes Apply: the byte inside the range and the bytes outside it come back exactly, and one undo restores the file', async () => {
+  const bytes = Buffer.concat([Buffer.from('# T\n\nc\n'), Buffer.from([0xff]), Buffer.from('\nb\n\nz '), Buffer.from([0xe9]), Buffer.from('\n')]);
+  await withApp({ [A]: bytes }, async (page, s) => {
+    const src = await inSource(page, s);
+    const text = await src.doc();
+    const from = text.indexOf('c\n');
+    const to = text.indexOf('\n\nz');
+    await src.select(from, to);
+    await s.choose('UPPERCASE');
+    const sheet = await s.sheet();
+    assert.ok(sheet.buttons.includes('Apply'), 'no refusal: Source writes the byte back as it was');
+    assert.ok(!/UTF-8/.test(sheet.note), sheet.note);
+    assert.ok(!LONE.test(await sheetText(page)), 'a lone surrogate is never painted: the byte reads as U+FFFD');
+    assert.equal(sheet.before, 'c\n\uFFFD\nb');
+    assert.equal(sheet.after, 'C\n\uFFFD\nB');
+    await page.keyboard.press(`${s.mod}+Enter`);
+    await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
+    const want = Buffer.concat([Buffer.from('# T\n\nC\n'), Buffer.from([0xff]), Buffer.from('\nB\n\nz '), Buffer.from([0xe9]), Buffer.from('\n')]);
+    assert.equal(hexOf(await foldedBytes(page, s)), hexOf(want), 'only the letters in the range changed; both stray bytes are as they were');
+    assert.equal(await s.writes(), 0);
+    await page.evaluate(async () => { await window.__marxyHandle.document().undo(); });
+    assert.equal(hexOf(await page.evaluate(() => [...window.__marxyHandle.document().snapshot().buffer.bytes])), hexOf(bytes), 'one undo gives the original bytes');
+  });
+});
+
+test('in Source, a byte pasted into a valid file is never painted, copied or quoted as a lone surrogate, and Apply keeps it', async () => {
+  const valid = '# T\n\nb\na\n';
+  await withApp({ [A]: valid }, async (page, s) => {
+    const src = await inSource(page, s);
+    // The editor now holds the stray byte (a lone U+DCFF) that the store's bytes, still valid UTF-8, do not.
+    await page.evaluate(async () => {
+      const view = (await import('/src/source/editor.ts')).activeSourceEditor().view;
+      const at = view.state.doc.toString().indexOf('a\n');
+      view.dispatch({ changes: { from: at + 1, insert: '\udcff' } });
+    });
+    assert.ok(LONE.test(await src.doc()), 'the fixture: the editor holds a lone surrogate');
+    const text = await src.doc();
+    await src.select(text.indexOf('b'), text.length);
+    // A conversion: the result is new text that is only copied, and must not spell the byte (\udcff) or hold it raw.
+    await s.choose('Escape as JSON string');
+    let sheet = await s.sheet();
+    assert.ok(!LONE.test(await sheetText(page)), 'nothing lone is painted');
+    assert.ok(!/udcff/i.test(sheet.after), `the result does not spell the byte: ${JSON.stringify(sheet.after)}`);
+    assert.ok(sheet.after.includes('\uFFFD'));
+    assert.ok(!sheet.buttons.includes('Apply'), 'a conversion is not an edit');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
+    const copied = (await s.pasteboard()).text;
+    assert.ok(copied.includes('\uFFFD') && !LONE.test(copied) && !/udcff/i.test(copied), JSON.stringify(copied));
+    // An edit chain with a conversion added on the end becomes new text and is made from the readable input as well.
+    await src.select(text.indexOf('b'), text.length);
+    await s.choose('UPPERCASE');
+    sheet = await s.sheet();
+    assert.ok(sheet.buttons.includes('Apply'));
+    assert.ok(!LONE.test(await sheetText(page)));
+    await page.getByRole('button', { name: /Add another step/ }).click();
+    await page.locator('#marxy-transform-filter').fill('Escape as JSON');
+    await page.keyboard.press('Enter');
+    await s.settle();
+    sheet = await s.sheet();
+    assert.deepEqual(sheet.steps, ['UPPERCASE', 'Escape as JSON string']);
+    assert.ok(!sheet.buttons.includes('Apply') && !/udcff/i.test(sheet.after) && sheet.after.includes('\uFFFD'), JSON.stringify(sheet.after));
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
+    // The edit alone applies, and the byte is still there afterwards.
+    await src.select(text.indexOf('b'), text.length);
+    await s.choose('UPPERCASE');
+    await page.keyboard.press(`${s.mod}+Enter`);
+    await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
+    assert.equal(hexOf(await foldedBytes(page, s)), hexOf(Buffer.concat([Buffer.from('# T\n\nB\nA'), Buffer.from([0xff]), Buffer.from('\n')])));
+  });
+});
+
+test('Add another step runs only the new step, on the step before it', async () => {
+  await withApp({ [A]: LIST_DOC }, async (page, s) => {
+    await page.evaluate(async () => {
+      // The registry the app runs from: the same module, so wrapping a transform's function counts its runs.
+      const url = performance.getEntriesByType('resource').map((e) => e.name).find((n) => /\/transforms\/registry\.ts/.test(n));
+      const core = await import(url.replace(/\?.*$/, '') + (new URL(url).search));
+      window.__runs = [];
+      for (const id of ['sort', 'dedupe']) {
+        const t = core.transformById(id);
+        const fn = t.fn;
+        t.fn = (text, ctx) => (window.__runs.push([id, text.length]), fn(text, ctx));
+      }
+    });
+    await s.select('#doc ul');
+    await s.choose('Sort lines');
+    await page.getByRole('button', { name: /Add another step/ }).click();
+    await page.locator('#marxy-transform-filter').fill('duplicate');
+    await page.keyboard.press('Enter');
+    await s.settle();
+    const list = listRange(LIST_DOC);
+    const sheet = await s.sheet();
+    assert.equal(sheet.after, runTransform('dedupe', runTransform('sort', list.text)));
+    assert.deepEqual(await page.evaluate(() => window.__runs), [
+      ['sort', list.text.length],
+      ['dedupe', runTransform('sort', list.text).length],
+    ], 'sort ran once, and dedupe ran once on its result');
   });
 });

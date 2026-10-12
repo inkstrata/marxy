@@ -7,7 +7,7 @@
 // one way back into the document (Apply). Rendered: the selection's source range, or the whole buffer of the store.
 // Source: the editor's selection, or the whole document. It writes nothing; Apply is the sheet's action, and the
 // reader saves.
-import { TRANSFORMS, textOf } from '@marxy/core';
+import { TRANSFORMS, readableText, textOf } from '@marxy/core';
 import { fileTypeOf } from '@marxy/core/src/index-model/file-types.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { focusOrigin } from '../pane/focus.ts';
@@ -31,8 +31,6 @@ function isMarkdown(path: string | null | undefined): boolean {
 
 export const NOT_UTF8 =
   'Part of this text is not valid UTF-8, so Apply would change those bytes. Copy the result, or open it as a document.';
-export const SOURCE_NOT_UTF8 =
-  'This file has bytes that are not valid UTF-8, and Source would rewrite them. Apply from Read, or copy the result.';
 
 const SELECTION_LOST = 'That selection could not be matched to the document. Select it again, or clear it to transform the whole document.';
 const PAGE_OLD = 'The page was out of date with the document. Nothing was changed; try again.';
@@ -113,18 +111,15 @@ async function sourceTarget(): Promise<SheetTarget | string> {
   const text = state.doc.sliceString(from, to, state.lineBreak);
   const doc = state.doc;
   const path = editor.buffer.path;
-  let valid = true;
-  try {
-    new TextDecoder('utf-8', { fatal: true }).decode(editor.buffer.bytes);
-  } catch {
-    valid = false;
-  }
   return {
     text,
     scope: main ? 'selection' : 'document',
     eol: state.lineBreak === '\r\n' || state.lineBreak === '\r' ? (state.lineBreak as Eol) : null,
     markdown: isMarkdown(path),
-    ...(valid ? {} : { applyRefusal: SOURCE_NOT_UTF8 }),
+    // The editor's text holds a byte that is not UTF-8 as a lone surrogate and writes it back as that byte (F-34.1), so
+    // Apply keeps it: there is no refusal to make, whether the file was read that way or the byte was pasted in since.
+    // What is shown, copied or opened reads such a byte as U+FFFD.
+    readable: readableText,
     async apply(output) {
       // Synchronous from here: the editor must be the one the sheet read, holding the very document it read.
       if (activeSourceEditor()?.view !== view || view.state.doc !== doc) return 'stale';

@@ -1142,8 +1142,11 @@ export const OPS = {
         if (refused !== 'stale') world.fail('I6', `Apply of ${at} after the document changed gave '${refused}', not 'stale'`);
         return `applyTransform ${at}: the document changed under the sheet, Apply refused and touched nothing`;
       }
-      // Tokens inside the range may be changed by the transform (UPPERCASE): the reader asked for that, and one undo gives them back.
-      world.mayDrop(model, tokensIn(model, latin1(before.subarray(start, end))));
+      // Tokens inside the range that the output no longer holds were changed by the transform (UPPERCASE): the reader asked for
+      // that, and one undo gives them back. A token the output keeps stays owed.
+      // `always`: a copy of such a token may still lie on disk or in another pane, and the allowance must not outlive this
+      // step (a later Save over that copy is not the loss; the reader asked for the change here).
+      world.mayDrop(model, tokensIn(model, latin1(before.subarray(start, end))).filter((id) => !out.includes(model.tokens[id].text)), { always: true });
       const outcome = await applyToStore(doc.store, opened, { start, end }, out, `walk transform: ${chain.steps.join(', then ')}`);
       if (out === text) {
         if (outcome !== 'unchanged') world.fail('I6', `Apply of ${at} changed nothing yet gave '${outcome}'`);

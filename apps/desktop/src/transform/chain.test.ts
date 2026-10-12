@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { TRANSFORMS, runTransform } from '@marxy/core';
 import { openDocumentStore } from '../document/store.ts';
-import { addStep, applyToStore, canApply, characterCount, createChain, eolOf, lastKind, openedOf, output, outputs, replacesExactly, withoutBom } from './chain.ts';
+import { addStep, applyToStore, canApply, characterCount, createChain, eolOf, lastKind, openedOf, output, outputs, replacesExactly, runStep, withoutBom } from './chain.ts';
 
 const enc = new TextEncoder();
 const dec = new TextDecoder('utf-8', { ignoreBOM: true });
@@ -169,4 +169,39 @@ test('replacesExactly: text that is the bytes decoded may replace them; a byte t
   const stray = new Uint8Array([0x61, 0xff, 0x62]);
   assert.equal(replacesExactly(new TextDecoder().decode(stray), stray), false, 'it decoded to U+FFFD');
   assert.equal(replacesExactly('\uFEFFa', new Uint8Array([0xef, 0xbb, 0xbf, 0x61])), true, 'a mark kept as text is the same bytes');
+});
+
+test('a chain grown a step at a time (each step run once, on the step before) gives the text the whole chain gives', () => {
+  const input = 'b\r\nc\r\na\r\nb\r\n';
+  for (const eol of [null, eolOf('crlf')]) {
+    const ids = ['sort', 'dedupe', 'upper', 'fence'];
+    let text = input;
+    for (const id of ids) text = runStep(id, text, eol);
+    assert.equal(text, output(createChain(input, ids, eol)));
+    const each = ids.map((_, n) => output(createChain(input, ids.slice(0, n + 1), eol)));
+    let grown = input;
+    ids.forEach((id, n) => {
+      grown = runStep(id, grown, eol);
+      assert.equal(grown, each[n], `after step ${n + 1}`);
+    });
+  }
+});
+
+// Source holds a byte that is not UTF-8 as a lone U+DC80..U+DCFF (F-34.1), and Apply writes the transform's text back as
+// bytes. A transform that dropped or rewrote such a code unit would change a byte nobody asked to change, silently.
+test('every edit transform keeps each stray-byte code unit of its input (Source text), and a derive result never holds one', () => {
+  const strays = ['\udcff', '\udcfe', '\udcfd', '\udcfc', '\udcfb'];
+  const input = '# Intro\n\nline \udcff end\nsecond line\n\n- item \udcfe\n- other\n\n| a | b |\n|---|---|\n| \udcfd | 2 |\n\n> quote \udcfc\n\n    code \udcfb\n';
+  const lone = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+  assert.ok(lone.test(input));
+  for (const t of TRANSFORMS) {
+    const out = runTransform(t.id, input);
+    if (t.kind === 'edit') {
+      for (const c of strays) assert.ok(out.includes(c), `${t.id} lost the stray byte ${c.charCodeAt(0).toString(16)}`);
+    } else if (t.id !== 'json-string') {
+      assert.ok(!lone.test(out), `${t.id} made a lone surrogate`);
+    }
+  }
+  // Why a result that is new text is made from the readable input: a literal quote of a lone surrogate spells it out.
+  assert.equal(runTransform('json-string', 'a\udcffb'), '"a\\udcffb"');
 });

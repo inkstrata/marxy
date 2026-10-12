@@ -405,7 +405,10 @@ document's own line ending (a CRLF or CR file gets no bare LF from a transform t
 selection), `edit` transforms keep a leading byte-order mark, and a range holding a byte that is not UTF-8 is not
 offered Apply (writing the text back would turn that byte into U+FFFD). Source: `replaceRange` (`source/structure.ts`),
 one CodeMirror transaction and one undo step, refused when the editor's document is no longer the object the sheet
-read; a file with a byte that is not UTF-8 is not offered Apply in Source, because Source's fold re-encodes. A
+read. Source holds a byte that is not UTF-8 as a lone surrogate and writes it back as that byte (ADR-0069), so Apply is
+offered there whether the file was read that way or the byte was pasted in since; the sheet paints, copies and opens
+such a byte as U+FFFD, and a result that is new text (a conversion) is made from that readable input, so it never spells
+`\udcff`. A
 transform marked `outsideCode` leaves fenced code and front matter alone by Markdown's rules; in a file that is not
 Markdown the sheet says which steps do that. The data-safety walk (`test/support/store-walk.mjs`, op
 `applyTransform`) drives the same functions over random ranges.
