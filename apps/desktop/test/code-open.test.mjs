@@ -500,6 +500,72 @@ test('a long .py is pieces of 200 lines drawn as one block, and .log and .html s
   await page.close();
 });
 
+/** The text of the last copy the page made. */
+const copied = (page) =>
+  page.evaluate(() => {
+    const call = window.__h.shell.calls.filter((c) => c.method === 'clipboardWriteItem').at(-1);
+    return call ? new TextDecoder().decode(call.args[0].find((r) => r.type === 'public.utf8-plain-text').bytes) : null;
+  });
+/** Equal, or a short account of where they first differ (a diff of 20,000 characters says nothing). */
+const sameText = (actual, expected, what) => {
+  if (actual === expected) return;
+  let i = 0;
+  while (i < Math.min(actual?.length ?? 0, expected.length) && actual[i] === expected[i]) i++;
+  assert.fail(`${what}: ${actual?.length} characters against ${expected.length}, first difference at ${i}: ${JSON.stringify((actual ?? '').slice(i - 10, i + 20))} against ${JSON.stringify(expected.slice(i - 10, i + 20))}`);
+};
+const openRendered = async (page, path) => {
+  await started(page);
+  for (let i = 0; i < 3; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);
+  await drained(page);
+  await page.waitForSelector('#doc pre.marxy-run');
+  await page.waitForFunction(() => document.querySelectorAll('#doc pre.marxy-run').length === 4);
+};
+const LONG = Array.from({ length: 700 }, (_, i) => `v_${i} = ${i}  # line *s* _u_`).join('\n') + '\n';
+
+test('Mod+A, Mod+C on a 700-line .py copies the file, not a blank line more at each piece (V-10)', async () => {
+  const page = await freshPage();
+  await startSampled(page, { ...FILES, '/repo/big.py': LONG }, ['/repo/big.py']);
+  await openRendered(page);
+  await page.locator('#doc pre').first().click();
+  await page.keyboard.press(`${await modifier(page)}+KeyA`);
+  await page.keyboard.press(`${await modifier(page)}+KeyC`);
+  await page.waitForFunction(() => window.__h.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
+  sameText(await copied(page), LONG, 'Mod+A copy');
+  await page.close();
+});
+
+test('a shift-click selection across a piece boundary copies the file bytes between its ends (V-10)', async () => {
+  const page = await freshPage();
+  await startSampled(page, { ...FILES, '/repo/big.py': LONG }, ['/repo/big.py']);
+  await openRendered(page);
+  const pres = page.locator('#doc pre');
+  await pres.nth(0).click();
+  await pres.nth(2).click({ modifiers: ['Shift'] });
+  await page.evaluate(() => {
+    window.__native = null;
+    document.addEventListener('copy', (e) => { window.__native = e.clipboardData.getData('text/plain'); });
+  });
+  await page.keyboard.press(`${await modifier(page)}+KeyC`);
+  await page.waitForFunction(() => window.__native !== null);
+  const text = await page.evaluate(() => window.__native);
+  const upTo600 = LONG.split('\n').slice(0, 600).join('\n') + '\n';
+  sameText(text, upTo600, 'the three pieces');
+  await page.close();
+});
+
+test('a CRLF .py copies with its CRLF (V-10)', async () => {
+  const page = await freshPage();
+  const crlf = LONG.replaceAll('\n', '\r\n');
+  await startSampled(page, { ...FILES, '/repo/crlf.py': crlf }, ['/repo/crlf.py']);
+  await openRendered(page);
+  await page.locator('#doc pre').first().click();
+  await page.keyboard.press(`${await modifier(page)}+KeyA`);
+  await page.keyboard.press(`${await modifier(page)}+KeyC`);
+  await page.waitForFunction(() => window.__h.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
+  sameText(await copied(page), crlf, 'CRLF copy');
+  await page.close();
+});
+
 test('text typed in a .py before the parse was ever made is saved as typed, and Rendered parses it', async () => {
   const page = await freshPage();
   await startSampled(page, FILES, ['/repo/x.py']);

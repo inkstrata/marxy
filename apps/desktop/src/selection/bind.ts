@@ -6,6 +6,7 @@ import { chordMatches, commandForKey } from '../palette/commands.ts';
 import { notify } from '../notices/index.ts';
 import { runCopyShortcut } from './apply.ts';
 import { operationInputFor, operationInputsFor } from './input.ts';
+import { codeRunSourceText } from './copy-text.ts';
 import { copyDefault } from './verbs.ts';
 import { openVerbMenu, verbMenuIsOpen, type MenuAnchor } from './verb-menu.ts';
 import { applyDocumentMutation } from '../commands/edits.ts';
@@ -224,6 +225,26 @@ export function installCommandKeys(handle: AppHandle): void {
   // Where Copy as opens, and which block it copies with nothing selected: passive, one object written per event.
   document.addEventListener('pointermove', (event) => recordPointer(event.clientX, event.clientY), { passive: true });
   installPaneKeys({ commands, context: () => buildAppContext(keysFor), mac: isMac });
+  // A native copy of a selection over a code file's pieces puts the file's own bytes on the pasteboard (V-10): the
+  // page's text has the HTML parser's LF for a CRLF and a break between one piece and the next.
+  document.addEventListener('copy', (event) => {
+    const runtime = keysFor?.selection.runtime();
+    // Several pieces chosen as blocks (a click and a shift-click) have no DOM selection: their bytes are the range.
+    const chosen = keysFor?.selection.state().selection;
+    if (runtime && event.clipboardData && chosen?.kind === 'blocks' && runtime.document.children.every((c) => c.type === 'codeBlock' && c.run)) {
+      event.clipboardData.setData('text/plain', new TextDecoder().decode(runtime.buffer.bytes.subarray(chosen.range.start, chosen.range.end)));
+      event.preventDefault();
+      return;
+    }
+    const sel = document.getSelection();
+    if (!runtime || !event.clipboardData || !sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+    if (!runtime.article.contains(range.commonAncestorContainer)) return;
+    const text = codeRunSourceText(range, runtime.article, runtime.buffer.bytes);
+    if (text === null) return;
+    event.clipboardData.setData('text/plain', text);
+    event.preventDefault();
+  });
   document.addEventListener('keydown', (event) => {
     const editable = inEditable(event);
     const appCtx = buildAppContext(keysFor);
