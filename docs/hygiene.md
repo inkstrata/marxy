@@ -48,6 +48,7 @@ its `CHECKS` list and nowhere else. The commit hooks run the staged-file subset.
 | A deferral comment in product source that names no `MARXY-nnn` key or roadmap story id (`A-07`, `B-13`, `A-14.1`), or names one already merged | `check-deferrals` with `scripts/allowlists/deferrals.json` | `pnpm check`, CI `fast` |
 | A second markdown parser or sanitiser returning (ADR-0001, ADR-0021) | `check-one-parse` | `pnpm check`, CI `fast` |
 | A theme token whose name or unit kind moved | `check-tokens` | `pnpm check`, CI `fast` |
+| A UI story with no look at what it drew beside the mock (ADR-0070) | `pnpm mock-pair <screen...> --out docs/taste-review/<date>-<id>` (`scripts/mock-pair.mjs`, U-00): the app and mock-v2 pair in Night and Paper, a human reads it | by hand, per UI story; never CI, never compared |
 | A font binary losing `binary` or gaining `eol` | `gate-font-attrs` | `pnpm check`, CI `fast` |
 | A bundled theme colour pair (any variant or kind scope) below ADR-0059's contrast floor, unrounded | `gate-contrast` | `pnpm check`, CI `fast` |
 | A workflow that is advisory, unpinned, unlocked, untimed or missing its Linux prerequisites | `check-workflows` (the one place workflow rules live) | `pnpm check`, CI `fast` |

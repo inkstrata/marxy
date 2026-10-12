@@ -297,6 +297,9 @@ machine it ran on cannot be told from a regression. A missing or dishonest measu
 failure; a slow one is not. Comparison against the screenshot and rag baselines is nightly, not
 on the pull-request path (ADR-0047).
 
+The app-beside-mock pair (`pnpm mock-pair`, `scripts/mock-pair.mjs`, ADR-0070) is made by hand for a human to read. No
+workflow runs it and nothing compares its images.
+
 **Nothing retries silently.** A step wrapped in `|| echo` is a step whose failure nobody has read;
 that mistake once hid a broken check through every pull request the repository had run.
 
