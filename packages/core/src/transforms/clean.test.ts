@@ -26,6 +26,7 @@ const cases: Case[] = [
   ['strip-citations', 'removes [1], 【1】 and [^note] markers', 'A claim [1] and another【2】 here[^n].\n', 'A claim and another here.\n'],
   ['strip-citations', 'removes a footnote definition and its continuation', 'Text[^n].\n\n[^n]: The note\n    goes on.\n\nAfter\n', 'Text.\n\n\nAfter\n'],
   ['strip-citations', 'keeps a link whose text is a number and a reference definition', '[1](http://a.example) and [1]\n\n[1]: http://b.example\n', '[1](http://a.example) and [1]\n\n[1]: http://b.example\n'],
+  ['strip-citations', 'keeps the indent of a fence in a list after a footnote line (F-51)', '[^1]: foot\n  - ```js\n    x [1]\n    ```\n\nafter[^1]\n', '  - ```js\n    x [1]\n    ```\n\nafter\n'],
   ['strip-citations', 'leaves code alone', `see [1]\n${FENCE}`, `see\n${FENCE}`],
   // strip-bold
   ['strip-bold', 'unwraps ** and __', 'a **b c** and __d__ e\n', 'a b c and d e\n'],
@@ -40,7 +41,16 @@ const cases: Case[] = [
   // collapse-blank
   ['collapse-blank', 'trims trailing space and collapses blank runs', 'a  \nb\t\n\n\n\n\nc \n', 'a  \nb\n\nc\n'],
   ['collapse-blank', 'trims a trailing space that is not a hard break', 'a \nb\n', 'a\nb\n'],
+  ['collapse-blank', 'keeps a hard break before indented code in a list (F-51)', '* item  \n*       code\n* c\n', '* item  \n*       code\n* c\n'],
+  ['collapse-blank', 'keeps a hard break before a fence in a list (F-51)', '* item  \n*   ```js\n    x  \n    ```\n* c\n', '* item  \n*   ```js\n    x  \n    ```\n* c\n'],
+  ['collapse-blank', 'keeps a hard break before indented code in a quote (F-51)', '>> text  \n>>     code\n', '>> text  \n>>     code\n'],
+  ['collapse-blank', 'keeps a hard break before a fence in a quote (F-51)', '> text  \n> ```js\n> x\n> ```\n', '> text  \n> ```js\n> x\n> ```\n'],
   ['collapse-blank', 'leaves a fenced block alone', 'a\n\n\n\nb\n```\nx   \n\n\n\ny\n```\n', 'a\n\nb\n```\nx   \n\n\n\ny\n```\n'],
+  ['collapse-blank', 'keeps the indent of indented code after a bullet item (F-51)', '- item\n\n      code\n', '- item\n\n      code\n'],
+  ['collapse-blank', 'keeps the indent of indented code after a numbered item (F-51)', '1. step\n\n       code\n', '1. step\n\n       code\n'],
+  ['collapse-blank', 'keeps the indent of a fenced block in a list item (F-51)', '- item\n\n  ```js\n  x\n  ```\n', '- item\n\n  ```js\n  x\n  ```\n'],
+  ['collapse-blank', 'keeps the indent of indented code in a quoted list item (F-51)', '> - item\n>\n>       code\n', '> - item\n>\n>       code\n'],
+  ['collapse-blank', 'keeps the indent of the nine-space code line (F-51)', '- item\n\n         code\n', '- item\n\n         code\n'],
   // normalize-bullets
   ['normalize-bullets', '* and + become -', '* a\n* b\n  + c\n', '- a\n- b\n  - c\n'],
   ['normalize-bullets', 'leaves numbers, - and emphasis alone', '1. a\n2. b\n\n- c\n\n*it* and * not a list\n', '1. a\n2. b\n\n- c\n\n*it* and * not a list\n'],

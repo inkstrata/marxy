@@ -358,3 +358,28 @@ export function corpusProperties(op: Operation, opts: CorpusOptions): CorpusStat
   assert.ok(count > 0, `${op.id}: no corpus node was accepted, so nothing was checked`);
   return { files, variants, applied: count };
 }
+
+/**
+ * Documents with code nested in lists and quotes (F-51): indented and fenced blocks after a container's indent or `> `,
+ * each with prose and blank runs around it. LF text; for the property that a prose transform hands code back as it was.
+ */
+export function nestedCodeDocuments(): string[] {
+  // [the first line's prefix, the continuation lines' prefix]
+  const containers: [string, string][] = [['', ''], ['> ', '> '], ['- ', '  '], ['1. ', '   '], ['> - ', '>   '], ['- > ', '  > '], ['> - > ', '>   > ']];
+  const out: string[] = [];
+  for (const [first, cont] of containers) {
+    const blank = cont.trimEnd();
+    for (const extra of ['', ' ']) {
+      out.push(`${first}item  \n${blank}\n${blank}\n${cont}    ${extra}code  \n${cont}    more\n${blank}\n${blank}\n\nafter \n`);
+      out.push(`${first}item\n${blank}\n${cont}${extra}\`\`\`js\n${cont}${extra}x  \n${blank}\n${blank}\n${cont}${extra}\`\`\`\n\n\n\nafter\n`);
+    }
+  }
+  // A definition or footnote line right before a nested fence: strip-citations reads those lines whole.
+  for (const [first, cont] of containers.slice(2)) {
+    out.push(`[^1]: foot[1]\n${first}\`\`\`js\n${cont}x [1][^1]\n${cont}\`\`\`\n`);
+    out.push(`[^1]: foot\n[2]: http://x.example\n\n${first}item\n${cont}\`\`\`js\n${cont}x [1]\n${cont}\`\`\`\n\nafter[^1]\n`);
+  }
+  out.push('[^1]: foot\n  - ```js\n    x [1]\n    ```\n\nafter[^1]\n');
+  out.push('- item\n\n         code\n', '1. step\n\n       code\n');
+  return out;
+}
