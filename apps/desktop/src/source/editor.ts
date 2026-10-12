@@ -15,6 +15,7 @@ import { scrollSourceToByte } from './mode-switch.ts';
 import { save } from '../save.ts';
 import { maxLineLengthForFile, tabSizeForFile } from './tab-width.ts';
 import { appHandle } from '../commands/app-handle.ts';
+import { formatsPath } from './format-ops.ts';
 import { sourceEditChords } from '../commands/source-edit.ts';
 
 export interface SourceEditorOptions {
@@ -177,7 +178,7 @@ export async function baseExtensions(
   compartments?: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment?: Compartment; languageCompartment?: Compartment },
   island = false,
 ): Promise<Extension[]> {
-  const { history, defaultKeymap, historyKeymap } = await import('@codemirror/commands');
+  const { history, defaultKeymap, historyKeymap, selectParentSyntax } = await import('@codemirror/commands');
   const { EditorState } = await import('@codemirror/state');
   const { EditorView, drawSelection, highlightActiveLine, keymap } = await import('@codemirror/view');
   const { searchKeymap } = await import('@codemirror/search');
@@ -229,6 +230,15 @@ export async function baseExtensions(
       },
       // The chords the command registry binds in Source (V-01) are its alone, so a press runs one thing.
       ...withoutRegistryChords([...defaultKeymap, ...historyKeymap, ...searchKeymap], sourceEditChords(), isMacPlatform()),
+      // `Mod+I` is Italic in a Markdown file (the registry's, V-08) and CodeMirror's select-parent-syntax in every other file: the
+      // file the editor holds now decides, so a mount that takes another file follows it.
+      {
+        key: 'Mod-i',
+        run: (view) => {
+          const held = [...editors.values()].find((e) => e.view === view);
+          return held !== undefined && formatsPath(held.buffer.path) ? false : selectParentSyntax(view);
+        },
+      },
     ]),
     // A compartment: a reload that changes the file's line-ending class swaps it (F-25).
     sepComp.of(EditorState.lineSeparator.of(lineSeparator)),

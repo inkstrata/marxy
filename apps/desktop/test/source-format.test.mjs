@@ -105,6 +105,22 @@ test('in a .rs file Mod+B does nothing, and no formatting command is offered; in
     await page.keyboard.press(`${mod}+KeyI`);
     assert.equal(await docText(page), before);
     assert.deepEqual(await offered(page, '^source\\.(format|insert)-'), []);
+    // Mod+I there is still CodeMirror's select-parent-syntax: a caret in a word grows to a selection once the grammar is in.
+    await select(page, 4);
+    await page.waitForFunction(async () => {
+      const { activeSourceEditor } = await import('/src/source/editor.ts');
+      const { view } = activeSourceEditor();
+      view.dispatch({ selection: { anchor: 4 } });
+      return view.dom.querySelector('.cm-line span[class]') !== null;
+    });
+    await page.keyboard.press(`${mod}+KeyI`);
+    const grew = await page.evaluate(async () => {
+      const { activeSourceEditor } = await import('/src/source/editor.ts');
+      const { main } = activeSourceEditor().view.state.selection;
+      return main.to - main.from;
+    });
+    assert.ok(grew > 0, 'select parent syntax ran');
+    assert.equal(await docText(page), before);
   });
   await withApp('/r/note.md', async (page) => {
     assert.deepEqual(await offered(page, '^source\\.(format|insert)-'), [
@@ -129,6 +145,15 @@ test('a CRLF file: an insert and a wrap are written in CRLF, each one undo step'
       view.dispatch({ selection: { anchor: view.state.doc.length } });
     });
     await run(page, 'source.insert-table');
+    // The selection after the insert is in the editor's positions: the table's first header cell, whole.
+    const selected = await page.evaluate(async () => {
+      const { view } = (await import('/src/source/editor.ts')).activeSourceEditor();
+      const { main } = view.state.selection;
+      return view.state.sliceDoc(main.from, main.to);
+    });
+    assert.equal(selected, 'Column');
+    // Every break of the block is a line break to the editor, not a stray character: a bare LF would leave fewer lines.
+    assert.equal(await page.evaluate(async () => (await import('/src/source/editor.ts')).activeSourceEditor().view.state.doc.lines), 6);
     // Leaving Source folds the editor's text into the buffer; the folded bytes are what a save writes.
     await page.evaluate(() => window.__marxyHandle.toggleMode());
     const out = await bytesOf();
@@ -137,6 +162,11 @@ test('a CRLF file: an insert and a wrap are written in CRLF, each one undo step'
     assert.ok(text.includes('| Column | Column |'));
     assert.doesNotMatch(text, /(?<!\r)\n/, 'no bare LF anywhere');
     assert.notDeepEqual(out, original);
+    assert.equal(
+      text,
+      '**alpha** beta\r\ngamma\r\n\r\n| Column | Column |\r\n| ------ | ------ |\r\n|        |        |',
+      'the whole file, each break the file\'s own',
+    );
   });
 });
 

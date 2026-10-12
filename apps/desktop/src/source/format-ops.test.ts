@@ -63,7 +63,51 @@ test('italic and bold compose: *** is both, and each takes only its own off', ()
 test('a selection that holds its markers unwraps; one that merely starts and ends with a star does not', () => {
   assert.equal(wrapped('a **bold** b', 2, 10, 'bold').text, 'a bold b');
   // `*a* and *b*` is two emphasised runs, not one: italic wraps the whole selection and breaks neither.
-  assert.equal(wrapped('*a* and *b*', 0, 11, 'italic').text, '**a* and *b**');
+  const alt = wrapped('*a* and *b*', 0, 11, 'italic');
+  assert.equal(alt.text, '_*a* and *b*_');
+  assert.equal(wrapped(alt.text, alt.edit.selection.from, alt.edit.selection.to, 'italic').text, '*a* and *b*', 'either marker comes off');
+});
+
+test('bold over text that holds ** wraps in __, and either takes it off', () => {
+  const once = wrapped('**a** and **b**', 0, 15, 'bold');
+  assert.equal(once.text, '__**a** and **b**__');
+  assert.equal(wrapped(once.text, once.edit.selection.from, once.edit.selection.to, 'bold').text, '**a** and **b**');
+  // The caret in a snake_case word is not inside emphasis.
+  assert.equal(wrapped('foo_bar_baz', 4, 7, 'italic').text, 'foo_*bar*_baz');
+});
+
+test('a word at the caret keeps an in-word apostrophe', () => {
+  assert.equal(wrapped("we don't know", 6, 6, 'bold').text, "we **don't** know");
+  assert.equal(wrapped('the user’s file', 6, 6, 'bold').text, 'the **user’s** file');
+});
+
+test('inside inline code or across its edge a command declines; Code takes the span off', () => {
+  const text = 'a `code here` b';
+  for (const kind of ['bold', 'italic', 'strike', 'link'] as const) {
+    assert.deepEqual(wrapSelection(text, { from: 4, to: 4 }, kind), { declined: 'code' }, `${kind} in code`);
+    assert.deepEqual(wrapSelection(text, { from: 0, to: 6 }, kind), { declined: 'code' }, `${kind} across the edge`);
+  }
+  assert.deepEqual(wrapSelection(text, { from: 0, to: 6 }, 'code'), { declined: 'code' }, 'partly overlapping');
+  assert.equal(wrapped(text, 4, 4, 'code').text, 'a code here b');
+  assert.equal(wrapped('a ``x ` y`` b', 5, 5, 'code').text, 'a x ` y b');
+  assert.deepEqual(wrapSelection(text, { from: 14, to: 15 }, 'bold').hasOwnProperty('edit'), true, 'text after the span is fine');
+  assert.equal(wrapped('x `a` and word', 10, 14, 'bold').text, 'x `a` and **word**');
+});
+
+test('front matter: no wrap inside it, and a block never lands inside or before it', () => {
+  const doc = '---\ntitle: x\n---\n\nbody\n';
+  assert.deepEqual(wrapSelection(doc, { from: 4, to: 9 }, 'bold'), { declined: 'code' });
+  assert.ok('edit' in wrapSelection(doc, { from: 18, to: 22 }, 'bold'));
+  for (const caret of [0, 5, 16]) {
+    for (const kind of ['table', 'fence', 'rule', 'details'] as const) {
+      const out = insertAtCaret(doc, caret, kind, '\n');
+      assert.ok('edit' in out, `${kind} at ${caret}`);
+      assert.ok(out.edit.changes[0]!.from === 16, `${kind} at ${caret} goes after the closing line`);
+      assert.ok(applyEdit(doc, out.edit).text.startsWith('---\ntitle: x\n---\n\n'), `${kind} keeps the front matter on line 1`);
+    }
+  }
+  assert.deepEqual(insertAtCaret(doc, 5, 'footnote', '\n'), { declined: 'code' });
+  assert.equal(applyEdit('---\na: 1\n---\n', (insertAtCaret('---\na: 1\n---\n', 0, 'rule', '\n') as { edit: FormatEdit }).edit).text, '---\na: 1\n---\n\n---\n');
 });
 
 test('white space at the edge of a selection stays outside the markers', () => {
@@ -91,10 +135,10 @@ test('a selection across a fence, or in one, is declined with a reason; nothing 
   const text = 'before\n\n```js\nlet x = 1;\n```\n\nafter\n';
   assert.deepEqual(fenceSpans(text), [{ from: 8, to: 28 }]);
   for (const [from, to] of [[2, 12], [15, 17], [24, 33], [8, 8]] as const) {
-    assert.deepEqual(wrapSelection(text, { from, to }, 'bold'), { declined: 'fence' }, `${from}-${to}`);
+    assert.deepEqual(wrapSelection(text, { from, to }, 'bold'), { declined: 'code' }, `${from}-${to}`);
   }
   assert.ok('edit' in wrapSelection(text, { from: 0, to: 6 }, 'bold'), 'text outside the fence is fine');
-  assert.match(formatRefusalText({ wrap: 'bold' }, 'fence'), /fenced code block · the file is unchanged · select text outside/);
+  assert.equal(formatRefusalText({ wrap: 'bold' }, 'code'), "Not formatted · the text is unchanged · it's inside code");
   // An unclosed fence runs to the end; a longer closing fence closes it; a tilde fence is a fence.
   assert.deepEqual(fenceSpans('```\nx'), [{ from: 0, to: 5 }]);
   assert.deepEqual(fenceSpans('~~~\nx\n~~~~\ny'), [{ from: 0, to: 10 }]);
@@ -160,10 +204,26 @@ test('a footnote puts the reference at the caret and the definition at the end, 
   assert.equal(at('', 0).text, '[^1]\n\n[^1]: ');
 });
 
+test('after an insert in a CRLF file the selection is in the editor\'s positions: a break counts one', async () => {
+  const bytes = encoder.encode('Title\r\nbody text\r\n\r\nmore\r\n');
+  const expect: Record<InsertKind, string> = { table: 'Column', details: 'Summary', fence: '', rule: '', footnote: '' };
+  for (const insert of INSERTS) {
+    const r = await session(bytes, { insert }, { from: 8, to: 8 });
+    const sel = r.state.selection.main;
+    const at = r.state.sliceDoc(sel.from, sel.to);
+    assert.equal(at, expect[insert], insert);
+    if (insert === 'fence') {
+      assert.equal(r.state.doc.lineAt(sel.from).text, '', 'the caret is on the fence\'s empty line');
+    }
+    if (insert === 'footnote') assert.equal(r.state.doc.lineAt(sel.from).text, '[^1]: ', 'the caret is after the definition label');
+    if (insert === 'rule') assert.equal(r.state.doc.lineAt(sel.from).text, '---');
+  }
+});
+
 test('an insert in a fenced block is declined', () => {
   const text = '```\ncode\n```\n';
-  for (const kind of INSERTS) assert.deepEqual(insertAtCaret(text, 6, kind, '\n'), { declined: 'fence' });
-  assert.match(formatRefusalText({ insert: 'table' }, 'fence'), /caret is in a fenced code block · the file is unchanged/);
+  for (const kind of INSERTS) assert.deepEqual(insertAtCaret(text, 6, kind, '\n'), { declined: 'code' });
+  assert.match(formatRefusalText({ insert: 'table' }, 'code'), /the text is unchanged · it's inside code/);
 });
 
 test('only Markdown (and a scratch document) is formatted', () => {
@@ -248,7 +308,7 @@ test('a command in a file that is not Markdown does nothing, and a declined one 
   const declined = await session(fenced, { wrap: 'bold' }, { from: 0, to: 8 });
   assert.equal(declined.ran, false);
   assert.equal(declined.said.length, 1);
-  assert.match(declined.said[0]!, /^Not made bold: .* · the file is unchanged · /);
+  assert.equal(declined.said[0], "Not formatted · the text is unchanged · it's inside code");
   assert.deepEqual([...declined.bytes], [...fenced]);
 });
 

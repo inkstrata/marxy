@@ -21,7 +21,7 @@ export type InsertKind = 'table' | 'fence' | 'rule' | 'details' | 'footnote';
 export type FormatOp = { readonly wrap: WrapKind } | { readonly insert: InsertKind };
 
 /** Why a command declined; nothing is written when it does. */
-export type Decline = 'fence' | 'paragraphs';
+export type Decline = 'code' | 'paragraphs';
 
 export interface FormatChange {
   readonly from: number;
@@ -43,7 +43,8 @@ export function formatsPath(path: string): boolean {
   return isUntitled(path) || fileTypeOf(path)?.kind === 'markdown';
 }
 
-const MARKS = { bold: '**', italic: '*', code: '`', strike: '~~' } as const;
+/** Each kind's markers: the first is the one written, the second is written when the text already holds the first, and either is taken off. */
+const MARKS = { bold: ['**', '__'], italic: ['*', '_'], code: ['`'], strike: ['~~'] } as const;
 
 /** The fenced code blocks of `text`: each from the start of its opening line to the end of its closing line (or the text's end when unclosed). */
 export function fenceSpans(text: string): readonly { readonly from: number; readonly to: number }[] {
@@ -71,12 +72,60 @@ export function fenceSpans(text: string): readonly { readonly from: number; read
   return spans;
 }
 
-/** Whether `[from, to]` touches a fenced block: inside it, on a fence line, or across one. */
+/** The end of the front matter's closing line (a `---` block that opens the file), or null when the file has none. */
+export function frontMatterEnd(text: string): number | null {
+  if (!/^---[ \t]*(\n|$)/.test(text)) return null;
+  let pos = text.indexOf('\n') + 1;
+  while (pos > 0 && pos <= text.length) {
+    const nl = text.indexOf('\n', pos);
+    const end = nl === -1 ? text.length : nl;
+    if (/^(---|\.\.\.)[ \t]*$/.test(text.slice(pos, end))) return end;
+    if (nl === -1) return null;
+    pos = nl + 1;
+  }
+  return null;
+}
+
+/** Inline code spans outside fences: each from its opening backticks to the end of its closing run (a run of the same length, in one paragraph). */
+export function inlineCodeSpans(text: string): readonly { readonly from: number; readonly to: number }[] {
+  const fences = fenceSpans(text);
+  const inFence = (i: number): boolean => fences.some((f) => i >= f.from && i <= f.to);
+  const spans: { from: number; to: number }[] = [];
+  const re = /`+/g;
+  let m: RegExpExecArray | null;
+  let after = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index < after || inFence(m.index)) continue;
+    const len = m[0].length;
+    const close = new RegExp(`(?<!\`)\`{${len}}(?!\`)`, 'g');
+    close.lastIndex = m.index + len;
+    const found = close.exec(text);
+    if (found === null) continue;
+    // A blank line ends the paragraph: no span runs across it.
+    if (/\n[ \t]*\n/.test(text.slice(m.index, found.index))) continue;
+    spans.push({ from: m.index, to: found.index + len });
+    after = found.index + len;
+    re.lastIndex = after;
+  }
+  return spans;
+}
+
+/** Whether `[from, to]` touches a fenced block or the front matter: inside it, on a fence line, or across one. */
 function touchesFence(text: string, from: number, to: number): boolean {
+  const fm = frontMatterEnd(text);
+  if (fm !== null && from <= fm) return true;
   return fenceSpans(text).some((s) => from <= s.to && to >= s.from);
 }
 
-const WORD = /[\p{L}\p{N}\p{M}_]+/gu;
+/** The inline code span that `[from, to]` lies in or overlaps, or null. */
+function codeSpanAt(text: string, from: number, to: number): { from: number; to: number } | null {
+  for (const s of inlineCodeSpans(text)) {
+    if (from === to ? from > s.from && from < s.to : from < s.to && to > s.from) return s;
+  }
+  return null;
+}
+
+const WORD = /[\p{L}\p{N}\p{M}_]+(?:['’][\p{L}\p{N}\p{M}_]+)*/gu;
 
 /** The word the caret is in or against, on its line, or null. */
 function wordAt(text: string, pos: number): { from: number; to: number } | null {
@@ -102,7 +151,7 @@ function runAt(text: string, pos: number, dir: -1 | 1, ch: string): number {
 /** Whether a run of `n` marker characters on both sides of the text means `kind` is on: `***` is bold and italic, `**` is bold. */
 function markOn(kind: keyof typeof MARKS, n: number): boolean {
   if (kind === 'italic') return n % 2 === 1;
-  return n >= MARKS[kind].length;
+  return n >= MARKS[kind][0].length;
 }
 
 const BLOCK_START = /^[ \t]*([-*+][ \t]|\d+[.)][ \t]|>|#{1,6}[ \t])/;
@@ -128,7 +177,7 @@ function linkAround(text: string, from: number, to: number): { from: number; to:
  * paragraph or block.
  */
 export function wrapSelection(text: string, sel: { readonly from: number; readonly to: number }, kind: WrapKind): FormatOutcome {
-  if (touchesFence(text, sel.from, sel.to)) return { declined: 'fence' };
+  if (touchesFence(text, sel.from, sel.to)) return { declined: 'code' };
   let { from, to } = sel;
   while (from < to && /\s/.test(text[from]!)) from++;
   while (to > from && /\s/.test(text[to - 1]!)) to--;
@@ -137,18 +186,63 @@ export function wrapSelection(text: string, sel: { readonly from: number; readon
     const word = wordAt(text, from);
     if (word !== null) ({ from, to } = word);
   }
+  // Inside inline code, or across its edge, the markers would be text: Code takes the span's own backticks off, the rest decline.
+  const span = codeSpanAt(text, from, to);
+  if (span !== null) {
+    if (kind !== 'code' || from < span.from || to > span.to) return { declined: 'code' };
+    return unwrapSpan(text, span);
+  }
   const body = text.slice(from, to);
   if (/\n[ \t]*\n/.test(body) || body.split('\n').slice(1).some((l) => BLOCK_START.test(l))) return { declined: 'paragraphs' };
 
   if (kind === 'link') return wrapLink(text, from, to);
-  const mark = MARKS[kind];
+  const [primary, alternate] = MARKS[kind];
+  // Either marker takes it off.
+  for (const mark of alternate === undefined ? [primary] : [primary, alternate]) {
+    const off = unwrapMarks(text, from, to, kind, mark);
+    if (off !== null) return off;
+  }
+  // A selection that already holds the primary marker is wrapped in the other, so the result reads: `_*a* and *b*_`.
+  const mark = alternate !== undefined && body.includes(primary) ? alternate : primary;
+  const len = mark.length;
+  if (from === to) return { edit: { changes: [{ from, to, insert: mark + mark }], selection: { from: from + len, to: from + len } } };
+  return {
+    edit: {
+      changes: [
+        { from, to: from, insert: mark },
+        { from: to, to, insert: mark },
+      ],
+      selection: { from: from + len, to: to + len },
+    },
+  };
+}
+
+/** The span's own backticks come off; what was inside is selected. */
+function unwrapSpan(text: string, span: { from: number; to: number }): FormatOutcome {
+  const run = runAt(text, span.from + 1, 1, '`') + 1;
+  return {
+    edit: {
+      changes: [
+        { from: span.from, to: span.from + run, insert: '' },
+        { from: span.to - run, to: span.to, insert: '' },
+      ],
+      selection: { from: span.from, to: span.to - 2 * run },
+    },
+  };
+}
+
+/** Whether a `_` run spanning `[a, b)` is a delimiter: `snake_case` has no emphasis, so a word character beside it is not one. */
+const wordChar = (ch: string | undefined): boolean => ch !== undefined && /[\p{L}\p{N}]/u.test(ch);
+
+/** Takes `mark` off the text `[from, to]`, whether the selection holds the markers or they sit just outside it; null when they are not there. */
+function unwrapMarks(text: string, from: number, to: number, kind: Exclude<WrapKind, 'link'>, mark: string): FormatOutcome | null {
   const c = mark[0]!;
   const len = mark.length;
+  const body = text.slice(from, to);
   // The selection holds the markers itself: `**bold**` selected.
   const lead = runAt(body, 0, 1, c);
   const trail = runAt(body, body.length, -1, c);
-  const inner = Math.min(lead, trail);
-  if (body.length >= 2 * len && markOn(kind, inner)) {
+  if (body.length >= 2 * len && markOn(kind, Math.min(lead, trail))) {
     const middle = body.slice(len, body.length - len).replace(new RegExp(`^\\${c}+|\\${c}+$`, 'g'), '');
     if (!middle.includes(c)) {
       return {
@@ -163,8 +257,10 @@ export function wrapSelection(text: string, sel: { readonly from: number; readon
     }
   }
   // The markers are outside it: `**` before and after.
-  const outer = Math.min(runAt(text, from, -1, c), runAt(text, to, 1, c));
-  if (markOn(kind, outer)) {
+  const left = runAt(text, from, -1, c);
+  const right = runAt(text, to, 1, c);
+  if (markOn(kind, Math.min(left, right))) {
+    if (c === '_' && (wordChar(text[from - left - 1]) || wordChar(text[to + right]))) return null;
     return {
       edit: {
         changes: [
@@ -175,16 +271,7 @@ export function wrapSelection(text: string, sel: { readonly from: number; readon
       },
     };
   }
-  if (from === to) return { edit: { changes: [{ from, to, insert: mark + mark }], selection: { from: from + len, to: from + len } } };
-  return {
-    edit: {
-      changes: [
-        { from, to: from, insert: mark },
-        { from: to, to, insert: mark },
-      ],
-      selection: { from: from + len, to: to + len },
-    },
-  };
+  return null;
 }
 
 function wrapLink(text: string, from: number, to: number): FormatOutcome {
@@ -255,8 +342,12 @@ function lineAfter(text: string, lineEnd: number): string | null {
  * of the text moves. Every line break it writes is `eol`, the file's own. A footnote is the one insert that is not a block: the
  * reference `[^n]` at the caret and its definition at the end of the file. Declined inside a fenced block.
  */
-export function insertAtCaret(text: string, caret: number, kind: InsertKind, eol: string): FormatOutcome {
-  if (touchesFence(text, caret, caret)) return { declined: 'fence' };
+export function insertAtCaret(text: string, requested: number, kind: InsertKind, eol: string): FormatOutcome {
+  const fm = frontMatterEnd(text);
+  // A block never lands in front matter or before it: it goes after the closing line.
+  let caret = requested;
+  if (fm !== null && caret <= fm && kind !== 'footnote') caret = fm;
+  if (touchesFence(text, caret, caret) && !(fm !== null && caret === fm && kind !== 'footnote')) return { declined: 'code' };
   if (kind === 'footnote') return insertFootnote(text, caret, eol);
   const lineFrom = text.lastIndexOf('\n', caret - 1) + 1;
   const nl = text.indexOf('\n', caret);
@@ -265,16 +356,15 @@ export function insertAtCaret(text: string, caret: number, kind: InsertKind, eol
   const after = text.slice(caret, lineEnd);
   const above = lineBefore(text, lineFrom);
   const below = lineAfter(text, lineEnd);
-  const prefix = !isBlankLine(before) ? eol + eol : above !== null && !isBlankLine(above) ? eol : '';
-  const suffix = !isBlankLine(after) ? eol + eol : below !== null && !isBlankLine(below) ? eol : '';
+  // Line breaks written before and after the block (a blank line is two).
+  const breaksBefore = !isBlankLine(before) ? 2 : above !== null && !isBlankLine(above) ? 1 : 0;
+  const breaksAfter = !isBlankLine(after) ? 2 : below !== null && !isBlankLine(below) ? 1 : 0;
   const block = blockFor(kind, caret === 0);
-  const crossed = (n: number): number => block.text.slice(0, n).split('\n').length - 1;
-  const start = caret + prefix.length;
-  const selection = {
-    from: start + block.select[0] + crossed(block.select[0]) * (eol.length - 1),
-    to: start + block.select[1] + crossed(block.select[1]) * (eol.length - 1),
-  };
-  return { edit: { changes: [{ from: caret, to: caret, insert: prefix + block.text.replace(/\n/g, eol) + suffix }], selection } };
+  // Positions are the editor's, in which a line break of any kind is one character, so the selection counts "\n" once whatever `eol` is.
+  const start = caret + breaksBefore;
+  const selection = { from: start + block.select[0], to: start + block.select[1] };
+  const insert = eol.repeat(breaksBefore) + block.text.replace(/\n/g, eol) + eol.repeat(breaksAfter);
+  return { edit: { changes: [{ from: caret, to: caret, insert }], selection } };
 }
 
 function insertFootnote(text: string, caret: number, eol: string): FormatOutcome {
@@ -287,10 +377,11 @@ function insertFootnote(text: string, caret: number, eol: string): FormatOutcome
   const atEnd = caret === text.length;
   const whole = atEnd ? text + ref : text;
   const trailing = whole.length - whole.replace(/\n+$/, '').length;
-  const gap = whole.length === 0 ? '' : eol.repeat(Math.max(0, 2 - trailing));
-  const tail = gap + def + (trailing >= 1 ? eol : '');
-  const defStart = text.length + ref.length + gap.length;
-  const selection = { from: defStart + def.length, to: defStart + def.length };
+  const gapBreaks = whole.length === 0 ? 0 : Math.max(0, 2 - trailing);
+  const tail = eol.repeat(gapBreaks) + def + (trailing >= 1 ? eol : '');
+  // In the editor's positions: each break is one character.
+  const defEnd = text.length + ref.length + gapBreaks + def.length;
+  const selection = { from: defEnd, to: defEnd };
   if (atEnd) return { edit: { changes: [{ from: caret, to: caret, insert: ref + tail }], selection } };
   return {
     edit: {
@@ -305,13 +396,8 @@ function insertFootnote(text: string, caret: number, eol: string): FormatOutcome
 
 /** The refusal for a declined command, in the X-21 template: what happened, what is unchanged, what to do (rulings, question 10). */
 export function formatRefusalText(op: FormatOp, why: Decline): string {
-  const done = 'wrap' in op ? { bold: 'Not made bold', italic: 'Not made italic', code: 'Not made code', strike: 'Not struck through', link: 'Not made a link' }[op.wrap] : `Nothing inserted`;
-  if (why === 'fence') {
-    return 'wrap' in op
-      ? `${done}: the selection is in or across a fenced code block · the file is unchanged · select text outside the block`
-      : `${done}: the caret is in a fenced code block · the file is unchanged · move the caret outside the block`;
-  }
-  return `${done}: the selection runs over more than one paragraph or block · the file is unchanged · select inside one paragraph`;
+  if (why === 'code') return `${'wrap' in op ? 'Not formatted' : 'Not inserted'} · the text is unchanged · it's inside code`;
+  return `${'wrap' in op ? 'Not formatted' : 'Not inserted'} · the text is unchanged · select inside one paragraph`;
 }
 
 /** What a runner needs of an editor: its state, and a way to change it (`EditorView` is one; a test's is another). */

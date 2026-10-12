@@ -534,6 +534,27 @@ test('V-08: the column guide follows the file kind until the reader chooses; the
   }
 });
 
+test('V-08: a failed config write says so, leaves config.toml unchanged, and the toggle holds until quit', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page } = await boot(browser, CONFIG, TABBED);
+    await inSource(page);
+    await page.evaluate(() => {
+      window.__h.shell.writeFileAtomic = async () => { throw new Error('disk full'); };
+    });
+    await toggle(page, 'view.toggle-show-whitespace');
+    let text = await page.evaluate(() => document.getElementById('marxy-notices').textContent);
+    assert.match(text, /config\.toml could not be updated: disk full; this choice lasts until you quit/);
+    assert.ok((await marks(page)) > 0, 'the mark is on for this session');
+    await toggle(page, 'view.toggle-column-guide');
+    text = await page.evaluate(() => document.getElementById('marxy-notices').textContent);
+    assert.match(text, /config\.toml could not be updated: disk full/);
+    assert.equal(await configOf(page), CONFIG, 'config.toml is unchanged');
+  } finally {
+    await browser.close();
+  }
+});
+
 const chromeSizeOf = (page) => page.evaluate(() => ({
   inline: document.documentElement.style.getPropertyValue('--marxy-size-chrome'),
   computed: getComputedStyle(document.documentElement).getPropertyValue('--marxy-size-chrome').trim(),
