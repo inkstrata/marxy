@@ -40,7 +40,7 @@ Two commands and two habits. If these are green, CI has only your judgement left
 
 ```bash
 pnpm precheck      # CI's `fast` job for what you touched: parallel, timed, under 90 s for a one-package change
-pnpm check         # the nine hygiene checks in one command (the first thing `fast` runs)
+pnpm check         # the ten hygiene checks in one command (the first thing `fast` runs)
 ```
 
 - A **Conventional Commits subject** (`docs/conventions.md`). It may end in a story id such as
@@ -175,7 +175,7 @@ There is no `typography` or `fleet` category any more (G-03): the aesthetics and
 ## Red CI, by cause
 
 Each row names the check, what it means and the command that reproduces it. `pnpm check` runs the
-nine hygiene checks together; each also runs alone as `node scripts/<name>.mjs`, or as
+ten hygiene checks together; each also runs alone as `node scripts/<name>.mjs`, or as
 `pnpm check --only=<name>`.
 
 ### `conventions`

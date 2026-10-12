@@ -23,6 +23,7 @@ export const CHECKS = [
   { name: 'gate-font-attrs', script: 'gate-font-attrs.mjs' },
   { name: 'gate-contrast', script: 'gate-contrast.mjs' },
   { name: 'check-workflows', script: 'check-workflows.mjs' },
+  { name: 'check-changelog', script: 'check-changelog.mjs' },
 ];
 
 /** Runs each check as a child process; returns [{ name, ok, tail }]. */
