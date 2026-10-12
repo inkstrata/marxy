@@ -65,11 +65,11 @@ function best(runs: number, f: () => void, before = (): void => {}): number {
   return min;
 }
 
-/** Ratios over thirty (the small side counted as at least 1 ms, below which a timer and a busy machine decide it), where the large run took long enough (over `floor` ms) for the ratio to mean something. */
+/** Ratios over thirty, where the large run took long enough (over `floor` ms) for the ratio to mean something. `small` is the time of ten runs on the small text, which is as much work as one run on the large text if the transform is linear, so it is never down at the timer's grain (F-66, after a 0.8 ms small side made 31 ms read as a ratio of 31). */
 const superlinear = (rows: { id: string; small: number; large: number }[], floor: number): string[] =>
   rows
-    .filter(({ small, large }) => large > floor && large > 30 * Math.max(small, 1))
-    .map(({ id, small, large }) => `${id}: ${small.toFixed(1)} ms at 20 KB, ${large.toFixed(0)} ms at 200 KB`);
+    .filter(({ small, large }) => large > floor && large > 3 * small)
+    .map(({ id, small, large }) => `${id}: ${(small / 10).toFixed(1)} ms at 20 KB, ${large.toFixed(0)} ms at 200 KB`);
 
 test('ten times as many list items take at most twenty times as long to parse', () => {
   // mdast-util-from-markdown before 2.1.0 spliced into its whole event list once per list item: 39 times as long here,
@@ -91,12 +91,19 @@ test('ten times the text takes at most thirty times as long, for every transform
   // The parse is checked above. Here it is done before the clock starts (prose.ts keeps the last one, and the text is LF
   // with no BOM, so the transform's own parseText finds it), so a step that rescans the text once per node is not hidden
   // behind it. Every transform runs on the small text first, then on the large one, so each is parsed only a few times.
-  const time = (id: string, text: string, runs: number): number =>
-    best(runs, () => runTransform(id, text, { lang: 'sh' }), () => parseText(text));
+  const time = (id: string, text: string, runs: number, calls = 1): number =>
+    best(
+      runs,
+      () => {
+        for (let i = 0; i < calls; i++) runTransform(id, text, { lang: 'sh' });
+      },
+      () => parseText(text),
+    );
   // The fastest of several runs on each side, because a load spike only ever makes a run slower: a quadratic step is
-  // slow on every run, so the minimum still shows it, while one unlucky run no longer fails the check (F-39). The small side
-  // is cheap, so it gets fifteen runs: a step under a millisecond there makes the ratio hinge on one lucky or unlucky run (F-50).
-  const small = new Map(TRANSFORMS.map(({ id }) => [id, time(id, SMALL, 15)]));
+  // slow on every run, so the minimum still shows it, while one unlucky run no longer fails the check (F-39). The small
+  // side is cheap, so one timing is ten calls in a row (F-66): a step under a millisecond there made the ratio hinge on
+  // one lucky or unlucky run (F-50), and ten calls are as much work as one call on the large text, whatever the grain.
+  const small = new Map(TRANSFORMS.map(({ id }) => [id, time(id, SMALL, 5, 10)]));
   const rows = TRANSFORMS.map(({ id }) => ({ id, small: small.get(id)!, large: time(id, LARGE, 5) }));
   // Under 20 ms the ratio is mostly noise, and nothing that fast freezes a window.
   assert.deepEqual(superlinear(rows, 20), [], 'superlinear transforms');
