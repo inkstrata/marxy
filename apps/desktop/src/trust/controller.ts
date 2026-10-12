@@ -181,7 +181,11 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
       notify({ kind: 'refused', text: 'Raw HTML in a document that is not saved yet stays blocked. Save it first, then allow it.' });
       return;
     }
-    if (!store && loadFailed) {
+    // The read starts a task after first text, so a click on the offer can land before it settles: wait for
+    // it rather than dropping the grant with nothing shown (F-64).
+    const hadRead = loading !== null;
+    await load();
+    if (!store && loadFailed && hadRead) {
       // The failure may have been transient (EMFILE, EAGAIN): read again, once, for this grant. A second
       // failure notifies again inside load() and the grant is dropped with nothing written.
       loading = null;
@@ -199,7 +203,9 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
 
   async function revokeHtml(): Promise<void> {
     const path = deps.currentPath();
-    if (!path || !store) return;
+    if (!path) return;
+    await load();
+    if (!store) return;
     const pos = deps.position(path);
     if (!(await applyTrustChange((s) => s.revoke(path, 'html')))) return;
     if (deps.currentPath() !== path) return;

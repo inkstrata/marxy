@@ -94,3 +94,26 @@ test('a grant after a second failure writes nothing and tells the reader again',
   assert.equal(controller.grantsFor(DOC).html, false);
   assert.equal(notices.filter((n) => n.text === TRUST_UNREADABLE_TEXT).length, 2);
 });
+
+test('a grant made while the first read is still in flight waits for it and is kept (F-64)', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  const { controller, writes, renders } = rig(async () => { await gate; throw err('not-found'); });
+  const loading = controller.load();
+  const granted = controller.grantHtml();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(writes.length, 0, 'nothing written before the read settles');
+  release();
+  await loading;
+  await granted;
+  assert.equal(writes.length, 1);
+  assert.equal(controller.grantsFor(DOC).html, true);
+  assert.equal(renders(), 1);
+});
+
+test('a grant with no read started yet starts it, waits, and tells a failure once (F-64)', async () => {
+  const { controller, writes, notices } = rig(async () => { throw err('io'); });
+  await controller.grantHtml();
+  assert.equal(writes.length, 0);
+  assert.equal(notices.filter((n) => n.text === TRUST_UNREADABLE_TEXT).length, 1);
+});
