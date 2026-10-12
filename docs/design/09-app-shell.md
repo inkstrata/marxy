@@ -671,6 +671,29 @@ stack flush against the viewport edge; the `EditorView.theme` `dark` flag follow
 gutter restyling and no syntax-highlight theme beyond what CodeMirror ships — that is later
 work, not this pass.
 
+### The Source frame (V-05)
+
+The editor sits in an enclosure, `.marxy-source-frame`, that `createSourceEditor` builds inside the mount in the same task as the
+editor (so nothing paints between them and first text never waits for a bar). A mount that is not the app's (the editor's own
+harness) gets the bare editor. The frame has a hairline edge (`--marxy-color-rule`), radius 13 and the page ground, and is inset
+from its pane (14 px folded, 12 px unfolded); folded it is at most 960 px wide and centred, unfolded it fills the pane. The text
+column inside is ADR-0067's, centred in the frame. The editor scrolls inside the frame (its own scroller), so the bars stay put.
+
+Every bar shows only what the bytes say, and says nothing else (no score, no summary, nothing drawn on the text):
+
+| Edge | Contents |
+| --- | --- |
+| Top bar (24 px) | the path as quiet segments, the file's name last; the encoding (`UTF-8`, `UTF-8 with BOM`, or `Not valid UTF-8 · n bytes`); line endings as they are (`LF`, `CRLF`, `CR`, `Mixed`; none for a file with no break); indentation as the lines begin (`n spaces`, `Tabs, width n` from EditorConfig and V-16, `Mixed indentation`; nothing when no line is indented); size in bytes; line count (a last empty row after a final break is not a line) |
+| Column ruler (17 px) | a tick every fifth column on the text's character grid (`ch` of the text's own face and size, so tick N is under character N), taller every tenth, numbers every tenth, the caret's column as a notch, a selection on one line as a bar. Scrolls with the text. Not built for a file that wraps (Markdown, the text family), and hidden below 520 px |
+| Right strip (8 px) | marks at the height of their bytes: invisible and bidi characters (the rule of `shouldFlagInvisible`) and, while the find panel is open, its matches. Hover names the place (`U+200B ZERO WIDTH SPACE at 23:14`); a click selects it. Pointer-only and `aria-hidden`: Find and the bottom bar say the same in words |
+| Bottom bar (24 px) | `Ln, Col · byte` (column in characters, a tab is one; the byte offset from the start of the file, counted from the text once it has been edited); a selection's length in characters and bytes; the character after the caret by code point, named where it cannot be seen (`U+200B ZERO WIDTH SPACE`), `Byte FF, not UTF-8`, `U+000D U+000A CRLF` at the end of a CRLF line, `End of file` |
+
+Line numbers for Markdown stay off (L-06.1, ruling Q14); `Ln, Col` is in the bottom bar. The measures (words, tokens: W-16), the
+language, the notes marks (V-04) and the line-ending and indentation menus (V-08) are not built. The bars are not focus stops and the
+caret readout is plain text, not a live region, so a screen reader reads it when asked and does not announce every key. Source's
+scroll position, which the window used to hold, is the editor's own now: `scrollSourceToByte` takes the scroller's offset from the
+window's top off the reading line's margin, so a place round-trips through Rendered unchanged.
+
 Languages, MIT only: `@codemirror/lang-markdown`, `-javascript`, `-rust`, `-python`, `-css`,
 `-json`, `-yaml`, `-html`; others plain. Files over 2 MB: no language, no wrapping.
 

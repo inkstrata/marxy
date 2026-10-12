@@ -3,7 +3,8 @@
 import { encodeSourceText, type Buffer } from '@marxy/core';
 import { Compartment, EditorState, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { baseExtensions, clearHistory, editorDocConfig, toggleLineNumbersInView, type SourceEditor, type SourceEditorOptions } from './editor.ts';
+import { baseExtensions, clearHistory, editorDocConfig, isLargeSourceFile, sourceWraps, toggleLineNumbersInView, type SourceEditor, type SourceEditorOptions } from './editor.ts';
+import { createSourceFrame, type SourceFrame } from './frame.ts';
 import { attachLanguage } from './language.ts';
 import { resolveLineNumbers } from './line-numbers.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
@@ -17,8 +18,15 @@ export async function createSourceEditor(
   const { doc } = editorDocConfig(buffer);
   const lineNumbers = resolveLineNumbers(opts.buffer.path, opts.lineNumbers);
   const exts = await baseExtensions(buffer, lineNumbers, compartments);
+  // The app's Source mount gets the frame (V-05): built here, in the task that builds the editor, so nothing paints
+  // between them and the text never waits for a bar. Any other parent (the editor's own harness) gets the bare editor.
+  const frame: SourceFrame | null = opts.parent.classList.contains('marxy-source-mount')
+    ? createSourceFrame(opts.parent, buffer, { wraps: sourceWraps(buffer.path) && !isLargeSourceFile(buffer) })
+    : null;
+  if (frame) exts.push(frame.extension);
   const state = EditorState.create({ doc, extensions: exts });
-  const view = new EditorView({ state, parent: opts.parent });
+  const view = new EditorView({ state, parent: frame?.body ?? opts.parent });
+  frame?.attach(view);
   // The grammar arrives after the text; a destroyed editor or another file by then gets none (generation counter).
   let generation = 0;
   let destroyed = false;
@@ -42,57 +50,12 @@ export async function createSourceEditor(
     destroy() {
       destroyed = true;
       view.destroy();
+      frame?.destroy();
     },
     replaceBuffer(next: Buffer) {
-      const otherFile = next.path !== buffer.path;
-      buffer = next;
-      if (otherFile) {
-        // The old file's grammar goes at once; the new one comes when it has loaded.
-        view.dispatch({ effects: compartments.languageCompartment.reconfigure([]), annotations: Transaction.addToHistory.of(false) });
-        attach();
-      }
-      const { doc: nextDoc, lineSeparator } = editorDocConfig(next);
-      const separatorChanged = view.state.lineBreak !== lineSeparator;
-      // The buffer this editor's own edits were folded into already reads as its text: keep the
-      // editor's history and selection, and take only the new byte mapping. (A changed separator
-      // means the text is read differently, so it never counts as the same.)
-      if (!separatorChanged && nextDoc === textNow()) return;
-      // The line-ending class changed on disk (CR to LF, LF to CR, ...): the separator is part of the
-      // state, and the new text is split by the state it is dispatched into, so swap it first (F-25).
-      if (separatorChanged) {
-        view.dispatch({
-          effects: compartments.lineSeparatorCompartment.reconfigure(EditorState.lineSeparator.of(lineSeparator)),
-          annotations: Transaction.addToHistory.of(false),
-        });
-      }
-      // New bytes from outside (a reload from disk, a Rendered undo, another pane's fold), or the editor's own fold read
-      // back differently (two stray bytes made neighbours that now spell a character, F-34.1): not the reader's edit,
-      // so Mod+Z must not bring the old text back. Only the part that differs is replaced, so the caret maps through it.
-      if (separatorChanged) {
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: nextDoc },
-          annotations: Transaction.addToHistory.of(false),
-        });
-        // A line break in the old text is not one in the new (a lone LF among CRLFs is a line break in one and
-        // a character in the other), so no change the history holds still means what it did (F-40).
-        clearHistory(view);
-        return;
-      }
-      const part = differingPart(textNow(), nextDoc, view.state.lineBreak);
-      if (namesSameBytes(view.state.sliceDoc(part.from, part.to), part.insert)) {
-        // The editor's own fold, read back as the file now decodes (two stray bytes made neighbours spell a character):
-        // the text named these bytes already. It is a step of the history, joined to the reader's last edit, so that
-        // undoing that edit puts back the text the reader had and not the text the mapping through this change would
-        // make of it (a line break between the two bytes would land beside the character). Time 0 passes the history's
-        // group delay, which this change has no business with.
-        view.dispatch({ changes: part, annotations: [readBack.of(true), Transaction.time.of(0)] });
-        return;
-      }
-      // The text changed under the editor's history by something that is not the reader's typing: a change in one
-      // place moves the places every older change was made at, and an undo would write at the wrong one. The history
-      // goes; Rendered's undo (the store's, ADR-0037) is the one that still steps over this change (F-40).
-      view.dispatch({ changes: part, annotations: Transaction.addToHistory.of(false) });
-      clearHistory(view);
+      replace(next);
+      // The bars read the bytes the editor now holds, once its text is the buffer's (every path of `replace` ends so).
+      frame?.bind(next);
     },
     scrollToByte(byteOffset: number) {
       scrollSourceToByte(buffer, view, byteOffset, readingLine());
@@ -104,6 +67,58 @@ export async function createSourceEditor(
       toggleLineNumbersInView(view, on, compartments.lineNumbersCompartment);
     },
   };
+
+  function replace(next: Buffer): void {
+    const otherFile = next.path !== buffer.path;
+    buffer = next;
+    if (otherFile) {
+      // The old file's grammar goes at once; the new one comes when it has loaded.
+      view.dispatch({ effects: compartments.languageCompartment.reconfigure([]), annotations: Transaction.addToHistory.of(false) });
+      attach();
+    }
+    const { doc: nextDoc, lineSeparator } = editorDocConfig(next);
+    const separatorChanged = view.state.lineBreak !== lineSeparator;
+    // The buffer this editor's own edits were folded into already reads as its text: keep the
+    // editor's history and selection, and take only the new byte mapping. (A changed separator
+    // means the text is read differently, so it never counts as the same.)
+    if (!separatorChanged && nextDoc === textNow()) return;
+    // The line-ending class changed on disk (CR to LF, LF to CR, ...): the separator is part of the
+    // state, and the new text is split by the state it is dispatched into, so swap it first (F-25).
+    if (separatorChanged) {
+      view.dispatch({
+        effects: compartments.lineSeparatorCompartment.reconfigure(EditorState.lineSeparator.of(lineSeparator)),
+        annotations: Transaction.addToHistory.of(false),
+      });
+    }
+    // New bytes from outside (a reload from disk, a Rendered undo, another pane's fold), or the editor's own fold read
+    // back differently (two stray bytes made neighbours that now spell a character, F-34.1): not the reader's edit,
+    // so Mod+Z must not bring the old text back. Only the part that differs is replaced, so the caret maps through it.
+    if (separatorChanged) {
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: nextDoc },
+        annotations: Transaction.addToHistory.of(false),
+      });
+      // A line break in the old text is not one in the new (a lone LF among CRLFs is a line break in one and
+      // a character in the other), so no change the history holds still means what it did (F-40).
+      clearHistory(view);
+      return;
+    }
+    const part = differingPart(textNow(), nextDoc, view.state.lineBreak);
+    if (namesSameBytes(view.state.sliceDoc(part.from, part.to), part.insert)) {
+      // The editor's own fold, read back as the file now decodes (two stray bytes made neighbours spell a character):
+      // the text named these bytes already. It is a step of the history, joined to the reader's last edit, so that
+      // undoing that edit puts back the text the reader had and not the text the mapping through this change would
+      // make of it (a line break between the two bytes would land beside the character). Time 0 passes the history's
+      // group delay, which this change has no business with.
+      view.dispatch({ changes: part, annotations: [readBack.of(true), Transaction.time.of(0)] });
+      return;
+    }
+    // The text changed under the editor's history by something that is not the reader's typing: a change in one
+    // place moves the places every older change was made at, and an undo would write at the wrong one. The history
+    // goes; Rendered's undo (the store's, ADR-0037) is the one that still steps over this change (F-40).
+    view.dispatch({ changes: part, annotations: Transaction.addToHistory.of(false) });
+    clearHistory(view);
+  }
 }
 
 /** Whether two pieces of the editor's text name the same bytes (they differ only in how the file decodes them). */

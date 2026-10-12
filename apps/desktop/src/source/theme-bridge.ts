@@ -118,6 +118,8 @@ function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, stri
       fontWeight: 'var(--marxy-wght)',
       fontVariationSettings: "'wght' var(--marxy-wght)",
     },
+    // The frame's edge is the editor's edge (V-05); the caret is the focus mark, as it is in the block editor.
+    '&.cm-focused': { outline: 'none' },
     '.cm-scroller': { fontFamily: 'inherit', lineHeight: LINE },
     '.cm-content': {
       caretColor: 'var(--marxy-color-accent, #8fb4dd)',
