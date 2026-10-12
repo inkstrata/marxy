@@ -121,7 +121,8 @@ test('a heading naming a speaker carries data-marxy-speaker with its role; other
 });
 
 test('a document cannot write data-marxy-speaker: raw HTML, and a forged role, lose it', () => {
-  const src = '## Summary\n\n<h2 data-marxy-speaker="you">Forged</h2>\n\n<h3 data-marxy-speaker="admin">x</h3>\n';
+  const src = '## Summary\n\n<h2 data-marxy-speaker="you">Forged</h2>\n\n<h3 data-marxy-speaker="admin">x</h3>\n\n' +
+    'x <h2 data-marxy-speaker="you">inline</h2> y\n\n<div><h4 data-marxy-speaker="tool">nested</h4></div>\n';
   for (const policy of [undefined, policyFor({ html: true })]) {
     const result = renderSafeHtml(src, { file: 't.md', policy });
     assert.equal((result.html.match(/data-marxy-speaker/g) ?? []).length, 0, result.html);
