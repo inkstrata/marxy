@@ -3,8 +3,9 @@
 // SURFACES below: scroll the article partway, record the first visible line's rect and the scroll position, open the
 // surface, check both are unchanged, close it, check again. The real app over the memory shell, in WebKit.
 //
-// Not covered, on purpose: notices (an in-flow region above the article; W-04.1 and the notifications design pass own them)
-// and the inline block editor (in flow by design; it holds the reading line, see commands/block-edit.ts).
+// Notices are covered (F-46): the region floats over the top edge of its pane, so raising or dismissing one moves nothing.
+// A floating notice can cover the top line of text while it is up; the guard measures the rect and the scroll, not the cover.
+// Not covered, on purpose: the inline block editor (in flow by design; it holds the reading line, see commands/block-edit.ts).
 //
 // To add a surface: append `{ name, open, close }` to SURFACES. `open(page, s)` runs the command and resolves when the
 // surface is up; `close(page, s)` dismisses it and resolves when it is gone. `s.mod` is the platform's modifier key.
@@ -26,6 +27,7 @@ after(() => closeHarness());
 
 const corpus = join(fileURLToPath(new URL('../../../fixtures/corpus/', import.meta.url)));
 const A = '/r/long.md';
+const B = '/r/other.md';
 const DOC = skip ? '' : readFileSync(join(corpus, '01-long-technical.md'), 'utf8');
 const TEXT = 'public.utf8-plain-text';
 const FIRST_TRANSFORM = TRANSFORMS[0].name;
@@ -119,6 +121,38 @@ export const SURFACES = [
       await page.waitForFunction(() => !document.getElementById('marxy-transform')?.open);
     },
   },
+  {
+    name: 'notice (raised, then dismissed)',
+    splitToo: true,
+    open: async (page) => {
+      await page.evaluate(async () => {
+        const { notify } = await import('/src/notices/index.ts');
+        notify({ kind: 'info', text: 'A notice, raised for the guard.' });
+      });
+      await page.waitForSelector('.marxy-notice');
+    },
+    close: async (page) => {
+      await page.locator('.marxy-notice .marxy-notice-dismiss').first().click();
+      await gone(page, '.marxy-notice');
+    },
+  },
+  {
+    name: 'notice (empty clipboard transform)',
+    splitToo: true,
+    open: async (page, s) => {
+      await page.evaluate(() => window.__marxyHandle.shell.setPasteboard([]));
+      await page.keyboard.press(`${s.mod}+Shift+KeyP`);
+      await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
+      await page.locator('#marxy-palette .marxy-palette-query').fill(`>Transform clipboard: ${FIRST_TRANSFORM}`);
+      await page.waitForFunction((name) => document.querySelector('#marxy-palette .marxy-palette-row .marxy-palette-title')?.textContent === `Transform clipboard: ${name}`, FIRST_TRANSFORM);
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('.marxy-notice');
+    },
+    close: async (page) => {
+      await page.locator('.marxy-notice .marxy-notice-dismiss').first().click();
+      await gone(page, '.marxy-notice');
+    },
+  },
 ];
 
 /**
@@ -151,11 +185,11 @@ const measure = (page) =>
     };
   });
 
-async function withApp(fn) {
+async function withApp(fn, { split = false } = {}) {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await bootTwoPanes(page, { files: { [A]: DOC }, open: [A], guard: true });
+    await bootTwoPanes(page, { files: { [A]: DOC, [B]: DOC }, open: split ? [A, B] : [A], guard: true });
     await page.evaluate(async (initialPath) => {
       const { mountPaletteFromHandle } = await import('/src/palette/view.ts');
       const handle = window.__marxyHandle;
@@ -172,25 +206,27 @@ async function withApp(fn) {
 const settle = (page) => page.evaluate(() => new Promise((r) => setTimeout(r, 250)));
 
 /** The window as the reader has it: folded (the column alone), or unfolded (the workspace around it). */
-const WINDOWS = ['folded', 'unfolded'];
+const WINDOWS = ['folded', 'unfolded', 'split'];
 
 for (const windowState of WINDOWS) {
   for (const surface of SURFACES) {
+    if (windowState === 'split' && !surface.splitToo) continue;
     test(`${windowState}: ${surface.name}: opening and closing it moves neither the first visible line nor the scroll position`, async () => {
       await withApp(async (page, s) => {
         if (windowState === 'unfolded') await page.evaluate(() => window.__marxyHandle.workspace().unfold());
-        await page.evaluate(() => window.scrollTo(0, 1500));
+        // Split: each pane scrolls on its own; the window does not.
+        await page.evaluate(() => (document.querySelector('#marxy-main[data-marxy-split]') ? document.querySelector('.marxy-pane').scrollTo(0, 1500) : window.scrollTo(0, 1500)));
         await settle(page);
         const before = await measure(page);
         assert.ok(before.line, 'a line of text is visible');
-        assert.ok(before.scrollY > 0, 'the article is scrolled');
+        assert.ok(before.scrollY > 0 || before.paneScrollTop > 0, 'the article is scrolled');
         await surface.open(page, s);
         await settle(page);
         assert.deepEqual(await measure(page), before, `${surface.name} open`);
         await surface.close(page, s);
         await settle(page);
         assert.deepEqual(await measure(page), before, `${surface.name} closed`);
-      });
+      }, { split: windowState === 'split' });
     });
   }
 }
