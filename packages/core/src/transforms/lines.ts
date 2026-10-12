@@ -74,7 +74,7 @@ export const unnumber: TransformDef = {
   id: 'unnumber',
   kind: 'edit',
   raw: true,
-  idempotent: true,
+  // Not idempotent, by design: one marker comes off each line, the outer list first (`- 1. step` gives `1. step`).
   run: onLines((lines) => lines.map((l) => ({ ...l, text: l.text.replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?/, '') }))),
 };
 
