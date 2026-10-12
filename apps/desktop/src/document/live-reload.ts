@@ -233,7 +233,7 @@ export async function watchDocument(
       say(fileRemovedNotice);
       return;
     }
-    const { buffer, ast } = store.snapshot();
+    const { buffer } = store.snapshot();
     // Text typed in Source and not yet folded in is an unsaved edit the store cannot see: keep it, as the
     // store keeps a dirty buffer. Bytes equal to the buffer change nothing the reader could lose.
     // The store is told, so the change is held for the reader's choice (V-07) like a dirty buffer's.
@@ -245,7 +245,8 @@ export async function watchDocument(
     }
     // The new bytes' parse, of only the blocks the change touched (B-23): the place is mapped through it.
     // The store's reload reparses the same way from its own parse, which costs as little.
-    const document = reparseMarkdown(ast, buffer.bytes, diskBytes, { file: path });
+    // Read here, not above: a store opened lazily (a file that opens in Source) parses when asked, and the held-apart branch above has no use for it.
+    const document = reparseMarkdown(store.snapshot().ast, buffer.bytes, diskBytes, { file: path });
     // A reload maps the place through the watch's own reading of the change (ADR-0037 §6), never
     // through a splice: every view's through the same edit.
     const places = new Map<RenderedView, ReadingPosition>();
