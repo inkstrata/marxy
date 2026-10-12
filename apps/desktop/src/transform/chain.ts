@@ -42,12 +42,21 @@ function settled(text: string, kind: TransformKind | undefined, eol: Eol | null)
   return text.replace(/\r\n|\r|\n/g, eol);
 }
 
+/**
+ * One step on `text`: the transform, then the result in the document's line ending. The only place a step runs, so
+ * a chain made all at once and one grown a step at a time (the sheet keeps each step's text and runs only the new
+ * one) give the same text.
+ */
+export function runStep(id: string, text: string, eol: Eol | null): string {
+  return settled(runTransform(id, text), transformById(id)?.kind, eol);
+}
+
 /** The text after each step, in order: `outputs(chain)[i]` is the input of step `i + 1`. */
 export function outputs(chain: Chain): readonly string[] {
   const out: string[] = [];
   let text = chain.input;
   for (const id of chain.steps) {
-    text = settled(runTransform(id, text), transformById(id)?.kind, chain.eol);
+    text = runStep(id, text, chain.eol);
     out.push(text);
   }
   return out;
