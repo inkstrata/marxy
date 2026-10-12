@@ -162,7 +162,8 @@
     "marxy-source-bottom",
     "marxy-source-readout",
     "marxy-source-selected",
-    "marxy-source-character"
+    "marxy-source-character",
+    "marxy-fold-placeholder"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

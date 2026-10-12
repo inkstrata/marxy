@@ -696,6 +696,22 @@ caret readout is plain text, not a live region, so a screen reader reads it when
 scroll position, which the window used to hold, is the editor's own now: `scrollSourceToByte` takes the scroller's offset from the
 window's top off the reading line's margin, so a place round-trips through Rendered unchanged.
 
+### Folds and the depth lens (K-10a)
+
+A fold is a view and nothing else: CodeMirror keeps it as a decoration, so the document, a copy of it (Mod+A, Mod+C copies the
+hidden text too), a save and the bytes are the file's own with it or without it (commitment 3). Nothing is folded at rest and no
+fold is remembered. Every fold's placeholder is text in the flow that says what it hides, `… 42 lines` (`… 1 line`), counted as
+the lines that show nothing of their own once it is closed (the line it opens on stays, and so does the line a closing bracket
+is on); a click on it unfolds that fold, and a change that reaches into a fold counts it again (commitment 4). Large files
+(over 2 MB) have no folding.
+
+For a JSON or YAML file in Source the palette offers **Fold to depth 1** to **4** and **Unfold all** (`source.fold-depth-N`,
+`source.unfold-all`; no keys until the menu bar checks conflicts). Depth counts the containers a value sits in: the file's top
+container is depth 0 and always shows its entries, depth *N* folds every container nested *N* deep, using the range the language
+folds by hand (a bracket's inside; a YAML pair or item), so the gutter's chevron undoes one. Fold to depth replaces the folds there
+were; a caret inside a new fold moves to the line it opens on; a depth that folds nothing says so. The lens is not offered for
+TOML (its mode has no tree), for a file over the large-file limit, or in Rendered. A fence in Rendered is not folded.
+
 Languages, MIT only: `@codemirror/lang-markdown`, `-javascript`, `-rust`, `-python`, `-css`,
 `-json`, `-yaml`, `-html`; others plain. Files over 2 MB: no language, no wrapping.
 

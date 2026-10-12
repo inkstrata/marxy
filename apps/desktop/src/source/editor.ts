@@ -136,15 +136,9 @@ export function editorDocConfig(buffer: Buffer): { doc: string; lineSeparator: '
 }
 
 async function foldingExtensions(): Promise<Extension[]> {
-  // Transitive via lang-* packages; not a direct desktop dependency (MARXY-33 path budget).
-  const { codeFolding, foldGutter } = await import('@codemirror/language');
-  return [
-    codeFolding({ placeholderDOM: () => {
-        const el = document.createElement('span');
-        el.textContent = '…';
-        return el;
-      } }),
-  ];
+  // Every fold counts the lines it hides (K-10a); the placeholder is text in the flow, and a click on it unfolds.
+  const { countedFolding } = await import('./depth-fold.ts');
+  return countedFolding();
 }
 
 /** Line numbers, and the fold gutter beside them only where folding is on: no gutter of folds alone. */

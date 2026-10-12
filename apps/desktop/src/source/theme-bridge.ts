@@ -62,6 +62,17 @@ function sharedRules(): Record<string, Record<string, string>> {
       backgroundColor: 'var(--marxy-color-find-current, #403510)',
       outline: '2px solid var(--marxy-color-code-text, #e3dfd6)',
     },
+    // A fold's placeholder ("… 42 lines", K-10a) is text in the flow, set quietly: the secondary text colour on a faint tint of
+    // itself, with no border or fixed grey, so it follows the variant and reads as an aside, not as a button.
+    '.marxy-fold-placeholder': {
+      backgroundColor: `color-mix(in srgb, ${secondary} 16%, transparent)`,
+      color: secondary,
+      border: 'none',
+      borderRadius: '2px',
+      margin: '0 0.5ch',
+      padding: '0 0.5ch',
+      cursor: 'pointer',
+    },
     '.cm-panels': {
       backgroundColor: surface,
       color: 'var(--marxy-color-text, #e8e4dc)',
