@@ -3,8 +3,10 @@
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { MAX_NESTING_DEPTH } from '../parse/from-mdast.ts';
 import { parseMarkdown } from '../parse/parse.ts';
-import { renderDocumentSafeHtml, renderSafeHtml } from './pipeline.ts';
+import { reparseMarkdown } from '../parse/reparse.ts';
+import { renderDocumentSafeHtml, renderDocumentSafeHtmlInSlices, renderSafeHtml } from './pipeline.ts';
 
 const readmePath = new URL('../../../../fixtures/corpus/02-readme-real-world.md', import.meta.url);
 
@@ -39,4 +41,81 @@ test('a deeply nested document renders as an escaped <pre> rather than throwing 
     assert.equal(result.removed.some((r) => r.what === 'structure'), true);
     assert.equal(result.html.includes(`data-marxy-e="${new TextEncoder().encode(source).length}"`), true);
   }
+});
+
+// F-54: past MAX_NESTING_DEPTH levels of quote or list a document is shown as its source and says so.
+const inlineQuotes = (n: number): string => `${'> '.repeat(n)}word\n`;
+const inlineLists = (n: number): string => `${'- '.repeat(n)}word\n`;
+const indentedLists = (n: number): string => `${Array.from({ length: n }, (_, i) => `${'  '.repeat(i)}- level ${i + 1}`).join('\n')}\n`;
+const sourceFallback = (html: string): boolean => /^<pre data-marxy-s="0" data-marxy-e="\d+">/.test(html);
+
+for (const [name, make] of [['quotes', inlineQuotes], ['lists', inlineLists], ['indented lists', indentedLists]] as const) {
+  test(`${MAX_NESTING_DEPTH + 1} nested ${name} render as the source, with a notice`, () => {
+    const source = make(MAX_NESTING_DEPTH + 1);
+    const document = parseMarkdown(source, { file: 'deep.md' });
+    const result = renderDocumentSafeHtml(document);
+    assert.equal(sourceFallback(result.html), true, result.html.slice(0, 80));
+    assert.equal(result.html.includes(`data-marxy-e="${new TextEncoder().encode(source).length}"`), true);
+    assert.deepEqual(result.removed.map((r) => [r.what, r.name]), [['structure', 'document']]);
+    assert.match(result.removed[0]!.reason ?? '', /nested more than 64 levels deep/);
+    assert.equal(renderSafeHtml(source).html, result.html);
+    assert.equal(document.src.end, new TextEncoder().encode(source).length);
+    assert.equal(document.children.length, 1, 'every byte is in the tree, as one block');
+  });
+
+  test(`${MAX_NESTING_DEPTH} nested ${name} still render as markup`, () => {
+    const result = renderSafeHtml(make(MAX_NESTING_DEPTH));
+    assert.equal(sourceFallback(result.html), false);
+    assert.equal(result.removed.length, 0);
+    assert.match(result.html, name === 'quotes' ? /<blockquote/ : /<ul/);
+  });
+}
+
+test('a 12,000-level list neither throws nor overflows, and does not wait for micromark', () => {
+  const source = inlineLists(12000);
+  const started = performance.now();
+  // The parse itself, as the app calls it, not only `renderSafeHtml`'s net under it.
+  assert.equal(parseMarkdown(source, { file: 'list.md' }).children.length, 1);
+  const result = renderSafeHtml(source);
+  assert.equal(sourceFallback(result.html), true);
+  assert.equal(result.removed[0]?.name, 'document');
+  // micromark alone takes seconds for this file; the text scan answers in a few milliseconds.
+  assert.ok(performance.now() - started < 1500, `took ${Math.round(performance.now() - started)} ms`);
+});
+
+test('a 508-quote tower, the hunt\'s, renders as the source', () => {
+  assert.equal(sourceFallback(renderSafeHtml(inlineQuotes(508)).html), true);
+});
+
+test('quotes and lists count together, and a list item is not a level of its own', () => {
+  const mixed = (n: number): string => `${'> - '.repeat(n / 2)}word\n`;
+  assert.equal(sourceFallback(renderSafeHtml(mixed(MAX_NESTING_DEPTH)).html), false);
+  assert.equal(sourceFallback(renderSafeHtml(mixed(MAX_NESTING_DEPTH + 2)).html), true);
+});
+
+test('a long run of rule markers is a thematic break, not a nesting', () => {
+  for (const source of [`${'- '.repeat(300)}-\n`, `${'* '.repeat(300)}\n`]) {
+    const result = renderSafeHtml(source);
+    assert.equal(sourceFallback(result.html), false);
+    assert.match(result.html, /<hr/);
+  }
+});
+
+test('a document too deep to draw is not cut into slices, and its edit reparses to the same', () => {
+  const source = inlineQuotes(MAX_NESTING_DEPTH + 1);
+  const document = parseMarkdown(source);
+  const sliced = renderDocumentSafeHtmlInSlices(document, { yieldNow: async () => {} });
+  return sliced.then((result) => assert.equal(result, null));
+});
+
+test('an edit that makes a document too deep, or shallow again, is parsed right', () => {
+  const encode = (s: string): Uint8Array => new TextEncoder().encode(s);
+  const shallow = encode(`intro\n\n${inlineQuotes(3)}\noutro\n`);
+  const deep = encode(`intro\n\n${inlineQuotes(MAX_NESTING_DEPTH + 1)}\noutro\n`);
+  const before = parseMarkdown(shallow);
+  const after = reparseMarkdown(before, shallow, deep);
+  assert.equal(sourceFallback(renderDocumentSafeHtml(after).html), true);
+  const back = reparseMarkdown(after, deep, shallow);
+  assert.equal(sourceFallback(renderDocumentSafeHtml(back).html), false);
+  assert.deepEqual(back, parseMarkdown(shallow));
 });

@@ -11,7 +11,8 @@ import { mathFromMarkdown } from 'mdast-util-math';
 import { math } from './math-syntax.ts';
 import type { Document } from '../contracts/ast.ts';
 import { byteOffsets, decodeWithOffsets, type ByteOffsets } from './byte-offsets.ts';
-import { documentFromMdast, fencedCodeMarker, holdsDefinitions } from './from-mdast.ts';
+import { opensWithTooManyMarkers } from './nesting-scan.ts';
+import { documentFromMdast, fencedCodeMarker, holdsDefinitions, nestedTooDeepDocument, nestedTooDeepText } from './from-mdast.ts';
 
 export interface ParseOptions {
   /** Absolute path, or a stable identifier for an untitled buffer. Defaults to `untitled`. */
@@ -28,6 +29,7 @@ export interface ParseOptions {
 export function parseMarkdown(source: string | Uint8Array, options: ParseOptions = {}): Document {
   const file = options.file ?? 'untitled';
   const { body, offsets } = typeof source === 'string' ? fromString(source) : fromBytes(source);
+  if (opensWithTooManyMarkers(body)) return nestedTooDeepDocument({ file, text: body, offsets });
   const { extensions, mdastExtensions } = syntax(options);
   const tree = fromMarkdown(body, { extensions, mdastExtensions });
   return documentFromMdast(tree, { file, text: body, offsets });
@@ -50,9 +52,12 @@ export function parseBlocksIn(
   const view = end === bytes.length ? bytes : bytes.subarray(0, end);
   const { body: text, offsets } = start === 0 ? fromBytes(view) : fromRegion(view, start);
   if (start > 0 && text.charCodeAt(0) === 0xfeff) return null;
+  // A region nested too deep is no region: the caller parses the whole file, which is then shown as its source.
+  if (opensWithTooManyMarkers(text)) return null;
   const { extensions, mdastExtensions } = syntax(start === 0 ? options : { ...options, frontmatter: false });
   const tree = fromMarkdown(text, { extensions, mdastExtensions });
   const document = documentFromMdast(tree, { file, text, offsets });
+  if (nestedTooDeepText(document) !== undefined) return null;
   return { blocks: document.children, definitions: holdsDefinitions(document) === true };
 }
 

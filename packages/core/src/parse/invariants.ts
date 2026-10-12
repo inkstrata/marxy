@@ -4,6 +4,7 @@
 
 import { AST_INVARIANTS } from '../contracts/ast.ts';
 import type { Node } from '../contracts/ast.ts';
+import { nestedTooDeepText } from './from-mdast.ts';
 import { nextLineEnding, splitLines } from './line-endings.ts';
 import { decodeString } from 'micromark-util-decode-string';
 
@@ -28,6 +29,10 @@ export function checkInvariants(root: Node, bytes: Uint8Array): Violation[] {
     violations.push({ invariant: DOCUMENT_COVERS, detail: `document.src is [${root.src.start},${root.src.end}) but the file is ${bytes.byteLength} bytes` });
   }
 
+  // A document nested too deep to typeset (F-54) is one code block over all of its bytes, shown as the source it
+  // is: its `content` is the whole text, line endings and all, and not the content of a fence or an indent.
+  const asSource = root.type === 'document' && nestedTooDeepText(root) !== undefined;
+
   const visit = (node: Node, parent: Node | undefined): void => {
     if (node.src.start > node.src.end) {
       violations.push({ invariant: ORDERED_RANGE, detail: where(node) });
@@ -35,7 +40,7 @@ export function checkInvariants(root: Node, bytes: Uint8Array): Violation[] {
     if (parent && (node.src.start < parent.src.start || node.src.end > parent.src.end || node.src.file !== parent.src.file)) {
       violations.push({ invariant: CONTAINED, detail: `${where(node)} escapes ${where(parent)}` });
     }
-    if (node.type === 'codeBlock') {
+    if (node.type === 'codeBlock' && !asSource) {
       const { content, src } = node;
       if (content.start < src.start || content.end > src.end || content.start > content.end) {
         violations.push({ invariant: CODE_CONTENT, detail: `content [${content.start},${content.end}) escapes ${where(node)}` });
