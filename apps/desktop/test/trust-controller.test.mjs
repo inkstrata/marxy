@@ -7,6 +7,7 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from 'vite';
+import { routeSkeleton } from './support/two-pane.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -72,6 +73,7 @@ async function withApp(docName, fn, text) {
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await routeSkeleton(page, base); // the app's own skeleton: a notice is pinned in view, not at the end of the page (F-67)
     await page.goto(`${base}app.html`);
     await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
     await page.evaluate(async ({ files, argv }) => {

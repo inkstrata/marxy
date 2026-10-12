@@ -11,6 +11,7 @@ import { build } from 'vite';
 import { setTopLevelKey } from '../../../packages/theme/src/config.ts';
 import { fileURLToPath } from 'node:url';
 import { settle } from './settle.mjs';
+import { routeSkeleton } from './support/two-pane.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -54,6 +55,7 @@ function b64(bytes) {
 
 async function boot(page, files, argv) {
   const base = await harnessBase();
+  await routeSkeleton(page, base); // the app's own skeleton: a notice is pinned in view, so a click on it needs no scroll (F-67)
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   await page.evaluate(async ({ files, argv }) => {
