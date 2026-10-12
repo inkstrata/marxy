@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { parseMarkdown } from '../parse/parse.ts';
 import { corpusDocuments } from '../operations/testing/corpus.ts';
 import {
-  assertLineSeparatorsPreserved, canFail, cr, crlf, mixedAllEndings, mixedEndings, nestedCodeDocuments, withBom,
+  assertLineSeparatorsPreserved, canFail, cr, crlf, mixedAllEndings, mixedEndings, nestedCodeDocuments, stackedMarkerDocuments, withBom,
 } from '../operations/testing/test-kit.ts';
 import { CATALOGUE, DEFINITION_IDS, NOT_YET, TRANSFORMS, runTransform, transformById } from './registry.ts';
 import ids from './ids.json' with { type: 'json' };
@@ -62,6 +62,7 @@ function inputs(): { name: string; text: string }[] {
   return [
     ...corpusDocuments().map(({ file, bytes }) => ({ name: file, text: lf(new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes).replace(/^﻿/, '')) })),
     ...EXTRA.map((text, i) => ({ name: `extra ${i}`, text })),
+    ...stackedMarkerDocuments().map((text, i) => ({ name: `stacked markers ${i}`, text })),
   ];
 }
 

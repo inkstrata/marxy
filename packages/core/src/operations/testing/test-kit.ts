@@ -383,3 +383,17 @@ export function nestedCodeDocuments(): string[] {
   out.push('- item\n\n         code\n', '1. step\n\n       code\n');
   return out;
 }
+
+/**
+ * Lines that carry more than one list marker (F-55): `- 1. x`, `* - [ ] x`, a task box inside a numbered item. LF text;
+ * for the idempotence property, which a transform that strips one marker per line can never claim.
+ */
+export function stackedMarkerDocuments(): string[] {
+  return [
+    '- 1. x\n',
+    '* - [ ] x\n',
+    '1. - [x] x\n2) * y\n',
+    '- 1. step\n  - 2. nested\n\nplain\n',
+    '+ - * deep\n- [ ] - [x] twice\n',
+  ];
+}
