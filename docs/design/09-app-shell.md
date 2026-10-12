@@ -513,7 +513,15 @@ Markdown the sheet says which steps do that. The data-safety walk (`test/support
   where its pieces split; a range is therefore resolved from a fresh walk, never from stored node
   references. A match ending on a piece boundary ends in the earlier piece, so it never reaches
   into the next block.
-- Highlights: `CSS.highlights.set('marxy-find', new Highlight(...ranges))` with
+- **Few Ranges held** (F-43). The matches are kept as spans of the index text; a `Range` is held only for
+  the ones near the view (within two screens above and three below, at most 600), or for all of them
+  while there are 200 or fewer. The engine updates every live `Range` on every DOM change, so the 18,000
+  matches of "the" in a 1 MB document made the typesetter's background pass (a split and an insert per
+  line break) four times slower with the fallback overlay, and with highlights held the mount of the
+  document's last chunks for minutes. A text pass never changes the index's text, so the window is made
+  again from a fresh walk (about 15 ms on 1 MB) when the view has moved a screen from where it was made,
+  and for a current match outside it; the Ranges are re-pointed, not made again.
+- Highlights: `CSS.highlights.set('marxy-find', new Highlight(...ranges))` over the held Ranges with
   `::highlight(marxy-find)` styled by the theme; the current match in a second highlight.
   Fallback when `CSS.highlights` is undefined: the matches near the view are drawn as rectangles in
   a `.marxy-find-rects` layer beside the article, repainted on scroll; the article's DOM is never

@@ -13,6 +13,14 @@
 // may change are a closed `<details>` the current match is inside (opened, so a match is never counted
 // somewhere the reader cannot see it) and the scroll position of the scrollers the match is inside.
 //
+// The matches are kept as spans of the index's text, and a Range is held only for the ones near the view
+// (F-43). A Range is live: the engine updates every one of them on every DOM mutation anywhere in the
+// document, so a few thousand of them made the typesetter's background pass, which splits and inserts
+// at every line break, four times slower on a 1 MB document (and worse still with highlights). The text
+// the spans index is never changed by a typesetter pass, only where its nodes split, so a window of
+// Ranges is made again from a fresh walk (some 15 ms on 1 MB) when the view has moved a screen from where
+// it was made. A short list of matches holds a Range each and highlights them all, as before.
+//
 // One find is open in the window at a time: opening it in one pane closes it in the other. Each pane
 // keeps its own last query for the next `Mod+F` there.
 
@@ -20,7 +28,7 @@ import { readingLine } from '@marxy/core/src/position/blocks.ts';
 import type { Pane } from '../pane/pane-set.ts';
 import { compileQuery } from './query.ts';
 import { findAll, type Span } from './text-index.ts';
-import { rangesFor, walkText } from './walk.ts';
+import { placeRange, walkText, type Walked } from './walk.ts';
 
 export const FIND_HIGHLIGHT = 'marxy-find';
 export const FIND_CURRENT_HIGHLIGHT = 'marxy-find-current';
@@ -28,6 +36,10 @@ const RECT_CLASS = 'marxy-find-rect';
 const RECT_CURRENT_CLASS = 'marxy-find-rect-current';
 /** Most rectangles painted at once in the overlay (matches within two screens of the view). */
 const MAX_RECTS = 600;
+/** Up to this many matches hold a Range each, all highlighted; more are held only in a window near the view. */
+const WHOLE_LIMIT = 200;
+/** Most Ranges held for the window near the view. */
+const WINDOW_MAX = 600;
 
 export interface FindDeps {
   /** Records a timing mark (the `find_first_match` budget). */
@@ -110,10 +122,29 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
   let input: HTMLInputElement | null = null;
   let countEl: HTMLElement | null = null;
   let query = '';
+  /** Every match, as a span of the index text. */
   let spans: Span[] = [];
-  let matches: Range[] = [];
+  /** The index text `spans` were found in: a walk that finds other text finds the matches again. */
+  let indexText = '';
+  /**
+   * The Ranges held: `held[k]` is match `heldFrom + k` for `k < heldCount`. All of them while the matches
+   * are few (`whole`), else those near the view. The array is the pool the window is made again from, so
+   * a window moving does not make new Ranges.
+   */
+  const held: Range[] = [];
+  let heldFrom = 0;
+  let heldCount = 0;
+  let whole = true;
+  /** The scroller's offset the window was made at; NaN when none is held. */
+  let heldAt = Number.NaN;
+  /** The current match's Range when it lies outside the window; and the one Range probes are read through. */
+  let ownRange: Range | null = null;
+  /** The match `ownRange` is on. */
+  let ownFor = -1;
+  let probeRange: Range | null = null;
   let layer: HTMLElement | null = null;
   let paintFrame = 0;
+  let watching = false;
   let current = -1;
   let via: FindState['via'] = 'highlights';
   let frame = 0;
@@ -131,30 +162,144 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       api.registry.delete(FIND_CURRENT_HIGHLIGHT);
     }
     layer?.replaceChildren();
-    matches = [];
     spans = [];
+    indexText = '';
+    heldCount = 0;
+    heldAt = Number.NaN;
+    ownFor = -1;
+  }
+
+  /** Lets the engine free the Ranges (each is updated on every DOM change while it exists). */
+  function dropRanges(): void {
+    held.length = 0;
+    heldCount = 0;
+    ownRange = null;
+    probeRange = null;
   }
 
   function paintCount(): void {
     if (!countEl) return;
-    countEl.textContent = query.length === 0 ? '' : `${matches.length === 0 ? 0 : current + 1} of ${matches.length}`;
+    countEl.textContent = query.length === 0 ? '' : `${spans.length === 0 ? 0 : current + 1} of ${spans.length}`;
+  }
+
+  /** The Range of the current match: one held in the window, else its own, from a fresh walk. */
+  function currentRange(): Range | null {
+    if (current < 0) return null;
+    if (current >= heldFrom && current < heldFrom + heldCount) return held[current - heldFrom]!;
+    if (ownRange && ownFor === current) return ownRange;
+    const walked = fresh();
+    const span = spans[current];
+    if (!span) return null;
+    ownRange ??= pane.article.ownerDocument.createRange();
+    ownFor = current;
+    return placeRange(ownRange, walked, span) ? ownRange : null;
+  }
+
+  /** The current match's highlight, on its own Range (a held one is re-pointed when the window moves). */
+  function paintCurrentHighlight(api: NonNullable<ReturnType<typeof highlightApi>>): void {
+    const now = currentRange();
+    if (now) {
+      const highlight = api.make([now]) as { priority: number };
+      highlight.priority = 1;
+      api.registry.set(FIND_CURRENT_HIGHLIGHT, highlight);
+    } else {
+      api.registry.delete(FIND_CURRENT_HIGHLIGHT);
+    }
   }
 
   function paintCurrent(): void {
     const api = highlightApi();
-    if (via === 'highlights' && api) {
-      const now = matches[current];
-      if (now) {
-        const highlight = api.make([now]) as { priority: number };
-        highlight.priority = 1;
-        api.registry.set(FIND_CURRENT_HIGHLIGHT, highlight);
-      } else {
-        api.registry.delete(FIND_CURRENT_HIGHLIGHT);
-      }
-    } else {
-      paintOverlay();
-    }
+    if (via === 'highlights' && api) paintCurrentHighlight(api);
+    else paintOverlay();
     paintCount();
+  }
+
+  /** The scroller's visible height. */
+  function viewHeight(): number {
+    const el = scroller();
+    return el === el.ownerDocument.documentElement ? el.ownerDocument.defaultView!.innerHeight : el.clientHeight;
+  }
+
+  /**
+   * A fresh walk of the article. Where it finds other text than the matches were found in (the page was
+   * set again under find), the matches are found again in it and the window is made again.
+   */
+  function fresh(): Walked {
+    const walked = walkText(pane.article);
+    if (walked.index.text !== indexText) {
+      const re = compileQuery(query);
+      indexText = walked.index.text;
+      spans = re ? findAll(walked.index, re) : [];
+      current = spans.length === 0 ? -1 : Math.min(current, spans.length - 1);
+      whole = spans.length <= WHOLE_LIMIT;
+      heldCount = 0;
+      heldAt = Number.NaN;
+      ownFor = -1;
+      paintCount();
+    }
+    return walked;
+  }
+
+  /** The first match whose top is at or below `limit` (viewport pixels); matches run top to bottom. */
+  function firstBelow(walked: Walked, limit: number): number {
+    probeRange ??= pane.article.ownerDocument.createRange();
+    let lo = 0;
+    let hi = spans.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      const at = placeRange(probeRange, walked, spans[mid]!) ? topOf(probeRange) : null;
+      if (at !== null && at < limit) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  /**
+   * Holds the Ranges the highlights and the overlay need: every match while there are few, else those
+   * within a screen and a half above the view and two below, at most WINDOW_MAX, around the first in
+   * view. Ranges are re-pointed, not made, so a window that moves leaves nothing for the collector.
+   */
+  function hold(walked: Walked): void {
+    const doc = pane.article.ownerDocument;
+    let from = 0;
+    let to = spans.length;
+    if (!whole) {
+      const height = viewHeight();
+      const top = viewTop();
+      const inView = firstBelow(walked, top);
+      from = firstBelow(walked, top - 2 * height);
+      to = Math.max(inView, firstBelow(walked, top + 3 * height));
+      if (to - from > WINDOW_MAX) {
+        from = Math.max(from, Math.min(inView - WINDOW_MAX / 4, to - WINDOW_MAX));
+        to = Math.min(to, from + WINDOW_MAX);
+      }
+      heldAt = scroller().scrollTop;
+    }
+    heldFrom = from;
+    heldCount = 0;
+    for (let i = from; i < to; i += 1) {
+      const range = (held[heldCount] ??= doc.createRange());
+      if (!placeRange(range, walked, spans[i]!)) range.collapse(true);
+      heldCount += 1;
+    }
+  }
+
+  /** The highlight of the held Ranges, where the engine has highlights. */
+  function paintHighlights(): void {
+    const api = highlightApi();
+    if (!api || via !== 'highlights') return;
+    if (heldCount > 0) api.registry.set(FIND_HIGHLIGHT, api.make(held.slice(0, heldCount)));
+    else api.registry.delete(FIND_HIGHLIGHT);
+    paintCurrentHighlight(api);
+  }
+
+  /** Makes the window again when the view has moved a screen from where it was made (or was resized). */
+  function ensureWindow(): void {
+    if (whole || spans.length === 0) return;
+    if (heldCount > 0 && Math.abs(scroller().scrollTop - heldAt) <= viewHeight()) return;
+    const walked = fresh();
+    hold(walked);
+    paintHighlights();
   }
 
   /**
@@ -164,16 +309,16 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
    */
   function paintOverlay(): void {
     if (via !== 'overlay' || !layer) return;
-    const el = scroller();
-    const height = el === el.ownerDocument.documentElement ? el.ownerDocument.defaultView!.innerHeight : el.clientHeight;
+    ensureWindow();
+    const height = viewHeight();
     const top = viewTop();
     const from = top - height;
     const to = top + 2 * height;
     let lo = 0;
-    let hi = matches.length;
+    let hi = heldCount;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
-      const at = topOf(matches[mid]!);
+      const at = topOf(held[mid]!);
       if (at !== null && at < from) lo = mid + 1;
       else hi = mid;
     }
@@ -181,13 +326,13 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     const doc = layer.ownerDocument;
     const frag = doc.createDocumentFragment();
     let drawn = 0;
-    for (let i = lo; i < matches.length && drawn < MAX_RECTS; i += 1) {
-      const boxes = boxesOf(matches[i]!);
+    for (let k = lo; k < heldCount && drawn < MAX_RECTS; k += 1) {
+      const boxes = boxesOf(held[k]!);
       if (boxes.length === 0) continue;
       if (boxes[0]!.top > to) break;
       for (const box of boxes) {
         const rect = doc.createElement('div');
-        rect.className = i === current ? `${RECT_CLASS} ${RECT_CURRENT_CLASS}` : RECT_CLASS;
+        rect.className = heldFrom + k === current ? `${RECT_CLASS} ${RECT_CURRENT_CLASS}` : RECT_CLASS;
         rect.style.cssText = `left:${box.left - origin.left}px;top:${box.top - origin.top}px;width:${box.width}px;height:${box.height}px`;
         frag.append(rect);
         drawn += 1;
@@ -196,7 +341,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     layer.replaceChildren(frag);
   }
 
-  /** The overlay layer and the listeners that keep it on the matches (scroll anywhere in the page, resize). */
+  /** The overlay layer for the fallback. */
   function ensureLayer(): void {
     if (layer) return;
     const doc = pane.host.ownerDocument;
@@ -204,26 +349,39 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     layer.className = 'marxy-find-rects';
     layer.setAttribute('aria-hidden', 'true');
     pane.host.append(layer);
-    doc.addEventListener('scroll', schedulePaint, { capture: true, passive: true });
-    doc.defaultView?.addEventListener('resize', schedulePaint);
   }
 
   function dropLayer(): void {
     if (!layer) return;
-    const doc = layer.ownerDocument;
-    doc.removeEventListener('scroll', schedulePaint, { capture: true });
-    doc.defaultView?.removeEventListener('resize', schedulePaint);
-    if (paintFrame !== 0) cancelAnimationFrame(paintFrame);
-    paintFrame = 0;
     layer.remove();
     layer = null;
   }
 
+  /** Scroll anywhere in the page and resize keep the overlay on the matches and the window near the view. */
+  function watchView(on: boolean): void {
+    const doc = pane.host.ownerDocument;
+    if (on === watching) return;
+    watching = on;
+    const add = on ? 'addEventListener' : 'removeEventListener';
+    doc[add]('scroll', schedulePaint, { capture: true, passive: true });
+    doc.defaultView?.[add]('resize', onResize);
+    if (!on) {
+      if (paintFrame !== 0) cancelAnimationFrame(paintFrame);
+      paintFrame = 0;
+    }
+  }
+
+  function onResize(): void {
+    heldAt = Number.NaN;
+    schedulePaint();
+  }
+
   function schedulePaint(): void {
-    if (via !== 'overlay' || paintFrame !== 0) return;
+    if (paintFrame !== 0) return;
     paintFrame = requestAnimationFrame(() => {
       paintFrame = 0;
-      paintOverlay();
+      if (via === 'overlay') paintOverlay();
+      else ensureWindow();
     });
   }
 
@@ -234,17 +392,9 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
   }
 
   /** The first match whose top is at or below the top of the pane's view (matches run top to bottom). */
-  function firstInView(): number {
-    const top = viewTop();
-    let lo = 0;
-    let hi = matches.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      const at = topOf(matches[mid]!);
-      if (at !== null && at < top) lo = mid + 1;
-      else hi = mid;
-    }
-    return lo < matches.length ? lo : 0;
+  function firstInView(walked: Walked): number {
+    const lo = firstBelow(walked, viewTop());
+    return lo < spans.length ? lo : 0;
   }
 
   /**
@@ -280,7 +430,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
 
   /** Opens any closed `<details>` the current match is inside, then puts it on the reading line. */
   function land(): void {
-    const match = matches[current];
+    const match = currentRange();
     if (!match) return;
     const start = match.startContainer;
     const element = start instanceof Element ? start : start.parentElement;
@@ -294,7 +444,8 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     const el = scroller();
     const delta = top - (viewTop() + readingLine(el.clientHeight));
     el.scrollTop = el.scrollTop + delta;
-    paintOverlay();
+    if (via === 'overlay') paintOverlay();
+    else ensureWindow();
   }
 
   function run(opts: { keep: boolean }): void {
@@ -308,17 +459,20 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       return;
     }
     const walked = walkText(pane.article);
+    indexText = walked.index.text;
     spans = findAll(walked.index, re);
+    whole = spans.length <= WHOLE_LIMIT;
     const api = highlightApi();
     via = api ? 'highlights' : 'overlay';
-    matches = rangesFor(walked, spans);
     if (!api) ensureLayer();
-    if (api && matches.length > 0) api.registry.set(FIND_HIGHLIGHT, api.make(matches));
-    if (matches.length > 0 && typedAt !== null) {
-      deps.mark('find_first_match', `ms=${(performance.now() - typedAt).toFixed(1)} matches=${matches.length}`);
+    watchView(!whole || !api);
+    current = spans.length === 0 ? -1 : keep >= 0 ? Math.min(keep, spans.length - 1) : firstInView(walked);
+    hold(walked);
+    if (api && heldCount > 0) api.registry.set(FIND_HIGHLIGHT, api.make(held.slice(0, heldCount)));
+    if (spans.length > 0 && typedAt !== null) {
+      deps.mark('find_first_match', `ms=${(performance.now() - typedAt).toFixed(1)} matches=${spans.length}`);
     }
     typedAt = null;
-    current = matches.length === 0 ? -1 : keep >= 0 ? Math.min(keep, matches.length - 1) : firstInView();
     paintCurrent();
     if (!opts.keep) land();
   }
@@ -413,6 +567,8 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       typedAt = null;
       generation += 1;
       clearMatches();
+      dropRanges();
+      watchView(false);
       current = -1;
       const wasOpen = field !== null;
       unmount();
@@ -420,15 +576,15 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       if (wasOpen && opts?.restore) deps.restoreFocus();
     },
     step(direction) {
-      if (matches.length === 0) return;
-      current = (current + direction + matches.length) % matches.length;
+      if (spans.length === 0) return;
+      current = (current + direction + spans.length) % spans.length;
       paintCurrent();
       land();
     },
     refresh() {
       if (field && query.length > 0) run({ keep: true });
     },
-    state: () => ({ open: field !== null, query, count: matches.length, current, via }),
+    state: () => ({ open: field !== null, query, count: spans.length, current, via }),
   };
   return controller;
 }

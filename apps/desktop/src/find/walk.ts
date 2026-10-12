@@ -83,31 +83,32 @@ function widenOverInvisibles(range: Range): void {
   if (endMarker) range.setEndAfter(endMarker);
 }
 
-function rangeIn(walked: Walked, span: Span): Range | null {
-  if (span.end <= span.start || walked.nodes.length === 0) return null;
+/**
+ * Points `range` at `span` of the walk's text: false, with `range` untouched, when the span is empty or
+ * its pieces are not in the walk. A Range given here is the caller's own, so a window of matches can be
+ * re-pointed without making (and leaving for the collector) a new Range each time.
+ */
+export function placeRange(range: Range, walked: Walked, span: Span): boolean {
+  if (span.end <= span.start || walked.nodes.length === 0) return false;
   const start = walked.index.locate(span.start);
   const end = locateEnd(walked, span.end);
   const startNode = walked.nodes[start.piece];
   const endNode = walked.nodes[end.piece];
-  if (!startNode || !endNode) return null;
-  const range = startNode.ownerDocument.createRange();
+  if (!startNode || !endNode) return false;
   range.setStart(startNode, start.offset);
   range.setEnd(endNode, end.offset);
   widenOverInvisibles(range);
-  return range;
+  return true;
+}
+
+function rangeIn(walked: Walked, span: Span): Range | null {
+  const first = walked.nodes[0];
+  if (!first) return null;
+  const range = first.ownerDocument.createRange();
+  return placeRange(range, walked, span) ? range : null;
 }
 
 /** The Range for `[start, end)` of the article's index text, from a fresh walk; null when empty. */
 export function rangeFor(article: HTMLElement, start: number, end: number): Range | null {
   return rangeIn(walkText(article), { start, end });
-}
-
-/** Every span's Range from one walk (the highlight pass resolves all matches at once). */
-export function rangesFor(walked: Walked, spans: readonly Span[]): Range[] {
-  const out: Range[] = [];
-  for (const span of spans) {
-    const range = rangeIn(walked, span);
-    if (range) out.push(range);
-  }
-  return out;
 }
