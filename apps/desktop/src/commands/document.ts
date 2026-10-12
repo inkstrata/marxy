@@ -43,6 +43,8 @@ export function wireArticle(
     });
   };
   const wire = (): void => {
+    // The page first: reading the runtime reads the parse, which a file that opens in Source has not made (V-11).
+    if (!article.querySelector('[data-marxy-s]')) return;
     const ctx = runtime();
     if (!ctx?.article.querySelector('[data-marxy-s]')) return;
     updateTabWidthResolver(ctx.buffer.path, ctx.shell);

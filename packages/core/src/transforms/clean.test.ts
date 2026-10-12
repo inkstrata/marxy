@@ -6,6 +6,13 @@ import { tableOf, type Case } from './testing/rows.ts';
 const FENCE = '```\n# not a heading\n**bold** :) [1] ---\n```\n';
 
 const cases: Case[] = [
+  // normalize-headings keeps every character (F-41): a setext heading whose text starts with # is not ATX
+  ['normalize-headings', 'keeps the character after # in a setext heading', '#x\n---\n', '#x\n---\n'],
+  ['normalize-headings', 'keeps non-ASCII after #', '#é\n-\n', '#é\n-\n'],
+  ['normalize-headings', 'keeps # at end of file and CRLF setext text', '#\r\n-', '#\r\n-'],
+  ['normalize-headings', 'leaves a hash run with no space alone', '#Heading\n##x\n', '#Heading\n##x\n'],
+  ['demote', 'keeps the character after # in a setext heading', '#x\n---\n', '#x\n---\n'],
+  ['promote', 'keeps the character after # in a setext heading', '#x\n---\n', '#x\n---\n'],
   // strip-emoji
   ['strip-emoji', 'removes emoji, joined sequences and flags', 'Ship it 🚀 now 👍🏽 and 👨‍👩‍👧 🇳🇿\n', 'Ship it  now  and  \n'],
   ['strip-emoji', 'keeps copyright, trade mark and digits', '© 2026 Marxy™ 1️⃣ 2\n', '© 2026 Marxy™  2\n'],
@@ -65,4 +72,8 @@ test('strip-hr and collapse-blank are idempotent (card), asserted on rows with w
     const once = runTransform(id, source);
     assert.equal(runTransform(id, once), once, id);
   }
+});
+
+test('normalize-headings keeps a lone surrogate after # (F-41)', () => {
+  assert.equal(runTransform('normalize-headings', '#\udc80\n-\n'), '#\udc80\n-\n');
 });

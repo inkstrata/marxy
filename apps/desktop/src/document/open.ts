@@ -133,7 +133,17 @@ export interface OpenPath {
 }
 
 function documentState(snap: DocumentSnapshot): OpenDocumentState {
-  return { path: snap.path, buffer: snap.buffer, ast: snap.ast, nodeMap: snap.nodeMap };
+  // Read through the snapshot: a document that opened in Source has no parse until something asks for one (V-11).
+  return {
+    path: snap.path,
+    buffer: snap.buffer,
+    get ast() {
+      return snap.ast;
+    },
+    get nodeMap() {
+      return snap.nodeMap;
+    },
+  };
 }
 
 /**
@@ -422,7 +432,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     openedInSlices = slices;
     let preparsed: Preparsed | undefined;
     let cut = 0;
-    if (slices && !(deps.stores?.held(file) ?? null)) {
+    // A file that opens in Source is not parsed here at all (V-11): its store parses when the AST is first read.
+    if (slices && !opensInSource && !(deps.stores?.held(file) ?? null)) {
       const ast = await parseMarkdownChunked(bytes, { file, yieldNow: yieldToEventLoop, aborted: () => closed });
       const stats = lastChunkedParse();
       cut = stats.kind === 'slices' ? stats.slices : 0;
@@ -450,7 +461,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         peekFile: shell.peekFile ? (path: string) => shell.peekFile!(path) : undefined,
         exists: async (path: string) => (await shell.stat(path)) !== null,
       };
-      return untitled ? openUntitledStore(io, file, bytes) : openDocumentStore(io, file, bytes, preparsed);
+      return untitled ? openUntitledStore(io, file, bytes) : openDocumentStore(io, file, bytes, preparsed, { lazy: opensInSource });
     };
     const opened = deps.stores ? deps.stores.acquire(file, make) : make();
     current = opened;
