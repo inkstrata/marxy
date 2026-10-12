@@ -194,6 +194,8 @@ export interface RenderedView {
   /** Source text into the store as one history entry; true when it changed the store. */
   foldSource(): Promise<boolean>;
   sourceHasUnfoldedEdits(): boolean;
+  /** Source text this view's fold cannot take because another pane's fold went another way (D-11): a save would not write it. */
+  sourceHeldApart(): boolean;
   /** The block open for editing in place in this view's article, or null (E-04). The block-edit command sets and clears it. */
   blockEdit: BlockEdit | null;
   /**
@@ -714,13 +716,15 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // Leaving Source is one history entry (`commitSource`): Mod+Z in Rendered undoes what was typed there.
     // The page follows the store: its subscription sets the article from the new bytes, so nothing
     // resolves an operation through an AST, node map or block list built from the old ones.
-    const changed = await open.commitSource(sourceEditor.docText());
+    // A key typed while the fold waits is folded too (F-42.1): taking the store's bytes over it would delete it.
+    const editor = sourceEditor;
+    let changed = await foldEditorInto(open, editor);
     let byteOffset = lastReadingByteOffset;
     let fraction = lastReadingFraction;
     // The line on the reading line, read before anything moves the window. Still where Source landed when
     // shown (no edit, no scroll away): the exact place it was entered from. Otherwise that line's block,
     // at its top.
-    const { path, buffer } = open.snapshot();
+    const { path } = open.snapshot();
     const place = sourcePosition(path);
     // Not measured yet (left within a frame or two, or the window is hidden): untouched unless edited.
     const movedAway = sourceEntryPlace !== null && place?.byteOffset !== sourceEntryPlace;
@@ -728,9 +732,16 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       byteOffset = place.byteOffset;
       fraction = 0;
     }
-    if (changed && sourceEditor) {
-      sourceEditor.replaceBuffer(buffer);
-      await refreshTitle();
+    // The title waits on the shell, and a key can land while it does: fold that too, then look again. The last look is
+    // followed by no wait, so nothing is typed between it and Source being hidden.
+    for (;;) {
+      if (changed && sourceEditor === editor) {
+        editor.replaceBuffer(open.snapshot().buffer);
+        await refreshTitle();
+      }
+      if (sourceEditor !== editor || store !== open || !leaveSourceMode(open.snapshot().buffer, editor.docText()).changed) break;
+      if (!(await foldEditorInto(open, editor))) break;
+      changed = true;
     }
     lastReadingByteOffset = byteOffset;
     lastReadingFraction = fraction;
@@ -1875,6 +1886,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       return foldEditorInto(open, sourceEditor);
     },
     sourceHasUnfoldedEdits: unfoldedSourceEdits,
+    sourceHeldApart: stillHeldApart,
     get blockEdit() {
       return blockEdit;
     },
