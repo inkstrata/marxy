@@ -9,20 +9,17 @@
   S-13-0004 → F-37 (latent, fixed anyway).
 - **Merged** (author's go-ahead for the lead to merge, given in this session): F-39 #596, V-12 #594, K-05b #581,
   W-05.2 + F-37 + F-21.1 #595. K-05b and #595 merged after a clean update from main, with CI green on the combination.
-- **Waiting for the author:** F-38 #593 (code-owned sanitiser; review verdict posted on the PR, head f6d8926e).
+- **F-38 #593** merged by the author after the session's review.
 
 ## Next, in order
 
-1. The author merges F-38 #593.
-2. Then the previous handoff's list: J-06, W-04.1, the small follow-ups, F-36, X-15 (wave 8 cards), F-34.2's
+1. The previous handoff's list: J-06, W-04.1, the small follow-ups, F-36, X-15 (wave 8 cards), F-34.2's
    rerun adversarial review, W-21.1 and V-11.1. New follow-ups: F-37.1 (see its row).
 
 ## For the author
 
-1. **Merge F-38 #593** (code-owned).
-2. **F-38's open ruling:** keep decoding attributes to a fixed point (`&amp;#45;3` becomes `-3`; a browser keeps
-   it literal), or decode once?
-3. Still open: ADR-0069, ADR-0067, ADR-0060, ADR-0061.
+Resolved (author, 2026-10-11 night, X-18: "resolve open questions to default"): ADR-0060, ADR-0061, ADR-0067 and
+ADR-0069 accepted as written; F-38 keeps the fixed-point decode. F-38 #593 merged by the author. Nothing waits.
 
 ## Lessons
 

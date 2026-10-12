@@ -71,6 +71,9 @@
     "data-marxy-workspace-region",
     "data-marxy-peek",
     "data-marxy-toolbar-item",
+    "data-marxy-tab",
+    "data-marxy-tab-active",
+    "data-marxy-tab-shown",
     "data-marxy-edit"
   ],
   "classPrefix": "marxy-",

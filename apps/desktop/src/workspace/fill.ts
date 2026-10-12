@@ -6,6 +6,7 @@
 import type { AppHandle } from '../app.ts';
 import { mountKindChip, mountStrip } from './kind-chip.ts';
 import { installPeek } from './peek.ts';
+import { mountTabs } from './tabs-view.ts';
 import { createDocumentSignal, mountToolbar } from './toolbar.ts';
 
 export function installWorkspaceFills(handle: AppHandle): void {
@@ -17,6 +18,8 @@ export function installWorkspaceFills(handle: AppHandle): void {
   // the strip shows the focused kind's tools. Neither exists folded (K-07).
   workspace.fill('toolbar', (el) => mountKindChip(el, handle, signal));
   workspace.fill('strip', (el) => mountStrip(el, handle, signal));
+  // The documents opened since the window unfolded, one click apart; the band hides itself below two (W-06). Folded there are no tabs.
+  workspace.fill('tabs', (el) => mountTabs(el, handle, signal));
   // Folded, the pointer resting at an edge shows that edge's panel (W-03); the listeners exist only while folded.
   installPeek(workspace);
 }

@@ -17,7 +17,7 @@ import type { AppContext } from '../commands/registry.ts';
 import { openScratch } from '../document/scratch.ts';
 import { keyLabel } from '../palette/commands.ts';
 import { fuzzyScore } from '../palette/search.ts';
-import { addStep, canApply, characterCount, createChain, output, type ApplyOutcome, type Chain, type Eol, withoutBom } from './chain.ts';
+import { addStep, canApply, characterCount, createChain, output, runStep, type ApplyOutcome, type Chain, type Eol, withoutBom } from './chain.ts';
 
 /** What the sheet works on: the input text and the ways back into the document. Built by `commands/transform.ts`. */
 export interface SheetTarget {
@@ -30,6 +30,13 @@ export interface SheetTarget {
   readonly markdown: boolean;
   /** Set when this input cannot take a replacement (bytes that are not UTF-8 in the range): Apply is then not offered, and this says why. */
   readonly applyRefusal?: string;
+  /**
+   * Set where `text` is Source text, which holds a byte that is not UTF-8 as a lone surrogate (F-34.1): the text as it
+   * may be shown, copied or opened (each such byte as U+FFFD, `readableText`). Apply writes the raw result, so the
+   * bytes are kept; nothing else leaves the sheet in the raw form, and a result that is new text (derive, literal) is
+   * made from the readable input, so a conversion never spells a lone surrogate (`\udcff`).
+   */
+  readonly readable?: (text: string) => string;
   /** Replaces the input with `output` as one undo step. `stale` when the document is no longer what the sheet read. */
   apply(output: string, label: string): Promise<ApplyOutcome>;
   /** Hands focus back to where the reader was. */
@@ -46,7 +53,7 @@ interface Live {
   readonly ctx: AppContext;
   readonly target: SheetTarget;
   chain: Chain;
-  /** The chain's output, made once per change of the chain. */
+  /** The chain's output, made once per change of the chain (and from the previous step's text: a step runs once). */
   result: string;
   picker: { filter: string; selected: number } | null;
   status: string;
@@ -216,12 +223,25 @@ export function pickerOptions(filter: string): readonly (typeof TRANSFORMS)[numb
     .map((r) => r.t);
 }
 
+/** `text` as it may be shown, copied or opened: Source's lone surrogates read as U+FFFD. */
+const readableIn = (target: SheetTarget, text: string): string => (target.readable ? target.readable(text) : text);
+
+/**
+ * What a chain makes. An `edit` chain runs on the input as the document holds it, so Apply writes every byte back. A chain
+ * with a `derive` or `literal` step is new text that is only copied or opened, and runs on the readable input.
+ */
+function runChain(target: SheetTarget, chain: Chain): string {
+  const input = canApply(chain) ? target.text : readableIn(target, target.text);
+  return output(createChain(input, chain.steps, chain.eol));
+}
+
 function paint(l: Live): void {
   const { dialog, target, chain } = l;
   const mac = isMac();
   const before = target.text;
   const after = l.result;
   const unchanged = after === before;
+
   const editable = canApply(chain) && target.applyRefusal === undefined;
 
   const head = el('div', 'marxy-transform-head');
@@ -247,7 +267,7 @@ function paint(l: Live): void {
 
   const side = (name: 'Before' | 'After', text: string): { root: HTMLElement; pre: HTMLElement } => {
     const n = characterCount(text);
-    const { shown, cut } = previewOf(text);
+    const { shown, cut } = previewOf(readableIn(target, text));
     const root = el('section', 'marxy-transform-side');
     root.setAttribute('aria-labelledby', `marxy-transform-${name.toLowerCase()}`);
     const label = el('div', 'marxy-transform-label');
@@ -382,7 +402,10 @@ function addToChain(l: Live, id: string): void {
   if (next === l.chain) return;
   let result: string;
   try {
-    result = output(next);
+    // The previous step's text is the input of the new one: only the new step runs. It is run again from the start
+    // only when the new step turns an `edit` chain into new text, which is made from the readable input.
+    const again = canApply(l.chain) && !canApply(next) && readableIn(l.target, l.target.text) !== l.target.text;
+    result = again ? runChain(l.target, next) : runStep(id, l.result, next.eol);
   } catch (error) {
     say(l, `Could not run that step: ${error instanceof Error ? error.message : String(error)}. The result is as it was.`);
     return;
@@ -406,7 +429,7 @@ async function copyResult(l: Live): Promise<void> {
   l.busy = true;
   try {
     // The mark is the file's, not the text's: a copy carries the text alone.
-    const wrote = await writeCopy(l.ctx, { text: withoutBom(l.result) }, 'Copied result');
+    const wrote = await writeCopy(l.ctx, { text: withoutBom(readableIn(l.target, l.result)) }, 'Copied result');
     if (live !== l) return;
     if (wrote) closeTransformSheet();
     else say(l, 'Could not copy the result. Nothing was changed.');
@@ -442,7 +465,7 @@ async function applyResult(l: Live): Promise<void> {
 
 async function openAsDocument(l: Live): Promise<void> {
   if (l.busy) return;
-  const text = withoutBom(l.result);
+  const text = withoutBom(readableIn(l.target, l.result));
   // Closed first: opening a document may ask the reader something, and that must not sit under this sheet.
   closeTransformSheet({ restoreFocus: false });
   await openScratch(text);
@@ -509,7 +532,7 @@ export function closeTransformSheet(opts?: { restoreFocus?: boolean }): void {
 export function openTransformSheet(ctx: AppContext, target: SheetTarget, firstStep: string): boolean {
   const chain = addStep(createChain(target.text, [], target.eol), firstStep);
   if (chain.steps.length === 0) return false;
-  const result = output(chain);
+  const result = runChain(target, chain);
   closeTransformSheet({ restoreFocus: false });
   injectStyles(document);
   const dialog = dialogElement();

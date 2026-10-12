@@ -81,6 +81,7 @@ ADR-0063 (capture) and ADR-0065 (clipboard) are accepted.
 | [12-replan-2026-10-11.md](12-replan-2026-10-11.md) | **The replan of 2026-10-11:** what a reader can do today, the decisions on the emergent difficulties, the wave order, and the author list |
 | [13-code-view.md](13-code-view.md) | Code as read: V-09 to V-16, the author's code-view report of 2026-10-08 (was PR #445), with what still reproduces |
 | [14-cards-waves-6-7.md](14-cards-waves-6-7.md) | Cards for waves 6 and 7: W-05 (the toolbar), W-04, W-03, W-21, J-06, and K-07 (the kind chip and strip) |
+| [15-cards-wave-8.md](15-cards-wave-8.md) | Cards for wave 8: W-06 (tabs), W-07 (the sidebar I), W-09 (the inspector and its Links tab), Q-03 (the library view) |
 | [studio/](studio/README.md) | The clipboard studio designed to build (J-D1): every mock surface with a verdict; history, the workbench, the rules; collect and the ring for the author |
 | [galley/](galley/README.md) | Reference copies of Galley's tokens, typography spec and contrast audit |
 | `mock-v2/` | The mockup: Galley's prototype adapted to this direction |
