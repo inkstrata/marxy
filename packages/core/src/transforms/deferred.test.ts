@@ -176,3 +176,26 @@ test('the reflow property can fail', () => {
   canFail(() => assertReflows((s) => s.replace(/(\w+ \w+) /g, '$1\n- ')));
   canFail(() => assertReflows((s) => s.replace(/aaa/g, 'b')));
 });
+
+// ---- review fixes (J-03.1)
+
+test('wrap-80: words that merely start with a marker character wrap like any other', () => {
+  for (const unit of ['**word** ', '_word_ ', '-x --flag ']) {
+    const out = run('wrap-80', unit.repeat(40).trimEnd() + '\n');
+    assert.ok(longest(out) <= 80, JSON.stringify(unit));
+    assert.equal(out.replace(/\s+/g, ' ').trim(), unit.repeat(40).trim());
+  }
+});
+
+test('wrap-80: a link destination in angle brackets is never broken, nor is one with a title', () => {
+  const text = 'text '.repeat(15) + '[a b](<http://x/y z w> "t") more '.repeat(3) + '\n';
+  assert.equal(run('wrap-80', text), text);
+  const out = run('wrap-80', 'word '.repeat(14) + '[a b](http://x.example/path "a title here") tail\n');
+  assert.ok(out.includes('](http://x.example/path'));
+});
+
+test('to-jira: a pipe in code in a cell, literal -word-, and inline HTML', () => {
+  assert.equal(run('to-jira', '| a |\n|--|\n| `x\\|y` |\n'), '||a||\n|{{x\\|y}}|\n');
+  assert.equal(run('to-jira', 'a -no- and +yes+ and well-known, 1 - 2 and why??\n'), 'a \\-no\\- and \\+yes\\+ and well-known, 1 - 2 and why\\?\\?\n');
+  assert.equal(run('to-jira', 'x <b>raw</b> y\n'), 'x raw y\n');
+});

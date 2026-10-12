@@ -16,7 +16,9 @@ interface Dialect {
   strong(s: string): string;
   emphasis(s: string): string;
   strike(s: string): string;
-  code(s: string): string;
+  code(s: string, inTable: boolean): string;
+  /** Inline HTML: the tags have no equivalent, so Slack shows them as text and Jira drops them (the text between them stays). */
+  inlineHtml(value: string): string;
   link(label: string, url: string): string;
   image(alt: string, url: string): string;
   heading(level: number, s: string): string;
@@ -48,6 +50,7 @@ const SLACK: Dialect = {
   emphasis: (s) => `_${s}_`,
   strike: (s) => `~${s}~`,
   code: (s) => `\`${s.replace(/`/g, "'")}\``,
+  inlineHtml: (value) => SLACK.text(value, false),
   link: (label, url) => `<${url.replace(/[<>|]/g, encodeURIComponent)}|${label}>`,
   image: (alt, url) => `<${url.replace(/[<>|]/g, encodeURIComponent)}|${alt || 'image'}>`,
   heading: (_level, s) => `*${s}*`,
@@ -81,11 +84,16 @@ const JIRA_LANG = /^[A-Za-z0-9+#.-]{1,20}$/;
 
 const JIRA: Dialect = {
   // Characters wiki markup reads as formatting or a macro; `|` only means something in a table.
-  text: (s, inTable) => s.replace(inTable ? /[\\*_{}[\]^~|]/g : /[\\*_{}[\]^~]/g, '\\$&'),
+  // `-` and `+` mean something only at the edge of a word (`-struck-`), `??` quotes; hyphens inside words stay.
+  text: (s, inTable) =>
+    s
+      .replace(inTable ? /[\\*_{}[\]^~|]/g : /[\\*_{}[\]^~]/g, '\\$&')
+      .replace(/(?<!\w)[-+](?=\w)|(?<=\w)[-+](?!\w)|\?\?/g, (m) => (m === '??' ? '\\?\\?' : `\\${m}`)),
   strong: (s) => `*${s}*`,
   emphasis: (s) => `_${s}_`,
   strike: (s) => `-${s}-`,
-  code: (s) => `{{${s.replace(/[{}]/g, '\\$&')}}}`,
+  code: (s, inTable) => `{{${s.replace(inTable ? /[{}|]/g : /[{}]/g, '\\$&')}}}`,
+  inlineHtml: () => '',
   link: (label, url) => `[${label}|${url.replace(/[|\]]/g, encodeURIComponent)}]`,
   image: (_alt, url) => `!${url.replace(/[!|]/g, encodeURIComponent)}!`,
   heading: (level, s) => `h${level}. ${s}`,
@@ -134,13 +142,13 @@ class Writer {
       case 'strong': return bold ? kids() : d.strong(kids());
       case 'emphasis': return d.emphasis(kids());
       case 'strikethrough': return d.strike(kids());
-      case 'code': return d.code(n.value);
+      case 'code': return d.code(n.value, inTable);
       case 'link': return d.link(kids(), n.url);
       case 'image': return d.image(n.alt, n.url);
       case 'softBreak': case 'hardBreak': return inTable ? ' ' : '\n';
       case 'footnoteReference': return d.text(`[${n.label}]`, inTable);
-      case 'mathInline': return d.code(n.value);
-      case 'html': return d.raw(n.value);
+      case 'mathInline': return d.code(n.value, inTable);
+      case 'html': return d.inlineHtml(n.value);
       case 'taskMarker': return '';
       default: return kids();
     }

@@ -1,4 +1,5 @@
-// Hard-wrap at 80 columns (J-03.1). Reflows the paragraphs of the text and nothing else: headings, tables, code and
+// Hard-wrap at 80 columns (J-03.1). Fills by display width; text with no spaces (CJK without spaces) has no break
+// opportunity and stays on its line. Reflows the paragraphs of the text and nothing else: headings, tables, code and
 // math blocks, raw HTML and front matter are not paragraphs, so their bytes pass through. Structure comes from the
 // parser. A paragraph in a list item or a quote is wrapped inside its container: the continuation lines carry the
 // indent (and `>` markers) the first line's prefix implies.
@@ -12,9 +13,11 @@ export const WRAP_COLUMNS = 80;
 // Inline nodes whose bytes are never broken: a code span or math reads its spaces as content, a task box is `[ ]`.
 const ATOMS = new Set(['code', 'mathInline', 'html', 'taskMarker']);
 
-// A word that would change what the line is if it began one (a list or quote marker, a rule, a fence, a table row,
-// an HTML block, a footnote definition) stays on the line before it. What follows the break is still the same words.
-const BLOCK_START = /^(?:[-*_=+>:|]+|#{1,6}|\d{1,9}[.)]|[`~]{3,}|\$\$|<[A-Za-z/!?]|\[\^)/;
+// A word that would change what the line is if it began one stays on the line before it: a lone list marker, `>`, a
+// run of `#`, an ordered marker (`1.`), a rule or setext underline, a fence, `$$`, a table row (`|`), a lone definition
+// colon, an HTML block opener or a footnote definition. A word that merely starts with `*`, `_` or `-` (`**bold**`,
+// `--flag`) is not a marker and wraps like any other.
+const BLOCK_START = /^(?:[-*+:]$|>|#{1,6}$|\d{1,9}[.)]$|[-=_*]{2,}$|[`~]{3,}|\$\$|\||<[A-Za-z/!?]|\[\^[^\]]*\]:)/;
 
 const ASCII = /^[\x20-\x7e]*$/;
 const widthOf = (s: string): number => (ASCII.test(s) ? s.length : displayWidth(s));
@@ -95,18 +98,21 @@ export const wrap80: TransformDef = {
   idempotent: true,
   run(lf) {
     const doc = parseText(lf);
-    const index = indexOf(lf);
+    // Byte offsets are string indices in pure ASCII text, which is most text: skip building the index then.
+    const toIndex = /^[\x00-\x7f]*$/.test(lf) ? (b: number): number => b : indexOf(lf).toIndex;
     const edits: { start: number; end: number; text: string }[] = [];
     walk(doc, (n: Node) => {
       if (n.type !== 'paragraph') return;
       // A hard break is a line ending that means something; the reflow would have to keep each one where it is. Left as written.
       const atoms: [number, number][] = [];
       let skip = false;
-      const base = index.toIndex(n.src.start);
+      const base = toIndex(n.src.start);
       walk(n, (c) => {
         if (c.type === 'hardBreak') skip = true;
+        // A destination in angle brackets may hold spaces, and a newline in it ends the link: not safe to wrap.
+        else if ((c.type === 'link' || c.type === 'image') && lf.slice(toIndex(c.src.start), toIndex(c.src.end)).includes('](<')) skip = true;
         else if (ATOMS.has(c.type)) {
-          const range: [number, number] = [index.toIndex(c.src.start) - base, index.toIndex(c.src.end) - base];
+          const range: [number, number] = [toIndex(c.src.start) - base, toIndex(c.src.end) - base];
           // A line break inside an atom would carry the container's markers with it: wrapping this paragraph is not safe.
           if (lf.slice(base + range[0], base + range[1]).includes('\n')) skip = true;
           atoms.push(range);
@@ -114,7 +120,7 @@ export const wrap80: TransformDef = {
       });
       if (skip) return;
       const start = base;
-      let end = index.toIndex(n.src.end);
+      let end = toIndex(n.src.end);
       while (end > start && /[ \t\n]/.test(lf[end - 1]!)) end--;
       const text = lf.slice(start, end);
       if (!text.includes('\n') && widthOf(text) + prefixWidth(lf.slice(lf.lastIndexOf('\n', start - 1) + 1, start)) <= WRAP_COLUMNS) return;
