@@ -173,6 +173,23 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
     return false;
   }
 
+  /**
+   * Waits for the one read in flight and says whether a store resulted. A read that failed earlier may have
+   * been transient (EMFILE, EAGAIN), so a change that follows it (`mayRetry`) reads again, once for all the
+   * changes waiting on that failure: the first of them to see it reset starts the retry and the rest join
+   * it, so every change lands in the one store that results, in the order it was made (F-64.1). A second
+   * failure notifies again inside load() and the changes are dropped with nothing written.
+   */
+  async function storeReady(mayRetry: boolean): Promise<boolean> {
+    const attempt = load();
+    await attempt;
+    if (!store && loadFailed && mayRetry) {
+      if (loading === attempt) loading = null;
+      await load();
+    }
+    return store !== null;
+  }
+
   async function grantHtml(): Promise<void> {
     const path = deps.currentPath();
     if (!path || !deps.buffer()) return;
@@ -183,15 +200,7 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
     }
     // The read starts a task after first text, so a click on the offer can land before it settles: wait for
     // it rather than dropping the grant with nothing shown (F-64).
-    const hadRead = loading !== null;
-    await load();
-    if (!store && loadFailed && hadRead) {
-      // The failure may have been transient (EMFILE, EAGAIN): read again, once, for this grant. A second
-      // failure notifies again inside load() and the grant is dropped with nothing written.
-      loading = null;
-      await load();
-    }
-    if (!store) return;
+    if (!(await storeReady(loading !== null))) return;
     const pos = deps.position(path);
     const granted = await applyTrustChange((s) => s.grant(path, { html: true }));
     // The reader may have opened another document while the write ran; the grant is theirs to keep
@@ -204,8 +213,7 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
   async function revokeHtml(): Promise<void> {
     const path = deps.currentPath();
     if (!path) return;
-    await load();
-    if (!store) return;
+    if (!(await storeReady(loading !== null))) return;
     const pos = deps.position(path);
     if (!(await applyTrustChange((s) => s.revoke(path, 'html')))) return;
     if (deps.currentPath() !== path) return;
