@@ -15,7 +15,10 @@ What each wave lets the reader do, in plain words: [`waves.md`](waves.md).
 
 ## Next, in order
 
-1. The previous handoff's list: J-06, W-04.1, the small follow-ups, F-36, X-15 (wave 8 cards), F-34.2's
+1. **The hunt, boarded (X-23):** F-51 first (Collapse blank lines un-indents code in lists, a bytes bug on
+   ordinary files), F-52 and F-53 beside it, then F-54 and F-55. Cards and verdicts at the end of
+   `08-fixes-from-the-bug-sweep.md`. The hunt is run by small models: re-run a finding before trusting it.
+2. The previous handoff's list: J-06, W-04.1, the small follow-ups, F-36, X-15 (wave 8 cards), F-34.2's
    rerun adversarial review, W-21.1 and V-11.1. New follow-ups: F-37.1 (see its row).
 
 ## For the author
