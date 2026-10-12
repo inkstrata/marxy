@@ -48,7 +48,7 @@ pnpm check         # the ten hygiene checks in one command (the first thing `fas
   `.githooks/commit-msg` lints every commit as you make it. The pull-request **title** is linted
   again in CI, because a squash merge uses it as the subject.
 - A **changelog fragment**, `changelog.d/<id>.md`: one reader-facing line ending in `(<id>)`
-  (`changelog.d/README.md`). No CI job fails without one today; the reviewer asks for it.
+  (`changelog.d/README.md`). `pnpm check` fails if its file name and the id its line ends in differ, case included (`check-changelog`).
 - The pull-request template (`.github/pull_request_template.md`) is a suggestion, not a gate:
   plain-language Summary first, then Changes, Verification, For the reviewer. Open the pull
   request with `gh pr create --body-file FILE`, never `--body`, so the template is not replaced.
@@ -209,6 +209,7 @@ them.
 | `gate-font-attrs` | `.gitattributes` lost `binary` or gained `eol` on a font | font binaries are `binary -eol`; `node scripts/gate-font-attrs.mjs` |
 | `gate-contrast` | a bundled theme's colour pair is below its ADR-0059 item 10 floor (7:1 body text, 4.5:1 other text, 3:1 edges), measured unrounded after compositing; or a colour will not parse | change the colour in a taste story, never the floor; `node scripts/gate-contrast.mjs`, `--md` for every ratio |
 | `check-workflows` | an Action not on the accepted list or not pinned to an accepted major; a cargo or `tauri build` call without `--locked`; `continue-on-error` or `\|\| true` in a step; a job with no `timeout-minutes`; a Linux cargo job that does not probe `glib-2.0` and install `dbus`; the licence gate running before a build or a `cargo fetch` | `node scripts/check-workflows.mjs`; its own cases: add `--selftest` |
+| `check-changelog` | a `changelog.d/` fragment whose file-name key differs, case included, from the id its line ends in (`u-05.md` ending `(U-05)`), or that is not one line ending in `(id)`; `changelog.mjs --release` would throw | `git mv` the file to the id as written; `node scripts/check-changelog.mjs` |
 | typecheck, lint | a type error, or a biome finding (`pnpm lint` is check-only and never writes a file) | `pnpm typecheck`, `pnpm lint` |
 | unit tests | any `*.test.*`; or a file under `packages/*/src/contracts/` changed | `pnpm test` runs every package's tests and `scripts/*.test.mjs`. WebKit tests skip in `fast`, which has no browser. A contract changes by an ordinary pull request (ADR-0045); regenerate the goldens it moves |
 | `test:mutations` | a palette test that no longer fails with `searchPrepared` switched off | `pnpm --filter @marxy/desktop test:mutations` |
