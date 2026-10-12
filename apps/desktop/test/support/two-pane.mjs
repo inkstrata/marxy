@@ -68,7 +68,7 @@ export function b64(text) {
  * Serves the harness page with the shipped skeleton in place of its bare `#doc`, and `index.html`'s
  * inline style in its head, so the page is the app's own DOM booted over a memory shell.
  */
-async function routeSkeleton(page, base) {
+export async function routeSkeleton(page, base) {
   const { style, body } = shippedSkeleton();
   await page.route(`${base}app.html`, async (route) => {
     const response = await route.fetch();

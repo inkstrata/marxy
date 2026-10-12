@@ -13,6 +13,7 @@ import { extname } from 'node:path';
 import { policyFor } from '../../../packages/core/src/sanitize/policy.ts';
 import { parseMarkdown } from '../../../packages/core/src/parse/parse.ts';
 import { renderDocumentSafeHtml } from '../../../packages/core/src/render/pipeline.ts';
+import { routeSkeleton } from './support/two-pane.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -46,7 +47,12 @@ function b64(path) {
   return readFileSync(path).toString('base64');
 }
 
+// The page is the app's shipped skeleton and CSS, as in the app (F-67): there a notice is a pill pinned at the pane's
+// foot. On the bare harness page the pill sat at the end of a 2400 px document, so a click had to scroll to it, and the
+// highlight pass that scroll set off (Rendered keeps the reader's place, B-26) moved the page 23 px between mouse-down
+// and mouse-up: the click landed on the pill's text, not the button, and the test waited 30 s for a grant never made.
 async function boot(page, files, argv) {
+  await routeSkeleton(page, base);
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   return page.evaluate(async ({ files, argv }) => {
