@@ -74,6 +74,12 @@ export type Transition =
 
 export interface DocumentStore {
   snapshot(): DocumentSnapshot;
+  /**
+   * Whether the current bytes have been parsed. A store opened with `lazy` parses them when `snapshot().ast`
+   * or `.nodeMap` is first read (a file that opens in Source needs no AST until Rendered is asked for); any
+   * other store has always parsed.
+   */
+  parsed(): boolean;
   /** Called after every committed transition. A subscriber that throws is logged and skipped. */
   subscribe(cb: (snap: DocumentSnapshot, change: Transition) => void): () => void;
   /**
@@ -160,8 +166,8 @@ interface State {
   /** Never null yet: the `null` branches below are for a future `openUntitled`. */
   readonly disk: Uint8Array | null;
   readonly buffer: Buffer;
-  readonly ast: Document;
-  readonly nodeMap: NodeMap;
+  /** The parse of `buffer`: made at once, or when first read for a store opened lazily (see `openDocumentStore`). */
+  readonly tree: Tree;
   /**
    * The version of the last transition that changed the bytes: a range read at or after it still holds.
    * `commit` decides "changed" by reference, `next.buffer.bytes !== state.buffer.bytes`, not by content,
@@ -182,6 +188,37 @@ interface State {
 
 const encoder = new TextEncoder();
 
+/** A parse of a buffer: its AST and the node map over it. */
+interface Tree {
+  /** Reads (and, the first time, makes) the parse. */
+  get(): { readonly ast: Document; readonly nodeMap: NodeMap };
+  /** Whether the parse has been made. */
+  readonly made: boolean;
+}
+
+/** A parse made now. */
+function treeOf(ast: Document, nodeMap: NodeMap): Tree {
+  const made = { ast, nodeMap };
+  return { get: () => made, made: true };
+}
+
+/** A parse made when first read, once; `onMade` hears of it. */
+function lazyTree(make: () => { readonly ast: Document; readonly nodeMap: NodeMap }, onMade: () => void): Tree {
+  let value: ReturnType<typeof make> | null = null;
+  return {
+    get() {
+      if (value === null) {
+        value = make();
+        onMade();
+      }
+      return value;
+    },
+    get made() {
+      return value !== null;
+    },
+  };
+}
+
 /** `notes.md` as `notes (mine).md`, `notes (mine 2).md`...; a name with no extension, or a dotfile, takes the tag last. */
 export function conflictCopyPath(path: string, n: number): string {
   const slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
@@ -199,10 +236,23 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
-/** The parse of `buffer` as `path`. Every node carries `{file, start, end}` for that path. */
-function parsed(path: string, buffer: Buffer, made?: Preparsed): Pick<State, 'buffer' | 'ast' | 'nodeMap'> {
-  const ast = made?.ast ?? parseMarkdown(buffer.bytes, { file: path });
-  return { buffer, ast, nodeMap: made?.nodeMap ?? buildNodeMap(ast) };
+/**
+ * The parse of `buffer` as `path`, made now; or, for a store opened lazily whose parse nobody has read yet
+ * (`lazy`), made when first read. Every node carries `{file, start, end}` for that path.
+ */
+function parsed(path: string, buffer: Buffer, made?: Preparsed, lazy?: { readonly onMade: () => void }): Pick<State, 'buffer' | 'tree'> {
+  if (made) return { buffer, tree: treeOf(made.ast, made.nodeMap) };
+  if (lazy) {
+    return {
+      buffer,
+      tree: lazyTree(() => {
+        const ast = parseMarkdown(buffer.bytes, { file: path });
+        return { ast, nodeMap: buildNodeMap(ast) };
+      }, lazy.onMade),
+    };
+  }
+  const ast = parseMarkdown(buffer.bytes, { file: path });
+  return { buffer, tree: treeOf(ast, buildNodeMap(ast)) };
 }
 
 /** `buffer` answering to `path`: same bytes and tables, a new name. */
@@ -216,12 +266,18 @@ function pushed(past: readonly Edit[], edit: Edit): readonly Edit[] {
 }
 
 function freezeSnapshot(state: State): DocumentSnapshot {
+  const { tree } = state;
   return Object.freeze({
     path: state.path,
     disk: state.disk,
     buffer: state.buffer,
-    ast: state.ast,
-    nodeMap: state.nodeMap,
+    // Read through the state's parse, which a store opened lazily makes the first time it is asked for.
+    get ast() {
+      return tree.get().ast;
+    },
+    get nodeMap() {
+      return tree.get().nodeMap;
+    },
     version: state.version,
     dirty: state.disk === null || !sameBytes(state.disk, state.buffer.bytes),
     canUndo: state.past.length > 0,
@@ -252,12 +308,21 @@ export function openUntitledStore(io: StoreIo, path: string, bytes: Uint8Array):
  * parse of exactly these bytes as `path` when the caller made it in slices (`parseMarkdownChunked`, D-15);
  * without it the store parses them here, all at once.
  */
-export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array, preparsed?: Preparsed): DocumentStore {
+export function openDocumentStore(
+  io: StoreIo,
+  path: string,
+  bytes: Uint8Array,
+  preparsed?: Preparsed,
+  opts?: { readonly lazy?: boolean },
+): DocumentStore {
   const buffer = createBuffer(path, bytes);
+  // Lazy until the AST is first read; from then on the store parses at once, as every store does.
+  let lazy: { readonly onMade: () => void } | undefined = opts?.lazy && !preparsed ? { onMade: () => { lazy = undefined; } } : undefined;
+  const parse = (at: string, from: Buffer): Pick<State, 'buffer' | 'tree'> => parsed(at, from, undefined, lazy);
   let state: State = {
     path,
     disk: buffer.bytes,
-    ...parsed(path, buffer, preparsed),
+    ...(lazy ? parse(path, buffer) : parsed(path, buffer, preparsed)),
     past: [],
     future: [],
     version: 0,
@@ -301,14 +366,16 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array, 
     });
 
   /** Splice `edit` (or its inverse) into the buffer and parse it, without touching `state`. */
-  const step = (edit: Edit, direction: 'forward' | 'back'): Pick<State, 'buffer' | 'ast' | 'nodeMap'> => {
+  const step = (edit: Edit, direction: 'forward' | 'back'): Pick<State, 'buffer' | 'tree'> => {
     const [from, to] = direction === 'forward' ? [edit.before, edit.after] : [edit.after, edit.before];
     const range = { file: state.path, start: edit.range.start, end: edit.range.start + from.length };
-    return parsed(state.path, splice(state.buffer, range, to));
+    return parse(state.path, splice(state.buffer, range, to));
   };
 
   const store: DocumentStore = {
     snapshot: () => snap,
+
+    parsed: () => state.tree.made,
 
     subscribe(cb) {
       subscribers.add(cb);
@@ -326,7 +393,7 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array, 
         const before = state.buffer.bytes.slice(range.start, range.end);
         if (sameBytes(before, after)) return false;
         const edit: Edit = { range, before, after, label: input.label };
-        commit({ ...state, ...parsed(state.path, next), past: pushed(state.past, edit), future: [] }, { kind: 'apply', edit });
+        commit({ ...state, ...parse(state.path, next), past: pushed(state.past, edit), future: [] }, { kind: 'apply', edit });
         return true;
       });
     },
@@ -338,7 +405,7 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array, 
         if (!left.changed || !left.edit) return false;
         const edit = left.edit;
         commit(
-          { ...state, ...parsed(state.path, left.buffer), past: pushed(state.past, edit), future: [] },
+          { ...state, ...parse(state.path, left.buffer), past: pushed(state.past, edit), future: [] },
           { kind: 'commitSource', edit },
         );
         return true;
@@ -458,7 +525,7 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array, 
           }
         }
         // Parse under the new name before writing, so nothing after a successful write can throw.
-        const moved = target === from ? null : { path: target, ...parsed(target, renamed(state.buffer, target)) };
+        const moved = target === from ? null : { path: target, ...parse(target, renamed(state.buffer, target)) };
         try {
           await io.writeFileAtomic(target, bytes);
         } catch (error) {
@@ -520,10 +587,17 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array, 
       return;
     }
     const buffer = createBuffer(state.path, bytes);
-    const ast = reparseMarkdown(state.ast, state.buffer.bytes, buffer.bytes, { file: state.path });
+    // Only the blocks the change touched are parsed again, from the parse the store holds; a parse nobody has
+    // read yet is not made for it (the new one is made when read, from the bytes).
+    const tree: Tree = state.tree.made
+      ? (() => {
+          const ast = reparseMarkdown(state.tree.get().ast, state.buffer.bytes, buffer.bytes, { file: state.path });
+          return treeOf(ast, buildNodeMap(ast));
+        })()
+      : parse(state.path, buffer).tree;
     io.recordRead?.(state.path, buffer.bytes);
     commit(
-      { ...state, disk: buffer.bytes, buffer, ast, nodeMap: buildNodeMap(ast), past: [], future: [], previousDisk: replaced },
+      { ...state, disk: buffer.bytes, buffer, tree, past: [], future: [], previousDisk: replaced },
       { kind: 'reload' },
     );
   }
@@ -538,7 +612,7 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array, 
     const from = state.path;
     if (from === to) return;
     if (state.disk !== null) io.recordRead?.(to, state.disk);
-    commit({ ...state, path: to, ...parsed(to, renamed(state.buffer, to)) }, { kind: 'rename', from, to });
+    commit({ ...state, path: to, ...parse(to, renamed(state.buffer, to)) }, { kind: 'rename', from, to });
   }
 
   return store;
