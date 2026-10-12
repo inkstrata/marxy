@@ -328,6 +328,7 @@ export class World {
         expectReloadAt() {},
         settled: async () => {},
         sourceHasUnfoldedEdits: () => unfolded(view),
+        sourceHeldApart: () => view.heldApart && unfolded(view),
       };
       return view.fake;
     });
@@ -584,7 +585,7 @@ export class World {
         async allowAssetScope() {},
       },
       foldSource: () => this.foldAll(doc),
-      holdsUnfoldedSource: () => viewsOf(model, doc).some(unfolded),
+      holdsUnfoldedSource: () => viewsOf(model, doc).some((v) => v.heldApart && unfolded(v)),
       onSaveAs: async () => {
         await (await this.watches.of(doc.store))?.moved();
         // Another pane showing the path through its own (clean) store now shows this one (D-10.1).

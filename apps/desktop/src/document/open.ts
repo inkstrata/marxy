@@ -350,7 +350,9 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       foldSource: async () => {
         if (current === open) await foldSource();
       },
-      holdsUnfoldedSource: () => current === open && unfoldedAnywhere(open),
+      // Held apart only (D-11): a key typed after the fold, while the title refreshed, is this pane's own and stays
+      // in its editor for the next save, which is no reason to refuse this one (F-42.1).
+      holdsUnfoldedSource: () => current === open && viewsOf(open).some((v) => v.sourceHeldApart()),
       pane: paneOf(doc),
       onSaveAs: async (path, from) => {
         if (current !== open) return;
