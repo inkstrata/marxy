@@ -101,3 +101,17 @@ test('Mod+2 on two panes over two files changes nothing and says why', async () 
     assert.ok(all.some((t) => t?.includes('Split shows one document twice')), `notices: ${JSON.stringify(all)}`);
   });
 });
+
+test('switching modes changes no bytes (W-19.1)', async () => {
+  await withPanes(['/r/A.md'], async (page, mod) => {
+    const bytes = () => page.evaluate(() => new TextDecoder().decode(window.__marxyHandle.panes().panes[0].view.store().snapshot().buffer.bytes));
+    const before = await bytes();
+    assert.ok(before.startsWith('# Alpha'));
+    for (const chord of ['3', '1', '2', '3', '1']) {
+      await page.keyboard.press(`${mod}+${chord}`);
+      await settle(page);
+      assert.equal(await bytes(), before, `after ${mod}+${chord}`);
+    }
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[0].view.mode), 'rendered');
+  });
+});
