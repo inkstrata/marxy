@@ -9,8 +9,9 @@ stale); a few states come from GitHub where the ledger is behind (see the end).
 1. **Done:** waves 1 to 3 (foundations, the new Night and Paper look, editing verbs) and waves 4 to 7 (the unfolded workspace, Copy as, kinds, keys, paste, toolbar, Transform, code opens in Source).
 2. **Current:** wave 8, filling the unfolded window. Tabs, sidebar and library view are merged; only the inspector's Links tab (W-09, #607) is in review.
 3. **Next:** the design pass (X-21, Opus, running): an aesthetics and usability pass on the chrome and Source view, moving toward the mock-v2 mockup, with the notifications pass (X-19) folded in. New UI surfaces wait for the author's ruling on its direction (see Design pass).
-4. **Not blocked:** every author ruling and open ADR was settled on 2026-10-11 (X-18); a few small questions wait with defaults (below).
-5. **Ledger lag:** 18 states below come from GitHub, not from progress.md; the lead's ledger PR will catch up.
+4. **Carded:** wave 9 (themes, five kinds, the sidebar's trees); see its section. Its author questions proceed on their defaults, except K-20's placement and K-10b's ADR question.
+5. **Not blocked:** every author ruling and open ADR was settled on 2026-10-11 (X-18); a few small questions wait with defaults (below).
+6. **Ledger lag:** 18 states below come from GitHub, not from progress.md; the lead's ledger PR will catch up.
 
 ## Waves 1 to 3: foundations and the new look (2026-10-09 to 10-10)
 
@@ -170,20 +171,23 @@ These have cards and wait for a slot. They are the code view's remaining stories
 | Source grammars for the common languages | [V-14](../direction-2026-10/13-code-view.md#v-14--source-grammars-fences-in-markdown-every-line-ending) | ready | — |
 | The swap keeps Rendered right | [V-15](../direction-2026-10/13-code-view.md#v-15--the-swap-keeps-rendered-right) | ready | — |
 
-## Not yet carded
+## Wave 9 (carded): themes, five kinds read as their kind, the sidebar's trees
 
-What the replan names after wave 8, in plain words. None has a card, so none has a PR. The look track was held for
-the author's ruling on H-04, which is now given.
+Choose a bundled theme, read logs, diffs, data, transcripts and articles as what they are, and browse repositories,
+folders and saved queries from the sidebar. Cards and the dispatch order are in
+[`18-cards-wave-9.md`](../direction-2026-10/18-cards-wave-9.md); V-10 (above, ready) merges before K-08 and K-09.
 
-| What it would add | Story |
-| --- | --- |
-| More themes: Ink, Dusk, Sepia, Fjord and a high-contrast theme | H-05 |
-| Articles with a byline and dek read from front matter | K-20 |
-| Read a log, a diff, a data file (depth and table lenses) and a Markdown transcript | K-08 to K-11 |
-| The sidebar's Repositories and Folders sections | W-08 |
-| Saved queries and smart collections in the sidebar | Q-07 |
-
-`05-plan.md` in the direction folder lists everything further out.
+| Feature | How to reach it | Story | State | PR |
+| --- | --- | --- | --- | --- |
+| Choose Ink, Dusk and Sepia, Fjord or a high-contrast theme; the choice is remembered | Palette: "Theme: …"; folded or unfolded | [H-05](../direction-2026-10/18-cards-wave-9.md#h-05--more-themes-ink-made-reachable-dusk-and-sepia-fjord-hc-dark-and-hc-light) | ready | — |
+| An article shows its byline and dek from its front matter | Automatic for an article, in Read | [K-20](../direction-2026-10/18-cards-wave-9.md#k-20--read-an-article-the-byline-and-the-dek-from-its-front-matter) | ready | — |
+| A Markdown transcript sets each speaker as an outdented label | Automatic for a transcript, in Read | [K-11](../direction-2026-10/18-cards-wave-9.md#k-11--read-a-markdown-transcript-speakers-outdented-turns-spaced) | ready | — |
+| A log opens in Read with level words, timestamps and escapes shown; filter by level, jump to the first error | Automatic at open; the strip's tools (unfolded) or the palette | [K-08](../direction-2026-10/18-cards-wave-9.md#k-08--read-a-log-read-by-default-level-words-timestamps-escapes-shown-and-a-level-filter) | ready | — |
+| A diff or patch opens in Read, unified as written, with its lines tinted | Automatic at open | [K-09](../direction-2026-10/18-cards-wave-9.md#k-09--read-a-diff-read-by-default-unified-as-authored-tinted) | ready | — |
+| Fold a JSON or YAML file to a depth, each fold saying how many lines it hides | Source; palette "Fold to depth 1…4" | [K-10a](../direction-2026-10/18-cards-wave-9.md#k-10a--read-data-the-depth-lens-in-source) | ready | — |
+| See a CSV or TSV as a table with sticky headers, sorting and column stats | The strip's Table tool (unfolded) or the palette | [K-10b](../direction-2026-10/18-cards-wave-9.md#k-10b--read-data-the-table-lens-for-csv-and-tsv) | ready | — |
+| Browse repositories and folders as trees in the sidebar | Unfolded window; `⌃⌘S` | [W-08](../direction-2026-10/18-cards-wave-9.md#w-08--the-sidebar-ii-repositories-and-folders-as-lazy-trees) | ready | — |
+| Save a library query as a smart collection and open it from the sidebar | Library: "Save as smart collection"; the sidebar | [Q-07](../direction-2026-10/18-cards-wave-9.md#q-07--smart-collections-in-the-sidebar-and-save-as-smart-collection) | ready | — |
 
 ## Waiting on the author
 
