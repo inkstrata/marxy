@@ -792,3 +792,107 @@ test('the trees are honest about their size: a huge folder is one listing capped
     assert.deepEqual(after, before);
   });
 });
+
+test('a walk that ends lists the open folders again: what the disk gained without a watch patch appears (a refused watch has no other way)', async () => {
+  await withPage(async (page) => {
+    await bootTrees(page);
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/plain"]');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/plain/notes.md"]');
+    // The disk changes and no index patch says so.
+    await page.evaluate(async () => {
+      await window.__marxyHandle.shell.writeFileAtomic('/plain/late.md', new TextEncoder().encode('# Late\n'));
+      // A walk starts: the index's own answer is stood in for, and a status change announces it.
+      const index = window.__marxyHandle.index;
+      window.__realIndexing = index.indexing;
+      index.indexing = () => true;
+      index.setTreeWatch('/r', 'refused');
+    });
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => !!document.querySelector('[role="treeitem"][data-marxy-sidebar-row="/plain/late.md"]')), false, 'nothing has told the tree yet');
+    const mark = await callCount(page);
+    // The walk ends.
+    await page.evaluate(() => {
+      const index = window.__marxyHandle.index;
+      index.indexing = window.__realIndexing;
+      index.setTreeWatch('/r', undefined);
+    });
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/plain/late.md"]');
+    assert.deepEqual(await readDirCalls(page, mark), ['/plain'], 'the open folder only');
+  });
+});
+
+test('a root that is not watched shows no changed dot and no changed count, whatever its files\' times say', async () => {
+  await withPage(async (page) => {
+    const solo = { '/solo/.git': 'gitdir: /otherrepo/.git/worktrees/s\n', '/solo/a.md': '# Solo a\n' };
+    await boot(page, { open: ['/r/a.md'], data: { ...treeData, ...solo } });
+    await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      await h.index.ensureRoot('/plain'); // not declared watched
+      await h.index.ensureRoot('/solo'); // a repository, not declared watched
+      await h.index.settled();
+      const future = Date.now() + 9000;
+      h.palette.setIndexEntries([
+        { path: '/plain/notes.md', root: '/plain', title: 'Plain notes', headings: [], mtimeMs: future, size: 10, kind: 'markdown' },
+        { path: '/solo/a.md', root: '/solo', title: 'Solo a', headings: [], mtimeMs: future, size: 10, kind: 'markdown' },
+      ]);
+    });
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-tree="repos"]');
+    const watched = await page.evaluate(() => ['/plain', '/solo'].map((r) => window.__marxyHandle.index.isWatched(r)));
+    assert.deepEqual(watched, [false, false], 'the premise: neither root is watched');
+    assert.equal(await label(page, '/solo'), 'solo, repository');
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/plain"]');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/plain/notes.md"]');
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/solo"]');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/solo/a.md"]');
+    assert.equal(await label(page, '/plain/notes.md'), 'notes.md');
+    assert.equal(await label(page, '/solo/a.md'), 'a.md');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-sidebar-mark, .marxy-sidebar-badge').length), 0, 'no dot, no count');
+  });
+});
+
+test('a folder that vanishes while open and comes back is listed again, not stuck at "Could not be read"', async () => {
+  await withPage(async (page) => {
+    await bootTrees(page);
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/plain"]');
+    await page.click('[role="treeitem"][data-marxy-sidebar-row="/plain/sub"]');
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/plain/sub/more.md"]');
+    // The folder goes; the tree learns of it from the parent being listed again (a walk ended).
+    await page.evaluate(() => {
+      const h = window.__marxyHandle;
+      h.shell.remove('/plain/sub/more.md');
+      // The memory shell lists a missing folder as empty; a real disk refuses it.
+      const real = h.shell.readDir;
+      window.__realReadDir = real;
+      h.shell.readDir = async (dir) => {
+        if (dir === '/plain/sub' && window.__gone !== false) throw new Error('ENOENT');
+        return real.call(h.shell, dir);
+      };
+      window.__gone = true;
+      h.index.applyEvents([{ kind: 'removed', path: '/plain/sub/more.md' }]);
+    });
+    await page.waitForFunction(() => /Could not be read/.test(document.querySelector('[data-marxy-sidebar-tree="folders"]').textContent));
+    await page.evaluate(() => {
+      const index = window.__marxyHandle.index;
+      window.__realIndexing = index.indexing;
+      index.indexing = () => true;
+      index.setTreeWatch('/r', 'refused');
+    });
+    await page.evaluate(() => {
+      const index = window.__marxyHandle.index;
+      index.indexing = window.__realIndexing;
+      index.setTreeWatch('/r', undefined);
+    });
+    await page.waitForFunction(() => !document.querySelector('[role="treeitem"][data-marxy-sidebar-row="/plain/sub"]'));
+    // It comes back.
+    await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      window.__gone = false;
+      await h.shell.writeFileAtomic('/plain/sub/again.md', new TextEncoder().encode('# Again\n'));
+      h.index.applyEvents([{ kind: 'created', path: '/plain/sub/again.md' }]);
+    });
+    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/plain/sub"]');
+    assert.equal(await page.evaluate(() => /Could not be read/.test(document.querySelector('[data-marxy-sidebar-tree="folders"]').textContent)), false);
+    assert.equal(await page.evaluate(() => document.querySelector('[role="treeitem"][data-marxy-sidebar-row="/plain/sub"]').getAttribute('aria-expanded')), 'false', 'it starts closed');
+  });
+});

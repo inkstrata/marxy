@@ -103,6 +103,17 @@ export function sortChildren(stats: readonly FileStat[]): FileStat[] {
   return [...stats].sort((a, b) => Number(b.isDir) - Number(a.isDir) || collator.compare(baseName(a.path), baseName(b.path)) || (a.path < b.path ? -1 : 1));
 }
 
+/** The sorted form of each listing, kept while `readDir`'s result is the one held: a draw does not sort fifty thousand names again. */
+const sortedOf = new WeakMap<readonly FileStat[], FileStat[]>();
+const sortedListing = (stats: readonly FileStat[]): FileStat[] => {
+  let sorted = sortedOf.get(stats);
+  if (sorted === undefined) {
+    sorted = sortChildren(stats);
+    sortedOf.set(stats, sorted);
+  }
+  return sorted;
+};
+
 export type TreeRow =
   | { readonly kind: 'dir'; readonly path: string; readonly name: string; readonly depth: number; readonly expanded: boolean; readonly loading: boolean }
   | { readonly kind: 'file'; readonly path: string; readonly name: string; readonly depth: number }
@@ -122,7 +133,7 @@ export function visibleRows(top: string, expanded: ReadonlySet<string>, listings
       out.push({ kind: 'note', path: `${dir}\0failed`, depth, text: 'Could not be read' });
       return;
     }
-    const sorted = sortChildren(listing);
+    const sorted = sortedListing(listing);
     for (const child of sorted.slice(0, TREE_CHILD_CAP)) {
       const name = baseName(child.path);
       if (!child.isDir) {

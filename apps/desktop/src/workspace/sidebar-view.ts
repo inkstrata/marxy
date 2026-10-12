@@ -44,10 +44,10 @@ const isMac = (): boolean => typeof navigator !== 'undefined' && navigator.platf
 
 const kindOf = (entry: IndexEntry): Kind => entry.readerKind ?? (entry.kind === 'source' ? 'code' : 'article');
 
-/** Entries asked of `checkoutKey` per root to learn whether the root is itself a checkout; a plain folder costs this many, once per draw. */
 /** One level of indentation in a tree, in em. */
 const TREE_STEP_EM = 1.1;
 
+/** Entries asked of `checkoutKey` per root to learn whether the root is itself a checkout; a plain folder costs this many, once per draw. */
 const GROUP_PROBE_CAP = 64;
 
 const MARK_WORDS: Record<SidebarMark, string> = { pinned: ', pinned', changed: ', changed since you read', recent: '' };
@@ -73,6 +73,8 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
   /** The folders open in the trees, and what `readDir` last said of each. Held while the window lives; a launch starts closed. */
   let expanded = new Set<string>();
   const listings = new Map<string, Listing>();
+  /** Roots already known to be a repository's own checkout, and their group: once classified, a root is not probed again. */
+  const groupOf = new Map<string, string>();
   const reading = new Set<string>();
   const readAgain = new Set<string>();
   let wasIndexing = handle.index.indexing();
@@ -115,9 +117,9 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       baselineMs: (r) => handle.index.baselineMs(r),
     });
     // A root is a repository when its own checkout holds a `.git`: some entry of it is keyed to a checkout that is the root.
-    const groupOf = new Map<string, string>();
     const probed = new Map<string, number>();
-    for (const entry of handle.index.entries()) {
+    const unclassified = handle.index.roots().some((r) => !groupOf.has(r));
+    for (const entry of unclassified ? handle.index.entries() : []) {
       if (groupOf.has(entry.root)) continue;
       const n = probed.get(entry.root) ?? 0;
       if (n >= GROUP_PROBE_CAP) continue;
@@ -158,7 +160,17 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     if (!listings.has(dir)) listings.set(dir, 'loading');
     try {
       const stats = await handle.shell.readDir(dir);
-      if (!disposed && expanded.has(dir)) listings.set(dir, stats);
+      if (!disposed && expanded.has(dir)) {
+        listings.set(dir, stats);
+        // A folder that left this listing takes its open state and its listing with it, so one that comes back starts closed.
+        const present = new Set(stats.map((s) => s.path));
+        const prefix = `${dir.replace(/\/$/, '')}/`;
+        for (const open of [...expanded]) {
+          if (!open.startsWith(prefix) || open.indexOf('/', prefix.length) >= 0 || present.has(open)) continue;
+          expanded = closeWithin(expanded, open);
+        }
+        for (const key of [...listings.keys()]) if (!expanded.has(key)) listings.delete(key);
+      }
     } catch {
       if (!disposed && expanded.has(dir)) listings.set(dir, 'failed');
     } finally {
