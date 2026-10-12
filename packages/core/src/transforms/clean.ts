@@ -5,7 +5,7 @@
 import type { List, ListItem, Node } from '../contracts/ast.ts';
 import { demoteHeading, promoteHeading } from '../operations/heading-level.ts';
 import { markerSpans, mergesWithNeighbour } from '../operations/list-markers.ts';
-import { applyEdits, atxHeadings, indexOf, gapsOf, mapInline, mapOutsideCodeSpans, mapProse, nodesOf, parseText, walk } from './prose.ts';
+import { applyEdits, atxHeadings, indexOf, gapsOf, mapInline, mapOutsideCodeSpans, mapProse, mapProseWithTail, nodesOf, parseText, walk } from './prose.ts';
 import type { TransformDef } from './types.ts';
 
 // An emoji, with its joiners and modifiers. `\p{Extended_Pictographic}` alone would take the copyright sign and
@@ -140,12 +140,15 @@ export const collapseBlank: TransformDef = {
   outsideCode: true,
   idempotent: true,
   run: (lf) =>
-    mapProse(lf, (prose) => {
+    mapProseWithTail(lf, (prose, tail) => {
       const lines = prose.split('\n');
+      // A gap that ends at a nested block's line start is followed by that line's container prefix (`tail`), which is
+      // what the hard-break test below has always read there.
+      const nextOf = (i: number): string => (i === lines.length - 2 && tail !== '' ? tail : lines[i + 1]!);
       const stripped = lines.map((line, i) => {
         const bare = line.replace(/[ \t]+$/, '');
         // Two spaces at the end of a line inside a paragraph are a hard break, not stray space: keep them.
-        const hardBreak = bare !== '' && / {2,}$/.test(line) && i < lines.length - 1 && lines[i + 1]!.trim() !== '';
+        const hardBreak = bare !== '' && / {2,}$/.test(line) && i < lines.length - 1 && nextOf(i).trim() !== '';
         return hardBreak ? line : bare;
       });
       return stripped.join('\n').replace(/\n{3,}/g, '\n\n');

@@ -142,9 +142,9 @@ test('mixed endings: every transform keeps each line\'s own ending', () => {
 
 // F-51: a block nested in a list or quote starts after its container's indent; the whole line, from its line start,
 // is the code's, so a prose transform that strips or rewrites the bytes before the block is a failure.
-function codeLines(text: string): string[] {
+function codeBlockRuns(text: string): string[][] {
   const doc = parseMarkdown(new TextEncoder().encode(text), { file: 'x' });
-  return nodesOf(text, doc, ['codeBlock']).flatMap(({ span }) => {
+  return nodesOf(text, doc, ['codeBlock']).map(({ span }) => {
     const from = text.lastIndexOf('\n', span.start - 1) + 1;
     return text.slice(from, span.end).split('\n');
   });
@@ -154,9 +154,14 @@ function assertCodeLinesKept(id: string, fn: (s: string) => string): void {
   let checked = 0;
   for (const text of nestedCodeDocuments()) {
     const out = fn(text).split('\n');
-    for (const line of codeLines(text)) {
-      checked++;
-      assert.ok(out.includes(line), `${id}: a code line changed: ${JSON.stringify(line)} in ${JSON.stringify(text)}`);
+    // Each block's lines come out as one contiguous run, and the blocks keep their order.
+    let from = 0;
+    for (const block of codeBlockRuns(text)) {
+      checked += block.length;
+      let at = -1;
+      for (let i = from; i + block.length <= out.length && at < 0; i++) if (block.every((l, k) => out[i + k] === l)) at = i;
+      assert.ok(at >= 0, `${id}: a code block changed or moved: ${JSON.stringify(block)} in ${JSON.stringify(text)}`);
+      from = at + block.length;
     }
   }
   assert.ok(checked > 20);

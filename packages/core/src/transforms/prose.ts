@@ -69,27 +69,41 @@ export function protectedSpans(lf: string, doc: Document = parseText(lf)): Span[
   return merged;
 }
 
-/** The text between protected spans, as `{ span, text }`, in order. Empty gaps are left out. */
-export function gapsOf(lf: string, doc?: Document): Span[] {
-  const gaps: Span[] = [];
+/**
+ * The text between protected spans, with `tail`: the bytes of the next protected block's own line that come before
+ * the block (its container's indent and markers; empty when the block starts its line, or no block follows).
+ * LF text only (the transform wrapper guarantees it).
+ */
+export function gapsWithTail(lf: string, doc?: Document): (Span & { tail: string })[] {
+  const gaps: (Span & { tail: string })[] = [];
   let at = 0;
   for (const p of protectedSpans(lf, doc)) {
     // A block nested in a list or quote starts after its container's indent and markers; those bytes are on the
     // block's own line, so the protected span is widened back to the line start and no caller can touch them (F-51).
     const start = Math.max(at, lf.lastIndexOf('\n', p.start - 1) + 1);
-    if (start > at) gaps.push({ start: at, end: start });
+    if (start > at) gaps.push({ start: at, end: start, tail: lf.slice(start, p.start) });
     at = Math.max(at, p.end);
   }
-  if (at < lf.length) gaps.push({ start: at, end: lf.length });
+  if (at < lf.length) gaps.push({ start: at, end: lf.length, tail: '' });
   return gaps;
+}
+
+/** The text between protected spans, as `{ span, text }`, in order. Empty gaps are left out. LF text only. */
+export function gapsOf(lf: string, doc?: Document): Span[] {
+  return gapsWithTail(lf, doc).map(({ start, end }) => ({ start, end }));
 }
 
 /** `f` applied to every run of text outside code blocks, math blocks and front matter; the protected bytes pass through. */
 export function mapProse(lf: string, f: (prose: string) => string, doc?: Document): string {
+  return mapProseWithTail(lf, (prose) => f(prose), doc);
+}
+
+/** Like `mapProse`; `f` also gets the `tail` of the gap (see `gapsWithTail`), the start of the line that follows it. */
+export function mapProseWithTail(lf: string, f: (prose: string, tail: string) => string, doc?: Document): string {
   let out = '';
   let at = 0;
-  for (const g of gapsOf(lf, doc)) {
-    out += lf.slice(at, g.start) + f(lf.slice(g.start, g.end));
+  for (const g of gapsWithTail(lf, doc)) {
+    out += lf.slice(at, g.start) + f(lf.slice(g.start, g.end), g.tail);
     at = g.end;
   }
   return out + lf.slice(at);
