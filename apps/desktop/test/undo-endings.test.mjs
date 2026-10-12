@@ -81,6 +81,24 @@ async function withApp(bytes, fn) {
         await page.keyboard.press(`${mod}+s`);
         await page.waitForFunction((n) => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic').length > n, before);
       },
+      /** The writes to `path` (the index and the layout are written too). */
+      writesTo: (path) =>
+        page.evaluate((p) => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === p).length, path),
+      /** Holds the store's queue for `ms`: whatever folds next waits its turn, as it does behind a slow write. */
+      hold: (ms) =>
+        page.evaluate((ms) => {
+          window.__marxyHandle.document().serially(() => new Promise((r) => setTimeout(r, ms)));
+        }, ms),
+      /** Every title the shell is asked to set takes `ms` (a slow window manager); `window.__titles` counts the asks. */
+      slowTitle: (ms) =>
+        page.evaluate((ms) => {
+          const shell = window.__marxyHandle.shell;
+          window.__titles = 0;
+          shell.setTitle = async () => {
+            window.__titles += 1;
+            await new Promise((r) => setTimeout(r, ms));
+          };
+        }, ms),
       /** Puts the caret where `needle` ends in the editor's text and focuses the editor. */
       caretAfter: (needle) =>
         t.cm(
@@ -331,6 +349,85 @@ for (const [name, file, line, back, cutAt] of [
       assert.equal(hex(await t.buf()), hex(expected), 'exactly the CR is gone');
       await t.save();
       assert.equal(hex(await t.disk()), hex(expected), 'and the save writes it');
+    });
+  });
+}
+
+// 5. A keystroke while Mod+E's fold waits (F-42.1). Leaving Source folds the editor's text into the store and then
+//    took the store's bytes back into the editor, which deleted whatever had been typed while the fold waited its turn
+//    (the same shape as the save, F-42). Real keys: the fold waits behind a held store queue and the reader types.
+for (const [name, orig, prior, typed] of [
+  ['an edit before', B('# T\n\nhello world\n\nbye\n'), 'x', 'QRS'],
+  ['no edit before', B('# T\n\nhello world\n\nbye\n'), null, 'QRS'],
+  ['a stray byte in the file', B('# T\n\nhello ', [0xff], ' world\n\nbye\n'), 'x', 'Q'],
+]) {
+  test(`Source: keys typed while Mod+E's fold waits are kept in Rendered and saved next (${name})`, async () => {
+    await withApp(orig, async (t) => {
+      await t.toSource();
+      await t.caretAfter('hello');
+      if (prior) await t.page.keyboard.press(prior);
+      await t.hold(900);
+      await t.page.keyboard.press(`${t.mod}+e`);
+      await t.page.keyboard.type(typed);
+      await t.page.waitForFunction(() => document.body.dataset.marxyMode !== 'source', null, { timeout: 5000 });
+      const want = (bytes) => bytes.includes(typed.charCodeAt(0)) && Buffer.from(bytes).toString('latin1').includes(typed);
+      assert.ok(want(await t.buf()), `the store lost the keys: ${hex(await t.buf())}`);
+      // Back in Source the editor names what the store holds, keys included.
+      await t.toSource();
+      assert.equal(hex(await t.doc()), hex(await t.buf()), 'the editor and the store agree');
+      assert.ok(want(await t.doc()), 'the editor lost the keys');
+      await t.toRendered();
+      await t.save();
+      assert.ok(want(await t.disk()), `the save did not write the keys: ${hex(await t.disk())}`);
+      assert.equal(hex(await t.disk()), hex(await t.buf()), 'the disk is what the store holds');
+      assert.ok(!(await t.page.evaluate(() => document.body.innerText)).includes('Source in the other pane'), 'no held-apart notice');
+    });
+  });
+}
+
+test("Source: a key typed while Mod+E's title refreshes is kept in Rendered too", async () => {
+  const orig = B('# T\n\nhello world\n\nbye\n');
+  await withApp(orig, async (t) => {
+    await t.toSource();
+    await t.caretAfter('hello');
+    await t.page.keyboard.type('x');
+    await t.slowTitle(700);
+    await t.page.keyboard.press(`${t.mod}+e`);
+    await t.page.waitForFunction(() => window.__titles > 0, null, { timeout: 5000 });
+    await t.page.keyboard.type('Q'); // after the fold, while Source is still showing
+    await t.page.waitForFunction(() => document.body.dataset.marxyMode !== 'source', null, { timeout: 5000 });
+    assert.ok(Buffer.from(await t.buf()).toString('latin1').includes('xQ'), `the store lost the key: ${hex(await t.buf())}`);
+    await t.toSource();
+    assert.equal(hex(await t.doc()), hex(await t.buf()), 'the editor and the store agree');
+  });
+});
+
+// 6. A keystroke while Save refreshes the title (F-42.1). The fold had settled, so the key was not part of it; the save
+//    saw text the store lacked and refused ("Source in the other pane") though nothing was held apart. The save is
+//    written and the key stays in the editor for the next save.
+for (const [name, orig] of [
+  ['an LF file', B('# T\n\nhello world\n\nbye\n')],
+  ['a CRLF file with a stray byte', B('# T\r\n\r\nhello ', [0xff], ' world\r\n\r\nbye\r\n')],
+]) {
+  test(`Source: a key typed while Mod+S's title refreshes does not cancel the save (${name})`, async () => {
+    await withApp(orig, async (t) => {
+      await t.toSource();
+      await t.caretAfter('hello');
+      await t.page.keyboard.type('Z');
+      const folded = hex(await t.doc());
+      await t.slowTitle(700);
+      const writes = await t.writesTo(PATH);
+      await t.page.keyboard.press(`${t.mod}+s`);
+      await t.page.waitForFunction(() => window.__titles > 0, null, { timeout: 5000 });
+      await t.page.keyboard.type('Q'); // after the fold, during the title refresh
+      await t.page.waitForTimeout(1500);
+      assert.equal(await t.writesTo(PATH), writes + 1, 'the save wrote the file');
+      assert.equal(hex(await t.disk()), folded, 'the disk holds the text the save folded');
+      assert.ok(Buffer.from(await t.doc()).toString('latin1').includes('ZQ'), 'the editor kept the key');
+      assert.ok(!(await t.page.evaluate(() => document.body.innerText)).includes('Source in the other pane'), 'no held-apart notice');
+      await t.save();
+      assert.ok(Buffer.from(await t.disk()).toString('latin1').includes('ZQ'), 'the next save wrote the key');
+      assert.equal(hex(await t.disk()), hex(await t.doc()));
     });
   });
 }

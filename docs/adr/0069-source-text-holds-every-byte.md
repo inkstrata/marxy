@@ -81,6 +81,9 @@ equality was not byte equality, and no diff over that text can make it so.
   Source's Mod+Z then has nothing to undo until the reader types again. A key typed in the same task as a save's fold (before the fold settles) is not a change from outside: the fold goes
   again over the text the editor holds, so the key stays in the editor and the store, and the next write has it (F-42). The store's undo in Rendered is byte-exact
   throughout, and steps back over every fold (F-40).
+  The same holds for Mod+E, which folds the same way (`foldEditorInto`: a key typed while its fold waits is folded
+  too, and Rendered shows it), and for the title refresh after a fold: a key typed then stays in the editor for the
+  next save, and the save in progress still writes, because only text held apart (D-11) refuses a save (F-42.1).
 - Searching Source for U+FFFD does not find a stray byte (it is a different character there); the marker shows it.
 - A line copied with no selection (CodeMirror's line-wise copy) that holds a stray byte pastes back as text at the
   caret, not as a whole line, because CodeMirror compares the pasted text with the filtered copy.
