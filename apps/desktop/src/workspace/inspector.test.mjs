@@ -156,7 +156,7 @@ test('a Source-default file is never parsed for the tab: its paths are listed fr
     assert.deepEqual((await rowsOf(page)).map((r) => [r.kind, r.text, r.status]), [['path', 'src/helper.py', 'found']]);
     assert.equal(await page.evaluate(() => window.__h.document().parsed()), false, 'listing them did not parse the file');
     // The reader's own switch to Rendered makes the parse, and the tab looks again.
-    await page.keyboard.press('Meta+e');
+    await page.keyboard.press('ControlOrMeta+e');
     await page.waitForFunction(() => window.__h.document().parsed() === true, null, { timeout: 5000 });
     // A code file is code, not Markdown (V-10): `[not a link](...)` in it is not a link, so the tab looks again and now
     // says there are none, where before the parse it said why it did not list them.
