@@ -448,3 +448,32 @@ test('the toolbar still fits at 929 px with a full tab row below it, and the tab
     assert.equal(await page.evaluate(() => { const bar = document.querySelector('.marxy-toolbar'); return bar.scrollWidth - bar.clientWidth <= 0; }), true);
   });
 });
+
+test('the tabs\' look (U-07): up to 220 px; the active tab shares the page ground and is heavier; the close shows on hover, focus and the active tab; no + without a New command', async () => {
+  await withPage(1280, async (page) => {
+    await unfold(page);
+    await openFile(page, '/r/B.md');
+    await openFile(page, '/r/C.md');
+    const look = (path) => page.evaluate((p) => {
+      const tab = document.querySelector(`[data-marxy-tab="${p}"]`);
+      const cs = getComputedStyle(tab);
+      return { width: tab.getBoundingClientRect().width, bg: cs.backgroundColor, weight: Number(cs.fontWeight), shadow: cs.boxShadow, closeOpacity: getComputedStyle(tab.querySelector('.marxy-tab-close')).opacity };
+    }, path);
+    const page_bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    const active = await look('/r/C.md');
+    const other = await look('/r/A.md');
+    assert.ok(active.width <= 220.5 && other.width <= 220.5, 'no tab is wider than 220 px');
+    assert.equal(active.bg, page_bg, 'the active tab has the page ground');
+    assert.equal(active.shadow, 'none', 'and no accent line');
+    assert.ok(active.weight > other.weight, 'and is heavier, so it differs without colour');
+    assert.equal(active.closeOpacity, '1', 'the active tab always shows its close');
+    assert.equal(other.closeOpacity, '0', 'another tab hides it at rest');
+    await page.hover('[data-marxy-tab="/r/A.md"]');
+    assert.equal((await look('/r/A.md')).closeOpacity, '1', 'hover shows it');
+    await page.mouse.move(0, 600);
+    await page.focus('[data-marxy-tab="/r/B.md"] .marxy-tab-open');
+    assert.equal((await look('/r/B.md')).closeOpacity, '1', 'focus inside the tab shows it');
+    assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-tab="/r/B.md"] .marxy-tab-close').getAttribute('aria-label')), 'Close B.md');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-tabs .marxy-tab-new').length), 0, 'no + while no New command is registered');
+  });
+});

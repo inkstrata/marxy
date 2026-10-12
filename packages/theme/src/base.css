@@ -929,18 +929,23 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
 .marxy-tabs::-webkit-scrollbar { display: none; }
 /* The end of the row is a margin, not padding: padding at the end of a scrolling flex row is not scrolled to. */
 .marxy-tab:last-child { margin-inline-end: 0.9em; }
-.marxy-tab { display: flex; align-items: stretch; flex: 0 1 14em; min-width: 6em; max-width: 14em; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); }
+.marxy-tab { display: flex; align-items: stretch; flex: 0 1 auto; min-width: 6em; max-width: calc(var(--marxy-size-chrome) * 220 / 13); border-radius: calc(var(--marxy-size-chrome) * 6 / 13) calc(var(--marxy-size-chrome) * 6 / 13) 0 0; }
 .marxy-tab > button { appearance: none; -webkit-appearance: none; margin: 0; padding: 0; border: 0; border-radius: inherit; background: none; color: inherit; font: inherit; line-height: 1; cursor: default; white-space: nowrap; }
 .marxy-tab > button:hover { background: var(--marxy-color-selection); }
 .marxy-tab > button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-tab-open { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 0.4em; padding-inline: 0.6em 0.3em; overflow: hidden; text-align: start; }
+.marxy-tab-open { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 0.4em; padding-inline: 0.6em 0.3em; overflow: hidden; text-align: start; }
 .marxy-tab-open .marxy-kind-glyph { flex: none; display: inline-flex; }
 .marxy-tab-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .marxy-tab-dirty { flex: none; }
 .marxy-tab-dirty[hidden], .marxy-tab-close[hidden] { display: none; }
-.marxy-tab-close { flex: none; padding-inline: 0.5em; color: var(--marxy-color-text-secondary); }
+.marxy-tab-close { flex: none; padding-inline: 0.5em; color: var(--marxy-color-text-secondary); opacity: 0; }
+/* The close shows on hover, on focus inside the tab, and always on the active tab; where there is no hover (touch) it always shows. */
+.marxy-tab:hover .marxy-tab-close, .marxy-tab:focus-within .marxy-tab-close, .marxy-tab[data-marxy-tab-active] .marxy-tab-close, .marxy-tab-close:focus-visible { opacity: 1; }
+@media (hover: none) { .marxy-tab-close { opacity: 1; } }
 .marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 var(--marxy-color-text-secondary); }
-.marxy-tab[data-marxy-tab-active] { background: var(--marxy-color-accent-wash); box-shadow: inset 0 -2px 0 var(--marxy-color-accent); }
+/* The active tab is the page's own ground, continuous with it, and heavier; no outline and no accent line. */
+.marxy-tab[data-marxy-tab-active] { background: var(--marxy-color-bg); font-weight: 600; box-shadow: none; }
+.marxy-tab[data-marxy-tab-active] > button:hover { background: none; }
 
 /* The inspector's content (W-09): a strip of tabs and the selected panel, in the `inspector` region's column. Layout only; W-04 owns the look.
    Nothing here changes the region's width, so the reading column does not move. A link's destination is text, never an anchor. */
