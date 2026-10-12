@@ -343,7 +343,7 @@ test('the foot says only what is true (U-06): the count is the index\'s, a refus
     await unfold(page);
     await drawn(page);
     const foot = () => page.evaluate(() => document.querySelector('[data-marxy-sidebar-foot]')?.textContent ?? null);
-    const indexCount = await page.evaluate(() => window.__marxyHandle.index.entries().length);
+    const indexCount = await page.evaluate(() => window.__marxyHandle.palette.feed.entries().length);
     // The foot's N is the index's own count; "watching" is claimed only while the index says a tree watch is live.
     const count = `${indexCount.toLocaleString('en-US')} ${indexCount === 1 ? 'document' : 'documents'} indexed`;
     const state = await page.evaluate(() => window.__marxyHandle.index.watchState());
@@ -378,6 +378,21 @@ test('the foot says only what is true (U-06): the count is the index\'s, a refus
       const now = await page.evaluate(() => window.__marxyHandle.index.watchState());
       await page.waitForFunction((want) => document.querySelector('[data-marxy-sidebar-foot]')?.textContent === want, now === 'live' ? `${count} \u00b7 watching` : count);
     }
+  });
+});
+
+test('the foot counts what the palette lists (U-06.1): a folder held twice is one document, not two', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: tenOpen.slice(0, 3) });
+    await unfold(page);
+    await drawn(page);
+    // The same files held under a second root (a nested or doubly-opened folder): the palette lists each path once.
+    // The index service holds all of `entries` (the harness walked /r); the palette is given five of them, each held under two roots.
+    const five = entries.slice(0, 5);
+    await page.evaluate((five) => window.__marxyHandle.palette.setIndexEntries([...five, ...five.map((e) => ({ ...e, root: '/r2' }))]), five);
+    const rows = await page.evaluate(() => window.__marxyHandle.palette.feed.entries().length);
+    assert.equal(rows, 5, 'the palette lists one row per path');
+    await page.waitForFunction((want) => (document.querySelector('[data-marxy-sidebar-foot]')?.textContent ?? '').startsWith(`${want} documents indexed`), rows);
   });
 });
 

@@ -115,7 +115,8 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     const focusKey = refocus ?? (document.activeElement as HTMLElement | null)?.dataset?.stop;
     const sections = sectionsNow();
     const library = libraryCommand() !== undefined;
-    const feedCount = handle.index.entries().length;
+    // The palette's own list (one entry per path, under the scope's cap), so the foot agrees with the palette and the library.
+    const feedCount = palette()?.feed.entries().length ?? 0;
     // What the tree watches are now (live or refused), not what was declared; a walk under way hides the count.
     const watching = handle.index.watchState();
     const indexing = handle.index.indexing();
