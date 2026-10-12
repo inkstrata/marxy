@@ -767,7 +767,7 @@ body[data-marxy-workspace="unfolded"] {
   --marxy-ws-inspector-w: 300px;
   --marxy-ws-toolbar-h: 52px;
   --marxy-ws-tabs-h: 34px;
-  --marxy-ws-strip-h: 32px;
+  --marxy-ws-strip-h: 40px;
   --marxy-ws-status-h: 26px;
   --marxy-ws-left: var(--marxy-ws-sidebar-w);
   --marxy-ws-right: var(--marxy-ws-inspector-w);
@@ -895,6 +895,8 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
    only the Read / Split / Source control keeps words, as one pill with a ring, the checked choice on the accent wash
    and set heavier so it is never colour alone. The title is two lines: the name over its folder. */
 .marxy-toolbar-glyph { display: inline-flex; flex: none; }
+/* The strip leads with the kind (U-09): capitals, 11px / 600, faint. The DOM keeps the kind's id; the case is drawn here. */
+.marxy-strip-kind { flex: none; margin-inline: 0.4em 0.6em; font-size: calc(var(--marxy-size-chrome) * 11 / 13); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--marxy-color-text-faint); user-select: none; }
 .marxy-toolbar-glyph svg { display: block; width: calc(var(--marxy-size-chrome) * 16 / 13); height: calc(var(--marxy-size-chrome) * 16 / 13); }
 .marxy-toolbar button:not([role="radio"]) { display: inline-flex; align-items: center; justify-content: center; gap: 0.3em; min-width: calc(var(--marxy-size-chrome) * 28 / 13); height: calc(var(--marxy-size-chrome) * 28 / 13); max-height: calc(var(--marxy-ws-toolbar-h, 52px) - 4px); padding: 0 0.4em; border-radius: 999px; }
 .marxy-toolbar [data-marxy-toolbar-item="copy"] { gap: 0; }

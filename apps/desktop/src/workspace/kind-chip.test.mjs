@@ -199,6 +199,15 @@ test('the strip holds exactly the tools of the kind\'s row whose commands exist,
     await openFile(page, '/r/plan.md');
     await settle(page);
     assert.deepEqual(await strip(page), { hidden: false, tools: ['changes'], arrangement: true });
+    // U-09: the kind leads (id in the DOM, capitals from CSS), each tool has a glyph and keeps its accessible name, the band is 40 px.
+    const look = await page.evaluate(() => {
+      const region = document.querySelector('[data-marxy-workspace-region="strip"]');
+      const lead = region.querySelector('.marxy-strip-kind');
+      const b = region.querySelector('button[data-tool="changes"]');
+      return { text: lead.textContent, transform: getComputedStyle(lead).textTransform, h: region.getBoundingClientRect().height, glyph: !!b.querySelector('svg'), name: b.getAttribute('aria-label'), customise: !!region.querySelector('[data-tool="customise"]') };
+    });
+    assert.deepEqual(look, { text: 'report', transform: 'uppercase', h: 40, glyph: true, name: look.name, customise: false });
+    assert.ok(look.name);
     await openFile(page, '/r/README.md');
     await settle(page);
     assert.deepEqual((await strip(page)).tools, ['outline']);

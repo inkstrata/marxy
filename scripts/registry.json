@@ -87,6 +87,7 @@
   ],
   "classes": [
     "marxy-toolbar-glyph",
+    "marxy-strip-kind",
     "marxy-toolbar-word",
     "marxy-toolbar-lines",
     "marxy-palette-field",
