@@ -3,6 +3,7 @@
 // with, a code point is the one at the caret. Nothing here interprets, scores or summarises. No DOM and no CodeMirror,
 // so a node test holds every rule.
 
+import type { Text } from '@codemirror/state';
 import { type Buffer, sourceTextOf, strayByteOf } from '@marxy/core';
 import { basename, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { documentName, isUntitled } from '../document/untitled.ts';
@@ -20,6 +21,17 @@ export function bytesLabel(n: number): string {
 /** "1 line", "89 lines". */
 export function linesLabel(n: number): string {
   return `${formatCount(n)} ${n === 1 ? 'line' : 'lines'}`;
+}
+
+/**
+ * The lines of a file as Source shows them: the rows of the editor's text, less the empty row after a final line break
+ * (that row is where the caret goes, not a line), and none at all for an empty file. The editor's own line separator
+ * decides what a row is, so a lone CR in a Mixed file is a character inside a line, as Source shows it (F-24).
+ */
+export function lineCountOf(doc: Pick<Text, 'lines' | 'line'>): number {
+  const rows = doc.lines;
+  if (doc.line(rows).length !== 0) return rows;
+  return rows - 1;
 }
 
 /** The path as quiet segments: every folder and then the file's own name; a scratch document is only its name. */

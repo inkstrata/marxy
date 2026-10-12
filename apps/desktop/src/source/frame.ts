@@ -30,6 +30,7 @@ import {
   formatCount,
   indentFact,
   lineEndingFact,
+  lineCountOf,
   linesLabel,
   pathSegments,
   strayReadout,
@@ -166,7 +167,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
     const doc = view?.state.doc;
     // A file that ends in a line break has the line count of the lines it ends; the empty row after it is not a line.
     const rows = doc?.lines ?? 1;
-    const lines = doc !== undefined && rows > 1 && doc.line(rows).length === 0 ? rows - 1 : rows;
+    const lines = doc !== undefined ? lineCountOf(doc) : rows;
     const endings = lineEndingFact(buffer.eol, rows);
     setText(endingsEl, endings?.label ?? '', endings?.title);
     const tab = view?.state.tabSize ?? 4;
