@@ -1,9 +1,7 @@
 // The island look (V-12.1): the in-place block editor inside Rendered keeps Rendered's code metrics, grid padding,
-// wrapping and ground, not Source's own (V-12, ADR-0067). Values are read from the token contract in the page.
+// and ground, not Source's own (V-12, ADR-0067). Values are read from the token contract in the page.
 import { strict as assert } from 'node:assert';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
