@@ -439,3 +439,25 @@ test('the real toolbar still fits with the sidebar toggle in it: at 929 px (the 
     assert.ok(fit.overflow <= 0, JSON.stringify(fit));
   }, { width: 1440 });
 });
+
+// --- ages (F-49) --------------------------------------------------------------------------------------------
+
+test('a row shows its age from a known time, and no age at all when the time is missing', async () => {
+  await withPage(async (page) => {
+    const index = [
+      entryOf('/r/a.md', { mtimeMs: Date.now() - 3 * 3_600_000 }),
+      entryOf('/r/c.md', { mtimeMs: 0 }),
+    ];
+    await boot(page, { open: ['/r/a.md', '/r/c.md'], index });
+    await unfold(page);
+    await drawn(page);
+    const ages = await page.evaluate(() =>
+      Object.fromEntries([...document.querySelectorAll('.marxy-sidebar [data-marxy-sidebar-row]')].map((r) => [
+        r.getAttribute('data-marxy-sidebar-row'),
+        { text: r.querySelector('.marxy-sidebar-age')?.textContent ?? null, label: r.getAttribute('aria-label') },
+      ])));
+    assert.equal(ages['/r/a.md'].text, '3h');
+    assert.equal(ages['/r/c.md'].text, null, 'a zero time shows no age');
+    assert.ok(!/ago/.test(ages['/r/c.md'].label), 'and none is spoken');
+  });
+});

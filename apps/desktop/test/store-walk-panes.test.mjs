@@ -208,6 +208,8 @@ function openSeed(seed) {
         const texts = everywhere(seen);
         return tokens.filter((t) => t.live && texts.some((x) => x.includes(t.text)));
       };
+      /** What an outside write replaces: the file's text and the text of a buffer nothing unsaved is in (the file may be gone, or changed unseen). */
+      const replacedBy = (s, path) => (s.files[path] ?? '') + '\n' + s.panes.filter((p) => p.path === path && !p.dirty && !s.panes.some((q) => q.storeIndex === p.storeIndex && q.unfolded)).map((p) => p.buffer ?? '').join('\n');
       /** After a step: whatever the step says it may drop, and then nothing else is missing. */
       const check = async (step, { mayDrop, announced = null, sourceUndone = null, noHeldApart = false, undoLanded = null } = {}) => {
         await settle(page);
@@ -555,7 +557,7 @@ function openSeed(seed) {
           async run(s) {
             const open = [...new Set(s.panes.map((p) => p.path))];
             const path = d.chance(0.85) ? d.pick(open) : d.pick(PATHS);
-            const old = s.files[path] ?? '';
+            const old = replacedBy(s, path);
             const announced = d.chance(0.85);
             const text = `${old}\nOUTSIDE ${nextOutside++}\n`;
             await page.evaluate(({ path, text, announced }) => window.__outside(path, text, announced ? undefined : []), { path, text, announced });
@@ -606,7 +608,7 @@ function openSeed(seed) {
             await settle(page);
             await tickTask(page, p.slot).catch(() => {});
             await settle(page);
-            const old = (await look(page)).files[p.path] ?? '';
+            const old = replacedBy(await look(page), p.path);
             await page.evaluate(({ path, text }) => window.__outside(path, text), { path: p.path, text: `${old}\nOUTSIDE ${nextOutside++}\n` });
             await settle(page);
             await focusPane(page, p.slot);

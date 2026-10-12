@@ -8,6 +8,9 @@ import { clipboard } from './clipboard.ts';
 
 const { BUNDLE_ID, CONCEALED, READABLE, SOURCE, TRANSIENT, checkWrite, shellError } = clipboard;
 
+/** A fixed, realistic file time (2023-11) for every memory-shell file: a stub of 1 read as 1970 and aged "56y" (F-49). */
+const MEMORY_MTIME_MS = 1_700_000_000_000;
+
 export type Call = {
   readonly method: string;
   readonly args: readonly unknown[];
@@ -172,9 +175,9 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
       const name = path.slice(path.lastIndexOf('/') + 1);
       if (deniedDir.has(name)) return null;
       const bytes = store.get(path);
-      if (bytes) return { path, isDir: false, size: bytes.byteLength, mtimeMs: 1 };
+      if (bytes) return { path, isDir: false, size: bytes.byteLength, mtimeMs: MEMORY_MTIME_MS };
       const prefix = `${path.replace(/\/$/, '')}/`;
-      for (const key of store.keys()) if (key.startsWith(prefix)) return { path, isDir: true, size: 0, mtimeMs: 1 };
+      for (const key of store.keys()) if (key.startsWith(prefix)) return { path, isDir: true, size: 0, mtimeMs: MEMORY_MTIME_MS };
       return null;
     },
     async readDir(dir) {
@@ -201,7 +204,7 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
           path: childPath,
           isDir,
           size: isDir ? 0 : bytes?.byteLength ?? 0,
-          mtimeMs: 1,
+          mtimeMs: MEMORY_MTIME_MS,
         });
       }
       return [...children.values()].sort((a, b) => a.path.localeCompare(b.path));

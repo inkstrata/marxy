@@ -150,3 +150,12 @@ test('an open or a save is a read: the file leaves Changed; only an open adds to
   assert.deepEqual(saved.mru, ['/w/a.md'], 'a save leaves the MRU alone');
   assert.deepEqual(paths(emptyStateSections(input(entries, saved))), [['recent', ['/w/a.md']]]);
 });
+
+test('relativeAge: a zero, negative or missing time has no age (F-49)', () => {
+  const now = 1_800_000_000_000;
+  assert.equal(relativeAge(now, now - 3_600_000), '1h');
+  assert.equal(relativeAge(now, 0), '');
+  assert.equal(relativeAge(now, -5), '');
+  assert.equal(relativeAge(now, undefined), '');
+  assert.equal(relativeAge(now, Number.NaN), '');
+});

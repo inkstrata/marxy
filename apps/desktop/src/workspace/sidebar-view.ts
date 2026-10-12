@@ -186,7 +186,7 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       button.setAttribute('data-marxy-sidebar-row', row.entry.path);
       button.title = row.entry.path;
       const age = relativeAge(now, row.entry.mtimeMs);
-      button.setAttribute('aria-label', `${row.entry.title}${MARK_WORDS[row.mark]}, ${spokenAge(age)}`);
+      button.setAttribute('aria-label', `${row.entry.title}${MARK_WORDS[row.mark]}${age === '' ? '' : `, ${spokenAge(age)}`}`);
       const kind = kindOf(row.entry);
       const name = document.createElement('span');
       name.className = 'marxy-sidebar-name';
@@ -195,7 +195,8 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       quiet.className = 'marxy-sidebar-age';
       quiet.textContent = age;
       quiet.setAttribute('aria-hidden', 'true');
-      button.append(kindIconElement(document, kind, kind === 'code' ? langOfPath(row.entry.path) : undefined), name, quiet);
+      button.append(kindIconElement(document, kind, kind === 'code' ? langOfPath(row.entry.path) : undefined), name);
+      if (age !== '') button.append(quiet);
       button.addEventListener('mousedown', (event) => event.preventDefault());
       button.addEventListener('click', (event) => openPath(row.entry.path, mac ? event.metaKey : event.ctrlKey));
       item.append(button);

@@ -257,3 +257,51 @@ test('recorded: unsaved is read across every pane of the document: a save from t
     assert.match(title, /•/, 'the title says there are unsaved changes');
   });
 });
+
+// ---- F-47: a file another program deletes and writes again ---------------------------------------------------
+// The panes walk (seed 90) reached a clean buffer whose file was deleted and written again by another program. A clean
+// buffer adopts the new bytes, as it does for an overwrite in place; a buffer with unsaved edits keeps them and holds the
+// change for a choice. These pin both, through the real watch.
+
+const THEIRS = '# Theirs\n\nWritten by another program after it deleted the file.\n';
+/** Waits for the app to have written `n` of the documents (its own index and history files are not counted). */
+const writesReach = (page, n) => page.waitForFunction((n) => window.__appWrites.filter((w) => w.path.startsWith('/r/')).length === n, n);
+const gone = (page, path) =>
+  page.evaluate((p) => {
+    window.__marxyHandle.shell.remove(p);
+    window.__marxyHandle.shell.emit([{ kind: 'removed', path: p }]);
+  }, path);
+
+test('F-47: unsaved edits survive the file being deleted and written again, and the change is held, not taken', async () => {
+  await withPanes(['/r/A.md'], async (page, mod) => {
+    await toSource(page, 0);
+    await typeAtLineEnd(page, 0, 1, 'Qz');
+    await page.evaluate(() => window.__marxyHandle.panes().panes[0].content.foldSource());
+    await gone(page, '/r/A.md');
+    await page.waitForFunction((t) => document.getElementById('marxy-notices').textContent.includes(t), REMOVED);
+    await outside(page, '/r/A.md', THEIRS);
+    await page.waitForFunction((t) => document.getElementById('marxy-notices').textContent.includes(t), KEPT);
+    assert.ok((await storeText(page, 0)).startsWith('# AlphaQz\n'), 'the edit is still in the buffer');
+    assert.ok((await editorText(page, 0)).startsWith('# AlphaQz\n'), 'and in the editor');
+    assert.equal(await disk(page, '/r/A.md'), THEIRS, 'the other program\'s file is not written over');
+    await page.keyboard.press(`${mod}+s`);
+    await page.waitForTimeout(400);
+    assert.equal(await disk(page, '/r/A.md'), THEIRS, 'a save is refused');
+    assert.deepEqual((await appWrites(page)).map((w) => w.path), [], 'nothing was written');
+  });
+});
+
+test('F-47: a clean buffer adopts the file written again after a delete, as it adopts an overwrite', async () => {
+  await withPanes(['/r/A.md'], async (page, mod) => {
+    await toSource(page, 0);
+    await typeAtLineEnd(page, 0, 1, 'Qz');
+    await page.keyboard.press(`${mod}+s`);
+    await writesReach(page, 1);
+    await gone(page, '/r/A.md');
+    await page.waitForFunction((t) => document.getElementById('marxy-notices').textContent.includes(t), REMOVED);
+    await outside(page, '/r/A.md', THEIRS);
+    await page.waitForFunction(() => document.getElementById('marxy-source').textContent.includes('Theirs'));
+    assert.equal(await storeText(page, 0), THEIRS);
+    assert.deepEqual((await texts(page, 0)).filter((t) => t.startsWith(KEPT)), [], 'nothing to choose over a clean buffer');
+  });
+});
