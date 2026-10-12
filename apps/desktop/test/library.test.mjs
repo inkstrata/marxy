@@ -227,7 +227,7 @@ test('a chip appears for kind:report, and its x removes the token and runs again
   });
 });
 
-test('an unknown key is an amber chip searched as text; is:dup says it is not available yet and matches nothing', async () => {
+test('an unknown key is an amber chip searched as text; is:archived says it is not available yet and matches nothing', async () => {
   await withPage(async (page) => {
     await unfold(page);
     await openLibrary(page);
@@ -239,9 +239,16 @@ test('an unknown key is an amber chip searched as text; is:dup says it is not av
     assert.equal(chip.flag, 'flagged');
     assert.match(chip.text, /searched as text/);
     assert.equal((await rowsOf(page)).length, 0, 'nothing is called model:x');
-    await type(page, 'is:dup');
+    await type(page, 'is:archived');
     chip = await page.evaluate(() => ({ text: document.querySelector('[data-marxy-query-chip]').textContent }));
     assert.match(chip.text, /not available yet/);
+    assert.equal((await rowsOf(page)).length, 0);
+    // Q-06: is:dup is a filter now, not a flagged chip (this fixture holds no near copies).
+    await type(page, 'is:dup');
+    await settle(page, 300);
+    chip = await page.evaluate(() => ({ flag: document.querySelector('[data-marxy-query-chip]').getAttribute('data-marxy-query-chip'), text: document.querySelector('[data-marxy-query-chip]').textContent }));
+    assert.doesNotMatch(chip.text, /not available yet/);
+    assert.equal(chip.flag, '');
     assert.equal((await rowsOf(page)).length, 0);
     await type(page, 'words:>');
     assert.match(await page.evaluate(() => document.querySelector('[data-marxy-query-chip]').textContent), /ignored/);
@@ -879,4 +886,127 @@ test('switching scope clears the query, and with it the name being asked for', a
     assert.equal(await saveButton(page).isVisible(), false, 'no query, no Save');
     assert.equal(await writesTo(page), 0);
   }, { data: { '/collection.toml': HAND } });
+});
+
+// --- Broken paths and near-duplicates (Q-06) ------------------------------------------------------------------------
+
+const entryFor = (path, text, over = {}) => ({
+  path,
+  root: '/r',
+  title: text.match(/^# (.*)$/m)?.[1] ?? path.split('/').pop(),
+  headings: [],
+  mtimeMs: Date.now() - 86_400_000,
+  size: new TextEncoder().encode(text).length,
+  kind: 'markdown',
+  readerKind: 'report',
+  ...over,
+});
+const BROKEN = '# Broken plan\n\nIt builds `src/app.ts` and `src/gone.ts`, and `nowhere/x.ts` is not checked.\n';
+/** The sidebar's built-ins run the same checks on their own: unfolded without it, every read below is the library's. */
+const unfoldBare = (page) => page.evaluate(() => window.__marxyHandle.workspace().unfold({ sidebar: false }));
+const callMark = (page) => page.evaluate(() => window.__marxyHandle.shell.calls.length);
+const callsAfter = (page, from, ...names) =>
+  page.evaluate(({ from, names }) => window.__marxyHandle.shell.calls.slice(from).filter((c) => names.includes(c.method)).map((c) => ({ method: c.method, path: c.args[0] })), { from, names });
+const checksDone = (page) => page.waitForFunction(() => {
+  const s = document.querySelector('.marxy-library-status')?.textContent ?? '';
+  return !/Checking|Comparing|Looking for/.test(s) && document.querySelector('.marxy-library-results')?.getAttribute('aria-busy') === 'false';
+}, undefined, { timeout: 30_000 });
+
+test('is:broken lists the file that names a missing path, with the path under its row; it opens with the Links tab', async () => {
+  await withPage(async (page) => {
+    await unfoldBare(page);
+    await openLibrary(page);
+    const mark = await callMark(page);
+    await type(page, 'is:broken');
+    await checksDone(page);
+    const rows = await rowsOf(page);
+    assert.deepEqual(rows.map((r) => r.path), ['/r/broken.md']);
+    assert.deepEqual(rows[0].why, ['is:broken (1 missing path)', 'missing: src/gone.ts'], 'the existing path and the unchecked one are not named');
+    assert.match(await page.evaluate(() => document.querySelector('.marxy-library-preview').textContent), /Missing paths\s*src\/gone\.ts/);
+    // Read with readHead, Markdown and text only; never readFile (which arms the stale-write guard); nothing written.
+    const reads = await callsAfter(page, mark, 'readHead', 'readFile', 'writeFileAtomic');
+    assert.equal(reads.filter((c) => c.method !== 'readHead' && c.path.startsWith('/r/')).length, 0, JSON.stringify(reads));
+    assert.ok(reads.some((c) => c.path === '/r/broken.md'));
+    assert.equal(reads.some((c) => c.path === '/r/src/app.ts'), false, 'a source file is not read for paths');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-inspector-tab="links"]')?.getAttribute('aria-selected') === 'true');
+    assert.deepEqual(await paths(page), ['/r/broken.md']);
+    await page.waitForFunction(() => document.querySelector('[data-marxy-link-row="path"] [data-marxy-link-status="not-found"]') !== null);
+  }, { data: { '/r/broken.md': BROKEN }, extraEntries: [entryFor('/r/broken.md', BROKEN)] });
+});
+
+const para2 = (seed, n = 45) => Array.from({ length: n }, (_, i) => `${seed}${(i * 7) % 97}w${i}`).join(' ');
+const plan = (changed) => ['# Plan', ...Array.from({ length: 12 }, (_, i) => para2(i === 5 && changed ? changed : `p${i}`))].join('\n\n');
+const PLANS = {
+  '/r/plans/plan.md': [plan(null), 3],
+  '/r/plans/plan v2.md': [plan('changed'), 1],
+  '/r/plans/plan (copy).md': [plan(null), 2],
+};
+const planData = Object.fromEntries(Object.entries(PLANS).map(([p, [t]]) => [p, t]));
+const planEntries = Object.entries(PLANS).map(([p, [t, age]]) => entryFor(p, t, { mtimeMs: Date.now() - age * 86_400_000 }));
+
+test('is:dup shows each group once, the newest as the row and the others folded under it; the threshold regroups; Compare opens the diff', async () => {
+  await withPage(async (page) => {
+    await unfoldBare(page);
+    await openLibrary(page);
+    const mark = await callMark(page);
+    await type(page, 'is:dup');
+    await checksDone(page);
+    let rows = await rowsOf(page);
+    assert.deepEqual(rows.map((r) => r.path), ['/r/plans/plan v2.md'], 'one row: the newest');
+    assert.equal(rows[0].why[0], 'is:dup (2 near copies)');
+    assert.match(rows[0].why[1], /^near copy: plans\/plan \(copy\)\.md \(9\d% alike\)$/);
+    assert.match(rows[0].why[2], /^near copy: plans\/plan\.md \(9\d% alike\)$/);
+    assert.match(await page.evaluate(() => document.querySelector('.marxy-library-status').textContent), /1 group of near copies, 3 files/);
+    // Only the three candidates were read for it (the fixture's other names are all different).
+    const read = (await callsAfter(page, mark, 'readHead')).map((c) => c.path);
+    assert.deepEqual([...new Set(read)].sort(), Object.keys(PLANS).sort());
+    // The banner's threshold: at 99 only the two identical files are copies, and nothing is read again.
+    const before = (await calls(page, 'readHead')).length;
+    assert.equal(await page.isVisible('select[aria-label="How alike near copies are, at least"]'), true);
+    await page.selectOption('select[aria-label="How alike near copies are, at least"]', '99');
+    await settle(page);
+    rows = await rowsOf(page);
+    assert.deepEqual(rows.map((r) => [r.path, r.why]), [['/r/plans/plan (copy).md', ['is:dup (1 near copy)', 'near copy: plans/plan.md (100% alike)']]]);
+    assert.equal((await calls(page, 'readHead')).length, before);
+    await page.selectOption('select[aria-label="How alike near copies are, at least"]', '85');
+    await settle(page);
+    // Compare: the older copy against the newer, as E-17's diff in a scratch document.
+    await page.click('.marxy-library-preview button[aria-label^="Compare Plan with plans/plan.md"]');
+    await page.waitForFunction(() => !document.querySelector('[data-marxy-library]'));
+    await page.waitForFunction(() => /Changes in plan v2\.md/.test(document.getElementById('doc')?.textContent ?? ''));
+    const text = await page.evaluate(() => document.getElementById('doc').textContent.replace(/\u00ad/g, '').replace(/\s+/g, ' '));
+    assert.match(text, /from plan\.md \(older\) to plan v2\.md \(newer\)/);
+    assert.deepEqual((await calls(page, 'writeFileAtomic')).filter((c) => c.path.startsWith('/r/')), [], 'none of the reader\'s files written (Marxy\'s own state under /data is)');
+  }, { data: planData, extraEntries: planEntries });
+});
+
+test('is:dup over 5,000 files reads only the candidate files, and the page keeps answering while it runs', async () => {
+  const many = Array.from({ length: 5000 }, (_, i) => entryFor(`/r/many/note-${i}x.md`, `# Note ${i}x\n\nwords\n`));
+  await withPage(async (page) => {
+    await unfoldBare(page);
+    await openLibrary(page);
+    const mark = await callMark(page);
+    // A probe: the longest the page went without running a 10 ms timer, from the keystroke to the answer.
+    await page.evaluate(() => {
+      window.__gap = 0;
+      let last = performance.now();
+      window.__probe = setInterval(() => {
+        const now = performance.now();
+        window.__gap = Math.max(window.__gap, now - last);
+        last = now;
+      }, 10);
+    });
+    await type(page, 'is:dup');
+    await checksDone(page);
+    const gap = await page.evaluate(() => {
+      clearInterval(window.__probe);
+      return window.__gap;
+    });
+    const read = [...new Set((await callsAfter(page, mark, 'readHead')).map((c) => c.path))];
+    assert.deepEqual(read.sort(), Object.keys(PLANS).sort(), 'the three plans, and none of the 5,000 notes');
+    assert.equal((await rowsOf(page)).length, 1);
+    assert.ok(gap < 400, `the page went ${gap.toFixed(0)} ms without a turn`);
+  }, { data: planData, extraEntries: [...planEntries, ...many] });
 });

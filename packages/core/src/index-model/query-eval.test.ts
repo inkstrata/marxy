@@ -19,6 +19,10 @@ import {
   type LineMatches,
   type Measured,
   type QueryContext,
+  usesChecks,
+  groupsCopies,
+  CHECKED_STATUSES,
+  UNAVAILABLE_STATUSES,
 } from './index.ts';
 import { hasLink } from './query-eval.ts';
 
@@ -131,12 +135,58 @@ test('is: statuses; the unavailable ones parse and match nothing', () => {
   assert.deepEqual(run('is:pinned'), ['/r/notes/standup.md']);
   assert.deepEqual(run('is:recent'), ['/r/README.md', '/r/notes/standup.md']);
   assert.deepEqual(run('is:pinned,changed'), ['/r/plans/cache.md', '/r/notes/standup.md']);
-  for (const v of ['dup', 'broken', 'archived', 'error', 'captured']) {
+  for (const v of ['archived', 'error', 'captured']) {
     assert.deepEqual(run(`is:${v}`), [], `is:${v} matches nothing`);
     assert.equal(run(`-is:${v}`).length, FIXTURE.length, `-is:${v} excludes nothing`);
     assert.equal(termNote(parseQuery(`is:${v}`).groups[0]![0]!), 'not available yet');
   }
   assert.equal(termNote(parseQuery('is:changed').groups[0]![0]!), null);
+});
+
+test('is:dup and is:broken are available (Q-06): no "not available yet", and they wait for their checks', () => {
+  for (const v of ['dup', 'broken']) {
+    assert.equal(termNote(parseQuery(`is:${v}`).groups[0]![0]!), null, `is:${v} is not flagged`);
+    assert.ok(!UNAVAILABLE_STATUSES.includes(v));
+    assert.ok(CHECKED_STATUSES.includes(v));
+    // Without the check's answer nothing is decided: every hit waits, as a content key's does.
+    const hits = evaluateQuery(parseQuery(`is:${v}`), FIXTURE, ctx());
+    assert.equal(hits.length, FIXTURE.length);
+    assert.ok(hits.every((h) => h.unmeasured), `is:${v} waits for its check`);
+    // The index keys alone leave every file for the check to look at.
+    assert.equal(indexCandidates(parseQuery(`is:${v} kind:report`), FIXTURE, ctx()).length, 2);
+  }
+  assert.deepEqual(usesChecks(parseQuery('is:dup kind:report')), { dup: true, broken: false });
+  assert.deepEqual(usesChecks(parseQuery('-is:broken OR is:pinned')), { dup: false, broken: true });
+  assert.deepEqual(usesChecks(parseQuery('is:changed words')), { dup: false, broken: false });
+  assert.equal(groupsCopies(parseQuery('is:dup')), true);
+  assert.equal(groupsCopies(parseQuery('-is:dup')), false);
+});
+
+test('is:broken matches the files the check found, each missing path a reason; -is:broken the rest', () => {
+  const broken = new Map([['/r/README.md', ['src/gone.ts', 'docs/old.md']]]);
+  assert.deepEqual(run('is:broken', { broken }), ['/r/README.md']);
+  assert.equal(run('-is:broken', { broken }).length, FIXTURE.length - 1);
+  assert.deepEqual(hitOf('is:broken', '/r/README.md', { broken })!.why, [
+    { kind: 'field', label: 'is:broken', detail: '2 missing paths' },
+    { kind: 'missing', path: 'src/gone.ts' },
+    { kind: 'missing', path: 'docs/old.md' },
+  ]);
+  assert.deepEqual(run('is:broken', { broken: new Map() }), [], 'a check that found nothing matches nothing');
+  assert.deepEqual(run('is:broken,pinned', { broken }), ['/r/README.md', '/r/notes/standup.md'], 'any of');
+});
+
+test('is:dup matches the files in a group, each other member a reason with its similarity', () => {
+  const dups = new Map([
+    ['/r/plans/cache.md', { group: '/r/plans/cache.md', copies: [{ path: '/r/plans/archive/old-cache.md', similarity: 91 }] }],
+    ['/r/plans/archive/old-cache.md', { group: '/r/plans/cache.md', copies: [{ path: '/r/plans/cache.md', similarity: 91 }] }],
+  ]);
+  assert.deepEqual(run('is:dup', { dups }), ['/r/plans/cache.md', '/r/plans/archive/old-cache.md']);
+  assert.equal(run('-is:dup', { dups }).length, FIXTURE.length - 2);
+  assert.deepEqual(hitOf('is:dup', '/r/plans/cache.md', { dups })!.why, [
+    { kind: 'field', label: 'is:dup', detail: '1 near copy' },
+    { kind: 'copy', path: '/r/plans/archive/old-cache.md', rel: 'archive/old-cache.md', similarity: 91 },
+  ]);
+  assert.deepEqual(run('is:dup kind:readme', { dups }), [], 'and the other terms still hold');
 });
 
 test('is:read and is:unread follow the read time against the modification time', () => {

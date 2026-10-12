@@ -189,7 +189,17 @@ missing or malformed value (`words:>`) is an `incomplete` term that filters noth
 suggests keys and values at a caret. Ages: `mo` is 30 days and `y` is 365 days. A comparison key (`modified:`, `words:`, `tasks:`, `size:`) takes
 one value; a comma makes the term `incomplete`. Keys are case-insensitive while `OR` is case-sensitive
 (`or` is a word). `kind:` and `path:` values keep their case as written; how they match is Q-03's to decide.
-Completion replaces only up to the caret. Evaluating a query against the index is Q-03. A saved query (§Collections) is stored as written and parsed by this same function when it runs.
+Completion replaces only up to the caret. Evaluating a query against the index is Q-03. `is:dup` and `is:broken` (Q-06) are answered by the library's checks (`apps/desktop/src/library/checks.ts`), run on
+request when a query or a sidebar built-in asks, never at index time, and kept in memory for the session; nothing is added to
+`IndexEntry` or the snapshot (ADR-0012: no contents). `is:dup` pairs files from the index alone (`near-dup.ts`: the same name
+once copy marks such as ` v2`, ` (copy)`, `-2` are taken off, or the same title, sizes within a factor of two, at most six
+others per file nearest in size; the palette's folded worktree copies are one file), reads only those candidates, and scores
+each pair by shared three-word shingles (Dice, 0 to 100); pairs at or above the threshold (85 by default, 60 to 99 in the
+library's banner for the session) join into groups, shown newest first with the others folded under it. `is:broken`
+(`broken-paths.ts`) reads the Markdown and text files the other terms leave, takes the paths their prose names
+(`pathMentions`) and resolves each by the Links tab's rule (`resolveMentioned`): missing only when every folder above it is a
+listed one, otherwise not checked and never broken. Both read with `readHead` (256 KB a file, 128 MB a run) and `stat`, and
+never write. A saved query (§Collections) is stored as written and parsed by this same function when it runs.
 
 ## Tests
 

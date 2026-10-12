@@ -4,7 +4,7 @@
 import type { Kind } from '@marxy/core/src/contracts/kinds.ts';
 import type { IndexEntry } from '@marxy/core';
 import { pathUnder, basename } from '@marxy/core/src/index-model/paths.ts';
-import type { QueryHit, Reason } from '@marxy/core/src/index-model/query-eval.ts';
+import type { DupFacts, QueryHit, Reason } from '@marxy/core/src/index-model/query-eval.ts';
 import { relativeAge, spokenAge } from '../palette/empty-state.ts';
 
 /** A row shows at most this many reason lines, one line each; the last of them says how many more there were. */
@@ -18,6 +18,8 @@ export function reasonLine(r: Reason): string {
     case 'heading': return `heading "${r.text}"`;
     case 'line': return `line ${r.line}: ${r.preview.trim()}`;
     case 'field': return r.detail === undefined ? r.label : `${r.label} (${r.detail})`;
+    case 'missing': return `missing: ${r.path}`;
+    case 'copy': return `near copy: ${r.rel}${r.similarity === null ? '' : ` (${r.similarity}% alike)`}`;
   }
 }
 
@@ -83,6 +85,24 @@ export function libraryRow(hit: QueryHit, ctx: RowContext): LibraryRow {
     why: whyLines(hit.why),
     entry,
   };
+}
+
+/**
+ * Near copies shown as groups (Q-06): of the hits in one group, only the newest is a row, and the others are folded under it
+ * (its reasons name them, "near copy: plan v2.md (91% alike)"). The order of `hits` is kept; a hit in no group stays.
+ */
+export function foldCopies(hits: readonly QueryHit[], dups: ReadonlyMap<string, DupFacts>): QueryHit[] {
+  const shown = new Map<string, QueryHit>();
+  for (const h of hits) {
+    const group = dups.get(h.entry.path)?.group;
+    if (group === undefined) continue;
+    const held = shown.get(group);
+    if (held === undefined || h.entry.mtimeMs > held.entry.mtimeMs || (h.entry.mtimeMs === held.entry.mtimeMs && h.entry.path < held.entry.path)) shown.set(group, h);
+  }
+  return hits.filter((h) => {
+    const group = dups.get(h.entry.path)?.group;
+    return group === undefined || shown.get(group) === h;
+  });
 }
 
 export type SortKey = 'relevance' | 'modified' | 'name' | 'path' | 'opened';

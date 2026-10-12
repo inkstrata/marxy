@@ -11,7 +11,7 @@
 // scope reaches it, exactly as in the palette. Nothing here reads the disk to find it.
 import type { IndexEntry } from '@marxy/core';
 import type { SavedQuery } from '@marxy/core/src/index-model/collection.ts';
-import { capQuery, evaluateQuery, parseQuery, textTerms, usesContentKeys, type Query, type QueryContext } from '@marxy/core/src/index-model/index.ts';
+import { capQuery, evaluateQuery, parseQuery, textTerms, usesChecks, usesContentKeys, type Query, type QueryContext } from '@marxy/core/src/index-model/index.ts';
 import { SIDEBAR_SECTION_IDS, type SidebarSectionId } from '@marxy/core/src/layout/workspace-storage.ts';
 import { CONTENT_MIN_CHARS } from '../palette/content.ts';
 import { emptyStateSections, type EmptyStateInput } from '../palette/empty-state.ts';
@@ -77,6 +77,12 @@ export function queryContext(input: ScopeInput): QueryContext {
   };
 }
 
+/** Only reading files can answer the query: words searched in lines, a content key, or a check (`is:dup`, `is:broken`, Q-06). */
+function needsFiles(query: Query): boolean {
+  const checks = usesChecks(query);
+  return usesContentKeys(query) || checks.dup || checks.broken || textTerms(query).some((t) => t.text.length >= CONTENT_MIN_CHARS);
+}
+
 /**
  * How many files a saved query matches among all the files, or null when the index cannot say. The count is the library's
  * first answer to the same query over *All files* (index keys, before any file is read). A query that searches the lines
@@ -85,7 +91,7 @@ export function queryContext(input: ScopeInput): QueryContext {
  */
 export function indexOnlyCount(q: string, input: ScopeInput): number | null {
   const { query } = capQuery(parseQuery(q));
-  if (usesContentKeys(query) || textTerms(query).some((t) => t.text.length >= CONTENT_MIN_CHARS)) return null;
+  if (needsFiles(query)) return null;
   return evaluateQuery(query, scopeEntries('all', input), queryContext(input)).filter((hit) => !hit.unmeasured).length;
 }
 
@@ -209,8 +215,7 @@ export class SmartCounts {
   private planOf(q: string): Query | null {
     if (!this.plans.has(q)) {
       const { query } = capQuery(parseQuery(q));
-      const needsFiles = usesContentKeys(query) || textTerms(query).some((t) => t.text.length >= CONTENT_MIN_CHARS);
-      this.plans.set(q, needsFiles ? null : query);
+      this.plans.set(q, needsFiles(query) ? null : query);
     }
     return this.plans.get(q)!;
   }
