@@ -11,7 +11,7 @@ import { WORKSPACE_REGIONS } from '@marxy/core/src/layout/workspace-storage.ts';
 import { launchWebkit } from '../../../../scripts/playwright-webkit.mjs';
 import { bootTwoPanes, closeHarness } from '../../test/support/two-pane.mjs';
 import { PANE_CHORDS, paneChordFor } from '../pane/keys.ts';
-import { INSPECTOR_MIN_WINDOW, arrangementFor } from './state.ts';
+import { INSPECTOR_MIN_WINDOW, NARROW_WINDOW, arrangementFor } from './state.ts';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -206,6 +206,138 @@ test('U-01: the bands reach the window edge, no region shows empty, and the colu
     const peeked = await page.evaluate(() => window.__marxyHandle.workspace().peek('sidebar'));
     if (peeked) same(await column(page), 'a sidebar peek');
   });
+});
+
+/** A region's box and whether it is drawn (docked, filled and not display: none). */
+const regionBox = (page, name) =>
+  page.evaluate((n) => {
+    const el = document.querySelector(`[data-marxy-workspace-region="${n}"]`);
+    const r = el.getBoundingClientRect();
+    return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, drawn: !el.hidden && getComputedStyle(el).display !== 'none' && r.width > 0 };
+  }, name);
+const panes = (page) =>
+  page.evaluate(() => {
+    const r = document.getElementById('marxy-main').getBoundingClientRect();
+    return { left: r.left, right: r.right, width: r.width, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+  });
+const setPanels = (page, sidebar, inspector) =>
+  page.evaluate(([s, i]) => {
+    const ws = window.__marxyHandle.workspace();
+    ws.setPanel('sidebar', s);
+    ws.setPanel('inspector', i);
+  }, [sidebar, inspector]);
+
+// U-01's review: the sidebar-off/inspector-on, Split and narrow states were never measured, and a deliberately asymmetric grid passed.
+for (const [name, width, open] of [['one pane', 1440, ['/r/A.md']], ['two panes (Split)', 1900, ['/r/A.md', '/r/B.md']]]) {
+  test(`U-08: ${name}, the panes stay centred (and one pane's column is where it is folded) in all four arrangements of the two side panels`, async () => {
+    const browser = await launchWebkit();
+    try {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await bootTwoPanes(page, { files, open });
+      if (open.length > 1) assert.equal(await page.evaluate(() => document.getElementById('marxy-main').hasAttribute('data-marxy-split')), true, 'a split is showing');
+      const folded = await column(page);
+      await unfold(page);
+      for (const [sidebar, inspector] of [[true, false], [false, true], [true, true], [false, false]]) {
+        await setPanels(page, sidebar, inspector);
+        await page.waitForTimeout(50);
+        assert.equal((await regionBox(page, 'inspector')).drawn, inspector, `the inspector is ${inspector ? 'drawn' : 'away'}`);
+        assert.equal((await regionBox(page, 'sidebar')).drawn, sidebar, `the sidebar is ${sidebar ? 'drawn' : 'away'}`);
+        const main = await panes(page);
+        assert.ok(Math.abs(main.left + main.right - width) < 1, `the panes are centred on the window (${main.left}..${main.right}), sidebar ${sidebar}, inspector ${inspector}, ${name}`);
+        if (open.length === 1) {
+          const got = await column(page);
+          assert.equal(got.x, folded.x, `x, sidebar ${sidebar}, inspector ${inspector}, ${name}`);
+          assert.equal(got.width, folded.width, `width, sidebar ${sidebar}, inspector ${inspector}, ${name}`);
+        }
+      }
+    } finally {
+      await browser.close();
+    }
+  });
+}
+
+test('U-08: at 760 px the sidebar is not docked, the right reserve is zero and the panes take the window', async () => {
+  await withPage(760, async (page) => {
+    const folded = await column(page);
+    await unfold(page);
+    await page.waitForTimeout(50);
+    const arrangement = await page.evaluate(() => window.__marxyHandle.workspace().arrangement);
+    assert.equal(arrangement.sidebar, false, 'the sidebar is not docked by default below 900 px');
+    assert.equal((await regionBox(page, 'sidebar')).drawn, false);
+    const p = await panes(page);
+    assert.equal(p.left, 0);
+    assert.equal(p.right, 760, 'no reserve on the right');
+    assert.ok(p.width >= 700, `the panes are ${p.width} px wide (448 before)`);
+    assert.ok(p.overflow <= 0, 'nothing runs off the window');
+    const got = await column(page);
+    assert.equal(got.x, folded.x, 'the column is where it is folded');
+    assert.equal(got.width, folded.width);
+    const title = await page.evaluate(() => {
+      const el = document.querySelector('.marxy-toolbar [data-marxy-toolbar-item="title"]');
+      return el ? getComputedStyle(el).display : 'absent';
+    });
+    assert.ok(title === 'none' || title === 'absent', `the toolbar has dropped its title (${title})`);
+    // The reader docks the sidebar at this width: it is honoured, and still nothing is reserved on the right.
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('sidebar', true));
+    await page.waitForTimeout(400);
+    const docked = await panes(page);
+    assert.equal(docked.left, 252, 'the docked sidebar takes its 252 px');
+    assert.equal(docked.right, 760, 'and the right is still the window edge');
+    assert.ok(docked.overflow <= 0, 'nothing runs off the window once the lines are set to the new width');
+  });
+});
+
+test('U-08: a docked inspector lies over the page at 760 px, moves nothing, and is never over Source', async () => {
+  await withPage(760, async (page) => {
+    await unfold(page);
+    const before = await panes(page);
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
+    const inspector = await regionBox(page, 'inspector');
+    assert.equal(inspector.drawn, true, 'the inspector is drawn over the page');
+    assert.equal(inspector.right, 760);
+    assert.ok(inspector.top > 0, 'under the bands');
+    assert.deepEqual(await panes(page), before, 'the panes did not move for it');
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${mod}+KeyE`);
+    await page.waitForSelector('.cm-editor');
+    assert.equal((await regionBox(page, 'inspector')).drawn, false, 'not over Source');
+    assert.deepEqual(await panes(page), before, 'Source has the same panes');
+  });
+});
+
+test('U-08: the narrow default is not the reader\'s choice: widening brings the sidebar back, and a choice made narrow stays', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 760, height: 900 } });
+    await bootTwoPanes(page, { files, open: ['/r/A.md'] });
+    const sidebar = () => page.evaluate(() => window.__marxyHandle.workspace().arrangement.sidebar);
+    await unfold(page);
+    assert.equal(await sidebar(), false, 'narrow: undocked');
+    await fold(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await unfold(page);
+    assert.equal(await sidebar(), true, 'widened: the default was not remembered as a choice');
+    await fold(page);
+    await page.setViewportSize({ width: 760, height: 900 });
+    await unfold(page);
+    assert.equal(await sidebar(), true, 'narrowed again: the remembered choice is honoured');
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('sidebar', false));
+    await fold(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await unfold(page);
+    assert.equal(await sidebar(), false, 'a sidebar the reader undocked stays undocked when widening');
+  } finally {
+    await browser.close();
+  }
+});
+
+plain('the narrow line is the stylesheet\'s line', () => {
+  assert.equal(NARROW_WINDOW, 900);
+  assert.match(repo('packages/theme/src/base.css'), new RegExp(`@media \\(max-width: ${NARROW_WINDOW - 0.02}px\\)`));
+  const narrow = arrangementFor({}, NARROW_WINDOW - 1);
+  assert.equal(narrow.sidebar, false);
+  assert.equal(arrangementFor({}, NARROW_WINDOW).sidebar, true);
+  assert.equal(arrangementFor({ sidebar: true }, 760).sidebar, true, 'what was remembered wins');
 });
 
 test('at the two-column floor the column still holds its 45 characters unfolded', async () => {

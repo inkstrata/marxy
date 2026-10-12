@@ -796,6 +796,29 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
   height: var(--marxy-ws-status-h);
   border-block-start-width: 1px;
 }
+/* The narrow window (U-08; Q18). Below 900 px (`NARROW_WINDOW` in workspace/state.ts, which leaves the sidebar undocked by
+   default) the right reserve is zero: the panes take the window less the sidebar, when the reader docked it (the measure gives way, the page never runs off). The inspector
+   no longer has a column; docked, it lies over the page's right edge, under the bands, and never over Source or Split, where
+   it is not drawn. The toolbar drops its title before any control. Above 900 px none of this applies. */
+@media (max-width: 899.98px) {
+  body[data-marxy-workspace="unfolded"] {
+    grid-template-columns: minmax(0, var(--marxy-ws-left)) minmax(0, 1fr) 0;
+    --marxy-ws-band-to: -1;
+  }
+  body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="inspector"]:not([hidden])) { --marxy-ws-band-to: -1; }
+  body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="inspector"] {
+    position: fixed;
+    top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h));
+    right: 0;
+    bottom: var(--marxy-ws-status-h);
+    height: auto;
+    width: var(--marxy-ws-inspector-w);
+    max-width: 90vw;
+    box-shadow: var(--marxy-shadow-surface);
+  }
+  body[data-marxy-workspace="unfolded"][data-marxy-mode="source"] > [data-marxy-workspace-region="inspector"],
+  body[data-marxy-workspace="unfolded"]:has(#marxy-main[data-marxy-split]) > [data-marxy-workspace-region="inspector"] { display: none; }
+}
 /* The toolbar (W-05 layout, W-04 states). A row in the toolbar region on the chrome face; the controls are bare until
    they have a state, and every state is drawn from the surface roles (text, text-secondary, accent and the accent
    wash on the surface), so each pair is one the contrast gate already holds: hover is the selection ground, checked
@@ -845,6 +868,7 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
 .marxy-toolbar-name { font-weight: 650; }
 .marxy-toolbar-folder { font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-secondary); }
 .marxy-toolbar [data-marxy-toolbar-item="title"] { gap: 6px; }
+@media (max-width: 899.98px) { .marxy-toolbar [data-marxy-toolbar-item="title"] { display: none; } }
 /* The tab row (W-06 layout; W-04 owns the look). One row in the `tabs` region, a tab per document opened since the window
    unfolded: the kind's glyph, the name and the unsaved dot, and a close button. The row fills the band's height and
    never wraps; when the tabs do not fit (a narrow window, chrome_size 26, many documents) each shrinks to a floor of

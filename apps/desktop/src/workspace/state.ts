@@ -21,11 +21,19 @@ export type WorkspaceMode = 'folded' | 'unfolded';
  */
 export const INSPECTOR_MIN_WINDOW = 1600;
 
+/**
+ * Below this width the sidebar is not docked by default (U-08, Q18): it would leave the panes a column the measure does not
+ * fit in. The stylesheet's narrow rule (`max-width: 899.98px`) is the same line. The reader's own choice, made at any width,
+ * is remembered and wins.
+ */
+export const NARROW_WINDOW = 900;
+
 /** The arrangement to show: what was remembered, else each region's default for a window of `windowWidth`. */
 export function arrangementFor(remembered: RememberedPanels, windowWidth: number): Arrangement {
   const out = {} as Record<WorkspaceRegion, boolean>;
   for (const name of WORKSPACE_REGIONS) {
-    out[name] = remembered[name] ?? (name === 'inspector' ? windowWidth >= INSPECTOR_MIN_WINDOW : true);
+    const wide = name === 'inspector' ? windowWidth >= INSPECTOR_MIN_WINDOW : name === 'sidebar' ? windowWidth >= NARROW_WINDOW : true;
+    out[name] = remembered[name] ?? wide;
   }
   return out;
 }
@@ -33,7 +41,7 @@ export function arrangementFor(remembered: RememberedPanels, windowWidth: number
 /** Where the remembered panels live: `load` once, at the first unfold; `save` at fold. */
 export interface WorkspaceStore {
   load(): Promise<RememberedPanels>;
-  save(panels: Arrangement): Promise<void>;
+  save(panels: RememberedPanels): Promise<void>;
   /** The sidebar's folded sections (W-07): read the first time the sidebar is drawn, written when the reader folds one. */
   loadSections(): Promise<SidebarState>;
   saveSections(sidebar: SidebarState): Promise<void>;
@@ -152,6 +160,8 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
   let mode: WorkspaceMode = 'folded';
   let arrangement: Arrangement | null = null;
   let remembered: RememberedPanels | null = null;
+  /** The sidebar is undocked only because the window was narrow, not because the reader said so: it is not remembered (U-08). */
+  let sidebarByDefault = false;
   /** The sidebar's folded sections: read with the panels at the first unfold, or by the sidebar if it is drawn first (a peek). */
   let sections: SidebarState | null = null;
   let regions: ReadonlyMap<WorkspaceRegion, HTMLElement> = new Map();
@@ -214,11 +224,19 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
 
   const key = (a: Arrangement): string => JSON.stringify(WORKSPACE_REGIONS.map((name) => a[name]));
 
+  /** What to remember: the arrangement, less a sidebar that only the narrow default left undocked. */
+  function toRemember(a: Arrangement): RememberedPanels {
+    const { sidebar, ...rest } = a;
+    return sidebarByDefault ? rest : { ...rest, sidebar };
+  }
+
   async function persist(): Promise<void> {
-    if (!store || !arrangement || key(arrangement) === written) return;
-    written = key(arrangement);
+    if (!store || !arrangement) return;
+    const next = JSON.stringify(toRemember(arrangement));
+    if (next === written) return;
+    written = next;
     try {
-      await store.save(arrangement);
+      await store.save(toRemember(arrangement));
     } catch (error) {
       written = '';
       console.warn(`marxy: the workspace panels could not be saved: ${String(error)}`);
@@ -252,6 +270,7 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     }
     unpeekNow();
     arrangement = { ...arrangementFor(remembered, deps.windowWidth()), ...override };
+    sidebarByDefault = remembered.sidebar === undefined && override?.sidebar === undefined && !arrangement.sidebar;
     regions = mountRegions(body, main, arrangement);
     for (const [name, list] of fills) {
       const el = regions.get(name);
@@ -270,7 +289,7 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     regions = new Map();
     body.removeAttribute('data-marxy-workspace');
     mode = 'folded';
-    remembered = arrangement ?? {};
+    remembered = arrangement ? toRemember(arrangement) : {};
     emit();
     await persist();
   }
@@ -293,6 +312,7 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     setPanel(name, open) {
       if (mode !== 'unfolded' || !arrangement || arrangement[name] === open) return;
       arrangement = { ...arrangement, [name]: open };
+      if (name === 'sidebar') sidebarByDefault = false;
       setRegionOpen(regions, name, open);
       settleEmpty();
     },
