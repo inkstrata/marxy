@@ -6,7 +6,10 @@
 // page without the fault it reports none; and two runs over the real render entry give an identical
 // probe.json. Needs Playwright WebKit, like packages/theme/test/layout.test.mjs.
 import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { defaultThemeCss } from '../packages/theme/scripts/inline.mjs';
@@ -19,6 +22,7 @@ const skip =
     : false;
 const test = (name, a, b) => (b ? nodeTest(name, { skip, ...a }, b) : nodeTest(name, { skip }, a));
 
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 let browser;
 before(async () => {
   if (!skip) browser = await launchWebkit();
@@ -299,6 +303,27 @@ test('two runs over the render entry produce an identical probe.json', { timeout
   }
   assert.ok(dumps[0].length > 10_000, 'the probe measured nothing');
   assert.equal(dumps[0], dumps[1]);
+});
+
+test('one measurement assembles to one probe.json even when the ref it is labelled with moves meanwhile', { timeout: 300_000 }, async () => {
+  // The cause of the determinism test's load flake (F-56): assemble() asked git for origin/main and HEAD each time, a run
+  // is minutes long under load, and another session's fetch or commit in between changed ref.sha in the second file.
+  const git = (...a) => spawnSync('git', a, { cwd: root, encoding: 'utf8' });
+  const name = `refs/marxy-test/probe-moving-ref-${process.pid}`;
+  const [first, second] = git('rev-list', '--max-count=2', 'HEAD').stdout.trim().split('\n');
+  assert.ok(second, 'the repository needs two commits for a ref to move between');
+  const opts = { ...DEFAULTS, ref: name, files: ['01-long-technical.md'], widths: [960], sizes: [20], variants: ['dark'], scrollbars: ['overlay'], workers: 1, png: false, browser };
+  const rr = await run(opts);
+  try {
+    git('update-ref', name, first);
+    const a = JSON.stringify(assemble(opts, rr));
+    git('update-ref', name, second);
+    const b = JSON.stringify(assemble(opts, rr));
+    assert.equal(b, a);
+  } finally {
+    git('update-ref', '-d', name);
+    rr.harness.close();
+  }
 });
 
 // ---- Controls added in L-02.1: the right edge of body text, and the per-kind spacing survey.

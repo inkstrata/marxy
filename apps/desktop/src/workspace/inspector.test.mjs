@@ -40,18 +40,27 @@ async function withPage(width, fn, { open = ['/r/Notes.md'], dock = true, unfold
     await bootTwoPanes(page, { files, open });
     if (unfold) await page.evaluate(() => window.__marxyHandle.workspace().unfold());
     if (unfold && dock) await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
-    if (unfold) await settle(page);
+    // The Links rows are drawn on the app's own signal, not synchronously: wait for the first row, not for a while.
+    if (unfold && dock) await page.waitForSelector('.marxy-links [data-marxy-link-row]');
     await fn(page);
   } finally {
     await browser.close();
   }
 }
 
-const settle = (page) => page.evaluate(() => new Promise((r) => setTimeout(r, 120)));
-const openFile = async (page, path) => {
+// Two animation frames: whatever the last action scheduled for the next paint has run. Counts frames, not milliseconds.
+const frames = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+// Opens `path` and waits until the Links tab shows what that document holds (`ready` runs in the page), not for a while.
+const openFile = async (page, path, ready) => {
   await page.evaluate((p) => window.__marxyHandle.open(p), path);
-  await settle(page);
+  await page.waitForFunction(ready);
 };
+// Every path row drawn (n of them) and none still checking. A bare "none is checking" is true before the rows exist.
+const pathsChecked = (page, n) =>
+  page.waitForFunction((count) => {
+    const s = [...document.querySelectorAll('[data-marxy-link-row=path] .marxy-link-status')];
+    return s.length === count && s.every((x) => x.textContent !== 'checking');
+  }, n);
 const tabsOf = (page) => page.evaluate(() => [...document.querySelectorAll('[data-marxy-inspector-tab]')].map((t) => t.getAttribute('data-marxy-inspector-tab')));
 const rowsOf = (page) =>
   page.evaluate(() =>
@@ -71,7 +80,7 @@ test('folded there is no inspector element; unfolded it holds exactly Links, and
   await withPage(1700, async (page) => {
     assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-inspector, [data-marxy-inspector-tab], [data-marxy-link-row]').length), 0, 'folded');
     await page.evaluate(() => window.__marxyHandle.workspace().unfold());
-    await settle(page);
+    await page.waitForSelector('[data-marxy-inspector-tab]');
     assert.deepEqual(await tabsOf(page), ['links']);
     assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-inspector-tab]').getAttribute('aria-selected')), 'true');
     await page.evaluate(async () => {
@@ -118,7 +127,7 @@ test('a link whose text names apple.com and whose target is punycode shows the r
 
 test('paths: one that exists reads found, one that does not reads not found, one under a deny-listed folder reads not checked', async () => {
   await withPage(1700, async (page) => {
-    await page.waitForFunction(() => ![...document.querySelectorAll('[data-marxy-link-row=path] .marxy-link-status')].some((s) => s.textContent === 'checking'));
+    await pathsChecked(page, 3);
     const paths = (await rowsOf(page)).filter((r) => r.kind === 'path');
     assert.deepEqual(paths.map((r) => [r.text, r.status]), [['lib/a.ts', 'found'], ['lib/gone.ts', 'not found'], ['node_modules/p/y.js', 'not checked']]);
     assert.deepEqual(paths.map((r) => r.label), ['lib/a.ts, found', 'lib/gone.ts, not found', 'node_modules/p/y.js, not checked']);
@@ -127,11 +136,11 @@ test('paths: one that exists reads found, one that does not reads not found, one
 
 test('a document with neither says so, and the tab follows the focused document', async () => {
   await withPage(1700, async (page) => {
-    await openFile(page, '/r/Plain.md');
+    await openFile(page, '/r/Plain.md', () => document.querySelector('.marxy-links')?.textContent.includes('No paths are named in this document.'));
     assert.equal(await page.evaluate(() => document.querySelectorAll('[data-marxy-link-row]').length), 0);
     const text = await page.evaluate(() => document.querySelector('.marxy-links').textContent);
     assert.ok(text.includes('No links in this document.') && text.includes('No paths are named in this document.'), text);
-    await openFile(page, '/r/Notes.md');
+    await openFile(page, '/r/Notes.md', () => document.querySelectorAll('[data-marxy-link-row]').length >= 6);
     assert.ok((await rowsOf(page)).length >= 6);
   });
 });
@@ -139,9 +148,9 @@ test('a document with neither says so, and the tab follows the focused document'
 test('a Source-default file is never parsed for the tab: its paths are listed from the bytes, Links say why they are absent, and Rendered fills them', async () => {
   await withPage(1700, async (page) => {
     await page.evaluate(() => { window.__h = window.__marxyHandle; });
-    await openFile(page, '/r/s.py');
+    await openFile(page, '/r/s.py', () => document.querySelector('.marxy-links')?.textContent.includes('Links are listed for Markdown'));
     assert.equal(await page.evaluate(() => window.__h.document().parsed()), false, 'a code file opens unparsed');
-    await page.waitForFunction(() => ![...document.querySelectorAll('[data-marxy-link-row=path] .marxy-link-status')].some((s) => s.textContent === 'checking'));
+    await pathsChecked(page, 1);
     const text = await page.evaluate(() => document.querySelector('.marxy-links').textContent);
     assert.ok(text.includes('Links are listed for Markdown'), text);
     assert.deepEqual((await rowsOf(page)).map((r) => [r.kind, r.text, r.status]), [['path', 'src/helper.py', 'found']]);
@@ -159,7 +168,9 @@ test('nothing is fetched: with every request outside the page refused, the tab l
   await withPage(1700, async (page) => {
     assert.ok((await rowsOf(page)).filter((r) => r.kind === 'link').length === 3);
     await page.click('[data-marxy-link-row="link"] >> nth=1');
-    await settle(page);
+    // No request in flight, and the frames the click scheduled have run; only then is "nothing left" a finding.
+    await frames(page);
+    await page.waitForLoadState('networkidle');
     assert.deepEqual(seen, [], `requests that left the machine: ${seen.join(', ')}`);
   }, {
     onPage(page) {
@@ -171,7 +182,7 @@ test('nothing is fetched: with every request outside the page refused, the tab l
 
 test('Tab reaches the inspector once and the arrows move inside it', async () => {
   await withPage(1700, async (page) => {
-    await page.waitForFunction(() => ![...document.querySelectorAll('[data-marxy-link-row=path] .marxy-link-status')].some((s) => s.textContent === 'checking'));
+    await pathsChecked(page, 3);
     const stops = await page.evaluate(() => document.querySelectorAll('[data-marxy-workspace-region="inspector"] [tabindex="0"]').length);
     assert.equal(stops, 1, 'one tab stop in the whole region');
     await page.focus('[data-marxy-inspector-tab="links"]');
@@ -197,10 +208,11 @@ test('the reading column does not move for the inspector, in a wide window and i
   for (const width of [1700, 929]) {
     await withPage(width, async (page) => {
       await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', false));
-      await settle(page);
+      await frames(page); // setPanel lays the region out synchronously; this lets the paint it scheduled run
       const undocked = await column(page);
       await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
-      await settle(page);
+      await page.waitForSelector('[data-marxy-workspace-region="inspector"] [data-marxy-link-row]');
+      await frames(page);
       assert.deepEqual(await column(page), undocked, `the column at ${width} px`);
       const fit = await page.evaluate(() => {
         const bar = document.querySelector('.marxy-toolbar');
