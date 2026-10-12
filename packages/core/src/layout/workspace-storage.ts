@@ -24,9 +24,31 @@ export type WorkspaceRegion = (typeof WORKSPACE_REGIONS)[number];
 /** Which regions were docked (shown) when the reader last had the workspace unfolded; absent means "not said". */
 export type RememberedPanels = Partial<Record<WorkspaceRegion, boolean>>;
 
+/**
+ * The sidebar's sections, top to bottom (W-07; W-08 adds its own). The ids are the values of
+ * `data-marxy-sidebar-section`; the desktop app's sidebar titles them.
+ */
+export const SIDEBAR_SECTION_IDS = ['recent', 'pinned'] as const;
+export type SidebarSectionId = (typeof SIDEBAR_SECTION_IDS)[number];
+
+/** What the sidebar remembers (W-07): which of its sections the reader folded. */
+export interface SidebarState {
+  readonly collapsed: readonly SidebarSectionId[];
+}
+
 export interface WorkspaceEnvelope {
   readonly version: number;
   readonly panels: RememberedPanels;
+  /** Absent until the reader first folds a section: a file that never had one is written without the key. */
+  readonly sidebar?: SidebarState;
+}
+
+/** Known ids only, once each, in the sidebar's order: anything else is dropped, never an error. */
+export function cleanSidebarState(raw: unknown): SidebarState | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
+  const list = (raw as Record<string, unknown>).collapsed;
+  const given = new Set(Array.isArray(list) ? list : []);
+  return { collapsed: SIDEBAR_SECTION_IDS.filter((id) => given.has(id)) };
 }
 
 export type LoadWorkspaceResult =
@@ -66,7 +88,8 @@ export function parseWorkspaceFile(bytes: Uint8Array): LoadWorkspaceResult {
     }
   }
   const version = obj.version > WORKSPACE_FILE_VERSION ? obj.version : WORKSPACE_FILE_VERSION;
-  return { kind: 'ok', envelope: { version, panels } };
+  const sidebar = cleanSidebarState(obj.sidebar);
+  return { kind: 'ok', envelope: sidebar ? { version, panels, sidebar } : { version, panels } };
 }
 
 export function serializeWorkspaceFile(envelope: WorkspaceEnvelope): Uint8Array {
@@ -76,7 +99,8 @@ export function serializeWorkspaceFile(envelope: WorkspaceEnvelope): Uint8Array 
     const value = envelope.panels[name];
     if (typeof value === 'boolean') panels[name] = value;
   }
-  const body = JSON.stringify({ version: envelope.version, panels }, null, 2);
+  const sidebar = cleanSidebarState(envelope.sidebar);
+  const body = JSON.stringify(sidebar ? { version: envelope.version, panels, sidebar } : { version: envelope.version, panels }, null, 2);
   return new TextEncoder().encode(`${body}\n`);
 }
 
@@ -84,7 +108,8 @@ export function serializeWorkspaceFile(envelope: WorkspaceEnvelope): Uint8Array 
 export class WorkspacePersistence {
   private readonly filePath: string;
   private readonly io: LayoutPersistenceIo;
-  private readonly current: WorkspaceEnvelope;
+  /** What the file holds now: the panels and the sidebar are written one at a time, each keeping the other's last word. */
+  private current: WorkspaceEnvelope;
   private readonly newerVersion: boolean;
   /** Set when the file was found corrupt: the reader is told once, by whoever opened it. */
   readonly quarantined: boolean;
@@ -127,6 +152,11 @@ export class WorkspacePersistence {
     return this.current.panels;
   }
 
+  /** The sidebar as read: nothing folded when the file says nothing (called by `workspaceStoreFor`, for the sidebar fill). */
+  savedSidebar(): SidebarState {
+    return this.current.sidebar ?? { collapsed: [] };
+  }
+
   /** The file was written by a newer Marxy: it is read, never written. */
   get readOnly(): boolean {
     return this.newerVersion;
@@ -135,6 +165,14 @@ export class WorkspacePersistence {
   /** Writes `panels` now (atomically). A newer version's file is left alone. */
   async write(panels: RememberedPanels): Promise<void> {
     if (this.newerVersion) return;
-    await this.io.writeFileAtomic(this.filePath, serializeWorkspaceFile({ version: WORKSPACE_FILE_VERSION, panels }));
+    this.current = { ...this.current, version: WORKSPACE_FILE_VERSION, panels };
+    await this.io.writeFileAtomic(this.filePath, serializeWorkspaceFile(this.current));
+  }
+
+  /** Writes the folded sections now, with the panels as last read or written. A newer version's file is left alone. */
+  async writeSidebar(sidebar: SidebarState): Promise<void> {
+    if (this.newerVersion) return;
+    this.current = { ...this.current, version: WORKSPACE_FILE_VERSION, sidebar: cleanSidebarState(sidebar) };
+    await this.io.writeFileAtomic(this.filePath, serializeWorkspaceFile(this.current));
   }
 }

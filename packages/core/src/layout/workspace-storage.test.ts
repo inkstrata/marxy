@@ -135,3 +135,45 @@ test('a file far larger than a workspace is quarantined (bounded) and never read
   assert.equal(file.quarantined, true);
   assert.deepEqual(file.saved(), {});
 });
+
+// --- the sidebar's folded sections (W-07) ------------------------------------------------------------------
+
+test('the sidebar field round trips, and a file without one is written without one', () => {
+  const env = { version: WORKSPACE_FILE_VERSION, panels: { sidebar: true }, sidebar: { collapsed: ['pinned' as const] } };
+  const loaded = parseWorkspaceFile(serializeWorkspaceFile(env));
+  assert.equal(loaded.kind, 'ok');
+  assert.deepEqual(loaded.envelope, env);
+  const plain = dec(serializeWorkspaceFile({ version: 1, panels: { sidebar: true } }));
+  assert.equal(plain, '{\n  "version": 1,\n  "panels": {\n    "sidebar": true\n  }\n}\n', 'no other byte of the shape changes');
+});
+
+test('unknown section ids, repeats and non-strings are dropped, and the rest come in the sidebar order', () => {
+  const loaded = parseWorkspaceFile(enc({ version: 1, panels: {}, sidebar: { collapsed: ['pinned', 'folders', 3, 'recent', 'pinned'] } }));
+  assert.equal(loaded.kind, 'ok');
+  assert.deepEqual(loaded.envelope.sidebar, { collapsed: ['recent', 'pinned'] });
+  for (const sidebar of ['x', 3, null, [], { collapsed: 'recent' }]) {
+    const odd = parseWorkspaceFile(enc({ version: 1, panels: {}, sidebar }));
+    assert.equal(odd.kind, 'ok');
+    assert.deepEqual(odd.envelope.sidebar === undefined ? { collapsed: [] } : odd.envelope.sidebar, { collapsed: [] });
+  }
+});
+
+test('folding a section keeps the panels, and writing the panels keeps the folded sections', async () => {
+  const mem = memoryIo();
+  const first = await WorkspacePersistence.open(mem.io);
+  assert.deepEqual(first.savedSidebar(), { collapsed: [] });
+  await first.write({ sidebar: true, inspector: false });
+  await first.writeSidebar({ collapsed: ['recent'] });
+  await first.write({ sidebar: true, inspector: true });
+  const second = await WorkspacePersistence.open(mem.io);
+  assert.deepEqual(second.saved(), { sidebar: true, inspector: true });
+  assert.deepEqual(second.savedSidebar(), { collapsed: ['recent'] });
+});
+
+test('a newer version\'s sidebar is read and never written over', async () => {
+  const mem = memoryIo({ '/data/workspace.json': enc({ version: 9, panels: {}, sidebar: { collapsed: ['recent'] } }) });
+  const file = await WorkspacePersistence.open(mem.io);
+  assert.deepEqual(file.savedSidebar(), { collapsed: ['recent'] });
+  await file.writeSidebar({ collapsed: [] });
+  assert.deepEqual(mem.writes, []);
+});

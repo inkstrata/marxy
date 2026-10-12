@@ -16,6 +16,14 @@ const EVERY_BARE_LF = /(?<!\r)\n/g;
 const isHigh = (code: number): boolean => code >= 0xd800 && code < 0xdc00;
 const isLow = (code: number): boolean => code >= 0xdc00 && code < 0xe000;
 
+/** True when `text` holds more than one kind of line ending (CRLF, a lone CR, a bare LF). */
+function mixedEndings(text: string): boolean {
+  const crlf = text.includes('\r\n');
+  const cr = /\r(?!\n)/.test(text);
+  const lf = BARE_LF.test(text);
+  return Number(crlf) + Number(cr) + Number(lf) > 1;
+}
+
 /** The line ending the first line of `text` uses, if it has one. */
 function firstEnding(text: string): '\r\n' | '\n' | '\r' | undefined {
   const at = text.search(/[\r\n]/);
@@ -59,6 +67,8 @@ export function foldSlice(
     at > 0 &&
     at < s.length &&
     ((isHigh(s.charCodeAt(at - 1)) && isLow(s.charCodeAt(at))) || (s[at - 1] === '\r' && s[at] === '\n'));
+  const rawPrefix = prefix;
+  const rawSuffix = suffix;
   // Never cut a surrogate pair or a CRLF, in the editor's text or in the old slice's.
   while (prefix > 0 && (cuts(text, prefix) || cuts(old, prefix))) prefix--;
   while (suffix > 0 && (cuts(text, text.length - suffix) || cuts(old, old.length - suffix))) suffix--;
@@ -70,7 +80,17 @@ export function foldSlice(
   // middle is always the file's own, and stays). A new line break in a block that mixes endings, edited across one
   // of its bare LFs, is so written as the editor made it (F-40).
   const oldMiddle = old.slice(prefix, old.length - suffix);
-  const converted = ending === '\n' || BARE_LF.test(oldMiddle) ? middle : middle.replace(EVERY_BARE_LF, ending);
+  // In a block that mixes endings the text names every ending as it is (a CR is a character there), so a cut
+  // widened past a CRLF pulls the old text's own LF into the middle: that LF is matched, not typed, and stays
+  // (F-40.1: deleting only a CR of a CRLF was re-made as CRLF and the fold wrote nothing). A block with one kind of
+  // ending is edited as LF text, and its LFs are the block's own endings.
+  const keep = mixedEndings(old);
+  const typedFrom = keep ? Math.max(rawPrefix, prefix) : prefix;
+  const typedTo = keep ? text.length - Math.max(rawSuffix, suffix) : text.length - suffix;
+  const convertible = ending !== '\n' && !BARE_LF.test(oldMiddle);
+  const converted = convertible
+    ? text.slice(prefix, typedFrom) + text.slice(typedFrom, typedTo).replace(EVERY_BARE_LF, ending) + text.slice(typedTo, text.length - suffix)
+    : middle;
   const replacement = encodeSourceText(converted);
   const start = offsets.at(base + prefix);
   const end = offsets.at(base + old.length - suffix);
