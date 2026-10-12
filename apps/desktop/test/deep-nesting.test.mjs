@@ -101,7 +101,8 @@ test('the hunt\'s 508-quote tower shows its text in a <pre> and says why', () =>
     assert.ok(seen.text.includes('word'), `the text is on the page: ${JSON.stringify(seen.text.slice(0, 40))}`);
     assert.ok(seen.boxHeight > 0, 'the source has a box');
     assert.ok(seen.boxLeft < 960, 'and it starts on the page');
-    assert.ok(seen.notices.some((t) => /nested too deeply/.test(t)), JSON.stringify(seen.notices));
+    // The notice says what happened, what is unchanged, and what to do (rulings-x21 Q10).
+    assert.ok(seen.notices.some((t) => /nested too deeply.*The file is unchanged.*edit in Source/.test(t)), JSON.stringify(seen.notices));
   }));
 
 test('a 12,000-level list opens to its source and the notice, quickly', () =>
