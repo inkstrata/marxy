@@ -867,10 +867,6 @@ button.marxy-link-row:hover { background: var(--marxy-color-selection); }
 .marxy-link-dest, .marxy-link-status { color: var(--marxy-color-text-secondary); }
 .marxy-link-mismatch { color: var(--marxy-color-text); font-weight: 600; }
 .marxy-link-mismatch::before { content: "\26A0\FE0E  "; }
-@media (forced-colors: active) {
-  .marxy-inspector-tab[data-marxy-inspector-tab-active] { background: Highlight; color: HighlightText; }
-  .marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible { outline-color: Highlight; }
-}
 
 /* The panes: the middle of the grid, below the bands. A split fills what the bands leave (index.html gives it the window's height). */
 body[data-marxy-workspace="unfolded"] #marxy-main { grid-column: 2; grid-row: 4; min-height: var(--marxy-ws-panes-h); }
@@ -919,6 +915,8 @@ body[data-marxy-workspace="unfolded"][data-marxy-mode="source"] #marxy-main:not(
   .marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 GrayText; }
   .marxy-tab[data-marxy-tab-active] { background: Highlight; color: HighlightText; box-shadow: none; }
   .marxy-tab[data-marxy-tab-active] > button { color: HighlightText; }
+  .marxy-inspector-tab[data-marxy-inspector-tab-active] { background: Highlight; color: HighlightText; }
+  .marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible { outline-color: Highlight; }
   .marxy-verb-menu-item:focus { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .marxy-verb-menu-item:focus .marxy-verb-menu-key { color: HighlightText; }
   .marxy-divider::before { background: CanvasText; animation: none !important; forced-color-adjust: none; }
