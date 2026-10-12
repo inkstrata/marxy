@@ -321,16 +321,21 @@ export async function saveQuery(
   // "No terms" is what the library counts as none: nothing written, or only terms the parser ignores.
   if (parseQuery(q).groups.flat().every((t) => t.kind === 'incomplete')) return say(SMART_SAYS.noTerms());
 
+  // Everything that can wait is done before the file is read, so the window between the last look at the file and the
+  // write holds only the append itself and one more look: a hand edit in that gap is caught, not overwritten.
+  const paths = await shell.configPaths?.();
+  const home = paths ? inferHomeFromConfig(paths.config) : '/';
+  const changed = (a: { bytes: Uint8Array; existed: boolean }, b: { bytes: Uint8Array; existed: boolean }): boolean =>
+    a.existed !== b.existed || staleWriteError(draft.file, a.bytes, b.bytes) !== null;
+
   let now: { bytes: Uint8Array; existed: boolean };
   try {
     now = await readOrEmpty(shell, draft.file);
   } catch (e) {
     return say(SMART_SAYS.readFailed(e));
   }
-  if (now.existed !== draft.existed || staleWriteError(draft.file, draft.bytes, now.bytes) !== null) return say(SMART_SAYS.stale());
+  if (changed(draft, now)) return say(SMART_SAYS.stale());
 
-  const paths = await shell.configPaths?.();
-  const home = paths ? inferHomeFromConfig(paths.config) : '/';
   let next: Uint8Array;
   try {
     next = appendQuery(now.bytes, { name, q }, { home });
@@ -339,6 +344,12 @@ export async function saveQuery(
     if (/already exists/.test(text)) return say(SMART_SAYS.duplicate(name));
     if (/cannot be read as TOML/.test(text)) return say(SMART_SAYS.notToml());
     return say(SMART_SAYS.notSaved(e));
+  }
+  // One more look, as close to the write as the shell allows (it has no compare-and-swap, as a document's save has none).
+  try {
+    if (changed(now, await readOrEmpty(shell, draft.file))) return say(SMART_SAYS.stale());
+  } catch (e) {
+    return say(SMART_SAYS.readFailed(e));
   }
   try {
     await shell.writeFileAtomic(draft.file, next);

@@ -372,3 +372,41 @@ test('Edit in collection.toml opens the file in Source at the query\'s table, an
   assert.equal(jumps[1], 0);
   assert.equal(await h.disk(), '# top\n[[query]]\nname = "A"\nq = "x"\n\n[[query]]\nname = "B"\nq = "y"\n', 'reading writes nothing');
 });
+
+test('an edit made while the save is under way is refused, file unchanged: in the last gap before the write, and while the shell answers configPaths', async () => {
+  const theirs = `${HAND_FILE}# edited by hand during the save\r\n`;
+  // 1. After the comparison, in the one look just before the write (the third read of the save).
+  const late = writerHarness(HAND_FILE);
+  const draft = await beginSaveQuery(late.shell, { notify: late.notify });
+  let reads = 0;
+  const lateShell = {
+    ...late.shell,
+    readFile: async (path: string) => {
+      if (++reads === 2) await late.shell.writeFileAtomic('/collection.toml', enc(theirs));
+      return late.shell.readFile(path);
+    },
+    writeFileAtomic: late.shell.writeFileAtomic,
+    configPaths: late.shell.configPaths,
+  };
+  const writesBefore = late.writes();
+  assert.equal(await saveQuery(lateShell, draft!, { name: 'Big plans', q: 'kind:report' }, { notify: late.notify }), false);
+  assert.equal(await late.disk(), theirs, 'their edit is what the file holds');
+  assert.equal(late.writes(), writesBefore + 1, 'only their own write, none of ours');
+  assert.match(late.seen.at(-1)!.text, /changed on disk while you were naming this/);
+
+  // 2. While configPaths answers: it is asked before the file is read, so the read sees the edit.
+  const early = writerHarness(HAND_FILE);
+  const draft2 = await beginSaveQuery(early.shell, { notify: early.notify });
+  const earlyShell = {
+    ...early.shell,
+    readFile: early.shell.readFile,
+    writeFileAtomic: early.shell.writeFileAtomic,
+    configPaths: async () => {
+      await early.shell.writeFileAtomic('/collection.toml', enc(theirs));
+      return early.shell.configPaths();
+    },
+  };
+  assert.equal(await saveQuery(earlyShell, draft2!, { name: 'Big plans', q: 'kind:report' }, { notify: early.notify }), false);
+  assert.equal(await early.disk(), theirs);
+  assert.match(early.seen.at(-1)!.text, /changed on disk/);
+});

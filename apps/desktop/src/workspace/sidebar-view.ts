@@ -25,7 +25,7 @@ import { buildAppContext, openPalette } from '../selection/bind.ts';
 import { changedPredicate, type ScopeInput } from '../library/scopes.ts';
 import { collectionOf, editQueryInSource } from '../collection/load.ts';
 import { openVerbMenu } from '../selection/verb-menu.ts';
-import { SIDEBAR_SECTIONS, sidebarSections, smartRows, type SidebarMark, type SidebarSection, type SmartRow } from './sidebar.ts';
+import { SIDEBAR_SECTIONS, sidebarSections, SmartCounts, smartRows, type SidebarMark, type SidebarSection, type SmartRow } from './sidebar.ts';
 import {
   changedByGroup,
   closeWithin,
@@ -85,6 +85,8 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
   /** The collection whose saved queries are drawn (`bootApplication` starts it just after the palette) and what stops listening to it. */
   let followed: ReturnType<typeof collectionOf> = undefined;
   let offQueries: (() => void) | null = null;
+  /** The saved queries' counts, made off the path of a redraw; a landed count redraws. */
+  const counts = new SmartCounts(() => draw());
 
   const libraryCommand = (): Command | undefined =>
     (handle.commands() as readonly Command[]).find((c) => c.id === LIBRARY_COMMAND);
@@ -259,16 +261,17 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     const feedCount = feedEntries.length;
     followQueries();
     const queries = followed?.queries() ?? [];
-    // Counted only while the section is open: a folded section costs the index nothing.
+    // Counted only while the section is open, and off this path: `request` schedules the count; the old one shows until it lands.
     const smartCounted = queries.length > 0 && !collapsed.has('smart');
     const p = palette();
-    const smart = smartRows(
-      queries,
+    counts.request(
+      queries.map((x) => x.q),
       smartCounted && p
         ? { entries: feedEntries, declared: p.feed.declared(), session: p.session, nowMs: Date.now(), watched: (r) => handle.index.isWatched(r), baselineMs: (r) => handle.index.baselineMs(r) } satisfies ScopeInput
         : null,
-      smartCounted,
+      `${handle.index.roots().filter((r) => handle.index.isWatched(r)).join('\0')}|${handle.index.watchState()}`,
     );
+    const smart = smartRows(queries, (q) => counts.get(q));
     // What the tree watches are now (live or refused), not what was declared; a walk under way hides the count.
     const watching = handle.index.watchState();
     const indexing = handle.index.indexing();
@@ -723,6 +726,7 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
 
   return () => {
     disposed = true;
+    counts.cancel();
     if (waiting !== null) clearTimeout(waiting);
     offFeed?.();
     offQueries?.();

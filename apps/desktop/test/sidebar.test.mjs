@@ -914,6 +914,9 @@ const smartRows = (page) =>
       title: r.title,
     })),
   );
+/** The counts are made off the path of a redraw (SmartCounts): wait for the first one to land. */
+const countsLanded = (page, name = 'Reports') =>
+  page.waitForFunction((n) => document.querySelector(`[data-marxy-sidebar-row="smart:${n}"] .marxy-sidebar-age`) !== null, name);
 const smartSection = (page) => page.evaluate(() => document.querySelector('[data-marxy-sidebar-section="smart"]') !== null);
 const writeToml = (page, text) =>
   page.evaluate(async (t) => {
@@ -947,6 +950,8 @@ test('the section lists the queries by name in file order, after Folders, with a
     await boot(page, { open: ['/r/a.md'], index: reportEntries, data: { '/collection.toml': TOML } });
     await unfold(page);
     await page.waitForSelector('[data-marxy-sidebar-section="smart"]');
+    await countsLanded(page);
+    await countsLanded(page, 'Pinned');
     const rows = await smartRows(page);
     assert.deepEqual(rows.map((r) => [r.row, r.name, r.count]), [
       ['smart:Reports', 'Reports', '3'],
@@ -967,6 +972,8 @@ test('a row opens the library with its query, and its count is the number the li
     await boot(page, { open: ['/r/a.md'], index: reportEntries, data: { '/collection.toml': TOML } });
     await unfold(page);
     await page.waitForSelector('[data-marxy-sidebar-row="smart:Reports"]');
+    await countsLanded(page);
+    await countsLanded(page, 'Pinned');
     const counted = (await smartRows(page)).find((r) => r.name === 'Reports').count;
     await page.click('[data-marxy-sidebar-row="smart:Reports"]');
     const shown = await libraryStatus(page);
@@ -989,6 +996,7 @@ test('a count changes when a matching file is added, and when a file stops match
     await boot(page, { open: ['/r/a.md'], index: reportEntries, data: { '/collection.toml': TOML } });
     await unfold(page);
     await page.waitForSelector('[data-marxy-sidebar-row="smart:Reports"]');
+    await countsLanded(page);
     const count = async () => (await smartRows(page)).find((r) => r.name === 'Reports').count;
     assert.equal(await count(), '3');
     const added = { ...reportEntries[0], path: '/r/new-report.md', title: 'New report' };
@@ -1029,6 +1037,7 @@ test('folded, the section keeps a count of its queries and evaluates none; it is
     // Counts are not computed while it is folded: the query is evaluated against the feed only when the section opens.
     await page.evaluate(() => window.__marxyHandle.palette.setIndexEntries(window.__marxyHandle.palette.feed.entries().map((e) => ({ ...e }))));
     await page.click('[data-marxy-sidebar-section="smart"] .marxy-sidebar-head');
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-marxy-sidebar-section="smart"] .marxy-sidebar-age')].length === 2);
     assert.deepEqual((await smartRows(page)).map((r) => r.count), ['3', '0', null], 'counted again once open');
   });
 });
@@ -1077,4 +1086,30 @@ test('the context-menu key, and Shift+F10, open the same menu from the keyboard'
     await page.keyboard.press(`${await mod(page)}+Enter`);
     assert.deepEqual(await paths(page), ['/r/a.md']);
   });
+});
+
+test('a feed patch does not wait on the counts: 50 saved queries over 20,000 entries redraw in a fraction of a second, and the counts land after', async () => {
+  const many = Array.from({ length: 20_000 }, (_, i) => entryOf('/r/a.md', { path: `/r/many/f${i}.md`, title: `F ${i}`, size: i % 4000, readerKind: i % 3 === 0 ? 'report' : 'notes', mtimeMs: Date.now() - (i % 90) * 3_600_000 }));
+  // entryOf reads `files` for the title: give the entries their own.
+  const queries = Array.from({ length: 50 }, (_, i) => `[[query]]\nname = "Q${i}"\nq = "kind:report size:>${i * 40} modified:<${(i % 40) + 1}d"\n`).join('\n');
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: entries, data: { '/collection.toml': queries } });
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-row="smart:Q0"]');
+    await page.evaluate((all) => window.__marxyHandle.palette.setIndexEntries(all), many);
+    // Patches as a walk makes them: a new feed each time. Each redraw must come back at once; none may wait for a count.
+    const cost = await page.evaluate((all) => {
+      const palette = window.__marxyHandle.palette;
+      const worst = [];
+      for (let i = 0; i < 5; i++) {
+        const t = performance.now();
+        palette.setIndexEntries(all.map((e, k) => (k === i ? { ...e, mtimeMs: Date.now() } : e)));
+        worst.push(performance.now() - t);
+      }
+      return Math.max(...worst);
+    }, many);
+    // The feed rebuild is most of this (it prepares 20,000 rows); the counts of 50 queries over 20,000 entries took over a second more.
+    assert.ok(cost < 600, `a patch took ${cost.toFixed(0)} ms`);
+    await page.waitForFunction(() => document.querySelector('[data-marxy-sidebar-row="smart:Q49"] .marxy-sidebar-age') !== null, undefined, { timeout: 60_000 });
+  }, { width: 1470, height: 900 });
 });
