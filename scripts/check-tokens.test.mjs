@@ -154,9 +154,18 @@ test('a contract-2 name removed from tokens.css is refused', () => {
   assert.deepEqual(reasons(mutated), ['removed:--marxy-color-edge']);
 });
 
-test('Source reads the three contract-2 token roles (markers, headings, links)', () => {
+test('ADR-0068: the six roles V-13 adds are declared as colours, each explained, and Source paints every role from the table', () => {
+  const byName = new Map(declarations(css).map(d => [d.name, d]));
+  for (const name of ['builtin', 'property', 'decorator', 'self', 'escape', 'mark']) {
+    const d = byName.get(`--marxy-tok-${name}`);
+    assert.ok(d, `${name} is not declared`);
+    assert.equal(d.kind, 'colour', name);
+    assert.ok(d.comment, `${name} has no comment (ADR-0031)`);
+  }
   const src = readFileSync('apps/desktop/src/source/highlight-style.ts', 'utf8');
-  assert.match(src, /t\.processingInstruction, color: tok\('marker'\)/);
-  assert.match(src, /t\.heading, color: tok\('heading'\)/);
-  assert.match(src, /t\.link, t\.url\], color: tok\('link'\)/);
+  assert.match(src, /color: tok\(role\)/);
+  const roles = readFileSync('packages/core/src/highlight/roles.ts', 'utf8');
+  assert.match(roles, /heading: \{ lezer: \['heading'\]/);
+  assert.match(roles, /marker: \{ lezer: \['processingInstruction'\]/);
+  assert.match(roles, /link: \{ lezer: \['link'\]/);
 });

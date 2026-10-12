@@ -370,6 +370,36 @@
     "comment": true
   },
   {
+    "name": "--marxy-tok-builtin",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-tok-property",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-tok-decorator",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-tok-self",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-tok-escape",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-tok-mark",
+    "kind": "colour",
+    "comment": true
+  },
+  {
     "name": "--marxy-shadow-surface",
     "kind": "keyword",
     "comment": true

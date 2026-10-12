@@ -1,95 +1,51 @@
-// Maps TextMate scopes to the twelve marxy token classes and builds the internal Shiki theme (MARXY-27).
+// Maps TextMate scopes to the marxy token classes and builds the internal Shiki theme (MARXY-27, V-13).
+// The scope lists live in the one role table (roles.ts, ADR-0068), shared with Source's Lezer style.
 import { normalizeTheme, type ThemeRegistration } from '@shikijs/core';
+import { RENDERED_ROLES, ROLES, type MarxyRole } from './roles.ts';
 
-/** The twelve syntax classes the renderer may paint (docs/design/02-render.md §Code highlighting). */
-export type MarxyTokenScope =
-  | 'comment'
-  | 'string'
-  | 'number'
-  | 'constant'
-  | 'keyword'
-  | 'operator'
-  | 'function'
-  | 'type'
-  | 'tag'
-  | 'attribute'
-  | 'variable'
-  | 'punctuation';
+/** The syntax classes the renderer may paint: every role that has TextMate scopes (docs/design/02-render.md §Code highlighting). */
+export type MarxyTokenScope = Extract<
+  MarxyRole,
+  | 'comment' | 'string' | 'escape' | 'number' | 'constant' | 'keyword' | 'operator' | 'function' | 'builtin' | 'type'
+  | 'property' | 'decorator' | 'self' | 'tag' | 'attribute' | 'variable' | 'punctuation'
+>;
 
-/** Prefix order is fixed in the design; first match wins. */
-const RULES: readonly { scope: MarxyTokenScope; prefixes: readonly string[] }[] = [
-  { scope: 'comment', prefixes: ['comment'] },
-  { scope: 'string', prefixes: ['string'] },
-  { scope: 'number', prefixes: ['constant.numeric'] },
-  { scope: 'constant', prefixes: ['constant'] },
-  {
-    scope: 'keyword',
-    prefixes: ['keyword.control', 'keyword.other', 'storage.modifier', 'keyword'],
-  },
-  { scope: 'operator', prefixes: ['keyword.operator'] },
-  { scope: 'function', prefixes: ['entity.name.function', 'support.function', 'meta.function-call'] },
-  {
-    scope: 'type',
-    prefixes: ['entity.name.type', 'entity.name.class', 'support.type', 'support.class', 'storage.type'],
-  },
-  { scope: 'tag', prefixes: ['entity.name.tag'] },
-  { scope: 'attribute', prefixes: ['entity.other.attribute-name'] },
-  { scope: 'variable', prefixes: ['variable', 'support.variable'] },
-  { scope: 'punctuation', prefixes: ['punctuation'] },
-];
+const SCOPES = RENDERED_ROLES as readonly MarxyTokenScope[];
 
 /** Unique colours encode the winning class; Shiki does not expose scopes on tokens in v4. */
 const CLASS_COLOR = new Map<MarxyTokenScope, string>(
-  RULES.map((rule, index) => [rule.scope, '#' + String(index + 1).padStart(6, '0')]),
+  SCOPES.map((scope, index) => [scope, '#' + String(index + 1).padStart(6, '0')]),
 );
 const COLOR_CLASS = new Map([...CLASS_COLOR.entries()].map(([scope, color]) => [color.toUpperCase(), scope]));
 
 export const INTERNAL_THEME_NAME = 'marxy-scopes';
 
-const THEME_SETTING_ORDER: readonly MarxyTokenScope[] = [
-  'comment',
-  'string',
-  'number',
-  'constant',
-  'operator',
-  'keyword',
-  'function',
-  'type',
-  'tag',
-  'attribute',
-  'variable',
-  'punctuation',
-];
-
 export function internalScopeTheme(): ThemeRegistration {
-  const byScope = new Map(RULES.map((rule) => [rule.scope, rule]));
   const settings = [
-    ...THEME_SETTING_ORDER.map((scope) => {
-      const rule = byScope.get(scope)!;
-      return {
-        scope: rule.prefixes.flatMap((prefix) => [prefix, prefix + '.*']),
-        settings: { foreground: CLASS_COLOR.get(scope) },
-      };
-    }),
+    ...SCOPES.map((scope) => ({
+      // A plain prefix covers its children (`prefix`, `prefix.*`); a contextual selector (`a b`) is one entry.
+      scope: ROLES[scope].textmate.flatMap((prefix) => (prefix.includes(' ') ? [prefix] : [prefix, prefix + '.*'])),
+      settings: { foreground: CLASS_COLOR.get(scope) },
+    })),
     { settings: { foreground: '#999999' } },
   ];
   return normalizeTheme({ name: INTERNAL_THEME_NAME, type: 'dark', settings });
 }
 
+/** Every plain prefix with its role, longest first, so the most specific one is found first. */
+const PREFIXES = SCOPES.flatMap((scope) =>
+  ROLES[scope].textmate.filter((p) => !p.includes(' ')).map((prefix) => ({ scope, prefix })),
+).sort((a, b) => b.prefix.length - a.prefix.length);
+
 /**
  * `markup.inserted` and `markup.deleted` intentionally map to no token hue; diff lines use
  * `marxy-diff-add` / `marxy-diff-del` on `.marxy-line` instead (MARXY-235, ADR-0036).
+ * The most specific (longest) prefix wins, as in a TextMate theme.
  */
 export function marxyScopeForTextMateScope(scope: string): MarxyTokenScope | undefined {
   if (scope.startsWith('markup.inserted') || scope.startsWith('markup.deleted')) return undefined;
-  for (const rule of RULES) {
-    for (const prefix of rule.prefixes) {
-      if (scope === prefix || scope.startsWith(prefix + '.')) {
-        if (rule.scope === 'keyword' && scope.startsWith('keyword.operator')) continue;
-        if (rule.scope === 'constant' && scope.startsWith('constant.numeric')) continue;
-        return rule.scope;
-      }
-    }
+  for (const { scope: role, prefix } of PREFIXES) {
+    if (scope === prefix || scope.startsWith(prefix + '.')) return role;
   }
   return undefined;
 }

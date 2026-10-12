@@ -34,7 +34,7 @@ export const FLOORS = [
 ];
 // Roles contract v2 adds that a v1 theme lacks; reported when absent even though no row names them as a
 // token wildcard match.
-const V2_TOKENS = ['tok-marker', 'tok-heading', 'tok-link'];
+const V2_TOKENS = ['tok-marker', 'tok-heading', 'tok-link', 'tok-builtin', 'tok-property', 'tok-decorator', 'tok-self', 'tok-escape', 'tok-mark'];
 const name = r => (r.startsWith('tok-') ? `--marxy-${r}` : `--marxy-color-${r}`);
 
 // ---- colours -------------------------------------------------------------------------------------

@@ -82,7 +82,7 @@ async function expectToken(page, text, tokenVar) {
   const want = await page.evaluate(`(${probe})('var(${tokenVar})', 'color')`);
   const seen = await page.evaluate(tokenColour(text));
   assert.ok(seen, `no token span with text ${text}`);
-  assert.equal(seen.got, want, `${text} should carry ${tokenVar}`);
+  assert.equal(seen.got, want, `${text} should carry ${tokenVar} (${seen.got} vs ${want}; text ${seen.text})`);
 }
 
 test('L-06.1 Source tokens carry the --marxy-tok-* colours (TypeScript and Markdown, both variants)', async () => {
@@ -112,7 +112,75 @@ test('L-06.1 Source tokens carry the --marxy-tok-* colours (TypeScript and Markd
     await page2.keyboard.press('Meta+E');
     await page2.waitForSelector('#marxy-source .cm-editor .cm-line');
     await expectToken(page2, 'inline', '--marxy-tok-string');
-    await expectToken(page2, 'link', '--marxy-tok-function');
+    await expectToken(page2, 'link', '--marxy-tok-link');
+  } finally {
+    await browser.close();
+  }
+});
+
+const PY = [
+  '@decorator(1)',
+  'class Foo(Base):',
+  '    """Doc."""',
+  '    def run(self, x: int = 3):',
+  '        s = "a\\n"',
+  '        print(f"{x}", self.y, None)',
+  '        return len([1])  # done',
+  '',
+].join('\n');
+const MD_FULL = ['# One', '', '## Two', '', '### Three', '', 'Text with `code` and [a link](https://example.com/x).', '', '> quoted', '', '- item', '', '1. first', '', '---', ''].join('\n');
+
+/** Computed colour and line box of every painted span in Source, keyed by its text. */
+const spansOf = (page) => page.evaluate(() => {
+  const out = {};
+  for (const el of document.querySelectorAll('#marxy-source .cm-line span')) {
+    if (el.children.length === 0) out[el.textContent] ??= getComputedStyle(el).color;
+  }
+  return { spans: out, text: getComputedStyle(document.querySelector('#marxy-source .cm-content')).color };
+});
+
+test('V-13 Source: a Python file uses at least nine token colours and leaves no keyword, decorator, class name or escape in the text colour', async () => {
+  const browser = await launchWebkit();
+  try {
+    for (const variant of ['dark', 'light']) {
+      const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+      await boot(page, '/src/a.py', PY);
+      await setVariant(page, variant);
+      const { spans, text } = await spansOf(page);
+      const colours = new Set(Object.values(spans));
+      assert.ok(colours.size >= 9, `${variant}: ${colours.size} token colours`);
+      for (const word of ['class', 'def', 'return', 'Foo', 'run', '@', '\\n']) {
+        const hit = Object.entries(spans).find(([k]) => k === word);
+        assert.ok(hit, `${variant}: no span for ${word}`);
+        assert.notEqual(hit[1], text, `${variant}: ${word} is left in the text colour ${JSON.stringify(spans)}`);
+      }
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+test('V-13 Source: Markdown headings, link, URL, code, list and quote marks take token colours, and every row stays one line box', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await page.goto(`${base}app.html`);
+    await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+    await page.evaluate(async ({ files, argv }) => {
+      const handle = await window.marxyApp.start(files, argv);
+      await handle.ready;
+    }, { files: { '/doc/a.md': Buffer.from(MD_FULL).toString('base64') }, argv: ['/doc/a.md'] });
+    await page.keyboard.press('Meta+E');
+    await page.waitForSelector('#marxy-source .cm-editor .cm-line');
+    const { spans, text } = await spansOf(page);
+    for (const word of [' One', ' Two', ' Three', 'a link', 'https://example.com/x', 'code', '>', '-', '1.', '---']) {
+      const hit = Object.entries(spans).find(([k]) => k === word || k.trim() === word.trim());
+      assert.ok(hit, `no span for ${JSON.stringify(word)}`);
+      assert.notEqual(hit[1], text, `${JSON.stringify(word)} is left in the text colour`);
+    }
+    const heights = await page.evaluate(() => [...document.querySelectorAll('#marxy-source .cm-line')].map((l) => l.getBoundingClientRect().height));
+    assert.equal(new Set(heights.map((h) => Math.round(h))).size, 1, `rows differ in height: ${[...new Set(heights)]}`);
   } finally {
     await browser.close();
   }

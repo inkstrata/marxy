@@ -1,31 +1,78 @@
-// Lezer tags → the --marxy-tok-* custom properties (L-06). Source and Rendered code read one
-// contrast-audited palette in both variants; `var(...)` makes the colours follow the variant live.
+// Lezer tags → the --marxy-tok-* custom properties. Source and Rendered read one role table
+// (packages/core/src/highlight/roles.ts, ADR-0068) and one contrast-audited palette in both variants;
+// `var(...)` makes the colours follow the variant live.
 
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import type { Extension } from '@codemirror/state';
-import { tags as t } from '@lezer/highlight';
+import { tags as t, type Tag } from '@lezer/highlight';
+import { ROLES, type MarxyRole } from '@marxy/core/src/highlight/roles.ts';
 
 const tok = (name: string): string => `var(--marxy-tok-${name})`;
 
+type Modifier = (tag: Tag) => Tag;
+const MODIFIERS: Record<string, Modifier> = {
+  definition: t.definition,
+  function: t.function,
+  standard: t.standard,
+  local: t.local,
+  constant: t.constant,
+  special: t.special,
+};
+
+/** Resolve a table entry such as `definition(function(variableName))` to the `@lezer/highlight` tag. */
+export function lezerTag(spec: string): Tag {
+  const m = /^(\w+)\((.+)\)$/.exec(spec);
+  if (m) {
+    const modifier = MODIFIERS[m[1]!];
+    if (!modifier) throw new Error(`unknown tag modifier in role table: ${spec}`);
+    return modifier(lezerTag(m[2]!));
+  }
+  const tag = (t as unknown as Record<string, unknown>)[spec];
+  if (!tag || typeof tag === 'function') {
+    // `name` is the tag for a name; it is a Tag like the others. A modifier used bare is a mistake.
+    if (spec === 'name') return t.name;
+    throw new Error(`unknown tag in role table: ${spec}`);
+  }
+  return tag as Tag;
+}
+
+/**
+ * Painting order. Where one token carries two tags (a Rust attribute's name is `meta` and `variableName`),
+ * both classes apply and the later rule wins, so the specific roles come after the general ones, and strings,
+ * numbers and escapes come after `decorator` so a decorator's arguments keep their own colour.
+ */
+export const ROLE_ORDER: readonly MarxyRole[] = [
+  'variable', 'punctuation', 'operator', 'keyword', 'property', 'type', 'function', 'builtin', 'self', 'tag', 'attribute',
+  'decorator', 'constant', 'number', 'string', 'escape', 'comment', 'marker', 'link', 'mark', 'heading',
+];
+
+/**
+ * Weight and slant carry structure where colour does not; sizes stay put so lines stay on the grid.
+ * A tag takes only one rule, so a tag that carries weight carries its colour in the same rule.
+ */
+const FACE: Partial<Record<MarxyRole, Record<string, string>>> = {
+  comment: { fontStyle: 'italic' },
+};
+
+/** Names being defined take weight as well as colour (the handbook's rule). JetBrains Mono keeps its advance at every weight. */
+const DEFINITIONS: ReadonlySet<string> = new Set(['definition(function(variableName))', 'definition(className)', 'definition(typeName)']);
+/** ATX levels are kept by weight, never by size, so every row stays one line box. */
+const HEADING_WEIGHTS: ReadonlyArray<readonly [Tag, string]> = [
+  [t.heading1, '800'], [t.heading2, '700'], [t.heading3, '650'], [t.heading4, '600'], [t.heading5, '600'], [t.heading6, '600'],
+];
+
 /** The style itself, exported so a test or another surface can reuse it. */
 export const marxyHighlightStyle = HighlightStyle.define([
-  { tag: [t.keyword, t.controlKeyword, t.definitionKeyword, t.moduleKeyword, t.operatorKeyword, t.modifier, t.self], color: tok('keyword') },
-  { tag: [t.string, t.special(t.string), t.regexp, t.character, t.docString, t.monospace], color: tok('string') },
-  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: tok('comment') },
-  { tag: [t.number, t.integer, t.float], color: tok('number') },
-  { tag: [t.bool, t.null, t.atom, t.constant(t.name), t.constant(t.variableName)], color: tok('constant') },
-  { tag: [t.function(t.variableName), t.function(t.propertyName), t.definition(t.function(t.variableName))], color: tok('function') },
-  { tag: [t.typeName, t.className, t.namespace, t.standard(t.typeName)], color: tok('type') },
-  { tag: [t.variableName, t.propertyName, t.definition(t.variableName), t.definition(t.propertyName), t.local(t.variableName)], color: tok('variable') },
-  { tag: [t.operator, t.compareOperator, t.logicOperator, t.arithmeticOperator, t.updateOperator, t.definitionOperator], color: tok('operator') },
-  { tag: [t.punctuation, t.separator, t.bracket, t.paren, t.squareBracket, t.brace, t.angleBracket, t.meta], color: tok('punctuation') },
-  // Markdown's own roles (contract 2): the syntax markers (#, *, >, fences), heading text, and links with their destinations.
-  { tag: t.processingInstruction, color: tok('marker') },
-  { tag: [t.link, t.url], color: tok('link') },
-  { tag: t.tagName, color: tok('tag') },
-  { tag: t.attributeName, color: tok('attribute') },
-  // Weight and slant carry structure where colour does not; sizes stay put so lines stay on the grid.
-  { tag: t.heading, color: tok('heading'), fontWeight: 'bold' },
+  ...ROLE_ORDER.flatMap((role) => {
+    const specs = ROLES[role].lezer;
+    const plain = specs.filter((spec) => !DEFINITIONS.has(spec));
+    const defined = specs.filter((spec) => DEFINITIONS.has(spec));
+    return [
+      { tag: plain.map(lezerTag), color: tok(role), ...FACE[role] },
+      ...(defined.length ? [{ tag: defined.map(lezerTag), color: tok(role), fontWeight: '600' }] : []),
+    ];
+  }),
+  ...HEADING_WEIGHTS.map(([tag, fontWeight]) => ({ tag, color: tok('heading'), fontWeight })),
   { tag: t.strong, fontWeight: 'bold' },
   { tag: t.emphasis, fontStyle: 'italic' },
   { tag: t.strikethrough, textDecoration: 'line-through' },

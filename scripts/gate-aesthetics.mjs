@@ -291,6 +291,11 @@ const TINT_FOREGROUNDS = [
   '--marxy-tok-constant',
   '--marxy-tok-tag',
   '--marxy-tok-attribute',
+  '--marxy-tok-builtin',
+  '--marxy-tok-property',
+  '--marxy-tok-decorator',
+  '--marxy-tok-self',
+  '--marxy-tok-escape',
 ];
 
 function declaredTintBackgrounds() {
