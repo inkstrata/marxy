@@ -105,10 +105,19 @@ function elementNoticePart(removed: readonly RenderRemoval[]): string {
   return `some HTML was simplified (${list})`;
 }
 
+/** The line for a document the render could not typeset and showed as its source (F-54); `''` for any other. */
+export function shownAsSourceNoticeText(removed: readonly RenderRemoval[]): string {
+  return removed.some((r) => r.what === 'structure' && r.name === 'document')
+    ? 'This document is nested too deeply to typeset, so it is shown as its source.'
+    : '';
+}
+
 export function blockedTrustNoticeText(
   removed: readonly RenderRemoval[],
   blockedImages: readonly BlockedImage[],
 ): string {
+  const source = shownAsSourceNoticeText(removed);
+  if (source !== '') return source;
   const grantable = grantableBlockedImages(blockedImages, removed);
   const images = blockedImageClause(grantable);
   const elements = elementNoticePart(removed);

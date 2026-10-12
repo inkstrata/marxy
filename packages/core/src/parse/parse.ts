@@ -11,7 +11,8 @@ import { mathFromMarkdown } from 'mdast-util-math';
 import { math } from './math-syntax.ts';
 import type { Document } from '../contracts/ast.ts';
 import { byteOffsets, decodeWithOffsets, type ByteOffsets } from './byte-offsets.ts';
-import { documentFromMdast, fencedCodeMarker, holdsDefinitions } from './from-mdast.ts';
+import { nextLineEnding } from './line-endings.ts';
+import { documentFromMdast, fencedCodeMarker, holdsDefinitions, MAX_NESTING_DEPTH, nestedTooDeepDocument, nestedTooDeepText } from './from-mdast.ts';
 
 export interface ParseOptions {
   /** Absolute path, or a stable identifier for an untitled buffer. Defaults to `untitled`. */
@@ -28,6 +29,7 @@ export interface ParseOptions {
 export function parseMarkdown(source: string | Uint8Array, options: ParseOptions = {}): Document {
   const file = options.file ?? 'untitled';
   const { body, offsets } = typeof source === 'string' ? fromString(source) : fromBytes(source);
+  if (opensWithTooManyMarkers(body)) return nestedTooDeepDocument({ file, text: body, offsets });
   const { extensions, mdastExtensions } = syntax(options);
   const tree = fromMarkdown(body, { extensions, mdastExtensions });
   return documentFromMdast(tree, { file, text: body, offsets });
@@ -50,10 +52,72 @@ export function parseBlocksIn(
   const view = end === bytes.length ? bytes : bytes.subarray(0, end);
   const { body: text, offsets } = start === 0 ? fromBytes(view) : fromRegion(view, start);
   if (start > 0 && text.charCodeAt(0) === 0xfeff) return null;
+  // A region nested too deep is no region: the caller parses the whole file, which is then shown as its source.
+  if (opensWithTooManyMarkers(text)) return null;
   const { extensions, mdastExtensions } = syntax(start === 0 ? options : { ...options, frontmatter: false });
   const tree = fromMarkdown(text, { extensions, mdastExtensions });
   const document = documentFromMdast(tree, { file, text, offsets });
+  if (nestedTooDeepText(document) !== undefined) return null;
   return { blocks: document.children, definitions: holdsDefinitions(document) === true };
+}
+
+/**
+ * micromark's own time grows faster than the square of the nesting (a 12,000-level list is twelve seconds
+ * before `from-mdast.ts` sees anything), so a source that is deep past doubt is judged on its text and never
+ * parsed. The bound is four times the real cap, so a line that is merely deep still gets the exact, tree-based
+ * count and only a line no sane document holds is cut short.
+ */
+const SCAN_MARKERS = MAX_NESTING_DEPTH * 4;
+
+const isSpace = (c: number): boolean => c === 32 || c === 9;
+
+/**
+ * Whether some line opens with more than `SCAN_MARKERS` container markers in a row: `> > > …`, `- - - …`,
+ * `1. 1. 1. …`. A scan of the text, not a parse: it can say yes to a code block that happens to hold such
+ * a line, and then the document is shown as its source and says so. A line of nothing but `-` or `*`
+ * markers is a thematic break and does not count.
+ */
+export function opensWithTooManyMarkers(text: string): boolean {
+  const n = text.length;
+  let at = 0;
+  while (at < n) {
+    let i = at;
+    for (let spaces = 0; spaces < 3 && text.charCodeAt(i) === 32; spaces++) i++;
+    let run = 0;
+    let rule = text.charCodeAt(i) === 45 || text.charCodeAt(i) === 42 ? text.charCodeAt(i) : 0;
+    while (run <= SCAN_MARKERS) {
+      const c = text.charCodeAt(i);
+      if (c === 62) {
+        i++;
+        if (isSpace(text.charCodeAt(i))) i++;
+        rule = 0;
+      } else if ((c === 45 || c === 43 || c === 42) && isSpace(text.charCodeAt(i + 1))) {
+        i += 2;
+        while (isSpace(text.charCodeAt(i))) i++;
+        if (c !== rule) rule = 0;
+      } else if (c >= 48 && c <= 57) {
+        let j = i;
+        while (j - i < 10 && text.charCodeAt(j) >= 48 && text.charCodeAt(j) <= 57) j++;
+        const mark = text.charCodeAt(j);
+        if (j - i > 9 || (mark !== 46 && mark !== 41) || !isSpace(text.charCodeAt(j + 1))) break;
+        i = j + 2;
+        while (isSpace(text.charCodeAt(i))) i++;
+        rule = 0;
+      } else break;
+      run++;
+    }
+    if (run > SCAN_MARKERS) {
+      // A rule is the same `-` or `*` and spaces to the end of the line.
+      let end = i;
+      if (rule !== 0) while (text.charCodeAt(end) === rule || isSpace(text.charCodeAt(end))) end++;
+      const ended = end >= n || text.charCodeAt(end) === 10 || text.charCodeAt(end) === 13;
+      if (rule === 0 || !ended) return true;
+      i = end;
+    }
+    // Any of the three line endings ends a line, as everywhere in the parse.
+    at = nextLineEnding(text, i)?.end ?? n;
+  }
+  return false;
 }
 
 // A byte-order mark is bytes of the file but not markdown: leaving it in would make the first line

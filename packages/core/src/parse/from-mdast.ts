@@ -46,7 +46,9 @@ export const markDefinitions = (document: Document, holds: boolean): void => {
  * is refused with an error.
  */
 export function documentFromMdast(root: md.Root, context: ConvertContext): Document {
-  const { definitions, footnotes } = collectDefinitions(root);
+  const survey = surveyTree(root);
+  if (survey === 'too deep') return nestedTooDeepDocument(context);
+  const { definitions, footnotes } = survey;
   const ctx: Ctx = { ...context, definitions, marked: markedTrees.has(root) };
   const document: Document = {
     type: 'document',
@@ -60,7 +62,7 @@ export function documentFromMdast(root: md.Root, context: ConvertContext): Docum
 }
 
 /** Byte offset of the start of every line, for `sectionRange`; computed on first use. */
-function lineStarts(ctx: Ctx): number[] {
+function lineStarts(ctx: ConvertContext): number[] {
   const starts = [ctx.offsets.at(0)];
   let cursor = 0;
   for (let ending = nextLineEnding(ctx.text, cursor); ending !== undefined; ending = nextLineEnding(ctx.text, cursor)) {
@@ -70,16 +72,69 @@ function lineStarts(ctx: Ctx): number[] {
   return starts;
 }
 
-/** The link reference definitions by identifier, and whether any footnote definition is there. */
-function collectDefinitions(root: md.Root): { definitions: Map<string, md.Definition>; footnotes: boolean } {
+// --- nesting too deep to draw (F-54) -----------------------------------------------------------
+
+/**
+ * How many levels of block quote, list and footnote definition one document may nest and still be typeset.
+ * WebKit draws nothing past about 500 nested boxes and the column walks off the page from about 40, so no
+ * document a reader wrote is anywhere near this; past it the document is shown as its source and says so.
+ * A list item is not a level of its own: a list inside a list is two.
+ */
+export const MAX_NESTING_DEPTH = 64;
+
+/** The documents that were cut short, each with the text it is shown as. */
+const tooDeep = new WeakMap<Document, string>();
+
+/** The text of a document that nests past `MAX_NESTING_DEPTH` and so has no structure, else `undefined`. */
+export const nestedTooDeepText = (document: Document): string | undefined => tooDeep.get(document);
+
+/**
+ * The document for a source that nests too deep to draw: no structure, one code block over all of it,
+ * so that every byte is still in the tree and nothing walks the nesting. The renderer shows the source
+ * in a `<pre>` and says why (`render/pipeline.ts`).
+ */
+export function nestedTooDeepDocument(context: ConvertContext): Document {
+  const { file, text, offsets } = context;
+  const whole: Source = { file, start: offsets.at(0), end: offsets.byteLength };
+  const document: Document = {
+    type: 'document',
+    src: { file, start: 0, end: offsets.byteLength },
+    path: file,
+    children: text === '' ? [] : [{ type: 'codeBlock', src: whole, value: text, content: whole }],
+  };
+  registerLineStarts(document, () => lineStarts(context));
+  crossFile.set(document, false);
+  tooDeep.set(document, text);
+  return document;
+}
+
+/** The container kinds that count as a level of nesting. */
+const LEVELS: ReadonlySet<string> = new Set(['blockquote', 'list', 'footnoteDefinition']);
+
+/**
+ * One walk of the tree, with a stack of its own rather than the call stack: the link reference definitions
+ * by identifier, whether any footnote definition is there, and `'too deep'` as soon as containers nest past
+ * `MAX_NESTING_DEPTH`. It runs before anything recurses over the tree, so that recursion is bounded by the cap.
+ */
+function surveyTree(root: md.Root): { definitions: Map<string, md.Definition>; footnotes: boolean } | 'too deep' {
   const found = new Map<string, md.Definition>();
   let footnotes = false;
-  const walk = (node: md.Nodes): void => {
+  const pending: md.Nodes[] = [root];
+  const depths: number[] = [0];
+  while (pending.length > 0) {
+    const node = pending.pop()!;
+    let depth = depths.pop()!;
     if (node.type === 'definition' && !found.has(node.identifier)) found.set(node.identifier, node);
     if (node.type === 'footnoteDefinition') footnotes = true;
-    if ('children' in node) for (const child of node.children) walk(child);
-  };
-  walk(root);
+    if (LEVELS.has(node.type) && ++depth > MAX_NESTING_DEPTH) return 'too deep';
+    if ('children' in node) {
+      // Reversed, so the first child comes off the stack first and the first definition of a name still wins.
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        pending.push(node.children[i] as md.Nodes);
+        depths.push(depth);
+      }
+    }
+  }
   return { definitions: found, footnotes };
 }
 

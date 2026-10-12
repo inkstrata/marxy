@@ -4,6 +4,7 @@
 // `crypto` is the Web Crypto global, present in both; it is not a Node built-in import.
 
 import type { Block, Document, Inline, ListItem, Source, TableCell, TableRow } from '../contracts/ast.ts';
+import { MAX_NESTING_DEPTH, nestedTooDeepText } from '../parse/from-mdast.ts';
 import { parseMarkdown, type ParseOptions } from '../parse/parse.ts';
 import { DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, REMOTE_IMAGE_ATTR, withProvenance, type Policy, type ProvenanceNames } from '../sanitize/policy.ts';
 import { sanitizeHtml, type Removal } from '../sanitize/sanitize-html.ts';
@@ -40,29 +41,30 @@ export function renderSafeHtml(source: string | Uint8Array, options: RenderOptio
   try {
     return renderDocumentSafeHtml(parseMarkdown(source, options), options.policy);
   } catch (error) {
-    // Only a nesting too deep for the recursive walk degrades to source; any other RangeError is a bug.
+    // The parse refuses a nesting past the cap before it recurses (`MAX_NESTING_DEPTH`), so this is the net under
+    // it: only a stack overflow degrades to source; any other RangeError is a bug.
     if (!(error instanceof RangeError) || !/call stack/i.test(error.message)) throw error;
-    return unrenderable(source, error);
+    return unrenderable(source, `nested too deeply to typeset (${error.message}); shown as plain source`);
   }
 }
 
 /**
- * What a document nested deeper than the stack can walk becomes: its source, escaped, in a `<pre>`
- * that carries one provenance range over the whole file. A reader still gets the text, and nothing
- * the document wrote reaches the DOM as markup.
+ * What a document nested too deep to typeset becomes: its source, escaped, in a `<pre>` that carries one
+ * provenance range over the whole file. A reader still gets the text, and nothing the document wrote reaches
+ * the DOM as markup. The one `structure` removal is what the app's notice is made from.
  */
-function unrenderable(source: string | Uint8Array, error: RangeError): RenderResult {
+function unrenderable(source: string | Uint8Array, reason: string): RenderResult {
   const bytes = typeof source === 'string' ? new TextEncoder().encode(source) : source;
   const text = typeof source === 'string' ? source : new TextDecoder().decode(source);
+  return shownAsSource(text, bytes.length, reason);
+}
+
+function shownAsSource(text: string, byteLength: number, reason: string): RenderResult {
   const escaped = text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
   const { start, end } = PROVENANCE_ATTRIBUTES;
   return {
-    html: `<pre ${start}="0" ${end}="${bytes.length}">${escaped}</pre>`,
-    removed: [{
-      what: 'structure',
-      name: 'document',
-      reason: `nested too deeply to typeset (${error.message}); shown as plain source`,
-    }],
+    html: `<pre ${start}="0" ${end}="${byteLength}">${escaped}</pre>`,
+    removed: [{ what: 'structure', name: 'document', reason }],
     blockedImages: [],
   };
 }
@@ -76,6 +78,8 @@ function unrenderable(source: string | Uint8Array, error: RangeError): RenderRes
  * on anything that does not carry those secret names (ADR-0023, ADR-0036).
  */
 export function renderDocumentSafeHtml(document: Document, policy: Policy = DEFAULT_POLICY): RenderResult {
+  const tooDeep = nestedTooDeepText(document);
+  if (tooDeep !== undefined) return shownAsSource(tooDeep, document.src.end, `nested more than ${MAX_NESTING_DEPTH} levels deep; shown as plain source`);
   const secret = secretNames();
   // The deferred-remote marker is written under a secret name too, so the island pass's marker
   // survives the document pass while one an author wrote under the public name does not.
@@ -123,6 +127,8 @@ export async function renderDocumentSafeHtmlInSlices(document: Document, options
   const { yieldNow, budgetMs = 3, aborted } = options;
   const policy = options.policy ?? DEFAULT_POLICY;
   const blocks = document.children;
+  // A document too deep to typeset is rendered whole, as the source it is shown as.
+  if (nestedTooDeepText(document) !== undefined) return null;
   if (blocks.some((block) => block.type === 'footnoteDefinition')) return null;
   const secret = secretNames();
   const remoteAttr = `${secret.start.slice(0, -2)}-r`;
