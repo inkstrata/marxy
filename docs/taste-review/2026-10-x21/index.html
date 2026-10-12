@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>X-21 app vs mock</title>
+<style>
+  :root { --bg: #f6f5f2; --fg: #1d1d1f; --muted: #5d5f63; --line: #d9d7d2; --card: #ffffff; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111214; --fg: #e3e5e8; --muted: #9a9ea4; --line: #2a2c30; --card: #17181a; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 -apple-system, system-ui, sans-serif; }
+  main { max-width: 1500px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  #lede { color: var(--muted); max-width: 80ch; margin: 0 0 24px; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 28px; font-size: 13px; }
+  nav a { color: inherit; }
+  section { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 28px; }
+  h2 { font-size: 17px; margin: 0; }
+  section > p { max-width: 95ch; margin: 0 0 12px; }
+  section > p small { color: var(--muted); font-size: 12.5px; }
+  figure { margin: 0 0 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+  figure > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  figure > div img { width: 100%; height: auto; display: block; border-radius: 4px; border: 1px solid var(--line); }
+  figcaption { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; font-size: 12px; color: var(--muted); padding: 6px 2px 0; }
+  @media (max-width: 760px) { figure > div { grid-template-columns: 1fr; } figcaption { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>X-21: the app beside mock v2</h1>
+  <p id="lede">Each pair is the real app (left; the Vite harness over the memory shell, Playwright WebKit, main at 04a5c386) and the mock-v2 page (right; the same WebKit, its own web fonts), at 1440 x 900 unless named, in Night and Paper. The app reads the mock's own corpus (<code>mock-v2/shared/corpus.js</code>) at the same paths, so both show the same document. The critique, ranked, is <code>docs/plan/direction-2026-10/17-design-pass-chrome.md</code>; <code>capture.mjs</code> beside this file regenerates every image.</p>
+  <nav><a href="#01-folded">Folded window</a><a href="#01-unfolded">Unfolded: toolbar, tabs, strip, sidebar, inspector, status bar</a><a href="#02-source">Source, unfolded</a><a href="#02-source-folded">Source, folded</a><a href="#03-split">Split: Read beside Source</a><a href="#03-code">A code file (folded)</a><a href="#04-palette">Palette, empty (Mod+P)</a><a href="#04-palette-commands">Palette, commands (Shift+Mod+P)</a><a href="#05-library">Library</a><a href="#06-transform-sheet">Transform result sheet</a><a href="#07-notice">A notice, unfolded</a><a href="#07-notice-folded">A notice, folded</a><a href="#08-narrow">Narrow window (760 px)</a></nav>
+  <section id="01-folded">
+    <h2>Folded window</h2>
+    <p><small>Mock: 01-workspace (folded)</small></p>
+    <p>Close in spirit: one column on the page ground, nothing else. Gaps are in the page, not the chrome: the app sets front matter as a key/value head above the title (10-spec), the mock folds it to one quiet line; the app's h1 is 33 px/560 against the mock's 29.75 px/590; inline code has no chip. Neither shows the first-run hint (the mock's was suppressed for the capture).</p>
+      <figure>
+        <div>
+          <a href="01-folded-dark-app.png"><img src="01-folded-dark-app.png" alt="01-folded, dark, the app" loading="lazy"></a>
+          <a href="01-folded-dark-mock.png"><img src="01-folded-dark-mock.png" alt="01-folded, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="01-folded-light-app.png"><img src="01-folded-light-app.png" alt="01-folded, light, the app" loading="lazy"></a>
+          <a href="01-folded-light-mock.png"><img src="01-folded-light-mock.png" alt="01-folded, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="01-unfolded">
+    <h2>Unfolded: toolbar, tabs, strip, sidebar, inspector, status bar</h2>
+    <p><small>Mock: 01-workspace (unfolded, Read)</small></p>
+    <p>Largest visible gap. The bands stop at x = 1188: a 252 px dead column on the right (the grid keeps a mirror of the sidebar so the column stays centred) and an empty 26 px status bar across the window; in Paper both are white blocks on the off-white page. Toolbar is words, not icons (1 svg against the mock's 17), no segmented Read/Split/Source, no + / Export / inspector toggle, title and folder on one line. Sidebar: flush panel, no search, no section chevrons, 26 px rows (mock 28, inset card r 13). Tabs: 182 px, close always shown, active tab drawn as a button. Strip: one word, no kind label. No inspector (W-09 is PR #607).</p>
+      <figure>
+        <div>
+          <a href="01-unfolded-dark-app.png"><img src="01-unfolded-dark-app.png" alt="01-unfolded, dark, the app" loading="lazy"></a>
+          <a href="01-unfolded-dark-mock.png"><img src="01-unfolded-dark-mock.png" alt="01-unfolded, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="01-unfolded-light-app.png"><img src="01-unfolded-light-app.png" alt="01-unfolded, light, the app" loading="lazy"></a>
+          <a href="01-unfolded-light-mock.png"><img src="01-unfolded-light-mock.png" alt="01-unfolded, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="02-source">
+    <h2>Source, unfolded</h2>
+    <p><small>Mock: 02-source</small></p>
+    <p>The mock's Source is a framed editor: path, encoding, endings, indent, bytes and lines on a 24 px top bar, a 16 px column ruler, a 24 px bottom bar (Ln, Col, byte, measures, the character under the caret), an 8 px right strip of marks. The app draws the bare text (14/21, ADR-0067) centred on the page with none of the bars and no gutter for Markdown (L-06.1 and 10-spec: off for Markdown). The frame is V-05, planned and never carded.</p>
+      <figure>
+        <div>
+          <a href="02-source-dark-app.png"><img src="02-source-dark-app.png" alt="02-source, dark, the app" loading="lazy"></a>
+          <a href="02-source-dark-mock.png"><img src="02-source-dark-mock.png" alt="02-source, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="02-source-light-app.png"><img src="02-source-light-app.png" alt="02-source, light, the app" loading="lazy"></a>
+          <a href="02-source-light-mock.png"><img src="02-source-light-mock.png" alt="02-source, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="02-source-folded">
+    <h2>Source, folded</h2>
+    <p><small>Mock: 01-workspace (folded, Source)</small></p>
+    <p>Folded, the mock keeps the frame, centred at 960 px; the app shows the bare column. The bytes facts (encoding, endings, size, caret position) are nowhere in the app's Source today, folded or not.</p>
+      <figure>
+        <div>
+          <a href="02-source-folded-dark-app.png"><img src="02-source-folded-dark-app.png" alt="02-source-folded, dark, the app" loading="lazy"></a>
+          <a href="02-source-folded-dark-mock.png"><img src="02-source-folded-dark-mock.png" alt="02-source-folded, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="02-source-folded-light-app.png"><img src="02-source-folded-light-app.png" alt="02-source-folded, light, the app" loading="lazy"></a>
+          <a href="02-source-folded-light-mock.png"><img src="02-source-folded-light-mock.png" alt="02-source-folded, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="03-split">
+    <h2>Split: Read beside Source</h2>
+    <p><small>Mock: 01-workspace (unfolded, Split)</small></p>
+    <p>The app's split is two equal columns with Source as bare text on the right; the mock gives Read the larger share (1.3 : 1), frames the Source pane, keeps the inspector. The same dead right column and empty status bar as the unfolded pair.</p>
+      <figure>
+        <div>
+          <a href="03-split-dark-app.png"><img src="03-split-dark-app.png" alt="03-split, dark, the app" loading="lazy"></a>
+          <a href="03-split-dark-mock.png"><img src="03-split-dark-mock.png" alt="03-split, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="03-split-light-app.png"><img src="03-split-light-app.png" alt="03-split, light, the app" loading="lazy"></a>
+          <a href="03-split-light-mock.png"><img src="03-split-light-mock.png" alt="03-split, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="03-code">
+    <h2>A code file (folded)</h2>
+    <p><small>Mock: 01-workspace #doc=indexer-rs</small></p>
+    <p>Closest pair. The app colours only calls and strings; the mock gives keywords, types and comments their own hues and italics (V-13, ADR-0068, is ready). The app's gutter has no rule and its numbers are brighter than the mock's.</p>
+      <figure>
+        <div>
+          <a href="03-code-dark-app.png"><img src="03-code-dark-app.png" alt="03-code, dark, the app" loading="lazy"></a>
+          <a href="03-code-dark-mock.png"><img src="03-code-dark-mock.png" alt="03-code, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="03-code-light-app.png"><img src="03-code-light-app.png" alt="03-code, light, the app" loading="lazy"></a>
+          <a href="03-code-light-mock.png"><img src="03-code-light-mock.png" alt="03-code, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="04-palette">
+    <h2>Palette, empty (Mod+P)</h2>
+    <p><small>Mock: 01-workspace + palette</small></p>
+    <p>The app: a 640 px field with no placeholder and no search glyph, three Recent rows of 28 px, nothing else. The mock: 860 x 630, mode chips, two-line 46 px rows with kind glyph and path, a Suggested group, a preview pane (W-13), a footer of key hints.</p>
+      <figure>
+        <div>
+          <a href="04-palette-dark-app.png"><img src="04-palette-dark-app.png" alt="04-palette, dark, the app" loading="lazy"></a>
+          <a href="04-palette-dark-mock.png"><img src="04-palette-dark-mock.png" alt="04-palette, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="04-palette-light-app.png"><img src="04-palette-light-app.png" alt="04-palette, light, the app" loading="lazy"></a>
+          <a href="04-palette-light-mock.png"><img src="04-palette-light-mock.png" alt="04-palette, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="04-palette-commands">
+    <h2>Palette, commands (Shift+Mod+P)</h2>
+    <p><small>Mock: 01-workspace + palette on ></small></p>
+    <p>149 rows with no group header, no glyph and no secondary line; thirteen "Show this file as ..." rows sit in the first screen. The mock groups commands (Navigate, File, View, ...) with an icon, the group as a second line, a key chip, and a preview of what the command does.</p>
+      <figure>
+        <div>
+          <a href="04-palette-commands-dark-app.png"><img src="04-palette-commands-dark-app.png" alt="04-palette-commands, dark, the app" loading="lazy"></a>
+          <a href="04-palette-commands-dark-mock.png"><img src="04-palette-commands-dark-mock.png" alt="04-palette-commands, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="04-palette-commands-light-app.png"><img src="04-palette-commands-light-app.png" alt="04-palette-commands, light, the app" loading="lazy"></a>
+          <a href="04-palette-commands-light-mock.png"><img src="04-palette-commands-light-mock.png" alt="04-palette-commands, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="05-library">
+    <h2>Library</h2>
+    <p><small>Mock: 05-collections</small></p>
+    <p>Q-03 is days old and works. Against the mock: no table columns (measure, modified, status), no filter menus beside the query, scopes as plain text tabs, rows of 49 px two-line, a header without the collection's facts, plain buttons in the preview. The mock is silent on "why it matched", which the app adds.</p>
+      <figure>
+        <div>
+          <a href="05-library-dark-app.png"><img src="05-library-dark-app.png" alt="05-library, dark, the app" loading="lazy"></a>
+          <a href="05-library-dark-mock.png"><img src="05-library-dark-mock.png" alt="05-library, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="05-library-light-app.png"><img src="05-library-light-app.png" alt="05-library, light, the app" loading="lazy"></a>
+          <a href="05-library-light-mock.png"><img src="05-library-light-mock.png" alt="05-library, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="06-transform-sheet">
+    <h2>Transform result sheet</h2>
+    <p><small>Mock: 01-workspace result sheet (drawn from its own markup: nothing calls it since round 7)</small></p>
+    <p>The sheet's title and column labels are set in Literata 600 at 14.95 px (the reading serif) where every surface takes the chrome face; there is no close button; Before and After do not wrap and the After text runs to the sheet's edge. The mock: chrome face, a close button, wrapped columns, the result count in the header, Apply as the one primary action at the right. Which action is primary is a decision (the palette rule says Enter copies).</p>
+      <figure>
+        <div>
+          <a href="06-transform-sheet-dark-app.png"><img src="06-transform-sheet-dark-app.png" alt="06-transform-sheet, dark, the app" loading="lazy"></a>
+          <a href="06-transform-sheet-dark-mock.png"><img src="06-transform-sheet-dark-mock.png" alt="06-transform-sheet, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="06-transform-sheet-light-app.png"><img src="06-transform-sheet-light-app.png" alt="06-transform-sheet, light, the app" loading="lazy"></a>
+          <a href="06-transform-sheet-light-mock.png"><img src="06-transform-sheet-light-mock.png" alt="06-transform-sheet, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="07-notice">
+    <h2>A notice, unfolded</h2>
+    <p><small>Mock: 01-workspace + toast</small></p>
+    <p>The app's notice sits in the pane's flow and pushes the text down 39.2 px (measured: h1 top 261 to 300.2). The mock's news is a floating pill at the bottom centre, above the status bar, with an icon, and never moves the text. F-46 (PR #618) floats the region over the pane's top edge instead, covering the first lines.</p>
+      <figure>
+        <div>
+          <a href="07-notice-dark-app.png"><img src="07-notice-dark-app.png" alt="07-notice, dark, the app" loading="lazy"></a>
+          <a href="07-notice-dark-mock.png"><img src="07-notice-dark-mock.png" alt="07-notice, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="07-notice-light-app.png"><img src="07-notice-light-app.png" alt="07-notice, light, the app" loading="lazy"></a>
+          <a href="07-notice-light-mock.png"><img src="07-notice-light-mock.png" alt="07-notice, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="07-notice-folded">
+    <h2>A notice, folded</h2>
+    <p><small>Mock: 01-workspace (folded) + toast</small></p>
+    <p>Folded, the same: the app's notice is a box above the front matter that moves the page; the mock's pill floats at the bottom centre.</p>
+      <figure>
+        <div>
+          <a href="07-notice-folded-dark-app.png"><img src="07-notice-folded-dark-app.png" alt="07-notice-folded, dark, the app" loading="lazy"></a>
+          <a href="07-notice-folded-dark-mock.png"><img src="07-notice-folded-dark-mock.png" alt="07-notice-folded, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="07-notice-folded-light-app.png"><img src="07-notice-folded-light-app.png" alt="07-notice-folded, light, the app" loading="lazy"></a>
+          <a href="07-notice-folded-light-mock.png"><img src="07-notice-folded-light-mock.png" alt="07-notice-folded, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+  <section id="08-narrow">
+    <h2>Narrow window (760 px)</h2>
+    <p><small>Mock: 01-workspace (unfolded) at 760 px</small></p>
+    <p>The app keeps the 252 px sidebar and a 156 px dead column on the right, leaving 448 px for the panes, and folds the toolbar into "...". The mock hides the sidebar below 900 px and lays the inspector over the page (over its own Source pane, which the mock gets wrong).</p>
+      <figure>
+        <div>
+          <a href="08-narrow-dark-app.png"><img src="08-narrow-dark-app.png" alt="08-narrow, dark, the app" loading="lazy"></a>
+          <a href="08-narrow-dark-mock.png"><img src="08-narrow-dark-mock.png" alt="08-narrow, dark, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div>
+          <a href="08-narrow-light-app.png"><img src="08-narrow-light-app.png" alt="08-narrow, light, the app" loading="lazy"></a>
+          <a href="08-narrow-light-mock.png"><img src="08-narrow-light-mock.png" alt="08-narrow, light, the mock" loading="lazy"></a>
+        </div>
+        <figcaption><span>App (main, 04a5c386)</span><span>Mock v2</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+</main>
+</body>
+</html>
