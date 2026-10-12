@@ -1041,9 +1041,15 @@ function parseArgs(argv) {
   };
 }
 
+// Asked once per process: a run is minutes long, and `origin/main` or `HEAD` moving while it measures (a fetch, a commit
+// in the tree) must not give two assemble() calls over the same measurement two different probe.json files.
+const shaOf = new Map();
 function refSha(ref) {
-  const r = spawnSync('git', ['rev-parse', '--short=12', ref], { cwd: root, encoding: 'utf8' });
-  return r.status === 0 ? r.stdout.trim() : null;
+  if (!shaOf.has(ref)) {
+    const r = spawnSync('git', ['rev-parse', '--short=12', ref], { cwd: root, encoding: 'utf8' });
+    shaOf.set(ref, r.status === 0 ? r.stdout.trim() : null);
+  }
+  return shaOf.get(ref);
 }
 
 const prefer = (c) => (c.endsWith('-dark-overlay') ? 0 : 1) + (c.startsWith('960x') ? 0 : 0.5);
