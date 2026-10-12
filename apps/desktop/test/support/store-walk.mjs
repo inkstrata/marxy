@@ -34,7 +34,7 @@ import { save } from '../../src/save.ts';
 import { TabList } from '../../src/workspace/tabs.ts';
 import { createMemoryShell } from '../../src/shell/memory.ts';
 import { clearNotices, notify, SOURCE_HELD_APART } from '../../src/notices/index.ts';
-import { DISK_CHANGED_CHOOSE, FILE_REMOVED_ON_DISK } from '../../src/notices/disk.ts';
+import { DISK_CHANGED_CHOOSE, DISK_RETURNED_CHOOSE, FILE_REMOVED_ON_DISK } from '../../src/notices/disk.ts';
 import { drawers, prng } from './prng.mjs';
 
 export const ROOT = '/w';
@@ -375,7 +375,7 @@ export class World {
   // ---- the operations a pane makes ------------------------------------------------------------------------
 
   newDoc(store, path, bytes) {
-    const doc = { store, path, buf: bytes.slice(), base: bytes.slice(), past: [], future: [], pending: null };
+    const doc = { store, path, buf: bytes.slice(), base: bytes.slice(), past: [], future: [], pending: null, gone: false };
     this.model.docs.push(doc);
     return doc;
   }
@@ -494,12 +494,16 @@ export class World {
     if (same(bytes, doc.buf)) {
       doc.pending = null;
       doc.base = doc.buf.slice();
+      doc.gone = false;
       return 'unchanged';
     }
     if (same(bytes, doc.base)) {
       doc.pending = null; // the file is what the buffer came from again: nothing to choose
+      doc.gone = false;
       return 'unchanged';
     }
+    // F-47: a file seen gone leaves the buffer the only copy of what was saved, so what comes back is offered like a change over edits.
+    holds = holds || doc.gone;
     if (dirty(doc) || holds) {
       if (doc.pending === null || !same(doc.pending, bytes)) doc.pending = bytes.slice();
       return 'kept';
@@ -509,6 +513,7 @@ export class World {
     doc.past = [];
     doc.future = [];
     doc.pending = null;
+    doc.gone = false;
     return 'reloaded';
   }
 
@@ -522,20 +527,23 @@ export class World {
   async deliver(batches) {
     const { model } = this;
     const mark = this.dom.log.length;
-    const said = { kept: false, gone: false };
+    const said = { kept: null, gone: false };
     for (const events of batches) {
       for (const doc of [...model.docs]) {
         const effect = effectForOpenDocument(events, doc.path);
         if (effect.action === 'gone') {
           said.gone = true;
+          doc.gone = true;
         } else if (effect.action === 'reload') {
           const bytes = model.disk.get(doc.path);
           if (bytes == null) throw new Error(`walk: a reload batch for ${doc.path}, which is not on disk`);
           const holds = viewsOf(model, doc).some(unfolded);
           if (holds && same(bytes, doc.buf)) continue;
           const lost = doc.buf;
+          // The notice asks for the same choice; over a clean buffer whose file had gone it says the file came back.
+          const only = doc.gone && !holds && !dirty(doc);
           const outcome = this.expectReload(doc, bytes, holds);
-          if (outcome === 'kept') said.kept = true;
+          if (outcome === 'kept') said.kept = only ? DISK_RETURNED_CHOOSE : DISK_CHANGED_CHOOSE;
           if (outcome === 'reloaded') {
             this.mayDrop(model, tokensIn(model, latin1(lost)));
             for (const view of viewsOf(model, doc)) if (view.mode === 'source') view.draft = null;
@@ -546,8 +554,8 @@ export class World {
     for (const events of batches) this.shell.emit(events);
     for (const doc of model.docs) await this.queueOf(doc.store)(async () => {});
     const said_ = this.dom.log.slice(mark);
-    if (said.kept && !said_.some((line) => line === DISK_CHANGED_CHOOSE)) {
-      this.fail('I4', 'a change on disk was held over unsaved edits and no notice asked the reader to choose');
+    if (said.kept && !said_.some((line) => line === said.kept)) {
+      this.fail('I4', 'a change on disk was held over unsaved edits, or over the only copy of a deleted file, and no notice asked the reader to choose');
     }
     if (said.gone && !said_.some((line) => line === FILE_REMOVED_ON_DISK)) {
       this.fail('I4', 'a file was removed from disk under an open document and no notice said so');
@@ -1233,6 +1241,7 @@ export const OPS = {
       if (result === 'saved') {
         model.disk.set(doc.path, doc.buf.slice());
         doc.base = doc.buf.slice();
+        doc.gone = false;
         // The pane's own check that nothing but its own bytes were written (I6): the file is the buffer, exactly.
         const written = await world.shell.peekFile(doc.path);
         if (!same(written, doc.buf)) world.fail('I6', `the bytes saved to ${doc.path} are not the buffer's`);
@@ -1301,6 +1310,7 @@ export const OPS = {
       if (result === 'saved') {
         model.disk.set(target, doc.buf.slice());
         doc.base = doc.buf.slice();
+        doc.gone = false;
         if (target !== doc.path) {
           doc.path = target;
           doc.pending = null; // saved under a new name: the old file's pending change is not this document's
@@ -1354,10 +1364,14 @@ export const OPS = {
       const d = model.d;
       const open = model.docs.map((x) => x.path).filter((p) => model.disk.get(p) != null);
       const path = open.length && d.chance(0.8) ? d.pick(open) : d.pick(present(model));
-      world.mayDrop(model, tokensIn(model, latin1(model.disk.get(path))));
+      const old = model.disk.get(path);
       world.shell.remove(path);
       model.disk.set(path, null);
       const announced = d.chance(0.8);
+      // The other program's delete takes the file's text, but not an open buffer's copy of it (F-47: the buffer is kept,
+      // and a version that comes back is offered). Except when the watch says nothing: then the store cannot know.
+      const held = model.docs.filter((x) => x.path === path).map((x) => latin1(x.buf));
+      world.mayDrop(model, tokensIn(model, latin1(old)).filter((id) => !announced ? true : !held.some((text) => text.includes(model.tokens[id].text))));
       if (announced) await world.deliver([[{ kind: 'removed', path }]]);
       return `another program deletes ${path}${announced ? '' : ', and the watch says nothing'}`;
     },
@@ -1447,6 +1461,7 @@ export const OPS = {
         }
         if (copyPath) model.disk.set(copyPath, doc.buf.slice());
         doc.pending = null;
+        doc.gone = false;
         if (same(theirs, doc.buf)) doc.base = doc.buf.slice();
         else {
           doc.buf = theirs.slice();
