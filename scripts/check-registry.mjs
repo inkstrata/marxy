@@ -88,7 +88,22 @@ export function customPropertiesIn(text) {
   return [...new Set([...text.matchAll(/--marxy-[a-z0-9]+(?:-[a-z0-9]+)*-?/g)].map(m => m[0]))];
 }
 
-const listedCovers = (listed, name) => listed.some(l => (l.endsWith('-') ? name.startsWith(l) : name === l));
+/** A family prefix is `--marxy-<word>-` at least: a bare `--marxy-` would cover every name and so check none. */
+const FAMILY_PREFIX = /^--marxy-[a-z0-9]+(?:-[a-z0-9]+)*-$/;
+const badFamily = l => l.endsWith('-') && !FAMILY_PREFIX.test(l);
+
+const listedCovers = (listed, name) => listed.some(l => !badFamily(l) && (l.endsWith('-') ? name.startsWith(l) : name === l));
+
+/**
+ * Lines of JS/TS where `--marxy-` is followed at once by an interpolation or a concatenation (`--marxy-${x}`,
+ * `'--marxy-' + x`): the whole name is assembled in code, so no family prefix is written out at that site and the
+ * scan above cannot see which names it makes. Spell at least `--marxy-<word>-` before the assembled part.
+ */
+export function assembledCustomPropertyLines(text) {
+  const lines = [];
+  for (const m of text.matchAll(/--marxy-(?:\$\{|['"`]\s*(?:\+|\.concat\s*\())/g)) lines.push(text.slice(0, m.index).split('\n').length);
+  return [...new Set(lines)];
+}
 
 /**
  * A `--marxy-*` custom property used in app or package source is a theme token (tokens.contract.json) or a private one
@@ -97,11 +112,15 @@ const listedCovers = (listed, name) => listed.some(l => (l.endsWith('-') ? name.
  */
 export function customPropertyProblems(used, tokens, listed) {
   const problems = [];
+  for (const l of listed) {
+    if (badFamily(l)) problems.push(`scripts/registry.json: customProperties entry "${l}" is too broad a family prefix${fix('a family prefix is "--marxy-<word>-" at least, e.g. "--marxy-face-"; list whole names otherwise')}`);
+  }
   for (const [name, file] of used) {
     if (tokens.has(name) || listedCovers(listed, name)) continue;
     problems.push(`${file}: custom property "${name}" is neither a theme token nor in registry.customProperties${fix('add it to customProperties in scripts/registry.json, or use a theme token')}`);
   }
   for (const l of listed) {
+    if (badFamily(l)) continue;
     const inUse = [...used.keys()].some(name => (l.endsWith('-') ? name.startsWith(l) : name === l));
     if (!inUse) problems.push(`scripts/registry.json: customProperties lists "${l}", which no source in apps/desktop/src or packages/*/src uses${fix('remove it from customProperties')}`);
   }
@@ -139,7 +158,9 @@ for (const f of files) {
   for (const f of walk(ROOT, f => !prototype.test(f))) {
     const r = rel(f);
     if (!inScope(r)) continue;
-    for (const name of customPropertiesIn(stripForRegistry(readFileSync(f, 'utf8'), f))) if (!used.has(name)) used.set(name, r);
+    const stripped = stripForRegistry(readFileSync(f, 'utf8'), f);
+    if (/\.[mc]?[jt]sx?$/.test(f)) for (const line of assembledCustomPropertyLines(stripped)) problems.push(`${r}:${line}: custom property name assembled entirely in code after "--marxy-"${fix('write a family prefix out at the site, e.g. `--marxy-face-${n}`, and list it in customProperties as "--marxy-face-"')}`);
+    for (const name of customPropertiesIn(stripped)) if (!used.has(name)) used.set(name, r);
   }
   problems.push(...customPropertyProblems(used, tokens, reg.customProperties ?? []));
 }

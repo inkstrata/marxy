@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { stripComments } from './lib/repo.mjs';
-import { htmlRoutes, htmlRouteProblems, constructedRegistryNameProblems, stripForRegistry, customPropertiesIn, customPropertyProblems } from './check-registry.mjs';
+import { htmlRoutes, htmlRouteProblems, constructedRegistryNameProblems, stripForRegistry, customPropertiesIn, customPropertyProblems, assembledCustomPropertyLines } from './check-registry.mjs';
 import { fileURLToPath } from 'node:url';
 
 const ALLOWED_PREFIX = 'apps/desktop/src/render/';
@@ -297,4 +297,54 @@ test('F-71: the gate run fails on an unlisted --marxy-* property in source and o
   const stale = run(['--marxy-fixture-private', '--marxy-nowhere'], css);
   assert.equal(stale.status, 1);
   assert.match(stale.stderr, /lists "--marxy-nowhere"/);
+});
+
+// ---- F-75: the two gaps the F-71 review found
+test('F-75: a name assembled entirely in code after --marxy- is found, with its line', () => {
+  assert.deepEqual(assembledCustomPropertyLines('a\nel.style.setProperty(`--marxy-${x}`, 1);\nb'), [2]);
+  assert.deepEqual(assembledCustomPropertyLines("a;\nb;\nel.style.setProperty('--marxy-' + x, 1);"), [3]);
+  assert.deepEqual(assembledCustomPropertyLines('s.setProperty("--marxy-".concat(x), 1)'), [1]);
+});
+
+test('F-75: a family prefix written out at the site, and a whole name, are not assembled-in-code', () => {
+  assert.deepEqual(assembledCustomPropertyLines('`--marxy-face-${n}`; \'--marxy-tok-\' + k; var(--marxy-col); s.startsWith("--marxy-")'), []);
+});
+
+test('F-75: a bare --marxy- entry, or one shorter than --marxy-x-, is rejected and covers nothing', () => {
+  for (const bad of ['--marxy-', '--marxy--']) {
+    const problems = customPropertyProblems(usedBy('--marxy-anything'), TOKENS, [bad]);
+    assert.ok(problems.some(p => /too broad a family prefix/.test(p) && p.includes(`"${bad}"`)), problems.join('\n'));
+    assert.ok(problems.some(p => /neither a theme token nor/.test(p)), 'and it does not whitelist the name');
+  }
+  assert.deepEqual(customPropertyProblems(usedBy('--marxy-a-b'), TOKENS, ['--marxy-a-']), []);
+});
+
+test('F-75: the gate run fails on an assembled name and on a bare --marxy- entry', () => {
+  const repo = fileURLToPath(new URL('../', import.meta.url));
+  const real = JSON.parse(readFileSync(join(repo, 'scripts/registry.json'), 'utf8'));
+  const run = (customProperties, ts) => {
+    const dir = mkdtempSync(join(tmpdir(), 'marxy-f75-'));
+    try {
+      mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
+      for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
+      writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...real, customProperties }));
+      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
+      mkdirSync(join(dir, 'packages/theme'), { recursive: true });
+      copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
+      mkdirSync(join(dir, 'apps/desktop/src/pane'), { recursive: true });
+      writeFileSync(join(dir, 'apps/desktop/src/pane/x.ts'), ts);
+      return spawnSync(process.execPath, ['scripts/check-registry.mjs'], { encoding: 'utf8', cwd: dir });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const fam = 'export const f = (n: string) => `--marxy-fam-${n}`;\n';
+  const ok = run(['--marxy-fam-'], fam);
+  assert.equal(ok.status, 0, ok.stderr || ok.stdout);
+  const assembled = run(['--marxy-fam-'], fam + 'export const g = (n: string) => `--marxy-${n}`;\n');
+  assert.equal(assembled.status, 1);
+  assert.match(assembled.stderr, /apps\/desktop\/src\/pane\/x\.ts:2: custom property name assembled entirely in code/);
+  const bare = run(['--marxy-'], fam);
+  assert.equal(bare.status, 1);
+  assert.match(bare.stderr, /"--marxy-" is too broad a family prefix/);
 });
