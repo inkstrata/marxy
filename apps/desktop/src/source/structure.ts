@@ -5,9 +5,9 @@
 // store. Lazy-loaded with CodeMirror: it stays off the startup path (MARXY-33).
 
 import {
-  addTableColumn,
-  addTableRow,
-  alignTable,
+  addTableColumnOutcome,
+  addTableRowOutcome,
+  alignTableOutcome,
   deleteLines,
   duplicateLines,
   expandSelection,
@@ -15,8 +15,9 @@ import {
   selectBlock,
   selectSection,
   sortLines,
-  sortTableRows,
+  sortTableRowsOutcome,
   tableCsv,
+  type TableOutcome,
   toggleQuoteLines,
   toggleTaskLines,
   type LineEdit,
@@ -32,6 +33,8 @@ import {
   toggleComment,
 } from '@codemirror/commands';
 import type { StructureOp } from './structure-ops.ts';
+import type { NoticeInput } from '../notices/index.ts';
+import { tableRefusalText } from '../notices/table-copy.ts';
 import type { TableTool } from '../commands/source-edit.ts';
 import { selectNextOccurrence, selectSelectionMatches } from '@codemirror/search';
 import { EditorSelection, Transaction, type EditorState, type StateCommand } from '@codemirror/state';
@@ -116,23 +119,31 @@ export function replaceRange(target: Target, from: number, to: number, text: str
  * undo is one step. False, with nothing changed and nothing said, when the caret is in no table, the file is not
  * Markdown, or the tool declines (a table it cannot edit without risk, or one it has nothing to do to).
  */
-export function runTableTool(tool: TableTool, target: Target, path: string): boolean {
+export function runTableTool(tool: TableTool, target: Target, path: string, say?: (notice: NoticeInput) => void): boolean {
   if (structureKindFor(path) !== 'markdown') return false;
   const { state } = target;
-  const run = { alignTable, addTableRow, addTableColumn, sortTableRows }[tool];
+  const run = { alignTable: alignTableOutcome, addTableRow: addTableRowOutcome, addTableColumn: addTableColumnOutcome, sortTableRows: sortTableRowsOutcome }[tool];
   const text = textOf(state);
-  if (!holdsStrayBytes(text)) return apply(target, run(text, state.selection.main.head));
+  // A refusal (the tool found a table and will not edit it) is said once and writes nothing; no table, or nothing to do, is silent (V-02.1).
+  const finish = (outcome: TableOutcome, edit: (e: LineEdit) => boolean): boolean => {
+    if (outcome && 'refused' in outcome) {
+      say?.({ kind: 'refused', text: tableRefusalText(tool, outcome.refused) });
+      return false;
+    }
+    return outcome ? edit(outcome) : false;
+  };
+  if (!holdsStrayBytes(text)) return finish(run(text, state.selection.main.head), (e) => apply(target, e));
   // A byte that is not UTF-8 is a lone surrogate in the editor's text, which the tools' own check refuses. They work
   // on a copy with each one stood in for by a private-use character the text does not hold, one code unit for one,
   // so every offset stays; what they write is mapped back, so the byte stays itself (F-34.1).
   const base = strayStandInBase(text);
   if (base === null) return false;
   const stood = text.replace(/[\uDC80-\uDCFF]/gu, (c) => String.fromCharCode(base + c.charCodeAt(0) - 0xdc00));
-  const edit = run(stood, state.selection.main.head);
-  if (!edit) return false;
   const back = (s: string): string =>
     s.replace(new RegExp(`[${String.fromCharCode(base + 0x80)}-${String.fromCharCode(base + 0xff)}]`, 'g'), (c) => String.fromCharCode(c.charCodeAt(0) - base + 0xdc00));
-  return apply(target, { ...edit, changes: edit.changes.map((c) => ({ ...c, insert: back(c.insert) })) });
+  return finish(run(stood, state.selection.main.head), (edit) =>
+    apply(target, { ...edit, changes: edit.changes.map((c) => ({ ...c, insert: back(c.insert) })) }),
+  );
 }
 
 /** A base in the Private Use Area whose characters base + 0x80 to base + 0xFF the text holds none of, or null. */

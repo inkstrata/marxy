@@ -27,7 +27,7 @@ const SEPARATORS = { lf: '\n', crlf: '\r\n', cr: '\r' };
 const fileBytes = (lfText, sep, bom) => encoder.encode((bom ? '﻿' : '') + lfText.replace(/\n/g, sep));
 
 /** One editor session over `bytes`: the operation, then the file's bytes as the fold would write them. */
-function session(bytes, op, sel, path = '/t/a.md') {
+function session(bytes, op, sel, path = '/t/a.md', said = []) {
   const buffer = createBuffer(path, bytes);
   let state = EditorState.create({
     doc: cmDocText(buffer),
@@ -41,7 +41,7 @@ function session(bytes, op, sel, path = '/t/a.md') {
   };
   const target = { get state() { return state; }, dispatch };
   // A V-02 table tool is `{ table: 'alignTable' }`; the rest are V-01 operations.
-  const ran = typeof op === 'object' ? runTableTool(op.table, target, path) : runStructure(op, target, path);
+  const ran = typeof op === 'object' ? runTableTool(op.table, target, path, (n) => said.push(n)) : runStructure(op, target, path);
   const out = () => {
     const fold = leaveSourceMode(buffer, state.sliceDoc(0, state.doc.length));
     return fold.changed ? fold.buffer.bytes : bytes;
@@ -782,4 +782,55 @@ browserTest('the table commands are offered in Source and not in Rendered', asyn
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
     assert.deepEqual(await offered(), [false, false, false, false, false]);
   });
+});
+
+// V-02.1: a table tool that finds a table and declines it says so once, as a `refused` notice, and writes nothing.
+const REFUSALS = [
+  // The last cell of the caret's row has no closing pipe: a cell after it would read as the row's end.
+  { name: 'a last column with no closing pipe', input: 'a | b\n--|--\n1 | ^2\n', tools: ['addTableColumn'], says: /^Column not added: this column's last cell has no closing pipe.* · the file is unchanged · / },
+  { name: 'a ragged row whose last cell has no closing pipe', input: '| a | b |\n|---|---|\n| 1 | ^2\n', tools: ['addTableColumn'], says: /^Column not added: this column's last cell has no closing pipe.* · the file is unchanged · / },
+];
+
+for (const kase of REFUSALS) {
+  for (const tool of kase.tools) {
+    test(`${tool} on ${kase.name}: exactly one refused notice and the bytes are unchanged`, () => {
+      const { lf, at } = withCaret(kase.input);
+      const bytes = fileBytes(lf, '\n', false);
+      const said = [];
+      const r = session(bytes, { table: tool }, { from: at, to: at }, '/t/a.md', said);
+      assert.equal(r.ran, false);
+      assert.equal(said.length, 1);
+      assert.equal(said[0].kind, 'refused');
+      assert.match(said[0].text, kase.says);
+      assert.deepEqual([...r.bytes], [...bytes]);
+      assert.equal(r.steps, 0);
+    });
+  }
+}
+
+test('a table tool says nothing when the caret is in no table, or when there is nothing to do', () => {
+  const quiet = (input, tool) => {
+    const { lf, at } = withCaret(input);
+    const said = [];
+    const r = session(fileBytes(lf, '\n', false), { table: tool }, { from: at, to: at }, '/t/a.md', said);
+    assert.equal(r.ran, false);
+    assert.deepEqual(said, []);
+  };
+  for (const tool of ['alignTable', 'addTableRow', 'addTableColumn', 'sortTableRows']) quiet('plain ^prose\n\n| a |\n|---|\n| 1 |\n', tool);
+  quiet('| a   |\n| --- |\n| ^1   |\n', 'alignTable');
+  quiet('| a |\n|---|\n| ^1 |\n| 2 |\n', 'sortTableRows');
+  // One body row: sort has nothing to move, which is not a refusal.
+  quiet('| a |\n|---|\n| ^1 |\n', 'sortTableRows');
+  quiet('a | b\n--|--\n^1 | 2\n', 'sortTableRows');
+});
+
+test('every table-tool refusal is worded to the template: what happened · what is unchanged · what to do', async () => {
+  const { tableRefusalText } = await import('../src/notices/table-copy.ts');
+  for (const tool of ['alignTable', 'addTableRow', 'addTableColumn', 'sortTableRows']) {
+    for (const reason of ['columns', 'shape', 'closing-pipe', 'rewrite']) {
+      const parts = tableRefusalText(tool, reason).split(' · ');
+      assert.equal(parts.length, 3, `${tool} ${reason}`);
+      assert.match(parts[1], /^the file is unchanged$/);
+    }
+  }
 });
