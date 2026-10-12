@@ -115,14 +115,16 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     const focusKey = refocus ?? (document.activeElement as HTMLElement | null)?.dataset?.stop;
     const sections = sectionsNow();
     const library = libraryCommand() !== undefined;
-    const feedCount = palette()?.feed.entries().length ?? 0;
-    const watching = handle.index.watchedRoots().length > 0;
+    const feedCount = handle.index.entries().length;
+    // What the tree watches are now (live or refused), not what was declared; a walk under way hides the count.
+    const watching = handle.index.watchState();
+    const indexing = handle.index.indexing();
     const active = handle.panes().focused.path() ?? '';
     const rows = sections.map((s) => ({
       id: s.id,
       rows: s.rows.map((r) => [r.entry.path, r.entry.title, r.entry.mtimeMs, r.mark, relativeAge(Date.now(), r.entry.mtimeMs)]),
     }));
-    const key = JSON.stringify([library, [...collapsed], rows, sectionsKeyKinds(sections), feedCount, watching, active]);
+    const key = JSON.stringify([library, [...collapsed], rows, sectionsKeyKinds(sections), feedCount, watching, indexing, active]);
     if (key === drawn) return;
     drawn = key;
     root.replaceChildren();
@@ -130,7 +132,7 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     root.append(searchField());
     if (library) root.append(libraryRow());
     for (const section of sections) root.append(sectionNode(section, active));
-    if (feedCount > 0) root.append(footNode(feedCount, watching));
+    if (indexing || feedCount > 0) root.append(footNode(feedCount, watching, indexing));
     rove();
     if (hadFocus && focusKey) (stopFor(focusKey) ?? stopsOf()[0])?.focus();
     rove();
@@ -161,11 +163,14 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
   };
 
   /** The foot: how many documents the index holds and whether it is watching. Text, not a control. */
-  const footNode = (count: number, watching: boolean): HTMLElement => {
+  const footNode = (count: number, watching: 'live' | 'refused' | 'none', indexing: boolean): HTMLElement => {
     const foot = document.createElement('div');
     foot.className = 'marxy-sidebar-foot';
     foot.setAttribute('data-marxy-sidebar-foot', '');
-    foot.textContent = `${count} ${count === 1 ? 'document' : 'documents'} indexed${watching ? ', watching' : ''}`;
+    // Only what is true: no count while a walk runs (it climbs), and "watching" only when a tree watch is open.
+    // A refused watch says so in the palette's words (C-10.1, C-11).
+    const watch = watching === 'live' ? ' \u00b7 watching' : watching === 'refused' ? ' \u00b7 not watching, rescanned when you open the palette' : '';
+    foot.textContent = indexing ? 'Indexing\u2026' : `${count.toLocaleString('en-US')} ${count === 1 ? 'document' : 'documents'} indexed${watch}`;
     return foot;
   };
 
@@ -289,6 +294,9 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     }
     draw();
   };
+  // The foot follows the watch state and the walks, which the feed does not announce.
+  const offWatched = handle.index.onWatchedRootsChange(refresh);
+  const offStatus = handle.index.onStatusChange(refresh);
   const offSignal = signal.onChange(() => {
     attach();
   });
@@ -313,6 +321,8 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     if (waiting !== null) clearTimeout(waiting);
     offFeed?.();
     offSignal();
+    offWatched();
+    offStatus();
     root.remove();
   };
 }

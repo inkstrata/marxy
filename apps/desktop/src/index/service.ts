@@ -117,6 +117,15 @@ export interface IndexService {
   revalidate(): void;
   /** The palette's notice line for refused watches, or undefined when every watch is open. */
   watchNotice(): string | undefined;
+  /**
+   * What the tree watches really are, not what was declared (U-06): `refused` when any was refused (home-sized, over the
+   * shell's limit), else `live` when one is open, else `none`.
+   */
+  watchState(): 'live' | 'refused' | 'none';
+  /** A walk (the first, a rescan or a snapshot read) is running or queued on some root. */
+  indexing(): boolean;
+  /** `cb` is called when `watchState()` or `indexing()` changes; returns the unsubscribe. */
+  onStatusChange(cb: () => void): () => void;
   /** Every indexed root's entries, the most recently ensured root first. */
   entries(): readonly IndexEntry[];
   /**
@@ -382,6 +391,24 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
   const watchedListeners = new Set<() => void>();
   /** Tree watches by tree root, as `collection/watch.ts` reports them. */
   const treeWatches = new Map<string, TreeWatchState>();
+  const statusListeners = new Set<() => void>();
+  const statusChanged = () => {
+    for (const cb of statusListeners) cb();
+  };
+  let busy = 0;
+  /** Counts `work` as indexing while it runs. */
+  const track = <T>(work: Promise<T>): Promise<T> => {
+    busy++;
+    if (busy === 1) statusChanged();
+    return work.finally(() => {
+      busy--;
+      if (busy === 0) statusChanged();
+    });
+  };
+  const watchState = (): 'live' | 'refused' | 'none' => {
+    const states = [...treeWatches.values()];
+    return states.includes('refused') ? 'refused' : states.includes('live') ? 'live' : 'none';
+  };
   /** When each root was last walked by `revalidate`, on `now`'s clock. */
   const revalidatedAt = new Map<string, number>();
   let watchedKey = '';
@@ -537,7 +564,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
   const hold = (root: string, idle: boolean, path?: string, openedBytes?: Uint8Array, recent = false): RootState => {
     const state: RootState = { entries: [], pending: Promise.resolve(), queued: false, events: [], patchQueued: false, lastRead: new Map(), held: new Set() };
     roots.set(root, state);
-    state.pending = (async () => {
+    state.pending = track((async () => {
       // The last session's index, published before the walk lists anything, less what today's deny
       // globs cover (the reader may have added one while Marxy was closed).
       const file = await snapshotPath(shell, root);
@@ -561,7 +588,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       order = order.filter((r) => r !== root);
       if (snapshot) publish();
       watchedChanged();
-    })();
+    })());
     return state;
   };
 
@@ -570,11 +597,13 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     const state = roots.get(root);
     if (!state || state.queued || state.snapshotOnly) return;
     state.queued = true;
-    state.pending = state.pending.then(() =>
-      whenIdle(async () => {
-        state.queued = false;
-        await walk(root, state);
-      }),
+    state.pending = track(
+      state.pending.then(() =>
+        whenIdle(async () => {
+          state.queued = false;
+          await walk(root, state);
+        }),
+      ),
     );
   };
 
@@ -834,8 +863,10 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     applyEvents,
     setTreeWatch(tree, state) {
       const before = watchNotice();
+      const was = watchState();
       if (state === undefined) treeWatches.delete(tree);
       else treeWatches.set(tree, state);
+      if (watchState() !== was) statusChanged();
       // The notice line changed: subscribers hear of it with an empty patch, which rebuilds nothing.
       if (watchNotice() !== before) publish({ root: tree, upserted: [], removed: [] });
     },
@@ -852,6 +883,14 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       }
     },
     watchNotice,
+    watchState,
+    indexing: () => busy > 0,
+    onStatusChange(cb) {
+      statusListeners.add(cb);
+      return () => {
+        statusListeners.delete(cb);
+      };
+    },
     async homeSized(tree) {
       // Only a root that holds the home folder skips anything; a declared ~/Documents or a volume is
       // budgeted but watched, as before (C-10.1).

@@ -337,6 +337,50 @@ test('the look (U-06): the search field opens the palette; rows are 28 px with t
   });
 });
 
+test('the foot says only what is true (U-06): the count is the index\'s, a refused watch never says watching, and it follows the watch state and a walk', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: tenOpen.slice(0, 3) });
+    await unfold(page);
+    await drawn(page);
+    const foot = () => page.evaluate(() => document.querySelector('[data-marxy-sidebar-foot]')?.textContent ?? null);
+    const indexCount = await page.evaluate(() => window.__marxyHandle.index.entries().length);
+    // The foot's N is the index's own count; "watching" is claimed only while the index says a tree watch is live.
+    const count = `${indexCount.toLocaleString('en-US')} ${indexCount === 1 ? 'document' : 'documents'} indexed`;
+    const state = await page.evaluate(() => window.__marxyHandle.index.watchState());
+    assert.equal(await foot(), state === 'live' ? `${count} \u00b7 watching` : count);
+    // The watch is refused (home-sized, over the limit): never "watching", and the notice's own words.
+    await page.evaluate(() => window.__marxyHandle.index.setTreeWatch('/r', 'refused'));
+    await page.waitForFunction(() => /not watching, rescanned when you open the palette$/.test(document.querySelector('[data-marxy-sidebar-foot]')?.textContent ?? ''));
+    assert.equal(await foot(), `${count} \u00b7 not watching, rescanned when you open the palette`);
+    assert.doesNotMatch(((await foot()) ?? '').replace('not watching', ''), /watching/);
+    // The refusal is lifted: the foot follows the state back.
+    await page.evaluate(() => window.__marxyHandle.index.setTreeWatch('/r', undefined));
+    {
+      // The test's own '/r' replaced whatever tree watch the app held there, so the state back may be none; the foot must match it.
+      const now = await page.evaluate(() => window.__marxyHandle.index.watchState());
+      await page.waitForFunction((want) => document.querySelector('[data-marxy-sidebar-foot]')?.textContent === want, now === 'live' ? `${count} \u00b7 watching` : count);
+    }
+    // A walk under way: "Indexing…", no count; the count returns when it is done. The index's own answer is stood in for.
+    await page.evaluate(() => {
+      const index = window.__marxyHandle.index;
+      window.__realIndexing = index.indexing;
+      index.indexing = () => true;
+      index.setTreeWatch('/r', 'refused');
+    });
+    await page.waitForFunction(() => document.querySelector('[data-marxy-sidebar-foot]')?.textContent === 'Indexing\u2026');
+    await page.evaluate(() => {
+      const index = window.__marxyHandle.index;
+      index.indexing = window.__realIndexing;
+      index.setTreeWatch('/r', undefined);
+    });
+    {
+      // The test's own '/r' replaced whatever tree watch the app held there, so the state back may be none; the foot must match it.
+      const now = await page.evaluate(() => window.__marxyHandle.index.watchState());
+      await page.waitForFunction((want) => document.querySelector('[data-marxy-sidebar-foot]')?.textContent === want, now === 'live' ? `${count} \u00b7 watching` : count);
+    }
+  });
+});
+
 // --- the door and the page ---------------------------------------------------------------------------------
 
 test('view.toggle-sidebar is available, the toolbar draws its toggle, and it docks and undocks the sidebar', async () => {
