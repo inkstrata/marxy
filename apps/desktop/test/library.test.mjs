@@ -117,12 +117,13 @@ test('folded, the command is not offered and there is no library element; unfold
       const main = document.getElementById('marxy-main');
       const lib = document.querySelector('[data-marxy-library]');
       const r = lib.getBoundingClientRect();
-      const m = main.getBoundingClientRect();
-      return { hidden: main.hidden, inert: main.inert, mainHeight: m.height, libHeight: r.height, libWidth: r.width, name: lib.getAttribute('aria-label'), focus: document.activeElement.getAttribute('aria-label') };
+            const at = document.elementFromPoint(r.x + r.width / 2, r.y + 100);
+      return { hidden: main.hidden, inert: main.inert, visibility: getComputedStyle(main).visibility, covered: lib.contains(at), libHeight: r.height, libWidth: r.width, name: lib.getAttribute('aria-label'), focus: document.activeElement.getAttribute('aria-label') };
     });
     assert.equal(state.hidden, true);
     assert.equal(state.inert, true);
-    assert.equal(state.mainHeight, 0, 'the panes take no room');
+    assert.equal(state.visibility, 'hidden', 'the panes keep their box and lose their paint');
+    assert.equal(state.covered, true, 'what is at the centre of the cell is the library, not a pane');
     assert.ok(state.libHeight > 300 && state.libWidth > 600, `the view fills the panes' cell (${state.libWidth} x ${state.libHeight})`);
     assert.equal(state.name, 'Library');
     assert.equal(state.focus, 'Search the library', 'the field has focus');
@@ -149,6 +150,12 @@ test('the panes come back as they were: a scroll position and an unsaved edit su
     });
     assert.equal(edited, true);
     await openLibrary(page);
+    // While the view shows, the reading place is not written over: a quit now keeps the reader's place.
+    const placeOnDisk = () => page.evaluate(async () => JSON.parse(new TextDecoder().decode(await window.__marxyHandle.shell.readFile('/data/positions.json'))).positions['/r/A.md']?.byteOffset);
+    await settle(page, 2300);
+    const during = await placeOnDisk().catch(() => 'none');
+    assert.ok(during === 'none' || during > 0, `the place kept under the view (${during})`);
+    assert.equal(await page.evaluate(() => window.scrollY), before, 'the window does not scroll or clamp under the view');
     await page.keyboard.press('Escape');
     await settle(page, 100);
     assert.equal(await view(page), false);
@@ -315,6 +322,22 @@ test('Esc clears the field, then closes the view with focus on the pane that had
     assert.equal(await view(page), false, 'the second closes');
     assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().mode), 'unfolded', 'and does not also fold the window');
     assert.equal(await page.evaluate(() => document.activeElement === window.__marxyHandle.panes().focused.host), true);
+  });
+});
+
+test('a document opened from the palette while the library shows closes the view and lands in the pane', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    await page.keyboard.press('ControlOrMeta+p');
+    await page.keyboard.type('standup');
+    await settle(page, 300);
+    await page.keyboard.press('Enter');
+    await settle(page, 600);
+    assert.equal(await view(page), false);
+    assert.deepEqual(await paths(page), ['/r/standup.md']);
+    assert.equal(await page.evaluate(() => document.getElementById('marxy-main').hidden || document.getElementById('marxy-main').inert), false);
+    assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), false);
   });
 });
 

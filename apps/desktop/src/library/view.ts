@@ -14,7 +14,6 @@
 // clears the field, then closes the view with focus back on the pane that had it.
 import { detectKind, type IndexEntry } from '@marxy/core';
 import { KINDS } from '@marxy/core/src/contracts/kinds.ts';
-import { CONTENT_SEARCH_LIMITS } from '@marxy/core/src/index-model/content-search.ts';
 import { basename } from '@marxy/core/src/index-model/paths.ts';
 import {
   completeQuery,

@@ -861,20 +861,24 @@ body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) { posi
 body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) .marxy-source-mount:not([hidden]) { position: absolute; inset: 0; overflow: auto; }
 body[data-marxy-workspace="unfolded"][data-marxy-mode="source"] #marxy-main:not([data-marxy-split]) #marxy-notices { position: absolute; top: 0; left: 0; right: 0; }
 
-/* The library view (Q-03; ADR-0062 item 2). A sibling of the panes in the unfolded workspace: it takes the panes' cell of the
-   grid while they are hidden (`hidden`, which `#marxy-main[data-marxy-split]`'s own display would otherwise overrule). It has no
-   ground, border or shadow of its own: the page's ground, the rule role between its parts, the selection role for the row
-   under the pointer's list position and the accent for the active one, which also gets a bar (never colour alone). A row is a
-   fixed number of lines, so the view can window the list: `--marxy-library-line` and `--marxy-library-pad` are read back by the
+/* The library view (Q-03; ADR-0062 item 2). A sibling of the panes in the unfolded workspace: it stands in the panes' cell of
+   the grid while they are hidden (`hidden` and `inert`, set by the view). The panes keep their box and lose only their paint
+   (`visibility`), so the window keeps its height and its scroll position, no scroll event runs under the view, and the place
+   the reader had is not written over; the window does not scroll while the view shows, and the view sticks under the bands.
+   It has no ground, border or shadow of its own: the page's ground, the rule role between its parts, the selection role for
+   the row under the pointer and the accent for the active one, which also gets a bar (never colour alone). A row is a fixed
+   number of lines, so the view can window the list: `--marxy-library-line` and `--marxy-library-pad` are read back by the
    view through two hidden probes. */
-body #marxy-main[hidden] { display: none; }
+body #marxy-main[hidden]:not([data-marxy-split]) { display: block; visibility: hidden; }
+body #marxy-main[hidden][data-marxy-split] { display: grid; visibility: hidden; }
+html:has(> body > .marxy-library) { overflow: hidden; }
 .marxy-library {
   --marxy-library-line: calc(var(--marxy-size-chrome) * 1.5);
   --marxy-library-pad: calc(var(--marxy-size-chrome) * 0.4);
   box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; flex-direction: column;
   color: var(--marxy-color-text); font: var(--marxy-size-chrome) var(--marxy-face-chrome);
 }
-body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-row: 4; height: var(--marxy-ws-panes-h); }
+body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-row: 4; position: sticky; top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h)); align-self: start; z-index: 3; height: var(--marxy-ws-panes-h); }
 .marxy-library-probe { position: absolute; visibility: hidden; pointer-events: none; width: 0; }
 .marxy-library-probe-line { height: var(--marxy-library-line); }
 .marxy-library-probe-pad { height: var(--marxy-library-pad); }
@@ -891,7 +895,7 @@ body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-ro
 .marxy-library-search { position: relative; padding: 0.2em 0.9em 0.4em; }
 .marxy-library-field { box-sizing: border-box; width: 100%; padding: 0.45em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; }
 .marxy-library-field:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
-.marxy-library-suggest { position: absolute; z-index: 5; inset-inline: 0.9em; margin-top: 2px; max-height: 14em; overflow: auto; background: var(--marxy-color-surface); border: 1px solid var(--marxy-color-rule); }
+.marxy-library-suggest { position: absolute; z-index: 5; inset-inline: 0.9em; margin-top: 0.15em; max-height: 14em; overflow: auto; background: var(--marxy-color-surface); border: 1px solid var(--marxy-color-rule); }
 .marxy-library-suggest[hidden], .marxy-library-chips[hidden] { display: none; }
 .marxy-library-suggest-item { display: flex; gap: 1em; justify-content: space-between; padding: 0.3em 0.7em; }
 .marxy-library-suggest-item[aria-selected="true"] { background: var(--marxy-color-accent-wash); box-shadow: inset 3px 0 0 var(--marxy-color-accent); }
