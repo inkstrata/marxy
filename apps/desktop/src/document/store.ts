@@ -96,12 +96,17 @@ export interface DocumentStore {
    * Leaving Source: one history entry, labelled `edit in Source`. Never writes. Resolves false when
    * nothing changed, or on a stale `baseVersion` (as for `apply`).
    *
+   * `opts.refuse` is asked, synchronously, at the turn the fold would commit (as `reload`'s `holds`), after every
+   * transition queued before it has run: a view whose text was made ready before another view's fold landed
+   * answers true, and the store is untouched. A fold diffs its text against the buffer at its turn, so a text
+   * prepared against the bytes before that fold would write the other view's change out (F-48).
+   *
    * `docText` must use the file's own line separator, as the editor does when it sets `lineSeparator`
    * from `buffer.eol` (no BOM: see `cmDocText`). Core's `foldText` converts LF to CRLF only for an
    * all-CRLF file; on a mixed-ending file, LF-normalised text is a real difference at every CRLF line
    * between the first and last change, and those endings are rewritten (pinned in store.test.ts).
    */
-  commitSource(docText: string, opts?: { baseVersion?: number }): Promise<boolean>;
+  commitSource(docText: string, opts?: { baseVersion?: number; refuse?: () => boolean }): Promise<boolean>;
   undo(): Promise<boolean>;
   redo(): Promise<boolean>;
   /**
@@ -400,7 +405,7 @@ export function openDocumentStore(
 
     commitSource(docText, opts) {
       return transition(() => {
-        if (stale(opts?.baseVersion)) return false;
+        if (stale(opts?.baseVersion) || opts?.refuse?.()) return false;
         const left = leaveSourceMode(state.buffer, docText);
         if (!left.changed || !left.edit) return false;
         const edit = left.edit;

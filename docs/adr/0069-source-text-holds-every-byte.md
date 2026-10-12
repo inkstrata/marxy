@@ -84,6 +84,10 @@ equality was not byte equality, and no diff over that text can make it so.
   The same holds for Mod+E, which folds the same way (`foldEditorInto`: a key typed while its fold waits is folded
   too, and Rendered shows it), and for the title refresh after a fold: a key typed then stays in the editor for the
   next save, and the save in progress still writes, because only text held apart (D-11) refuses a save (F-42.1).
+  A fold diffs its text against the store at its turn, so one made ready before another pane's fold landed would write
+  that fold out: B's text was lost when B left while A typed. The store asks the view at that turn (`commitSource`'s
+  `refuse`), and a view held apart by then, or whose editor took other bytes, does not fold; its text stays in its editor,
+  leaving Source says why, and what the other pane folded stays in the store (F-48).
 - Searching Source for U+FFFD does not find a stray byte (it is a different character there); the marker shows it.
 - A line copied with no selection (CodeMirror's line-wise copy) that holds a stray byte pastes back as text at the
   caret, not as a whole line, because CodeMirror compares the pasted text with the filtered copy.
