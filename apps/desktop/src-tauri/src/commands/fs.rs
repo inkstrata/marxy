@@ -173,6 +173,73 @@ pub fn read_dir(dir: String) -> Result<Vec<FileStat>, ShellError> {
 /// The most `read_head` ever returns, whatever the caller asks for: the index's head size.
 pub const MAX_HEAD_BYTES: u64 = 256 * 1024;
 
+/// The most `read_file` opens: one named ceiling, 256 MB (the memory a document takes once parsed and
+/// typeset is about ten times its size). A larger file is refused with a notice, not read.
+pub const MAX_OPEN_BYTES: u64 = 256 * 1024 * 1024;
+
+/// A file's bytes exactly as on disk, behind the `read_file` command in `main.rs`. A symlink is followed
+/// (a link to a document opens as the document), then anything that is not a regular file, and any
+/// file above `ceiling`, is refused before a byte is read. The open never blocks on a pipe, and the
+/// opened handle is checked again, as `read_opened_head` does, because the path may be swapped between
+/// the check and the open. The error is a bare string, which the webview shows as the open-error notice.
+pub fn read_regular_file(path: &str, ceiling: u64) -> Result<Vec<u8>, String> {
+    let p = Path::new(path);
+    let meta = fs::metadata(p).map_err(|e| format!("{path}: {e}"))?;
+    check_openable(path, &meta, ceiling)?;
+    let file = open_following(p).map_err(|e| format!("{path}: {e}"))?;
+    let meta = file.metadata().map_err(|e| format!("{path}: {e}"))?;
+    check_openable(path, &meta, ceiling)?;
+    let mut bytes = Vec::with_capacity(meta.len() as usize);
+    // One byte past the ceiling: a file that grew after the check is refused, not truncated.
+    file.take(ceiling.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("{path}: {e}"))?;
+    if bytes.len() as u64 > ceiling {
+        return Err(format!(
+            "{} (it grew while being read)",
+            too_large(path, bytes.len() as u64, ceiling)
+        ));
+    }
+    Ok(bytes)
+}
+
+fn check_openable(path: &str, meta: &fs::Metadata, ceiling: u64) -> Result<(), String> {
+    if !meta.is_file() {
+        return Err(format!(
+            "{path}: not a regular file (a folder, pipe or device cannot be opened)"
+        ));
+    }
+    if meta.len() > ceiling {
+        return Err(too_large(path, meta.len(), ceiling));
+    }
+    Ok(())
+}
+
+fn too_large(path: &str, size: u64, ceiling: u64) -> String {
+    let mb = |n: u64| n.div_ceil(1024 * 1024);
+    format!(
+        "{path}: too large to open ({} MB; the most Marxy opens is {} MB)",
+        mb(size),
+        mb(ceiling)
+    )
+}
+
+/// Opens `p` following a link, without blocking on a pipe (`O_NONBLOCK` has no effect on a regular file).
+fn open_following(p: &Path) -> std::io::Result<File> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NONBLOCK)
+            .open(p)
+    }
+    #[cfg(not(unix))]
+    {
+        File::open(p)
+    }
+}
+
 /// One file's size and modification time, without listing its folder (C-11.2). A narrower form of
 /// `read_dir`, so it reaches no further: `None` for a path that is missing, is a symlink (`read_dir`
 /// omits every one), or is named like a deny-listed directory. A folder is reported as one.
@@ -645,6 +712,74 @@ mod tests {
             .recv_timeout(std::time::Duration::from_secs(30))
             .expect("read_head blocked on a named pipe");
         assert_eq!(got, Err("invalid".to_string()));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_regular_file_refuses_a_pipe_a_device_and_a_file_over_the_ceiling() {
+        use std::os::unix::fs::symlink;
+        let dir = scratch_dir("open-guard");
+        let s = |p: &Path| p.to_string_lossy().into_owned();
+        // A FIFO: refused without blocking (run on a thread so a hang is a failure).
+        let pipe = dir.join("pipe.md");
+        assert!(std::process::Command::new("mkfifo")
+            .arg(&pipe)
+            .status()
+            .unwrap()
+            .success());
+        let (tx, rx) = std::sync::mpsc::channel();
+        let p = s(&pipe);
+        std::thread::spawn(move || {
+            let _ = tx.send(read_regular_file(&p, MAX_OPEN_BYTES));
+        });
+        let err = rx
+            .recv_timeout(std::time::Duration::from_secs(30))
+            .expect("opening a FIFO blocked")
+            .unwrap_err();
+        assert!(err.contains("not a regular file"), "{err}");
+        // A symlink to /dev/zero: followed, then refused as a device (main reads it until memory runs out).
+        symlink("/dev/zero", dir.join("zero.log")).unwrap();
+        let err = read_regular_file(&s(&dir.join("zero.log")), MAX_OPEN_BYTES).unwrap_err();
+        assert!(err.contains("not a regular file"), "{err}");
+        // A folder.
+        assert!(read_regular_file(&s(&dir), MAX_OPEN_BYTES).is_err());
+        // A sparse file one byte over the ceiling: nothing is written, nothing is read.
+        let big = dir.join("big.log");
+        let f = File::create(&big).unwrap();
+        f.set_len(MAX_OPEN_BYTES + 1).unwrap();
+        let err = read_regular_file(&s(&big), MAX_OPEN_BYTES).unwrap_err();
+        assert!(err.contains("too large") && err.contains("256 MB"), "{err}");
+        assert!(
+            !err.contains("grew"),
+            "refused by size, before reading: {err}"
+        );
+        // At the ceiling exactly, via a small ceiling.
+        fs::write(dir.join("ten.md"), b"0123456789").unwrap();
+        assert_eq!(
+            read_regular_file(&s(&dir.join("ten.md")), 10)
+                .unwrap()
+                .len(),
+            10
+        );
+        let err = read_regular_file(&s(&dir.join("ten.md")), 9).unwrap_err();
+        assert!(err.contains("too large"), "{err}");
+        // The opened handle is checked too: a FIFO that replaced the path after the path check.
+        let opened = open_following(&pipe).unwrap();
+        assert!(!opened.metadata().unwrap().is_file());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_regular_file_still_follows_a_symlink_to_a_regular_file() {
+        use std::os::unix::fs::symlink;
+        let dir = scratch_dir("open-link");
+        fs::write(dir.join("real.md"), b"# real\r\n\xff").unwrap();
+        symlink(dir.join("real.md"), dir.join("link.md")).unwrap();
+        let bytes =
+            read_regular_file(&dir.join("link.md").to_string_lossy(), MAX_OPEN_BYTES).unwrap();
+        assert_eq!(bytes, b"# real\r\n\xff");
         let _ = fs::remove_dir_all(&dir);
     }
 }
