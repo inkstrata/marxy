@@ -58,7 +58,7 @@ async function withPage(fn, viewport = { width: 1440, height: 900 }) {
   }
 }
 
-const fact = (page, name) => page.evaluate((n) => document.querySelector(`.marxy-source-fact[data-fact="${n}"]`)?.textContent ?? null, name);
+const fact = (page, name) => page.evaluate((n) => document.querySelector(`.marxy-source-fact[data-marxy-fact="${n}"]`)?.textContent ?? null, name);
 const text = (page, sel) => page.evaluate((s) => document.querySelector(s)?.textContent ?? null, sel);
 const rect = (page, sel) =>
   page.evaluate((s) => {
@@ -149,7 +149,7 @@ test('V-05 the byte count follows the reader\'s edits exactly (multi-byte text, 
       const sizeNow = () => page.evaluate(async () => {
         const { activeSourceEditor } = await import('/src/source/editor.ts');
         const ed = activeSourceEditor();
-        return { shown: document.querySelector('.marxy-source-fact[data-fact="size"]').textContent, real: new TextEncoder().encode(ed.docText()).length + (ed.buffer.bom ? 3 : 0) };
+        return { shown: document.querySelector('.marxy-source-fact[data-marxy-fact="size"]').textContent, real: new TextEncoder().encode(ed.docText()).length + (ed.buffer.bom ? 3 : 0) };
       });
       const agrees = async (what) => {
         await page.waitForFunction(() => new Promise((r) => requestAnimationFrame(() => r(true))));
@@ -441,8 +441,87 @@ test('V-05 a change on disk updates what the bars say (a reload: another line en
       window.__shell.emit([{ kind: 'modified', path: '/p/a.py' }]);
       for (let i = 0; i < 500 && marks() === before; i++) await new Promise((r) => setTimeout(r, 10));
     });
-    await page.waitForFunction(() => document.querySelector('.marxy-source-fact[data-fact="endings"]')?.textContent === 'CRLF');
+    await page.waitForFunction(() => document.querySelector('.marxy-source-fact[data-marxy-fact="endings"]')?.textContent === 'CRLF');
     assert.equal(await fact(page, 'lines'), '3 lines');
     assert.equal(await fact(page, 'size'), '21 bytes');
+  });
+});
+
+test('V-05 opening another file from Source, slowly, keeps the old text on screen as the whole frame, at its place (V-15)', async () => {
+  const long = Array.from({ length: 4000 }, (_, i) => `value_${i} = ${i}`).join('\n') + '\n';
+  await withPage(async (page) => {
+    await boot(page, { '/p/a.py': bytes(long), '/p/b.py': bytes('other = 1\n') }, '/p/a.py');
+    await page.evaluate(async () => {
+      const { activeSourceEditor } = await import('/src/source/editor.ts');
+      const view = activeSourceEditor().view;
+      view.dispatch({ effects: view.constructor.scrollIntoView(view.state.doc.line(1428).from, { y: 'start' }) });
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    });
+    const firstRow = () => page.evaluate(() => {
+      const s = document.querySelector('#marxy-source .cm-scroller').getBoundingClientRect();
+      const row = [...document.querySelectorAll('#marxy-source .cm-line')].find((l) => l.getBoundingClientRect().top >= s.top - 0.5);
+      return row?.textContent ?? null;
+    });
+    const before = await firstRow();
+    assert.match(before, /^value_14\d\d = /, `scrolled into the file (${before})`);
+    const heightBefore = (await rect(page, '#marxy-source .marxy-source-frame')).height;
+    await page.evaluate(() => {
+      const shell = window.__h.shell;
+      const mark = shell.mark.bind(shell);
+      shell.mark = async (name, ...args) => {
+        if (name === 'file_read') await new Promise((r) => setTimeout(r, 1500));
+        return mark(name, ...args);
+      };
+      window.__open = window.__h.open('/p/b.py');
+    });
+    await page.waitForTimeout(500);
+    assert.equal(await page.evaluate(() => window.__h.currentPath()), null, 'the open was in its gap');
+    const during = await page.evaluate(() => ({
+      frames: document.querySelectorAll('#marxy-source .marxy-source-frame').length,
+      bars: document.querySelectorAll('#marxy-source .marxy-source-top, #marxy-source .marxy-source-bottom').length,
+      editors: document.querySelectorAll('#marxy-source .cm-editor').length,
+    }));
+    assert.deepEqual(during, { frames: 1, bars: 2, editors: 1 }, 'the picture is the whole frame, bars included');
+    const after = (await rect(page, '#marxy-source .marxy-source-frame')).height;
+    assert.ok(Math.abs(after - heightBefore) < 1, `the picture keeps the frame's height (${after} against ${heightBefore})`);
+    assert.equal(await firstRow(), before, 'the picture holds the place');
+    await page.evaluate(() => window.__open);
+  }, { width: 1200, height: 700 });
+});
+
+test('V-05 the caret byte counts the BOM after an edit, a character outside the BMP is one column, a stray byte is named', async () => {
+  await withPage(async (page) => {
+    await boot(page, { '/p/a.py': bytes([0xef, 0xbb, 0xbf], 'one\ntwo\n') }, '/p/a.py');
+    await page.click('#marxy-source .cm-content');
+    await page.keyboard.press('Meta+ArrowUp');
+    await page.keyboard.insertText('é');
+    // The edited text: the caret is after é, 3 bytes of BOM and 2 of é in.
+    await page.waitForFunction(() => document.querySelector('.marxy-source-readout')?.textContent === 'Ln 1, Col 2 · byte 5');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Home');
+    await page.waitForFunction(() => document.querySelector('.marxy-source-readout')?.textContent === 'Ln 2, Col 1 · byte 9');
+  });
+  await withPage(async (page) => {
+    await boot(page, { '/p/a.py': bytes('x😀y\n') }, '/p/a.py');
+    // After the emoji (two code units, four bytes): the third column, byte 5.
+    await select(page, 3);
+    await page.waitForFunction(() => document.querySelector('.marxy-source-readout')?.textContent === 'Ln 1, Col 3 · byte 5');
+    assert.equal(await text(page, '.marxy-source-character'), 'U+0079 y');
+    await select(page, 1);
+    await page.waitForFunction(() => document.querySelector('.marxy-source-character')?.textContent === 'U+1F600 😀');
+    // Edited, the same column and byte.
+    await page.click('#marxy-source .cm-content');
+    await page.keyboard.press('Meta+ArrowUp');
+    await page.keyboard.insertText('a');
+    await select(page, 4);
+    await page.waitForFunction(() => document.querySelector('.marxy-source-readout')?.textContent === 'Ln 1, Col 4 · byte 6');
+  });
+  await withPage(async (page) => {
+    await boot(page, { '/p/a.py': bytes('a', [0xff], 'b\n') }, '/p/a.py');
+    await select(page, 1);
+    await page.waitForFunction(() => document.querySelector('.marxy-source-character')?.textContent === 'Byte FF, not UTF-8');
+    await select(page, 2);
+    await page.waitForFunction(() => document.querySelector('.marxy-source-character')?.textContent === 'U+0062 b');
+    assert.equal(await readout(page), 'Ln 1, Col 3 · byte 2');
   });
 });

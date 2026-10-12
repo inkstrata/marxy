@@ -254,9 +254,10 @@ test('hostile payloads pasted into Source give only the golden text: no request,
     const outside = () =>
       page.evaluate(() => {
         const copy = document.body.cloneNode(true);
-        // The editor (where the text goes, with the frame's bars that read it: size, lines, caret, V-05) and the notice
-        // regions (where it is said) are the two places a paste may change.
-        copy.querySelectorAll('.cm-editor, .marxy-source-frame, [role="status"]').forEach((n) => n.remove());
+        // The editor (where the text goes) and the notice regions (where it is said) are the two places a paste may change,
+        // with the parts of the Source frame that read the editor (size and lines, caret, ruler, marks; V-05). The rest of the
+        // frame, the path included, is compared.
+        copy.querySelectorAll('.cm-editor, .marxy-source-facts, .marxy-source-bottom, .marxy-source-ruler, .marxy-source-marks, [role="status"]').forEach((n) => n.remove());
         return copy.outerHTML + document.head.innerHTML;
       });
     const before = await outside();

@@ -34,6 +34,7 @@ import {
   pathSegments,
   strayReadout,
 } from './frame-facts.ts';
+import { ByteCursor } from './frame-bytes.ts';
 import { createRuler, type Ruler } from './ruler.ts';
 
 /** How much of the text the indentation is read from: the first quarter megabyte is what a file's style is. */
@@ -110,7 +111,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
 
   const fact = (name: string): HTMLElement => {
     const node = el('span', 'marxy-source-fact');
-    node.dataset.fact = name;
+    node.dataset.marxyFact = name;
     facts.append(node);
     return node;
   };
@@ -136,6 +137,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
   /** Whether the editor's text has changed since the buffer was bound: until it has, a position is read from the buffer. */
   let dirty = false;
   let indent: IndentFact = { kind: 'none', width: 0 };
+  const bytesAt = new ByteCursor(buffer.bom ? 3 : 0);
 
   const renderPath = (): void => {
     const segments = pathSegments(buffer.path);
@@ -191,10 +193,10 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
   };
 
   // ---- the caret
-  /** The byte offset of a position: from the buffer while the text is the buffer's, else counted from the text. */
+  /** The byte offset of a position: from the buffer while the text is the buffer's, else from the last answer (`ByteCursor`). */
   const byteOffsetAt = (state: EditorState, pos: number): number => {
     if (!dirty) return utf16ToByte(buffer, cmPosToUtf16(buffer, state, pos));
-    return encodeSourceText(state.sliceDoc(0, pos)).length + (buffer.bom ? 3 : 0);
+    return bytesAt.offsetAt(state, pos);
   };
 
   const readCaret = (): void => {
@@ -434,6 +436,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
         delta -= encodeSourceText(u.startState.sliceDoc(fromA, toA)).length;
       });
       bytes += delta;
+      bytesAt.map(u.changes, u.startState);
       scheduleIndent();
       scheduleInvisibles();
     }
@@ -469,6 +472,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
       const same = next.bytes === buffer.bytes && next.path === buffer.path;
       buffer = next;
       dirty = false;
+      bytesAt.reset(next.bom ? 3 : 0);
       if (same) {
         schedule({ caret: true });
         return;

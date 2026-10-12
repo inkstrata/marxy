@@ -146,7 +146,7 @@ body[data-marxy-workspace="unfolded"] .marxy-source-frame { max-width: none; }
 .marxy-source-body { position: relative; flex: 1 1 auto; min-height: 0; padding-inline: calc(var(--marxy-size-chrome) * 8 / 13); }
 .marxy-source-body > .cm-editor { height: 100%; }
 .marxy-source-marks { position: absolute; top: 0; right: 0; bottom: 0; width: calc(var(--marxy-size-chrome) * 8 / 13); }
-.marxy-source-mark { position: absolute; left: 1px; right: 1px; height: 3px; margin-top: -1.5px; border-radius: 1px; cursor: pointer; }
+.marxy-source-mark { position: absolute; left: 1px; right: 1px; height: 3px; margin-top: -1.5px; border-radius: calc(var(--marxy-size-chrome) * 1 / 13); cursor: pointer; }
 .marxy-source-mark::before { content: ""; position: absolute; inset: -3px 0; }
 .marxy-source-mark-invisible { background: var(--marxy-color-accent); }
 .marxy-source-mark-find { background: var(--marxy-color-find-edge); }

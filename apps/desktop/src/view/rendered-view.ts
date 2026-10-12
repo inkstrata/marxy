@@ -1249,8 +1249,10 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   let retiredPicture: HTMLElement | null = null;
 
   function pictureOfSource(editor: MountedSourceEditor): HTMLElement {
-    const picture = editor.view.dom.cloneNode(true) as HTMLElement;
+    // The whole frame when the editor is in one (V-05): it gives the editor its height, its bars and its scroll box.
+    const picture = (editor.view.dom.closest('.marxy-source-frame') ?? editor.view.dom).cloneNode(true) as HTMLElement;
     picture.classList.remove('cm-focused');
+    for (const el of picture.querySelectorAll('.cm-focused')) el.classList.remove('cm-focused');
     for (const el of picture.querySelectorAll('[contenteditable]')) el.setAttribute('contenteditable', 'false');
     picture.setAttribute('inert', '');
     picture.setAttribute('aria-hidden', 'true');
