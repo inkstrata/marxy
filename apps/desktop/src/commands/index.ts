@@ -24,6 +24,7 @@ import { sourceEditCommands } from './source-edit.ts';
 import { sourceViewCommands } from './source-view.ts';
 import { tabCommands } from './tabs.ts';
 import { transformCommands } from './transform.ts';
+import { transformClipboardCommands } from './transform-clipboard.ts';
 import { trustRevokeCommands } from './trust.ts';
 import { viewModeCommands } from './view-mode.ts';
 import { panelCommands } from './panels.ts';
@@ -61,6 +62,7 @@ export function commands(): readonly Command[] {
     ...findCommands(),
     ...compareCommands(),
     ...transformCommands(),
+    ...transformClipboardCommands(),
     ...OPERATIONS.map(fromOperation),
   ];
 }
