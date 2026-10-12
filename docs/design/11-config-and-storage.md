@@ -229,6 +229,7 @@ newer-version rules as `layout.json`.
 | `workspace.json` | the docked panels, the sidebar's folded sections (above) | 6 regions, 4 sections | app |
 | `history.json` | opens, pins, recent roots (§07) | 500 opens, 12 roots | app |
 | `trust.json` | per-document grants: HTML, image hosts ([§12](13-trust.md)) | 2 000 paths, LRU | app |
+| `versions/<hash(path)>/` | byte-exact copies of one reader file (slots) and a readable `manifest.json`: path, times, sizes, reasons (*read*, *before save*, *before reload*); ADR-0072 | 20 per file, 30 days, 200 MB in all, oldest first; never a denied file or one over the large-file limit; off with `versions = false` | app |
 
 Every file starts with `"version": 1`. Reading a file whose `version` is newer than the app
 knows → ignore it (do not overwrite; a newer Marxy wrote it). Unparseable → rename to
@@ -238,7 +239,10 @@ off the critical path). Writes are atomic through `shell.writeFileAtomic`.
 ## What is never stored
 
 Document contents, document hashes tied to identities, window geometry keyed by document,
-anything network-derived. The index stores paths, titles and headings, which are already on the
+anything network-derived. The one exception to "document contents" is local versions
+(ADR-0072): byte-exact copies under `versions/`, kept to the limits above, never sent anywhere,
+never written beside or over the reader's files, and cleared by *Clear versions of this file*,
+*Clear all versions* or `versions = false`. The index stores paths, titles and headings, which are already on the
 reader's disk in the documents themselves.
 
 ## Tests
