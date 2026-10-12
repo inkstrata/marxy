@@ -8,13 +8,14 @@ import { createTrustController } from './controller.ts';
 
 // grantSummaryNotice raises its line through the page's notice region; a throwaway DOM keeps it in Node.
 function fakeElement(): any {
-  const own: Record<string, unknown> = { dataset: {}, style: {}, children: [] };
+  const own: Record<string, unknown> = { dataset: {}, style: {}, children: [], parentElement: null };
   return new Proxy(own, {
     get: (t, k) => (k in t ? t[k as string] : () => fakeElement()),
     set: (t, k, v) => { t[k as string] = v; return true; },
   });
 }
 (globalThis as any).window = globalThis;
+(globalThis as any).HTMLElement = class {}; // a revoke dismisses the grant's "Showing HTML" line
 (globalThis as any).document = {
   getElementById: () => fakeElement(),
   querySelector: () => null,
@@ -116,4 +117,98 @@ test('a grant with no read started yet starts it, waits, and tells a failure onc
   await controller.grantHtml();
   assert.equal(writes.length, 0);
   assert.equal(notices.filter((n) => n.text === TRUST_UNREADABLE_TEXT).length, 1);
+});
+
+// A rig with a disk behind it and a document the test moves: the tests below read trust.json back.
+function diskRig(opts: { failReads: number; failWith?: string; failWrites?: boolean }) {
+  let disk: Uint8Array | null = onDisk({ version: 1, documents: { '/other.md': { html: true, at: 5 } } });
+  let reads = 0;
+  let writeCalls = 0;
+  let path = '/docs/a.md';
+  const notices: NoticeInput[] = [];
+  let renders = 0;
+  const controller = createTrustController({
+    shell: {
+      readFile: async (p: string) => {
+        assert.equal(p, trustPath);
+        if (++reads <= opts.failReads) throw err(opts.failWith ?? 'io');
+        return disk!;
+      },
+      writeFileAtomic: async (_p: string, b: Uint8Array) => {
+        writeCalls += 1;
+        if (opts.failWrites) throw err('io');
+        disk = b;
+      },
+      configPaths: async () => ({ config: '/config', data: '/data' }) as never,
+    },
+    currentPath: () => path,
+    buffer: () => ({ bytes: new Uint8Array(0) }) as never,
+    position: () => ({ byteOffset: 0, fraction: 0 }),
+    rerender: () => { renders += 1; },
+    showSource: async () => {},
+    notify: (n) => { notices.push(n); },
+  });
+  const saved = () => JSON.parse(new TextDecoder().decode(disk!)).documents as Record<string, { html: boolean }>;
+  const on = (p: string) => { path = p; };
+  return { controller, saved, on, notices, reads: () => reads, writes: () => writeCalls, renders: () => renders };
+}
+
+test('two grants on different documents during a failed-then-retried read both reach trust.json (F-64.1)', async () => {
+  const r = diskRig({ failReads: 1 });
+  await r.controller.load(); // the first read fails and the reader is told
+  r.on('/A.md');
+  const a = r.controller.grantHtml();
+  r.on('/B.md');
+  const b = r.controller.grantHtml();
+  await Promise.all([a, b]);
+  assert.equal(r.reads(), 2, 'one read for the failure and one retry, however many clicks waited on it');
+  assert.equal(r.controller.grantsFor('/A.md').html, true);
+  assert.equal(r.controller.grantsFor('/B.md').html, true);
+  const saved = r.saved();
+  assert.equal(saved['/A.md']?.html, true, 'a grant the reader was told succeeded is in the file');
+  assert.equal(saved['/B.md']?.html, true);
+  assert.equal(saved['/other.md']?.html, true, 'grants already in the file are kept');
+  assert.equal(r.notices.filter((n) => n.text === TRUST_UNREADABLE_TEXT).length, 1);
+});
+
+test('a grant on A then a revoke on B during a failed-then-retried read leave the right state (F-64.1)', async () => {
+  const r = diskRig({ failReads: 1 });
+  await r.controller.load();
+  r.on('/A.md');
+  const grant = r.controller.grantHtml();
+  r.on('/other.md');
+  const revoke = r.controller.revokeHtml();
+  await Promise.all([grant, revoke]);
+  assert.equal(r.reads(), 2);
+  assert.equal(r.controller.grantsFor('/A.md').html, true);
+  assert.equal(r.controller.grantsFor('/other.md').html, false);
+  const saved = r.saved();
+  assert.equal(saved['/A.md']?.html, true);
+  assert.equal(saved['/other.md'], undefined, 'the revoke is applied, not lost to the retry');
+});
+
+test('a read that keeps failing writes nothing, tells the reader, and applies no grant (F-64.1)', async () => {
+  const r = diskRig({ failReads: 99 });
+  await r.controller.load();
+  r.on('/A.md');
+  const a = r.controller.grantHtml();
+  r.on('/B.md');
+  const b = r.controller.grantHtml();
+  await Promise.all([a, b]);
+  assert.equal(r.reads(), 2, 'one retry shared by both clicks');
+  assert.equal(r.writes(), 0);
+  assert.equal(r.renders(), 0);
+  assert.equal(r.controller.grantsFor('/A.md').html, false);
+  assert.equal(r.controller.grantsFor('/B.md').html, false);
+  assert.equal(r.notices.filter((n) => n.text === TRUST_UNREADABLE_TEXT).length, 2, 'the failed read and the failed retry');
+});
+
+test('a grant whose write fails tells the reader and does not stay granted (F-64.1)', async () => {
+  const r = diskRig({ failReads: 1, failWrites: true });
+  await r.controller.load();
+  r.on('/A.md');
+  await r.controller.grantHtml();
+  assert.equal(r.controller.grantsFor('/A.md').html, false);
+  assert.equal(r.renders(), 0);
+  assert.equal(r.notices.filter((n) => n.kind === 'error' && n.text !== TRUST_UNREADABLE_TEXT).length, 1);
 });
