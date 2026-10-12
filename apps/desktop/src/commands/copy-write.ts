@@ -30,6 +30,12 @@ const unsupported = (err: unknown): boolean => (err as { code?: string } | null)
  * shell refuses says so instead, and returns false.
  */
 export async function writeCopy(ctx: AppContext, rep: CopyRep, label: string): Promise<boolean> {
+  // A log being filtered (K-08) is not yet what the reader will have: a copy now would take lines the filter is about to hide.
+  if (ctx.renderedPage?.()?.article.classList.contains('marxy-log-filter-busy')) {
+    ctx.closePalette();
+    ctx.showNotice('Still filtering this log · nothing was copied · try again when the filter is done', { kind: 'refused' });
+    return false;
+  }
   const reps: ClipboardRep[] = [{ type: TEXT, bytes: encoder.encode(rep.text) }];
   if (rep.html !== undefined && rep.html !== '') reps.push({ type: HTML, bytes: encoder.encode(rep.html) });
   const size = reps[0]!.bytes.byteLength;

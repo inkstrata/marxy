@@ -5,7 +5,7 @@
 import { utf16ToByte } from '@marxy/core';
 import type { AppPane } from '../pane/index.ts';
 import type { Pane } from '../pane/pane-set.ts';
-import { notify } from '../notices/index.ts';
+import { dismiss, notify } from '../notices/index.ts';
 import { openVerbMenu, type MenuAnchor, type VerbMenuRow } from '../selection/verb-menu.ts';
 import { countHidden, firstErrorOffset, hasLevelWords, LEVELS, levelOf, NO_LEVEL_WORDS, type Level } from '../kinds/log-filter.ts';
 import { appHandle } from './app-handle.ts';
@@ -63,7 +63,15 @@ const MENU_TITLES: Readonly<Record<string, string>> = {
   error: 'Error only',
 };
 
-/** Shows `level` and above in the focused log, and says what that hid. */
+/** The change of level in hand: a later one supersedes it, and its pill goes. */
+let latest = 0;
+
+const lines = (n: number): string => `${n.toLocaleString('en-US')} ${n === 1 ? 'line' : 'lines'}`;
+
+/**
+ * Shows `level` and above in the focused log. The page is worked through a few milliseconds a frame, so a pill says how far
+ * it is (Esc, or its *Show all*, stops it and shows every line), and when it is done a notice says what was hidden.
+ */
 async function setLevel(level: Level): Promise<void> {
   const found = focusedLog();
   if (found === null) return;
@@ -78,25 +86,66 @@ async function setLevel(level: Level): Promise<void> {
   const article = pane.article;
   const current = (): boolean => pane.view.store() === store && article.isConnected;
   const { filterFor, filterOf } = await pageHalf();
-  if (level.min === 0) {
-    filterOf(article, store)?.setLevel(level);
+  const held = filterOf(article, store);
+  if (level.min === 0 && held === undefined) {
     notify({ kind: 'done', text: 'All lines shown · the file is unchanged' });
     return;
   }
-  const filter = filterFor(article, store, current);
-  filter.setLevel(level);
-  const counted = await countHidden(buffer.text, level.min, yieldNow, { aborted: () => !current() });
-  if (counted === null) return;
-  const lines = (n: number): string => `${n.toLocaleString('en-US')} ${n === 1 ? 'line' : 'lines'}`;
-  if (counted.hidden === 0) {
-    notify({ kind: 'info', fades: true, text: `Nothing in this log is below ${level.label} · every line is shown · the file is unchanged` });
-    return;
-  }
-  notify({
-    kind: 'done',
-    text: `${level.label} and above · ${lines(counted.hidden)} of ${counted.total.toLocaleString('en-US')} hidden · the file is unchanged`,
-    actions: [{ label: 'Show all', onClick: () => void setLevel(levelOf('all')) }],
+  const mine = ++latest;
+  const filter = held ?? filterFor(article, store, current);
+  const counting = level.min === 0 ? null : countHidden(buffer.text, level.min, yieldNow, { aborted: () => !current() || mine !== latest });
+  const words = (fraction: number): string =>
+    `${level.min === 0 ? 'Showing all lines' : `Filtering to ${level.label}`} · ${Math.round(fraction * 100)}% · the file is unchanged · Esc stops`;
+  const pill = notify({
+    kind: 'info',
+    text: words(0),
+    actions: level.min === 0 ? [] : [{ label: 'Show all', onClick: () => void setLevel(levelOf('all')) }],
   });
+  const say = (text: string): void => {
+    const el = document.querySelector(`[data-notice-id="${pill}"] .marxy-notice-text`);
+    if (el) el.textContent = text;
+  };
+  const onEscape = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape' || level.min === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void setLevel(levelOf('all'));
+  };
+  document.addEventListener('keydown', onEscape, true);
+  const leave = (): void => {
+    stop();
+    document.removeEventListener('keydown', onEscape, true);
+    dismiss(pill);
+  };
+  const stop = filter.subscribe((state) => {
+    if (mine !== latest || !current()) {
+      leave();
+      return;
+    }
+    if (!state.done) {
+      say(words(state.fraction));
+      return;
+    }
+    leave();
+    void (async () => {
+      if (counting === null) {
+        notify({ kind: 'done', text: 'All lines shown · the file is unchanged' });
+        return;
+      }
+      const counted = await counting;
+      if (counted === null || mine !== latest) return;
+      if (counted.hidden === 0) {
+        notify({ kind: 'info', fades: true, text: `Nothing in this log is below ${level.label} · every line is shown · the file is unchanged` });
+        return;
+      }
+      notify({
+        kind: 'done',
+        text: `${level.label} and above · ${lines(counted.hidden)} of ${counted.total.toLocaleString('en-US')} hidden · the file is unchanged`,
+        actions: [{ label: 'Show all', onClick: () => void setLevel(levelOf('all')) }],
+      });
+    })();
+  });
+  filter.setLevel(level);
 }
 
 /** The line holding the first ERROR or worse, brought to the middle of the pane. */
@@ -135,7 +184,16 @@ async function jumpToFirstError(ctx: AppContext): Promise<void> {
   }
   const line = linesOf(piece)[index];
   if (!line) return;
-  line.scrollIntoView({ block: 'center' });
+  // Pieces far from the screen are laid out only when near it (content-visibility), so the page's heights change as the
+  // scroll arrives: the line is brought to the middle again until it stays there.
+  const nextFrame = (): Promise<void> => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  const view = window.innerHeight;
+  for (let tries = 0; tries < 8; tries++) {
+    line.scrollIntoView({ block: 'center' });
+    await nextFrame();
+    const box = line.getBoundingClientRect();
+    if (Math.abs((box.top + box.bottom) / 2 - view / 2) < view / 4) break;
+  }
   line.tabIndex = -1;
   line.focus({ preventScroll: true });
 }

@@ -564,6 +564,13 @@ pre {
 }
 /* The pieces of a code file read as code (V-10, 200 lines each) are one block to the eye: they meet with no gap,
    square at the join. */
+/* A log's pieces are laid out only when they are near the screen (K-08): a log of tens of megabytes is thousands of pieces, and
+   a change of one's height, which the level filter makes in all of them, would otherwise cost the layout of every one. The
+   room of one not yet laid out is a full piece (200 lines) until it has been, and then what it was. */
+pre.language-log.marxy-run {
+  content-visibility: auto;
+  contain-intrinsic-size: auto calc(var(--marxy-line-box-code) * 200 + var(--marxy-half) * 2);
+}
 pre.marxy-run + pre.marxy-run { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
 pre.marxy-run:has(+ pre.marxy-run) { margin-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 /* One source line (the highlight pass wraps each and sets --marxy-indent to its leading whitespace).
@@ -627,6 +634,17 @@ pre.language-log .marxy-log-error { border-inline-start-color: var(--marxy-color
    which is hidden takes no room. */
 .marxy-log-hidden-text { display: none; }
 .marxy-log-hidden-piece { display: none; }
+/* While a level is being set, a piece the filter has not presented yet is not drawn, and says so: no line below the level is
+   ever painted. Its room is the room it has (content-visibility below), so the page does not jump as pieces are presented. */
+.marxy-log-filtering pre.language-log.marxy-run:not(.marxy-log-seen) { position: relative; }
+.marxy-log-filtering pre.language-log.marxy-run:not(.marxy-log-seen) > code { visibility: hidden; }
+.marxy-log-filtering pre.language-log.marxy-run:not(.marxy-log-seen)::before {
+  content: 'Filtering\2026';
+  position: absolute;
+  top: var(--marxy-half);
+  left: var(--marxy-half);
+  color: var(--marxy-color-text-secondary);
+}
 .marxy-log-hidden-run {
   display: block;
   box-sizing: border-box;

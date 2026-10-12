@@ -15,11 +15,12 @@
 // line spans is cut at the run's character offsets; one it has split is wrapped at its line spans. Neither costs the layout
 // of a span a line, so the filter reaches every piece of a log of tens of megabytes.
 //
-// The whole document is filtered in one task when the level is chosen, and a piece the progressive mount adds, or the lines the
-// highlight pass rebuilds, are filtered by a MutationObserver in the task that made them, before the frame: nothing unfiltered
-// is ever painted. It is one task and not a slice a frame because the page answers a change of height with work in proportion
-// to the whole document (the grid pass, the reading position), and many small changes cost many times what one big one does:
-// at 12 MB a dozen pieces hidden at a time was 3 s a frame, and every piece hidden together 2.5 s once.
+// The whole document is filtered, and the page stays live while it is: the pieces are analysed and presented a few
+// milliseconds at a time, one slice a frame, nearest the reader first (`subscribe` reports the progress; the command says it
+// in a pill). A piece not yet filtered is not drawn (`.marxy-log-filtering` in base.css: a neutral "Filtering…" stands where
+// it is), so nothing unfiltered is ever painted; a piece the mount adds or the highlight pass rebuilds is filtered in the task
+// that made it, before the frame. Pieces are `content-visibility: auto` (base.css), so the page lays out only what is on
+// screen and a change of height does not cost the whole document.
 import { logRanks } from '@marxy/core/src/highlight/line-classes.ts';
 import { applyLinesToCode } from '../render/highlight.ts';
 import { sourceTextFromCode } from '../render/invisibles-dom.ts';
@@ -31,6 +32,14 @@ const HIDDEN_TEXT = 'marxy-log-hidden-text';
 const HIDDEN_RUN = 'marxy-log-hidden-run';
 /** On the `pre` of a piece every line of which is in a hidden run: it takes no room. */
 const HIDDEN_PIECE = 'marxy-log-hidden-piece';
+/** On the `pre` of a piece the filter has presented. */
+const SEEN = 'marxy-log-seen';
+/** On the article from the moment a level above the first is chosen: a piece not yet seen is not drawn. */
+export const FILTERING = 'marxy-log-filtering';
+/** On the article while a change of level is being worked through: a copy waits, and find says so. */
+export const FILTER_BUSY = 'marxy-log-filter-busy';
+/** The most script a slice runs; the page's own work after it is the page's. */
+const BUDGET_MS = 8;
 
 interface Analysis {
   readonly generation: number;
@@ -54,11 +63,21 @@ interface Plan {
   readonly wholePiece: boolean;
 }
 
+/** Where a change of level is: `fraction` of the pieces presented, and whether all of them are. */
+export interface FilterState {
+  readonly fraction: number;
+  readonly done: boolean;
+}
+
 export interface LogFilter {
   readonly level: Level;
+  /** `cb` on each slice and when the work is done; returns what stops it. */
+  subscribe(cb: (state: FilterState) => void): () => void;
+  /** Whether the pieces are still being filtered. */
+  busy(): boolean;
   /** Shows `level` and above in the page from now on, and everything again for the first level (the filter is then gone). */
   setLevel(level: Level): void;
-  /** Resolves once the pieces now in the page have been handled (they are handled when the level is set). */
+  /** Resolves once every piece now in the page has been handled. */
   settled(): Promise<void>;
   /** The lines the page hides now. */
   hiddenLines(): number;
@@ -79,10 +98,10 @@ export function filterOf(article: HTMLElement, owner: object): LogFilter | undef
 }
 
 /** Makes (or returns) the article's filter for the document `owner`; `current` says whether `owner` is still the one shown. */
-export function filterFor(article: HTMLElement, owner: object, current: () => boolean, afterwards?: () => void): LogFilter {
+export function filterFor(article: HTMLElement, owner: object, current: () => boolean): LogFilter {
   const held = filterOf(article, owner);
   if (held !== undefined) return held;
-  const filter = createLogFilter(article, current, () => filters.delete(article), afterwards);
+  const filter = createLogFilter(article, current, () => filters.delete(article));
   filters.set(article, { owner, filter });
   return filter;
 }
@@ -92,7 +111,7 @@ export const piecesOf = (article: ParentNode): HTMLElement[] => [...article.quer
 /** A piece's line spans in order, wherever a hidden run has put them. */
 export const linesOf = (code: HTMLElement): HTMLElement[] => [...code.querySelectorAll<HTMLElement>('.marxy-line')];
 
-function createLogFilter(article: HTMLElement, current: () => boolean, forget: () => void, afterwards?: () => void): LogFilter {
+function createLogFilter(article: HTMLElement, current: () => boolean, forget: () => void): LogFilter {
   let level: Level = LEVELS[0]!;
   let generation = 0;
   /** `piece start:first line of the run` of a run the reader opened. Cleared by a change of level. */
@@ -103,6 +122,15 @@ function createLogFilter(article: HTMLElement, current: () => boolean, forget: (
   const placeholderRun = new WeakMap<HTMLElement, string>();
   let hidden = 0;
   let disposed = false;
+  /** analyse: every piece is read; present: each is given its plan; idle: nothing to do. */
+  let phase: 'idle' | 'analyse' | 'present' = 'idle';
+  let queue: HTMLElement[] = [];
+  let plansNow = new Map<HTMLElement, Plan>();
+  let total = 0;
+  let presented = 0;
+  let frame = 0;
+  const subscribers = new Set<(state: FilterState) => void>();
+  let waiters: (() => void)[] = [];
 
   const fresh = (code: HTMLElement): boolean => {
     const a = analysed.get(code);
@@ -200,6 +228,7 @@ function createLogFilter(article: HTMLElement, current: () => boolean, forget: (
     const signature = `${code.dataset.marxyDone ?? ''}|${plan.wholePiece}|${plan.hide.map((r) => `${r.start}-${r.end}`).join(',')}|${plan.placeholders.map((p) => `${p.line}:${p.count}`).join(',')}`;
     if (shown.get(code) === signature) return;
     clearPiece(code);
+    pre?.classList.add(SEEN);
     if (plan.hide.length === 0) {
       shown.set(code, signature);
       return;
@@ -262,25 +291,114 @@ function createLogFilter(article: HTMLElement, current: () => boolean, forget: (
     shown.set(code, `${code.dataset.marxyDone ?? ''}${signature.slice(signature.indexOf('|'))}`);
   };
 
+  /** Every analysed piece given its plan at once: for the pieces a reader's click or a rebuild changed, few at a time. */
   const stitch = (): void => {
     const pieces = piecesOf(article);
     const all = plans(pieces);
-    let total = 0;
+    let count = 0;
     for (const code of pieces) {
       const plan = all.get(code);
       if (plan === undefined) continue;
-      for (const run of plan.hide) total += run.end - run.start;
+      for (const run of plan.hide) count += run.end - run.start;
       present(code, plan);
     }
-    hidden = total;
+    hidden = count;
   };
+
+  const emit = (): void => {
+    const state = { fraction: total === 0 ? 1 : Math.min(1, presented / total), done: phase === 'idle' };
+    for (const cb of [...subscribers]) cb(state);
+  };
+
+  const release = (): void => {
+    const ready = waiters;
+    waiters = [];
+    for (const resolve of ready) resolve();
+  };
+
+  /**
+   * Every piece, the ones nearest the viewport first: the first piece whose bottom is below the top of the screen is found by
+   * bisection (a few pieces' boxes are read, not all of them: reading all forces the page to lay out all), and the rest follow
+   * outward from it, one after and one before.
+   */
+  const nearestFirst = (pieces: readonly HTMLElement[]): HTMLElement[] => {
+    let low = 0;
+    let high = pieces.length;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if (pieces[mid]!.getBoundingClientRect().bottom > 0) high = mid;
+      else low = mid + 1;
+    }
+    const out: HTMLElement[] = [];
+    for (let k = 0; out.length < pieces.length; k++) {
+      const after = pieces[low + k];
+      const before = k === 0 ? undefined : pieces[low - k];
+      if (after !== undefined) out.push(after);
+      if (before !== undefined) out.push(before);
+      if (after === undefined && before === undefined) break;
+    }
+    return out;
+  };
+
+  const schedule = (): void => {
+    if (frame === 0 && !disposed) frame = window.requestAnimationFrame(slice);
+  };
+
+  const finish = (): void => {
+    phase = 'idle';
+    article.classList.remove(FILTER_BUSY);
+    queue = [];
+    const count = [...plansNow.values()].reduce((n, plan) => n + plan.hide.reduce((m, r) => m + r.end - r.start, 0), 0);
+    hidden = count;
+    if (level.min === 0) teardown();
+    emit();
+    release();
+  };
+
+  /** One slice: a few milliseconds of the work, then the page gets its frame. */
+  function slice(): void {
+    frame = 0;
+    if (disposed) return;
+    if (!current()) {
+      teardown();
+      return;
+    }
+    const begun = performance.now();
+    if (phase === 'analyse') {
+      while (queue.length > 0 && performance.now() - begun < BUDGET_MS) {
+        const code = queue.shift()!;
+        if (code.isConnected && !fresh(code)) analyse(code);
+      }
+      if (queue.length === 0) {
+        const pieces = piecesOf(article);
+        plansNow = plans(pieces);
+        queue = nearestFirst(pieces);
+        total = queue.length;
+        presented = 0;
+        phase = 'present';
+      }
+    } else if (phase === 'present') {
+      while (queue.length > 0 && performance.now() - begun < BUDGET_MS) {
+        const code = queue.shift()!;
+        const plan = plansNow.get(code);
+        if (plan !== undefined && code.isConnected) present(code, plan);
+        presented++;
+      }
+      if (queue.length === 0) {
+        finish();
+        return;
+      }
+    }
+    emit();
+    schedule();
+  }
 
   // Pieces the mount adds and lines the highlight pass rebuilds are filtered in this task, before the frame is drawn.
   const observer = new MutationObserver((records) => {
     if (disposed) return;
     // Another document in this pane: the filter was for the one that went.
     if (!current()) {
-      dispose();
+      teardown();
       return;
     }
     const stale: HTMLElement[] = [];
@@ -301,7 +419,17 @@ function createLogFilter(article: HTMLElement, current: () => boolean, forget: (
     }
     if (stale.length === 0) return;
     for (const code of stale) if (code.isConnected && !fresh(code)) analyse(code);
-    stitch();
+    if (phase === 'analyse') return;
+    // The pieces that came are presented now, ahead of the rest, and the plans that depend on them are made again.
+    plansNow = plans(piecesOf(article));
+    if (phase === 'present') {
+      for (const code of stale) {
+        const plan = plansNow.get(code);
+        if (plan !== undefined && code.isConnected) present(code, plan);
+      }
+      total += stale.length;
+      presented += stale.length;
+    } else stitch();
   });
 
   const open = (words: HTMLElement): void => {
@@ -336,38 +464,62 @@ function createLogFilter(article: HTMLElement, current: () => boolean, forget: (
   article.addEventListener('keydown', onKey, true);
   observer.observe(article, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-marxy-done'] });
 
-  function dispose(): void {
+  /** The filter gone: nothing watched, and every piece given back as it was (the caller says when that is allowed to cost). */
+  function teardown(): void {
     if (disposed) return;
     disposed = true;
     observer.disconnect();
     article.removeEventListener('click', onClick, true);
     article.removeEventListener('keydown', onKey, true);
-    for (const code of piecesOf(article)) clearPiece(code);
+    window.cancelAnimationFrame(frame);
+    frame = 0;
+    article.classList.remove(FILTERING, FILTER_BUSY);
+    for (const code of piecesOf(article)) {
+      clearPiece(code);
+      code.parentElement?.classList.remove(SEEN);
+    }
     hidden = 0;
+    phase = 'idle';
+    queue = [];
     forget();
+    release();
   }
 
   return {
     get level() {
       return level;
     },
+    subscribe(cb) {
+      subscribers.add(cb);
+      return () => subscribers.delete(cb);
+    },
+    busy: () => phase !== 'idle',
     setLevel(next) {
       if (disposed) return;
       level = next;
       generation++;
       opened.clear();
-      if (next.min === 0) {
-        // Nothing to hide: the pieces are given back as they were, and the filter has nothing left to watch.
-        dispose();
-        afterwards?.();
-        return;
+      // Another level is chosen: the work for the last one is dropped, and the pieces are read again for this one.
+      // The pieces' order is read before anything on the page changes: a read after a change makes the page lay out first.
+      queue = nearestFirst(piecesOf(article));
+      if (next.min === 0) article.classList.remove(FILTERING);
+      else article.classList.add(FILTERING);
+      phase = 'analyse';
+      article.classList.add(FILTER_BUSY);
+      plansNow = new Map();
+      total = queue.length;
+      presented = 0;
+      if (queue.length === 0) finish();
+      else {
+        emit();
+        schedule();
       }
-      for (const code of piecesOf(article)) if (!fresh(code)) analyse(code);
-      stitch();
-      afterwards?.();
     },
-    settled: () => Promise.resolve(),
+    settled() {
+      if (disposed || phase === 'idle') return Promise.resolve();
+      return new Promise<void>((resolve) => waiters.push(resolve));
+    },
     hiddenLines: () => hidden,
-    dispose,
+    dispose: teardown,
   };
 }

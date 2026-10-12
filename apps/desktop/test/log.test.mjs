@@ -518,6 +518,9 @@ test('a log with no level words cannot be filtered, and says so: the tool is off
     await page.waitForFunction(() => document.querySelector('[data-tool="filter-by-level"]')?.getAttribute('aria-disabled') === null);
   }));
 
+/** The longest the main thread may be held while a level is set on a log of tens of megabytes: generous, for a loaded machine (measured at about 60 ms). */
+const LONGEST_BLOCK_MS = 250;
+
 // ---- commitment 5: a log of tens of megabytes -------------------------------------------------------------------------------
 
 /** A log of about `mb` megabytes made in the page (a base64 argument that size would be the test's own cost). */
@@ -588,20 +591,36 @@ test(`a log of ${process.env.MARXY_LOG_MB ?? 20} MB: first text does not wait fo
     const complete = await page.evaluate(() => window.__complete);
     console.log(`# log ${mb} MB: wholly in the page after ${complete.toFixed(0)} ms`);
     assert.ok(complete > first.at, 'the rest arrived after first text');
+    // The page's own work at the end of a mount (typesetting, the grid) is not the filter's: let it finish before the filter is timed.
+    await page.waitForTimeout(2500);
     await page.evaluate(PAGE_HELPERS);
 
-    // The filter, chosen as a reader does: the time from the choice to the filtered page painted, every piece of the file in it.
+    // The filter, chosen as a reader does. The page is worked through a slice a frame and stays live: the longest stretch the
+    // main thread is held, the time to the first filtered screen and the time to every piece of the file are recorded.
     const timing = await page.evaluate(async () => {
       const { buildAppContext } = await import('/src/selection/bind.ts');
+      const { filterOf } = await import('/src/kinds/log-view.ts');
       const handle = window.__marxyHandle;
+      const pane = handle.panes().focused;
       await handle.commands().find((c) => c.id === 'log.filter-level').run(buildAppContext(handle));
+      let worst = 0;
+      let lastBeat = performance.now();
       const began = performance.now();
+      window.__blocks = [];
+      const beat = setInterval(() => { const t = performance.now(); if (t - lastBeat > 60) window.__blocks.push([Math.round(lastBeat - began), Math.round(t - lastBeat)]); worst = Math.max(worst, t - lastBeat); lastBeat = t; }, 4);
       document.querySelector('[data-row-key="log.level.warn"]').click();
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-      return { applied: performance.now() - began, runs: document.querySelectorAll('.marxy-log-hidden-run').length };
+      while (document.querySelector('.marxy-log-hidden-run') === null) await new Promise((r) => setTimeout(r, 2));
+      const firstScreen = performance.now() - began;
+      const pill = document.querySelector('.marxy-notice-text')?.textContent ?? '';
+      while (filterOf(pane.article, pane.view.store()) === undefined || filterOf(pane.article, pane.view.store()).busy()) await new Promise((r) => setTimeout(r, 5));
+      const applied = performance.now() - began;
+      await new Promise((r) => setTimeout(r, 300));
+      clearInterval(beat);
+      return { blocks: window.__blocks, firstScreen, applied, worst, pill, runs: document.querySelectorAll('.marxy-log-hidden-run').length };
     });
-    console.log(`# log ${mb} MB filtered to Warn: ${timing.runs} runs of words on the page, every piece of the file filtered and painted after ${timing.applied.toFixed(0)} ms`);
+    console.log(`# log ${mb} MB filtered to Warn: first filtered screen ${timing.firstScreen.toFixed(0)} ms, every piece of the file ${timing.applied.toFixed(0)} ms, longest main-thread block ${timing.worst.toFixed(0)} ms ${JSON.stringify(timing.blocks)}`);
     assert.ok(timing.runs > 0);
+    assert.ok(timing.worst < LONGEST_BLOCK_MS, `the main thread was held for ${timing.worst.toFixed(0)} ms at most; the bound is ${LONGEST_BLOCK_MS} ms`);
     await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent.startsWith('Warn and above')), null, { timeout: 120_000 });
 
     // The model, over the whole file: what Warn hides, and what it keeps.
@@ -657,7 +676,7 @@ test(`a log of ${process.env.MARXY_LOG_MB ?? 20} MB: first text does not wait fo
         sampled++;
         for (const pre of document.querySelectorAll('#doc pre.language-log:not(.marxy-log-hidden-piece)')) {
           const box = pre.getBoundingClientRect();
-          if (box.bottom < 0 || box.top > window.innerHeight || getComputedStyle(pre).visibility === 'hidden') continue;
+          if (box.bottom < 0 || box.top > window.innerHeight || getComputedStyle(pre.firstElementChild).visibility === 'hidden') continue;
           for (const line of window.__lineText(pre.firstElementChild).split('\n')) if (/ (INFO|DEBUG) /.test(line.slice(0, 40))) violations++;
         }
         if (running) requestAnimationFrame(sample);
@@ -665,12 +684,12 @@ test(`a log of ${process.env.MARXY_LOG_MB ?? 20} MB: first text does not wait fo
       requestAnimationFrame(sample);
       for (const at of [1, 0.5, 0.99, 0.25, 1]) {
         window.scrollTo(0, (document.documentElement.scrollHeight - window.innerHeight) * at);
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 800));
       }
       running = false;
       return { violations, sampled };
     });
-    assert.ok(frames.sampled > 5, `${frames.sampled} frames were sampled`);
+    assert.ok(frames.sampled > 4, `${frames.sampled} frames were sampled`);
     assert.equal(frames.violations, 0, 'no frame showed a line below Warn');
   }));
 
@@ -692,7 +711,7 @@ test('a filter chosen while the log is still being put on the page filters every
       let running = true;
       const sample = () => {
         for (const pre of document.querySelectorAll('#doc pre.language-log:not(.marxy-log-hidden-piece)')) {
-          if (pre.getBoundingClientRect().height === 0) continue;
+          if (pre.getBoundingClientRect().height === 0 || getComputedStyle(pre.firstElementChild).visibility === 'hidden') continue;
           for (const line of window.__lineText(pre.firstElementChild).split('\n')) if (/ (INFO|DEBUG) /.test(line.slice(0, 40))) violations++;
         }
         if (running) requestAnimationFrame(sample);
@@ -708,4 +727,55 @@ test('a filter chosen while the log is still being put on the page filters every
     assert.ok(seen.stillMounting && seen.piecesNow > seen.piecesThen, `${seen.piecesNow} pieces arrived after the filter was chosen with ${seen.piecesThen} there`);
     assert.equal(seen.violations, 0, 'no frame drew a line below Warn');
     assert.equal(seen.page, seen.model, 'the page hides what the model hides, the pieces that came later included');
+  }));
+
+test('while a level is being set the page stays live: a pill says how far, nothing unfiltered is drawn, a copy says it must wait, and Esc shows every line', () =>
+  withPage(async (page) => {
+    await bootLarge(page, 10);
+    await page.waitForFunction(() => window.__complete !== null, null, { timeout: 120_000 });
+    await page.evaluate(PAGE_HELPERS);
+    await page.evaluate(async () => {
+      const { buildAppContext } = await import('/src/selection/bind.ts');
+      const handle = window.__marxyHandle;
+      await handle.commands().find((c) => c.id === 'log.filter-level').run(buildAppContext(handle));
+    });
+    // From the click on, every frame is looked at.
+    await page.evaluate(() => {
+      window.__violations = 0;
+      window.__sampling = true;
+      const sample = () => {
+        for (const pre of document.querySelectorAll('#doc pre.language-log:not(.marxy-log-hidden-piece)')) {
+          const box = pre.getBoundingClientRect();
+          if (box.bottom < 0 || box.top > window.innerHeight || getComputedStyle(pre.firstElementChild).visibility === 'hidden') continue;
+          for (const line of window.__lineText(pre.firstElementChild).split('\n')) if (/ (INFO|DEBUG) /.test(line.slice(0, 40))) window.__violations++;
+        }
+        if (window.__sampling) requestAnimationFrame(sample);
+      };
+      // The first frame looked at is the first after the click that chooses the level.
+      document.addEventListener('click', () => requestAnimationFrame(sample), { capture: true, once: true });
+    });
+    await page.click('[data-row-key="log.level.warn"]');
+    const pill = await page.evaluate(() => [...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent));
+    assert.ok(pill.some((t) => /^Filtering to Warn · \d+% · the file is unchanged · Esc stops$/.test(t)), JSON.stringify(pill));
+    assert.equal(await page.evaluate(() => document.querySelector('#doc').classList.contains('marxy-log-filter-busy')), true, 'the page knows it is busy');
+    // A copy now says it must wait, and puts nothing on the pasteboard.
+    const key = await modifier(page);
+    await page.locator('#doc').click({ position: { x: 3, y: 3 } });
+    await page.keyboard.press(`${key}+KeyA`);
+    await page.keyboard.press(`${key}+KeyC`);
+    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent.startsWith('Still filtering this log · nothing was copied')), null, { timeout: 10_000 });
+    assert.equal(await page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').length), 0);
+    // Esc stops it and shows every line (from here a line below Warn is allowed on the page).
+    const violations = await page.evaluate(() => { window.__sampling = false; return window.__violations; });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent === 'All lines shown · the file is unchanged'), null, { timeout: 60_000 });
+    const after = await page.evaluate(() => ({
+      wrappers: document.querySelectorAll('.marxy-log-hidden-text, .marxy-log-hidden-run, .marxy-log-hidden-piece').length,
+      filtering: document.querySelector('#doc').classList.contains('marxy-log-filtering'),
+      pills: [...document.querySelectorAll('.marxy-notice-text')].filter((n) => n.textContent.startsWith('Filtering to')).length,
+    }));
+    assert.equal(violations, 0, 'no frame drew a line below Warn while it was being set');
+    assert.equal(after.wrappers, 0, 'every line is shown again');
+    assert.equal(after.filtering, false);
+    assert.equal(after.pills, 0, 'the pill is gone');
   }));

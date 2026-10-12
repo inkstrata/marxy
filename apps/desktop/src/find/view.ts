@@ -186,7 +186,8 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
 
   function paintCount(): void {
     if (!countEl) return;
-    const more = hiddenMore > 0 ? ` · ${hiddenMore} more in hidden lines` : '';
+    const busy = pane.article.classList.contains('marxy-log-filter-busy') ? ' · still filtering' : '';
+    const more = (hiddenMore > 0 ? ` · ${hiddenMore} more in hidden lines` : '') + busy;
     countEl.textContent = query.length === 0 ? '' : `${spans.length === 0 ? 0 : current + 1} of ${spans.length}${more}`;
   }
 
