@@ -288,6 +288,7 @@ chrome.
 | `Mod+[` / `Mod+]` | back / forward | history stack (§07) |
 | `Mod+S` | save | byte-faithful, atomic |
 | `Mod+Z` / `Mod+Shift+Z` | undo / redo | in Rendered mode: the operation history (§01); in Source: CodeMirror's |
+| `Cmd+Alt+[` / `Cmd+Alt+]` (`Ctrl+Shift+[` / `Ctrl+Shift+]` elsewhere) | fold / unfold the folds on the caret's line | K-10a: CodeMirror's own keys, in Source only; a placeholder is clickable but not a tab stop, so Tab leaves the editor however many folds there are |
 | `Mod+Shift+E` | open in external editor | at the current block's line |
 | `Mod+=` / `Mod+-` / `Mod+0` | body size ±1 px / reset | persisted in config; re-layout |
 | `Alt+↑` / `Alt+↓` / `Alt+Shift+↑` | move block selection / select parent | §03 |
@@ -702,7 +703,7 @@ A fold is a view and nothing else: CodeMirror keeps it as a decoration, so the d
 hidden text too), a save and the bytes are the file's own with it or without it (commitment 3). Nothing is folded at rest and no
 fold is remembered. Every fold's placeholder is text in the flow that says what it hides, `… 42 lines` (`… 1 line`): the number
 of lines that have text under the fold (all between its two ends, and an end line only if something other than white space of it
-is hidden). The placeholder is a button: a click, or Enter or Space once Tab has reached it, unfolds it. A change that reaches into a
+is hidden). A click on the placeholder unfolds it, and so does the unfold key with the caret on its line (below); the placeholder is not a tab stop. A change that reaches into a
 fold counts it again; a deletion opens the fold it touches, as CodeMirror does, so no text is deleted out of sight (commitment 4).
 Large files (over 2 MB) have no folding.
 

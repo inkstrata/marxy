@@ -13,9 +13,9 @@
 // The ranges are pure over an `EditorState` and its syntax tree; only `foldToDepth` and `unfoldEverything` touch a view.
 // Loaded with the editor, never at start-up (MARXY-33).
 
-import { ensureSyntaxTree, foldEffect, foldInside, foldedRanges, codeFolding, language, unfoldEffect } from '@codemirror/language';
+import { ensureSyntaxTree, foldCode, foldEffect, foldInside, foldedRanges, codeFolding, language, unfoldCode, unfoldEffect } from '@codemirror/language';
 import { EditorState, type Extension, type StateEffect, type Text } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, keymap } from '@codemirror/view';
 
 // The Lezer types, from the functions that take and return them (@lezer/common is a transitive dependency, not ours).
 type SyntaxNode = Parameters<typeof foldInside>[0];
@@ -122,8 +122,9 @@ export function foldLabel(lines: number): string {
 }
 
 /**
- * The placeholder: text in the flow, naming what it hides. A click unfolds it, as CodeMirror's own does, and so do Enter
- * and Space on it: it is a button a keyboard can reach (Tab from the text), named for what it is and what it does.
+ * The placeholder: text in the flow, naming what it hides. A click unfolds it, as CodeMirror's own does. It is not a tab
+ * stop (a file can hold thousands, and Tab must leave the editor): the keyboard unfolds with the caret on the folded line
+ * (`unfoldCode`, bound below), or with *Unfold all* from the palette.
  */
 function placeholderDOM(view: EditorView, onclick: (event: Event) => void, prepared: unknown): HTMLElement {
   const lines = typeof prepared === 'number' ? prepared : 1;
@@ -132,8 +133,8 @@ function placeholderDOM(view: EditorView, onclick: (event: Event) => void, prepa
   el.textContent = foldLabel(lines);
   el.title = 'Unfold';
   el.setAttribute('role', 'button');
-  el.tabIndex = 0;
-  el.setAttribute('aria-label', `${lines} ${lines === 1 ? 'line' : 'lines'} folded, press Enter to unfold`);
+  el.tabIndex = -1;
+  el.setAttribute('aria-label', `${lines} ${lines === 1 ? 'line' : 'lines'} folded`);
   el.onclick = onclick;
   el.onkeydown = (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -171,6 +172,12 @@ export function countedFolding(): Extension[] {
       placeholderDOM,
     }),
     recountFolds,
+    // CodeMirror's own keys, named in the keys table: fold and unfold the folds on the caret's line (Cmd-Alt-[ and ] on a
+    // Mac, Ctrl-Shift-[ and ] elsewhere). Neither chord is a command's (`keys-table.test.mjs`).
+    keymap.of([
+      { key: 'Ctrl-Shift-[', mac: 'Cmd-Alt-[', run: foldCode },
+      { key: 'Ctrl-Shift-]', mac: 'Cmd-Alt-]', run: unfoldCode },
+    ]),
   ];
 }
 

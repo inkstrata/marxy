@@ -242,17 +242,26 @@ test('Backspace at the end of a fold opens it, in JSON and in Markdown: no text 
   }, { inSource: false });
 });
 
-test('a placeholder is a button the keyboard reaches: Tab to it, Enter unfolds, and it says what it is', async () => {
-  await withApp(JSON_PATH, async (page) => {
-    await run(page, 'source.fold-depth-1');
+test('no placeholder is a tab stop, so Tab leaves the editor; the caret-on-a-fold key unfolds it', async () => {
+  await withApp(JSON_PATH, async (page, mod) => {
+    await run(page, 'source.fold-depth-2');
+    const tabbable = await page.evaluate(() => [...document.querySelectorAll('#marxy-source .marxy-fold-placeholder')].filter((el) => el.tabIndex >= 0).length);
+    assert.equal(await page.locator('#marxy-source .marxy-fold-placeholder').count(), 60);
+    assert.equal(tabbable, 0, 'none of the sixty is a tab stop');
     const first = page.locator('#marxy-source .marxy-fold-placeholder').first();
     assert.equal(await first.getAttribute('role'), 'button');
-    assert.equal(await first.getAttribute('aria-label'), '540 lines folded, press Enter to unfold');
-    await first.focus();
-    assert.equal(await page.evaluate(() => document.activeElement?.className), 'marxy-fold-placeholder');
-    await page.keyboard.press('Enter');
+    assert.equal(await first.getAttribute('aria-label'), '7 lines folded');
+    // Tab from the text goes somewhere else, not into a placeholder.
+    await caretAt(page, 0);
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement?.classList.contains('marxy-fold-placeholder')), false);
+    assert.equal(await page.evaluate(() => document.activeElement?.closest('.cm-editor') === null), true, 'focus left the editor');
+    // The caret on a folded line, then CodeMirror's unfold key.
+    const line3 = ITEMS.split('\n').slice(0, 2).join('\n').length + 1;
+    await caretAt(page, line3 + 1);
+    await page.keyboard.press(mod === 'Meta' ? 'Meta+Alt+]' : 'Control+Shift+]');
     const s = await shown(page);
-    assert.equal(s.folds, 0);
+    assert.equal(s.folds, 59, 'that fold opened, the others stayed');
     assert.equal(s.doc, ITEMS);
   });
 });
