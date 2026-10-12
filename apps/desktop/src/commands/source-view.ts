@@ -5,6 +5,7 @@ import { writeReaderKey } from '../theme/reader-config.ts';
 import { resolveLineNumbers, setLineNumbersChoice } from '../source/line-numbers.ts';
 import { appHandle } from './app-handle.ts';
 import { depthFoldOffered } from '../source/depth-fold-gate.ts';
+import { resolveColumnGuide, resolveShowWhitespace, setColumnGuideChoice, setShowWhitespaceChoice } from '../source/view-aids.ts';
 
 function byteAttr(el: Element | null | undefined): number | null {
   const s = el?.getAttribute('data-marxy-s');
@@ -85,9 +86,60 @@ function depthLensCommands(): readonly Command[] {
   ];
 }
 
+const sourceOrDocument = (ctx: AppContext): boolean => document.body.dataset.marxyMode === 'source' || ctx.document !== null;
+
+/**
+ * Show whitespace and the column guide (V-08): palette toggles on the Source editor, remembered in config.toml like the
+ * line numbers. Display only: neither writes the buffer. The editor that is mounted changes now; with none, the next
+ * Source entry reads the recorded choice.
+ */
+function viewAidCommands(): readonly Command[] {
+  const remember = async (ctx: AppContext, key: 'show_whitespace' | 'column_guide', on: boolean): Promise<void> => {
+    const shell = appHandle()?.shell as AppShell | undefined;
+    if (!shell) return;
+    try {
+      await writeReaderKey(shell, key, String(on));
+    } catch (e) {
+      ctx.showNotice(`config.toml could not be updated: ${e instanceof Error ? e.message : String(e)}; this choice lasts until you quit`, { kind: 'error' });
+    }
+  };
+  return [
+    {
+      id: 'view.toggle-show-whitespace',
+      title: 'Toggle show whitespace in Source',
+      group: 'view',
+      when: sourceOrDocument,
+      run: async (ctx) => {
+        const { activeSourceEditor, hasWhitespaceMarks, setShowWhitespaceInView } = await import('../source/editor.ts');
+        const editor = activeSourceEditor();
+        const next = !(editor ? hasWhitespaceMarks(editor.view) : resolveShowWhitespace());
+        setShowWhitespaceChoice(next);
+        if (editor) setShowWhitespaceInView(editor.view, next);
+        await remember(ctx, 'show_whitespace', next);
+      },
+    },
+    {
+      id: 'view.toggle-column-guide',
+      title: 'Toggle column guide in Source',
+      group: 'view',
+      when: sourceOrDocument,
+      run: async (ctx) => {
+        const { activeSourceEditor, hasColumnGuide, refreshColumnGuide } = await import('../source/editor.ts');
+        const editor = activeSourceEditor();
+        const path = editor?.buffer.path ?? appHandle()?.currentPath() ?? '';
+        const next = !(editor ? hasColumnGuide(editor.view) : resolveColumnGuide(path) !== null);
+        setColumnGuideChoice(next);
+        if (editor) await refreshColumnGuide(editor.view, editor.buffer.path);
+        await remember(ctx, 'column_guide', next);
+      },
+    },
+  ];
+}
+
 export function sourceViewCommands(): readonly Command[] {
   return [
     ...depthLensCommands(),
+    ...viewAidCommands(),
     {
       id: 'view.toggle-line-numbers',
       title: 'Toggle line numbers in Source',

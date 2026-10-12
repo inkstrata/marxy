@@ -6,10 +6,11 @@
 // palette command runs the same function and takes no second chord (delete line moves to the registry, on CodeMirror's own chord). Rendered's Alt+Up/Down move blocks;
 // those registry keys are not global, so inside the editor Alt+Up/Down stay CodeMirror's line moves.
 import { appHandle } from './app-handle.ts';
-import type { Command } from './registry.ts';
+import type { AppContext, Command } from './registry.ts';
 import type { StructureOp } from '../source/structure-ops.ts';
 import { writeCopy } from './copy-write.ts';
 import { notify } from '../notices/index.ts';
+import { formatsPath, type FormatOp } from '../source/format-ops.ts';
 
 /** The table tools (V-02) by name. Declared here, with the command table: `source/structure.ts` is lazy and may not be imported by it (MARXY-33), and `structure-ops.ts` lists the V-01 operations. */
 export type TableTool = 'alignTable' | 'addTableRow' | 'addTableColumn' | 'sortTableRows';
@@ -23,6 +24,7 @@ interface EntryBase {
 interface OpEntry extends EntryBase {
   readonly op: StructureOp;
   readonly table?: undefined;
+  readonly format?: undefined;
   readonly key?: string;
 }
 
@@ -30,10 +32,19 @@ interface OpEntry extends EntryBase {
 interface TableEntry extends EntryBase {
   readonly table: TableTool | 'copyTableCsv';
   readonly op?: undefined;
+  readonly format?: undefined;
   readonly key?: undefined;
 }
 
-type SourceEditEntry = OpEntry | TableEntry;
+/** A V-08 formatting command or insert: Markdown only, so it is offered in no other file. Keys only where the card gives one. */
+interface FormatEntry extends EntryBase {
+  readonly format: FormatOp;
+  readonly op?: undefined;
+  readonly table?: undefined;
+  readonly key?: string;
+}
+
+type SourceEditEntry = OpEntry | TableEntry | FormatEntry;
 
 /**
  * Every operation. The chords follow the Select menu in `mock-v2/09-macos.md` (`⌘L` line, `⌃⇧B` block, `⌃⇧S`
@@ -64,6 +75,17 @@ export const SOURCE_EDIT_ENTRIES: readonly SourceEditEntry[] = [
   { table: 'addTableColumn', id: 'source.table-add-column', title: 'Add table column after this one' },
   { table: 'sortTableRows', id: 'source.table-sort', title: 'Sort table rows by this column (byte order of the cell text)' },
   { table: 'copyTableCsv', id: 'source.table-copy-csv', title: 'Copy table at caret as CSV' },
+  // V-08: Markdown only. `Mod+K` is the palette, so Link has no key; the strikethrough and the inserts wait for the menu bar (W-20).
+  { format: { wrap: 'bold' }, id: 'source.format-bold', title: 'Bold', key: 'Mod+B' },
+  { format: { wrap: 'italic' }, id: 'source.format-italic', title: 'Italic', key: 'Mod+I' },
+  { format: { wrap: 'code' }, id: 'source.format-code', title: 'Inline code', key: 'Ctrl+`' },
+  { format: { wrap: 'strike' }, id: 'source.format-strike', title: 'Strikethrough' },
+  { format: { wrap: 'link' }, id: 'source.format-link', title: 'Link' },
+  { format: { insert: 'table' }, id: 'source.insert-table', title: 'Insert table' },
+  { format: { insert: 'fence' }, id: 'source.insert-fence', title: 'Insert code block' },
+  { format: { insert: 'rule' }, id: 'source.insert-rule', title: 'Insert horizontal rule' },
+  { format: { insert: 'details' }, id: 'source.insert-details', title: 'Insert details block' },
+  { format: { insert: 'footnote' }, id: 'source.insert-footnote', title: 'Insert footnote' },
 ];
 
 /** The chords the registry binds inside Source: the editor leaves exactly these to it (`withoutRegistryChords`). */
@@ -80,6 +102,12 @@ function inSource(): boolean {
   return document.body.dataset.marxyMode === 'source';
 }
 
+/** The formatting commands are offered only where the file is Markdown (or a scratch document, which is until it is named). */
+function formatOffered(ctx: AppContext): boolean {
+  const path = ctx.document?.snapshot().buffer.path;
+  return path !== undefined && formatsPath(path);
+}
+
 export function sourceEditCommands(): readonly Command[] {
   return SOURCE_EDIT_ENTRIES.map(
     (entry): Command => ({
@@ -88,12 +116,15 @@ export function sourceEditCommands(): readonly Command[] {
       ...(entry.key === undefined ? {} : { key: entry.key }),
       global: true,
       group: 'selection',
-      when: inSource,
+      when: entry.format === undefined ? inSource : (ctx) => inSource() && formatOffered(ctx),
       run: async (ctx) => {
         const [{ activeSourceEditor }, structure] = await Promise.all([import('../source/editor.ts'), import('../source/structure.ts')]);
         const editor = activeSourceEditor();
         if (!editor) return;
-        if (entry.table === 'copyTableCsv') {
+        if (entry.format !== undefined) {
+          const { runFormat } = await import('../source/format-ops.ts');
+          await runFormat(entry.format, editor.view, editor.buffer.path, (notice) => notify(notice));
+        } else if (entry.table === 'copyTableCsv') {
           // The one copy path (C-07): the same text as Copy table as CSV in Rendered, one pasteboard item, one notice.
           const csv = structure.tableCsvAt(editor.view.state, editor.buffer.path);
           if (csv !== null) await writeCopy(ctx, { text: csv }, 'Copied table as CSV');

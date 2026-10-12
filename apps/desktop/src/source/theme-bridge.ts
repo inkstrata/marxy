@@ -12,7 +12,7 @@
 
 import { Compartment, RangeSetBuilder, type Extension } from '@codemirror/state';
 import { isLightVariant } from './page-scheme.ts';
-import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
+import { Decoration, EditorView, MatchDecorator, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 
 /** Which look the editor wears: a code file or prose in Source (V-12), or the block editor inside Rendered's page. */
 export type SourceLook = 'code' | 'prose' | 'island';
@@ -338,4 +338,66 @@ export function liveMarxyTheme(compartment: Compartment, look: SourceLook = 'cod
     },
   );
   return [compartment.of(marxyCodeMirrorTheme(look)), follow];
+}
+
+/** A hairline or tint in the secondary text colour, so it follows the variant and the theme and is never a fixed grey. */
+const faint = (percent: number): string => `color-mix(in srgb, var(--marxy-color-text-secondary, #a39e94) ${percent}%, transparent)`;
+
+/**
+ * Show whitespace (V-08): a tab gets a faint line through its width and trailing spaces a faint tint, as decorations on
+ * CodeMirror's own classes. The text, the clipboard and the file's bytes are untouched: a mark is a style on the
+ * characters, not a character. The theme rules sit with the extension, because the mark is the only thing that wears them.
+ */
+/** What the marks' compartment holds when they are off. */
+export const NO_MARKS: Extension = [];
+
+export function whitespaceMarks(): Extension {
+  const tab = Decoration.mark({ class: 'cm-highlightTab' });
+  const trailing = Decoration.mark({ class: 'cm-trailingSpace' });
+  const matcher = new MatchDecorator({ regexp: /\t| +$/g, decoration: (match) => (match[0] === '\t' ? tab : trailing) });
+  const marks = ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+      constructor(view: EditorView) {
+        this.decorations = matcher.createDeco(view);
+      }
+      update(update: ViewUpdate): void {
+        this.decorations = matcher.updateDeco(update, this.decorations);
+      }
+    },
+    { decorations: (plugin) => plugin.decorations },
+  );
+  const line = `linear-gradient(${faint(55)}, ${faint(55)})`;
+  return [
+    marks,
+    EditorView.theme({
+      '.cm-highlightTab': { backgroundImage: line, backgroundSize: '100% 1px', backgroundPosition: '0 62%', backgroundRepeat: 'no-repeat' },
+      '.cm-trailingSpace': { backgroundColor: faint(28) },
+    }),
+  ];
+}
+
+/**
+ * The column guide (V-08): a hairline at the right edge of character `column`, drawn as a pseudo-element of the content
+ * and so on the same character grid as the ruler (every position is a number of `ch` from where the text begins). It
+ * takes no space and no pointer, adds no node, and is not text. `null` draws nothing.
+ */
+/** What the guide's compartment holds when there is none: one object, so "is there a guide" is an identity check. */
+export const NO_GUIDE: Extension = [];
+
+export function columnGuideLook(column: number | null): Extension {
+  if (column === null) return NO_GUIDE;
+  return EditorView.theme({
+    '.cm-content': { position: 'relative' },
+    '.cm-content::after': {
+      content: '""',
+      position: 'absolute',
+      top: '0',
+      bottom: '0',
+      left: `${column}ch`,
+      width: '1px',
+      backgroundColor: faint(30),
+      pointerEvents: 'none',
+    },
+  });
 }

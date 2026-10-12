@@ -5,13 +5,15 @@
 
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 
-const TAB_KEYS = new Set(['tab_width', 'indent_size', 'indent_style']);
+const TAB_KEYS = new Set(['tab_width', 'indent_size', 'indent_style', 'max_line_length']);
 
 export interface EditorConfigSection {
   readonly pattern: string;
   readonly tabWidth?: number;
   readonly indentSize?: number | 'tab';
   readonly indentStyle?: string;
+  /** `max_line_length` as a number of columns; `off` and `unset` are none (V-08: the Source column guide follows it). */
+  readonly maxLineLength?: number;
 }
 
 export interface EditorConfigFile {
@@ -54,6 +56,9 @@ export function parseEditorConfigFile(text: string): EditorConfigFile {
       if (value === 'unset') current = { ...current, indentSize: undefined };
       else if (value === 'tab') current = { ...current, indentSize: 'tab' };
       else if (/^\d+$/.test(value)) current = { ...current, indentSize: Number.parseInt(value, 10) };
+    } else if (key === 'max_line_length') {
+      if (/^\d+$/.test(value)) current = { ...current, maxLineLength: Number.parseInt(value, 10) };
+      else current = { ...current, maxLineLength: undefined };
     } else {
       current = { ...current, indentStyle: value === 'unset' ? undefined : value };
     }
@@ -191,10 +196,11 @@ export interface TabSettings {
   tabWidth?: number;
   indentSize?: number | 'tab';
   indentStyle?: string;
+  maxLineLength?: number;
 }
 
 function mergeInto(into: TabSettings, section: EditorConfigSection): void {
-  for (const key of ['tabWidth', 'indentSize', 'indentStyle'] as const) {
+  for (const key of ['tabWidth', 'indentSize', 'indentStyle', 'maxLineLength'] as const) {
     if (key in section) (into as Record<string, unknown>)[key] = section[key];
   }
 }
@@ -269,16 +275,16 @@ function chainFor(
  * Stops at `root = true` or at the indexed root; never reads above it. Matching sections merge in file
  * order (nearer files and later sections win), per key.
  */
-export async function resolveTabWidth(
+async function resolveSettings(
   filePath: string,
   indexedRoot: string,
   readText: (path: string) => Promise<string>,
-  cache: EditorConfigCache = createEditorConfigCache(),
-): Promise<number> {
+  cache: EditorConfigCache,
+): Promise<TabSettings> {
   const norm = normalizePath(filePath);
   const root = normalizePath(indexedRoot);
   const dir = dirname(norm);
-  if (!isUnder(dir, root)) return 4;
+  if (!isUnder(dir, root)) return {};
   const chain = await chainFor(dir, root, readText, cache);
   const merged: TabSettings = {};
   for (const { dir: configDir, file } of chain) {
@@ -287,7 +293,27 @@ export async function resolveTabWidth(
       if (globMatch(section.pattern, rel)) mergeInto(merged, section);
     }
   }
-  return tabSizeFromSection(merged);
+  return merged;
+}
+
+/** The tab width for a file: `tab_width`, else a numeric `indent_size`, else 4. */
+export async function resolveTabWidth(
+  filePath: string,
+  indexedRoot: string,
+  readText: (path: string) => Promise<string>,
+  cache: EditorConfigCache = createEditorConfigCache(),
+): Promise<number> {
+  return tabSizeFromSection(await resolveSettings(filePath, indexedRoot, readText, cache));
+}
+
+/** The file's `max_line_length` in columns, or null when no section gives one (V-08: the Source column guide). */
+export async function resolveMaxLineLength(
+  filePath: string,
+  indexedRoot: string,
+  readText: (path: string) => Promise<string>,
+  cache: EditorConfigCache = createEditorConfigCache(),
+): Promise<number | null> {
+  return (await resolveSettings(filePath, indexedRoot, readText, cache)).maxLineLength ?? null;
 }
 
 /** The root when nothing can say where the project is (a shell with no `readDir`): the file's own folder. */
