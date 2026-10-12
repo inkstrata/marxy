@@ -1,5 +1,6 @@
 // Source mode looks (L-06): the palette, the grid, the active line, the live theme, the search panel.
 import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -466,42 +467,49 @@ test('H-05: a theme that is dark under the light variant gives Source the dark b
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
-    await boot(page, '/src/a.ts', TS);
-    const editorClass = () => page.evaluate(() => document.querySelector('#marxy-source .cm-editor').className);
-    await setVariant(page, 'dark');
-    await page.waitForTimeout(150);
+    // The page is read only through calls that return at once, each raced against a Node-side deadline: a reconfigure loop keeps
+    // the page busy, so an in-page wait would hang instead of failing.
+    const stuck = (what) => new Promise((_, reject) => setTimeout(() => reject(new Error(`the page stopped answering ${what}: Source and the theme bridge are probably reconfiguring each other in a loop`)), 8_000).unref());
+    const quick = (fn) => Promise.race([page.evaluate(fn), stuck('after a theme change')]);
+    await Promise.race([boot(page, '/src/a.ts', TS), stuck('while the app started up')]);
+    const editorClass = () => quick(() => document.querySelector('#marxy-source .cm-editor').className);
+    await quick(() => document.documentElement.setAttribute('data-marxy-variant', 'dark'));
+    await new Promise((r) => setTimeout(r, 150));
     const dark = await editorClass();
-    await setVariant(page, 'light');
-    await page.waitForTimeout(150);
+    await quick(() => document.documentElement.setAttribute('data-marxy-variant', 'light'));
+    await new Promise((r) => setTimeout(r, 150));
     const light = await editorClass();
     // CodeMirror marks its base theme on the editor: ͼ3 is the dark base theme, ͼ2 the light one.
     const base = (cls) => (cls.split(' ').includes('ͼ3') ? 'dark' : cls.split(' ').includes('ͼ2') ? 'light' : 'none');
     assert.deepEqual([base(dark), base(light)], ['dark', 'light']);
     // What applyTheme does for Fjord: a sheet that keeps color-scheme dark under the light variant, then the marker is rewritten.
     // Count what lands in the head meanwhile: a reconfigure injects a style, so a loop shows as a count that keeps growing.
-    const added = await page.evaluate(async () => {
-      let count = 0;
-      new MutationObserver((records) => { for (const r of records) count += r.addedNodes.length; }).observe(document.head, { childList: true });
+    await quick(() => {
+      window.__headAdds = 0;
+      new MutationObserver((records) => { for (const r of records) window.__headAdds += r.addedNodes.length; }).observe(document.head, { childList: true });
       const sheet = new CSSStyleSheet();
       sheet.replaceSync(':root[data-marxy-variant="light"] { color-scheme: dark; }');
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
       const marker = document.getElementById('marxy-theme') ?? document.head.appendChild(Object.assign(document.createElement('template'), { id: 'marxy-theme' }));
       marker.textContent = ':root[data-marxy-variant="light"] { color-scheme: dark; }';
-      await new Promise((r) => setTimeout(r, 600));
-      return count;
     });
+    let added = 0;
+    for (const start = Date.now(); Date.now() - start < 600;) {
+      await new Promise((r) => setTimeout(r, 100));
+      added = await quick(() => window.__headAdds);
+      if (added > 4) break;
+    }
     assert.ok(added <= 4, `${added} nodes were added to the head after one theme change`);
-    assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), 'dark');
+    assert.equal(await quick(() => getComputedStyle(document.documentElement).colorScheme), 'dark');
     assert.equal(base(await editorClass()), 'dark', 'Source wears the dark base theme under Fjord with the light variant');
     // Stable: no further reconfigure after it settled.
-    const later = await page.evaluate(async () => {
-      let count = 0;
-      new MutationObserver((records) => { for (const r of records) count += r.addedNodes.length; }).observe(document.head, { childList: true });
-      await new Promise((r) => setTimeout(r, 500));
-      return count;
-    });
+    await quick(() => { window.__headAdds = 0; });
+    await new Promise((r) => setTimeout(r, 500));
+    const later = await quick(() => window.__headAdds);
     assert.equal(later, 0);
   } finally {
-    await browser.close();
+    // A page stuck in a loop cannot be closed politely; end the driver (and with it the browser) so the run can report and exit.
+    const closed = await Promise.race([browser.close().then(() => true), new Promise((r) => setTimeout(r, 2000, false).unref())]);
+    if (!closed) spawnSync('pkill', ['-P', String(process.pid)]);
   }
 });
