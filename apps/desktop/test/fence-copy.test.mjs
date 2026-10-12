@@ -1,7 +1,8 @@
 // A selection wholly inside one Markdown code fence copies that fence's source bytes exactly, line endings and
 // all; a selection that takes any prose copies the page's text (F-68). The mechanism is V-10's (a copy listener
-// and `codeRunSourceText`); here it is Markdown's fences, with real key presses in WebKit. Each test fails with the
-// fence path off.
+// and `codeRunSourceText`); here it is Markdown's fences, with real key presses in WebKit. The tests of what is copied
+// from a fence fail with the fence path off; those of prose, a quoted fence and the fields hold behaviour that must not
+// change, and pass with it off too.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -52,17 +53,23 @@ after(async () => {
 const FENCE_ONE = ['const a = 1;', '\tindented with a tab', 'trailing spaces   ', 'naïve café 日本語 🙂', 'the last line'].join('\r\n') + '\r\n';
 const FENCE_TWO = 'second one\r\nof two lines\r\n';
 const DOC = `# Fences\r\n\r\nProse before the first fence.\r\n\r\n\`\`\`\r\n${FENCE_ONE}\`\`\`\r\n\r\nProse between.\r\n\r\n\`\`\`\r\n${FENCE_TWO}\`\`\`\r\n\r\nProse after.\r\n`;
-const files = (text) => ({ '/repo/.git/HEAD': 'ref: refs/heads/main\n', '/repo/f.md': text });
+const files = (text, path) => ({ '/repo/.git/HEAD': 'ref: refs/heads/main\n', [path]: text });
 const b64 = (all) => Object.fromEntries(Object.entries(all).map(([k, v]) => [k, Buffer.from(v, 'utf8').toString('base64')]));
 
-async function open(text = DOC) {
+async function open(text = DOC, path = '/repo/f.md') {
   const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
   await page.goto(`${base}test/palette-boot.html`);
   await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
   await page.evaluate(async ({ f, a }) => {
     const r = await window.marxyPaletteBoot.start(f, a);
     window.__h = r.handle;
-  }, { f: b64(files(text)), a: ['/repo/f.md'] });
+  }, { f: b64(files(text, path)), a: [path] });
+  if (path.endsWith('.py')) {
+    // A code file opens in Source; Rendered shows its pieces (V-10).
+    await page.waitForSelector('.cm-editor');
+    await page.keyboard.press(`${await modifier(page)}+KeyE`);
+    await drained(page);
+  }
   await page.waitForFunction(() => document.querySelectorAll('#doc pre > code').length >= 1);
   await page.evaluate(() => {
     window.__copies = [];
@@ -160,6 +167,46 @@ test('the second fence copies its own bytes, not the first\'s (F-68)', async () 
   const page = await open();
   await select(page, ['code1', 3], ['code1', 'second one\nof two'.length]);
   same(await copiedAfter(page, `${await modifier(page)}+KeyC`), 'ond one\r\nof two', 'second fence');
+  await page.close();
+});
+
+/** A fence whose last line is `npm install foo`, ending as `eol` does, then prose. */
+const lastLineDoc = (eol) => `# T${eol}${eol}\`\`\`${eol}echo one${eol}npm install foo${eol}\`\`\`${eol}${eol}After.${eol}`;
+
+for (const [name, eol] of [['LF', '\n'], ['CRLF', '\r\n']]) {
+  test(`the last line of a ${name} fence copies without its line ending (F-68)`, async () => {
+    const page = await open(lastLineDoc(eol));
+    await select(page, ['code0', 'echo one\n'.length], ['code0', 'echo one\nnpm install foo'.length]);
+    same(await copiedAfter(page, `${await modifier(page)}+KeyC`), 'npm install foo', 'last line');
+    // And the line before it, ending included when the selection takes it.
+    await select(page, ['code0', 0], ['code0', 'echo one\n'.length]);
+    same(await copiedAfter(page, `${await modifier(page)}+KeyC`), `echo one${eol}`, 'first line and its ending');
+    await page.close();
+  });
+
+  test(`a selection through the last line's ending to the next block copies the ending, nothing more (${name}, F-68)`, async () => {
+    const page = await open(lastLineDoc(eol));
+    // The page has no closing fence line to select: the fence ends after its last newline and the prose follows. A
+    // selection that runs on into the prose takes the prose, so it is the page's text; one that stops at the fence's end
+    // takes the ending, which is the fence's last byte.
+    await select(page, ['code0', 'echo one\n'.length], ['code0', null]);
+    same(await copiedAfter(page, `${await modifier(page)}+KeyC`), `npm install foo${eol}`, 'to the fence end');
+    await select(page, ['code0', 'echo one\n'.length], ['prose0', 'After'.length]);
+    same(await copiedAfter(page, `${await modifier(page)}+KeyC`), 'npm install foo\n\nAfter', 'into the prose');
+    await page.close();
+  });
+}
+
+test('a CRLF code file copies whole line endings at a selection\'s start and end (V-10, F-68)', async () => {
+  const py = 'a = 1\r\nb = 2\r\nc = 3\r\n';
+  const page = await open(py, '/repo/f.py');
+  const mod = await modifier(page);
+  // Ends just after a line break: the CR and its LF both, not a bare CR.
+  await select(page, ['code0', 0], ['code0', 'a = 1\n'.length]);
+  same(await copiedAfter(page, `${mod}+KeyC`), 'a = 1\r\n', 'ends after a break');
+  // Starts just after a line break: no bare LF at the front.
+  await select(page, ['code0', 'a = 1\n'.length], ['code0', 'a = 1\nb = 2'.length]);
+  same(await copiedAfter(page, `${mod}+KeyC`), 'b = 2', 'starts after a break');
   await page.close();
 });
 

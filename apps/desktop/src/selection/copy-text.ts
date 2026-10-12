@@ -77,13 +77,14 @@ const FENCE_CODE = 'pre:not(.marxy-run) > code[data-marxy-s]';
  */
 function fenceCode(range: Range, article: HTMLElement, bytes: Uint8Array): HTMLElement[] {
   const fences = [...article.querySelectorAll<HTMLElement>(FENCE_CODE)].filter((code) => range.intersectsNode(code));
-  const code = fences.length === 1 ? fences[0]! : null;
+  const code = fences[0];
   if (!code) return [];
   const whole = document.createRange();
   whole.selectNodeContents(code);
   const inside = range.cloneRange();
   if (range.compareBoundaryPoints(Range.START_TO_START, whole) < 0) inside.setStart(code, 0);
   if (range.compareBoundaryPoints(Range.END_TO_END, whole) > 0) inside.setEnd(code, code.childNodes.length);
+  // Anything the selection holds besides this fence's text (prose, a second fence) makes the two differ.
   if (textFromRange(inside) !== textFromRange(range)) return [];
   const start = Number(code.dataset.marxyS);
   const end = Number(code.dataset.marxyE);
@@ -105,6 +106,8 @@ export function codeRunSourceText(range: Range, article: HTMLElement, bytes: Uin
   const runPieces = [...article.querySelectorAll<HTMLElement>(RUN_PIECE)].filter((code) => range.intersectsNode(code));
   const pieces = runPieces.length > 0 ? runPieces : fenceCode(range, article, bytes);
   if (pieces.length === 0) return null;
+  // A fence's last line ending is a character the reader can select, so a fence's selection ends where it ends (F-68).
+  const exactEnd = runPieces.length === 0;
   const decoder = new TextDecoder('utf-8', { fatal: false, ignoreBOM: true });
   const out: string[] = [];
   for (const code of pieces) {
@@ -135,7 +138,7 @@ export function codeRunSourceText(range: Range, article: HTMLElement, bytes: Uin
     const after = document.createRange();
     after.setStart(range.endContainer, range.endOffset);
     after.setEnd(code, code.childNodes.length);
-    const reachesEnd = range.compareBoundaryPoints(Range.END_TO_END, whole) >= 0 || /^\n?$/.test(textFromRange(after));
+    const reachesEnd = range.compareBoundaryPoints(Range.END_TO_END, whole) >= 0 || (!exactEnd && /^\n?$/.test(textFromRange(after)));
     const to = reachesEnd ? Number.POSITIVE_INFINITY : upTo('end');
     // The first source index at or after each page index; past the end of the source is the end of it.
     // A page index just past a newline is just past the whole CRLF in the source, not between its CR and its LF (F-68).
