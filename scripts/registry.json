@@ -89,7 +89,11 @@
     "data-marxy-sidebar-tree",
     "data-marxy-sidebar-depth",
     "data-marxy-edit",
-    "data-marxy-facet-on"
+    "data-marxy-facet-on",
+    "data-marxy-fact"
+  ],
+  "customProperties": [
+    "--marxy-col"
   ],
   "classes": [
     "marxy-toolbar-glyph",
@@ -131,7 +135,33 @@
     "marxy-library-grid-head",
     "marxy-library-colhead",
     "marxy-library-cell",
-    "marxy-library-row-whys"
+    "marxy-library-row-whys",
+    "marxy-source-frame",
+    "marxy-source-top",
+    "marxy-source-path",
+    "marxy-source-seg",
+    "marxy-source-seg-file",
+    "marxy-source-sep",
+    "marxy-source-facts",
+    "marxy-source-fact",
+    "marxy-source-ruler",
+    "marxy-source-ruler-clip",
+    "marxy-source-ruler-probe",
+    "marxy-source-ruler-ticks",
+    "marxy-source-ruler-tick",
+    "marxy-source-ruler-tick-major",
+    "marxy-source-ruler-num",
+    "marxy-source-ruler-caret",
+    "marxy-source-ruler-span",
+    "marxy-source-body",
+    "marxy-source-marks",
+    "marxy-source-mark",
+    "marxy-source-mark-find",
+    "marxy-source-mark-invisible",
+    "marxy-source-bottom",
+    "marxy-source-readout",
+    "marxy-source-selected",
+    "marxy-source-character"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

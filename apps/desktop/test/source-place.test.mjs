@@ -270,11 +270,32 @@ test('V-12 (L-07) a code file\'s column is 100 characters wide, centred, with th
         width: c.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
         ch: parseFloat(cs.fontSize) * 0.6,
         gutterRight: document.querySelector('#marxy-source .cm-gutters').getBoundingClientRect().right,
+        editorLeft: document.querySelector('#marxy-source .cm-editor').getBoundingClientRect().left,
+        editorWidth: document.querySelector('#marxy-source .cm-editor').getBoundingClientRect().width,
+        gutterWidth: document.querySelector('#marxy-source .cm-gutters').getBoundingClientRect().width,
       };
     });
     assert.ok(Math.abs(m.width - 100 * m.ch) <= m.ch, `100 characters wide (${m.width} vs ${100 * m.ch})`);
-    assert.ok(Math.abs(m.left + m.width / 2 - 640) <= 1, `centred on the window (${m.left + m.width / 2})`);
+    // The 960 px frame is centred on the window, and a 100-character column with its numbers (924 px at 14 px) cannot centre in
+    // it: the text starts one gutter in (5 digits and a line box each side: 84 px at 14 px), ADR-0067 item 3's floor.
+    assert.ok(Math.abs(m.editorLeft + m.editorWidth / 2 - 640) <= 1, `the editor is centred on the window (${m.editorLeft + m.editorWidth / 2})`);
+    assert.ok(Math.abs(m.left - (m.editorLeft + 84)) <= 1, `folded, the text starts a gutter in from the frame's editor (${m.left - m.editorLeft})`);
     assert.ok(m.gutterRight <= m.left + 0.01, 'the numbers end where the text begins');
+    // Where there is room (a smaller Source size, a column of 600 px and its 68 px of numbers), the column is centred on the
+    // window as L-07 had it, within a pixel.
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--marxy-size-source', '10px');
+      document.documentElement.style.setProperty('--marxy-line-box-source', '15px');
+    });
+    await page.waitForTimeout(400);
+    const roomy = await page.evaluate(() => {
+      const c = document.querySelector('#marxy-source .cm-content').getBoundingClientRect();
+      const cs = getComputedStyle(document.querySelector('#marxy-source .cm-content'));
+      const width = c.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      return { axis: c.left + width / 2, width };
+    });
+    assert.ok(Math.abs(roomy.width - 600) <= 6, `100 characters at 10 px (${roomy.width})`);
+    assert.ok(Math.abs(roomy.axis - 640) <= 1, `centred on the window where there is room (${roomy.axis})`);
     // A file with a thousand lines has four digits; the text does not move for them.
     const wide = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await boot(wide, '/src/b.ts', 'export const a = 1;\n'.repeat(1200));

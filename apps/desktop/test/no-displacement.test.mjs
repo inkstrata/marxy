@@ -9,7 +9,7 @@
 // measured in test/notices-pill.test.mjs, where the editor's own lines are the text.
 // Not covered, on purpose: the inline block editor (in flow by design; it holds the reading line, see commands/block-edit.ts).
 //
-// To add a surface: append `{ name, open, close }` to SURFACES. `open(page, s)` runs the command and resolves when the
+// To add a surface: append `{ name, open, close }` to SURFACES (`splitToo`: also run it with two panes; `splitOnly`: only with two). `open(page, s)` runs the command and resolves when the
 // surface is up; `close(page, s)` dismisses it and resolves when it is gone. `s.mod` is the platform's modifier key.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
@@ -186,6 +186,22 @@ export const SURFACES = [
     },
   },
   {
+    // The Source frame (V-05) is chrome that arrives with a mode: Source in the other pane brings its bars and ruler, and the
+    // reading column beside it does not move. It needs a second pane, so it runs split only.
+    name: 'Source in the other pane (opened, then left)',
+    splitOnly: true,
+    open: async (page, s) => {
+      await page.keyboard.press(`${s.mod}+Alt+ArrowRight`);
+      await page.waitForFunction(() => document.querySelector('.marxy-pane[data-marxy-pane="1"]')?.hasAttribute('data-marxy-focus'));
+      await page.keyboard.press(`${s.mod}+KeyE`);
+      await page.waitForSelector('.marxy-pane[data-marxy-pane="1"] .marxy-source-frame');
+    },
+    close: async (page, s) => {
+      await page.keyboard.press(`${s.mod}+KeyE`);
+      await page.waitForFunction(() => document.querySelector('.marxy-pane[data-marxy-pane="1"]')?.dataset.marxyMode === 'rendered');
+    },
+  },
+  {
     name: 'notice (empty clipboard transform)',
     splitToo: true,
     open: async (page, s) => {
@@ -259,7 +275,8 @@ const WINDOWS = ['folded', 'unfolded', 'split'];
 
 for (const windowState of WINDOWS) {
   for (const surface of SURFACES) {
-    if (windowState === 'split' && !surface.splitToo) continue;
+    if (windowState === 'split' && !surface.splitToo && !surface.splitOnly) continue;
+    if (windowState !== 'split' && surface.splitOnly) continue;
     test(`${windowState}: ${surface.name}: opening and closing it moves neither the first visible line nor the scroll position`, async () => {
       await withApp(async (page, s) => {
         if (windowState === 'unfolded') await page.evaluate(() => window.__marxyHandle.workspace().unfold());

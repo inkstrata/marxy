@@ -31,7 +31,11 @@ export function sourceVisibleByteOffset(buffer: Buffer, view: EditorView): numbe
   return sourceReadingPosition(buffer, view, 0).byteOffset;
 }
 
-/** Scroll CodeMirror so `byteOffset` sits at `readingLinePx` from the viewport top. */
+/**
+ * Scroll CodeMirror so `byteOffset` sits at `readingLinePx` from the viewport top. The reading line is a place in the
+ * window; the editor's scroller may start below the window's top (the Source frame's bars sit above it, V-05), and
+ * CodeMirror measures its margin from the scroller's own top, so the scroller's offset comes off the margin.
+ */
 export function scrollSourceToByte(
   buffer: Buffer,
   view: EditorView,
@@ -39,8 +43,12 @@ export function scrollSourceToByte(
   readingLinePx: number,
 ): void {
   const pos = renderedByteToCmPos(buffer, view.state, byteOffset);
+  // Only when the editor's own scroller is what scrolls: one that has nothing to scroll leaves it to an ancestor (a page
+  // that does not give the mount a height), and CodeMirror then measures the margin from that ancestor's top.
+  const scroller = view.scrollDOM;
+  const scrollerTop = scroller.scrollHeight > scroller.clientHeight + 1 ? Math.max(0, scroller.getBoundingClientRect().top) : 0;
   view.dispatch({
-    effects: EditorView.scrollIntoView(pos, { y: 'start', yMargin: readingLinePx }),
+    effects: EditorView.scrollIntoView(pos, { y: 'start', yMargin: Math.max(0, readingLinePx - scrollerTop) }),
   });
 }
 

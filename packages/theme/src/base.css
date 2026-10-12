@@ -40,6 +40,122 @@
   --marxy-line-box-code: var(--marxy-root-line-box-code);
 }
 
+/* The Source frame (V-05; rulings Q13 and Q14, ADR-0067's metrics inside it): the editor in a hairline enclosure with
+   thin bars on its edges, each showing only what the bytes say. Lengths are ratios of the chrome size (13 px at the
+   default), the face is the chrome face, the grounds and the rule are roles. The mount keeps its place (index.html fixes
+   it to the window, or the pane); it only gains an inset and centres the frame, which folded is 960 px wide at most and
+   unfolded fills the pane. The text column inside is ADR-0067's, centred in the frame. Nothing here is drawn on the text. */
+.marxy-source-mount:not([hidden]):has(> .marxy-source-frame) {
+  display: flex;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: calc(var(--marxy-size-chrome) * 18 / 13) calc(var(--marxy-size-chrome) * 14 / 13);
+}
+body[data-marxy-workspace="unfolded"] .marxy-source-mount:not([hidden]):has(> .marxy-source-frame) { padding: calc(var(--marxy-size-chrome) * 12 / 13); }
+.marxy-source-frame {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 960px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  container-type: inline-size;
+  background: var(--marxy-color-bg);
+  border: 1px solid var(--marxy-color-rule);
+  border-radius: calc(var(--marxy-size-chrome) * 13 / 13);
+  font-family: var(--marxy-face-chrome);
+  font-size: calc(var(--marxy-size-chrome) * 11 / 13);
+  line-height: 1.3;
+  color: var(--marxy-color-text-secondary);
+}
+body[data-marxy-workspace="unfolded"] .marxy-source-frame { max-width: none; }
+.marxy-source-top, .marxy-source-bottom {
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: calc(var(--marxy-size-chrome) * 24 / 13);
+  padding-inline: calc(var(--marxy-size-chrome) * 12 / 13);
+  background: var(--marxy-color-surface);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.marxy-source-top { border-bottom: 1px solid var(--marxy-color-rule); }
+.marxy-source-bottom { border-top: 1px solid var(--marxy-color-rule); gap: 0.6em; }
+.marxy-source-path { flex: 1 1 0; min-width: 0; display: flex; align-items: center; overflow: hidden; }
+.marxy-source-seg { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.marxy-source-seg-file { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; color: var(--marxy-color-text); font-weight: 600; }
+.marxy-source-sep { flex: none; margin-inline: 0.5em; color: var(--marxy-color-text-faint); }
+.marxy-source-facts { flex: 0 1 auto; min-width: 0; display: flex; margin-inline-start: 1em; overflow: hidden; text-overflow: ellipsis; }
+.marxy-source-fact + .marxy-source-fact::before { content: "\00b7"; margin-inline: 0.7em; color: var(--marxy-color-text-faint); }
+.marxy-source-bottom > * + *:not([hidden])::before { content: "\00b7"; margin-inline-end: 0.6em; color: var(--marxy-color-text-faint); }
+.marxy-source-readout { color: var(--marxy-color-text); }
+/* The column ruler: ticks on the text's character grid (`ch` in the text's own face and size), under the top bar. */
+.marxy-source-ruler {
+  flex: none;
+  position: relative;
+  box-sizing: border-box;
+  height: calc(var(--marxy-size-chrome) * 17 / 13);
+  overflow: hidden;
+  background: var(--marxy-color-bg);
+  border-bottom: 1px solid var(--marxy-color-rule);
+}
+.marxy-source-ruler-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  font-family: var(--marxy-font-mono);
+  font-size: var(--marxy-size-source, 14px);
+  font-variant-ligatures: none;
+}
+.marxy-source-ruler-probe { position: absolute; left: 0; top: 0; width: 1ch; height: 1px; visibility: hidden; }
+.marxy-source-ruler-ticks { position: absolute; top: 0; bottom: 0; width: 0; }
+.marxy-source-ruler-tick {
+  position: absolute;
+  bottom: 0;
+  left: calc((var(--marxy-col) - 0.5) * 1ch);
+  width: 1px;
+  height: 2px;
+  margin-inline-start: -0.5px;
+  background: var(--marxy-color-rule-strong);
+}
+.marxy-source-ruler-tick-major { height: 4px; }
+.marxy-source-ruler-num {
+  position: absolute;
+  left: 3px;
+  bottom: 7px;
+  font-size: calc(var(--marxy-size-chrome) * 9.5 / 13);
+  line-height: 1;
+  color: var(--marxy-color-text-secondary);
+}
+.marxy-source-ruler-caret {
+  position: absolute;
+  bottom: 0;
+  width: 7px;
+  height: 5px;
+  margin-inline-start: -3.5px;
+  background: var(--marxy-color-accent);
+  clip-path: polygon(0 100%, 50% 0, 100% 100%);
+}
+.marxy-source-ruler-span { position: absolute; bottom: 0; height: 2px; background: var(--marxy-color-accent); }
+/* The editor fills the body, with the strip's width kept clear at the right edge, where marks sit at the height of what they
+   name, and the same at the left so the editor's box, and the column in it, stays on the frame's axis (L-07). The editor is
+   in the flow with a height of 100% (a body with a definite height, the app's, fills; one with none, a test page's, is as tall as
+   the text), so the editor's own scroller is what scrolls inside the frame. */
+.marxy-source-body { position: relative; flex: 1 1 auto; min-height: 0; padding-inline: calc(var(--marxy-size-chrome) * 8 / 13); }
+.marxy-source-body > .cm-editor { height: 100%; }
+.marxy-source-marks { position: absolute; top: 0; right: 0; bottom: 0; width: calc(var(--marxy-size-chrome) * 8 / 13); }
+.marxy-source-mark { position: absolute; left: 1px; right: 1px; height: 3px; margin-top: -1.5px; border-radius: calc(var(--marxy-size-chrome) * 1 / 13); cursor: pointer; }
+.marxy-source-mark::before { content: ""; position: absolute; inset: -3px 0; }
+.marxy-source-mark-invisible { background: var(--marxy-color-accent); }
+.marxy-source-mark-find { background: var(--marxy-color-find-edge); }
+/* A narrow frame (a split pane) keeps the file's name and drops the folders and the ruler. */
+@container (max-width: 519px) {
+  .marxy-source-ruler { display: none; }
+  .marxy-source-seg:not(.marxy-source-seg-file), .marxy-source-sep { display: none; }
+}
+
 html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-color-text); }
 ::selection { background: var(--marxy-color-selection); }
 
@@ -1135,6 +1251,9 @@ body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-ro
 
 /* Accessibility media queries (Reader Artifacts ch.9, MARXY-241). */
 @media (forced-colors: active) {
+  .marxy-source-frame, .marxy-source-top, .marxy-source-ruler, .marxy-source-bottom { border-color: CanvasText; }
+  .marxy-source-ruler-tick, .marxy-source-ruler-caret, .marxy-source-ruler-span, .marxy-source-mark { forced-color-adjust: none; background: CanvasText; }
+  .marxy-source-mark-find { background: Highlight; }
   a { text-decoration: underline; forced-color-adjust: none; }
   del, s { text-decoration: line-through; }
   :is(pre, table):focus-visible { outline: 2px solid ButtonText; outline-offset: 2px; }
