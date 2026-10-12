@@ -165,13 +165,17 @@ reorder blocks; parse a date into another format.
 1. Where do the byline and dek sit? The front matter precedes the title in the bytes, and the mock draws headline, dek,
    then byline. *Recommended:* where the front matter is, above the title, so the page reads in the bytes' order; the mock's
    order would be a visual reorder that selection and Source would disagree with.
+   **Ruled 2026-10-12:** above the title, in file order.
 2. Ruling 21 keeps the front-matter head as it is until W-17. Is restyling the byline keys as a byline within that ruling?
    *Recommended:* yes, for `article` only; the keys stay on the page and the head keeps every other row.
+   **Ruled 2026-10-12:** yes, for `article` only.
 3. A quoted YAML value (`author: "M. Ellery"`) shows its quotes in the head today. In the byline? *Recommended:* drop one
    pair of matching outer quotes in the byline only; everything else verbatim.
+   **Ruled 2026-10-12:** the recommendation, as written.
 4. Which keys make the dek? The mock's article has no dek key; its dek is an opening italic paragraph. *Recommended:* a
    `description`, `dek` or `subtitle` key; an opening paragraph wholly in emphasis directly after the title gets the dek's
    style as a block restyle; never both on one page (the key wins).
+   **Ruled 2026-10-12:** the recommendation, as written.
 
 ---
 
@@ -381,10 +385,15 @@ infer a type for anything but alignment and sort.
 1. A quoted field is not a substring of the file. Does the grid show the decoded value (`a "b"`), which amends ADR-0061 with a
    second deriver and a `cell` selection, or the raw field (`"a ""b"""`), which needs no amendment? *Recommended:* decoded,
    with the amendment written and ruled in this story before any grid code.
+   **Ruled 2026-10-12:** decoded; ADR-0071 amends ADR-0061 with the `delimited-table` deriver and the `cell` selection (a
+   cell resolves to the raw field, quotes included; `⌘C` copies the decoded value; the raw field is the *Source field* Copy
+   as target).
 2. Is the first row a header? *Recommended:* yes when every field in it is non-numeric and distinct; the grid says "Row 1 used
    as header", and one click makes it a data row.
+   **Ruled 2026-10-12:** the recommendation, as written.
 3. The data strip has four slots (Column stats, Filter, Transpose, Chart; at most four). Where does *Table* go? *Recommended:*
    first; Chart drops off the list until it has a story.
+   **Ruled 2026-10-12:** the recommendation: Table first, Chart drops off.
 
 ---
 
