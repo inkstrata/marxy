@@ -1642,6 +1642,8 @@ async function selftest(browser, origin) {
     ['an unlisted failure fails', judgeExpected(occurs, ran, []).length === 1],
     ['a listed row whose case passes fails', judgeExpected(new Map(), ran, [row]).length === 1],
     ['a listed failure that occurs passes', judgeExpected(occurs, ran, [row]).length === 0],
+    ['a render over 10 s is logged, not failed', slowRenderLine(12_345, () => 'x.md', { width: 320, size: 20, variant: 'dark' }) === 'slow render: x.md, 320px at 20, dark, 12345 ms'],
+    ['a render of 10 s or less is not logged', slowRenderLine(10_000, () => 'x.md', { width: 320, variant: 'dark' }) === null],
     ['a row for a cell this run did not measure is not judged', judgeExpected(new Map(), new Set(), [row]).length === 0],
     ['a darwin-scoped row is not reported stale on linux', judgeExpected(new Map(), ran, [{ ...row, platforms: ['darwin'] }], 'linux').length === 0],
     ['a darwin-scoped row is still enforced on darwin', judgeExpected(new Map(), ran, [{ ...row, platforms: ['darwin'] }], 'darwin').length === 1],
@@ -1717,7 +1719,26 @@ async function selftest(browser, origin) {
 async function renderCorpus(page, origin, source, opts) {
   await page.goto(`${origin}/gate.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.marxyGate?.render === 'function');
-  return page.evaluate(async ({ source, opts }) => window.marxyGate.render(source, opts), { source, opts });
+  const t0 = Date.now();
+  const result = await page.evaluate(async ({ source, opts }) => window.marxyGate.render(source, opts), { source, opts });
+  const ms = Date.now() - t0;
+  // Slowness stays visible and never fails (F-74; ADR-0032): the wait inside the render is a cap, not a budget.
+  const slow = slowRenderLine(ms, () => corpusNameOf(source), opts);
+  if (slow !== null) console.log(slow);
+  return result;
+}
+
+const SLOW_RENDER_MS = 10_000;
+/** The log line for a render that took over 10 s, or null: slowness is shown, never failed. */
+function slowRenderLine(ms, nameOf, opts) {
+  if (ms <= SLOW_RENDER_MS) return null;
+  return `slow render: ${nameOf()}, ${opts.width}px at ${opts.size ?? 20}, ${opts.variant}${opts.theme ? ' (theme)' : ''}, ${ms} ms`;
+}
+let corpusNames = null;
+/** The corpus file a source is, for the slow-render line; a source that is none is `(crafted page)`. */
+function corpusNameOf(source) {
+  corpusNames ??= new Map(corpusFiles().map((f) => [readFileSync(join(corpusDir, f), 'utf8'), f]));
+  return corpusNames.get(source) ?? '(crafted page)';
 }
 
 /** Documents whose font/image window (snaps[0]→[1]) scored movement; used by --repeat. */
