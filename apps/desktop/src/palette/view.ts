@@ -778,7 +778,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     // Empty: every row has its age. Typed: only a document in a watched root does.
     age: (hit) =>
       model.phase === 'empty' || watched(hit.entry.root)
-        ? relativeAge(model.phase === 'empty' ? emptyNow : now(), hit.entry.mtimeMs)
+        ? relativeAge(model.phase === 'empty' ? emptyNow : now(), hit.entry.mtimeMs) || undefined
         : undefined,
     changed: (hit) =>
       watched(hit.entry.root) && changedSinceRead(hit.entry, baselineMs(hit.entry.root), now()),

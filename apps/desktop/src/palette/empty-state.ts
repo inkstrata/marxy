@@ -50,8 +50,10 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-/** `now`, `4m`, `3h`, `2d`, `5w`, `1y`: whole units, rounded down. A future time reads `now`. */
-export function relativeAge(nowMs: number, thenMs: number): string {
+/** `now`, `4m`, `3h`, `2d`, `5w`, `1y`: whole units, rounded down. A future time reads `now`; no real time reads ``. */
+export function relativeAge(nowMs: number, rawThenMs: number | undefined): string {
+  const thenMs = rawThenMs;
+  if (typeof thenMs !== 'number' || !(thenMs > 0)) return '';
   const delta = nowMs - thenMs;
   if (!(delta >= MINUTE)) return 'now';
   if (delta < HOUR) return `${Math.floor(delta / MINUTE)}m`;
@@ -66,6 +68,7 @@ const SPOKEN_UNITS: Record<string, string> = { m: 'minute', h: 'hour', d: 'day',
 
 /** An age from `relativeAge` as words for a screen reader: `4m` is "4 minutes ago"; `now` is "just now". */
 export function spokenAge(age: string): string {
+  if (age === '') return '';
   if (age === 'now') return 'just now';
   const count = Number.parseInt(age, 10);
   const unit = SPOKEN_UNITS[age.slice(-1)];
