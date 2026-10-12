@@ -2,7 +2,7 @@
 
 Read this page for the features; [`progress.md`](progress.md) is the ledger of stories. The Story column links to
 each story's card. State and PR are kept equal to the ledger by `node scripts/waves.mjs` (`--check` fails when
-stale); a few states come from GitHub where the ledger is behind (see the end).
+stale). The ledger was brought level with GitHub on 2026-10-12 (X-26).
 
 **Summary (2026-10-11 night; edit by hand when a wave closes).**
 
@@ -70,7 +70,7 @@ Make "this file will open as X" true, give the ruled keys their meaning, and let
 | A launch document's kind is decided before its first paint | [K-05a.1](../direction-2026-10/11-cards-wave-4.md#k-05a1--decide-a-launch-documents-kind-before-its-first-paint-without-delaying-first-text) | merged | [#583](https://github.com/inkstrata/marxy/pull/583) |
 | Keep the reading line when a block edited above it gains a line | [E-04.1](progress.md) | merged | [#580](https://github.com/inkstrata/marxy/pull/580) |
 | Preload the Classic faces so a kind does not swap after paint | [H-04.3](../direction-2026-10/10-cards-wave-3.md#h-043--preload-the-classic-faces-a-kind-profile-sets-text-in) | merged | [#588](https://github.com/inkstrata/marxy/pull/588) |
-| The keys table reads the palette's chords | [W-19.1](progress.md) | ready | — |
+| The keys table reads the palette's chords | [W-19.1](progress.md) | merged | [#628](https://github.com/inkstrata/marxy/pull/628) |
 | Scratch notices wait for the unsaved-edits prompt; a pasted leading BOM stays text | [E-13.1](progress.md) | merged | [#613](https://github.com/inkstrata/marxy/pull/613) |
 
 ## Wave 6: the toolbar; code tables
@@ -89,7 +89,7 @@ Draw the first door: a toolbar in the unfolded window, and make one table decide
 | --- | --- | --- | --- |
 | A standing seeded data-safety test over the document store | [F-33](../direction-2026-10/11-cards-wave-4.md#f-33--a-standing-data-safety-walk-over-the-store) | merged | [#570](https://github.com/inkstrata/marxy/pull/570) |
 | The same walk, nightly at 2,000 seeds | [F-33.2](progress.md) | merged | [#571](https://github.com/inkstrata/marxy/pull/571) |
-| More cases for the walk (Save As onto a dirty open path, paste) | [F-33.1](progress.md) | ready | — |
+| More cases for the walk (Save As onto a dirty open path, paste) | [F-33.1](progress.md) | merged | [#639](https://github.com/inkstrata/marxy/pull/639) |
 | The Source text holds every byte, so a fold writes what you changed | [F-34.1](../roadmap-2026-10/08-fixes-from-the-bug-sweep.md#f-341--the-source-text-holds-every-byte-so-a-source-fold-writes-exactly-what-the-reader-changed) | merged | [#584](https://github.com/inkstrata/marxy/pull/584) |
 | A lone continuation byte no longer makes splice throw | [F-35](progress.md) | merged | [#584](https://github.com/inkstrata/marxy/pull/584) |
 | Stray bytes survive a forged paste, a save's undo and a block edit | [F-34.2](../roadmap-2026-10/08-fixes-from-the-bug-sweep.md#f-342--stray-byte-follow-ups-a-forged-paste-the-second-undo-after-a-save-and-the-block-editor) | merged | [#589](https://github.com/inkstrata/marxy/pull/589) |
@@ -118,9 +118,9 @@ Make every summoned surface look alike, let panels peek from the edges, and open
 | The transforms are linear on large text | [J-03.2](progress.md) | merged | [#591](https://github.com/inkstrata/marxy/pull/591) |
 | Defer the Markdown parse of a file that opens in Source | [V-11.1](progress.md) | merged | [#602](https://github.com/inkstrata/marxy/pull/602) |
 | Notices on the chrome spec, with baselines | [W-04.1](progress.md) | parked | — |
-| Esc closes an open peek | [W-03.1](progress.md) | ready | — |
-| A notice when Add column refuses | [V-02.1](progress.md) | ready | — |
-| The five transforms still deferred | [J-03.1](../direction-2026-10/09-cards-wave-2.md#j-031--the-five-deferred-transforms) | ready | — |
+| Esc closes an open peek | [W-03.1](progress.md) | merged | [#641](https://github.com/inkstrata/marxy/pull/641) |
+| A notice when Add column refuses | [V-02.1](progress.md) | merged | [#664](https://github.com/inkstrata/marxy/pull/664) |
+| The five transforms still deferred | [J-03.1](../direction-2026-10/09-cards-wave-2.md#j-031--the-five-deferred-transforms) | merged | [#643](https://github.com/inkstrata/marxy/pull/643) |
 
 ## Wave 8 (current): tabs, sidebar, inspector, library
 
@@ -140,7 +140,7 @@ Fill the unfolded window's regions: tabs, a sidebar, an inspector and a library 
 | Fix or follow-up | Story | State | PR |
 | --- | --- | --- | --- |
 | The find-pane 1 MB test checks typesetter progress, not completion | [F-36](progress.md) | merged | [#608](https://github.com/inkstrata/marxy/pull/608) |
-| Parse warnings for `[strip]` and `[[kind]]` shown to the reader | [K-07.1](progress.md) | ready | — |
+| Parse warnings for `[strip]` and `[[kind]]` shown to the reader | [K-07.1](progress.md) | merged | [#655](https://github.com/inkstrata/marxy/pull/655) |
 | An ordered list `start` is judged as the browser reads it | [F-38](progress.md) | merged | [#593](https://github.com/inkstrata/marxy/pull/593) |
 | The transform timing test takes the fastest of several runs | [F-39](progress.md) | merged | [#596](https://github.com/inkstrata/marxy/pull/596) |
 | Undo after a save adds no byte; a block edit keeps its line endings | [F-40](progress.md) | merged | [#605](https://github.com/inkstrata/marxy/pull/605) |
@@ -166,10 +166,10 @@ These have cards and wait for a slot. They are the code view's remaining stories
 
 | Fix or follow-up | Story | State | PR |
 | --- | --- | --- | --- |
-| Rendered shows a code file as code | [V-10](../direction-2026-10/13-code-view.md#v-10--rendered-shows-a-code-file-as-code) | ready | — |
-| Generous highlighting: a hue per role | [V-13](../direction-2026-10/13-code-view.md#v-13--generous-highlighting-a-hue-per-role-every-tag-mapped-the-modes-agree) | ready | — |
-| Source grammars for the common languages | [V-14](../direction-2026-10/13-code-view.md#v-14--source-grammars-fences-in-markdown-every-line-ending) | ready | — |
-| The swap keeps Rendered right | [V-15](../direction-2026-10/13-code-view.md#v-15--the-swap-keeps-rendered-right) | ready | — |
+| Rendered shows a code file as code | [V-10](../direction-2026-10/13-code-view.md#v-10--rendered-shows-a-code-file-as-code) | merged | [#668](https://github.com/inkstrata/marxy/pull/668) |
+| Generous highlighting: a hue per role | [V-13](../direction-2026-10/13-code-view.md#v-13--generous-highlighting-a-hue-per-role-every-tag-mapped-the-modes-agree) | merged | [#638](https://github.com/inkstrata/marxy/pull/638) |
+| Source grammars for the common languages | [V-14](../direction-2026-10/13-code-view.md#v-14--source-grammars-fences-in-markdown-every-line-ending) | merged | [#646](https://github.com/inkstrata/marxy/pull/646) |
+| The swap keeps Rendered right | [V-15](../direction-2026-10/13-code-view.md#v-15--the-swap-keeps-rendered-right) | merged | [#656](https://github.com/inkstrata/marxy/pull/656) |
 
 ## Wave 9 (carded): themes, five kinds read as their kind, the sidebar's trees
 
@@ -179,15 +179,15 @@ folders and saved queries from the sidebar. Cards and the dispatch order are in
 
 | Feature | How to reach it | Story | State | PR |
 | --- | --- | --- | --- | --- |
-| Choose Ink, Dusk and Sepia, Fjord or a high-contrast theme; the choice is remembered | Palette: "Theme: …"; folded or unfolded | [H-05](../direction-2026-10/18-cards-wave-9.md#h-05--more-themes-ink-made-reachable-dusk-and-sepia-fjord-hc-dark-and-hc-light) | ready | — |
+| Choose Ink, Dusk and Sepia, Fjord or a high-contrast theme; the choice is remembered | Palette: "Theme: …"; folded or unfolded | [H-05](../direction-2026-10/18-cards-wave-9.md#h-05--more-themes-ink-made-reachable-dusk-and-sepia-fjord-hc-dark-and-hc-light) | merged | [#673](https://github.com/inkstrata/marxy/pull/673) |
 | An article shows its byline and dek from its front matter | Automatic for an article, in Read | [K-20](../direction-2026-10/18-cards-wave-9.md#k-20--read-an-article-the-byline-and-the-dek-from-its-front-matter) | ready | — |
-| A Markdown transcript sets each speaker as an outdented label | Automatic for a transcript, in Read | [K-11](../direction-2026-10/18-cards-wave-9.md#k-11--read-a-markdown-transcript-speakers-outdented-turns-spaced) | ready | — |
+| A Markdown transcript sets each speaker as an outdented label | Automatic for a transcript, in Read | [K-11](../direction-2026-10/18-cards-wave-9.md#k-11--read-a-markdown-transcript-speakers-outdented-turns-spaced) | in review | [#675](https://github.com/inkstrata/marxy/pull/675) |
 | A log opens in Read with level words, timestamps and escapes shown; filter by level, jump to the first error | Automatic at open; the strip's tools (unfolded) or the palette | [K-08](../direction-2026-10/18-cards-wave-9.md#k-08--read-a-log-read-by-default-level-words-timestamps-escapes-shown-and-a-level-filter) | ready | — |
 | A diff or patch opens in Read, unified as written, with its lines tinted | Automatic at open | [K-09](../direction-2026-10/18-cards-wave-9.md#k-09--read-a-diff-read-by-default-unified-as-authored-tinted) | ready | — |
 | Fold a JSON or YAML file to a depth, each fold saying how many lines it hides | Source; palette "Fold to depth 1…4" | [K-10a](../direction-2026-10/18-cards-wave-9.md#k-10a--read-data-the-depth-lens-in-source) | ready | — |
 | See a CSV or TSV as a table with sticky headers, sorting and column stats | The strip's Table tool (unfolded) or the palette | [K-10b](../direction-2026-10/18-cards-wave-9.md#k-10b--read-data-the-table-lens-for-csv-and-tsv) | ready | — |
-| Browse repositories and folders as trees in the sidebar | Unfolded window; `⌃⌘S` | [W-08](../direction-2026-10/18-cards-wave-9.md#w-08--the-sidebar-ii-repositories-and-folders-as-lazy-trees) | ready | — |
-| Save a library query as a smart collection and open it from the sidebar | Library: "Save as smart collection"; the sidebar | [Q-07](../direction-2026-10/18-cards-wave-9.md#q-07--smart-collections-in-the-sidebar-and-save-as-smart-collection) | ready | — |
+| Browse repositories and folders as trees in the sidebar | Unfolded window; `⌃⌘S` | [W-08](../direction-2026-10/18-cards-wave-9.md#w-08--the-sidebar-ii-repositories-and-folders-as-lazy-trees) | merged | [#672](https://github.com/inkstrata/marxy/pull/672) |
+| Save a library query as a smart collection and open it from the sidebar | Library: "Save as smart collection"; the sidebar | [Q-07](../direction-2026-10/18-cards-wave-9.md#q-07--smart-collections-in-the-sidebar-and-save-as-smart-collection) | in review | [#678](https://github.com/inkstrata/marxy/pull/678) |
 
 ## Waiting on the author
 
@@ -201,5 +201,5 @@ code-owned pull request (#394, #407, #450, #470, #494) has merged. Open, and eac
 
 ## Where the states came from
 
-All states come from `progress.md` except those in [`waves-github.json`](waves-github.json), which were read from
-GitHub (`gh pr list --state all`) on 2026-10-11 night because the ledger is behind: #598 to #606, #608, #610 to #616 and the open #618 and #619 (the ledger shows none of them yet, except as ready or in review). An entry stops mattering when the ledger reaches it.
+All states come from `progress.md`. The ledger was synced to GitHub (`gh pr list --state all`) on 2026-10-12 (X-26), so no
+state is read from anywhere else; `waves-github.json`, the override file `scripts/waves.mjs` can read, is not needed.
