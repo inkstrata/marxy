@@ -247,7 +247,7 @@ export function registryChord(spec: string, mac: boolean): string | null {
 }
 
 /** A CodeMirror key name (`Shift-Mod-k`) in the same canonical form. */
-function canonicalCm(name: string, mac: boolean): string {
+export function canonicalCm(name: string, mac: boolean): string {
   const parts = name.split(/-(?!$)/);
   const key = parts.pop()!.toLowerCase();
   const mods = new Set<string>();

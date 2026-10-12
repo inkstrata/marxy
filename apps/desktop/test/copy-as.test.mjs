@@ -394,3 +394,54 @@ test('F-60.1: Copy as Jira of the whole document, from Rendered and from Source,
     }
   }
 });
+
+test('F-73: a selection\'s Copy as is never handed the store\'s parse, in Rendered and in Source; the whole document is', async () => {
+  const file = '28-llm-answer.md';
+  /** Counts the asks of `textParse` on the open document's store, so the test sees who is handed the pair. */
+  const spy = (page) =>
+    page.evaluate(() => {
+      const store = window.__marxyOpsBoot.handle.document();
+      window.__textParseAsks = 0;
+      const real = store.textParse.bind(store);
+      store.textParse = () => {
+        window.__textParseAsks++;
+        return real();
+      };
+    });
+  const asks = (page) => page.evaluate(() => window.__textParseAsks);
+  for (const view of ['rendered', 'source']) {
+    const { page } = await boot(file);
+    try {
+      if (view === 'source') {
+        await page.keyboard.press(`${await mod(page)}+KeyE`);
+        await page.waitForSelector('#marxy-source .cm-editor');
+      }
+      await spy(page);
+      // Whole document: the pair is asked for (so the spy sees what it is meant to).
+      await page.mouse.move(3, 3);
+      await openMenu(page);
+      await choose(page, 'jira');
+      assert.ok((await asks(page)) >= 1, `${view}: the whole document is handed the store's parse`);
+      // A selection: never. Rendered has two kinds to try (a clicked block is a node selection, a drag is a text one).
+      const selections = view === 'source'
+        ? [async () => {
+            await page.locator('#marxy-source .cm-content').click();
+            await page.keyboard.press(`${await mod(page)}+ArrowUp`);
+            for (let i = 0; i < 7; i++) await page.keyboard.press('Shift+ArrowRight');
+          }]
+        : [() => page.locator('#doc h1, #doc h2, #doc h3').first().click(), () => page.locator('#doc p').first().click({ clickCount: 3 })];
+      let writes = 1;
+      for (const select of selections) {
+        await page.evaluate(() => { window.__textParseAsks = 0; });
+        await select();
+        await page.mouse.move(400, 300);
+        await openMenu(page);
+        await choose(page, 'jira');
+        assert.equal((await calls(page, 'clipboardWriteItem')).length, ++writes, `${view}: the selection was copied`);
+        assert.equal(await asks(page), 0, `${view}: a selection's Copy as is not handed the store's parse`);
+      }
+    } finally {
+      await page.close();
+    }
+  }
+});

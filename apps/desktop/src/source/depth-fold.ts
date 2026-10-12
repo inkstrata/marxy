@@ -15,7 +15,7 @@
 
 import { ensureSyntaxTree, foldCode, foldEffect, foldInside, foldedRanges, codeFolding, language, unfoldCode, unfoldEffect } from '@codemirror/language';
 import { EditorState, type Extension, type StateEffect, type Text } from '@codemirror/state';
-import { EditorView, keymap } from '@codemirror/view';
+import { EditorView, keymap, type KeyBinding } from '@codemirror/view';
 
 // The Lezer types, from the functions that take and return them (@lezer/common is a transitive dependency, not ours).
 type SyntaxNode = Parameters<typeof foldInside>[0];
@@ -164,6 +164,15 @@ const recountFolds = EditorState.transactionExtender.of((tr) => {
   return effects.length ? { effects } : null;
 });
 
+/**
+ * CodeMirror's own keys, fold and unfold the folds on the caret's line (Cmd-Alt-[ and ] on a Mac, Ctrl-Shift-[ and ]
+ * elsewhere). Neither chord is a command's: `test/keys-table.test.mjs` reads this list into its collision check.
+ */
+export const FOLD_KEYS: readonly KeyBinding[] = [
+  { key: 'Ctrl-Shift-[', mac: 'Cmd-Alt-[', run: foldCode },
+  { key: 'Ctrl-Shift-]', mac: 'Cmd-Alt-]', run: unfoldCode },
+];
+
 /** Folding for Source: every fold says how many lines it hides ("… 42 lines"), and a click on it unfolds. */
 export function countedFolding(): Extension[] {
   return [
@@ -172,12 +181,7 @@ export function countedFolding(): Extension[] {
       placeholderDOM,
     }),
     recountFolds,
-    // CodeMirror's own keys, named in the keys table: fold and unfold the folds on the caret's line (Cmd-Alt-[ and ] on a
-    // Mac, Ctrl-Shift-[ and ] elsewhere). Neither chord is a command's (`keys-table.test.mjs`).
-    keymap.of([
-      { key: 'Ctrl-Shift-[', mac: 'Cmd-Alt-[', run: foldCode },
-      { key: 'Ctrl-Shift-]', mac: 'Cmd-Alt-]', run: unfoldCode },
-    ]),
+    keymap.of(FOLD_KEYS),
   ];
 }
 
