@@ -95,17 +95,20 @@ export function mapProse(lf: string, f: (prose: string) => string, doc?: Documen
 /** An inline code span (the backtick run opens and closes it); the pieces between spans go to `f`. */
 const CODE_SPAN = /(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g;
 
+/** `f` applied to the pieces of `prose` between inline code spans; the spans pass through. */
+export function mapOutsideCodeSpans(prose: string, f: (piece: string) => string): string {
+  let out = '';
+  let at = 0;
+  for (const m of prose.matchAll(CODE_SPAN)) {
+    out += f(prose.slice(at, m.index)) + m[0];
+    at = m.index + m[0].length;
+  }
+  return out + f(prose.slice(at));
+}
+
 /** Like `mapProse`, and also steps around inline code spans. For rewrites that do not depend on a line start. */
 export function mapInline(lf: string, f: (piece: string) => string, doc?: Document): string {
-  return mapProse(lf, (prose) => {
-    let out = '';
-    let at = 0;
-    for (const m of prose.matchAll(CODE_SPAN)) {
-      out += f(prose.slice(at, m.index)) + m[0];
-      at = m.index + m[0].length;
-    }
-    return out + f(prose.slice(at));
-  }, doc);
+  return mapProse(lf, (prose) => mapOutsideCodeSpans(prose, f), doc);
 }
 
 function isAtxAt(lf: string, at: number, level: number): boolean {

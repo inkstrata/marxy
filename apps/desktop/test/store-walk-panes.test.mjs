@@ -59,6 +59,17 @@ const FILES = {
 };
 const PATHS = Object.keys(FILES);
 const name = (path) => path.slice(path.lastIndexOf('/') + 1);
+/** Whether `b` is `a` with one character, or one CRLF, taken out. */
+function removedOne(a, b) {
+  if (a == null || b == null) return false;
+  const gone = a.length - b.length;
+  if (gone < 1 || gone > 2) return false;
+  let i = 0;
+  while (i < b.length && a[i] === b[i]) i++;
+  return a.slice(i + gone) === b.slice(i) && (gone === 1 || a.slice(i, i + gone) === '\r\n' || (a.charCodeAt(i) >= 0xd800 && a.charCodeAt(i) < 0xdc00));
+}
+/** The "Source in the other pane changed this file" notices up now, in every pane (SOURCE_HELD_APART, notices/index.ts). */
+const heldApartNotices = (seen) => seen.panes.flatMap((p) => p.notices).filter((n) => n.startsWith('Source in the other pane')).length;
 
 const seeds = (() => {
   if (process.env.MARXY_WALK_SEED) return [Number(process.env.MARXY_WALK_SEED)];
@@ -103,9 +114,16 @@ const look = (page) =>
     const text = (bytes) => new TextDecoder().decode(bytes);
     const panes = h.panes().panes;
     const stores = [];
+    // Every buffer a store holds from the first time it is looked at, for "an undo lands on a state the store held".
+    window.__states ??= new WeakMap();
     for (const p of panes) {
       const store = p.view.store();
       if (store && !stores.some((s) => s.store === store)) stores.push({ store });
+      if (store && !window.__states.has(store)) {
+        const states = new Set([text(store.snapshot().buffer.bytes)]);
+        window.__states.set(store, states);
+        store.subscribe((snap) => states.add(text(snap.buffer.bytes)));
+      }
     }
     const files = {};
     for (const stat of await h.shell.readDir('/r')) files[stat.path] = await window.__disk(stat.path);
@@ -191,13 +209,21 @@ function openSeed(seed) {
         return tokens.filter((t) => t.live && texts.some((x) => x.includes(t.text)));
       };
       /** After a step: whatever the step says it may drop, and then nothing else is missing. */
-      const check = async (step, { mayDrop, announced = null, sourceUndone = null } = {}) => {
+      const check = async (step, { mayDrop, announced = null, sourceUndone = null, noHeldApart = false, undoLanded = null } = {}) => {
         await settle(page);
         const seen = await look(page);
         const drops = typeof mayDrop === 'function' ? mayDrop(seen) : [];
         const dump = seen.panes.map((p) => `  pane ${p.slot}: ${name(p.path)} ${p.mode}, dirty=${p.dirty}, unfolded=${p.unfolded}, held change=${p.conflict}, buffer ${p.buffer?.length} chars, disk baseline ${p.base?.length} chars, said ${JSON.stringify(p.notices)}`).join('\n');
         const fail = (rule, message) => assert.fail(`panes walk failed on seed ${seed} in ${rule}: ${message}\nafter: ${step}\n${dump}\nreplay: MARXY_WALK_SEED=${seed} node --test --experimental-strip-types apps/desktop/test/store-walk-panes.test.mjs\nsteps:\n${log.map((l, i) => `  ${i}. ${l}`).join('\n')}`);
         if (seen.violations.length) fail('I1 (no silent overwrite)', seen.violations.join('; '));
+        // F-42.1: a key the reader types is their own text, never "another pane's change". Held apart is for two panes with
+        // unfolded text; with none beside it, a held-apart notice means the pane read its own key as someone else's.
+        if (noHeldApart && heldApartNotices(seen) > 0) {
+          fail('F-42 (a key typed during a save is the reader\'s own)', 'the pane said its Source was held apart from another pane\'s, with no other pane typing');
+        }
+        if (undoLanded && !undoLanded.held) {
+          fail('I8 (a store undo lands on a state the store held)', `the undo in pane ${undoLanded.slot} left a buffer the store never held`);
+        }
         if (sourceUndone && !had.has(sourceUndone.text)) {
           fail('I8 (Source undo adds no byte)', `Mod+Z in pane ${sourceUndone.slot} left text no editor, buffer or file ever held: ${JSON.stringify(sourceUndone.text)}`);
         }
@@ -274,6 +300,34 @@ function openSeed(seed) {
             return { label: `type ${token.text} in Source, pane ${p.slot} (${name(p.path)})` };
           },
         },
+        // F-42: Mod+S and a key in the same task. The save's fold has not settled when the key lands, and the editor
+        // taking the store's bytes back must not delete it (I3 finds the token in the editor, a buffer or a file after).
+        saveAndType: {
+          weight: 4,
+          applicable: () => true,
+          async run(s) {
+            const p = d.pick(s.panes);
+            const token = newToken();
+            await toSource(page, p.slot);
+            await typeAtLineEnd(page, p.slot, 1 + d.int(8), d.chance(0.5) ? 'x' : '');
+            // Nothing is held apart yet and no other pane over this store has unfolded text: from here a held-apart
+            // notice can only be this pane misreading its own key (F-42.1).
+            const seen = await look(page);
+            const mine = seen.panes[p.slot];
+            const alone = heldApartNotices(seen) === 0 && !seen.panes.some((q) => q.slot !== p.slot && q.storeIndex === mine.storeIndex && q.unfolded);
+            await page.evaluate(
+              async ({ slot, text, mod }) => {
+                const { activeSourceEditor } = await import('/src/source/editor.ts');
+                const view = activeSourceEditor(window.__marxyHandle.panes().panes[slot].parts.source).view;
+                view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 's', code: 'KeyS', metaKey: mod === 'Meta', ctrlKey: mod === 'Control', bubbles: true, cancelable: true }));
+                const at = view.state.selection.main.head;
+                view.dispatch({ changes: { from: at, insert: text }, selection: { anchor: at + text.length }, userEvent: 'input.type' });
+              },
+              { slot: p.slot, text: token.text, mod },
+            );
+            return { label: `Mod+S and ${token.text} in one task, Source pane ${p.slot} (${name(p.path)})`, noHeldApart: alone };
+          },
+        },
         fold: {
           weight: 3,
           applicable: (s) => s.panes.some((p) => p.unfolded),
@@ -298,12 +352,23 @@ function openSeed(seed) {
           async run(s) {
             const p = d.pick(s.panes);
             await focusPane(page, p.slot);
-            await page.evaluate(async (slot) => {
+            // The store's undo steps back one history entry, to a buffer the store held before. What was typed in a
+            // Source editor over the store is folded first, so that fold is the entry stepped back over.
+            const held = await page.evaluate(async (slot) => {
               const { undoDocumentEdit } = await import('/src/commands/edits.ts');
-              await undoDocumentEdit(window.__marxyHandle.panes().panes[slot].view.store());
+              const store = window.__marxyHandle.panes().panes[slot].view.store();
+              const prior = new Set(window.__states.get(store));
+              await undoDocumentEdit(store);
+              return prior.has(new TextDecoder().decode(store.snapshot().buffer.bytes));
             }, p.slot);
-            // An undo takes back what the reader typed: those tokens are dropped by design.
-            return { label: `undo in pane ${p.slot}`, mayDrop: (after) => tokens.filter((t) => t.live && !found(after).some((f) => f.id === t.id)).map((t) => t.id) };
+            await settle(page);
+            const after = (await look(page)).panes[p.slot].buffer;
+            // A token the undo took out of the store's buffer is withdrawn, though a file may still hold it (a save wrote
+            // it first): the next save writes the undo over it. Only the store's text counts, the buffer and the editors
+            // over it as they were; every other token stays, and I3 finds it.
+            const before = s.panes.filter((q) => q.storeIndex === p.storeIndex).flatMap((q) => [q.buffer, q.editor]);
+            for (const t of tokens) if (t.live && before.some((x) => x?.includes(t.text)) && !after?.includes(t.text)) t.live = false;
+            return { label: `undo in pane ${p.slot}`, undoLanded: { slot: p.slot, held } };
           },
         },
         // F-40: a key in the Source editor takes back what its own history holds, and nothing a change from outside
@@ -315,8 +380,14 @@ function openSeed(seed) {
             const p = d.pick(s.panes);
             await toSource(page, p.slot);
             await typeAtLineEnd(page, p.slot, 1 + d.int(12), '');
+            const held = (await look(page)).panes[p.slot].editor;
             await page.keyboard.press(d.pick(['Delete', 'Backspace']));
-            return { label: `delete a character or a line break in Source, pane ${p.slot} (${name(p.path)})`, mayDrop: (after) => tokens.filter((t) => t.live && !found(after).some((f) => f.id === t.id)).map((t) => t.id) };
+            const kept = (await look(page)).panes[p.slot].editor;
+            // The key takes out one character, or one CRLF. A token it cuts into is withdrawn, though another pane's editor
+            // or the store still holds it: this editor's text folds in later and the token goes then (the reader deleted
+            // it). Any other change to the text withdraws nothing, and I3 finds what went missing.
+            if (removedOne(held, kept)) for (const t of tokens) if (t.live && held.includes(t.text) && !kept.includes(t.text)) t.live = false;
+            return { label: `delete a character or a line break in Source, pane ${p.slot} (${name(p.path)})` };
           },
         },
         sourceUndo: {
@@ -494,7 +565,7 @@ function openSeed(seed) {
         const op = d.weighted(ops.map((o) => [o, o.weight]));
         const done = await op.run(s);
         log.push(done.label);
-        await check(done.label, { mayDrop: done.mayDrop, announced: done.announced ?? null, sourceUndone: done.sourceUndone ?? null });
+        await check(done.label, { mayDrop: done.mayDrop, announced: done.announced ?? null, sourceUndone: done.sourceUndone ?? null, noHeldApart: done.noHeldApart ?? false, undoLanded: done.undoLanded ?? null });
       }
     } finally {
       await page.close();

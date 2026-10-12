@@ -137,6 +137,26 @@ scrolls sideways. The row is one tab stop; arrows, Home and End move within it, 
 it. Palette commands: `tab.next`, `tab.previous`, `tab.close` (no keys: ⌘W closes the window and ⌃Tab is the author's
 to rule), available only while the row holds two tabs or more.
 
+**Inspector (W-09; ADR-0058 item 5).** Unfolded, the `inspector` region holds `div.marxy-inspector`: a `role="tablist"`
+strip and the selected tab's `role="tabpanel"` (`workspace/inspector.ts`). The strip is a table:
+`registerInspectorTab({ id, title, mount })` adds a tab and returns its withdrawal, a tab is drawn only while its builder
+is registered, and the tab shown is kept in memory for the session, never written. Links is registered beside the fill in
+`workspace/fill.ts`; Outline (W-10), Metadata (W-17) and Versions (V-06) register theirs and change nothing here. A panel
+is mounted when its tab is selected and let go when another is, and does no work while the region is hidden. The whole
+region is one tab stop: Left and Right move between tabs, Down enters the panel's rows, Up and Down move through them,
+Up from the first row returns to the tab strip.
+
+*Links* (`workspace/links-tab.ts`) lists, for the focused document, **Links**: each link as written (the link text, the
+real destination as text and never an anchor, and `linkHostMismatchLabel`'s warning when the text names another host),
+a row that moves the document to the link (`handle.open(path, { at })`, the outline's way); and **Paths mentioned**
+(`pathMentions`, the backticked paths with a slash that `x-paths` prints), each *found*, *not found* or *not checked*.
+A path is looked for beside the document and in its repository root (`~/` in the home folder) with `shell.stat`, which
+answers null for a missing path and also for a symlink or a deny-listed folder, so "not found" is said only when every
+folder above the file is a real, listed one; otherwise the row says "not checked". Nothing is fetched or opened from
+here. A file that opens in Source and has not been parsed (`store.parsed()` false) is never parsed for the tab: its paths
+come from the bytes and the link list reads "Links are listed for Markdown" until the reader's first switch to Rendered
+makes the parse. Backlinks are not in the tab (they need a scan of other files; the author has not ruled).
+
 **Sidebar (W-07; ADR-0058).** The `sidebar` region (252 px, `--marxy-ws-sidebar-w`) holds `nav.marxy-sidebar`
 (`workspace/sidebar-view.ts`; the lists are `workspace/sidebar.ts`, pure). Two sections, each a header button that folds
 it (`aria-expanded`; folded, it keeps its header and a quiet count): **Recent**, the last eight documents opened, newest
@@ -240,7 +260,7 @@ chrome.
 | `Mod+P` / `Mod+K` | palette (documents) | W-19: `Mod+K` is the same palette; either again closes it |
 | `Mod+Shift+P` | palette on commands (`>`) | W-19: the command list, including the operations; again closes it |
 | `Mod+/` | palette on the transforms (`>Transform`) | W-19, W-21: one row per transform core can run (`Transform: <name>`), none that is `NOT_YET`; again closes it; in Source `Mod+/` opens the palette, it does not toggle a comment. A choice opens the result sheet (below) |
-| `Mod+1` / `Mod+2` / `Mod+3` | Read / Split / Source | W-19 (`commands/view-mode.ts`): Read and Source set the focused pane's mode and do nothing when it is already there (`Mod+E` flips). Split shows the document twice, Read left and Source right; with two panes over two files it refuses and says why |
+| `Mod+1` / `Mod+2` / `Mod+3` | Read / Split / Source | W-19 (`commands/view-mode.ts`): Read and Source set the focused pane's mode and do nothing when it is already there (`Mod+E` flips). Split shows the document twice, Read left and Source right; with two panes over two files it refuses and says why. Inside Split (two panes, one document), Read and Source end it in one pane in that mode, and Split again goes back to one pane in Read (F-44); the pane that closes has its Source text folded into the store first, and a close that would lose text asks as `Mod+Shift+\` does |
 | `Mod+E` | toggle Rendered / Source | position kept (§08) |
 | `Ctrl+Mod+S` / `Mod+Alt+I` | dock or undock the sidebar / the inspector | W-03: from folded they unfold with that panel; physical keys, so they work from Source (§Peeking) |
 | `Mod+F` | find | `Enter` next, `Shift+Enter` previous, `Esc` closes and keeps the reading position |
@@ -373,6 +393,50 @@ set's guard (`beforeReplace`, D-08) before it is replaced. Beside only, a link t
 (`defaultModeForPath`) is accepted when its first 8 KB hold no NUL byte, and opens there; otherwise the notice
 is "That file is not text." A plain click keeps refusing such files. A `#fragment` link scrolls the pane it is in,
 and an external link ignores the modifier. Links never leave the image root, beside or not.
+
+## Library view (Q-03; ADR-0062 item 2)
+
+The palette command **Library** (`library.open`) shows a full-window view in the unfolded workspace, in the cell the
+panes use; folded it is not offered and no element exists. No key opens it (the palette and, later, the sidebar's
+Library row are the doors until the author rules one). The panes are `hidden` and `inert`, not closed: their
+documents, unsaved edits, Source editors and scroll positions are untouched, and the view puts the scroll back when it
+leaves. Folding closes it, and so does any document opening in a pane (the palette's, a link's) or anything about to act
+on the panes from outside `PaneSet.open`: a click on a tab and the tab commands let go of the view first
+(`workspace/pane-cover.ts`), so the "Save and open" prompt of a pane with unsaved edits is never raised under it.
+
+Top to bottom: the scope's name and what it is (a folder's path); the query field with one removable chip per term
+and a completion list; a status line and the sort choice; the results and, on the right, a text preview. The toolbar,
+the tabs and the strip stay as they were.
+
+- **Scopes.** *All files*, each folder `collection.toml` declares (`IndexFeed.declared()`), *Recent* (the palette
+  session, last opened first), *Pinned*, and *Changed since you read* (the palette's own rule). Switching clears the
+  query and the selection. Each scope is a base set; the query narrows it.
+- **Query.** `parseQuery` and `completeQuery` (Q-02), evaluated by core's `evaluateQuery`. An unknown key and an
+  incomplete value are amber chips that say they are searched as text or ignored; `is:dup`, `is:broken`,
+  `is:archived`, `is:error`, `is:captured` say "not available yet" and match nothing. Tab accepts a completion, the
+  arrows move.
+- **Index keys and content keys.** `kind:` (the entry's reader kind), `in:` (a declared folder's name), `path:`,
+  `modified:`, `size:` and `is:` are answered from the index and the session, with no read. Plain words match a title,
+  a path or a heading, and then the lines of the files the index keys left (`shell.searchContent`). `words:`, `has:`
+  and `tasks:` measure those files with `shell.readHead`: each at most once while the view is open, at most 256 KB of
+  it (a longer file is measured on its first 256 KB and says "≥"), within `CONTENT_SEARCH_LIMITS.maxTotalBytes`; past
+  that the status says "measured N of M files". `readFile` is never used (it arms the stale-write guard), and
+  nothing is written. Nothing is read at launch or on opening. Three bounds keep the window answering, and the status
+  line says when one holds: a query is evaluated with its first 64 terms and the first 64 values of a term ("the query
+  is long"); a link is found by a linear scan, not a pattern, so a minified line cannot stall a measure; the line search
+  reads at most 20,000 files ("line search covers the first 20,000 of N files").
+- **Rows.** The kind's glyph, the title, the path under its folder, the kind, the age, a status mark (changed,
+  pinned: an icon with a name, never colour alone) and one line for each reason the file is there: `title`, `path`,
+  `heading "Cache"`, `line 12: ...`, `kind:report`, `changed since you read`; past four lines the last says how many
+  more. The list is windowed (a row is a fixed number of lines, so only the screenful and a few more exist) and is a
+  `listbox` with `aria-activedescendant`.
+- **Keys, inside the view.** `/` or `Mod+F` focuses the field; `Down` or `Return` in the field goes into the list;
+  in the list the arrows, `Home`, `End`, `PageUp` and `PageDown` move; `Return` opens the row in the focused pane
+  and closes the view; `Alt+Return` opens it in the other pane (a second tab is the pane's own: the tab row follows the
+  panes), and in a window too narrow for two columns says so in the status line and stays; `Esc` clears the field, then
+  closes the view and focus goes back to the pane that had it (it does not fold the window).
+- **Not here.** A rendered preview (Q-03.1), facet menus, grouping, density, columns, saved queries, Add source, Index
+  health, bulk actions, near-duplicates and broken paths are later cards.
 
 ## Outline
 

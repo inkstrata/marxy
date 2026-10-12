@@ -850,6 +850,23 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
 .marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 var(--marxy-color-text-secondary); }
 .marxy-tab[data-marxy-tab-active] { background: var(--marxy-color-accent-wash); box-shadow: inset 0 -2px 0 var(--marxy-color-accent); }
 
+/* The inspector's content (W-09): a strip of tabs and the selected panel, in the `inspector` region's column. Layout only; W-04 owns the look.
+   Nothing here changes the region's width, so the reading column does not move. A link's destination is text, never an anchor. */
+.marxy-inspector { display: flex; flex-direction: column; min-height: 100%; }
+.marxy-inspector-tabs { display: flex; gap: 2px; padding: 0.5em 0.6em; border-block-end: 1px solid var(--marxy-color-rule); position: sticky; top: 0; background: var(--marxy-color-surface); z-index: 1; }
+.marxy-inspector-tab { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.7em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: var(--marxy-color-text-secondary); font: inherit; cursor: default; }
+.marxy-inspector-tab:hover { background: var(--marxy-color-selection); }
+.marxy-inspector-tab[data-marxy-inspector-tab-active] { color: var(--marxy-color-text); background: var(--marxy-color-accent-wash); }
+.marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-inspector-panel { flex: 1 1 auto; min-width: 0; padding: 0.4em 0.6em 1em; }
+.marxy-links-heading { margin: 0.9em 0 0.3em; font: inherit; font-weight: 600; color: var(--marxy-color-text-secondary); }
+.marxy-links-list { list-style: none; margin: 0; padding: 0; }
+.marxy-links-empty { margin: 0.2em 0; color: var(--marxy-color-text-secondary); }
+.marxy-link-row { appearance: none; -webkit-appearance: none; display: flex; flex-direction: column; gap: 0.1em; box-sizing: border-box; width: 100%; margin: 0; padding: 0.35em 0.4em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: inherit; font: inherit; text-align: start; cursor: default; overflow-wrap: anywhere; }
+button.marxy-link-row:hover { background: var(--marxy-color-selection); }
+.marxy-inspector .marxy-link-dest, .marxy-inspector .marxy-link-status { color: var(--marxy-color-text-secondary); }
+.marxy-inspector .marxy-link-mismatch { color: var(--marxy-color-text); font-weight: 600; }
+.marxy-inspector .marxy-link-mismatch::before { content: "\26A0\FE0E  "; }
 /* The sidebar (W-07 layout; W-04 owns the look). One column in the `sidebar` region, 252 px (`--marxy-ws-sidebar-w`; the
    panel scrolls, the page does not): an optional Library row, then two sections, each a header button (the title, and a
    quiet count once folded) over a list of rows. A row is the kind's glyph, the title and a quiet age; the title shrinks
@@ -881,6 +898,89 @@ body[data-marxy-workspace="unfolded"] #marxy-main[data-marxy-split] > .marxy-pan
 body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) { position: relative; }
 body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) .marxy-source-mount:not([hidden]) { position: absolute; inset: 0; overflow: auto; }
 body[data-marxy-workspace="unfolded"][data-marxy-mode="source"] #marxy-main:not([data-marxy-split]) #marxy-notices { position: absolute; top: 0; left: 0; right: 0; }
+
+/* The library view (Q-03; ADR-0062 item 2). A sibling of the panes in the unfolded workspace: it stands in the panes' cell of
+   the grid while they are hidden (`hidden` and `inert`, set by the view). The panes keep their box and lose only their paint
+   (`visibility`), so the window keeps its height and its scroll position, no scroll event runs under the view, and the place
+   the reader had is not written over; the window does not scroll while the view shows, and the view sticks under the bands.
+   It has no ground, border or shadow of its own: the page's ground, the rule role between its parts, the selection role for
+   the row under the pointer and the accent for the active one, which also gets a bar (never colour alone). A row is a fixed
+   number of lines, so the view can window the list: `--marxy-library-line` and `--marxy-library-pad` are read back by the
+   view through two hidden probes. */
+body #marxy-main[hidden]:not([data-marxy-split]) { display: block; visibility: hidden; }
+body #marxy-main[hidden][data-marxy-split] { display: grid; visibility: hidden; }
+html:has(> body > .marxy-library) { overflow: hidden; }
+.marxy-library {
+  --marxy-library-line: calc(var(--marxy-size-chrome) * 1.5);
+  --marxy-library-pad: calc(var(--marxy-size-chrome) * 0.4);
+  box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; flex-direction: column;
+  color: var(--marxy-color-text); font: var(--marxy-size-chrome) var(--marxy-face-chrome);
+}
+body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-row: 4; position: sticky; top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h)); align-self: start; z-index: 3; height: var(--marxy-ws-panes-h); }
+.marxy-library-probe { position: absolute; visibility: hidden; pointer-events: none; width: 0; }
+.marxy-library-probe-line { height: var(--marxy-library-line); }
+.marxy-library-probe-pad { height: var(--marxy-library-pad); }
+.marxy-library-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4em 1.2em; padding: 0.8em 0.9em 0.4em; }
+.marxy-library-heading { flex: 0 1 auto; min-width: 0; }
+.marxy-library-title { margin: 0; font: inherit; font-size: 1.25em; font-weight: var(--marxy-weight-strong); }
+.marxy-library-blurb { margin: 0; color: var(--marxy-color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marxy-library-scopes { display: flex; flex: 1 1 20em; gap: 0.2em; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.marxy-library-scope { flex: none; appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.6em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; cursor: default; white-space: nowrap; }
+.marxy-library-scope:hover { background: var(--marxy-color-selection); }
+.marxy-library-scope:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-library-scope[aria-current="true"] { background: var(--marxy-color-accent-wash); box-shadow: inset 0 -2px 0 var(--marxy-color-accent); }
+.marxy-library-scope-count { margin-inline-start: 0.4em; color: var(--marxy-color-text-secondary); }
+.marxy-library-search { position: relative; padding: 0.2em 0.9em 0.4em; }
+.marxy-library-field { box-sizing: border-box; width: 100%; padding: 0.45em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; }
+.marxy-library-field:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
+.marxy-library-suggest { position: absolute; z-index: 5; inset-inline: 0.9em; margin-top: 0.15em; max-height: 14em; overflow: auto; background: var(--marxy-color-surface); border: 1px solid var(--marxy-color-rule); }
+.marxy-library-suggest[hidden], .marxy-library-chips[hidden] { display: none; }
+.marxy-library-suggest-item { display: flex; gap: 1em; justify-content: space-between; padding: 0.3em 0.7em; }
+.marxy-library-suggest-item[aria-selected="true"] { background: var(--marxy-color-accent-wash); box-shadow: inset 3px 0 0 var(--marxy-color-accent); }
+.marxy-library-suggest-detail { color: var(--marxy-color-text-secondary); }
+.marxy-library-chips { display: flex; flex-wrap: wrap; gap: 0.3em; padding-block-start: 0.4em; }
+.marxy-query-chip { display: inline-flex; align-items: center; gap: 0.4em; padding: 0.1em 0.2em 0.1em 0.6em; border: 1px solid var(--marxy-color-edge); border-radius: 1em; background: var(--marxy-color-accent-wash); }
+.marxy-query-chip[data-marxy-query-chip="flagged"] { border-style: dashed; background: var(--marxy-color-status-warn-wash); color: var(--marxy-color-status-warn); }
+.marxy-query-chip-note { color: var(--marxy-color-text-secondary); font-size: 0.9em; }
+.marxy-query-chip-remove { appearance: none; -webkit-appearance: none; margin: 0; padding: 0 0.4em; border: 0; border-radius: 1em; background: none; color: inherit; font: inherit; cursor: default; }
+.marxy-query-chip-remove:hover { background: var(--marxy-color-selection); }
+.marxy-query-chip-remove:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-library-bar { display: flex; align-items: baseline; justify-content: space-between; gap: 1em; padding: 0.2em 0.9em 0.5em; color: var(--marxy-color-text-secondary); }
+.marxy-library-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marxy-library-sort select { margin-inline-start: 0.3em; font: inherit; color: var(--marxy-color-text); background: none; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 4 / 13); }
+.marxy-library-body { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(14em, 24em); border-block-start: 1px solid var(--marxy-color-rule); }
+.marxy-library-results { position: relative; min-height: 0; overflow-y: auto; }
+.marxy-library-results:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-library-rows { position: relative; }
+.marxy-library-row { position: absolute; inset-inline: 0; box-sizing: border-box; padding: var(--marxy-library-pad) 0.9em; border-inline-start: 3px solid transparent; overflow: hidden; cursor: default; }
+.marxy-library-row:hover { background: var(--marxy-color-selection); }
+.marxy-library-row[aria-selected="true"] { background: var(--marxy-color-accent-wash); border-inline-start-color: var(--marxy-color-accent); }
+.marxy-library-row > * { height: var(--marxy-library-line); line-height: var(--marxy-library-line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marxy-library-row-title { display: flex; align-items: center; gap: 0.5em; font-weight: var(--marxy-weight-strong); }
+.marxy-library-row-title .marxy-kind-glyph { flex: none; display: inline-flex; }
+.marxy-library-row-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.marxy-library-mark { flex: none; display: inline-flex; align-items: center; gap: 0.3em; font-weight: normal; color: var(--marxy-color-text-secondary); }
+.marxy-library-mark-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.marxy-library-row-age { flex: none; margin-inline-start: auto; font-weight: normal; color: var(--marxy-color-text-secondary); }
+.marxy-library-row-path { display: flex; gap: 1em; color: var(--marxy-color-text-secondary); }
+.marxy-library-row-rel { overflow: hidden; text-overflow: ellipsis; }
+.marxy-library-row-kind { flex: none; }
+.marxy-library-row-why { padding-inline-start: 1.5em; color: var(--marxy-color-text-secondary); }
+.marxy-library-preview { min-width: 0; overflow: auto; padding: 0.8em 0.9em; border-inline-start: 1px solid var(--marxy-color-rule); }
+.marxy-library-preview-title { margin: 0; font: inherit; font-size: 1.15em; font-weight: var(--marxy-weight-strong); overflow-wrap: anywhere; }
+.marxy-library-preview-path { margin: 0.2em 0 0.8em; color: var(--marxy-color-text-secondary); overflow-wrap: anywhere; }
+.marxy-library-preview-empty { color: var(--marxy-color-text-secondary); }
+.marxy-library-facts { display: grid; grid-template-columns: auto 1fr; gap: 0.2em 1em; margin: 0 0 0.8em; }
+.marxy-library-facts dt { color: var(--marxy-color-text-secondary); }
+.marxy-library-facts dd { margin: 0; overflow-wrap: anywhere; }
+.marxy-library-preview-head { margin: 0.8em 0 0.3em; font: inherit; font-weight: var(--marxy-weight-strong); }
+.marxy-library-preview ul { margin: 0; padding: 0; list-style: none; }
+.marxy-library-preview li { overflow-wrap: anywhere; }
+.marxy-library-preview-actions { display: flex; flex-wrap: wrap; gap: 0.4em; margin-block-start: 1em; }
+.marxy-library-preview-actions button { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; cursor: default; }
+.marxy-library-preview-actions button:hover { background: var(--marxy-color-selection); }
+.marxy-library-preview-actions button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
+@media (max-width: 760px) { .marxy-library-body { grid-template-columns: minmax(0, 1fr); } .marxy-library-preview { display: none; } }
 
 /* Accessibility media queries (Reader Artifacts ch.9, MARXY-241). */
 @media (forced-colors: active) {
@@ -918,6 +1018,12 @@ body[data-marxy-workspace="unfolded"][data-marxy-mode="source"] #marxy-main:not(
   .marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 GrayText; }
   .marxy-tab[data-marxy-tab-active] { background: Highlight; color: HighlightText; box-shadow: none; }
   .marxy-tab[data-marxy-tab-active] > button { color: HighlightText; }
+  .marxy-inspector-tab[data-marxy-inspector-tab-active] { background: Highlight; color: HighlightText; }
+  .marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible { outline-color: Highlight; }
+  .marxy-library-scope[aria-current="true"], .marxy-library-row[aria-selected="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; box-shadow: none; }
+  .marxy-library-row[aria-selected="true"] > * { color: HighlightText; }
+  .marxy-library-field, .marxy-library-suggest, .marxy-query-chip { border-color: CanvasText; }
+  .marxy-library-suggest { background: Canvas; }
   .marxy-sidebar button:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
   .marxy-sidebar button:focus-visible { outline: 2px solid Highlight; }
   .marxy-sidebar-head, .marxy-sidebar-age { color: GrayText; }

@@ -18,6 +18,7 @@ import type { AppHandle } from '../app.ts';
 import { setTabsController } from '../commands/tabs.ts';
 import { documentName } from '../document/untitled.ts';
 import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
+import { uncoverPanes } from './pane-cover.ts';
 import { TabList, isTransient } from './tabs.ts';
 import type { DocumentSignal } from './toolbar.ts';
 
@@ -214,6 +215,8 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
 
   /** Show `path` in the focused pane, or focus the pane that already shows it. Asks over unsaved edits, as any open does. */
   const showTab = async (path: string): Promise<void> => {
+    // The library hides the panes: it lets go first, so a prompt this raises is where the reader can see it.
+    uncoverPanes();
     const panes = handle.panes();
     const owner = panes.panes.find((p) => p.path() === path);
     if (owner) {
@@ -232,6 +235,7 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
       reconcile();
       return;
     }
+    uncoverPanes();
     const others = new Set([...shownPaths()].filter((p) => p !== path));
     const next = list.neighbour(path, others);
     if (next === null) return;

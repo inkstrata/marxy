@@ -777,6 +777,7 @@ const WORKSPACE = {
   attribute: 'data-marxy-workspace', // on <body>: 'unfolded'; absent (or anything else) is folded
   regionAttribute: 'data-marxy-workspace-region',
   peekAttribute: 'data-marxy-peek', // on <body>, folded only: the one region the window is peeking
+  libraryAttribute: 'data-marxy-library', // on the library view (Q-03), unfolded only: it stands where #marxy-main stands
   regions: ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar'],
 };
 
@@ -803,6 +804,8 @@ async function checkChrome(page) {
     for (const el of document.querySelectorAll('*')) {
       if (el === document.documentElement || el === document.body || el === main) continue;
       if (main && main.contains(el)) continue;
+      // The library view (Q-03) takes the panes' place while they are hidden: it and what is in it are not chrome.
+      if (state === 'unfolded' && el.closest(`[${ws.libraryAttribute}]`)) continue;
       if (state === 'unfolded') {
         const region = el.closest(regionSel);
         if (region) {
@@ -1562,6 +1565,13 @@ async function selftest(browser, origin) {
       name: 'chrome-unfolded-stray',
       html: craftedWorkspace('unfolded', { stray: '<mark>out</mark>' }),
       ok: craftedWorkspace('unfolded'),
+      run: checkChrome,
+    },
+    {
+      name: 'chrome-unfolded-library',
+      // A visible block outside the panes that is not the library fails; the library view, marked, passes.
+      html: craftedWorkspace('unfolded', { stray: '<div><p>results</p></div>' }),
+      ok: craftedWorkspace('unfolded', { stray: `<div ${WORKSPACE.libraryAttribute}><p>results</p></div>` }),
       run: checkChrome,
     },
     {

@@ -51,15 +51,14 @@ test('the reading position survives Read to Source and back', async () => {
   });
 });
 
-test('Mod+1 works from inside the Source editor, and Mod+3 sets only the focused pane', async () => {
+test('Mod+1 works from inside the Source editor; over one document twice it leaves Split (F-44)', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     await page.keyboard.press(`${mod}+3`);
-    await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].view.mode === 'source');
-    assert.deepEqual(await modes(page), ['source', 'rendered']);
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 1 && window.__marxyHandle.panes().panes[0].view.mode === 'source');
     await page.click('#marxy-source .cm-content');
     await page.keyboard.press(`${mod}+1`);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].view.mode === 'rendered');
-    assert.deepEqual(await modes(page), ['rendered', 'rendered']);
+    assert.deepEqual(await modes(page), ['rendered']);
   });
 });
 
@@ -83,15 +82,12 @@ test('Mod+2 on one pane showing Source puts Read on the left first', async () =>
   });
 });
 
-test('Mod+2 on two panes over one path sets Rendered left and Source right', async () => {
+test('Mod+2 on two panes over one path leaves Split: one pane in Read (F-44)', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     await page.keyboard.press(`${mod}+2`);
-    await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].view.mode === 'source');
-    assert.deepEqual(await modes(page), ['rendered', 'source']);
-    // Again changes nothing.
-    await page.keyboard.press(`${mod}+2`);
-    await settle(page);
-    assert.deepEqual(await modes(page), ['rendered', 'source']);
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 1);
+    assert.deepEqual(await modes(page), ['rendered']);
+    assert.deepEqual(await paths(page), ['/r/A.md']);
   });
 });
 

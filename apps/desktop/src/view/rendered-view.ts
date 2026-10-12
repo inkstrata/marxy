@@ -194,6 +194,8 @@ export interface RenderedView {
   /** Source text into the store as one history entry; true when it changed the store. */
   foldSource(): Promise<boolean>;
   sourceHasUnfoldedEdits(): boolean;
+  /** Source text this view's fold cannot take because another pane's fold went another way (D-11): a save would not write it. */
+  sourceHeldApart(): boolean;
   /** The block open for editing in place in this view's article, or null (E-04). The block-edit command sets and clears it. */
   blockEdit: BlockEdit | null;
   /**
@@ -714,13 +716,15 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // Leaving Source is one history entry (`commitSource`): Mod+Z in Rendered undoes what was typed there.
     // The page follows the store: its subscription sets the article from the new bytes, so nothing
     // resolves an operation through an AST, node map or block list built from the old ones.
-    const changed = await open.commitSource(sourceEditor.docText());
+    // A key typed while the fold waits is folded too (F-42.1): taking the store's bytes over it would delete it.
+    const editor = sourceEditor;
+    let changed = await foldEditorInto(open, editor);
     let byteOffset = lastReadingByteOffset;
     let fraction = lastReadingFraction;
     // The line on the reading line, read before anything moves the window. Still where Source landed when
     // shown (no edit, no scroll away): the exact place it was entered from. Otherwise that line's block,
     // at its top.
-    const { path, buffer } = open.snapshot();
+    const { path } = open.snapshot();
     const place = sourcePosition(path);
     // Not measured yet (left within a frame or two, or the window is hidden): untouched unless edited.
     const movedAway = sourceEntryPlace !== null && place?.byteOffset !== sourceEntryPlace;
@@ -728,9 +732,16 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       byteOffset = place.byteOffset;
       fraction = 0;
     }
-    if (changed && sourceEditor) {
-      sourceEditor.replaceBuffer(buffer);
-      await refreshTitle();
+    // The title waits on the shell, and a key can land while it does: fold that too, then look again. The last look is
+    // followed by no wait, so nothing is typed between it and Source being hidden.
+    for (;;) {
+      if (changed && sourceEditor === editor) {
+        editor.replaceBuffer(open.snapshot().buffer);
+        await refreshTitle();
+      }
+      if (sourceEditor !== editor || store !== open || !leaveSourceMode(open.snapshot().buffer, editor.docText()).changed) break;
+      if (!(await foldEditorInto(open, editor))) break;
+      changed = true;
     }
     lastReadingByteOffset = byteOffset;
     lastReadingFraction = fraction;
@@ -1351,11 +1362,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const text = editor.docText();
     if (!leaveSourceMode(before.buffer, text).changed) return false;
     if (change.kind === 'reload') diskChangedEditsKeptNotice({ pane: paneOf(doc) });
-    void open.commitSource(text).then(
-      (changed) => {
-        if (changed && sourceEditor === editor && store === open) editor.replaceBuffer(open.snapshot().buffer);
-      },
-      (e: unknown) => console.warn(`marxy: Source text could not be kept over a change on disk: ${String(e)}`),
+    void foldEditorInto(open, editor).catch((e: unknown) =>
+      console.warn(`marxy: Source text could not be kept over a change on disk: ${String(e)}`),
     );
     return true;
   }
@@ -1373,7 +1381,35 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const text = editor.docText();
     if (!leaveSourceMode(snapshot.buffer, text).changed) return editor.replaceBuffer(snapshot.buffer);
     if (!leaveSourceMode(editor.buffer, text).changed) return replaceSourceBuffer(editor, snapshot.buffer);
+    // This view's own fold, with a key typed since it began (F-42): the store reads as the text that was folded, so
+    // this is the reader's next keystroke and not another pane's change. `foldEditorInto` folds it next.
+    if (foldingText.some((folded) => !leaveSourceMode(snapshot.buffer, folded).changed)) return;
     holdApart();
+  }
+
+  /** The Source text each of this view's folds is putting into the store, until the store has it (F-42). */
+  const foldingText: string[] = [];
+
+  /**
+   * Folds the editor's text into the store, and again for whatever was typed while the fold waited its turn (the
+   * store's queue, a save's own steps), until the store reads as the editor; then the editor takes the store's bytes.
+   * Taking them over a key typed meanwhile would replace the text and delete it (F-42): that key is folded too, one more
+   * history entry, so the next save writes it. Resolves whether any fold changed the store.
+   */
+  async function foldEditorInto(open: DocumentStore, editor: MountedSourceEditor): Promise<boolean> {
+    let any = false;
+    for (;;) {
+      const text = editor.docText();
+      foldingText.push(text);
+      try {
+        any = (await open.commitSource(text)) || any;
+      } finally {
+        foldingText.splice(foldingText.indexOf(text), 1);
+      }
+      if (editor.docText() !== text) continue;
+      if (any && sourceEditor === editor && store === open) editor.replaceBuffer(open.snapshot().buffer);
+      return any;
+    }
   }
 
   /**
@@ -1847,11 +1883,10 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       // The block open in place folds as Source does: one history entry, and the editor closes (E-04).
       if (blockEdit) return blockEdit.fold();
       if (!open || viewMode === 'rendered' || !sourceEditor || stillHeldApart()) return false;
-      if (!(await open.commitSource(sourceEditor.docText()))) return false;
-      sourceEditor?.replaceBuffer(open.snapshot().buffer);
-      return true;
+      return foldEditorInto(open, sourceEditor);
     },
     sourceHasUnfoldedEdits: unfoldedSourceEdits,
+    sourceHeldApart: stillHeldApart,
     get blockEdit() {
       return blockEdit;
     },

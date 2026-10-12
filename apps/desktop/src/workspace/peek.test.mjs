@@ -127,9 +127,10 @@ test('no peek with a button down, with a dialog open, or for a region with nothi
     assert.deepEqual(await peeked(page), [], 'a dialog is open');
     await page.evaluate(() => document.getElementById('stray').remove());
 
+    // W-09 fills the inspector, so no region is empty in the app now; take its fill away to test a region with nothing in it.
+    await ws(page, '(() => { const real = w.hasFill.bind(w); w.hasFill = (r) => r !== "inspector" && real(r); return true; })()');
     await rest(page, 1277, 450, 300);
-    assert.deepEqual(await peeked(page), [], 'the inspector has no fill today');
-    assert.equal(await ws(page, 'w.peek("inspector")'), false);
+    assert.deepEqual(await peeked(page), [], 'the inspector has no fill here');
   });
 });
 
@@ -246,6 +247,8 @@ test('the panel keys dock from folded and toggle when unfolded, from inside Code
 test('a panel with nothing in it has no key: the chord does nothing', async () => {
   await withPage(async (page) => {
     const m = await mod(page);
+    // W-09 fills the inspector, so no region is empty in the app now; take its fill away to test a region with nothing in it.
+    await ws(page, '(() => { const real = w.hasFill.bind(w); w.hasFill = (r) => r !== "inspector" && real(r); return true; })()');
     await page.keyboard.press(`${m}+Alt+i`);
     await page.waitForTimeout(100);
     assert.equal(await mode(page), 'folded');
