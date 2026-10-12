@@ -173,6 +173,74 @@ test('the toolbar shows Transform once transform.open is registered, and the but
 
 // --- the sheet ----------------------------------------------------------------------------------------------------
 
+test('U-05: chrome face on the headings, counts and a named close button in the header, wrapped columns, the primary action filled at the right', async () => {
+  const long = `- ${'zebra '.repeat(400)}\n- apple\n`;
+  const doc = `# T\n\n${long}\nTail.\n`;
+  await withApp({ [A]: doc }, async (page, s) => {
+    await s.select('#doc ul');
+    await s.choose('Sort lines');
+    const before = await s.sheet();
+    const got = await page.evaluate(() => {
+      const d = document.getElementById('marxy-transform');
+      const rect = (e) => e.getBoundingClientRect();
+      const chrome = getComputedStyle(d).fontFamily;
+      const sheet = rect(d);
+      const wide = [...d.querySelectorAll('*')].filter((e) => rect(e).right > sheet.right + 0.5).map((e) => e.className || e.tagName);
+      const copy = rect(d.querySelector('#marxy-transform-copy'));
+      const open = rect(d.querySelector('#marxy-transform-open'));
+      const close = d.querySelector('#marxy-transform-close');
+      return {
+        chrome,
+        title: getComputedStyle(d.querySelector('.marxy-transform-title')).fontFamily,
+        label: getComputedStyle(d.querySelector('.marxy-transform-label h3')).fontFamily,
+        wide,
+        counts: d.querySelector('.marxy-transform-counts').textContent,
+        closeName: close.getAttribute('aria-label'),
+        closeTag: close.tagName,
+        copyBg: getComputedStyle(d.querySelector('#marxy-transform-copy')).backgroundColor,
+        rightmost: copy.right >= rect(d.querySelector('.marxy-transform-actions')).right - 40 && open.left < copy.left,
+        preScroll: [...d.querySelectorAll('.marxy-transform-text')].map((p) => p.scrollWidth <= p.clientWidth),
+      };
+    });
+    assert.equal(got.title, got.chrome, 'the title wears the chrome face');
+    assert.equal(got.label, got.chrome, 'the column labels wear the chrome face');
+    assert.deepEqual(got.wide, [], 'nothing inside the sheet is wider than the sheet');
+    assert.deepEqual(got.preScroll, [true, true], 'Before and After wrap, they do not scroll sideways');
+    assert.match(got.counts, /^[\d,]+ → [\d,]+ characters$/);
+    assert.equal(got.closeTag, 'BUTTON');
+    assert.equal(got.closeName, 'Close');
+    assert.notEqual(got.copyBg, 'rgba(0, 0, 0, 0)', 'Copy result is filled');
+    assert.ok(got.rightmost, 'Copy result sits at the right, the others at the left');
+    // Wrapping is display only: the text in the page is the bytes, and Copy writes them.
+    assert.ok(!before.after.includes('​'));
+    // Tab follows the eye: the tabbable controls in document order (which is the Tab order, no tabindex above 0) run
+    // left to right on the screen, Copy result last.
+    const order = await page.evaluate(() => {
+      const d = document.getElementById('marxy-transform');
+      const stops = [...d.querySelectorAll('button, [tabindex="0"]')].filter((e) => e.closest('.marxy-transform-actions') || e.id === 'marxy-transform-close');
+      return stops.map((e) => ({ id: e.id, x: e.getBoundingClientRect().left, y: e.getBoundingClientRect().top }));
+    });
+    assert.deepEqual(order.map((o) => o.id), ['marxy-transform-close', 'marxy-transform-open', 'marxy-transform-more', 'marxy-transform-apply', 'marxy-transform-copy']);
+    const row = order.slice(1);
+    assert.ok(row.every((o, i) => i === 0 || o.x > row[i - 1].x), 'the actions run left to right in Tab order');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'marxy-transform-copy', 'the sheet opens with focus on Copy result');
+    const offPage = () => page.evaluate(() => document.activeElement?.closest('#marxy-transform') === null);
+    await page.locator('#marxy-transform-close').click();
+    await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
+    assert.ok(await offPage(), 'after Close, focus is back on the page');
+    assert.equal(await s.store(), doc, 'closing changed nothing');
+    await s.choose('Sort lines');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
+    assert.ok(await offPage(), 'after Esc, focus is back on the page');
+    await s.choose('Sort lines');
+    const want = (await s.sheet()).after;
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
+    assert.equal((await s.pasteboard()).text, want, 'the copy is After, unwrapped');
+  });
+});
+
 test('Sort lines on a selected list: Before is the selection\'s bytes, After is runTransform, with counts; Return copies one item and changes nothing', async () => {
   await withApp({ [A]: LIST_DOC }, async (page, s) => {
     const list = listRange(LIST_DOC);
@@ -187,7 +255,7 @@ test('Sort lines on a selected list: Before is the selection\'s bytes, After is 
     assert.equal(sheet.countBefore, `${[...list.text].length} characters`);
     assert.equal(sheet.countAfter, `${[...want].length} characters`);
     assert.deepEqual(sheet.steps, ['Sort lines']);
-    assert.deepEqual(sheet.buttons, ['Copy result', 'Apply', 'Open as new document', 'Add another step']);
+    assert.deepEqual(sheet.buttons, ['Open as new document', 'Add another step', 'Apply', 'Copy result']);
     assert.equal(sheet.focus, 'marxy-transform-copy', 'Return is Copy result');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
