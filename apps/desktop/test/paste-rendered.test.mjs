@@ -237,3 +237,60 @@ test('with unsaved changes in the pane, a prompt stands before they are replaced
     assert.deepEqual(await s.docWrites(), [], 'discarding writes nothing either');
   });
 });
+
+async function dirtyViaSource(page, s) {
+  await page.keyboard.press(`${s.mod}+e`);
+  await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
+  await page.click('.cm-content');
+  await page.keyboard.type('EDIT');
+  await page.keyboard.press(`${s.mod}+e`);
+  await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
+}
+const pasteNotices = async (s) => (await s.notices()).filter((n) => n.startsWith('Opened as a new document') || n.startsWith('Pasted as Markdown'));
+const clickNoticeButton = (page, label) =>
+  page.evaluate((l) => [...document.querySelectorAll('.marxy-notice button')].find((b) => b.textContent === l).click(), label);
+
+const promptStands = (page) => page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice button')].some((b) => b.textContent === 'Open without saving'));
+
+test('no scratch notice while the unsaved-edits prompt stands, and none after Dismiss', async () => {
+  await withApp([A], async (page, s) => {
+    await dirtyViaSource(page, s);
+    await s.pasteboard(SAMPLES.html);
+    await s.paste();
+    await promptStands(page);
+    await s.settle();
+    assert.deepEqual(await pasteNotices(s), [], 'nothing claims a new document while the prompt stands');
+    await clickNoticeButton(page, 'Dismiss');
+    await s.settle();
+    assert.deepEqual(await pasteNotices(s), [], 'nothing claims a new document after Dismiss');
+    assert.deepEqual(await s.paths(), [A]);
+  });
+});
+
+test('both scratch notices come once Open without saving is chosen', async () => {
+  await withApp([A], async (page, s) => {
+    await dirtyViaSource(page, s);
+    await s.pasteboard(SAMPLES.html);
+    await s.paste();
+    await promptStands(page);
+    await clickNoticeButton(page, 'Open without saving');
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].path() === 'untitled');
+    await page.waitForFunction(() => document.body.textContent.includes('Opened as a new document'));
+    assert.deepEqual(await pasteNotices(s), ['Opened as a new document (not saved)', 'Pasted as Markdown (converted from HTML)']);
+  });
+});
+
+test('a leading U+FEFF in a Rendered paste is the reader\'s text: it is kept as that character, never read as the file\'s BOM', async () => {
+  await withApp([A], async (page, s) => {
+    await s.pasteboard({ [TEXT]: '﻿hello\n' });
+    await s.paste();
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].path() === 'untitled');
+    const state = await page.evaluate(() => {
+      const b = window.__marxyHandle.panes().panes[0].content.store().snapshot().buffer;
+      return { bom: b.bom, bytes: [...b.bytes] };
+    });
+        assert.deepEqual(state.bytes, [0xef, 0xbb, 0xbf, 0xef, 0xbb, 0xbf, ...Buffer.from('hello\n')], 'a file BOM, then the pasted U+FEFF as a character');
+    assert.equal(state.bom, true, 'behind a file BOM written for it, so the character is not taken as the BOM');
+    await page.waitForFunction(() => document.body.textContent.includes('kept as a character'));
+  });
+});
