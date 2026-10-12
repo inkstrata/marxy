@@ -7,6 +7,7 @@ import type { Document, Heading, Node, Source } from '../contracts/ast.ts';
 import type { Operation } from '../contracts/operation.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import { textIndex, type TextIndex } from '../operations/text-helpers.ts';
+import type { ParsedText } from './types.ts';
 
 const enc = new TextEncoder();
 
@@ -25,6 +26,28 @@ export function parseText(lf: string): Document {
   const doc = parseMarkdown(enc.encode(lf), { file: 'transform' });
   last = { text: lf, doc };
   return doc;
+}
+
+/**
+ * Runs `fn` with `parsed` standing in for the parse of `lf`, when `parsed` is a parse of exactly `lf` (F-60). The
+ * cache the call found is put back afterwards, so what a caller holds never changes what a later call without
+ * `parsed` reads. A `parsed` of any other text, or with a CR in it, is ignored and `fn` parses as it always did.
+ */
+export function withParse<T>(lf: string, parsed: ParsedText | undefined, fn: () => T): T {
+  if (parsed === undefined || parsed.text !== lf || lf.includes('\r')) return fn();
+  const before = last;
+  last = { text: lf, doc: parsed.doc };
+  try {
+    return fn();
+  } finally {
+    last = before;
+  }
+}
+
+/** Forgets the cached parse and index, for a test that must see a body parse for itself. */
+export function resetProseCaches(): void {
+  last = undefined;
+  lastIndex = undefined;
 }
 
 // The byte-to-index map of the last text, kept for the same reason: building it is a scan of the whole text, so a

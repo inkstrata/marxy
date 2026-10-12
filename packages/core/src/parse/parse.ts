@@ -25,8 +25,14 @@ export interface ParseOptions {
   readonly math?: boolean;
 }
 
+// How many times `parseMarkdown` has been called, for a test to read and nothing to act on (F-60), as
+// `lastChunkedParse` is. It shows that a caller handed a parse used it rather than made another.
+let parses = 0;
+export const parseCount = (): number => parses;
+
 /** Parse a document's bytes. Accepts a string for callers that already hold the buffer decoded. */
 export function parseMarkdown(source: string | Uint8Array, options: ParseOptions = {}): Document {
+  parses += 1;
   const file = options.file ?? 'untitled';
   const { body, offsets } = typeof source === 'string' ? fromString(source) : fromBytes(source);
   if (opensWithTooManyMarkers(body)) return nestedTooDeepDocument({ file, text: body, offsets });

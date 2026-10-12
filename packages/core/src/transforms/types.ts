@@ -1,9 +1,22 @@
 // The shape of a transform definition (J-03). A definition is the body only; the registry wraps it so every
 // transform keeps the file's line endings and byte-order mark (ADR-0004, fidelity).
+import type { Document } from '../contracts/ast.ts';
+
+/**
+ * A parse the caller already holds: `doc` is `parseMarkdown` of exactly the bytes of `text` (F-60). A cache and
+ * nothing more: it is used only when `text` is the very string the transform body is about to read, and then
+ * gives the same result the body would have got by parsing. With any other text it is ignored.
+ */
+export interface ParsedText {
+  readonly text: string;
+  readonly doc: Document;
+}
 
 /** Optional facts a caller knows and the text does not (the fence's language, for `fence`). */
 export interface TransformContext {
   readonly lang?: string;
+  /** An optional, already-made parse of the text (F-60). Never changes the result; see `ParsedText`. */
+  readonly parsed?: ParsedText;
 }
 
 /**

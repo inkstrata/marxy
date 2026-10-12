@@ -720,7 +720,7 @@ a gate (ADR-0032).
 - **The differential** (`parsed-reuse.test.ts`; red if the guard is dropped): for every transform and every corpus
   file, as given and LF-normalised, plus one edited version made by `reparseMarkdown`, `runTransform(id, t)` and
   `runTransform(id, t, { parsed: { text: t, doc: parseMarkdown(bytes, { file: path }) } })` are byte for byte the
-  same, and so are all seven Copy as targets built by `copyAsFromText` with and without `parsed`. A `parsed` whose
+  same, and so are all eight Copy as targets built by `copyAsFromText` with and without `parsed`. A `parsed` whose
   `text` differs from the input by one character is ignored: the output equals the run without it.
 - **The property kit**: for every transform over generated documents, the run with a matching `parsed` equals the
   run without, and the run with a mismatched one does too.
