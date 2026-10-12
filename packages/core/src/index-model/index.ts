@@ -26,11 +26,13 @@ export {
   parseCollection,
   appendRoot,
   appendQuery,
+  queryRange,
   denyRulesFor,
   COLLECTION_TEMPLATE,
   type Collection,
   type CollectionRoot,
   type SavedQuery,
+  type ByteRange,
   type ParseCollectionResult,
 } from './collection.ts';
 export { planEvents, ignoreRulesFrom, type FileEvent, type EventPlan } from './apply-events.ts';

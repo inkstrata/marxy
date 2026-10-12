@@ -58,6 +58,7 @@ async function boot(page, { open, index = entries, data = {} }) {
       await handle.ready;
       window.__marxyHandle = handle;
       handle.palette.setIndexEntries(index);
+      await handle.collection?.loaded;
       // The launch document is read before the palette exists, so its session has not heard of it; the first open is noted as any later one is.
       handle.palette.noteRead(open[0], 'open');
       for (const path of open.slice(1)) await handle.open(path);
@@ -894,5 +895,186 @@ test('a folder that vanishes while open and comes back is listed again, not stuc
     await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/plain/sub"]');
     assert.equal(await page.evaluate(() => /Could not be read/.test(document.querySelector('[data-marxy-sidebar-tree="folders"]').textContent)), false);
     assert.equal(await page.evaluate(() => document.querySelector('[role="treeitem"][data-marxy-sidebar-row="/plain/sub"]').getAttribute('aria-expanded')), 'false', 'it starts closed');
+  });
+});
+
+// --- Smart collections (Q-07) -------------------------------------------------------------------------------
+
+/** Three of the files are reports: `kind:report` matches them. */
+const REPORTS = ['/r/a.md', '/r/b.md', '/r/c.md'];
+const reportEntries = entries.map((e) => (REPORTS.includes(e.path) ? { ...e, readerKind: 'report' } : e));
+const TOML = '# my smart collections\nunknown = 1   # kept\n\n[[query]]\nname = "Reports"\nq = "kind:report"\n\n[[query]]\nname = "Pinned"\nq = "is:pinned"\n\n[[query]]\nname = "Cache notes"\nq = "cache"\n';
+const smartRows = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('[data-marxy-sidebar-section="smart"] [data-marxy-sidebar-row]')].map((r) => ({
+      row: r.getAttribute('data-marxy-sidebar-row'),
+      name: r.querySelector('.marxy-sidebar-name').textContent,
+      count: r.querySelector('.marxy-sidebar-age')?.textContent ?? null,
+      label: r.getAttribute('aria-label'),
+      title: r.title,
+    })),
+  );
+const smartSection = (page) => page.evaluate(() => document.querySelector('[data-marxy-sidebar-section="smart"]') !== null);
+const writeToml = (page, text) =>
+  page.evaluate(async (t) => {
+    const shell = window.__marxyHandle.shell;
+    await shell.writeFileAtomic('/collection.toml', new TextEncoder().encode(t));
+    shell.emit([{ kind: 'modified', path: '/collection.toml' }]);
+    await window.__marxyHandle.collection.settled();
+  }, text);
+const libraryStatus = async (page) => {
+  await page.waitForSelector('[data-marxy-library]');
+  await page.waitForTimeout(300);
+  return page.evaluate(() => ({ field: document.querySelector('.marxy-library-field').value, status: document.querySelector('.marxy-library-status').textContent, scope: document.querySelector('.marxy-library-title').textContent }));
+};
+const firstNumber = (status) => Number(/^([\d,]+)/.exec(status)[1].replace(/,/g, ''));
+
+test('with no [[query]] the section is not drawn, and no built-in row (near-duplicates, broken paths) appears', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: reportEntries });
+    await unfold(page);
+    await drawn(page);
+    assert.equal(await smartSection(page), false, 'no collection.toml');
+    assert.equal(await page.evaluate(() => /Near-duplicates|Broken|Smart/i.test(document.querySelector('.marxy-sidebar').textContent)), false);
+    await writeToml(page, '[[root]]\npath = "/r"\n');
+    assert.equal(await smartSection(page), false, 'a collection.toml with folders and no queries');
+    assert.equal(await page.evaluate(() => /Near-duplicates|Broken|Smart/i.test(document.querySelector('.marxy-sidebar').textContent)), false);
+  });
+});
+
+test('the section lists the queries by name in file order, after Folders, with a quiet count where the index can give one', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: reportEntries, data: { '/collection.toml': TOML } });
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-section="smart"]');
+    const rows = await smartRows(page);
+    assert.deepEqual(rows.map((r) => [r.row, r.name, r.count]), [
+      ['smart:Reports', 'Reports', '3'],
+      ['smart:Pinned', 'Pinned', '0'],
+      ['smart:Cache notes', 'Cache notes', null], // a word is searched in the lines of the files: only the library reads them
+    ]);
+    assert.equal(rows[0].label, 'Reports, smart collection, 3 files');
+    assert.equal(rows[2].label, 'Cache notes, smart collection');
+    assert.equal(rows[0].title, 'kind:report', 'the query is the tooltip');
+    const order = (await allSections(page)).map((s) => s.id);
+    assert.equal(order.at(-1), 'smart');
+    assert.deepEqual((await allSections(page)).find((s) => s.id === 'smart').rows, ['smart:Reports', 'smart:Pinned', 'smart:Cache notes']);
+  });
+});
+
+test('a row opens the library with its query, and its count is the number the library shows for it', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: reportEntries, data: { '/collection.toml': TOML } });
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-row="smart:Reports"]');
+    const counted = (await smartRows(page)).find((r) => r.name === 'Reports').count;
+    await page.click('[data-marxy-sidebar-row="smart:Reports"]');
+    const shown = await libraryStatus(page);
+    assert.equal(shown.field, 'kind:report');
+    assert.equal(shown.scope, 'All files');
+    assert.equal(String(firstNumber(shown.status)), counted, `library says "${shown.status}"`);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-query-chip').length), 1);
+    // With the view open, another row puts its query in place; the pinned query shows nothing yet.
+    await page.click('[data-marxy-sidebar-row="smart:Pinned"]');
+    await page.waitForFunction(() => document.querySelector('.marxy-library-field').value === 'is:pinned');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('[data-marxy-library]').length), 1, 'one library, not two');
+    const second = await libraryStatus(page);
+    assert.equal(firstNumber(second.status), 0);
+    assert.equal(String(firstNumber(second.status)), (await smartRows(page)).find((r) => r.name === 'Pinned').count);
+  });
+});
+
+test('a count changes when a matching file is added, and when a file stops matching', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: reportEntries, data: { '/collection.toml': TOML } });
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-row="smart:Reports"]');
+    const count = async () => (await smartRows(page)).find((r) => r.name === 'Reports').count;
+    assert.equal(await count(), '3');
+    const added = { ...reportEntries[0], path: '/r/new-report.md', title: 'New report' };
+    await page.evaluate((all) => window.__marxyHandle.palette.setIndexEntries(all), [...reportEntries, added]);
+    await page.waitForFunction(() => document.querySelector('[data-marxy-sidebar-row="smart:Reports"] .marxy-sidebar-age').textContent === '4');
+    await page.evaluate((all) => window.__marxyHandle.palette.setIndexEntries(all), reportEntries.map((e) => (e.path === '/r/a.md' ? { ...e, readerKind: 'notes' } : e)));
+    await page.waitForFunction(() => document.querySelector('[data-marxy-sidebar-row="smart:Reports"] .marxy-sidebar-age').textContent === '2');
+    // The library, opened on the same query, agrees with the row at every step.
+    await page.click('[data-marxy-sidebar-row="smart:Reports"]');
+    assert.equal(firstNumber((await libraryStatus(page)).status), 2);
+  });
+});
+
+test('a hand edit to collection.toml updates the section: a new query appears, a removed one goes, and with none the section goes', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: reportEntries, data: { '/collection.toml': TOML } });
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-section="smart"]');
+    await writeToml(page, `${TOML}\n[[query]]\nname = "Added by hand"\nq = "is:changed"\n`);
+    await page.waitForSelector('[data-marxy-sidebar-row="smart:Added by hand"]');
+    await writeToml(page, '[[query]]\nname = "Only"\nq = "kind:report"\n');
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-marxy-sidebar-section="smart"] [data-marxy-sidebar-row]')].length === 1);
+    assert.deepEqual((await smartRows(page)).map((r) => r.name), ['Only']);
+    await writeToml(page, '# nothing left\n');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-sidebar-section="smart"]') === null);
+  });
+});
+
+test('folded, the section keeps a count of its queries and evaluates none; it is remembered like the others', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: reportEntries, data: { '/collection.toml': TOML } });
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-section="smart"]');
+    await page.click('[data-marxy-sidebar-section="smart"] .marxy-sidebar-head');
+    const folded = (await allSections(page)).find((s) => s.id === 'smart');
+    assert.deepEqual([folded.expanded, folded.count, folded.rows], ['false', '3', []]);
+    assert.deepEqual(JSON.parse(await workspaceFile(page)).sidebar, { collapsed: ['smart'] });
+    // Counts are not computed while it is folded: the query is evaluated against the feed only when the section opens.
+    await page.evaluate(() => window.__marxyHandle.palette.setIndexEntries(window.__marxyHandle.palette.feed.entries().map((e) => ({ ...e }))));
+    await page.click('[data-marxy-sidebar-section="smart"] .marxy-sidebar-head');
+    assert.deepEqual((await smartRows(page)).map((r) => r.count), ['3', '0', null], 'counted again once open');
+  });
+});
+
+test('a row\'s menu has Edit in collection.toml, which opens the file in Source at that table', async () => {
+  // Far enough down that Source shows it only when it was taken there.
+  const filler = '# filler\n'.repeat(150);
+  const long = filler + TOML;
+  const tableAt = new TextEncoder().encode(`${filler}${TOML.slice(0, TOML.indexOf('[[query]]\nname = "Pinned"'))}`).length;
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: reportEntries, data: { '/collection.toml': long } });
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-row="smart:Pinned"]');
+    await page.evaluate(() => {
+      const h = window.__marxyHandle;
+      const real = h.jumpToSource.bind(h);
+      window.__jumps = [];
+      h.jumpToSource = (at) => { window.__jumps.push(at); return real(at); };
+    });
+    await page.click('[data-marxy-sidebar-row="smart:Pinned"]', { button: 'right' });
+    await page.waitForSelector('.marxy-verb-menu');
+    const items = await page.evaluate(() => [...document.querySelectorAll('.marxy-verb-menu [role="menuitem"]')].map((n) => n.textContent.trim()));
+    assert.ok(items.length === 1 && /^Edit in collection\.toml/.test(items[0]), items.join('|'));
+    await page.click('.marxy-verb-menu [role="menuitem"]');
+    await page.waitForFunction(() => window.__marxyHandle.panes().focused.path() === '/collection.toml');
+    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('.cm-line'));
+    await page.waitForFunction(() => window.__jumps.length > 0);
+    assert.deepEqual(await page.evaluate(() => window.__jumps), [tableAt], 'asked for the table\'s first byte');
+    await page.waitForFunction(() => [...document.querySelectorAll('.cm-line')].some((l) => l.textContent === 'name = "Pinned"' && l.getBoundingClientRect().top >= 0 && l.getBoundingClientRect().bottom <= window.innerHeight));
+  });
+});
+
+test('the context-menu key, and Shift+F10, open the same menu from the keyboard', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: reportEntries, data: { '/collection.toml': TOML } });
+    await unfold(page);
+    await page.waitForSelector('[data-marxy-sidebar-row="smart:Reports"]');
+    await page.focus('[data-marxy-sidebar-row="smart:Reports"]');
+    await page.keyboard.press('Shift+F10');
+    await page.waitForSelector('.marxy-verb-menu');
+    assert.match(await page.evaluate(() => document.querySelector('.marxy-verb-menu [role="menuitem"]').textContent), /Edit in collection\.toml/);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.marxy-verb-menu'));
+    // Mod+Enter is "open beside" for a document row; a smart row has no document to open beside.
+    await page.focus('[data-marxy-sidebar-row="smart:Reports"]');
+    await page.keyboard.press(`${await mod(page)}+Enter`);
+    assert.deepEqual(await paths(page), ['/r/a.md']);
   });
 });

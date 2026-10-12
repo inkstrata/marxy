@@ -90,6 +90,6 @@ test('a path that appeared makes the nearest listed folder above it stale; one t
 });
 
 test('Repositories and Folders are sidebar sections after Pinned, in the ids the file remembers', () => {
-  assert.deepEqual(SIDEBAR_SECTIONS.map((s) => [s.id, s.title]).slice(2), [['repos', 'Repositories'], ['folders', 'Folders']]);
+  assert.deepEqual(SIDEBAR_SECTIONS.map((s) => [s.id, s.title]).slice(2, 4), [['repos', 'Repositories'], ['folders', 'Folders']]);
   assert.deepEqual([...SIDEBAR_SECTION_IDS], SIDEBAR_SECTIONS.map((s) => s.id));
 });

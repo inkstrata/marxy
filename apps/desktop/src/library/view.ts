@@ -34,10 +34,13 @@ import type { ContentHit } from '@marxy/shell-api';
 import type { AppHandle } from '../app.ts';
 import { palette } from '../commands/app-handle.ts';
 import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
+import { beginSaveQuery, collectionOf, saveQuery, type CollectionWriterShell, type SaveDraft } from '../collection/load.ts';
 import { splitRefusal } from '../pane/fit.ts';
 import { focusOrigin } from '../pane/focus.ts';
 import { CONTENT_DEBOUNCE_MS, CONTENT_FILE_CAP, CONTENT_MIN_CHARS } from '../palette/content.ts';
+import { notify as showNotice, noticeLine, placeNotice, removeNotice, type NoticeInput } from '../notices/index.ts';
 import { coverPanes } from '../workspace/pane-cover.ts';
+import { queryContext } from '../workspace/sidebar.ts';
 import type { Workspace } from '../workspace/state.ts';
 import { activeItem, chooseFacet, facetMenus, type FacetMenu } from './facets.ts';
 import { MeasureCache, measureFiles } from './measure.ts';
@@ -149,6 +152,9 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   let suggestAt = -1;
   let suggestReplace: readonly [number, number] = [0, 0];
   let roots: readonly string[] = [];
+  /** collection.toml as read when the reader began to name a saved search (Q-07); null while no name is being asked for. */
+  let saveDraft: SaveDraft | null = null;
+  let saving = false;
 
   // The elements.
   let field!: HTMLInputElement;
@@ -168,6 +174,10 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   let gridHead!: HTMLElement;
   let statsEl!: HTMLElement;
   let facetsEl!: HTMLElement;
+  let saveButton!: HTMLButtonElement;
+  let saveForm!: HTMLFormElement;
+  let saveName!: HTMLInputElement;
+  let noticesEl: HTMLElement | null = null;
   let openMenu: { readonly button: HTMLButtonElement; readonly menu: HTMLElement } | null = null;
   let rowH = 30;
   /** The entries of the current scope before any query: what the header counts and what the rows are drawn from. */
@@ -187,16 +197,9 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     };
   };
 
+  // The sidebar's count for a saved query is this same context (workspace/sidebar.ts), so the two cannot drift.
   function context(scopeInputs: ScopeInput, over: Partial<QueryContext> = {}): QueryContext {
-    const { session } = scopeInputs;
-    return {
-      nowMs: scopeInputs.nowMs,
-      pinned: new Set(session.pinned),
-      recent: new Set(session.mru),
-      changed: changedPredicate(scopeInputs),
-      readAt: (e) => session.readAt[e.path],
-      ...over,
-    };
+    return { ...queryContext(scopeInputs), ...over };
   }
 
   // ---- the pipeline: index keys at once, then lines, then measures --------------------------------------------
@@ -404,8 +407,83 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
       chip.append(remove);
       return chip;
     });
-    chipsEl.replaceChildren(...chips);
-    chipsEl.hidden = chips.length === 0;
+    // Save as smart collection (Q-07) ends the row of chips: offered for a query with at least one term, and in place of
+    // itself the name field while the reader names it. A term the parser ignores (`kind:` alone) is not one.
+    const hasTerms = terms.some((t) => t.kind !== 'incomplete');
+    saveButton.hidden = saveDraft !== null || !hasTerms;
+    saveForm.hidden = saveDraft === null;
+    // The chips are replaced in front of the save controls, which stay where they are: a name being typed keeps its focus
+    // and caret when the feed redraws the results.
+    for (const old of chipsEl.querySelectorAll(':scope > .marxy-query-chip')) old.remove();
+    for (const chip of chips) saveButton.before(chip);
+    chipsEl.hidden = chips.length === 0 && saveDraft === null;
+  }
+
+  // ---- Save as smart collection (Q-07) ------------------------------------------------------------------------------
+
+  /** Says news in the view: the panes' notices are hidden under it, so a pill is placed in the view's own region. */
+  function say(input: NoticeInput): void {
+    if (!noticesEl) {
+      showNotice(input);
+      return;
+    }
+    // The same news again replaces the old pill instead of stacking.
+    for (const pill of noticesEl.querySelectorAll<HTMLElement>('.marxy-notice')) {
+      if (pill.dataset.noticeKind === input.kind && pill.querySelector('.marxy-notice-text')?.textContent === input.text) removeNotice(pill);
+    }
+    placeNotice(noticesEl, noticeLine(input));
+  }
+
+  /** Reads collection.toml now, then asks for a name; nothing is written until the reader saves. */
+  async function openSave(): Promise<void> {
+    if (saveDraft !== null) {
+      saveName.focus();
+      return;
+    }
+    const draft = await beginSaveQuery(handle.shell, { notify: say });
+    if (draft === null || !root || saveDraft !== null) return;
+    saveDraft = draft;
+    saveName.value = '';
+    redrawSave();
+    saveName.focus();
+  }
+
+  function closeSave(refocus: boolean): void {
+    saveDraft = null;
+    saving = false;
+    if (!root) return;
+    saveName.value = '';
+    redrawSave();
+    if (refocus) field.focus();
+  }
+
+  /** Shows the button or the name field for the query as it stands, without running the search again. */
+  function redrawSave(): void {
+    drawChips(field.value, capQuery(parseQuery(field.value)).query);
+  }
+
+  async function submitSave(): Promise<void> {
+    if (saving || saveDraft === null) return;
+    saving = true;
+    let saved = false;
+    try {
+      saved = await saveQuery(handle.shell as CollectionWriterShell, saveDraft, { name: saveName.value, q: field.value }, {
+        notify: say,
+        // The section lists what the file now holds without waiting for the folder watch.
+        onSaved: () => collectionOf(handle)?.reload(),
+      });
+    } finally {
+      saving = false;
+    }
+    if (!root) return;
+    if (saved) {
+      closeSave(true);
+      return;
+    }
+    // A refusal keeps the name for another try, against the file as it is now.
+    const fresh = await beginSaveQuery(handle.shell, { notify: say });
+    if (fresh !== null && root && saveDraft !== null) saveDraft = fresh;
+    saveName.focus();
   }
 
   function measureProbes(): void {
@@ -780,6 +858,15 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
 
   function onWindowKey(event: KeyboardEvent): void {
     if (!root || dialogOpen()) return;
+    const inside = event.target instanceof Element ? event.target : null;
+    // A pill that has focus is dismissed by its own Esc, and the name field's Esc closes the field: neither clears the search.
+    if (event.key === 'Escape' && inside?.closest('.marxy-notice')) return;
+    if (event.key === 'Escape' && inside !== null && saveForm.contains(inside)) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeSave(true);
+      return;
+    }
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
@@ -893,6 +980,9 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     if (id === scopeId && field.value === '') return;
     scopeId = id;
     sortChoice = null;
+    // Switching clears the query, so a name being asked for has nothing to save.
+    saveDraft = null;
+    saveName.value = '';
     field.value = '';
     active = 0;
     listEl.scrollTop = 0;
@@ -917,6 +1007,33 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     scopeNav.setAttribute('aria-label', 'Scopes');
     head.append(heading, scopeNav);
 
+    saveButton = el('button', 'marxy-library-save', 'Save as smart collection');
+    saveButton.type = 'button';
+    saveButton.hidden = true;
+    saveButton.setAttribute('data-marxy-library-save', '');
+    saveButton.addEventListener('click', () => void openSave());
+    saveForm = el('form', 'marxy-library-save-form');
+    saveForm.hidden = true;
+    saveForm.setAttribute('data-marxy-library-save-form', '');
+    saveForm.setAttribute('role', 'group');
+    saveForm.setAttribute('aria-label', 'Save as smart collection');
+    saveName = el('input', 'marxy-library-save-name');
+    saveName.type = 'text';
+    saveName.setAttribute('aria-label', 'Name for this smart collection');
+    saveName.placeholder = 'Name';
+    saveName.spellcheck = false;
+    saveName.autocomplete = 'off';
+    const saveGo = el('button', 'marxy-library-save', 'Save');
+    saveGo.type = 'submit';
+    const saveCancel = el('button', 'marxy-library-save', 'Cancel');
+    saveCancel.type = 'button';
+    saveCancel.addEventListener('click', () => closeSave(true));
+    saveForm.append(saveName, saveGo, saveCancel);
+    saveForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      void submitSave();
+    });
+
     const search = el('div', 'marxy-library-search');
     field = el('input', 'marxy-library-field');
     field.type = 'text';
@@ -935,6 +1052,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     suggestEl.hidden = true;
     chipsEl = el('div', 'marxy-library-chips');
     chipsEl.hidden = true;
+    chipsEl.append(saveButton, saveForm);
     search.append(field, suggestEl, chipsEl);
 
     const bar = el('div', 'marxy-library-bar');
@@ -984,7 +1102,9 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     probeLine = el('span', 'marxy-library-probe marxy-library-probe-line');
     probePad = el('span', 'marxy-library-probe marxy-library-probe-pad');
     probeRow = el('span', 'marxy-library-probe marxy-library-probe-row');
-    section.append(head, search, bar, body, statusEl, probeLine, probePad, probeRow);
+    noticesEl = el('div', 'marxy-library-notices');
+    noticesEl.setAttribute('role', 'status');
+    section.append(head, search, bar, body, statusEl, noticesEl, probeLine, probePad, probeRow);
 
     field.addEventListener('input', () => {
       active = 0;
@@ -1045,6 +1165,9 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     teardown = [];
     root.remove();
     root = null;
+    noticesEl = null;
+    saveDraft = null;
+    saving = false;
     if (main) {
       main.hidden = false;
       main.inert = false;
@@ -1064,7 +1187,20 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
 
   async function open(opts: { readonly scope?: ScopeId; readonly query?: string } = {}): Promise<void> {
     if (root) {
+      // Asked for a query while open (a Smart collections row): the view takes it in place, over All files.
+      if (opts.query !== undefined) {
+        scopeId = opts.scope ?? 'all';
+        sortChoice = null;
+        saveDraft = null;
+        saveName.value = '';
+        field.value = opts.query;
+        active = 0;
+        listEl.scrollTop = 0;
+        drawScopes();
+        refresh();
+      }
       field.focus();
+      updateSuggestions();
       return;
     }
     if (workspace.mode !== 'unfolded' || !palette()) return;

@@ -36,6 +36,13 @@ tree, sidebar, library window or persistent search bar. A list of folders, searc
 - **Worktrees.** Roots that share a git common directory are one group; the current root's copy of
   a file wins and the others fold under it ("+3 worktrees") unless their size or mtime differs.
 - **Failure.** A malformed `collection.toml` falls back to no extra roots and says so once.
+- **Saved queries (Q-07).** A `[[query]]` table is a smart collection: `name`, `q` (a query as the reader wrote it, §Query syntax)
+  and an optional `description`. `parseCollection` reads them in file order; a table with no name or no `q`, a repeated name
+  (compared trimmed, case folded; the first wins) or more than 200 are skipped with a warning. `appendQuery` adds one at
+  the end of the file and nothing else: every byte already there survives, comments, spacing and line endings included, and
+  the table takes the file's own line ending. It is the only writer of a saved query. `queryRange(bytes, name)` finds a table
+  (first byte to last line of keys) for *Edit in collection.toml*. The file is read for the queries in the same read as the
+  folders (`loadCollection`); a hand edit that does not parse keeps the last good list.
 
 ### Empty query
 
@@ -182,7 +189,7 @@ missing or malformed value (`words:>`) is an `incomplete` term that filters noth
 suggests keys and values at a caret. Ages: `mo` is 30 days and `y` is 365 days. A comparison key (`modified:`, `words:`, `tasks:`, `size:`) takes
 one value; a comma makes the term `incomplete`. Keys are case-insensitive while `OR` is case-sensitive
 (`or` is a word). `kind:` and `path:` values keep their case as written; how they match is Q-03's to decide.
-Completion replaces only up to the caret. Evaluating a query against the index is Q-03.
+Completion replaces only up to the caret. Evaluating a query against the index is Q-03. A saved query (§Collections) is stored as written and parsed by this same function when it runs.
 
 ## Tests
 

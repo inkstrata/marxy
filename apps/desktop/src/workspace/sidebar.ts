@@ -10,8 +10,12 @@
 // scope order and is capped (`SCOPE_ENTRY_CAP`), so a pinned or recent file outside the scope has no row until the
 // scope reaches it, exactly as in the palette. Nothing here reads the disk to find it.
 import type { IndexEntry } from '@marxy/core';
+import type { SavedQuery } from '@marxy/core/src/index-model/collection.ts';
+import { capQuery, evaluateQuery, parseQuery, textTerms, usesContentKeys, type QueryContext } from '@marxy/core/src/index-model/index.ts';
 import { SIDEBAR_SECTION_IDS, type SidebarSectionId } from '@marxy/core/src/layout/workspace-storage.ts';
+import { CONTENT_MIN_CHARS } from '../palette/content.ts';
 import { emptyStateSections, type EmptyStateInput } from '../palette/empty-state.ts';
+import { changedPredicate, scopeEntries, type ScopeInput } from '../library/scopes.ts';
 
 export { SIDEBAR_SECTION_IDS, type SidebarSectionId };
 
@@ -22,6 +26,8 @@ export const SIDEBAR_SECTIONS: readonly { readonly id: SidebarSectionId; readonl
   // W-08: these two are trees (`sidebar-tree.ts`), drawn after the lists above; `sidebarSections` never fills them.
   { id: 'repos', title: 'Repositories' },
   { id: 'folders', title: 'Folders' },
+  // Q-07: the `[[query]]` tables of collection.toml, drawn after the trees (`smartRows`); `sidebarSections` never fills it.
+  { id: 'smart', title: 'Smart collections' },
 ];
 
 /** Documents in Recent. */
@@ -54,6 +60,43 @@ export function sidebarSections(input: SidebarInput): readonly SidebarSection[] 
     pinned: [...rowsOf(['pinned']), ...rowsOf(['changed'])],
     repos: [],
     folders: [],
+    smart: [],
   };
   return SIDEBAR_SECTIONS.flatMap(({ id, title }) => (byId[id].length > 0 ? [{ id, title, rows: byId[id] }] : []));
+}
+
+/** What a saved query is asked against: the library's own context, so the sidebar and the library cannot disagree (Q-07). */
+export function queryContext(input: ScopeInput): QueryContext {
+  const { session } = input;
+  return {
+    nowMs: input.nowMs,
+    pinned: new Set(session.pinned),
+    recent: new Set(session.mru),
+    changed: changedPredicate(input),
+    readAt: (e) => session.readAt[e.path],
+  };
+}
+
+/**
+ * How many files a saved query matches among all the files, or null when the index cannot say. The count is the library's
+ * first answer to the same query over *All files* (index keys, before any file is read). A query that searches the lines
+ * of files (a word of two letters or more) or asks about contents (`words:`, `has:`, `tasks:`) is answered by reading
+ * files, which a row of the sidebar never does, so it has no count here and the library gives it.
+ */
+export function indexOnlyCount(q: string, input: ScopeInput): number | null {
+  const { query } = capQuery(parseQuery(q));
+  if (usesContentKeys(query) || textTerms(query).some((t) => t.text.length >= CONTENT_MIN_CHARS)) return null;
+  return evaluateQuery(query, scopeEntries('all', input), queryContext(input)).filter((hit) => !hit.unmeasured).length;
+}
+
+export interface SmartRow {
+  readonly name: string;
+  readonly q: string;
+  /** Files matched now, or null when only reading files could say (see `indexOnlyCount`). */
+  readonly count: number | null;
+}
+
+/** The Smart collections section's rows, in file order. Nothing is evaluated when `counted` is false (the section is folded). */
+export function smartRows(queries: readonly SavedQuery[], input: ScopeInput | null, counted: boolean): readonly SmartRow[] {
+  return queries.map((x) => ({ name: x.name, q: x.q, count: counted && input !== null ? indexOnlyCount(x.q, input) : null }));
 }

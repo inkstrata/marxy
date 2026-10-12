@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COLLECTION_TEMPLATE, appendQuery, appendRoot, denyRulesFor, isIgnored, parseCollection } from './index.ts';
+import { COLLECTION_TEMPLATE, appendQuery, appendRoot, denyRulesFor, isIgnored, parseCollection, queryRange } from './index.ts';
 
 const home = '/Users/ian';
 const ctx = { home };
@@ -392,4 +392,44 @@ test('a file with roots and captures yields both; one without captures has none 
   ]);
   assert.deepEqual([r.warnings, r.unknownKeys], [[], []]);
   assert.deepEqual(parseCollection(enc('[[root]]\npath = "/a"\n'), ctx).collection.captures, []);
+});
+
+// --- Q-07: where a saved query lies, for Edit in collection.toml ----------------------------------------------------
+
+const slice = (bytes: Uint8Array, r: { start: number; end: number } | null): string => (r === null ? '(none)' : dec(bytes.slice(r.start, r.end)));
+
+test('queryRange finds the table of a saved query, in bytes, after comments, unknown keys and a CRLF file', () => {
+  const text = '# my notes\r\nextra = 1\r\n\r\n[[root]]\r\npath = "/a"\r\n\r\n[[query]]\r\nname = "One"\r\nq = "kind:report"\r\n\r\n# the second\r\n[[query]]\r\nname = "Two"   # trailing\r\nq = "is:pinned"\r\nnote = "kept"\r\n\r\n[deny]\r\nglobs = []\r\n';
+  const bytes = enc(text);
+  assert.equal(slice(bytes, queryRange(bytes, 'One')), '[[query]]\r\nname = "One"\r\nq = "kind:report"');
+  assert.equal(slice(bytes, queryRange(bytes, ' two ')), '[[query]]\r\nname = "Two"   # trailing\r\nq = "is:pinned"\r\nnote = "kept"');
+  assert.equal(queryRange(bytes, 'Three'), null);
+});
+
+test('queryRange counts bytes, not characters: a BOM and non-ASCII text before the table', () => {
+  const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...enc('# café 日本語\n[[query]]\nname = "é"\nq = "x"\n')]);
+  const range = queryRange(bytes, 'é');
+  assert.equal(slice(bytes, range), '[[query]]\nname = "é"\nq = "x"');
+  assert.equal(range?.start, 3 + enc('# café 日本語\n').length);
+});
+
+test('queryRange follows a table whose value spans lines and holds a line that looks like a header', () => {
+  const text = '[[query]]\nname = "Odd"\nq = """\n[not a header]\nkind:report\n"""\n\n[[query]]\nname = "Next"\nq = "x"\n';
+  const bytes = enc(text);
+  assert.ok(slice(bytes, queryRange(bytes, 'Odd')).endsWith('"""'));
+  assert.equal(slice(bytes, queryRange(bytes, 'Next')), '[[query]]\nname = "Next"\nq = "x"');
+});
+
+test('queryRange is null for an inline query, a name that is not there and a file that is not TOML', () => {
+  assert.equal(queryRange(enc('query = [{ name = "A", q = "b" }]\n'), 'A'), null);
+  assert.equal(queryRange(enc(''), 'A'), null);
+  assert.equal(queryRange(enc('[[query\n= =\n'), 'A'), null);
+});
+
+test('a query appended by appendQuery is found at the end by queryRange', () => {
+  const base = enc('# header\n\n[[root]]\npath = "/a"\n');
+  const out = appendQuery(base, { name: 'Big plans', q: 'kind:report words:>2000' }, ctx);
+  const range = queryRange(out, 'Big plans');
+  assert.equal(range?.start, base.length, 'the table starts where the old file ended');
+  assert.equal(slice(out, range), "[[query]]\nname = 'Big plans'\nq = 'kind:report words:>2000'");
 });

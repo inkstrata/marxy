@@ -1181,8 +1181,8 @@ body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-ro
 .marxy-library-scope[aria-current="true"] { background: var(--marxy-color-accent-wash); box-shadow: inset 0 -2px 0 var(--marxy-color-accent); }
 .marxy-library-scope-count { margin-inline-start: 0.4em; color: var(--marxy-color-text-secondary); }
 .marxy-library-search { position: relative; padding: 0.2em 0.9em 0.4em; }
-.marxy-library-field { box-sizing: border-box; width: 100%; padding: 0.45em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; }
-.marxy-library-field:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
+.marxy-library-field, .marxy-library-save-name { box-sizing: border-box; width: 100%; padding: 0.45em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; }
+.marxy-library-field:focus-visible, .marxy-library-save-name:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
 .marxy-library-suggest { position: absolute; z-index: 5; inset-inline: 0.9em; margin-top: 0.15em; max-height: 14em; overflow: auto; background: var(--marxy-color-surface); border: 1px solid var(--marxy-color-rule); }
 .marxy-library-suggest[hidden], .marxy-library-chips[hidden] { display: none; }
 .marxy-library-suggest-item { display: flex; gap: 1em; justify-content: space-between; padding: 0.3em 0.7em; }
@@ -1195,6 +1195,19 @@ body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-ro
 .marxy-query-chip-remove { appearance: none; -webkit-appearance: none; margin: 0; padding: 0 0.4em; border: 0; border-radius: 1em; background: none; color: inherit; font: inherit; cursor: default; }
 .marxy-query-chip-remove:hover { background: var(--marxy-color-selection); }
 .marxy-query-chip-remove:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+/* Save as smart collection (Q-07): the last item of the row of chips, as the mock draws it. Asking for the name replaces the button
+   with a field in the same row, so nothing below it moves. A pill like the filter menus. The view's own notices float at its foot,
+   because the panes' are hidden under it. */
+.marxy-library-save { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.1em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: 1em; background: none; color: var(--marxy-color-text-secondary); font: inherit; cursor: default; }
+.marxy-library-save:hover { background: var(--marxy-color-selection); color: var(--marxy-color-text); }
+.marxy-library-save:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
+.marxy-library-save[hidden], .marxy-library-save-form[hidden] { display: none; }
+.marxy-library-save-form { display: inline-flex; align-items: center; gap: 0.3em; min-width: 0; }
+.marxy-library-save-form .marxy-library-save-name { width: 16em; padding: 0.1em 0.6em; }
+.marxy-library-notices { position: absolute; inset-inline: 0; bottom: calc(var(--marxy-size-chrome) * 36 / 13); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: calc(var(--marxy-size-chrome) * 6 / 13); padding-inline: calc(var(--marxy-size-chrome) * 16 / 13); pointer-events: none; }
+.marxy-library-notices:empty { display: none; }
+.marxy-library-notices > * { pointer-events: auto; }
+.marxy-library-notices > [data-notice-held] { display: none; }
 .marxy-library-bar { display: flex; align-items: center; justify-content: space-between; gap: 1em; padding: 0.2em 0.9em 0.5em; color: var(--marxy-color-text-secondary); }
 .marxy-library-facets { display: flex; flex-wrap: wrap; gap: 0.4em; min-width: 0; }
 .marxy-library-facets[hidden] { display: none; }
@@ -1300,7 +1313,7 @@ body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-ro
   .marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible { outline-color: Highlight; }
   .marxy-library-scope[aria-current="true"], .marxy-library-row[aria-selected="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; box-shadow: none; }
   .marxy-library-row[aria-selected="true"] * { color: HighlightText; }
-  .marxy-library-field, .marxy-library-suggest, .marxy-query-chip { border-color: CanvasText; }
+  .marxy-library-field, .marxy-library-save-name, .marxy-library-save, .marxy-library-suggest, .marxy-query-chip { border-color: CanvasText; }
   .marxy-library-suggest { background: Canvas; }
   .marxy-sidebar button:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
   .marxy-sidebar button:focus-visible { outline: 2px solid Highlight; }

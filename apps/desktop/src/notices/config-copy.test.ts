@@ -2,7 +2,7 @@
 // truly is, and the words of one that did not work say what is unchanged (X-21 rulings 2, 5 and 10).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COLLECTION_SAYS, CONFLICT_COPY_FAILED, CONFLICT_DISCARDED, conflictCopySaved, KIND_SAYS, layoutLeftOut, said } from './config-copy.ts';
+import { COLLECTION_SAYS, CONFLICT_COPY_FAILED, CONFLICT_DISCARDED, conflictCopySaved, KIND_SAYS, layoutLeftOut, said, SMART_SAYS } from './config-copy.ts';
 import { NO_FOLDER_YET } from '../document/untitled.ts';
 import { CONCEALED_REFUSAL, NOTHING_TO_PASTE } from '../paste/read-clipboard.ts';
 import { DISK_CHANGED_CHOOSE, DISK_CHANGED_EDITS_KEPT, FILE_REMOVED_ON_DISK, fileRefusedText } from './disk.ts';
@@ -23,6 +23,18 @@ const table: ReadonlyArray<readonly [string, { kind: NoticeKind; text: string },
   ['collection: added', COLLECTION_SAYS.added('a'), 'done'],
   ['collection: edit unreadable', COLLECTION_SAYS.editReadFailed(boom), 'error'],
   ['collection: create failed', COLLECTION_SAYS.createFailed(boom), 'error'],
+  ['smart: no config folder', SMART_SAYS.noConfig(), 'refused'],
+  ['smart: unreadable', SMART_SAYS.readFailed(boom), 'error'],
+  ['smart: no name', SMART_SAYS.noName(), 'refused'],
+  ['smart: no terms', SMART_SAYS.noTerms(), 'refused'],
+  ['smart: duplicate name', SMART_SAYS.duplicate('Big plans'), 'refused'],
+  ['smart: not TOML', SMART_SAYS.notToml(), 'refused'],
+  ['smart: not saved', SMART_SAYS.notSaved(new RangeError('query has a name over 80 characters')), 'refused'],
+  ['smart: file changed on disk', SMART_SAYS.stale(), 'refused'],
+  ['smart: write failed', SMART_SAYS.writeFailed(boom), 'error'],
+  ['smart: saved', SMART_SAYS.saved('Big plans'), 'done'],
+  ['smart: no config folder (edit)', SMART_SAYS.noConfigEdit(), 'refused'],
+  ['smart: edit unreadable', SMART_SAYS.editReadFailed(boom), 'error'],
   ['kind: quarantined', KIND_SAYS.quarantined(), 'error'],
   ['kind: no data folder', KIND_SAYS.noDataFolder(), 'refused'],
   ['kind: newer kinds.json', KIND_SAYS.newerKinds(), 'refused'],

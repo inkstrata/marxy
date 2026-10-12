@@ -6,7 +6,7 @@ import { createIndexFeed } from '../palette/index-feed.ts';
 import { paletteResults } from '../palette/search.ts';
 import { emptySession } from '../palette/session.ts';
 import { createMemoryShell } from '../shell/memory.ts';
-import { collectionFile, loadCollection, startCollection } from './load.ts';
+import { beginSaveQuery, collectionFile, editQueryInSource, loadCollection, saveQuery, startCollection } from './load.ts';
 
 const enc = (s: string) => new TextEncoder().encode(s);
 
@@ -221,4 +221,154 @@ test('adding a glob to collection.toml mid-run hides a file through every root, 
   await collection.settled();
   assert.deepEqual(h.search('plan'), [], 'gone once the reload is applied, before any re-walk');
   collection.stop();
+});
+
+// --- Q-07: the saved queries, and the one writer of a new one -------------------------------------------------------
+
+const dec = (b: Uint8Array) => new TextDecoder('utf-8', { ignoreBOM: true }).decode(b);
+/** A reader's file: a CRLF, commented one with a key Marxy does not know and a line that is not canonical. */
+const HAND_FILE = '# my folders\r\nextra = 1   # kept\r\n\r\n[[root]]\r\npath  =   "/a"   # spaced\r\n\r\n[[query]]\r\nname = "Old"\r\nq = "is:pinned"\r\n';
+
+function writerHarness(initial: string | undefined) {
+  const shell = createMemoryShell(initial === undefined ? {} : { '/collection.toml': enc(initial) });
+  const seen: { kind: string; text: string }[] = [];
+  const notify = (n: { kind: string; text: string }) => seen.push({ kind: n.kind, text: n.text });
+  const disk = async () => dec(await shell.readFile('/collection.toml'));
+  const writes = () => shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === '/collection.toml').length;
+  return { shell, seen, notify, disk, writes };
+}
+
+test('saving appends exactly one [[query]] table and changes no earlier byte of a commented CRLF file', async () => {
+  const h = writerHarness(HAND_FILE);
+  const draft = await beginSaveQuery(h.shell, { notify: h.notify });
+  assert.ok(draft);
+  const ok = await saveQuery(h.shell, draft, { name: 'Big plans', q: 'kind:report words:>2000' }, { notify: h.notify });
+  assert.equal(ok, true);
+  const after = await h.disk();
+  assert.ok(after.startsWith(HAND_FILE), 'every earlier byte survives, comments, spacing and CRLF included');
+  assert.equal(after.slice(HAND_FILE.length), "[[query]]\r\nname = 'Big plans'\r\nq = 'kind:report words:>2000'\r\n");
+  assert.equal(h.writes(), 1);
+  assert.deepEqual(h.seen.map((n) => n.kind), ['done']);
+});
+
+test('a missing file is created from the template with the table at the end', async () => {
+  const h = writerHarness(undefined);
+  const draft = await beginSaveQuery(h.shell, { notify: h.notify });
+  assert.equal(draft?.existed, false);
+  assert.equal(await saveQuery(h.shell, draft!, { name: 'A', q: 'is:pinned' }, { notify: h.notify }), true);
+  assert.match(await h.disk(), /^# Folders Marxy searches[\s\S]*\[\[query\]\]\nname = 'A'\nq = 'is:pinned'\n$/);
+});
+
+test('the file changed on disk between the read and the save: refused with a notice, nothing written', async () => {
+  const h = writerHarness(HAND_FILE);
+  const draft = await beginSaveQuery(h.shell, { notify: h.notify });
+  const theirs = `${HAND_FILE}# added by hand while the name was being typed\r\n`;
+  await h.shell.writeFileAtomic('/collection.toml', enc(theirs));
+  const writesBefore = h.writes();
+  assert.equal(await saveQuery(h.shell, draft!, { name: 'Big plans', q: 'kind:report' }, { notify: h.notify }), false);
+  assert.equal(await h.disk(), theirs, 'their edit is what the file holds');
+  assert.equal(h.writes(), writesBefore, 'no write was attempted');
+  assert.equal(h.seen.length, 1);
+  assert.equal(h.seen[0]!.kind, 'refused');
+  assert.match(h.seen[0]!.text, /changed on disk while you were naming this/);
+  assert.match(h.seen[0]!.text, / · the file is unchanged by this save · /);
+});
+
+test('the file appearing, or going away, between the read and the save is also a change', async () => {
+  const absent = writerHarness(undefined);
+  const draft = await beginSaveQuery(absent.shell, { notify: absent.notify });
+  await absent.shell.writeFileAtomic('/collection.toml', enc('[[root]]\npath = "/a"\n'));
+  assert.equal(await saveQuery(absent.shell, draft!, { name: 'A', q: 'is:pinned' }, { notify: absent.notify }), false);
+  assert.equal(await absent.disk(), '[[root]]\npath = "/a"\n');
+  assert.match(absent.seen[0]!.text, /changed on disk/);
+
+  const gone = writerHarness(HAND_FILE);
+  const second = await beginSaveQuery(gone.shell, { notify: gone.notify });
+  gone.shell.remove('/collection.toml');
+  assert.equal(await saveQuery(gone.shell, second!, { name: 'A', q: 'is:pinned' }, { notify: gone.notify }), false);
+  assert.equal(gone.shell.hasFile('/collection.toml'), false, 'not recreated');
+  assert.match(gone.seen[0]!.text, /changed on disk/);
+});
+
+test('a duplicate name, an empty name, an empty query and a file that is not TOML are each refused, naming why, file unchanged', async () => {
+  const cases: [string, { name: string; q: string }, RegExp][] = [
+    [HAND_FILE, { name: ' old ', q: 'kind:report' }, /A smart collection named "old" already exists/],
+    [HAND_FILE, { name: '   ', q: 'kind:report' }, /needs a name/],
+    [HAND_FILE, { name: 'New', q: '   ' }, /no terms yet/],
+    [HAND_FILE, { name: 'New', q: 'kind:' }, /no terms yet/],
+    ['[[query\n= =\n', { name: 'New', q: 'kind:report' }, /cannot be read as TOML/],
+    [HAND_FILE, { name: 'n'.repeat(81), q: 'kind:report' }, /name over 80 characters/],
+  ];
+  for (const [file, query, why] of cases) {
+    const h = writerHarness(file);
+    const draft = await beginSaveQuery(h.shell, { notify: h.notify });
+    const before = h.writes();
+    assert.equal(await saveQuery(h.shell, draft!, query, { notify: h.notify }), false, JSON.stringify(query));
+    assert.equal(await h.disk(), file, `unchanged: ${JSON.stringify(query)}`);
+    assert.equal(h.writes(), before);
+    assert.deepEqual(h.seen.map((n) => n.kind), ['refused']);
+    assert.match(h.seen[0]!.text, why);
+    assert.match(h.seen[0]!.text, / · /, 'what happened · what is unchanged · what to do');
+  }
+});
+
+test('a write that fails says so with an error and leaves the file as it was', async () => {
+  const h = writerHarness(HAND_FILE);
+  const draft = await beginSaveQuery(h.shell, { notify: h.notify });
+  h.shell.rejectNextWrite('permission');
+  assert.equal(await saveQuery(h.shell, draft!, { name: 'Big plans', q: 'kind:report' }, { notify: h.notify }), false);
+  assert.equal(await h.disk(), HAND_FILE);
+  assert.deepEqual(h.seen.map((n) => n.kind), ['error']);
+  assert.match(h.seen[0]!.text, /could not be saved .*· collection\.toml is unchanged · /);
+});
+
+test('a file that cannot be read stops the save before a name is asked for; no config folder is a refusal', async () => {
+  const h = writerHarness(HAND_FILE);
+  const failing = { ...h.shell, readFile: async () => { throw Object.assign(new Error('denied'), { code: 'permission' }); } };
+  assert.equal(await beginSaveQuery(failing, { notify: h.notify }), null);
+  assert.deepEqual(h.seen.map((n) => n.kind), ['error']);
+  const bare = { readFile: h.shell.readFile, mark: h.shell.mark };
+  const none = writerHarness(undefined);
+  assert.equal(await beginSaveQuery(bare, { notify: none.notify }), null);
+  assert.deepEqual(none.seen.map((n) => n.kind), ['refused']);
+});
+
+test('the saved queries follow the file: held at launch, a hand edit updates them once, a broken edit keeps the last good ones', async () => {
+  const h = harness('[[query]]\nname = "One"\nq = "kind:report"\n');
+  const collection = await h.start();
+  await collection.loaded;
+  assert.deepEqual(collection.queries(), [{ name: 'One', q: 'kind:report' }]);
+  let heard = 0;
+  const off = collection.onQueries(() => heard++);
+  await h.shell.writeFileAtomic('/collection.toml', enc('[[query]]\nname = "One"\nq = "kind:report"\n\n[[query]]\nname = "Two"\nq = "is:pinned"\n'));
+  h.shell.emit([{ kind: 'modified', path: '/collection.toml' }]);
+  await collection.settled();
+  assert.deepEqual(collection.queries().map((x) => x.name), ['One', 'Two']);
+  assert.equal(heard, 1);
+  h.shell.emit([{ kind: 'modified', path: '/collection.toml' }]);
+  await collection.settled();
+  assert.equal(heard, 1, 'a re-read that changes nothing says nothing');
+  await h.shell.writeFileAtomic('/collection.toml', enc('[[query\n'));
+  h.shell.emit([{ kind: 'modified', path: '/collection.toml' }]);
+  await collection.settled();
+  assert.deepEqual(collection.queries().map((x) => x.name), ['One', 'Two'], 'the last good file');
+  off();
+  collection.stop();
+});
+
+test('Edit in collection.toml opens the file in Source at the query\'s table, and at the top when it has none', async () => {
+  const h = writerHarness('# top\n[[query]]\nname = "A"\nq = "x"\n\n[[query]]\nname = "B"\nq = "y"\n');
+  const jumps: number[] = [];
+  const opened: string[] = [];
+  const app = {
+    shell: h.shell,
+    open: async (path: string, opts?: { onLanded?: () => void }) => { opened.push(path); opts?.onLanded?.(); },
+    jumpToSource: async (at: number) => { jumps.push(at); },
+  };
+  await editQueryInSource(app, 'B', { notify: h.notify });
+  assert.deepEqual(opened, ['/collection.toml']);
+  assert.equal(jumps[0], enc('# top\n[[query]]\nname = "A"\nq = "x"\n\n').length);
+  await editQueryInSource(app, 'Nope', { notify: h.notify });
+  assert.equal(jumps[1], 0);
+  assert.equal(await h.disk(), '# top\n[[query]]\nname = "A"\nq = "x"\n\n[[query]]\nname = "B"\nq = "y"\n', 'reading writes nothing');
 });

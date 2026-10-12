@@ -41,7 +41,7 @@ const entries = Object.keys(files).map((path, i) => {
   };
 });
 
-async function withPage(fn, { width = 1280, height = 900, open = '/r/A.md', extraEntries = [] } = {}) {
+async function withPage(fn, { width = 1280, height = 900, open = '/r/A.md', extraEntries = [], data = {} } = {}) {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width, height } });
@@ -57,7 +57,7 @@ async function withPage(fn, { width = 1280, height = 900, open = '/r/A.md', extr
     });
     await page.goto(`${base}app.html`);
     await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
-    const encoded = Object.fromEntries(Object.entries(files).map(([path, text]) => [path, b64(text)]));
+    const encoded = Object.fromEntries(Object.entries({ ...files, ...data }).map(([path, text]) => [path, b64(text)]));
     await page.evaluate(
       async ({ encoded, entries, open, extra }) => {
         const bytes = {};
@@ -68,6 +68,7 @@ async function withPage(fn, { width = 1280, height = 900, open = '/r/A.md', extr
         await handle.ready;
         window.__marxyHandle = handle;
         handle.palette.setIndexEntries([...entries, ...extra]);
+        await handle.collection?.loaded;
         window.__library = async () => {
           const { commands } = await import('/src/commands/index.ts');
           return commands().find((c) => c.id === 'library.open');
@@ -687,4 +688,195 @@ test('past 20,000 files the line search says it stopped at 20,000', async () => 
     await type(page, 'cache');
     await page.waitForFunction(() => /line search covers the first 20,000 of/.test(document.querySelector('.marxy-library-status').textContent), null, { timeout: 60_000 });
   }, { extraEntries: many });
+});
+
+// --- Save as smart collection (Q-07) ------------------------------------------------------------------------
+
+/** A reader's file: CRLF, comments, a key Marxy does not know, an unusual spacing, and one saved query already. */
+const HAND = '# my smart collections\r\nunknown = 1   # kept\r\n\r\n[[root]]\r\npath  =   "/r"   # spaced\r\n\r\n[[query]]\r\nname = "Old"\r\nq = "is:pinned"\r\n';
+const diskOf = (page, path = '/collection.toml') =>
+  page.evaluate(async (p) => {
+    try {
+      return new TextDecoder().decode(await window.__marxyHandle.shell.readFile(p));
+    } catch {
+      return null;
+    }
+  }, path);
+const writesTo = (page, path = '/collection.toml') => page.evaluate((p) => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === p).length, path);
+const saveButton = (page) => page.locator('[data-marxy-library-save]');
+const saveForm = (page) => page.locator('[data-marxy-library-save-form]');
+const nameField = (page) => page.locator('[data-marxy-library-save-form] input');
+const pills = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('[data-marxy-library] .marxy-notice')].map((n) => ({ kind: n.dataset.noticeKind, text: n.querySelector('.marxy-notice-text').textContent })),
+  );
+/** Types a query, asks for the name field and types `name`; the submit is the caller's. */
+async function nameIt(page, query, name) {
+  await type(page, query);
+  await saveButton(page).click();
+  await nameField(page).waitFor();
+  await nameField(page).fill(name);
+}
+const submit = async (page) => {
+  await nameField(page).press('Enter');
+  await settle(page, 150);
+};
+
+test('Save as smart collection is offered for a query with at least one term, and not for an empty one or one the parser ignores', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    const offered = () => saveButton(page).isVisible();
+    assert.equal(await offered(), false, 'no query');
+    await type(page, 'kind:');
+    assert.equal(await offered(), false, 'an incomplete term is ignored by the search');
+    await type(page, 'kind:report');
+    assert.equal(await offered(), true);
+    assert.equal(await saveButton(page).textContent(), 'Save as smart collection');
+    await type(page, '');
+    assert.equal(await offered(), false, 'clearing the query takes it away');
+    await type(page, 'cache');
+    assert.equal(await offered(), true, 'a plain word is a term too');
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-library-save').closest('.marxy-library-chips') !== null), true, 'it ends the row of chips');
+  });
+});
+
+test('saving "Big plans" appends exactly one [[query]] table and changes no earlier byte of a commented CRLF file; the sidebar row appears', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    assert.equal(await diskOf(page), HAND);
+    await nameIt(page, 'kind:report words:>2000', 'Big plans');
+    await submit(page);
+    const after = await diskOf(page);
+    assert.ok(after.startsWith(HAND), 'every earlier byte survives');
+    assert.equal(after.slice(HAND.length), "[[query]]\r\nname = 'Big plans'\r\nq = 'kind:report words:>2000'\r\n");
+    assert.equal(await writesTo(page), 1);
+    assert.deepEqual(await pills(page), [{ kind: 'done', text: 'Saved "Big plans" as a smart collection' }]);
+    assert.equal(await saveForm(page).isVisible(), false, 'the name field is put away');
+    assert.equal(await page.evaluate(() => document.activeElement.className), 'marxy-library-field', 'focus returns to the query');
+    await page.waitForSelector('[data-marxy-sidebar-row="smart:Big plans"]');
+    const names = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-sidebar-section="smart"] .marxy-sidebar-name')].map((n) => n.textContent));
+    assert.deepEqual(names, ['Old', 'Big plans']);
+    // The library is still on its query.
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-library-field').value), 'kind:report words:>2000');
+  }, { data: { '/collection.toml': HAND } });
+});
+
+test('with no collection.toml yet the first save creates it from the template, the table at the end', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    assert.equal(await diskOf(page), null);
+    await nameIt(page, 'kind:report', 'Reports');
+    await submit(page);
+    assert.match(await diskOf(page), /^# Folders Marxy searches[\s\S]*\n\[\[query\]\]\nname = 'Reports'\nq = 'kind:report'\n$/);
+    await page.waitForSelector('[data-marxy-sidebar-row="smart:Reports"]');
+  });
+});
+
+test('the file changed on disk between the read and the save: refused with a pill in the view, nothing written', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    await nameIt(page, 'kind:report', 'Reports');
+    const theirs = `${HAND}# a line the reader added in an editor\r\n`;
+    await page.evaluate(async (t) => window.__marxyHandle.shell.writeFileAtomic('/collection.toml', new TextEncoder().encode(t)), theirs);
+    const writes = await writesTo(page);
+    await submit(page);
+    assert.equal(await diskOf(page), theirs, 'the file is exactly what the other editor left');
+    assert.equal(await writesTo(page), writes, 'no write was attempted');
+    const shown = await pills(page);
+    assert.equal(shown.length, 1);
+    assert.equal(shown[0].kind, 'refused');
+    assert.match(shown[0].text, /changed on disk while you were naming this.* · the file is unchanged by this save · /);
+    assert.equal(await nameField(page).inputValue(), 'Reports', 'the name is kept for another try');
+    // Saving again works against the file as it is now, and keeps their line too.
+    await submit(page);
+    const after = await diskOf(page);
+    assert.ok(after.startsWith(theirs));
+    assert.equal(after.slice(theirs.length), "[[query]]\r\nname = 'Reports'\r\nq = 'kind:report'\r\n");
+  }, { data: { '/collection.toml': HAND } });
+});
+
+test('a duplicate name, an empty name, an empty query and a file that is not TOML are each refused with a pill naming why, the file unchanged', async () => {
+  const cases = [
+    { toml: HAND, query: 'kind:report', name: 'OLD', why: /A smart collection named "OLD" already exists/ },
+    { toml: HAND, query: 'kind:report', name: '   ', why: /needs a name/ },
+    { toml: HAND, query: null, name: 'Fresh', why: /no terms yet/ },
+    { toml: '[[query\n= =\n', query: 'kind:report', name: 'Fresh', why: /cannot be read as TOML/ },
+  ];
+  for (const c of cases) {
+    await withPage(async (page) => {
+      await unfold(page);
+      await openLibrary(page);
+      await nameIt(page, c.query ?? 'kind:report', c.name);
+      // An empty query: the reader clears the search while the name is being typed.
+      if (c.query === null) await page.fill('.marxy-library-field', '');
+      const writes = await writesTo(page);
+      await submit(page);
+      assert.equal(await diskOf(page), c.toml, `unchanged: ${JSON.stringify(c)}`);
+      assert.equal(await writesTo(page), writes);
+      const shown = await pills(page);
+      assert.equal(shown.length, 1, JSON.stringify(shown));
+      assert.equal(shown[0].kind, 'refused');
+      assert.match(shown[0].text, c.why);
+      assert.match(shown[0].text, / · .* · /, 'what happened · what is unchanged · what to do');
+    }, { data: { '/collection.toml': c.toml } });
+  }
+});
+
+test('a write that fails says so with an error pill and leaves the file as it was', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    await nameIt(page, 'kind:report', 'Reports');
+    await page.evaluate(() => window.__marxyHandle.shell.rejectNextWrite('io'));
+    await submit(page);
+    assert.equal(await diskOf(page), HAND);
+    const shown = await pills(page);
+    assert.deepEqual(shown.map((p) => p.kind), ['error']);
+    assert.match(shown[0].text, /could not be saved .* · collection\.toml is unchanged · /);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('[data-marxy-sidebar-row="smart:Reports"]').length), 0, 'no row for what was not written');
+  }, { data: { '/collection.toml': HAND } });
+});
+
+test('Esc in the name field puts it away without clearing the search; the pill takes its own Esc', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    await nameIt(page, 'kind:report', 'half a nam');
+    await nameField(page).press('Escape');
+    assert.equal(await saveForm(page).isVisible(), false);
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-library-field').value), 'kind:report', 'the search is kept');
+    assert.equal(await saveButton(page).isVisible(), true);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('[data-marxy-library]').length), 1, 'the view is still up');
+    assert.equal(await diskOf(page), HAND);
+    assert.equal(await writesTo(page), 0, 'nothing was written');
+  }, { data: { '/collection.toml': HAND } });
+});
+
+test('the name field keeps its focus and text while the results redraw around it', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    await nameIt(page, 'kind:report', 'Rep');
+    await page.evaluate((all) => window.__marxyHandle.palette.setIndexEntries(all.map((e) => ({ ...e }))), entries);
+    await settle(page, 400);
+    assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Name for this smart collection');
+    assert.equal(await nameField(page).inputValue(), 'Rep');
+  });
+});
+
+test('switching scope clears the query, and with it the name being asked for', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    await nameIt(page, 'kind:report', 'Reports');
+    await page.click('.marxy-library-scope:has-text("Recent")');
+    await settle(page, 200);
+    assert.equal(await saveForm(page).isVisible(), false);
+    assert.equal(await saveButton(page).isVisible(), false, 'no query, no Save');
+    assert.equal(await writesTo(page), 0);
+  }, { data: { '/collection.toml': HAND } });
 });

@@ -82,6 +82,8 @@
     "data-marxy-link-status",
     "data-marxy-library",
     "data-marxy-library-row",
+    "data-marxy-library-save",
+    "data-marxy-library-save-form",
     "data-marxy-query-chip",
     "data-marxy-sidebar-section",
     "data-marxy-sidebar-row",
@@ -208,7 +210,12 @@
     "marxy-source-readout",
     "marxy-source-selected",
     "marxy-source-character",
-    "marxy-fold-placeholder"
+    "marxy-fold-placeholder",
+    "marxy-library-save",
+    "marxy-library-save-form",
+    "marxy-library-save-name",
+    "marxy-library-notices",
+    "marxy-sidebar-row-smart"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",
