@@ -180,6 +180,7 @@ test('H-05: five theme directories are audited and pass, each variant of each', 
   assert.deepEqual(themes.map(t => t.name).sort(), ['default', 'fjord', 'high-contrast', 'ink', 'warm']);
   assert.deepEqual(themes.find(t => t.name === 'warm').variants, ['dark', 'light']);
   assert.deepEqual(themes.find(t => t.name === 'fjord').variants, ['dark']);
+  assert.deepEqual(themes.find(t => t.name === 'high-contrast').variants, ['dark', 'light']);
   const all = auditAll(themes);
   assert.deepEqual(all.failures, []);
   for (const name of ['warm', 'fjord', 'high-contrast']) assert.ok(all.byTheme[name].checks.length > 200, name);

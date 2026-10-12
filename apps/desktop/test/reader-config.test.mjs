@@ -72,6 +72,13 @@ async function boot(browser, config, doc = { path: DOC, bytes: fixture.toString(
     window.__variantAt = [];
     new MutationObserver(() => window.__variantAt.push([document.documentElement.dataset.marxyVariant, Date.now()]))
       .observe(document, { attributes: true, subtree: true, attributeFilter: ['data-marxy-variant'] });
+    // H-05: the ground in force each time the theme sheet's marker in the head changes, on the same clock.
+    window.__bgAt = [];
+    document.addEventListener('DOMContentLoaded', () => {
+      new MutationObserver(() =>
+        window.__bgAt.push([getComputedStyle(document.documentElement).getPropertyValue('--marxy-color-bg').trim(), Date.now()]),
+      ).observe(document.head, { childList: true, subtree: true, characterData: true });
+    });
   });
   await page.goto(`${base}test/palette-boot.html`);
   await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
@@ -134,17 +141,20 @@ test('variant = "light" in config is on the root before the file_read mark', asy
   }
 });
 
-test('H-05: theme = "warm" paints the first text in Dusk: the theme is on the page before the file_read mark', async () => {
+test('H-05: theme = "warm" paints the first text in Dusk: the ground is Dusk when file_read happens, and never Night before it', async () => {
   const browser = await launchWebkit();
   try {
     const { page } = await boot(browser, '# mine\ntheme = "warm"\n');
     const r = await page.evaluate(() => ({
-      themeAt: window.__h.shell.calls.find((c) => c.method === 'mark' && c.args[0] === 'bundled_theme')?.args[1],
+      bgAt: window.__bgAt,
       fileRead: window.__h.shell.calls.find((c) => c.method === 'mark' && c.args[0] === 'file_read').args[1],
       bg: getComputedStyle(document.documentElement).getPropertyValue('--marxy-color-bg').trim(),
     }));
-    assert.ok(r.themeAt !== undefined && r.themeAt <= r.fileRead, JSON.stringify(r));
     assert.equal(r.bg, '#1b1814');
+    const dusk = r.bgAt.find(([bg]) => bg === '#1b1814');
+    assert.ok(dusk !== undefined && dusk[1] <= r.fileRead, JSON.stringify(r));
+    // No sheet changed the ground to anything else before then (Night is #000000, in index.html's own sheet).
+    assert.deepEqual(r.bgAt.filter(([bg, at]) => at <= r.fileRead && bg !== '#1b1814'), [], JSON.stringify(r));
   } finally {
     await browser.close();
   }
@@ -299,6 +309,58 @@ test('a config that exists but cannot be read is never overwritten: the command 
     await settle(page);
     assert.equal(await writesOf(page), 0);
     assert.match(await page.evaluate(() => document.getElementById('marxy-notices').textContent), /config\.toml could not be updated/);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('H-05: Fjord is dark whatever the variant: the page color-scheme is dark under the light variant', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page } = await boot(browser, 'variant = "light"\ntheme = "fjord"\n');
+    const r = await page.evaluate(() => ({
+      variant: document.documentElement.dataset.marxyVariant,
+      scheme: getComputedStyle(document.documentElement).colorScheme,
+      bg: getComputedStyle(document.documentElement).getPropertyValue('--marxy-color-bg').trim(),
+    }));
+    assert.deepEqual(r, { variant: 'light', scheme: 'dark', bg: '#242933' });
+  } finally {
+    await browser.close();
+  }
+});
+
+test('H-05: a theme command that replaces a theme folder says which folder, that it is untouched, and the way back', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, mod } = await boot(browser, 'theme = "~/themes/mine"\nsize = 20\n');
+    await runPaletteCommand(page, mod, '>Dusk and Sepia');
+    const text = await page.evaluate(() => document.getElementById('marxy-notices').textContent);
+    assert.match(text, /~\/themes\/mine/);
+    assert.match(text, /untouched/);
+    assert.match(text, /theme = "~\/themes\/mine"/);
+    assert.match(await configOf(page), /^theme = "warm"$/m);
+    // A bundled theme replaced by another says nothing of folders.
+    await runPaletteCommand(page, mod, '>Fjord');
+    const after = await page.evaluate(() => document.getElementById('marxy-notices').textContent);
+    assert.equal((after.match(/no longer names the theme folder/g) ?? []).length, 1, after);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('H-05: a theme command whose config write fails says so and leaves config.toml unchanged', async () => {
+  const browser = await launchWebkit();
+  try {
+    const config = '# keep\ntheme = "~/themes/mine"\n';
+    const { page, mod } = await boot(browser, config);
+    await page.evaluate(() => {
+      window.__h.shell.writeFileAtomic = async () => { throw new Error('disk full'); };
+    });
+    await runPaletteCommand(page, mod, '>Dusk and Sepia');
+    const text = await page.evaluate(() => document.getElementById('marxy-notices').textContent);
+    assert.match(text, /config\.toml could not be updated: disk full/);
+    assert.doesNotMatch(text, /untouched/);
+    assert.equal(await configOf(page), config);
   } finally {
     await browser.close();
   }

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { BUNDLED_THEME_NAMES, bundledThemeName } from '../src/theme/bundled-themes.ts';
 import { writeReaderKey } from '../src/theme/reader-config.ts';
 import { resolveThemeChoice } from '../src/theme/user-theme.ts';
+import { isLightVariant } from '../src/source/page-scheme.ts';
 import { appearanceCommands } from '../src/commands/appearance.ts';
 
 const CONFIG = '/Users/ian/.config/marxy/config.toml';
@@ -64,4 +65,28 @@ test('the palette offers a theme command for every bundled theme and Night and P
   // Night and Paper is in force in a fresh page, so only it is hidden.
   assert.deepEqual(themes.filter((c) => c.when?.() === false).map((c) => c.id), ['view.theme-default']);
   assert.match(readFileSync(new URL('../src/commands/appearance.ts', import.meta.url), 'utf8'), /writeReaderKey/);
+});
+
+test('H-05: Source builds its dark base theme from the page color-scheme, so Fjord under the light variant is dark', () => {
+  const saved = { document: globalThis.document, getComputedStyle: globalThis.getComputedStyle };
+  try {
+    const root = { getAttribute: () => 'light' };
+    globalThis.document = { documentElement: root };
+    globalThis.getComputedStyle = () => ({ colorScheme: 'dark' });
+    assert.equal(isLightVariant(), false, 'light variant, dark color-scheme (Fjord)');
+    globalThis.getComputedStyle = () => ({ colorScheme: 'light' });
+    assert.equal(isLightVariant(), true);
+    globalThis.getComputedStyle = () => ({ colorScheme: '' });
+    assert.equal(isLightVariant(), true, 'no color-scheme: the variant decides');
+    root.getAttribute = () => null;
+    assert.equal(isLightVariant(), false);
+  } finally {
+    globalThis.document = saved.document;
+    globalThis.getComputedStyle = saved.getComputedStyle;
+  }
+});
+
+test('H-05: fjord sets color-scheme: dark in the block that also answers the light variant', () => {
+  const css = readFileSync(new URL('../../../packages/theme/fjord/theme.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(css, /:root,\s*:root\[data-marxy-variant="light"\]\s*\{\s*color-scheme:\s*dark;/);
 });

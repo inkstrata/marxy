@@ -11,14 +11,8 @@
 // island inside Rendered's page and keeps Rendered's code metrics, which is the `island` look below.
 
 import { Compartment, RangeSetBuilder, type Extension } from '@codemirror/state';
+import { isLightVariant } from './page-scheme.ts';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
-
-/** Whether the reader is currently on the light variant (ADR-0024; dark is the default). */
-function isLightVariant(): boolean {
-  if (typeof document === 'undefined') return false;
-  return document.documentElement.getAttribute('data-marxy-variant') === 'light';
-}
-
 
 /** Which look the editor wears: a code file or prose in Source (V-12), or the block editor inside Rendered's page. */
 export type SourceLook = 'code' | 'prose' | 'island';
@@ -288,6 +282,8 @@ export function liveMarxyTheme(compartment: Compartment, look: SourceLook = 'cod
             ? null
             : new MutationObserver(() => this.schedule());
         this.observer?.observe(document.documentElement, { attributes: true, attributeFilter: ['data-marxy-variant', 'style'] });
+        // A theme applied (or changed) rewrites the `#marxy-theme` marker in the head; its color-scheme may differ.
+        this.observer?.observe(document.head, { childList: true, subtree: true, characterData: true });
       }
       schedule(): void {
         if (this.queued) return;

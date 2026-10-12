@@ -3,6 +3,8 @@
    quiet text roles nudged toward the strong text where the gate needed it. */
 :root,
 :root[data-marxy-variant="light"] {
+  /* Dark whatever the variant: native scrollbars and controls follow it, and Source's base theme reads it. */
+  color-scheme: dark;
   --marxy-weight-body: 380;
   --marxy-weight-heading: 600;
   --marxy-weight-strong: 620;
