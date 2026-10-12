@@ -975,14 +975,25 @@ button.marxy-link-row:hover { background: var(--marxy-color-selection); }
 .marxy-sidebar button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
 .marxy-sidebar-library { display: block; width: 100%; padding: 0.35em 0.6em; }
 .marxy-sidebar-section { min-width: 0; }
-.marxy-sidebar-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5em; width: 100%; padding: 0.3em 0.6em; color: var(--marxy-color-text-secondary); }
+/* The look (U-06; the mock's 01-unfolded). A flush panel: the inset card waits for the overlay title bar (Q20, ADR-0038). */
+.marxy-sidebar { min-height: 100%; box-sizing: border-box; gap: 0.2em; }
+.marxy-sidebar-search { display: flex; align-items: center; gap: 0.5em; width: 100%; min-height: calc(var(--marxy-size-chrome) * 28 / 13); padding: 0 0.6em; margin-block-end: 0.4em; background: var(--marxy-color-selection); color: var(--marxy-color-text-faint); }
+.marxy-sidebar-search .marxy-toolbar-glyph, .marxy-sidebar-chevron { flex: none; display: inline-flex; }
+.marxy-sidebar-search-label { flex: 1; min-width: 0; }
+.marxy-sidebar-chip { flex: none; font: inherit; font-size: calc(var(--marxy-size-chrome) * 11 / 13); line-height: 1.3; }
+.marxy-sidebar-head { display: flex; align-items: center; gap: 0.3em; width: 100%; min-height: calc(var(--marxy-size-chrome) * 28 / 13); padding: 0 0.6em 0 0.3em; color: var(--marxy-color-text-faint); font-size: calc(var(--marxy-size-chrome) * 11 / 13); font-weight: 600; letter-spacing: 0.01em; }
+.marxy-sidebar-head:hover { color: var(--marxy-color-text-secondary); }
+.marxy-sidebar-chevron svg { width: 0.9em; height: 0.9em; }
+.marxy-sidebar-head[aria-expanded="false"] .marxy-sidebar-chevron { transform: rotate(-90deg); }
 .marxy-sidebar-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.marxy-sidebar-count { flex: none; }
+.marxy-sidebar-count { flex: none; margin-inline-start: auto; font-weight: 500; font-variant-numeric: tabular-nums; }
 .marxy-sidebar-list { list-style: none; margin: 0; padding: 0; }
-.marxy-sidebar-row { display: flex; align-items: center; gap: 0.5em; width: 100%; min-width: 0; padding: 0.3em 0.6em; white-space: nowrap; }
+.marxy-sidebar-row { display: flex; align-items: center; gap: 0.5em; width: 100%; min-width: 0; min-height: calc(var(--marxy-size-chrome) * 28 / 13); padding: 0 0.6em; white-space: nowrap; }
+.marxy-sidebar-row[aria-current="true"] { background: var(--marxy-color-accent-wash); color: var(--marxy-color-text-strong); font-weight: 600; }
 .marxy-sidebar-row .marxy-kind-glyph { flex: none; display: inline-flex; }
 .marxy-sidebar-name { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.marxy-sidebar-age { flex: none; color: var(--marxy-color-text-secondary); }
+.marxy-sidebar-age { flex: none; font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-faint); }
+.marxy-sidebar-foot { margin-block-start: auto; padding: 0.6em 0.6em 0.1em; border-top: 1px solid var(--marxy-color-rule); color: var(--marxy-color-text-secondary); font-size: calc(var(--marxy-size-chrome) * 11.5 / 13); }
 .marxy-sidebar-row-changed .marxy-sidebar-age { color: var(--marxy-color-accent); }
 
 /* The panes: the middle of the grid, below the bands. A split fills what the bands leave (index.html gives it the window's height). */
@@ -1133,7 +1144,8 @@ body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-ro
   .marxy-library-suggest { background: Canvas; }
   .marxy-sidebar button:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
   .marxy-sidebar button:focus-visible { outline: 2px solid Highlight; }
-  .marxy-sidebar-head, .marxy-sidebar-age { color: GrayText; }
+  .marxy-sidebar-head, .marxy-sidebar-age, .marxy-sidebar-search, .marxy-sidebar-foot { color: GrayText; }
+  .marxy-sidebar-row[aria-current="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
   .marxy-verb-menu-item:focus { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .marxy-verb-menu-item:focus .marxy-verb-menu-key { color: HighlightText; }
   .marxy-divider::before { background: CanvasText; animation: none !important; forced-color-adjust: none; }

@@ -354,3 +354,23 @@ test('a declared ~/Documents refused for another reason is rescanned at REVALIDA
   trees.stop();
   await trees.settled();
 });
+
+test('watchState and indexing tell what is true now: live, refused, none; and a walk in flight (U-06)', async () => {
+  const shell = createMemoryShell(files());
+  const index = createIndexService(shell);
+  const heard: string[] = [];
+  index.onStatusChange(() => heard.push(`${index.watchState()}/${index.indexing()}`));
+  assert.equal(index.watchState(), 'none');
+  assert.equal(index.indexing(), false);
+  await index.ensureFor('/c/README.md');
+  await index.settled();
+  assert.equal(index.indexing(), false, 'and is done once settled');
+  index.setTreeWatch('/c', 'live');
+  assert.equal(index.watchState(), 'live');
+  index.setTreeWatch('/n', 'refused');
+  assert.equal(index.watchState(), 'refused', 'a refusal outranks a live watch: the foot must not say watching');
+  index.setTreeWatch('/n', undefined);
+  index.setTreeWatch('/c', undefined);
+  assert.equal(index.watchState(), 'none');
+  assert.ok(heard.includes('none/true') && heard.includes('live/false') && heard.includes('refused/false'), heard.join(' '));
+});
