@@ -296,3 +296,59 @@ export function appendQuery(bytes: Uint8Array, query: SavedQuery, ctx: { readonl
   }
   return out;
 }
+
+/** A byte range of a file: `start` is the first byte, `end` is one past the last. */
+export interface ByteRange {
+  readonly start: number;
+  readonly end: number;
+}
+
+const ANY_HEADER = /^[ \t]*\[\[?[^\]\n]*\]\]?[ \t]*(#.*)?\r?$/;
+const QUERY_HEADER = /^[ \t]*\[\[[ \t]*query[ \t]*\]\][ \t]*(#.*)?\r?$/;
+
+/**
+ * Where the `[[query]]` table named `name` lies in `bytes`: from its header line to its last line of keys, in bytes,
+ * for *Edit in collection.toml* to open the file there. The name is compared as the parser does (trimmed, case folded).
+ * Null when no table of that name is found (a query written inline, `query = [{ ... }]`, has no table of its own), or
+ * when the file is not TOML. Reads only; nothing is written.
+ */
+export function queryRange(bytes: Uint8Array, name: string): ByteRange | null {
+  const key = name.trim().toLowerCase();
+  const parsed = parseCollection(bytes, { home: '/' });
+  if (parsed.warnings.includes(UNPARSEABLE)) return null;
+  if (!parsed.collection.queries.some((x) => x.name.trim().toLowerCase() === key)) return null;
+
+  const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
+  // Lines with their character offsets; a table runs from its header to the line before the next header.
+  const lines: { readonly at: number; readonly text: string }[] = [];
+  for (let at = 0; at < text.length; ) {
+    const nl = text.indexOf('\n', at);
+    const end = nl < 0 ? text.length : nl + 1;
+    lines.push({ at, text: text.slice(at, end).replace(/\r?\n$/, '') });
+    at = end;
+  }
+  const headers = lines.flatMap((l, i) => (ANY_HEADER.test(l.text) ? [i] : []));
+  for (const first of lines.flatMap((l, i) => (QUERY_HEADER.test(l.text) ? [i] : []))) {
+    // The next header may be a line of a multi-line value that only looks like one: the chunk is extended until it parses.
+    for (const next of [...headers.filter((h) => h > first), lines.length].slice(0, 8)) {
+      const from = lines[first]!.at;
+      const to = next < lines.length ? lines[next]!.at : text.length;
+      const chunk = text.slice(from, to);
+      let table: unknown;
+      try {
+        table = (parse(chunk) as { query?: unknown }).query;
+      } catch {
+        continue;
+      }
+      const entry = Array.isArray(table) && table.length === 1 ? table[0] : undefined;
+      if (isRecord(entry) && typeof entry.name === 'string' && entry.name.trim().toLowerCase() === key) {
+        // Blank lines and comments after the last value belong to what follows (a note above the next table).
+        const trimmed = chunk.replace(/(?:\r?\n[ \t]*(?:#.*)?)+$/, '').replace(/[ \t\r\n]+$/, '');
+        const byteAt = (chars: number): number => new TextEncoder().encode(text.slice(0, chars)).length;
+        return { start: byteAt(from), end: byteAt(from + trimmed.length) };
+      }
+      break;
+    }
+  }
+  return null;
+}

@@ -1,7 +1,9 @@
 // The sidebar (W-07; ADR-0058): the `sidebar` region while it is shown, unfolded or peeking. Two foldable sections,
 // Recent and Pinned (the changed files after the pinned), drawn from `sidebarSections` over the palette's feed and
 // session; a *Library* row above them when the command `library.open` is registered (Q-03). After them, Repositories and
-// Folders (W-08): the index's roots as lazy trees (`sidebar-tree.ts`), a folder listed with `readDir` only when it opens. Layout is base.css
+// Folders (W-08): the index's roots as lazy trees (`sidebar-tree.ts`), a folder listed with `readDir` only when it opens. Last, Smart
+// collections (Q-07): the `[[query]]` tables of collection.toml, each row opening the library on its query, with a count the
+// index alone can give (`sidebar.ts`, `smartRows`); a row's menu has *Edit in collection.toml*. Layout is base.css
 // (`.marxy-sidebar`); state is ARIA and data attributes (`data-marxy-sidebar-section`, `data-marxy-sidebar-row`), and
 // the stylesheet draws it.
 //
@@ -20,8 +22,10 @@ import type { AppContext, Command } from '../commands/registry.ts';
 import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
 import { relativeAge, spokenAge } from '../palette/empty-state.ts';
 import { buildAppContext, openPalette } from '../selection/bind.ts';
-import { changedPredicate } from '../library/scopes.ts';
-import { SIDEBAR_SECTIONS, sidebarSections, type SidebarMark, type SidebarSection } from './sidebar.ts';
+import { changedPredicate, type ScopeInput } from '../library/scopes.ts';
+import { collectionOf, editQueryInSource } from '../collection/load.ts';
+import { openVerbMenu } from '../selection/verb-menu.ts';
+import { SIDEBAR_SECTIONS, sidebarSections, SmartCounts, smartRows, type SidebarMark, type SidebarSection, type SmartRow } from './sidebar.ts';
 import {
   changedByGroup,
   closeWithin,
@@ -78,6 +82,11 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
   const reading = new Set<string>();
   const readAgain = new Set<string>();
   let wasIndexing = handle.index.indexing();
+  /** The collection whose saved queries are drawn (`bootApplication` starts it just after the palette) and what stops listening to it. */
+  let followed: ReturnType<typeof collectionOf> = undefined;
+  let offQueries: (() => void) | null = null;
+  /** The saved queries' counts, made off the path of a redraw; a landed count redraws. */
+  const counts = new SmartCounts(() => draw());
 
   const libraryCommand = (): Command | undefined =>
     (handle.commands() as readonly Command[]).find((c) => c.id === LIBRARY_COMMAND);
@@ -250,6 +259,19 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     const model = palette() ? treeModel(feedEntries, byPath) : null;
     const library = libraryCommand() !== undefined;
     const feedCount = feedEntries.length;
+    followQueries();
+    const queries = followed?.queries() ?? [];
+    // Counted only while the section is open, and off this path: `request` schedules the count; the old one shows until it lands.
+    const smartCounted = queries.length > 0 && !collapsed.has('smart');
+    const p = palette();
+    counts.request(
+      queries.map((x) => x.q),
+      smartCounted && p
+        ? { entries: feedEntries, declared: p.feed.declared(), session: p.session, nowMs: Date.now(), watched: (r) => handle.index.isWatched(r), baselineMs: (r) => handle.index.baselineMs(r) } satisfies ScopeInput
+        : null,
+      `${handle.index.roots().filter((r) => handle.index.isWatched(r)).join('\0')}|${handle.index.watchState()}`,
+    );
+    const smart = smartRows(queries, (q) => counts.get(q));
     // What the tree watches are now (live or refused), not what was declared; a walk under way hides the count.
     const watching = handle.index.watchState();
     const indexing = handle.index.indexing();
@@ -258,7 +280,7 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       id: s.id,
       rows: s.rows.map((r) => [r.entry.path, r.entry.title, r.entry.mtimeMs, r.mark, relativeAge(Date.now(), r.entry.mtimeMs)]),
     }));
-    const key = JSON.stringify([library, [...collapsed], rows, sectionsKeyKinds(sections), model?.signature ?? null, feedCount, watching, indexing, active]);
+    const key = JSON.stringify([library, [...collapsed], rows, sectionsKeyKinds(sections), model?.signature ?? null, feedCount, watching, indexing, active, smart]);
     if (key === drawn) return;
     drawn = key;
     root.replaceChildren();
@@ -270,11 +292,77 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       if (model.repos.length > 0) root.append(treeSectionNode('repos', 'Repositories', model.repos, model.isChanged, byPath, active));
       if (model.folders.length > 0) root.append(treeSectionNode('folders', 'Folders', model.folders, model.isChanged, byPath, active));
     }
+    if (smart.length > 0) root.append(smartSectionNode(smart));
     if (indexing || feedCount > 0) root.append(footNode(feedCount, watching, indexing));
     rove();
     if (hadFocus && focusKey) (stopFor(focusKey) ?? stopsOf()[0])?.focus();
     rove();
   }
+
+  /** Listens to the collection's saved queries once it exists, so a save or a hand edit to collection.toml redraws the section. */
+  function followQueries(): void {
+    const collection = collectionOf(handle);
+    if (collection === followed) return;
+    offQueries?.();
+    followed = collection;
+    offQueries = collection ? collection.onQueries(() => draw()) : null;
+  }
+
+  /** A row opens the library on its query; the library already open takes the query in place. */
+  const openSmart = async (row: SmartRow): Promise<void> => {
+    try {
+      const { libraryFor } = await import('../library/view.ts');
+      await libraryFor(handle).open({ query: row.q });
+    } catch (error) {
+      console.warn('marxy: the library failed to open from a smart collection', error);
+    }
+  };
+
+  /** The row's menu: one action, which opens collection.toml in Source at the table. */
+  const smartMenu = (row: SmartRow, at: { x: number; y: number }): void => {
+    openVerbMenu(at, buildAppContext(handle), {
+      registered: [],
+      allActions: () => {},
+      label: 'Smart collection',
+      rows: [{ command: null, title: 'Edit in collection.toml', key: 'smart-edit', run: () => editQueryInSource(handle, row.name) }],
+    });
+  };
+
+  const smartSectionNode = (rows: readonly SmartRow[]): HTMLElement => {
+    const node = document.createElement('section');
+    node.className = 'marxy-sidebar-section';
+    node.setAttribute('data-marxy-sidebar-section', 'smart');
+    node.append(headerNode('smart', 'Smart collections', `${rows.length} ${rows.length === 1 ? 'smart collection' : 'smart collections'}`, rows.length));
+    if (collapsed!.has('smart')) return node;
+    const list = document.createElement('ul');
+    list.className = 'marxy-sidebar-list';
+    for (const row of rows) {
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'marxy-sidebar-row marxy-sidebar-row-smart';
+      button.dataset.stop = `smart:${row.name}`;
+      button.setAttribute('data-marxy-sidebar-row', `smart:${row.name}`);
+      button.title = row.q;
+      button.setAttribute('aria-haspopup', 'menu');
+      button.setAttribute('aria-label', `${row.name}, smart collection${row.count === null ? '' : `, ${row.count} ${row.count === 1 ? 'file' : 'files'}`}`);
+      const name = document.createElement('span');
+      name.className = 'marxy-sidebar-name';
+      name.textContent = row.name;
+      button.append(toolbarIconElement(document, 'find'), name);
+      if (row.count !== null) button.append(quiet(row.count.toLocaleString('en-US')));
+      button.addEventListener('mousedown', (event) => event.preventDefault());
+      button.addEventListener('click', () => void openSmart(row));
+      button.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        smartMenu(row, { x: event.clientX, y: event.clientY });
+      });
+      item.append(button);
+      list.append(item);
+    }
+    node.append(list);
+    return node;
+  };
 
   const sectionsKeyKinds = (sections: readonly SidebarSection[]): string[] => sections.flatMap((s) => s.rows.map((r) => kindOf(r.entry)));
 
@@ -514,7 +602,17 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     const at = stops.indexOf(document.activeElement as HTMLButtonElement);
     if (at < 0) return;
     const mod = mac ? event.metaKey : event.ctrlKey;
-    const isFileRow = stops[at]!.classList.contains('marxy-sidebar-row') || (stops[at]!.getAttribute('role') === 'treeitem' && !stops[at]!.hasAttribute('aria-expanded'));
+    const smartRow = stops[at]!.dataset.stop?.startsWith('smart:') === true;
+    if (smartRow && (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))) {
+      const rect = stops[at]!.getBoundingClientRect();
+      const row = followed?.queries().find((x) => `smart:${x.name}` === stops[at]!.dataset.stop);
+      if (row) {
+        event.preventDefault();
+        smartMenu({ name: row.name, q: row.q, count: null }, { x: rect.left + rect.width / 2, y: rect.bottom });
+      }
+      return;
+    }
+    const isFileRow = (!smartRow && stops[at]!.classList.contains('marxy-sidebar-row')) || (stops[at]!.getAttribute('role') === 'treeitem' && !stops[at]!.hasAttribute('aria-expanded'));
     if (event.key === 'Enter' && mod && isFileRow) {
       event.preventDefault();
       openPath(stops[at]!.getAttribute('data-marxy-sidebar-row')!, true);
@@ -628,8 +726,10 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
 
   return () => {
     disposed = true;
+    counts.cancel();
     if (waiting !== null) clearTimeout(waiting);
     offFeed?.();
+    offQueries?.();
     offSignal();
     offWatched();
     offStatus();

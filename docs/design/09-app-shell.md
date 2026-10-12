@@ -169,7 +169,7 @@ recent file the feed's scope cap leaves out has no row, as in the palette. A cli
 pane (`AppHandle.open`: the unsaved-changes prompt, history and read time are the open's own); `Mod`-click or `Mod+Return`
 opens it beside, in a pane made if need be. `Alt`-click on a header folds or opens every section as the clicked one
 does. A *Library* row opens the sidebar only when the command `library.open` is registered (Q-03 registers it); there is
-no Smart-collections section (Q-07) and no pin control (the palette's `Mod+.` stays the only
+a Smart-collections section only when `collection.toml` has a query (Q-07, below) and no pin control (the palette's `Mod+.` stays the only
 one). The list is one tab stop; arrows, Home and End move within it; each row and header has an accessible name (title,
 pinned or changed, age in words). The sidebar redraws when a document opens or saves, the index patches, and when the
 pointer or focus comes back after a pin made in the palette; the palette mounts after the app, so a sidebar made before
@@ -197,6 +197,19 @@ or steps out to its parent (on a section header, ← folds and → opens). A fol
 many it does not draw. Which folders are open is held while the window lives; a launch starts closed. `readDir` leaves out
 symlinks and deny-listed names without a count, so the tree can show fewer names than the disk holds; a count needs a
 `shell-api` field and is its own story. *New file here* is not drawn (W-14 registers it).
+
+**Smart collections (Q-07).** After Folders, a **Smart collections** section (`smart` in `SIDEBAR_SECTION_IDS`; `workspace.json`
+keeps its fold) lists the `[[query]]` tables of `collection.toml` by name, in file order (`CollectionHandle.queries()`, the
+same read as the folders; a hand edit updates the section, a broken one keeps the last good list). With no query the
+section is not drawn, and there are no built-in rows: near-duplicates and broken paths wait for Q-06 to make `is:dup` and
+`is:broken` match. A row is a glyph, the name and a quiet count; the query is its tooltip. A click opens the library on
+the query over *All files* (`libraryFor(handle).open({ query })`; a library already open takes the query in place). The
+count is the library's own first answer for the same query (`queryContext` is shared), computed from the index on each
+change and only while the section is open: a folded section counts nothing. A query that needs files read (a word of two
+letters or more is searched in the lines of files; `words:`, `has:` and `tasks:` measure them) has no count in the
+sidebar, because a row never reads a file; the library gives its number. A row's menu (right-click, the context-menu key
+or Shift+F10) has one action, *Edit in collection.toml*, which opens the file in Source with the table's first byte at the
+reading line (`queryRange`). Nothing here renames or deletes a query.
 
 **Remembered panels.** Which regions are docked is `workspace.json` in the data directory beside `layout.json`
 (`{ version, panels: { sidebar, toolbar, tabs, strip, inspector, status-bar }, sidebar?: { collapsed: [...] } }`; same version guard and quarantine; `sidebar` is absent until a section is first folded, W-07).
@@ -456,7 +469,17 @@ the tabs and the strip stay as they were.
   and closes the view; `Alt+Return` opens it in the other pane (a second tab is the pane's own: the tab row follows the
   panes), and in a window too narrow for two columns says so in the status line and stays; `Esc` clears the field, then
   closes the view and focus goes back to the pane that had it (it does not fold the window).
-- **Not here.** A rendered preview (Q-03.1), facet menus, grouping, density, columns, saved queries, Add source, Index
+- **Save as smart collection (Q-07).** A query with at least one term (a term the parser ignores, such as `kind:` alone,
+  is not one) ends its row of chips with **Save as smart collection**. It reads `collection.toml` and keeps those bytes,
+  then asks for a name in a field in the same row (Return saves, Esc puts the field away and keeps the search). Saving
+  reads the file again; if its bytes are no longer the ones kept, the save is refused and nothing is written (a hand
+  edit, a sync, another Marxy). Otherwise `appendQuery` adds one `[[query]]` table at the end and writes the file
+  atomically. A duplicate name (case folded), an empty name, an empty query and a file that is not TOML are refused, a
+  failed write is an error, and each says what is unchanged: the file is exactly as it was. The view's notices are pills
+  in its own region at its foot, because the panes' are hidden under it. The section in the sidebar updates at once.
+  There is no rule builder (a row is one query; the field is the builder), and no rename or delete: *Edit in
+  collection.toml* is the way to either.
+- **Not here.** A rendered preview (Q-03.1), facet menus, grouping, density, columns, Add source, Index
   health, bulk actions, near-duplicates and broken paths are later cards.
 
 ## Outline

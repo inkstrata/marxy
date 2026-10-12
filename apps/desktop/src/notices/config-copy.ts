@@ -59,6 +59,55 @@ export const COLLECTION_SAYS = {
   }),
 } as const;
 
+/** collection.toml: *Save as smart collection* and *Edit in collection.toml* (Q-07). Every refusal says the file is as it was. */
+export const SMART_SAYS = {
+  noConfig: (): Said => ({
+    kind: 'refused',
+    text: said('This build keeps no configuration folder, so a smart collection cannot be saved', 'nothing was changed'),
+  }),
+  readFailed: (e: unknown): Said => ({
+    kind: 'error',
+    text: said(`collection.toml could not be read (${String(e)})`, 'it is unchanged', 'Check that the file can be read, then try again.'),
+  }),
+  noName: (): Said => ({
+    kind: 'refused',
+    text: said('A smart collection needs a name, so it was not saved', 'collection.toml is unchanged', 'Type a name, then save again.'),
+  }),
+  noTerms: (): Said => ({
+    kind: 'refused',
+    text: said('The search has no terms yet, so it was not saved', 'collection.toml is unchanged', 'Type a search in the library, then save it.'),
+  }),
+  duplicate: (name: string): Said => ({
+    kind: 'refused',
+    text: said(`A smart collection named "${name}" already exists, so this one was not saved`, 'collection.toml is unchanged', 'Choose another name.'),
+  }),
+  notToml: (): Said => ({
+    kind: 'refused',
+    text: said('collection.toml cannot be read as TOML, so the smart collection was not saved', 'the file is exactly as you left it', 'Fix it with Edit collection, then try again.'),
+  }),
+  notSaved: (e: unknown): Said => ({
+    kind: 'refused',
+    text: said(`The smart collection was not saved: ${why(e).replace(/\.$/, '')}`, 'collection.toml is unchanged', 'Fix it, then save again.'),
+  }),
+  stale: (): Said => ({
+    kind: 'refused',
+    text: said('collection.toml changed on disk while you were naming this, so the smart collection was not saved', 'the file is unchanged by this save', 'Save again to add it to the file as it is now.'),
+  }),
+  writeFailed: (e: unknown): Said => ({
+    kind: 'error',
+    text: said(`The smart collection could not be saved (${String(e)})`, 'collection.toml is unchanged', 'Check that the folder can be written to, then try again.'),
+  }),
+  saved: (name: string): Said => ({ kind: 'done', text: said(`Saved "${name}" as a smart collection`) }),
+  noConfigEdit: (): Said => ({
+    kind: 'refused',
+    text: said('This build keeps no configuration folder, so there is no collection.toml to edit', 'nothing was changed'),
+  }),
+  editReadFailed: (e: unknown): Said => ({
+    kind: 'error',
+    text: said(`collection.toml could not be read (${String(e)})`, 'it is unchanged', 'Check that the file can be read, then try again.'),
+  }),
+} as const;
+
 /** kinds.json and config.toml: *Show as* and *Always open this folder as* (K-04). */
 export const KIND_SAYS = {
   quarantined: (): Said => ({

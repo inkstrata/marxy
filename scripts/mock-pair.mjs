@@ -173,6 +173,9 @@ const entries = docs.filter((d) => d.src).map((d, i) => ({
   readerKind: d.kind,
 }));
 
+// collection.toml of the app's harness: two saved queries whose counts the index alone can give.
+const SAVED_QUERIES = '[[query]]\nname = "Reports"\nq = "kind:report"\n\n[[query]]\nname = "Notes this month"\nq = "kind:notes modified:<30d"\n';
+
 const settle = (page, ms) => page.waitForTimeout(ms);
 
 // ---------- the app ----------
@@ -191,8 +194,10 @@ async function bootApp(browser, theme, { width = W, height = H, open = PLAN } = 
   });
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+  // Two saved queries, so the sidebar draws its Smart collections (Q-07) as the mock does. The memory shell's config is /config.
+  const withQueries = { ...files, '/collection.toml': SAVED_QUERIES };
   const config = configFor(theme);
-  const all = config === null ? files : { ...files, '/config': config };
+  const all = config === null ? withQueries : { ...withQueries, '/config': config };
   const encoded = Object.fromEntries(Object.entries(all).map(([p, t]) => [p, support.b64(t)]));
   await page.evaluate(
     async ({ encoded, entries, open }) => {
@@ -230,7 +235,12 @@ async function unfoldedWithTabs(page) {
 
 const APP_STATES = {
   async '01-folded'(page) {},
-  async '01-unfolded'(page) { await unfoldedWithTabs(page); },
+  async '01-unfolded'(page) {
+    await unfoldedWithTabs(page);
+    // The whole library is in the feed, so the saved queries have something to count (Q-07).
+    await page.evaluate((e) => window.__marxyHandle.palette.setIndexEntries(e), entries);
+    await settle(page, 400);
+  },
   async '02-source'(page) { await unfoldedWithTabs(page); await page.evaluate(() => window.__cmd('view.mode-source')); await settle(page, 800); },
   async '02-source-folded'(page) { await page.evaluate(() => window.__cmd('view.mode-source')); await settle(page, 800); },
   async '03-split'(page) { await unfoldedWithTabs(page); await page.evaluate(() => window.__cmd('view.mode-split')); await settle(page, 1000); },
@@ -252,6 +262,8 @@ const APP_STATES = {
     await page.evaluate((e) => window.__marxyHandle.palette.setIndexEntries(e), entries);
     await page.evaluate(() => window.__cmd('library.open'));
     await page.waitForSelector('[data-marxy-library]');
+    // A query with a term offers Save as smart collection (Q-07).
+    await page.locator('.marxy-library-field').fill('kind:report modified:<30d');
     await settle(page, 600);
   },
   async '06-transform-sheet'(page) {

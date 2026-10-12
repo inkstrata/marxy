@@ -1,12 +1,15 @@
 // collection.toml into the index (C-10, ADR-0053): read the reader's declared folders beside
 // config.toml, hold each in the index service in file order, then the recent roots, and follow the
 // file while Marxy runs. A missing file is an empty collection; a malformed one costs one notice.
-import type { Collection } from '@marxy/core/src/index-model/collection.ts';
-import { denyRulesFor, parseCollection } from '@marxy/core/src/index-model/collection.ts';
+import type { Collection, SavedQuery } from '@marxy/core/src/index-model/collection.ts';
+import { appendQuery, denyRulesFor, parseCollection, queryRange } from '@marxy/core/src/index-model/collection.ts';
 import { dirname, joinPath } from '@marxy/core/src/index-model/paths.ts';
+import { parseQuery } from '@marxy/core/src/index-model/query.ts';
+import { staleWriteError } from '@marxy/core/src/position/stale-write.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import { isUntitled } from '../document/untitled.ts';
 import type { IndexService } from '../index/service.ts';
+import { SMART_SAYS, type Said } from '../notices/config-copy.ts';
 import { notify as showNotice, type NoticeInput } from '../notices/index.ts';
 import type { IndexFeed } from '../palette/index-feed.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
@@ -124,6 +127,12 @@ export interface CollectionHandle {
   readonly recentLoaded: Promise<void>;
   /** Resolves once a reload after a change to collection.toml has been applied (tests). */
   settled(): Promise<void>;
+  /** The saved queries (Smart collections) of the last collection.toml that parsed, in file order (Q-07). */
+  queries(): readonly SavedQuery[];
+  /** Calls `cb` when the saved queries change (a hand edit to the file, or a save); returns what stops it. */
+  onQueries(cb: () => void): () => void;
+  /** Reads collection.toml again now, as a change to it does; resolves once applied. */
+  reload(): Promise<void>;
   /** Stop following collection.toml and the open document. */
   stop(): void;
 }
@@ -135,6 +144,8 @@ export interface CollectionHandle {
 export function startCollection(deps: CollectionDeps): CollectionHandle {
   const { shell, index, feed } = deps;
   let declared: readonly string[] = [];
+  let queries: readonly SavedQuery[] = [];
+  const queryListeners = new Set<() => void>();
   let current: string | undefined;
   let stopped = false;
   let closeWatch: () => void = () => {};
@@ -155,6 +166,11 @@ export function startCollection(deps: CollectionDeps): CollectionHandle {
 
   /** Hold what `collection` declares, in file order, and let go of folders it no longer names. */
   const apply = async (collection: Collection) => {
+    // The saved queries follow the same read as the folders; listeners hear only a change (the sidebar redraws on it).
+    if (JSON.stringify(collection.queries) !== JSON.stringify(queries)) {
+      queries = collection.queries;
+      for (const cb of [...queryListeners]) cb();
+    }
     const next = collection.roots.map((r) => r.path);
     const gone = declared.filter((root) => !next.includes(root));
     declared = next;
@@ -217,10 +233,158 @@ export function startCollection(deps: CollectionDeps): CollectionHandle {
     loaded,
     recentLoaded,
     settled: () => chain,
+    queries: () => queries,
+    onQueries(cb) {
+      queryListeners.add(cb);
+      return () => queryListeners.delete(cb);
+    },
+    reload,
     stop() {
       stopped = true;
+      queryListeners.clear();
       closeWatch();
       unfollow?.();
     },
   };
 }
+
+// --- Smart collections (Q-07): the one writer of a saved query, and the door to its table in Source ----------------------
+
+/** The `CollectionShell` that can also write; the app's shell is one. */
+export interface CollectionWriterShell extends CollectionShell {
+  writeFileAtomic(path: string, bytes: Uint8Array): Promise<void>;
+}
+
+/** collection.toml as it was read when the reader began to name a saved search: the guard's reference for the write. */
+export interface SaveDraft {
+  readonly file: string;
+  /** The bytes read (empty when there was no file). */
+  readonly bytes: Uint8Array;
+  /** Whether the file existed at that read. */
+  readonly existed: boolean;
+}
+
+const notFound = (e: unknown): boolean => (e as { code?: string } | null)?.code === 'not-found';
+
+const sayWith = (notify: Notify | undefined, said: Said): void => {
+  (notify ?? showNotice)({ kind: said.kind, text: said.text });
+};
+
+/** Reads `file`; a missing file is no bytes. Throws any other failure. */
+async function readOrEmpty(shell: CollectionShell, file: string): Promise<{ bytes: Uint8Array; existed: boolean }> {
+  try {
+    return { bytes: await shell.readFile(file), existed: true };
+  } catch (e) {
+    if (notFound(e)) return { bytes: new Uint8Array(0), existed: false };
+    throw e;
+  }
+}
+
+/**
+ * The first half of *Save as smart collection*: reads collection.toml as it is now and keeps those bytes. Null, with a
+ * notice, when there is no configuration folder or the file cannot be read; nothing is written either way.
+ */
+export async function beginSaveQuery(shell: CollectionShell, opts: { readonly notify?: Notify } = {}): Promise<SaveDraft | null> {
+  const file = await collectionFile(shell);
+  if (file === undefined) {
+    sayWith(opts.notify, SMART_SAYS.noConfig());
+    return null;
+  }
+  try {
+    return { file, ...(await readOrEmpty(shell, file)) };
+  } catch (e) {
+    sayWith(opts.notify, SMART_SAYS.readFailed(e));
+    return null;
+  }
+}
+
+/**
+ * The second half: appends one `[[query]]` table through `appendQuery`, the only code that writes a saved query. The file
+ * is read again first; if its bytes are no longer the draft's, the save is refused and nothing is written (a hand edit,
+ * a sync or another Marxy got there first). A duplicate name, an empty name or search, and a file that is not TOML are
+ * refused with a notice that says why and that the file is as it was. A failed write says so (an error) and leaves the
+ * file as it was: the write is atomic. Resolves true only when the file now holds the new table.
+ */
+export async function saveQuery(
+  shell: CollectionWriterShell,
+  draft: SaveDraft,
+  query: { readonly name: string; readonly q: string },
+  opts: { readonly notify?: Notify; readonly onSaved?: () => unknown } = {},
+): Promise<boolean> {
+  const say = (said: Said): false => {
+    sayWith(opts.notify, said);
+    return false;
+  };
+  const name = query.name.trim();
+  const q = query.q.trim();
+  if (name === '') return say(SMART_SAYS.noName());
+  // "No terms" is what the library counts as none: nothing written, or only terms the parser ignores.
+  if (parseQuery(q).groups.flat().every((t) => t.kind === 'incomplete')) return say(SMART_SAYS.noTerms());
+
+  // Everything that can wait is done before the file is read, so the window between the last look at the file and the
+  // write holds only the append itself and one more look: a hand edit in that gap is caught, not overwritten.
+  const paths = await shell.configPaths?.();
+  const home = paths ? inferHomeFromConfig(paths.config) : '/';
+  const changed = (a: { bytes: Uint8Array; existed: boolean }, b: { bytes: Uint8Array; existed: boolean }): boolean =>
+    a.existed !== b.existed || staleWriteError(draft.file, a.bytes, b.bytes) !== null;
+
+  let now: { bytes: Uint8Array; existed: boolean };
+  try {
+    now = await readOrEmpty(shell, draft.file);
+  } catch (e) {
+    return say(SMART_SAYS.readFailed(e));
+  }
+  if (changed(draft, now)) return say(SMART_SAYS.stale());
+
+  let next: Uint8Array;
+  try {
+    next = appendQuery(now.bytes, { name, q }, { home });
+  } catch (e) {
+    const text = e instanceof Error ? e.message : String(e);
+    if (/already exists/.test(text)) return say(SMART_SAYS.duplicate(name));
+    if (/cannot be read as TOML/.test(text)) return say(SMART_SAYS.notToml());
+    return say(SMART_SAYS.notSaved(e));
+  }
+  // One more look, as close to the write as the shell allows (it has no compare-and-swap, as a document's save has none).
+  try {
+    if (changed(now, await readOrEmpty(shell, draft.file))) return say(SMART_SAYS.stale());
+  } catch (e) {
+    return say(SMART_SAYS.readFailed(e));
+  }
+  try {
+    await shell.writeFileAtomic(draft.file, next);
+  } catch (e) {
+    return say(SMART_SAYS.writeFailed(e));
+  }
+  sayWith(opts.notify, SMART_SAYS.saved(name));
+  await opts.onSaved?.();
+  return true;
+}
+
+/** What *Edit in collection.toml* needs of the app: the shell and the open that lands in Source. */
+export interface QueryEditor {
+  readonly shell: CollectionShell;
+  open(path: string, opts?: { readonly onLanded?: () => void }): Promise<unknown>;
+  jumpToSource(byteOffset: number): Promise<void>;
+}
+
+/**
+ * Opens collection.toml in Source with the caret at the saved query's table (its first byte), or at the top when the table
+ * cannot be found (the query was written inline). Reads the file once to find the table; writes nothing.
+ */
+export async function editQueryInSource(app: QueryEditor, name: string, opts: { readonly notify?: Notify } = {}): Promise<void> {
+  const file = await collectionFile(app.shell);
+  if (file === undefined) return sayWith(opts.notify, SMART_SAYS.noConfigEdit());
+  let bytes: Uint8Array;
+  try {
+    bytes = await app.shell.readFile(file);
+  } catch (e) {
+    return sayWith(opts.notify, SMART_SAYS.editReadFailed(e));
+  }
+  const at = queryRange(bytes, name)?.start ?? 0;
+  // Over unsaved edits the open waits for the reader's choice: Source is shown once collection.toml is the document (F-21).
+  await app.open(file, { onLanded: () => void app.jumpToSource(at) });
+}
+
+/** The collection a booted app holds (`bootApplication` adds it); undefined in a harness that did not start one. */
+export const collectionOf = (handle: object): CollectionHandle | undefined => (handle as { collection?: CollectionHandle }).collection;
