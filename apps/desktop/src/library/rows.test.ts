@@ -1,0 +1,69 @@
+// The library's rows (Q-03): the reasons as lines, the marks as words, and the sort.
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import type { IndexEntry } from '@marxy/core';
+import type { QueryHit, Reason } from '@marxy/core/src/index-model/query-eval.ts';
+import { libraryRow, MAX_WHY, reasonLine, sortChoices, sortHits, whyCount, whyLines } from './rows.ts';
+
+const NOW = 100 * 86_400_000;
+const entry = (path: string, over: Partial<IndexEntry> = {}): IndexEntry => ({
+  path, root: '/r', title: path.split('/').pop()!, headings: [], mtimeMs: NOW - 3 * 3_600_000, size: 10, kind: 'markdown', readerKind: 'report', ...over,
+});
+const hit = (e: IndexEntry, why: Reason[] = [], score = 0): QueryHit => ({ entry: e, why, score, unmeasured: false });
+
+test('each reason is one short line', () => {
+  const lines = whyLines([
+    { kind: 'title' },
+    { kind: 'path' },
+    { kind: 'heading', text: 'Cache', level: 2 },
+  ]);
+  assert.deepEqual(lines, ['title', 'path', 'heading "Cache"']);
+  assert.equal(reasonLine({ kind: 'line', line: 12, preview: '  the cache is warm ', matchStart: 6, matchEnd: 11 }), 'line 12: the cache is warm');
+  assert.equal(reasonLine({ kind: 'field', label: 'kind:report' }), 'kind:report');
+  assert.equal(reasonLine({ kind: 'field', label: 'changed since you read' }), 'changed since you read');
+  assert.equal(reasonLine({ kind: 'field', label: 'words:>500', detail: '≥1,203 words' }), 'words:>500 (≥1,203 words)');
+});
+
+test('over three reasons, the last line counts the rest rather than dropping them', () => {
+  const many: Reason[] = ['a', 'b', 'c', 'd', 'e'].map((label) => ({ kind: 'field', label }));
+  assert.equal(MAX_WHY, 3);
+  assert.deepEqual(whyLines(many), ['a', 'b', '3 more reasons']);
+  assert.deepEqual(whyLines(many, 5), ['a', 'b', 'c', 'd', 'e']);
+  assert.deepEqual(whyLines([{ kind: 'title' }, { kind: 'title' }]), ['title'], 'a repeat is one line');
+  assert.equal(whyCount(hit(entry('/r/x.md'), many)), 3);
+  assert.equal(whyCount(hit(entry('/r/x.md'))), 0);
+});
+
+test('a row: relative path, kind, age and marks with words', () => {
+  const ctx = { nowMs: NOW, pinned: new Set(['/r/docs/a.md']), changed: (e: IndexEntry) => e.path === '/r/docs/a.md' };
+  const row = libraryRow(hit(entry('/r/docs/a.md', { title: 'Alpha' }), [{ kind: 'title' }]), ctx);
+  assert.equal(row.rel, 'docs/a.md');
+  assert.equal(row.kind, 'report');
+  assert.equal(row.kindLabel, 'report');
+  assert.equal(row.age, '3h');
+  assert.equal(row.spokenAge, '3 hours ago');
+  assert.deepEqual(row.marks.map((m) => [m.name, m.label]), [['changed', 'Changed since you read'], ['pinned', 'Pinned']]);
+  assert.deepEqual(row.why, ['title']);
+  const plain = libraryRow(hit(entry('/r/b.md', { readerKind: undefined, kind: 'text' })), ctx);
+  assert.deepEqual([plain.kind, plain.kindLabel, plain.marks.length], [null, 'text', 0], 'a file whose kind is not decided shows its file class');
+});
+
+test('sorts: relevance, modified, name, path, and last opened keeps the scope\'s order', () => {
+  const a = hit(entry('/r/b/zeta.md', { title: 'Zeta', mtimeMs: 3 }), [], 1);
+  const b = hit(entry('/r/a/alpha.md', { title: 'alpha 10', mtimeMs: 1 }), [], 5);
+  const c = hit(entry('/r/c/alpha.md', { title: 'alpha 9', mtimeMs: 2 }), [], 5);
+  const all = [a, b, c];
+  const order = (key: Parameters<typeof sortHits>[1]) => sortHits(all, key).map((h) => h.entry.title);
+  assert.deepEqual(order('relevance'), ['alpha 9', 'alpha 10', 'Zeta'], 'score, then newest');
+  assert.deepEqual(order('modified'), ['Zeta', 'alpha 9', 'alpha 10']);
+  assert.deepEqual(order('name'), ['alpha 9', 'alpha 10', 'Zeta'], 'numbers sort as numbers, case does not matter');
+  assert.deepEqual(order('path'), ['alpha 10', 'Zeta', 'alpha 9']);
+  assert.deepEqual(order('opened'), ['Zeta', 'alpha 10', 'alpha 9']);
+  assert.deepEqual(all.map((h) => h.entry.title), ['Zeta', 'alpha 10', 'alpha 9'], 'the input is left alone');
+});
+
+test('the sort control offers relevance only while words are typed and last opened only where a scope has an order', () => {
+  assert.deepEqual(sortChoices(false, false), ['modified', 'name', 'path']);
+  assert.deepEqual(sortChoices(true, false), ['relevance', 'modified', 'name', 'path']);
+  assert.deepEqual(sortChoices(false, true), ['opened', 'modified', 'name', 'path']);
+});

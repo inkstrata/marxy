@@ -59,3 +59,18 @@ export {
   type CompletionItem,
   type CompletionContext,
 } from './query.ts';
+export {
+  evaluateQuery,
+  indexCandidates,
+  measureText,
+  textTerms,
+  termNote,
+  usesContentKeys,
+  UNAVAILABLE_STATUSES,
+  type QueryHit,
+  type QueryContext,
+  type Reason,
+  type Measure,
+  type Measured,
+  type LineMatches,
+} from './query-eval.ts';
