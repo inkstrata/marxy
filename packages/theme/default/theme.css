@@ -206,3 +206,54 @@
   --marxy-measure-chars: 74;
   --marxy-avg-char: 0.425;
 }
+[data-marxy-kind="transcript"] {
+  /* Atkinson Hyperlegible Next, 16 on 26 as a README is (0.8 and 0.8667), a 66-character text column; the speaker
+     label hangs outside it in a 10-character column of its own, so the whole is the 76 of the kinds table
+     (docs/plan/direction-2026-10/03-kinds-and-the-look.md; Reader Typography ch.7, "Letters, diaries and messages").
+     Ragged. The face and the avg advance are the report's, which is the same face. */
+  --marxy-font-text: var(--marxy-face-sans);
+  --marxy-font-heading: var(--marxy-face-sans);
+  --marxy-size-body: calc(0.8 * var(--marxy-root-size-body));
+  --marxy-line-box: round(calc(0.8667 * var(--marxy-root-line-box)), 2px);
+  --marxy-size-code: calc(0.78 * var(--marxy-root-size-code));
+  --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
+  --marxy-size-caption: calc(0.87 * var(--marxy-root-size-caption));
+  --marxy-measure-chars: 66;
+  --marxy-avg-char: 0.425;
+}
+/* A speaker heading is a label, never a heading to the eye: small capitals, the heading's own text, no colour of
+   its own (colour never carries the speaker). Exchanges are a root line box apart (30 px at the default size)
+   and paragraphs within a turn half of that (K-11; Reader Artifacts 10-spec, "Speaker labels"). A heading that is
+   still an h2 or h3 to the outline and to a screen reader. */
+[data-marxy-kind="transcript"] [data-marxy-speaker] {
+  font-size: calc(0.84 * var(--marxy-size-body));
+  line-height: var(--marxy-line-box);
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.04em;
+  text-wrap: wrap;
+  overflow-wrap: break-word;
+  margin: var(--marxy-root-line-box) 0 0;
+  padding-bottom: 0;
+}
+[data-marxy-kind="transcript"] [data-marxy-speaker="you"] { --marxy-weight-heading: 700; }
+[data-marxy-kind="transcript"] .marxy-article > :is(p, ul, ol, blockquote, table, figure, pre) {
+  margin-bottom: calc(var(--marxy-root-line-box) / 2);
+}
+/* Wide enough, the label hangs left of the turn, on the turn's first line: the article takes the label's column as
+   padding on both sides, so the column stays centred and keeps its 66 characters and its own left edge; the label may run 8 px into the gutter; its line box is taken back off
+   the block below it, which then begins at the label's top. Narrower, the label stands above its turn. */
+@container (min-width: 42em) {
+  [data-marxy-kind="transcript"] .marxy-article {
+    padding-inline: calc(var(--marxy-gutter) + 10 * var(--marxy-avg-char) * var(--marxy-size-body));
+  }
+  [data-marxy-kind="transcript"] [data-marxy-speaker] {
+    margin-inline-start: calc(-10 * var(--marxy-avg-char) * var(--marxy-size-body) - 8px);
+    width: calc(10 * var(--marxy-avg-char) * var(--marxy-size-body) + 8px - 0.7em);
+    margin-bottom: calc(-1 * var(--marxy-line-box));
+    text-align: end;
+  }
+  [data-marxy-kind="transcript"] [data-marxy-speaker] + * { margin-top: 0; }
+}
+@media (forced-colors: active) {
+  [data-marxy-kind="transcript"] [data-marxy-speaker] { forced-color-adjust: auto; font-weight: 700; }
+}

@@ -6,7 +6,7 @@
 // sanitiser that does nothing is worse than no suite at all.
 
 import {
-  BLOCK_ELEMENTS, DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, VOID_ELEMENTS, type Policy,
+  BLOCK_ELEMENTS, DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, SPEAKER_ATTR, VOID_ELEMENTS, type Policy,
 } from '../policy.ts';
 import { decodeReferences } from '../escape.ts';
 
@@ -520,6 +520,9 @@ export const VECTORS: readonly Vector[] = [
       const forged = attributesOf(html).filter(
         (attribute) => attribute.name.startsWith('data-marxy-') &&
           attribute.name !== 'data-marxy-remote' &&
+          // The renderer's own marker on a heading that names a speaker (K-11); a document's is refused by the
+          // allow-list, which render/contract.test.ts holds.
+          attribute.name !== SPEAKER_ATTR &&
           (attribute.decoded === FORGED_END || !PROVENANCE_NAMES.includes(attribute.name)),
       );
       if (forged.length > 0) {

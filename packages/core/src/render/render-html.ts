@@ -5,6 +5,7 @@
 
 import type { Block, Blockquote, Document, FootnoteDefinition, Inline, List, ListItem, Source, Table, TableRow, Text } from '../contracts/ast.ts';
 import type { ParsedAlert } from './alerts.ts';
+import { speakerOf } from '../kind/detect.ts';
 import { PROVENANCE_ATTRIBUTES, type ProvenanceNames } from '../sanitize/policy.ts';
 import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
 import { parseAlert } from './alerts.ts';
@@ -141,7 +142,10 @@ function block(node: Block, tight: boolean, ctx: Context): string {
     case 'heading': {
       const id = ctx.headingIds.get(`${node.src.start}-${node.src.end}`);
       const idAttr = id === undefined ? '' : ` id="${escapeAttribute(id)}"`;
-      return `<h${node.level}${idAttr}${prov(node.src, ctx)}>${inlines(node.children, ctx)}</h${node.level}>`;
+      // A heading that names a speaker says so in every kind; only the transcript profile styles it (K-11).
+      const speaker = ctx.names.speaker === undefined ? null : speakerOf(plainInlineText(node.children));
+      const speakerAttr = speaker === null ? '' : ` ${ctx.names.speaker}="${speaker.role}"`;
+      return `<h${node.level}${idAttr}${speakerAttr}${prov(node.src, ctx)}>${inlines(node.children, ctx)}</h${node.level}>`;
     }
     case 'thematicBreak':
       return `<hr${prov(node.src, ctx)} />`;

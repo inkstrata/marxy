@@ -418,6 +418,25 @@
       }
     ]
   },
+  "34-chat-transcript.md": {
+    "kind": "transcript",
+    "reasons": [
+      {
+        "tier": 4,
+        "signal": "speaker headings",
+        "kind": "transcript",
+        "at": "line 5",
+        "decisive": true
+      },
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "34-chat-transcript.md",
+        "decisive": false
+      }
+    ]
+  },
   "README.md": {
     "kind": "readme",
     "reasons": [

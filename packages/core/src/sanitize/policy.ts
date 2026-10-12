@@ -293,9 +293,18 @@ export function policyFor(grant: { readonly html: boolean }): Policy {
 export interface ProvenanceNames {
   readonly start: string;
   readonly end: string;
+  /**
+   * The attribute a heading that names a speaker carries (K-11), under a name only the renderer knows in a
+   * pipeline pass, so a document cannot write one. Absent in a policy that does not admit it.
+   */
+  readonly speaker?: string;
 }
 
-export const PROVENANCE_ATTRIBUTES: ProvenanceNames = { start: 'data-marxy-s', end: 'data-marxy-e' };
+export const SPEAKER_ATTR = 'data-marxy-speaker';
+export const PROVENANCE_ATTRIBUTES: ProvenanceNames = { start: 'data-marxy-s', end: 'data-marxy-e', speaker: SPEAKER_ATTR };
+
+const SPEAKER_ROLE: AttributeRule = { kind: 'enum', values: ['you', 'assistant', 'tool', 'system'] };
+const HEADINGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const;
 
 /** A byte offset: decimal, no sign, no leading space, at most a gigabyte of document. */
 const BYTE_OFFSET: AttributeRule = { kind: 'pattern', pattern: /^[0-9]{1,9}$/ };
@@ -319,19 +328,19 @@ export function withProvenance(
   remoteAttr: string = REMOTE_IMAGE_ATTR,
 ): Policy {
   const img = policy.elements.img;
+  const elements: Record<string, ElementRule> = { ...policy.elements };
+  if (img !== undefined) elements.img = { ...img, attributes: { ...img.attributes, [remoteAttr]: REMOTE_IMAGE_DEFERRED } };
+  if (names.speaker !== undefined) {
+    for (const h of HEADINGS) {
+      const rule = elements[h];
+      if (rule !== undefined) elements[h] = { ...rule, attributes: { ...rule.attributes, [names.speaker]: SPEAKER_ROLE } };
+    }
+  }
   return {
     ...policy,
     name: `${policy.name}+provenance`,
     globalAttributes: { ...policy.globalAttributes, [names.start]: BYTE_OFFSET, [names.end]: BYTE_OFFSET },
-    elements: img === undefined
-      ? policy.elements
-      : {
-        ...policy.elements,
-        img: {
-          ...img,
-          attributes: { ...img.attributes, [remoteAttr]: REMOTE_IMAGE_DEFERRED },
-        },
-      },
+    elements,
   };
 }
 

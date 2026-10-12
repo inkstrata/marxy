@@ -667,7 +667,12 @@ export function surveyInPage() {
   // Block-level children only: an inline element of raw HTML (a badge, a link) sits on a line of its own.
   const BLOCKS = ['block', 'table', 'list-item', 'flow-root', 'grid', 'flex'];
   const kids = [...a.children].filter((e) => e.getBoundingClientRect().height > 0 && BLOCKS.includes(getComputedStyle(e).display));
-  for (let i = 1; i < kids.length; i++) if (kids[i].getBoundingClientRect().top < kids[i - 1].getBoundingClientRect().bottom - 1) overlaps++;
+  // Overlap needs the boxes to share some width: a transcript's speaker label hangs beside its turn, not on it (K-11).
+  for (let i = 1; i < kids.length; i++) {
+    const b = kids[i].getBoundingClientRect();
+    const above = kids[i - 1].getBoundingClientRect();
+    if (b.top < above.bottom - 1 && b.left < above.right - 1 && above.left < b.right - 1) overlaps++;
+  }
   return {
     hScroll: html.scrollWidth > html.clientWidth + 1,
     clipped: [...new Set(clipped)].sort(),
@@ -747,7 +752,7 @@ export function spacingAppliedFailures(s) {
  * expects. Written out here, not read from the stylesheet, so a profile whose ratio moves fails the gate until someone
  * says so; a kind with no entry (every other kind, and a page with no kind) is held to the reader's size as before.
  */
-export const KIND_BODY_RATIO = { readme: 0.8, report: 0.85 };
+export const KIND_BODY_RATIO = { readme: 0.8, report: 0.85, transcript: 0.8 };
 
 /** The 200 % condition: body text is `want` px (twice the default size) times the kind's profile ratio, not whatever the page happened to use. */
 export function text200AppliedFailures(s, want) {
