@@ -344,7 +344,7 @@ export interface IndexServiceOptions {
   /** Directories a home-sized root's walk may list (C-10.1); `HOME_WALK_BUDGET` by default (tests pass a small one). */
   readonly walkBudget?: number;
   /** Where the one notice of a stopped walk goes; the notices region by default. */
-  readonly notify?: (input: { readonly kind: 'info'; readonly text: string }) => unknown;
+  readonly notify?: (input: { readonly kind: 'refused'; readonly text: string }) => unknown;
 }
 
 export function createIndexService(shell: IndexServiceShell, opts: IndexServiceOptions = {}): IndexService {
@@ -451,7 +451,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       publish();
       if (notice) {
         notify({
-          kind: 'info',
+          kind: 'refused',
           text: `Index limited to the ${notice.limit.toLocaleString()} most recently changed files (${notice.omitted.toLocaleString()} omitted).`,
         });
       }
@@ -466,7 +466,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
         if (stoppedAt !== undefined) {
           parts.push(`${parts.length > 0 ? 'It is' : `${rootName(root)} is`} too large to index in full: Marxy listed its first ${stoppedAt.toLocaleString()} folders. Add a smaller folder to see the rest.`);
         }
-        say({ kind: 'info', text: parts.join(' ') });
+        say({ kind: 'refused', text: parts.join(' ') });
       }
       await shell.mark('index_loaded', Date.now(), `entries=${entries.length} root=${root} source=walk calls=${calls}`);
       const checkouts = await checkoutTable(shell, root, entries);

@@ -417,7 +417,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
 
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href)) {
       ev?.preventDefault();
-      notify({ kind: 'refused', text: 'That link uses a scheme Marxy does not open.' });
+      notify({ kind: 'refused', text: 'That link uses a scheme Marxy does not open · nothing was opened · Copy the link to use it elsewhere.' });
       return;
     }
 
@@ -444,13 +444,13 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       // let the next save overwrite another program's change.
       bytes = await (opts.shell.peekFile ?? opts.shell.readFile).call(opts.shell, target);
     } catch {
-      notify({ kind: 'refused', text: 'That document could not be found.' });
+      notify({ kind: 'refused', text: 'That document could not be found · nothing was opened · Check that the file still exists.' });
       return;
     }
 
     if (beside) {
       if ((defaultModeForPath(target) === 'source' || isNamedTextFamily(target)) && !looksLikeText(bytes)) {
-        notify({ kind: 'refused', text: 'That file is not text.' });
+        notify({ kind: 'refused', text: 'That file is not text · nothing was opened.' });
         return;
       }
       await openBesideOf(record, target, fragment);

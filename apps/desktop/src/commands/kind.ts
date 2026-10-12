@@ -20,14 +20,15 @@ import {
 } from '@marxy/core/src/kind/show-as.ts';
 import type { KindsEnvelope } from '@marxy/core/src/kind/show-as.ts';
 import { appendKindRule } from '@marxy/theme/src/config.ts';
+import { KIND_SAYS, type Said } from '../notices/config-copy.ts';
 import { notify } from '../notices/index.ts';
 import { kindChipCommands } from './kind-chip.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
 import { appHandle } from './app-handle.ts';
 import type { Command } from './registry.ts';
 
-const say = (text: string): void => {
-  notify({ kind: 'info', text });
+const say = (said: Said | string): void => {
+  notify(typeof said === 'string' ? { kind: 'refused', text: said } : said);
 };
 
 const notFound = (e: unknown): boolean => (e as { code?: string } | null)?.code === 'not-found';
@@ -49,7 +50,7 @@ async function loadKinds(
     // Keep the bad bytes beside it, start empty: the app opens (design 11).
     await shell.writeFileAtomic(quarantinePathFor(file), loaded.quarantineBytes);
     await shell.writeFileAtomic(file, serializeKindsFile(loaded.envelope));
-    say('kinds.json could not be read; it was kept aside and a fresh one started.');
+    say(KIND_SAYS.quarantined());
     return loaded.envelope;
   }
   if (loaded.newerVersion) return null;
@@ -64,42 +65,42 @@ async function showAs(kind: Kind | undefined): Promise<void> {
   if (isUntitled(path)) return say(NO_FOLDER_YET);
   const shell = handle.shell;
   if (!shell.configPaths) {
-    say('This build keeps no data folder, so a choice of kind cannot be kept.');
+    say(KIND_SAYS.noDataFolder());
     return;
   }
   const { data } = await shell.configPaths();
   if (data === '') {
-    say('This build keeps no data folder, so a choice of kind cannot be kept.');
+    say(KIND_SAYS.noDataFolder());
     return;
   }
   const file = joinPath(data, 'kinds.json');
   try {
     const kinds = await loadKinds(shell, file);
     if (kinds === null) {
-      say('kinds.json was written by a newer Marxy, so it was not changed.');
+      say(KIND_SAYS.newerKinds());
       return;
     }
     let next: KindsEnvelope;
     if (kind === undefined) {
       if (showAsFor(kinds, path) === undefined) {
-        say('This file has no chosen kind to forget.');
+        say(KIND_SAYS.nothingToForget());
         return;
       }
       next = clearShowAs(kinds, path);
     } else {
       const result = setShowAs(kinds, path, kind);
       if (!result.ok) {
-        say(result.notice);
+        say(KIND_SAYS.refusedShowAs(result.notice));
         return;
       }
       next = result.envelope;
     }
     await shell.writeFileAtomic(file, serializeKindsFile(next));
   } catch (e) {
-    say(`kinds.json could not be updated (${String(e)}); nothing was changed.`);
+    say(KIND_SAYS.updateFailed(e));
     return;
   }
-  say(kind === undefined ? 'This file is read as detected, or by its folder rule.' : `This file is shown as ${kind}.`);
+  say(kind === undefined ? KIND_SAYS.forgotten() : KIND_SAYS.shownAs(kind));
   await reopen(handle, path);
 }
 
@@ -108,7 +109,7 @@ async function reopen(handle: NonNullable<ReturnType<typeof appHandle>>, path: s
   try {
     await handle.open(path);
   } catch (e) {
-    say(`The choice was kept, but ${path} could not be opened again (${String(e)}).`);
+    say(KIND_SAYS.reopenFailed(path, e));
   }
 }
 
@@ -120,12 +121,12 @@ async function alwaysOpenFolderAs(kind: Kind): Promise<void> {
   if (isUntitled(path)) return say(NO_FOLDER_YET);
   const shell = handle.shell;
   if (!shell.configPaths) {
-    say('This build keeps no configuration folder, so a rule cannot be added.');
+    say(KIND_SAYS.noConfigFolder());
     return;
   }
   const { config } = await shell.configPaths();
   if (config === '') {
-    say('This build keeps no configuration folder, so a rule cannot be added.');
+    say(KIND_SAYS.noConfigFolder());
     return;
   }
   const home = inferHomeFromConfig(config);
@@ -134,7 +135,7 @@ async function alwaysOpenFolderAs(kind: Kind): Promise<void> {
     bytes = await shell.readFile(config);
   } catch (e) {
     if (!notFound(e)) {
-      say(`config.toml could not be read (${String(e)}); nothing was changed.`);
+      say(KIND_SAYS.configReadFailed(e));
       return;
     }
     bytes = new Uint8Array(0);
@@ -145,20 +146,20 @@ async function alwaysOpenFolderAs(kind: Kind): Promise<void> {
     next = appendKindRule(bytes, { glob: folderKindGlob(folder, home), is: kind }, { home });
   } catch (e) {
     // Unparseable, not a list of tables, or a rule already there: the file is the reader's, left as it is.
-    say(`config.toml was not changed: ${e instanceof Error ? e.message : String(e)}`);
+    say(KIND_SAYS.configNotChanged(e));
     return;
   }
   if (next === bytes) {
-    say(`This folder is already opened as ${kind}.`);
+    say(KIND_SAYS.folderAlready(kind));
     return;
   }
   try {
     await shell.writeFileAtomic(config, next);
   } catch (e) {
-    say(`config.toml could not be written (${String(e)}); nothing was changed.`);
+    say(KIND_SAYS.configWriteFailed(e));
     return;
   }
-  say(`Files in this folder open as ${kind}.`);
+  say(KIND_SAYS.folderRule(kind));
   await reopen(handle, path);
 }
 

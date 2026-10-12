@@ -13,6 +13,7 @@ import { basename } from '@marxy/core/src/index-model/paths.ts';
 import { LAYOUT_FILE_VERSION, type LayoutColumn, type LayoutEnvelope } from '@marxy/core/src/layout/index.ts';
 import type { AppShell } from '../app-types.ts';
 import { isUntitled } from '../document/untitled.ts';
+import { layoutLeftOut } from '../notices/config-copy.ts';
 import { notify } from '../notices/index.ts';
 import { canShowTwoColumns } from '../pane/fit.ts';
 import { clampToMain } from '../pane/divider.ts';
@@ -108,9 +109,7 @@ async function survey(shell: Pick<AppShell, 'readHead'>, columns: readonly Layou
       const code = (error as { code?: unknown } | null)?.code;
       const name = basename(column.path);
       notices.push(
-        code === undefined || code === 'not-found'
-          ? `${name} is no longer there, so it was left out of the layout.`
-          : `${name} could not be read, so it was left out of the layout.`,
+        layoutLeftOut(name, code === undefined || code === 'not-found'),
       );
     }
   }
@@ -147,7 +146,7 @@ export async function launch(d: LaunchDeps): Promise<{ readonly rest: Promise<vo
   const main = panes.panes[0]!.host.parentElement!;
   const fits = (): boolean => canShowTwoColumns(main);
   const tell = (notices: readonly string[]): void => {
-    for (const text of notices) notify({ kind: 'info', text });
+    for (const text of notices) notify({ kind: 'refused', text });
   };
 
   if (file) {

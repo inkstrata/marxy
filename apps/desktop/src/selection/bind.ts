@@ -76,7 +76,7 @@ export function buildAppContext(handle: AppHandle | null = appHandle()): AppCont
       applyDocumentMutation(store, { ...input, baseVersion: runtime?.version }),
     closePalette: () => paletteCloser(),
     showNotice(text, opts) {
-      notify({ kind: opts?.kind ?? 'info', text, transient: opts?.transient });
+      notify({ kind: opts?.kind ?? 'info', text, transient: opts?.transient, fades: opts?.fades });
     },
   };
 }

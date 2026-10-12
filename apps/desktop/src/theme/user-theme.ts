@@ -57,13 +57,13 @@ export function inferHomeFromConfig(configPath: string): string {
   return '/';
 }
 
-function themeNoticeText(warnings: readonly string[]): string | null {
+/** The theme was applied; these are the places it was adjusted or does not match (a Note, not a refusal). */
+function themeNoticeText(themeName: string, warnings: readonly string[]): string | null {
   if (warnings.length === 0) return null;
   const head = warnings.slice(0, WARNINGS_SHOWN);
   const tail = warnings.length - head.length;
   const body = head.join(' ');
-  if (tail > 0) return `${body} and ${tail} more.`;
-  return body;
+  return `Applied ${themeName} · ${tail > 0 ? `${body} and ${tail} more.` : body}`;
 }
 
 function displayPath(dir: string): string {
@@ -84,7 +84,7 @@ function checkAvgCharAfterPaint(css: string, themeName: string): void {
     void avgCharWarnings(css, themeName, (family) =>
       measureAverageAdvance({ family, sizePx: Number.isFinite(bodyPx) && bodyPx > 0 ? bodyPx : undefined }),
     ).then((found) => {
-      const text = themeNoticeText(found);
+      const text = themeNoticeText(themeName, found);
       if (text !== null) notify({ kind: 'info', text });
     });
   });
@@ -98,7 +98,7 @@ async function applyLoadedTheme(ctx: UserThemeContext, dir: string): Promise<voi
     (abs) => ctx.shell.assetUrl(abs),
   );
   applyTheme(css);
-  const notice = themeNoticeText(warnings);
+  const notice = themeNoticeText(manifest.name, warnings);
   if (notice !== null) notify({ kind: 'info', text: notice });
   checkAvgCharAfterPaint(css, manifest.name);
   await relayoutKeepingPosition(ctx);

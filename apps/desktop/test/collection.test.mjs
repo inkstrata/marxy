@@ -165,6 +165,8 @@ const readToml = (page) => page.evaluate(async () => {
 const tomlWrites = (page) => page.evaluate(
   () => window.__h.shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === (window.__tomlPath ?? '/collection.toml')).length,
 );
+/** The kinds of the pills showing (U-02.1: what the notice is, not only what it says). */
+const noticeKinds = (page) => page.evaluate(() => [...document.querySelectorAll('.marxy-notice')].map((n) => n.dataset.noticeKind));
 const noticeText = (page) => page.evaluate(() => document.getElementById('marxy-notices')?.textContent ?? '');
 /** Delivers the config directory's watch event, as the shell does, and waits for the reload. */
 const follow = (page) => page.evaluate(async () => {
@@ -195,6 +197,7 @@ test('Add on an empty config directory writes the template and one root, and the
     assert.ok(written.endsWith("[[root]]\npath = '/a'\n"), written);
     assert.equal((written.match(/^\[\[root\]\]/gm) ?? []).length, 1);
     assert.match(await noticeText(page), /Added a to the collection/);
+    assert.deepEqual(await noticeKinds(page), ['done'], 'its kind');
     // The reader moves to another repository; /a is held because it is declared.
     await follow(page);
     await page.evaluate(() => window.__h.open('/c/README.md'));
@@ -234,6 +237,7 @@ test('Add twice writes once, and a folder written another way counts as declared
     await runCommand(page, mod, 'Add this folder');
     assert.equal(await tomlWrites(page), 1);
     assert.match(await noticeText(page), /Already in the collection/);
+    assert.deepEqual((await noticeKinds(page)).at(-1), 'info', 'its kind: the first Add said done, the second a plain note');
     const once = await readToml(page);
 
     // The same folder with a trailing slash is the same folder.
@@ -256,12 +260,14 @@ test('Add refuses a file that is not TOML and a filesystem root, and changes not
     assert.equal(dec(await readToml(page)), broken);
     assert.equal(await tomlWrites(page), 0);
     assert.match(await noticeText(page), /collection\.toml was not changed/);
+    assert.equal((await noticeKinds(page)).at(-1), 'error', 'its kind (the newest pill)');
 
     const disk = await boot(browser, '/loose.md', { '/loose.md': enc('# Loose\n') });
     await runCommand(disk.page, disk.mod, 'Add this folder');
     assert.equal(await tomlWrites(disk.page), 0);
     assert.equal(await readToml(disk.page), null);
     assert.match(await noticeText(disk.page), /whole disk/);
+    assert.deepEqual(await noticeKinds(disk.page), ['refused'], 'its kind');
   } finally {
     await browser.close();
   }
@@ -293,6 +299,7 @@ test('Edit collection creates the template when absent and opens it in Source sh
     assert.equal(await tomlWrites(page), 1, 'nothing more was written');
     assert.equal(dec(await readToml(page)), template);
     assert.match(await noticeText(page), /Marxy's own settings and state/);
+    assert.deepEqual(await noticeKinds(page), ['refused'], 'its kind');
 
     // An existing file is opened as it is, not rewritten.
     const hand = await boot(browser, '/c/README.md', { '/collection.toml': enc('# mine\r\n') });

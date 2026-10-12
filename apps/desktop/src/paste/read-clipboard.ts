@@ -32,12 +32,13 @@ export function pasteShellOf(shell: unknown): PasteShell | null {
 }
 
 /** Said when the item is concealed (a password manager's copy). */
-export const CONCEALED_REFUSAL = 'Not pasted: the clipboard holds a concealed item (a password, perhaps), and Marxy does not read those.';
+export const CONCEALED_REFUSAL = 'The clipboard holds a concealed item (a password, perhaps), and Marxy does not read those · nothing was pasted.';
 
 const refusalFor = (err: unknown): string => {
   const said = err instanceof Error ? err.message : err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : String(err);
   const text = said.replace(/[.\s]+$/, '');
-  return `Not pasted: ${text === '' ? 'the clipboard could not be read' : text}.`;
+  const why = text === '' ? 'The clipboard could not be read' : `${text[0]!.toUpperCase()}${text.slice(1)}`;
+  return `${why} · nothing was pasted.`;
 };
 
 /** A refusal; `unsupported` is set when the shell has no native pasteboard at all (not a refusal of this item). */
@@ -92,12 +93,17 @@ export async function readConverted(shell: PasteShell): Promise<ConvertedRead> {
 
 /** The notice for a paste that converted HTML. */
 export const CONVERTED_NOTICE = 'Pasted as Markdown (converted from HTML)';
-export const NOTHING_TO_PASTE = 'Nothing to paste';
+/**
+ * An empty clipboard is neither a refusal nor a failure: the reader asked for nothing that could be done, and J-05's
+ * card says only that the command "says Nothing to paste". So it is a Note that fades like an outcome, not a sticky
+ * "Not done" (U-02's review); the document is unchanged and there is nothing to fix.
+ */
+export const NOTHING_TO_PASTE = 'Nothing to paste · the document is unchanged';
 
 /** Said when the clipboard holds nothing (or only empty text) for a transform to work on. */
 export const NOTHING_TO_TRANSFORM = 'Nothing on the clipboard to transform';
 
-const transformRefusal = (why: string): string => `Not transformed: ${why}`;
+const transformRefusal = (why: string): string => `${why[0]!.toUpperCase()}${why.slice(1).replace(/\.$/, '')} · the clipboard is unchanged.`;
 
 export type TransformRead =
   | Refusal
@@ -113,7 +119,7 @@ export type TransformRead =
 export async function readForTransform(shell: PasteShell): Promise<TransformRead> {
   try {
     const types = await shell.clipboardTypes();
-    if (types.includes(clipboard.CONCEALED)) return { refused: CONCEALED_REFUSAL.replace('Not pasted', 'Not transformed') };
+    if (types.includes(clipboard.CONCEALED)) return { refused: CONCEALED_REFUSAL.replace('nothing was pasted', 'the clipboard is unchanged') };
     const text = types.includes(clipboard.TEXT) ? await readText(shell, clipboard.TEXT) : null;
     if (text !== null && text !== '') return { text, kind: 'text' };
     if (types.includes(clipboard.HTML)) {
@@ -129,6 +135,6 @@ export async function readForTransform(shell: PasteShell): Promise<TransformRead
     return { empty: true };
   } catch (err) {
     const unsupported = (err as { code?: unknown } | null)?.code === 'unsupported';
-    return { refused: refusalFor(err).replace('Not pasted', 'Not transformed'), ...(unsupported ? { unsupported: true as const } : {}) };
+    return { refused: refusalFor(err).replace('nothing was pasted', 'the clipboard is unchanged'), ...(unsupported ? { unsupported: true as const } : {}) };
   }
 }

@@ -101,7 +101,7 @@ export function createAppConfig(shell: AppShell, views: () => readonly RenderedV
     },
     launchKindInputs: () => ({ rules, choices, later }),
     async startUserTheme() {
-      for (const text of takeConfigNotices()) notify({ kind: 'info', text });
+      for (const text of takeConfigNotices()) notify({ kind: 'refused', text });
       const dir = await themeDir();
       userTheme?.stop();
       userTheme = await startUserTheme(context(), dir);

@@ -29,9 +29,9 @@ export interface AppContext {
   closePalette(): void;
   /**
    * Says `text` in the focused pane (U-02). `kind` is what the news is (`done` fades; `refused` and `error` stay until
-   * dismissed); with none it is `info`, or `done` when `transient`.
+   * dismissed); with none it is `info`, or `done` when `transient`; `fades` lets an `info` fade and stay a Note.
    */
-  showNotice(text: string, opts?: { transient?: boolean; kind?: NoticeKind }): void;
+  showNotice(text: string, opts?: { transient?: boolean; fades?: boolean; kind?: NoticeKind }): void;
   applyBufferMutation?(input: {
     readonly range: OperationInput['range'];
     readonly replacement: string;

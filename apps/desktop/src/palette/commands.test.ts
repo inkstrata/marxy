@@ -185,7 +185,7 @@ test('a failed copy says why, and the edits and the pending choice stay (V-07)',
   assert.equal(await store.reload(enc.encode('# Theirs\n')), 'kept');
   const said: string[] = [];
   await runWith(store, KEEP, { hasUnfoldedSource: () => false, foldSource: async () => {} }, said);
-  assert.match(said[0] ?? '', /Could not save a copy: the disk is full\. Nothing was changed/);
+  assert.match(said[0] ?? '', /Could not save a copy: the disk is full · nothing was changed/);
   assert.equal(dec.decode(store.snapshot().buffer.bytes), '# Two\n');
   assert.ok(store.conflict());
 });
@@ -195,7 +195,7 @@ test('the notice for a changed file names both commands by their palette titles,
     const title = documentCommands().find((c) => c.id === id)!.title;
     assert.ok(DISK_CHANGED_CHOOSE.includes(`"${title}"`), title);
   }
-  assert.ok(DISK_CHANGED_CHOOSE.startsWith('The file changed on disk; your edits were kept.'));
+  assert.ok(DISK_CHANGED_CHOOSE.startsWith('The file changed on disk · your edits were kept'));
 });
 
 test('Take theirs also counts Source text unfolded in the OTHER pane: the fold reaches every view, and Undo is not promised (V-07)', async () => {
@@ -219,5 +219,5 @@ test('Take theirs also counts Source text unfolded in the OTHER pane: the fold r
   );
   assert.equal(dec.decode(store.snapshot().buffer.bytes), '# Theirs\n');
   assert.equal(store.snapshot().canUndo, false);
-  assert.match(said.join(' '), /discarded and cannot be brought back with Undo/);
+  assert.match(said.join(' '), /discarded and Undo cannot bring them back/);
 });

@@ -40,7 +40,7 @@ function showSaveFailedNotice(path: string, reason: string, retry: () => void, p
   // Not done: the write failed and nothing was changed, so it stays until dismissed (U-02).
   const line = noticeLine({
     kind: 'error',
-    text: `Could not save ${documentName(path)}: ${reason}`,
+    text: `Could not save ${documentName(path)}: ${reason} · nothing was written; your edits are still open here · Save as… somewhere else, or try again.`,
     actions: [
       {
         label: 'Save as…',
@@ -99,7 +99,7 @@ export async function save(
     const { notify } = await import('./notices/index.ts');
     notify({
       kind: 'refused',
-      text: `${readOnlyNoticeName(path)} is part of Marxy and cannot be saved`,
+      text: `${readOnlyNoticeName(path)} is part of Marxy and cannot be saved · nothing was written · Save as… to keep a copy.`,
     }, { pane: deps.pane });
     return 'cancelled';
   }

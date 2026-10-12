@@ -9,7 +9,7 @@ import type { AppContext, Command } from './registry.ts';
 
 export async function transformClipboard(ctx: AppContext, id: string): Promise<void> {
   const shell = pasteShellOf(ctx.shell);
-  if (!shell) return ctx.showNotice('Not transformed: this window has no clipboard access.', { kind: 'refused' });
+  if (!shell) return ctx.showNotice('This window has no clipboard access · the clipboard is unchanged.', { kind: 'refused' });
   const got = await readForTransform(shell);
   if (got.refused !== undefined) return ctx.showNotice(got.refused, { kind: 'refused' });
   if (got.empty === true) return ctx.showNotice(NOTHING_TO_TRANSFORM, { kind: 'refused' });
