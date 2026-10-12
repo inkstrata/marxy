@@ -266,3 +266,40 @@ test('Block editor: a line break typed in a mixed-ending block follows its first
     assert.equal(hex(await t.buf()), hex(expected));
   });
 });
+
+// 4. A keystroke in the same task as Mod+S (F-42). The save folds the editor's text into the store (async) and then took
+//    the store's bytes back into the editor, which deleted what had been typed while it waited. Nothing typed is lost:
+//    the keystroke stays in the editor and the store, and the next save writes it.
+for (const [name, orig, prior] of [
+  ['an edit before the save', B('# T\n\nhello world\n\nbye\n'), 'x'],
+  ['no edit before the save', B('# T\n\nhello world\n\nbye\n'), null],
+  ['a stray byte in the file', B('# T\n\nhello ', [0xff], ' world\n\nbye\n'), 'x'],
+  ['a mixed-ending file made uniform', B('# T\r\n\r\nhello\nworld\r\n\r\nbye\r\n'), 'Delete'],
+]) {
+  test(`Source: a keystroke typed in the same task as Mod+S is kept and saved next (${name})`, async () => {
+    await withApp(orig, async (t) => {
+      await t.toSource();
+      await t.caretAfter('hello');
+      if (prior) await t.page.keyboard.press(prior);
+      // Mod+S and a keystroke in one task: no await between them, so the save's fold has not settled.
+      await t.cm(
+        `const dom = ed.view.contentDOM;
+         dom.dispatchEvent(new KeyboardEvent('keydown', { key: 's', code: 'KeyS', metaKey: arg.mod === 'Meta', ctrlKey: arg.mod === 'Control', bubbles: true, cancelable: true }));
+         const at = ed.view.state.selection.main.head;
+         ed.view.dispatch({ changes: { from: at, insert: 'Q' }, selection: { anchor: at + 1 }, userEvent: 'input.type' });`,
+        { mod: t.mod },
+      );
+      await t.page.waitForTimeout(500);
+      assert.ok((await t.doc()).includes(0x51), `the keystroke was dropped: ${hex(await t.doc())}`);
+      // The keystroke is in the editor and the store. The first save may already have written it (the fold takes it in
+      // before the write); either way a second Mod+S leaves the disk holding it.
+      assert.equal(hex(await t.buf()), hex(await t.doc()), 'the store holds it too');
+      await t.page.keyboard.press(`${t.mod}+s`);
+      await t.page.waitForTimeout(500);
+      assert.equal(hex(await t.disk()), hex(await t.doc()), 'the disk is what the editor names');
+      assert.ok((await t.disk()).includes(0x51), 'the save wrote the keystroke');
+      // It was this pane's own keystroke, not another pane's change: nothing says the text was held apart.
+      assert.ok(!(await t.page.evaluate(() => document.body.innerText)).includes('Source in the other pane'));
+    });
+  });
+}
