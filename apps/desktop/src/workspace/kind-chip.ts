@@ -14,7 +14,8 @@ import type { AppHandle } from '../app.ts';
 import type { Command } from '../commands/registry.ts';
 import { kindIconElement } from '../kind-icons/icons.ts';
 import { buildAppContext } from '../selection/bind.ts';
-import { toolsFor, type StripTool } from './strip.ts';
+import { STRIP_GLYPHS, toolsFor, type StripTool } from './strip.ts';
+import { toolbarIconElement } from './toolbar-icons.ts';
 import type { DocumentSignal } from './toolbar.ts';
 
 /** `data-marxy-kind` is written on a pane's `section` (pane/dom.ts); the panes sit in one `#marxy-main`. */
@@ -99,6 +100,7 @@ export function mountStrip(el: HTMLElement, handle: AppHandle, signal: DocumentS
   root.setAttribute('aria-label', 'Tools for this kind');
 
   let tools: readonly StripTool[] = [];
+  let tooled: Kind | null = null;
   let latest = 0;
   // Hidden from what is on it, not through `setPanel`: the remembered arrangement stays as the reader left it.
   const settle = (): void => {
@@ -136,15 +138,25 @@ export function mountStrip(el: HTMLElement, handle: AppHandle, signal: DocumentS
   };
 
   const render = (next: readonly StripTool[]): void => {
-    const same = next.length === tools.length && next.every((t, i) => t.id === tools[i]!.id);
+    const kind = focusedKind(handle);
+    const same = kind === tooled && next.length === tools.length && next.every((t, i) => t.id === tools[i]!.id);
     tools = next;
+    tooled = kind;
     if (!same) {
+      // The kind leads (U-09): text, so assistive tech reads it; its case is drawn by the stylesheet.
+      const lead = document.createElement('span');
+      lead.className = 'marxy-strip-kind';
+      lead.textContent = kind ?? '';
       root.replaceChildren(
+        lead,
         ...next.map((tool) => {
           const command = registry.get(tool.command!)!;
           const button = document.createElement('button');
           button.type = 'button';
-          button.textContent = tool.label;
+          const glyph = STRIP_GLYPHS[tool.id];
+          const word = document.createElement('span');
+          word.textContent = tool.label;
+          button.replaceChildren(...(glyph ? [toolbarIconElement(document, glyph), word] : [word]));
           button.dataset.tool = tool.id;
           button.dataset.command = command.id;
           button.setAttribute('aria-label', command.title);

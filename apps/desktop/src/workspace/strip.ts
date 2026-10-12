@@ -4,6 +4,7 @@
 // register its commands land (K-08 to K-22) and nothing here is a dead button. At most four tools per kind. Pure: no
 // DOM; `workspace/kind-chip.ts` draws it.
 import type { Kind } from '@marxy/core/src/contracts/kinds.ts';
+import type { ToolbarGlyph } from './toolbar-icons.ts';
 import { MAX_STRIP_TOOLS } from '@marxy/theme/src/config.ts';
 
 export interface StripTool {
@@ -60,3 +61,13 @@ export function toolsFor(
   const row = chosen === undefined ? STRIP_TOOLS[kind] : chosen.flatMap((id) => STRIP_TOOL_BY_ID.get(id) ?? []);
   return row.filter((t) => t.command !== null && have.has(t.command)).slice(0, MAX_STRIP_TOOLS);
 }
+
+/**
+ * The glyph for a tool, reused from the toolbar's set (U-09: no new artwork). A tool with no entry is drawn as its word
+ * alone; the others gain one when their command lands and the toolbar's set has a glyph that says what they do.
+ */
+export const STRIP_GLYPHS: Readonly<Record<string, ToolbarGlyph>> = {
+  changes: 'split',
+  outline: 'sidebar',
+  'line-numbers': 'source',
+};
