@@ -7,8 +7,8 @@ stale); a few states come from GitHub where the ledger is behind (see the end).
 **Summary (2026-10-11 night; edit by hand when a wave closes).**
 
 1. **Done:** waves 1 to 3 (foundations, the new Night and Paper look, editing verbs) and waves 4 to 7 (the unfolded workspace, Copy as, kinds, keys, paste, toolbar, Transform, code opens in Source).
-2. **Current:** wave 8, filling the unfolded window. Tabs (W-06) and the sidebar (W-07) are merged; the inspector's Links tab (W-09, #607) and the library view (Q-03, #609) are in review.
-3. **Next wave adds:** nothing is carded yet. The replan names the look track (more themes, article, log, diff, data and transcript reading) and the code view's remaining four stories (V-10, V-13 to V-15) as candidates.
+2. **Current:** wave 8, filling the unfolded window. Tabs, sidebar and library view are merged; only the inspector's Links tab (W-09, #607) is in review.
+3. **Next:** the design pass (X-21, Opus, running): an aesthetics and usability pass on the chrome and Source view, moving toward the mock-v2 mockup, with the notifications pass (X-19) folded in. New UI surfaces wait for the author's ruling on its direction (see Design pass).
 4. **Not blocked:** every author ruling and open ADR was settled on 2026-10-11 (X-18); a few small questions wait with defaults (below).
 5. **Ledger lag:** 18 states below come from GitHub, not from progress.md; the lead's ledger PR will catch up.
 
@@ -130,7 +130,7 @@ Fill the unfolded window's regions: tabs, a sidebar, an inspector and a library 
 | Tabs for the documents opened in this window; click to switch (asks about unsaved edits); close with the x | Unfolded window | [W-06](../direction-2026-10/15-cards-wave-8.md#w-06--tabs-the-documents-opened-in-this-unfolded-window-one-click-apart) | merged | [#601](https://github.com/inkstrata/marxy/pull/601) |
 | A sidebar with Recent, Pinned and files changed since you read; each section folds and is remembered | Unfolded window; `⌃⌘S` | [W-07](../direction-2026-10/15-cards-wave-8.md#w-07--the-sidebar-i-recent-pinned-and-changed-since-you-read-each-section-foldable) | merged | [#606](https://github.com/inkstrata/marxy/pull/606) |
 | An inspector with a Links tab listing every link as written, flagging a label that names another host | Unfolded window; `⌥⌘I` | [W-09](../direction-2026-10/15-cards-wave-8.md#w-09--the-inspector-shell-and-its-links-tab) | in review | [#607](https://github.com/inkstrata/marxy/pull/607) |
-| A library view: scopes, a query field with chips, results that say why they matched, and a preview | Palette command "Library" (unfolded window) | [Q-03](../direction-2026-10/15-cards-wave-8.md#q-03--the-library-view-scopes-a-query-field-results-that-say-why-they-matched-a-preview) | in review | [#609](https://github.com/inkstrata/marxy/pull/609) |
+| A library view: scopes, a query field with chips, results that say why they matched, and a preview | Palette command "Library" (unfolded window) | [Q-03](../direction-2026-10/15-cards-wave-8.md#q-03--the-library-view-scopes-a-query-field-results-that-say-why-they-matched-a-preview) | merged | [#609](https://github.com/inkstrata/marxy/pull/609) |
 | A chip showing the file's kind with a menu to show it as another kind, and a strip of tools for the kind | Unfolded toolbar | [K-07](../direction-2026-10/14-cards-waves-6-7.md#k-07--the-kind-chip-and-the-per-kind-tool-strip) | merged | [#586](https://github.com/inkstrata/marxy/pull/586) |
 | Source has its own text size, line height, gutter and wrapping | Automatic in Source | [V-12](../direction-2026-10/13-code-view.md#v-12--source-has-its-own-metrics) | merged | [#594](https://github.com/inkstrata/marxy/pull/594) |
 
@@ -146,9 +146,18 @@ Fill the unfolded window's regions: tabs, a sidebar, an inspector and a library 
 | Deleting only a CR in a mixed-ending block is written | [F-40.1](progress.md) | merged | [#611](https://github.com/inkstrata/marxy/pull/611) |
 | A setext heading starting with `#` keeps its first character | [F-41](progress.md) | merged | [#604](https://github.com/inkstrata/marxy/pull/604) |
 | A key typed with Mod+S in Source is kept | [F-42](progress.md) | merged | [#610](https://github.com/inkstrata/marxy/pull/610) |
-| Read, source or split from split returns to one pane | [F-44](progress.md) | in review | [#615](https://github.com/inkstrata/marxy/pull/615) |
+| Read, source or split from split returns to one pane | [F-44](progress.md) | merged | [#615](https://github.com/inkstrata/marxy/pull/615) |
+| Notices float over the pane instead of pushing the page | [F-46](progress.md) | in review | [#618](https://github.com/inkstrata/marxy/pull/618) |
+| Keys typed while Mod+E or Save's title refresh works are kept | [F-42.1](progress.md) | in review | [#619](https://github.com/inkstrata/marxy/pull/619) |
 | A no-displacement guard for command-opened surfaces | [F-45](progress.md) | merged | [#614](https://github.com/inkstrata/marxy/pull/614) |
 | strip-citations parses once; strip-emoji skips an idle parse | [W-21.2](progress.md) | merged | [#612](https://github.com/inkstrata/marxy/pull/612) |
+
+## Design pass
+
+X-21 (Opus, running) is an aesthetics and usability pass on the chrome and the Source view, moving toward
+[`mock-v2`](../direction-2026-10/mock-v2/), with X-19 (how notifications, errors and command-opened surfaces reach the
+reader; its card is merged) folded in. **New UI surfaces are on hold until the author rules on X-21's direction.** Data-safety,
+performance and non-visual Source work continue. So the candidates for the next wave (the look track, V-10, V-13 to V-15) wait too.
 
 ## Carded and ready, no wave yet
 
@@ -189,4 +198,4 @@ code-owned pull request (#394, #407, #450, #470, #494) has merged. Open, and eac
 ## Where the states came from
 
 All states come from `progress.md` except those in [`waves-github.json`](waves-github.json), which were read from
-GitHub (`gh pr list --state all`) on 2026-10-11 night because the ledger is behind: #598 to #606, #608 and #610 to #615 (the ledger shows none of them yet, except as ready or in review). An entry stops mattering when the ledger reaches it.
+GitHub (`gh pr list --state all`) on 2026-10-11 night because the ledger is behind: #598 to #606, #608, #610 to #616 and the open #618 and #619 (the ledger shows none of them yet, except as ready or in review). An entry stops mattering when the ledger reaches it.
