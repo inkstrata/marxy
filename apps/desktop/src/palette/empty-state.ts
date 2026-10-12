@@ -3,6 +3,7 @@
 // "mtime greater than last read" needs no new field, because the session's read times already ride
 // on `lastReadMs` (the feed prepares them) and C-10's `baselineMs` stands in for a file never read.
 import type { IndexEntry, IndexHit } from '@marxy/core';
+import type { AppContext, Command } from '../commands/registry.ts';
 import { emptyQueryPaths, type PaletteSession } from './session.ts';
 
 export type EmptySectionKind = 'pinned' | 'changed' | 'recent';
@@ -126,4 +127,17 @@ export function emptyStateSections(input: EmptyStateInput): readonly EmptySectio
   if (changed.length > 0) sections.push({ kind: 'changed', hits: changed.map(hit) });
   if (recent.length > 0) sections.push({ kind: 'recent', hits: recent });
   return sections;
+}
+
+/** The commands the empty palette suggests (U-04), in this order: the ones a reader reaches for from a closed book. */
+export const SUGGESTED_COMMAND_IDS: readonly string[] = ['view.outline', 'view.find', 'view.open-beside', 'view.toggle-mode'];
+
+/** The suggested commands that apply now. Pure; the palette asks once per summons, never per keystroke. */
+export function suggestedCommands(all: readonly Command[], ctx: AppContext): readonly Command[] {
+  const out: Command[] = [];
+  for (const id of SUGGESTED_COMMAND_IDS) {
+    const cmd = all.find((c) => c.id === id);
+    if (cmd !== undefined && cmd.listed !== false && cmd.when(ctx)) out.push(cmd);
+  }
+  return out;
 }

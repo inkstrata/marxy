@@ -141,7 +141,7 @@ async function rows(page, which) {
 }
 
 for (const chrome of [13, 16, 26]) {
-  test(`menu rows are round(28 x ${chrome} / 13) high, padded 5 by 10 scaled, and every shortcut ends at one x`, async () => {
+  test(`menu rows are round(28 x ${chrome} / 13) high and the palette's round(46 x ${chrome} / 13), padded 5 by 10 scaled, and every shortcut ends at one x`, async () => {
     const page = await boot('dark', chrome);
     try {
       const want = Math.round((28 * chrome) / 13);
@@ -167,8 +167,10 @@ for (const chrome of [13, 16, 26]) {
       await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
       const palette = (await rows(page, 'palette')).slice(0, 12);
       assert.ok(palette.length >= 4, 'rows');
+      // Two lines in the palette alone (U-04, Q16): 46 at 13, scaled with the chrome size; menus keep 28.
+      const wantPalette = Math.round((46 * chrome) / 13);
       for (const r of palette) {
-        assert.equal(r.height, want, `palette row height at ${chrome}`);
+        assert.equal(r.height, wantPalette, `palette row height at ${chrome}`);
         assert.ok(near(r.pad[0], padY) && near(r.pad[1], padX), `palette padding ${r.pad} at ${chrome}`);
       }
       const keys = palette.filter((r) => r.keyRight !== null);

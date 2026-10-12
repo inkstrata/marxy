@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { AppContext, Command } from '../commands/registry.ts';
-import { commandForKey, keyLabel, paletteCommands } from './commands.ts';
+import { commandForKey, drillText, keyLabel, PALETTE_GROUPS, paletteCommands, paletteGroupOf } from './commands.ts';
 import { documentCommands } from '../commands/document.ts';
 import { setAppHandle } from '../commands/app-handle.ts';
 import type { AppHandle } from '../app.ts';
@@ -44,16 +44,49 @@ test('paletteCommands filters by title on the query and ignores case and edge sp
   assert.deepEqual(paletteCommands(all, ctx, 'zzzz').map((c) => c.id), []);
 });
 
-test('paletteCommands orders by group (document, view, app, selection) then title', () => {
+test('paletteCommands orders by palette group (Navigate, File, View, Copy, Source, Extract, Transform) then title', () => {
   const all = [
-    cmd('s1', 'Copy code', 'selection'),
-    cmd('a1', 'Zoom', 'app'),
-    cmd('v1', 'Jump to source', 'view'),
-    cmd('d2', 'Undo', 'document'),
-    cmd('d1', 'Save', 'document'),
-    cmd('a0', 'About', 'app'),
+    cmd('transform.open', 'Transform', 'transform'),
+    cmd('op.extract-links', 'Copy all links', 'selection'),
+    cmd('source.join-lines', 'Join lines', 'selection'),
+    cmd('copy-as.menu', 'Copy as…', 'selection'),
+    cmd('view.text-larger', 'Larger text', 'view'),
+    cmd('document.undo', 'Undo', 'document'),
+    cmd('document.save', 'Save', 'document'),
+    cmd('nav.back', 'Back', 'view'),
   ];
-  assert.deepEqual(paletteCommands(all, ctx, '').map((c) => c.id), ['d1', 'd2', 'v1', 'a0', 'a1', 's1']);
+  assert.deepEqual(paletteCommands(all, ctx, '').map((c) => [paletteGroupOf(c), c.id]), [
+    ['Navigate', 'nav.back'],
+    ['File', 'document.save'],
+    ['File', 'document.undo'],
+    ['View', 'view.text-larger'],
+    ['Copy', 'copy-as.menu'],
+    ['Source', 'source.join-lines'],
+    ['Extract', 'op.extract-links'],
+    ['Transform', 'transform.open'],
+  ]);
+});
+
+test('every registered command has a palette group, and the groups are the seven of the mock', async () => {
+  const { commands } = await import('../commands/index.ts');
+  const seen = new Set(commands().map((c) => paletteGroupOf(c)));
+  assert.deepEqual([...PALETTE_GROUPS].filter((g) => seen.has(g)), [...PALETTE_GROUPS]);
+});
+
+test('"Show this file as" collapses to one row that opens its own list', () => {
+  const kinds = ['markdown', 'code', 'log'];
+  const all = [
+    ...kinds.map((k) => cmd(`kind.show-as.${k}`, `Show this file as ${k}`, 'document')),
+    cmd('kind.show-as.detected', 'Show this file as detected', 'document'),
+    cmd('document.save', 'Save', 'document'),
+  ];
+  const rows = (q: string) => paletteCommands(all, ctx, q).map((c) => c.title);
+  assert.deepEqual(rows(''), ['Save', 'Show this file as…']);
+  assert.equal(rows('').filter((t) => t.startsWith('Show this file as')).length, 1);
+  assert.deepEqual(rows('show'), ['Show this file as…']);
+  assert.equal(rows('Show this file as').length, 4, 'the phrase lists the members');
+  assert.equal(drillText('palette.drill.show-as'), 'Show this file as ');
+  assert.equal(drillText('document.save'), undefined);
 });
 
 test('keyLabel spells a chord for a Mac and for Linux', () => {

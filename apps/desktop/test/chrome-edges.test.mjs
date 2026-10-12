@@ -67,7 +67,7 @@ const read = (page) => page.evaluate(() => {
   const wash = row ? getComputedStyle(row).backgroundColor : null;
   return {
     paletteOutline: css('#marxy-palette', 'borderTopColor'),
-    queryEdge: css('#marxy-palette .marxy-palette-query', 'borderBottomColor'),
+    queryEdge: css('#marxy-palette .marxy-palette-field', 'borderBottomColor'),
     outlineOutline: css('#marxy-outline', 'borderInlineStartColor'),
     outlineWash: wash,
   };

@@ -88,7 +88,19 @@
   "classes": [
     "marxy-toolbar-glyph",
     "marxy-toolbar-word",
-    "marxy-toolbar-lines"
+    "marxy-toolbar-lines",
+    "marxy-palette-field",
+    "marxy-palette-glyph",
+    "marxy-palette-esc",
+    "marxy-palette-keycap",
+    "marxy-palette-modes",
+    "marxy-palette-mode",
+    "marxy-palette-mode-prefix",
+    "marxy-palette-body",
+    "marxy-palette-text",
+    "marxy-palette-sub",
+    "marxy-palette-foot",
+    "marxy-palette-foot-end"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

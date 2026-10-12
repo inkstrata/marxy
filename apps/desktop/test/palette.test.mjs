@@ -643,10 +643,11 @@ test('the empty palette shows its three labels in order, arrows skip labels, and
     const at = (needle) => shape.findIndex((item) => item.includes(needle));
     assert.deepEqual(
       shape.filter((item) => item.startsWith('label:')),
-      ['label:Pinned', 'label:Changed since you read', 'label:Recent'],
+      ['label:Pinned', 'label:Changed since you read', 'label:Recent', 'label:Suggested'],
     );
     assert.ok(at('label:Pinned') < at('pin-doc') && at('pin-doc') < at('label:Changed'), JSON.stringify(shape));
     assert.deepEqual(shape.slice(at('label:Changed') + 1, at('label:Recent')), ['row:/docs/ch1.md:doc', 'row:/docs/ch2.md:doc'], 'newest change first; the unwatched /far file is not here');
+    assert.ok(shape.slice(at('label:Suggested') + 1).every((item) => item.startsWith('row:view.')), `Suggested holds commands: ${JSON.stringify(shape)}`);
     assert.ok(shape.indexOf('row:/docs/old-doc.md:doc') > at('label:Recent'), JSON.stringify(shape));
     assert.ok(!shape.some((item) => item.includes('/far/far.md')), 'a file never opened in an unwatched root is not listed');
 
@@ -654,14 +655,14 @@ test('the empty palette shows its three labels in order, arrows skip labels, and
     // says its age, and where it applies that it changed since you read.
     const structure = await page.evaluate(() => ({
       listboxChildren: [...document.querySelector('#marxy-palette [role=listbox]').children].map((el) => el.getAttribute('role')),
-      groups: [...document.querySelectorAll('#marxy-palette [role=group]')].map((el) => document.getElementById(el.getAttribute('aria-labelledby'))?.textContent),
+      groups: [...document.querySelectorAll('#marxy-palette [role=listbox] [role=group]')].map((el) => document.getElementById(el.getAttribute('aria-labelledby'))?.textContent),
       labels: [...document.querySelectorAll('#marxy-palette .marxy-palette-section')].map((el) => [el.getAttribute('role'), el.hasAttribute('aria-selected')]),
       optionsOutsideGroup: document.querySelectorAll('#marxy-palette [role=listbox] > [role=option]').length,
       names: Object.fromEntries([...document.querySelectorAll('#marxy-palette [role=option]')].map((el) => [el.dataset.rowKey, el.getAttribute('aria-label')])),
     }));
-    assert.deepEqual(structure.listboxChildren, ['group', 'group', 'group']);
-    assert.deepEqual(structure.groups, ['Pinned', 'Changed since you read', 'Recent']);
-    assert.deepEqual(structure.labels, [[null, false], [null, false], [null, false]]);
+    assert.deepEqual(structure.listboxChildren, ['group', 'group', 'group', 'group']);
+    assert.deepEqual(structure.groups, ['Pinned', 'Changed since you read', 'Recent', 'Suggested']);
+    assert.deepEqual(structure.labels, [[null, false], [null, false], [null, false], [null, false]]);
     assert.equal(structure.optionsOutsideGroup, 0);
     assert.equal(structure.names['/docs/ch1.md:doc'], 'ch1, 2 minutes ago, changed since you read');
     assert.equal(structure.names['/docs/ch2.md:doc'], 'ch2, 40 minutes ago, changed since you read');
@@ -683,7 +684,7 @@ test('the empty palette shows its three labels in order, arrows skip labels, and
     // K-18: every document row leads with its kind's icon, hidden from a screen reader, and the icon
     // does not change the row's height (measured with the icon removed from layout).
     const glyphs = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
-      els.map((el) => {
+      els.filter((el) => el.querySelector('.marxy-kind-glyph') !== null).map((el) => {
         const g = el.querySelector('.marxy-kind-glyph');
         const withIcon = el.getBoundingClientRect().height;
         g.style.display = 'none';
@@ -720,6 +721,7 @@ test('the empty palette shows its three labels in order, arrows skip labels, and
 
     // Command-period pins the selected row's path, and the list moves it under Pinned at once.
     const rowKeys = after.filter((item) => item.startsWith('row:'));
+    for (let i = 0; i < rowKeys.length; i++) await page.keyboard.press('ArrowUp'); // to the first row, wherever the last summons left it
     for (let i = 0; i < rowKeys.indexOf('row:/docs/old-doc.md:doc'); i++) await page.keyboard.press('ArrowDown');
     await page.keyboard.press(`${mod}+Period`);
     const pinnedNow = await listShape(page);
@@ -744,7 +746,7 @@ test('typed results from a watched folder show the age and the mark; an unwatche
       els.map((el) => [el.dataset.rowKey, el.querySelector('.marxy-palette-age')?.textContent ?? null, el.querySelector('.marxy-palette-changed') !== null]),
     );
     assert.deepEqual(typed, [['/docs/ch1.md:doc', '2m', true]]);
-    assert.equal(await page.$('#marxy-palette .marxy-palette-section'), null, 'a typed list has no section labels');
+    assert.deepEqual(await page.$$eval('#marxy-palette .marxy-palette-section', (els) => els.map((el) => el.textContent)), ['Files'], 'a typed list has the one label, Files');
     await page.fill('#marxy-palette .marxy-palette-query', 'far');
     const far = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
       els.filter((el) => el.dataset.rowKey === '/far/far.md:doc').map((el) => [el.querySelector('.marxy-palette-age'), el.querySelector('.marxy-palette-changed')]),
@@ -818,7 +820,156 @@ test('the empty list follows an index publish while the palette is open (C-12)',
     await page.evaluate(() => {
       window.__marxyPalette.setIndexEntries([{ path: '/docs/ch9.md', root: '/docs', title: 'ch9', headings: [], mtimeMs: Date.now() - 1000, size: 1, kind: 'markdown' }]);
     });
-    assert.deepEqual(await listShape(page), ['label:Changed since you read', 'row:/docs/ch9.md:doc']);
+    assert.deepEqual((await listShape(page)).slice(0, 2), ['label:Changed since you read', 'row:/docs/ch9.md:doc']);
+  } finally {
+    await browser.close();
+  }
+});
+
+// U-04: the palette's field, glyphs, groups, chips and footer.
+async function bootDocument(page, width = 1440, height = 900) {
+  await page.setViewportSize({ width, height });
+  await page.goto(`${base}test/palette-boot.html`);
+  await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+  await page.evaluate(async ({ doc }) => {
+    await window.marxyPaletteBoot.start({ '/docs/readme.md': doc }, ['/docs/readme.md'], []);
+  }, { doc: Buffer.from(HEADING_DOC).toString('base64') });
+  return modChord(await page.evaluate(() => navigator.platform));
+}
+
+test('the field has its prompt, glyph and Esc button; the chips swap the prefix and keep the query; order is field, chips, list (U-04)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage();
+    const mod = await bootDocument(page);
+    await page.keyboard.press(`${mod}+KeyK`);
+    await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
+
+    const shape = await page.evaluate(() => {
+      const dialog = document.getElementById('marxy-palette');
+      const input = dialog.querySelector('.marxy-palette-query');
+      const modes = dialog.querySelector('.marxy-palette-modes');
+      const list = dialog.querySelector('[role=listbox]');
+      const esc = dialog.querySelector('.marxy-palette-esc');
+      const before = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      return {
+        width: Math.round(dialog.getBoundingClientRect().width),
+        placeholder: input.placeholder,
+        name: input.getAttribute('aria-label'),
+        role: input.getAttribute('role'),
+        controls: input.getAttribute('aria-controls') === list.id,
+        glyph: dialog.querySelector('.marxy-palette-field .marxy-palette-glyph svg') !== null,
+        escTag: esc.tagName,
+        escName: esc.getAttribute('aria-label'),
+        order: before(input, modes) && before(modes, list),
+        chips: [...modes.querySelectorAll('button')].map((b) => [b.textContent, b.getAttribute('aria-pressed'), b.type]),
+        footer: dialog.querySelector('.marxy-palette-foot').textContent,
+      };
+    });
+    assert.equal(shape.width, 860, 'the palette is 860 px wide in a window that holds it');
+    assert.ok(/type > for commands, \/ for content/.test(shape.placeholder), shape.placeholder);
+    assert.equal(shape.name, 'Search files, commands and content');
+    assert.equal(shape.role, 'combobox');
+    assert.ok(shape.controls && shape.glyph && shape.order);
+    assert.deepEqual([shape.escTag, shape.escName], ['BUTTON', 'Close palette']);
+    assert.deepEqual(shape.chips, [['Everything', 'true', 'button'], ['Commands>', 'false', 'button'], ['Headings', 'false', 'button'], ['Content/', 'false', 'button']]);
+    assert.ok(/open beside/.test(shape.footer) && /pin/.test(shape.footer) && /transforms/.test(shape.footer), shape.footer);
+
+    const chip = (label) => page.locator('#marxy-palette .marxy-palette-mode', { hasText: label });
+    const state = () => page.evaluate(() => ({
+      query: document.querySelector('#marxy-palette .marxy-palette-query').value,
+      pressed: [...document.querySelectorAll('#marxy-palette .marxy-palette-mode[aria-pressed=true]')].map((b) => b.firstChild.textContent),
+      focused: document.activeElement?.className,
+    }));
+    await page.fill('#marxy-palette .marxy-palette-query', 'doc');
+    await chip('Commands').click();
+    assert.deepEqual(await state(), { query: '>doc', pressed: ['Commands'], focused: 'marxy-palette-query' });
+    await chip('Content').click();
+    assert.deepEqual((await state()).query, '/doc');
+    assert.deepEqual((await state()).pressed, ['Content']);
+    await chip('Headings').click();
+    assert.deepEqual(await state(), { query: 'doc', pressed: ['Headings'], focused: 'marxy-palette-query' });
+    await chip('Everything').click();
+    assert.deepEqual((await state()).pressed, ['Everything']);
+
+    await page.locator('#marxy-palette .marxy-palette-esc').click();
+    assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), false, 'the Esc button closes the palette');
+
+    // A window narrower than the palette clamps it.
+    await page.setViewportSize({ width: 600, height: 700 });
+    await page.keyboard.press(`${mod}+KeyK`);
+    assert.ok((await page.evaluate(() => document.getElementById('marxy-palette').getBoundingClientRect().width)) <= 600 - 32);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('> lists the commands under group headers that are not options; the arrows walk the rows only; a row is two lines of 46 px (U-04)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage();
+    const mod = await bootDocument(page);
+    await page.keyboard.press(`${mod}+Shift+KeyP`);
+    await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
+    const listing = await page.evaluate(() => {
+      const dialog = document.getElementById('marxy-palette');
+      const groups = [...dialog.querySelectorAll('[role=listbox] [role=group]')].map((g) => ({
+        name: document.getElementById(g.getAttribute('aria-labelledby')).textContent,
+        titles: [...g.querySelectorAll('[role=option] .marxy-palette-title')].map((t) => t.textContent),
+        subs: [...new Set([...g.querySelectorAll('[role=option] .marxy-palette-sub')].map((t) => t.textContent))],
+      }));
+      const rows = [...dialog.querySelectorAll('.marxy-palette-row')];
+      return {
+        groups,
+        headersAreOptions: [...dialog.querySelectorAll('.marxy-palette-section')].some((h) => h.getAttribute('role') === 'option' || h.closest('[role=option]')),
+        rowCount: rows.length,
+        optionCount: dialog.querySelectorAll('[role=option]').length,
+        heights: [...new Set(rows.map((r) => Math.round(r.getBoundingClientRect().height)))],
+        glyphs: rows.every((r) => r.firstElementChild.getAttribute('aria-hidden') === 'true' && r.firstElementChild.querySelector('svg') !== null),
+      };
+    });
+    const order = ['Navigate', 'File', 'View', 'Copy', 'Source', 'Extract', 'Transform'];
+    const names = listing.groups.map((g) => g.name);
+    assert.deepEqual(names, order.filter((n) => names.includes(n)), 'the groups are in the written order');
+    assert.ok(names.length >= 4, `several command groups show: ${names}`);
+    for (const g of listing.groups) assert.deepEqual(g.subs, [g.name], `${g.name}: each row names its group on its second line`);
+    assert.ok(!listing.headersAreOptions);
+    assert.equal(listing.rowCount, listing.optionCount);
+    assert.deepEqual(listing.heights, [46], 'every row is 46 px');
+    assert.ok(listing.glyphs, 'every row leads with a hidden glyph');
+    const showAs = listing.groups.flatMap((g) => g.titles).filter((t) => t.startsWith('Show this file as'));
+    assert.deepEqual(showAs, ['Show this file as…'], 'the family is one row');
+    assert.ok(listing.groups.flatMap((g) => g.titles).filter((t) => t.startsWith('Always open this folder as')).length <= 1);
+
+    // The arrows step through rows only, and the field names the highlighted row.
+    const rowIds = await page.$$eval('#marxy-palette .marxy-palette-row', (els) => els.map((el) => el.id));
+    assert.equal(new Set(rowIds).size, rowIds.length, 'every row has its own id');
+    const walked = [];
+    for (let i = 0; i < 40; i++) {
+      walked.push(await page.evaluate(() => {
+        const input = document.querySelector('#marxy-palette .marxy-palette-query');
+        const row = document.getElementById(input.getAttribute('aria-activedescendant'));
+        const rows = [...document.querySelectorAll('#marxy-palette .marxy-palette-row')];
+        return { index: rows.indexOf(row), role: row.getAttribute('role'), selected: row.getAttribute('aria-selected'), only: document.querySelectorAll('#marxy-palette [aria-selected]').length };
+      }));
+      await page.keyboard.press('ArrowDown');
+    }
+    assert.deepEqual(walked.map((w) => w.index), Array.from({ length: 40 }, (_, i) => i), 'each press lands on the next row, a header never takes one');
+    assert.ok(walked.every((w) => w.role === 'option' && w.selected === 'true' && w.only === 1));
+
+    // The row that opens a list turns the query into the list.
+    await page.fill('#marxy-palette .marxy-palette-query', '>show this file');
+    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length === 1);
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length > 3);
+    const opened = await page.evaluate(() => ({
+      open: document.getElementById('marxy-palette').open,
+      query: document.querySelector('#marxy-palette .marxy-palette-query').value,
+      titles: [...document.querySelectorAll('#marxy-palette .marxy-palette-title')].map((t) => t.textContent),
+    }));
+    assert.equal(opened.open, true);
+    assert.equal(opened.query, '>Show this file as ');
+    assert.ok(opened.titles.length > 3 && opened.titles.every((t) => t.startsWith('Show this file as')), JSON.stringify(opened.titles));
   } finally {
     await browser.close();
   }
