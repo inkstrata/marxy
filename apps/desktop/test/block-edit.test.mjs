@@ -281,6 +281,60 @@ async function withTypedBlock(fn) {
   });
 }
 
+// F-61: the reading line can fall in the margin between two blocks (below a heading, above its first paragraph). The
+// reading position is a block and a fraction of it, and a fraction cannot be negative, so setting the page again used
+// to put the next block's top on the line and move the text by the margin's share. Held as pixels now (`lead`).
+test('leaving the editor keeps the reader put when the reading line sits in the margin between two blocks (F-61)', async () => {
+  const file = '01-long-technical.md';
+  await withPage({ [`/c/${file}`]: read(file) }, [`/c/${file}`], async (page, mod) => {
+    await page.waitForFunction(() => window.__marxyHandle.document().snapshot().buffer.bytes.length > 0);
+    // Scroll to a heading followed by a paragraph, the line a few pixels above the paragraph's top, with a paragraph above to edit.
+    const margin = await page.evaluate(async () => {
+      await window.__marxyHandle.contentComplete();
+      const root = document.documentElement;
+      const line = Math.round(innerHeight * 0.4);
+      const blocks = [...document.querySelectorAll('#doc > *')];
+      const top = (el) => el.getBoundingClientRect().top + root.scrollTop;
+      const middle = (root.scrollHeight - innerHeight) / 2;
+      const pairs = [];
+      for (let i = 1; i < blocks.length; i++) {
+        if (/^H[1-6]$/.test(blocks[i - 1].tagName) && blocks[i].tagName === 'P') pairs.push([blocks[i - 1], blocks[i]]);
+      }
+      pairs.sort((a, b) => Math.abs(top(a[1]) - middle) - Math.abs(top(b[1]) - middle));
+      for (const [h, p] of pairs) {
+        const gap = top(p) - (top(h) + h.getBoundingClientRect().height);
+        if (gap < 8) continue;
+        root.scrollTop = top(p) - line - Math.floor(gap / 2);
+        const above = [...document.querySelectorAll('#doc > p[data-marxy-s]')].some((q) => q.getBoundingClientRect().bottom < line - 40 && q.getBoundingClientRect().bottom > 60);
+        if (above) return { gap, byte: Number(p.getAttribute('data-marxy-s')), line };
+      }
+      return null;
+    });
+    assert.ok(margin, 'a heading and a paragraph with a margin between them, and a paragraph above');
+    await page.waitForTimeout(400);
+    const held = await reading(page);
+    assert.equal(held.byteOffset, margin.byte, 'the paragraph after the margin is the reading block');
+    assert.ok(held.top - margin.line >= 3, `the reading line is in the margin (${held.top - margin.line}px above the block)`);
+    const at = await paragraphOnScreen(page, 'above');
+    assert.ok(at !== null);
+    await selectBlock(page, at);
+    await page.keyboard.press(`${mod}+Enter`);
+    await page.waitForSelector('.marxy-block-editor .cm-content');
+    assert.ok(Math.abs((await reading(page)).top - held.top) <= 1, 'opening held the block');
+    await toEnd(page, mod);
+    const typed = ' and a few more words, and then a good many more besides, enough to add a whole new line to the paragraph for certain.';
+    await page.keyboard.type(typed);
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.querySelector('.marxy-block-editor') === null);
+    await page.evaluate(() => window.__marxyHandle.panes().panes[0].view.settled());
+    await page.waitForTimeout(300);
+    const now = await reading(page);
+    assert.equal(now.byteOffset, held.byteOffset + typed.length, 'the same block is on the reading line');
+    assert.ok(Math.abs(now.top - held.top) <= 1, `the block moved ${now.top - held.top}px over the whole edit`);
+  });
+});
+
 test('Mod+E with an editor open leaves it first: Source shows the edited bytes', async () => {
   await withTypedBlock(async (page, mod, { first }) => {
     assert.equal((await stateOf(page)).dirty, false, 'nothing is in the document until the editor is left');
