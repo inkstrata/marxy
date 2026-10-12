@@ -62,6 +62,10 @@ export interface Config {
   readonly typeset: boolean;
   /** `undefined` when the key is absent or invalid: the per-path default stands (numbers on for code files). */
   readonly lineNumbers: boolean | undefined;
+  /** `undefined` when the key is absent or invalid: whitespace marks are off (V-08). */
+  readonly showWhitespace: boolean | undefined;
+  /** `undefined` when the key is absent or invalid: the guide is on for code and off for prose (V-08). */
+  readonly columnGuide: boolean | undefined;
   readonly externalEditor: string | null;
   readonly resident: boolean;
   /** The Copy as row that is first and chosen by Enter (J-04): one of `COPY_FORMATS`. A target not built yet still parses; the menu falls back to Markdown. */
@@ -87,6 +91,8 @@ const DEFAULTS: Config = {
   measure: 66,
   typeset: true,
   lineNumbers: undefined,
+  showWhitespace: undefined,
+  columnGuide: undefined,
   externalEditor: null,
   resident: false,
   copyFormat: 'markdown',
@@ -103,6 +109,8 @@ const KNOWN = new Set([
   'measure',
   'typeset',
   'line_numbers',
+  'show_whitespace',
+  'column_guide',
   'external_editor',
   'resident',
   'copy_format',
@@ -171,6 +179,12 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
   let lineNumbers = DEFAULTS.lineNumbers;
   if (typeof raw.line_numbers === 'boolean') lineNumbers = raw.line_numbers;
   else if (raw.line_numbers !== undefined) warnings.push('line_numbers was invalid; using the default for the file');
+  let showWhitespace = DEFAULTS.showWhitespace;
+  if (typeof raw.show_whitespace === 'boolean') showWhitespace = raw.show_whitespace;
+  else if (raw.show_whitespace !== undefined) warnings.push('show_whitespace was invalid; whitespace marks stay off');
+  let columnGuide = DEFAULTS.columnGuide;
+  if (typeof raw.column_guide === 'boolean') columnGuide = raw.column_guide;
+  else if (raw.column_guide !== undefined) warnings.push('column_guide was invalid; using the default for the file');
 
   let externalEditor: string | null = DEFAULTS.externalEditor;
   if (typeof raw.external_editor === 'string') externalEditor = raw.external_editor;
@@ -205,6 +219,8 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
       measure,
       typeset,
       lineNumbers,
+      showWhitespace,
+      columnGuide,
       externalEditor,
       resident,
       copyFormat,

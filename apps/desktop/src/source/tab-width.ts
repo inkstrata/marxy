@@ -4,7 +4,7 @@ import type { Shell } from '@marxy/shell-api';
 import { isUntitled } from '../document/untitled.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { rootFor } from '../index/walk.ts';
-import { createEditorConfigCache, fallbackRoot, resolveTabWidth } from './editorconfig.ts';
+import { createEditorConfigCache, fallbackRoot, resolveMaxLineLength, resolveTabWidth } from './editorconfig.ts';
 
 export interface TabWidthResolver {
   readonly indexedRoot: string;
@@ -55,9 +55,13 @@ export async function updateTabWidthResolver(filePath: string, shell: Pick<Shell
   const width = MARKDOWN.test(filePath) ? null : await resolveTabWidth(filePath, indexedRoot, readText, cache);
   if (mine === applying) await applyTabWidth(width);
   // The focused pane's editor (D-11), when it shows this file: another pane's is not this file's.
-  const { activeSourceEditor, reconfigureTabSize } = await import('./editor.ts');
+  const { activeSourceEditor, reconfigureTabSize, refreshColumnGuide } = await import('./editor.ts');
   const editor = activeSourceEditor();
-  if (editor && editor.buffer.path === filePath) await reconfigureTabSize(editor.view, filePath);
+  if (editor && editor.buffer.path === filePath) {
+    await reconfigureTabSize(editor.view, filePath);
+    // The guide follows the same file's `max_line_length` (V-08).
+    await refreshColumnGuide(editor.view, filePath);
+  }
 }
 
 export async function tabSizeForFile(path: string): Promise<number> {
@@ -70,4 +74,13 @@ export async function tabSizeForFile(path: string): Promise<number> {
   }
   if (!resolver) return 4;
   return resolveTabWidth(path, resolver.indexedRoot, resolver.readText, cache);
+}
+
+/**
+ * The file's `.editorconfig` `max_line_length`, for the Source column guide (V-08), or null: none given, no folder, or the
+ * folder's `.editorconfig` has not been read yet (the read that finishes it refreshes the guide).
+ */
+export async function maxLineLengthForFile(path: string): Promise<number | null> {
+  if (isUntitled(path) || !resolver) return null;
+  return resolveMaxLineLength(path, resolver.indexedRoot, resolver.readText, cache);
 }

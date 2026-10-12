@@ -341,6 +341,8 @@ the palette.
 | `Alt+↑/↓`, `Alt+Shift+↑/↓` | move line, duplicate line | the editor's own; Rendered's `Alt+↑/↓` are the block moves and stay so |
 | palette only | sort lines (byte order) | UTF-8 byte-wise, not the locale's |
 | palette only | align table, add table row, add table column, sort table rows, copy table at caret as CSV | V-02, with the caret in a GFM table; see below |
+| `Mod+B` / `Mod+I` / `Ctrl+\`` | bold / italic / inline code | V-08, Markdown only; wraps the selection or the word at the caret, and again unwraps; see *Formatting and inserts* |
+| palette only | strikethrough, link, insert table / code block / horizontal rule / details block / footnote | V-08, Markdown only; no key for Link (`Mod+K` is the palette) and none for the rest until the menu bar shows them (W-20) |
 
 **Table tools (V-02).** With the caret in a table (the parse's `table` node, so a table in a code fence is not
 one), the five palette commands act on that table and nothing else; with the caret anywhere else they do nothing
@@ -719,6 +721,31 @@ language, the notes marks (V-04) and the line-ending and indentation menus (V-08
 caret readout is plain text, not a live region, so a screen reader reads it when asked and does not announce every key. Source's
 scroll position, which the window used to hold, is the editor's own now: `scrollSourceToByte` takes the scroller's offset from the
 window's top off the reading line's margin, so a place round-trips through Rendered unchanged.
+
+### Formatting, inserts, show whitespace and the column guide (V-08)
+
+**Formatting and inserts.** In a Markdown file in Source (and a scratch document, which is Markdown until it is named),
+*Bold* (`Mod+B`), *Italic* (`Mod+I`), *Inline code* (`Ctrl+\``), *Strikethrough* and *Link* wrap the selection, or the
+word at the caret; run again on wrapped text each unwraps, so twice returns the bytes. White space at the edge of a
+selection stays outside the markers; an empty selection with no word puts the pair at the caret, and an empty pair at the
+caret comes out. Bold is `**`, italic `*`, so `***` is both and each takes only its own off. *Link* wraps as
+`[text](url)` with `url` selected, and unwraps from anywhere inside a link on one line. *Insert table*, *Insert code
+block*, *Insert horizontal rule*, *Insert details block* and *Insert footnote* (palette, under `>Insert`) put a block at the
+caret with a blank line each side, moving no other byte (a rule at the very start is `***`, since `---` there could open
+front matter); a footnote puts `[^n]` at the caret and its definition after the last line. Each is one splice and one undo
+step, written in the file's own line ending, and none is offered, or does anything, in a file that is not Markdown. A
+selection that is in or across a fenced block, or runs over a paragraph break or into a list or quote, is declined with a
+refusal that says what is unchanged and what to do (the X-21 template); an insert with the caret in a fenced block is
+declined likewise. There is no formatting toolbar and no slash menu: in a source editor `/` types a slash. The pure part is
+`source/format-ops.ts`. The in-place block editor in Rendered has none of these keys.
+
+**Show whitespace** (palette toggle, off by default) marks a tab with a faint line through its width and trailing spaces
+with a faint tint, as CodeMirror decorations on its own classes: the text, the clipboard and the file are unchanged.
+**Column guide** (palette toggle) draws a one-pixel faint hairline at the right edge of character 80 (or of the file's
+`.editorconfig` `max_line_length` when it has one), a pseudo-element of the content on the ruler's character grid, taking
+no space and no pointer. It is on for code, logs and terminal output and off for Markdown and the text family until
+chosen. Both are remembered as `show_whitespace` and `column_guide` in `config.toml` (a choice applies to every file, as
+`line_numbers` does; absent, the column guide follows the file's kind), each written without touching another byte.
 
 ### Folds and the depth lens (K-10a)
 

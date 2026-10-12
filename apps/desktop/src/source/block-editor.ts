@@ -41,7 +41,7 @@ function cmKeyName(chord: string): string {
  */
 function structureKeymap(path: string): KeyBinding[] {
   return SOURCE_EDIT_ENTRIES.flatMap((entry) =>
-    entry.key === undefined
+    entry.key === undefined || entry.op === undefined
       ? []
       : [{ key: cmKeyName(entry.key), preventDefault: true, run: (view: EditorView) => runStructure(entry.op, view, path) }],
   );

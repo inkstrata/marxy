@@ -500,7 +500,8 @@ test('registry: the editor keeps none of the chords the registry binds in Source
   const after = new Set(kept.flatMap((b) => keyBindingChords(b, MAC)));
   const dropped = [...before].filter((c) => !after.has(c) || false).sort();
   // Exactly the defaults that sat on our chords: next occurrence, all occurrences, delete line, toggle comment, and two Mac emacs-style selects (syntax right, char left).
-  assert.deepEqual(dropped, ['ctrl-shift-arrowright', 'ctrl-shift-b', 'meta-/', 'meta-d', 'meta-shift-k', 'meta-shift-l']);
+  // V-08: Italic takes `Mod+I`, which was select parent syntax.
+  assert.deepEqual(dropped, ['ctrl-shift-arrowright', 'ctrl-shift-b', 'meta-/', 'meta-d', 'meta-i', 'meta-shift-k', 'meta-shift-l']);
   // The expand chord's base binding (cursor by syntax) is still there: only its shift variant went.
   assert.ok(after.has('ctrl-arrowright'));
 });

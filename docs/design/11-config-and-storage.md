@@ -20,6 +20,8 @@ chrome_size = 13                # control text px, 11–26; unset, the theme's v
 measure = 66                    # average characters per line, 45–80 (never ch, ADR-0033)
 typeset = true                  # the Knuth–Plass path; false = engine wrapping, grid pass only
 line_numbers = false            # Source mode; absent: on for code files, off for prose
+show_whitespace = false         # Source mode: tabs and trailing spaces drawn faintly (a view only); absent: off (V-08)
+column_guide = true             # Source mode: a hairline at column 80, or the file's .editorconfig max_line_length; absent: on for code, off for prose (V-08)
 external_editor = "code --goto {file}:{line}"   # {file} {line} substituted; absent → the OS default opener
 resident = false                # stay running after the last window closes (ADR-0013)
 copy_format = "markdown"        # the Copy as row that is first and chosen by Return: markdown | plain | rich | html | slack | jira | json-string | quote (J-04)

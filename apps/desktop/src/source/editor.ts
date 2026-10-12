@@ -7,12 +7,13 @@ import { cmDocText, lineSeparatorFor } from './buffer-commit.ts';
 import { LARGE_FILE_BYTES } from './language.ts';
 import { setLineNumbersChoice } from './line-numbers.ts';
 import { marxyHighlighting } from './highlight-style.ts';
-import { liveMarxyTheme, sourceHang, type SourceLook } from './theme-bridge.ts';
+import { columnGuideLook, liveMarxyTheme, NO_GUIDE, NO_MARKS, sourceHang, whitespaceMarks, type SourceLook } from './theme-bridge.ts';
+import { resolveColumnGuide, resolveShowWhitespace } from './view-aids.ts';
 import { fileTypeOf } from '@marxy/core/src/index-model/file-types.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
 import { save } from '../save.ts';
-import { tabSizeForFile } from './tab-width.ts';
+import { maxLineLengthForFile, tabSizeForFile } from './tab-width.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { sourceEditChords } from '../commands/source-edit.ts';
 
@@ -35,6 +36,9 @@ export interface SourceEditor {
 }
 
 const lineNumbersCompartment = new Compartment();
+/** Show whitespace and the column guide (V-08): a Source editor has both, the block editor inside Rendered neither. */
+const whitespaceCompartment = new Compartment();
+const columnGuideCompartment = new Compartment();
 const tabSizeCompartment = new Compartment();
 const lineSeparatorCompartment = new Compartment();
 export const languageCompartment = new Compartment();
@@ -88,6 +92,8 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
   const existing = editors.get(opts.parent);
   if (existing) {
     existing.replaceBuffer(opts.buffer);
+    // The mount takes another file: its kind and `.editorconfig` say where the guide is (V-08).
+    void refreshColumnGuide(existing.view, opts.buffer.path);
     return existing;
   }
   const cm = await loadCodeMirror();
@@ -229,6 +235,9 @@ export async function baseExtensions(
     tabComp.of(EditorState.tabSize.of(tabSize)),
     liveMarxyTheme(themeCompartment, look),
     marxyHighlighting(),
+    // View only (V-08): decorations and a pseudo-element, never a byte. The block editor in Rendered's page has neither.
+    whitespaceCompartment.of(!island && resolveShowWhitespace() ? whitespaceMarks() : NO_MARKS),
+    columnGuideCompartment.of(island ? [] : columnGuideLook(resolveColumnGuide(buffer.path, await maxLineLengthForFile(buffer.path)))),
     lnComp.of(lnOn ? await gutterExtensions(!isLargeSourceFile(buffer)) : []),
   ];
   if (!isLargeSourceFile(buffer)) {
@@ -256,6 +265,34 @@ export function toggleLineNumbersInView(view: EditorView, on: boolean, compartme
     view.dispatch({ effects: compartment.reconfigure(on ? await gutterExtensions(folding) : []) });
   })();
   setLineNumbersChoice(on);
+}
+
+/** Whether `view` draws whitespace marks now. */
+export function hasWhitespaceMarks(view: EditorView): boolean {
+  const held = whitespaceCompartment.get(view.state);
+  return held !== undefined && held !== NO_MARKS;
+}
+
+/** Show whitespace on or off in `view` (V-08); the choice itself is `view-aids.ts`'s and the command's. */
+export function setShowWhitespaceInView(view: EditorView, on: boolean): void {
+  view.dispatch({ effects: whitespaceCompartment.reconfigure(on ? whitespaceMarks() : NO_MARKS) });
+}
+
+/** The column guide in `view` at `column`, or none for null. */
+export function setColumnGuideInView(view: EditorView, column: number | null): void {
+  view.dispatch({ effects: columnGuideCompartment.reconfigure(columnGuideLook(column)) });
+}
+
+/** Whether `view` draws a column guide now. */
+export function hasColumnGuide(view: EditorView): boolean {
+  const held = columnGuideCompartment.get(view.state);
+  return held !== undefined && held !== NO_GUIDE;
+}
+
+/** Re-reads the guide for `path` from the choice, the file's kind and its `.editorconfig`, and draws it. */
+export async function refreshColumnGuide(view: EditorView, path: string): Promise<void> {
+  const column = resolveColumnGuide(path, await maxLineLengthForFile(path));
+  if (view.dom.isConnected) setColumnGuideInView(view, column);
 }
 
 export { scrollSourceToByte, cmDocText, lineSeparatorFor };

@@ -174,3 +174,21 @@ test('V-16: a fence inside Markdown keeps tab width 4', async () => {
     await browser.close();
   }
 });
+
+nodeTest('V-08: max_line_length is read like the tab keys: the nearer file and the later section win, off and unset are none', async () => {
+  const { parseEditorConfig, resolveMaxLineLength } = require('../src/source/editorconfig.ts');
+  assert.deepEqual(parseEditorConfig('[*]\nmax_line_length = 100\n')[0].maxLineLength, 100);
+  assert.equal(parseEditorConfig('[*]\nmax_line_length = off\n')[0].maxLineLength, undefined);
+  const files = {
+    '/repo/.editorconfig': '[*]\nmax_line_length = 100\n[*.md]\nmax_line_length = 72\n',
+    '/repo/pkg/.editorconfig': '[*.rs]\nmax_line_length = off\n',
+  };
+  const read = async (path) => {
+    if (path in files) return files[path];
+    throw new Error('missing');
+  };
+  assert.equal(await resolveMaxLineLength('/repo/a.txt', '/repo', read), 100);
+  assert.equal(await resolveMaxLineLength('/repo/a.md', '/repo', read), 72, 'the later section wins');
+  assert.equal(await resolveMaxLineLength('/repo/pkg/a.rs', '/repo', read), null, 'off in a nearer file is none');
+  assert.equal(await resolveMaxLineLength('/elsewhere/a.rs', '/repo', read), null, 'outside the root, none');
+});

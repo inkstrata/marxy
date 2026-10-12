@@ -172,6 +172,30 @@ test('setTopLevelKey on line_numbers changes only the value bytes: comments, CRL
   );
 });
 
+test('show_whitespace and column_guide are true, false or undefined; a malformed one warns and falls back (V-08)', () => {
+  const read = (t: string) => parseConfig(new TextEncoder().encode(t));
+  assert.equal(read('').config.showWhitespace, undefined);
+  assert.equal(read('').config.columnGuide, undefined);
+  assert.equal(read('show_whitespace = true\ncolumn_guide = false\n').config.showWhitespace, true);
+  assert.equal(read('show_whitespace = true\ncolumn_guide = false\n').config.columnGuide, false);
+  const bad = read('show_whitespace = "yes"\ncolumn_guide = 80\n');
+  assert.equal(bad.config.showWhitespace, undefined);
+  assert.equal(bad.config.columnGuide, undefined);
+  assert.deepEqual(bad.warnings, ['show_whitespace was invalid; whitespace marks stay off', 'column_guide was invalid; using the default for the file']);
+  assert.deepEqual(read('show_whitespace = true\n').unknownKeys, [], 'both are known keys');
+});
+
+test('setTopLevelKey on show_whitespace and column_guide changes only their own lines (V-08)', () => {
+  const dec = new TextDecoder();
+  const enc = (t: string) => new TextEncoder().encode(t);
+  const before = '# mine\r\nshow_whitespace = false # marks\r\nsize = 22\r\n\r\n[linux]\r\nweight_offset = 75\r\n';
+  assert.equal(dec.decode(setTopLevelKey(enc(before), 'show_whitespace', 'true')), before.replace('= false', '= true'));
+  assert.equal(
+    dec.decode(setTopLevelKey(enc('# top\r\n[linux]\r\n'), 'column_guide', 'true')),
+    '# top\r\ncolumn_guide = true\r\n[linux]\r\n',
+  );
+});
+
 test('chrome_size: unset is null; 11 to 26 px is kept; outside is clamped with a warning naming the value (H-07)', () => {
   const read = (toml: string) => parseConfig(new TextEncoder().encode(toml));
   assert.equal(read('size = 20\n').config.chromeSize, null);

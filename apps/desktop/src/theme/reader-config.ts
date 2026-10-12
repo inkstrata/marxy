@@ -1,10 +1,11 @@
 // The reader's own settings from config.toml: light variant and text size, applied before first
 // text and changed by command (A-14), and the Source line-number choice (L-06.1). Only `variant`, `size`,
-// `chrome_size`, `line_numbers` and `theme` (H-05) are read or written here.
+// `chrome_size`, `line_numbers`, `show_whitespace`, `column_guide` (V-08) and `theme` (H-05) are read or written here.
 import { applyVariant, parseConfig, resolveVariantPreference, setTopLevelKey } from '@marxy/theme';
 import type { Config } from '@marxy/theme';
 import type { AppShell } from '../app.ts';
 import { setLineNumbersChoice } from '../source/line-numbers.ts';
+import { setColumnGuideChoice, setShowWhitespaceChoice } from '../source/view-aids.ts';
 
 type ConfigShell = Pick<AppShell, 'readFile' | 'configPaths'>;
 type WriteShell = Pick<AppShell, 'readFile' | 'writeFileAtomic' | 'configPaths'>;
@@ -144,13 +145,16 @@ export function currentVariant(root: HTMLElement = document.documentElement): 'l
  * Applies variant and size to `root`. `auto` follows the system until the next call; the returned
  * function stops that following.
  */
-export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, 'variant' | 'size' | 'lineNumbers' | 'chromeSize'>>): () => void {
+export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, 'variant' | 'size' | 'lineNumbers' | 'chromeSize' | 'showWhitespace' | 'columnGuide'>>): () => void {
   stopAuto?.();
   stopAuto = null;
   const variant = cfg.variant ?? DEFAULTS.variant;
   const size = cfg.size ?? DEFAULTS.size;
   // Only a key the reader wrote speaks for the gutter; absent, the per-path default stands (L-06.1).
   if (cfg.lineNumbers !== undefined) setLineNumbersChoice(cfg.lineNumbers);
+  // The same for the two Source aids (V-08): absent, whitespace is off and the guide follows the kind of file.
+  if (cfg.showWhitespace !== undefined) setShowWhitespaceChoice(cfg.showWhitespace);
+  if (cfg.columnGuide !== undefined) setColumnGuideChoice(cfg.columnGuide);
   const doc = root.ownerDocument;
   let stop = (): void => {};
   if (variant === 'auto') {
@@ -181,7 +185,7 @@ let writes: Promise<void> = Promise.resolve();
  * created; a file that exists but cannot be read is left alone. Writes run one after another, so
  * three quick presses are three read-modify-writes in order, not three that overwrite each other.
  */
-export function writeReaderKey(shell: WriteShell, key: 'variant' | 'size' | 'line_numbers' | 'chrome_size' | 'theme', tomlValue: string): Promise<void> {
+export function writeReaderKey(shell: WriteShell, key: 'variant' | 'size' | 'line_numbers' | 'show_whitespace' | 'column_guide' | 'chrome_size' | 'theme', tomlValue: string): Promise<void> {
   const run = async (): Promise<void> => {
     if (shell.configPaths === undefined) return;
     const { config } = await shell.configPaths();

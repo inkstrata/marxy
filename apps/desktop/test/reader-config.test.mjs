@@ -472,6 +472,68 @@ test('the toggle changes only the value bytes of line_numbers: comments, CRLF an
   }
 });
 
+// V-08: show whitespace and the column guide are remembered the way line numbers are, and write nothing else.
+const marks = (page) => page.evaluate(() => document.querySelectorAll('#marxy-source .cm-highlightTab').length);
+const guideOn = (page) => page.evaluate(() => {
+  const after = getComputedStyle(document.querySelector('#marxy-source .cm-content'), '::after').content;
+  return after !== 'none' && after !== 'normal';
+});
+const toggle = async (page, id) => {
+  await page.evaluate((id) => window.marxyRunCommand(id), id);
+  await settle(page);
+};
+const TABBED = { path: '/src/tab.rs', bytes: b64('fn main() {\n\tlet x = 1;\n}\n') };
+
+test('V-08: Show whitespace writes only the show_whitespace line of a commented config.toml, and a relaunch keeps it', async () => {
+  const browser = await launchWebkit();
+  try {
+    const first = await boot(browser, CONFIG, TABBED);
+    await inSource(first.page);
+    assert.equal(await marks(first.page), 0, 'off by default');
+    await toggle(first.page, 'view.toggle-show-whitespace');
+    assert.ok((await marks(first.page)) > 0, 'a tab shows its mark');
+    const saved = await configOf(first.page);
+    assert.match(saved, /^show_whitespace = true\n/m);
+    assert.equal(saved.replace('show_whitespace = true\n', ''), CONFIG, 'only the one new line was added');
+    const second = await boot(browser, saved, TABBED);
+    await inSource(second.page);
+    assert.ok((await marks(second.page)) > 0, 'a relaunch keeps it on');
+    await toggle(second.page, 'view.toggle-show-whitespace');
+    assert.equal(await configOf(second.page), saved.replace('show_whitespace = true', 'show_whitespace = false'));
+    assert.equal(await marks(second.page), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('V-08: the column guide follows the file kind until the reader chooses; the choice writes only column_guide', async () => {
+  const browser = await launchWebkit();
+  try {
+    const rs = await boot(browser, CONFIG, RS);
+    await inSource(rs.page);
+    assert.equal(await guideOn(rs.page), true, 'code has the guide with no key');
+    const md = await boot(browser, CONFIG);
+    await inSource(md.page);
+    assert.equal(await guideOn(md.page), false, 'Markdown has none with no key');
+    await toggle(md.page, 'view.toggle-column-guide');
+    assert.equal(await guideOn(md.page), true);
+    const saved = await configOf(md.page);
+    assert.match(saved, /^column_guide = true\n/m);
+    assert.equal(saved.replace('column_guide = true\n', ''), CONFIG);
+    const again = await boot(browser, saved);
+    await inSource(again.page);
+    assert.equal(await guideOn(again.page), true, 'a relaunch keeps the choice');
+    const off = await boot(browser, 'column_guide = false\n', RS);
+    await inSource(off.page);
+    assert.equal(await guideOn(off.page), false, 'a reader who turned it off has it off for code too');
+    const bad = await boot(browser, 'column_guide = 80\n', RS);
+    await inSource(bad.page);
+    assert.equal(await guideOn(bad.page), true, 'a malformed value falls back to the file kind');
+  } finally {
+    await browser.close();
+  }
+});
+
 const chromeSizeOf = (page) => page.evaluate(() => ({
   inline: document.documentElement.style.getPropertyValue('--marxy-size-chrome'),
   computed: getComputedStyle(document.documentElement).getPropertyValue('--marxy-size-chrome').trim(),
