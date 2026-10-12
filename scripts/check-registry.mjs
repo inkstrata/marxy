@@ -83,6 +83,31 @@ export function constructedRegistryNameProblems(rel, text) {
   return problems;
 }
 
+/** The `--marxy-*` names a file uses: whole names, and a name that ends in `-` where the rest is assembled (`--marxy-face-${n}`). */
+export function customPropertiesIn(text) {
+  return [...new Set([...text.matchAll(/--marxy-[a-z0-9]+(?:-[a-z0-9]+)*-?/g)].map(m => m[0]))];
+}
+
+const listedCovers = (listed, name) => listed.some(l => (l.endsWith('-') ? name.startsWith(l) : name === l));
+
+/**
+ * A `--marxy-*` custom property used in app or package source is a theme token (tokens.contract.json) or a private one
+ * the registry lists (`customProperties`); a listed one that no source uses is stale. `used` maps a name to the first
+ * file that uses it. A listed entry ending in `-` stands for a family whose names are assembled in code.
+ */
+export function customPropertyProblems(used, tokens, listed) {
+  const problems = [];
+  for (const [name, file] of used) {
+    if (tokens.has(name) || listedCovers(listed, name)) continue;
+    problems.push(`${file}: custom property "${name}" is neither a theme token nor in registry.customProperties${fix('add it to customProperties in scripts/registry.json, or use a theme token')}`);
+  }
+  for (const l of listed) {
+    const inUse = [...used.keys()].some(name => (l.endsWith('-') ? name.startsWith(l) : name === l));
+    if (!inUse) problems.push(`scripts/registry.json: customProperties lists "${l}", which no source in apps/desktop/src or packages/*/src uses${fix('remove it from customProperties')}`);
+  }
+  return problems;
+}
+
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 if (isMain) {
 const reg = registry();
@@ -105,6 +130,18 @@ for (const f of files) {
   for (const m of text.matchAll(/--([a-z][a-z0-9-]*)\s*:/g)) if (r.endsWith('.css') && !m[1].startsWith('marxy-') && !m[1].startsWith('lb') && !/^(cm|katex)/.test(m[1])) problems.push(`${r}: custom property "--${m[1]}" must be "--marxy-*" (contract) or a private "--lb"${fix('rename')}`);
   problems.push(...htmlRouteProblems(r, text, reg.innerHtmlAllowedIn));
   if (!isTestFile) problems.push(...constructedRegistryNameProblems(r, text));
+}
+// Custom properties: the whole tree, whatever --staged says, since "listed but used nowhere" is a fact about all of it.
+{
+  const tokens = new Set(JSON.parse(readFileSync(join(ROOT, 'packages/theme/tokens.contract.json'), 'utf8')).map(d => d.name));
+  const used = new Map();
+  const inScope = r => /^(?:apps\/desktop\/src|packages\/[^/]+\/src)\/.*\.(?:[mc]?[jt]sx?|css)$/.test(r) && !/\.(?:test|spec)\.[mc]?[jt]sx?$|\/(?:testing|test)\/|\/tokens\.css$/.test(r);
+  for (const f of walk(ROOT, f => !prototype.test(f))) {
+    const r = rel(f);
+    if (!inScope(r)) continue;
+    for (const name of customPropertiesIn(stripForRegistry(readFileSync(f, 'utf8'), f))) if (!used.has(name)) used.set(name, r);
+  }
+  problems.push(...customPropertyProblems(used, tokens, reg.customProperties ?? []));
 }
 if (fail(problems)) process.exit(1);
 console.log(`registry ok (${files.length} files)`);

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { stripComments } from './lib/repo.mjs';
-import { htmlRoutes, htmlRouteProblems, constructedRegistryNameProblems, stripForRegistry } from './check-registry.mjs';
+import { htmlRoutes, htmlRouteProblems, constructedRegistryNameProblems, stripForRegistry, customPropertiesIn, customPropertyProblems } from './check-registry.mjs';
 import { fileURLToPath } from 'node:url';
 
 const ALLOWED_PREFIX = 'apps/desktop/src/render/';
@@ -183,8 +183,10 @@ test('H-01: a source file using data-marxy-kind and data-marxy-lang passes the r
       for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) {
         copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
       }
-      writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...real, dataAttributes }));
+      writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...real, dataAttributes, customProperties: ['--marxy-tok-'] }));
       symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
+      mkdirSync(join(dir, 'packages/theme'), { recursive: true });
+      copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
       mkdirSync(join(dir, 'apps/desktop/src/pane'), { recursive: true });
       writeFileSync(
         join(dir, 'apps/desktop/src/pane/kind.ts'),
@@ -222,7 +224,11 @@ test('a design plate under docs/plan/<round>/studio/ is exempt; the same plate e
       for (const f of ['check-registry.mjs', 'registry.json', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) {
         copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
       }
+      // A tree this small uses none of the private properties the real list holds.
+      writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...JSON.parse(readFileSync(join(repo, 'scripts/registry.json'), 'utf8')), customProperties: [] }));
       symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
+      mkdirSync(join(dir, 'packages/theme'), { recursive: true });
+      copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
       mkdirSync(join(dir, 'docs/plan/direction-2026-10', folder), { recursive: true });
       writeFileSync(join(dir, 'docs/plan/direction-2026-10', folder, 'plate.html'), '<div class="sd-plate"></div>\n');
       return spawnSync(process.execPath, ['scripts/check-registry.mjs'], { encoding: 'utf8', cwd: dir });
@@ -235,4 +241,60 @@ test('a design plate under docs/plan/<round>/studio/ is exempt; the same plate e
   const elsewhere = run('plates');
   assert.equal(elsewhere.status, 1, elsewhere.stdout);
   assert.match(elsewhere.stderr + elsewhere.stdout, /sd-plate/);
+});
+
+// ---- custom properties (F-71): a --marxy-* name in source is a theme token or listed; a listed one is used somewhere
+const TOKENS = new Set(['--marxy-color-accent']);
+const usedBy = (...names) => new Map(names.map(n => [n, 'apps/desktop/src/x.ts']));
+
+test('customPropertiesIn reads whole names and an assembled family prefix', () => {
+  assert.deepEqual(customPropertiesIn("el.style.setProperty('--marxy-col', '1'); `--marxy-face-${n}`; var(--marxy-color-accent)"), ['--marxy-col', '--marxy-face-', '--marxy-color-accent']);
+});
+
+test('a custom property that is neither a theme token nor listed is flagged', () => {
+  const problems = customPropertyProblems(usedBy('--marxy-color-accent', '--marxy-newcomer'), TOKENS, []);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /--marxy-newcomer.*customProperties/s);
+});
+
+test('a listed custom property that nothing uses is flagged', () => {
+  const problems = customPropertyProblems(usedBy('--marxy-col'), TOKENS, ['--marxy-col', '--marxy-gone']);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /lists "--marxy-gone"/);
+});
+
+test('theme tokens, listed names and a listed family prefix are all accepted', () => {
+  assert.deepEqual(customPropertyProblems(usedBy('--marxy-color-accent', '--marxy-col', '--marxy-face-body'), TOKENS, ['--marxy-col', '--marxy-face-']), []);
+  assert.equal(customPropertyProblems(usedBy('--marxy-col'), TOKENS, ['--marxy-col', '--marxy-face-']).length, 1);
+});
+
+// The same gate end to end, from a copy over a one-file tree: an unlisted private property fails the run.
+test('F-71: the gate run fails on an unlisted --marxy-* property in source and on a listed one nothing uses', () => {
+  const repo = fileURLToPath(new URL('../', import.meta.url));
+  const real = JSON.parse(readFileSync(join(repo, 'scripts/registry.json'), 'utf8'));
+  const run = (customProperties, css) => {
+    const dir = mkdtempSync(join(tmpdir(), 'marxy-f71-'));
+    try {
+      mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
+      for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
+      writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...real, customProperties }));
+      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
+      mkdirSync(join(dir, 'packages/theme'), { recursive: true });
+      copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
+      mkdirSync(join(dir, 'apps/desktop/src/pane'), { recursive: true });
+      writeFileSync(join(dir, 'apps/desktop/src/pane/x.css'), css);
+      return spawnSync(process.execPath, ['scripts/check-registry.mjs'], { encoding: 'utf8', cwd: dir });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const css = '.marxy-x { left: var(--marxy-fixture-private); color: var(--marxy-color-accent); }\n';
+  const ok = run(['--marxy-fixture-private'], css);
+  assert.equal(ok.status, 0, ok.stderr || ok.stdout);
+  const unlisted = run([], css);
+  assert.equal(unlisted.status, 1);
+  assert.match(unlisted.stderr, /"--marxy-fixture-private" is neither a theme token nor in registry\.customProperties/);
+  const stale = run(['--marxy-fixture-private', '--marxy-nowhere'], css);
+  assert.equal(stale.status, 1);
+  assert.match(stale.stderr, /lists "--marxy-nowhere"/);
 });

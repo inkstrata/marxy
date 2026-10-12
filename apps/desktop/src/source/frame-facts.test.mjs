@@ -4,6 +4,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { EditorState } from '@codemirror/state';
+import { lineSeparatorFor } from './buffer-commit.ts';
 import { createBuffer } from '../../../../packages/core/src/buffer/buffer.ts';
 import {
   bytesLabel,
@@ -13,6 +15,7 @@ import {
   encodingFact,
   formatCount,
   indentFact,
+  lineCountOf,
   lineEndingFact,
   linesLabel,
   pathSegments,
@@ -95,4 +98,39 @@ test('the character after the caret is its code point, named where it cannot be 
   assert.equal(characterReadout(0x301), 'U+0301 \u25cc\u0301');
   assert.equal(codePointLabel(0x41), 'U+0041');
   assert.equal(strayReadout(0xff), 'Byte FF, not UTF-8');
+});
+
+// Line count edge cases (F-71, from the V-05 review): the count is the rows of the editor's text, less the empty row after
+// a final line break, and none for an empty file.
+const docOf = (text) => {
+  const buffer = buf(text);
+  return EditorState.create({ doc: text, extensions: [EditorState.lineSeparator.of(lineSeparatorFor(buffer))] }).doc;
+};
+
+test('an empty file has no lines, not one', () => {
+  assert.equal(lineCountOf(docOf('')), 0);
+  assert.equal(linesLabel(lineCountOf(docOf(''))), '0 lines');
+});
+
+test('a final line break ends a line and starts none; a file without one counts its last row', () => {
+  assert.equal(lineCountOf(docOf('\n')), 1);
+  assert.equal(lineCountOf(docOf('a')), 1);
+  assert.equal(lineCountOf(docOf('a\n')), 1);
+  assert.equal(lineCountOf(docOf('a\nb')), 2);
+  assert.equal(lineCountOf(docOf('a\nb\n')), 2);
+  assert.equal(lineCountOf(docOf('a\n\n')), 2, 'a blank line before the end is a line');
+  assert.equal(lineCountOf(docOf('a\r\nb\r\n')), 2);
+  assert.equal(lineCountOf(docOf('a\rb\r')), 2);
+});
+
+test('the caret on the row after a final break reads Ln N+1 beside N lines', () => {
+  const doc = docOf('x\n'.repeat(4000));
+  assert.equal(lineCountOf(doc), 4000);
+  assert.equal(doc.lineAt(doc.length).number, 4001, 'the editor has a row to type on, which the count leaves out');
+});
+
+test('a lone CR in a Mixed file is a character in a line, not a break: Source counts the rows it shows', () => {
+  const text = 'a\nb\rc\nd\n';
+  assert.equal(buf(text).eol, 'mixed');
+  assert.equal(lineCountOf(docOf(text)), 3, 'two of the three rows hold a CR; only the LF breaks rows');
 });

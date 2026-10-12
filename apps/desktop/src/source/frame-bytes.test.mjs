@@ -85,3 +85,100 @@ test('a change that spans the last answer drops it, and the count starts again f
   state = tr.state;
   assert.equal(cursor.offsetAt(state, 4), exact(state, 4, 3));
 });
+
+// Multi-change ChangeSets (F-71): several ranges replaced in one transaction, the way multi-cursor typing, replace-all and a
+// paste over several selections do. Each answer is checked against a full TextEncoder count of the text before the caret.
+const fullCount = (state, pos, bom) => new TextEncoder().encode(state.sliceDoc(0, pos)).length + bom;
+
+const MULTI = [
+  ['LF', 0, '\n', 'é€ one\n😀 two\nthree\n'],
+  ['CRLF', 0, '\r\n', 'é€ one\r\n😀 two\r\nthree\r\n'],
+  ['a BOM', 3, '\n', 'é€ one\n😀 two\nthree\n'],
+];
+
+for (const [name, bom, sep, doc] of MULTI) {
+  const make = () => EditorState.create({ doc, extensions: [EditorState.lineSeparator.of(sep), EditorState.allowMultipleSelections.of(true)] });
+  const at = (state, needle) => state.doc.toString().indexOf(needle);
+
+  test(`${name}: insertions and deletions before and after the caret in one transaction`, () => {
+    let state = make();
+    const cursor = new ByteCursor(bom);
+    const caret = at(state, 'two');
+    assert.equal(cursor.offsetAt(state, caret), fullCount(state, caret, bom));
+    const tr = state.update({
+      changes: [
+        { from: 0, insert: '😀😀' }, // astral insertion before
+        { from: at(state, '€'), to: at(state, '€') + 1, insert: '' }, // multi-byte deletion before
+        { from: at(state, 'one'), to: at(state, 'one') + 3, insert: 'é' }, // replacement before, shorter in code units, longer in bytes
+        { from: caret + 3, insert: '€€' }, // insertion after: leaves the caret's offset alone
+        { from: at(state, 'three'), to: at(state, 'three') + 5, insert: '' }, // deletion after
+      ],
+    });
+    cursor.map(tr.changes, state);
+    state = tr.state;
+    const moved = tr.changes.mapPos(caret, -1);
+    assert.equal(cursor.offsetAt(state, moved), fullCount(state, moved, bom));
+    // Asking about other positions afterwards still agrees: nothing stale is left in the answer.
+    for (const p of [0, 2, moved, state.doc.length]) assert.equal(cursor.offsetAt(state, p), fullCount(state, p, bom), `at ${p}`);
+  });
+
+  test(`${name}: a line break inserted or deleted among several changes counts as the file's own break`, () => {
+    let state = make();
+    const cursor = new ByteCursor(bom);
+    const caret = state.doc.length;
+    assert.equal(cursor.offsetAt(state, caret), fullCount(state, caret, bom));
+    const tr = state.update({
+      changes: [
+        { from: 0, insert: state.lineBreak },
+        { from: at(state, 'two'), insert: state.lineBreak + '😀' },
+        { from: at(state, 'one') - 1, to: at(state, 'one'), insert: '' },
+      ],
+    });
+    cursor.map(tr.changes, state);
+    state = tr.state;
+    assert.equal(cursor.offsetAt(state, state.doc.length), fullCount(state, state.doc.length, bom));
+  });
+
+  test(`${name}: one change among several that spans the caret drops the answer and the next is still exact`, () => {
+    let state = make();
+    const cursor = new ByteCursor(bom);
+    const caret = at(state, '😀') + 2;
+    assert.equal(cursor.offsetAt(state, caret), fullCount(state, caret, bom));
+    const tr = state.update({
+      changes: [
+        { from: 0, insert: 'é' },
+        { from: at(state, '😀'), to: at(state, 'two') + 1, insert: '€' },
+        { from: state.doc.length, insert: '😀' },
+      ],
+    });
+    cursor.map(tr.changes, state);
+    state = tr.state;
+    for (const p of [0, 3, state.doc.length]) assert.equal(cursor.offsetAt(state, p), fullCount(state, p, bom), `at ${p}`);
+  });
+
+  test(`${name}: a run of multi-change transactions never drifts`, () => {
+    // No lone surrogate among the pieces: next to an astral character it would join it into a pair, which no key press does.
+    const pieces = PIECES.filter((piece) => piece !== '\udc9f');
+    const random = rng(99 + bom);
+    let state = make();
+    const cursor = new ByteCursor(bom);
+    const safe = (s, p) => (p > 0 && p < s.doc.length && /[\udc00-\udfff]/.test(s.sliceDoc(p, p + 1)) && /[\ud800-\udbff]/.test(s.sliceDoc(p - 1, p)) ? p - 1 : p);
+    for (let i = 0; i < 200; i++) {
+      const len = state.doc.length;
+      // Up to four disjoint, ordered ranges.
+      const cuts = [...new Set(Array.from({ length: 2 * (1 + Math.floor(random() * 4)) }, () => safe(state, Math.floor(random() * (len + 1)))))].sort((a, b) => a - b);
+      const changes = [];
+      for (let k = 0; k + 1 < cuts.length; k += 2) {
+        const insert = random() < 0.3 ? '' : pieces[Math.floor(random() * pieces.length)].replace('\n', state.lineBreak);
+        changes.push({ from: cuts[k], to: cuts[k + 1], insert });
+      }
+      const probe = safe(state, Math.floor(random() * (len + 1)));
+      assert.equal(cursor.offsetAt(state, probe), fullCount(state, probe, bom), `before transaction ${i}`);
+      const tr = state.update({ changes });
+      cursor.map(tr.changes, state);
+      state = tr.state;
+      const q = safe(state, Math.floor(random() * (state.doc.length + 1)));
+      assert.equal(cursor.offsetAt(state, q), fullCount(state, q, bom), `after transaction ${i}, at ${q}`);
+    }
+  });
+}
