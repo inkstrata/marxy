@@ -19,8 +19,15 @@ export function reasonLine(r: Reason): string {
     case 'line': return `line ${r.line}: ${r.preview.trim()}`;
     case 'field': return r.detail === undefined ? r.label : `${r.label} (${r.detail})`;
     case 'missing': return `missing: ${r.path}`;
-    case 'copy': return `near copy: ${r.rel}${r.similarity === null ? '' : ` (${r.similarity}% alike)`}`;
+    case 'copy': return `near copy: ${r.rel}${copySimilarity(r)}`;
+    case 'partial': return 'checked the first 256 KB only';
   }
+}
+
+/** How alike a near copy is, in words: a score of two files' first parts says so and is a floor, never a bare "100%". */
+export function copySimilarity(r: { readonly similarity: number | null; readonly partial?: true }): string {
+  if (r.similarity === null) return r.partial === true ? ' (compared in the first 256 KB)' : '';
+  return r.partial === true ? ` (≥${r.similarity}% of words alike in the first 256 KB)` : ` (${r.similarity}% of words alike)`;
 }
 
 /**

@@ -27,7 +27,7 @@ import { relativeAge, spokenAge } from '../palette/empty-state.ts';
 import { buildAppContext, openPalette } from '../selection/bind.ts';
 import { changedPredicate, type ScopeInput } from '../library/scopes.ts';
 import { collectionOf, editQueryInSource } from '../collection/load.ts';
-import { BuiltinCounts, checksFor } from '../library/checks.ts';
+import { BuiltinCounts, checksFor, type BuiltinCount } from '../library/checks.ts';
 import { openVerbMenu } from '../selection/verb-menu.ts';
 import { SIDEBAR_SECTIONS, sidebarSections, SmartCounts, smartRows, type SidebarMark, type SidebarSection, type SmartRow } from './sidebar.ts';
 import {
@@ -59,7 +59,7 @@ const TREE_STEP_EM = 1.1;
 const GROUP_PROBE_CAP = 64;
 
 /** A row of Smart collections: a saved query, or one of the two built-ins (Q-06). */
-type DrawnSmart = SmartRow & { readonly builtin?: 'dup' | 'broken' };
+type DrawnSmart = SmartRow & { readonly builtin?: 'dup' | 'broken'; readonly partial?: BuiltinCount['partial'] };
 
 const MARK_WORDS: Record<SidebarMark, string> = { pinned: ', pinned', changed: ', changed since you read', recent: '' };
 
@@ -285,12 +285,14 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       `${handle.index.roots().filter((r) => handle.index.isWatched(r)).join('\0')}|${handle.index.watchState()}`,
     );
     // The built-ins ask for the checks while the sidebar is shown and the section open (nothing is read while either is
-    // folded away), and show only with matches.
+    // folded away), and show only with matches, or while a check its budget stopped has not finished (its count a floor).
     builtins.request(!el.hidden && !collapsed.has('smart') && p ? feedEntries : null);
     const found = builtins.get();
+    const builtin = (name: string, q: string, kind: 'broken' | 'dup', c: BuiltinCount | undefined): DrawnSmart[] =>
+      c !== undefined && (c.count > 0 || c.partial !== null) ? [{ name, q, count: c.count, builtin: kind, partial: c.partial }] : [];
     const smart: DrawnSmart[] = [
-      ...(found !== null && found.broken > 0 ? [{ name: 'Broken paths', q: 'is:broken', count: found.broken, builtin: 'broken' as const }] : []),
-      ...(found !== null && found.dupGroups > 0 ? [{ name: 'Near-duplicates', q: 'is:dup', count: found.dupGroups, builtin: 'dup' as const }] : []),
+      ...builtin('Broken paths', 'is:broken', 'broken', found?.broken),
+      ...builtin('Near-duplicates', 'is:dup', 'dup', found?.dupGroups),
       ...smartRows(queries, (q) => counts.get(q)),
     ];
     // What the tree watches are now (live or refused), not what was declared; a walk under way hides the count.
@@ -369,12 +371,19 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
       button.title = row.q;
       if (row.builtin === undefined) button.setAttribute('aria-haspopup', 'menu');
       const unit = row.builtin === 'dup' ? ['group', 'groups'] : ['file', 'files'];
-      button.setAttribute('aria-label', `${row.name}, ${row.builtin === undefined ? 'smart collection' : 'built-in'}${row.count === null ? '' : `, ${row.count} ${row.count === 1 ? unit[0] : unit[1]}`}`);
+      const units = (n: number): string => `${n.toLocaleString('en-US')} ${n === 1 ? unit[0] : unit[1]}`;
+      const part = row.partial ?? null;
+      // A count its read budget cut short is a floor, and says how far the check got (commitment 4).
+      const spoken = row.count === null ? '' : part === null ? `, ${units(row.count)}` : row.count === 0
+        ? `, not finished, ${part.checked.toLocaleString('en-US')} of ${part.of.toLocaleString('en-US')} files checked`
+        : `, at least ${units(row.count)}, ${part.checked.toLocaleString('en-US')} of ${part.of.toLocaleString('en-US')} files checked`;
+      button.setAttribute('aria-label', `${row.name}, ${row.builtin === undefined ? 'smart collection' : 'built-in'}${spoken}`);
+      if (part !== null) button.title = `${row.q}: ${part.checked.toLocaleString('en-US')} of ${part.of.toLocaleString('en-US')} files checked so far`;
       const name = document.createElement('span');
       name.className = 'marxy-sidebar-name';
       name.textContent = row.name;
       button.append(toolbarIconElement(document, 'find'), name);
-      if (row.count !== null) button.append(quiet(row.count.toLocaleString('en-US')));
+      if (row.count !== null) button.append(quiet(part === null ? row.count.toLocaleString('en-US') : row.count === 0 ? 'not finished' : `${row.count.toLocaleString('en-US')}+`));
       button.addEventListener('mousedown', (event) => event.preventDefault());
       button.addEventListener('click', () => void openSmart(row));
       button.addEventListener('contextmenu', (event) => {

@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import type { IndexEntry } from '@marxy/core';
 import { resolveMention } from '@marxy/core/src/index-model/broken-paths.ts';
 import { resolveMentioned, type StatFn } from '../workspace/links-tab.ts';
-import { BuiltinCounts, LibraryChecks, type ChecksDeps } from './checks.ts';
+import { BuiltinCounts, LibraryChecks, type BrokenRun, type ChecksDeps } from './checks.ts';
 
 const enc = new TextEncoder();
 const NOW = Date.UTC(2026, 9, 12);
@@ -176,7 +176,7 @@ test('the sidebar\'s built-in counts: one run per set of entries, and the counts
   counts.request(list);
   await counts.settled();
   assert.equal(counts.runs, 1, 'the same entries again start nothing');
-  assert.deepEqual(counts.get(), { broken: 1, dupGroups: 1 });
+  assert.deepEqual(counts.get(), { broken: { count: 1, partial: null }, dupGroups: { count: 1, partial: null } });
   assert.equal(changed, 1);
   assert.equal(new Set(fake.reads).size, fake.reads.length, 'no file is read twice for the two checks');
   counts.request(list);
@@ -195,4 +195,59 @@ test('the broken-path rule is the Links tab\'s: core and the tab agree on every 
   for (const [path, doc, home] of cases) {
     assert.equal(await resolveMention(path, doc, '/repo', home, stat), await resolveMentioned(path, doc, '/repo', home, stat), `${path} from ${doc} (home ${home})`);
   }
+});
+
+test('a file read only in its first 256 KB says so: its run lists it as cut, and a near-copy score of it is marked partial', async () => {
+  const head = `${plan(null)}\n\n${paragraph('common', 30_000)}`;
+  const filler = (seed: string): string => `\n\n${paragraph(seed, 4_000)}`;
+  // Two ~300 KB files the same for their first 256 KB and different after; the second names a missing path past the cut.
+  const files = {
+    '/r/big.md': head + filler('tailA'),
+    '/r/big v2.md': head + filler('tailB') + '\n\nSee `./gone.md`.\n',
+    '/r/small.md': '# Small\n\nSee `./gone.md`.\n',
+  };
+  const entries = Object.entries(files).map(([p, t]) => entry(p, t));
+  assert.ok(entries[0]!.size > 300_000);
+  const checks = new LibraryChecks(shell(files));
+  const broken = (await checks.runBroken(entries))!;
+  assert.deepEqual([...broken.cut].sort(), ['/r/big v2.md', '/r/big.md']);
+  assert.deepEqual([...broken.broken.keys()], ['/r/small.md'], 'the path past the cut is not seen, and the run says the file was cut');
+  const dups = (await checks.runDups(entries))!;
+  assert.deepEqual([...dups.cut].sort(), ['/r/big v2.md', '/r/big.md']);
+  const copy = checks.dupFacts(dups).get('/r/big.md')!.copies[0]!;
+  assert.equal(copy.partial, true, 'a score of two cut files is of their first parts');
+});
+
+test('a run its budget stopped is continued: the next run reads only what is left, and runs converge on every file', async () => {
+  const { files, entries } = library();
+  const fake = shell(files);
+  const checks = new LibraryChecks(fake);
+  const runs: BrokenRun[] = [];
+  for (let i = 0; i < 40; i++) {
+    const run = (await checks.runBroken(entries, { budgetBytes: 64 * 1024 }))!;
+    runs.push(run);
+    if (!run.overBudget) break;
+  }
+  const last = runs.at(-1)!;
+  assert.ok(runs.length > 2, `${runs.length} runs`);
+  assert.equal(last.overBudget, false);
+  assert.equal(last.checked, last.of);
+  assert.equal(last.checkedPaths.size, last.of);
+  assert.equal(new Set(fake.reads).size, fake.reads.length, 'no file was read twice across the runs');
+  assert.ok(runs.every((r, k) => k === 0 || r.checked > runs[k - 1]!.checked), 'each run goes further');
+});
+
+test('the built-in counts carry a partial run as a floor, and go on until they are whole', async () => {
+  const { files, entries } = library();
+  files['/r/plans/plan.md'] += '\n\nSee `./gone.md` and `./plan.md`.\n';
+  const list = entries.map((e) => (e.path === '/r/plans/plan.md' ? entry(e.path, files[e.path]!, { mtimeMs: e.mtimeMs }) : e));
+  const seen: Array<ReturnType<BuiltinCounts['get']>> = [];
+  const counts: BuiltinCounts = new BuiltinCounts(new LibraryChecks(shell(files)), () => seen.push(counts.get()), { budgetBytes: 256 * 1024 });
+  counts.request(list);
+  await counts.settled();
+  assert.ok(seen.length >= 2, `${seen.length} landings`);
+  assert.notEqual(seen[0]!.broken.partial, null, 'the first landing is partial');
+  assert.ok(seen[0]!.broken.partial!.checked < seen[0]!.broken.partial!.of);
+  assert.deepEqual(counts.get(), { broken: { count: 1, partial: null }, dupGroups: { count: 1, partial: null } }, 'whole in the end');
+  assert.ok(counts.runs > 1);
 });

@@ -149,8 +149,13 @@ export type Reason =
   | { readonly kind: 'field'; readonly label: string; readonly detail?: string }
   /** A path the file names that does not exist (`is:broken`, Q-06). */
   | { readonly kind: 'missing'; readonly path: string }
-  /** A near copy of the file (`is:dup`, Q-06): its path under the file's root (or whole), and how alike the two are. */
-  | { readonly kind: 'copy'; readonly path: string; readonly rel: string; readonly similarity: number | null };
+  /**
+   * A near copy of the file (`is:dup`, Q-06): its path under the file's root (or whole), and how alike the two are in words.
+   * `partial`: either file was read only in its first part, so the score is of those parts (commitment 4).
+   */
+  | { readonly kind: 'copy'; readonly path: string; readonly rel: string; readonly similarity: number | null; readonly partial?: true }
+  /** The check read only the first part of this file (`is:dup`, `is:broken`, Q-06): what it says covers that part. */
+  | { readonly kind: 'partial' };
 
 export interface QueryHit {
   readonly entry: IndexEntry;
@@ -166,7 +171,7 @@ export interface DupFacts {
   /** The group's name: the path of its newest file. */
   readonly group: string;
   /** The other files of the group, newest first, each with its similarity to this one (null when not scored). */
-  readonly copies: readonly { readonly path: string; readonly similarity: number | null }[];
+  readonly copies: readonly { readonly path: string; readonly similarity: number | null; readonly partial?: boolean }[];
 }
 
 /** The matching lines of one search, for each text term (by the term's text) and path. */
@@ -194,6 +199,8 @@ export interface QueryContext {
   readonly dups?: ReadonlyMap<string, DupFacts>;
   /** The broken-path check's answer (Q-06): the files that name a missing path, with those paths. Absent: `is:broken` waits. */
   readonly broken?: ReadonlyMap<string, readonly string[]>;
+  /** Files the checks read only in part (their first 256 KB): a hit of `is:dup` or `is:broken` says so. */
+  readonly partly?: ReadonlySet<string>;
 }
 
 /** Statuses that parse and match nothing: what they need does not exist yet (archiving Q-05, index health Q-04, the capture inbox P-01). */
@@ -354,7 +361,7 @@ function indexMatcher(t: FieldTerm, ctx: QueryContext): Matcher {
               }
               const facts = ctx.dups.get(e.path);
               if (facts === undefined) return false;
-              for (const c of facts.copies) extra.push({ kind: 'copy', path: c.path, rel: pathUnder(e.root, c.path) ?? c.path, similarity: c.similarity });
+              for (const c of facts.copies) extra.push({ kind: 'copy', path: c.path, rel: pathUnder(e.root, c.path) ?? c.path, similarity: c.similarity, ...(c.partial === true ? { partial: true as const } : {}) });
               return true;
             }
             case 'broken': {
@@ -376,6 +383,7 @@ function indexMatcher(t: FieldTerm, ctx: QueryContext): Matcher {
           // One check asked alone says how much it found on the term's own line: `is:dup (2 near copies)`.
           const copies = extra.filter((r) => r.kind === 'copy').length;
           const missing = extra.length - copies;
+          if (ctx.partly?.has(e.path)) extra.push({ kind: 'partial' });
           const detail = values.length !== 1 ? undefined : copies > 0 ? `${copies} near ${copies === 1 ? 'copy' : 'copies'}` : `${missing} missing ${missing === 1 ? 'path' : 'paths'}`;
           return { ok: true, reasons: [{ kind: 'field', label, ...(detail === undefined ? {} : { detail }) }, ...extra] };
         }

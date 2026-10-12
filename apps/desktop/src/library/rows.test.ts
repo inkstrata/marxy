@@ -70,8 +70,11 @@ test('the sort control offers relevance only while words are typed and last open
 
 test('a missing path and a near copy are one line each (Q-06)', () => {
   assert.equal(reasonLine({ kind: 'missing', path: 'src/gone.ts' }), 'missing: src/gone.ts');
-  assert.equal(reasonLine({ kind: 'copy', path: '/r/plans/plan v2.md', rel: 'plans/plan v2.md', similarity: 91 }), 'near copy: plans/plan v2.md (91% alike)');
+  assert.equal(reasonLine({ kind: 'copy', path: '/r/plans/plan v2.md', rel: 'plans/plan v2.md', similarity: 91 }), 'near copy: plans/plan v2.md (91% of words alike)');
   assert.equal(reasonLine({ kind: 'copy', path: '/r/a.md', rel: 'a.md', similarity: null }), 'near copy: a.md');
+  // Read in part: a floor, of the first 256 KB, never a bare "100%" (commitment 4).
+  assert.equal(reasonLine({ kind: 'copy', path: '/r/a.md', rel: 'a.md', similarity: 100, partial: true }), 'near copy: a.md (≥100% of words alike in the first 256 KB)');
+  assert.equal(reasonLine({ kind: 'partial' }), 'checked the first 256 KB only');
 });
 
 test('foldCopies keeps the newest hit of each group, in place, and every hit in no group', () => {

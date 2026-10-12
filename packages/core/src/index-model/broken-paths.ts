@@ -72,6 +72,8 @@ export async function resolveMention(path: string, docPath: string, root: string
 export function mentionsOf(text: string): string[] {
   // Most files name no path: without a backtick and a slash there is nothing to parse for.
   if (!text.includes('`') || !text.includes('/')) return [];
+  // Nor without one backticked path of the shape `pathMentions` takes: the parse is the costly part, so it is skipped.
+  if (!/`[~.\w-]*\/[\w./-]+\.\w{1,6}`/.test(text)) return [];
   return pathMentions(text.replace(/\r\n?/g, '\n'));
 }
 

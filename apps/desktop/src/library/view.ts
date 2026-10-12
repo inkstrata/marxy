@@ -52,8 +52,8 @@ import { queryContext } from '../workspace/sidebar.ts';
 import type { Workspace } from '../workspace/state.ts';
 import { activeItem, chooseFacet, facetMenus, type FacetMenu } from './facets.ts';
 import { MeasureCache, MEASURE_READ_BYTES, measureFiles } from './measure.ts';
-import { checksFor, type BrokenRun, type DupRun } from './checks.ts';
-import { foldCopies, libraryRow, sortChoices, sortHits, whyCount, type LibraryRow, type SortKey } from './rows.ts';
+import { canNamePaths, checksFor, type BrokenRun, type DupRun } from './checks.ts';
+import { copySimilarity, foldCopies, libraryRow, sortChoices, sortHits, whyCount, type LibraryRow, type SortKey } from './rows.ts';
 import { MAX_DUP_THRESHOLD, MIN_DUP_THRESHOLD } from '@marxy/core/src/index-model/near-dup.ts';
 import { changesDocument, TOO_LARGE, NO_DIFFERENCE } from '../commands/compare.ts';
 import {
@@ -89,6 +89,8 @@ const OVERSCAN = 4;
 const SUGGEST_MAX = 8;
 /** Matching lines the preview lists. */
 const PREVIEW_LINES = 8;
+/** The pause before a check its read budget stopped goes on from where it stopped (Q-06). */
+const CONTINUE_MS = 400;
 /** Line matches asked of the shell for one text term. */
 const LINES_PER_TERM = 5000;
 
@@ -276,16 +278,22 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     // The files the index keys leave, before any check has answered: what a search, a measure or the path check may read.
     const candidates = wantsLines || wantsMeasure || asks.broken ? indexCandidates(query, base, context(scopeInputs)) : [];
     // A path check made for another query covers this one only if it looked at every file this one leaves.
-    const brokenCovers = held.broken !== null && candidates.every((e) => held.broken!.broken.has(e.path) || brokenLooked(held.broken!, e));
+    // A file counts as covered once it was checked, not once it was asked about: a run its budget stopped is continued.
+    const brokenCovers = held.broken !== null && candidates.every((e) => !canNamePaths(e) || held.broken!.checkedPaths.has(e.path));
+    /** The files the checks asked for read only in part. */
+    const partlyChecked = (): Set<string> => new Set([...(asks.dup && held.dup ? held.dup.cut : []), ...(asks.broken && held.broken ? held.broken.cut : [])]);
     /** What the checks have answered for this scope: absent for a check not run yet, so its terms wait. */
     let factsAt: { readonly threshold: number; readonly run: DupRun; readonly facts: Map<string, DupFacts> } | null = null;
     const checksCtx = (): Partial<QueryContext> => {
-      const out: { dups?: Map<string, DupFacts>; broken?: ReadonlyMap<string, readonly string[]> } = {};
+      const out: { dups?: Map<string, DupFacts>; broken?: ReadonlyMap<string, readonly string[]>; partly?: Set<string> } = {};
       if (asks.dup && held.dup) {
         if (factsAt?.run !== held.dup || factsAt.threshold !== lib.threshold) factsAt = { threshold: lib.threshold, run: held.dup, facts: lib.dupFacts(held.dup) };
         out.dups = factsAt.facts;
       }
       if (asks.broken && held.broken && (brokenCovers || held.broken.entries === candidates)) out.broken = held.broken.broken;
+      // Files read only in their first 256 KB: their rows say so.
+      const partly = partlyChecked();
+      if (partly.size > 0) out.partly = partly;
       return out;
     };
     const baseCtx = context(scopeInputs, checksCtx());
@@ -319,11 +327,14 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
       status = statusLine(shown.length, base.length, [groupsNote, note, checkNote()].filter(Boolean).join(' · ') || undefined);
       drawResults();
     };
-    /** What a check left out: the files its read budget did not reach. */
+    /** What a check left out: the files its read budget did not reach, the files it read in part, the files it never reads. */
     const checkNote = (): string | undefined => {
       const parts: string[] = [];
+      if (asks.broken && held.broken?.overBudget !== true) parts.push('paths checked in Markdown and text files');
+      const partly = partlyChecked().size;
+      if (partly > 0) parts.push(`${partly.toLocaleString('en-US')} ${partly === 1 ? 'file' : 'files'} only partly checked (the first 256 KB)`);
       if (asks.dup && held.dup?.overBudget) parts.push(`near copies: read ${held.dup.read.toLocaleString('en-US')} of ${held.dup.of.toLocaleString('en-US')} candidates`);
-      if (asks.broken && held.broken?.overBudget) parts.push(`paths checked in ${held.broken.checked.toLocaleString('en-US')} of ${held.broken.of.toLocaleString('en-US')} files`);
+      if (asks.broken && held.broken?.overBudget) parts.push(`paths checked in ${held.broken.checked.toLocaleString('en-US')} of ${held.broken.of.toLocaleString('en-US')} Markdown and text files so far`);
       return parts.length > 0 ? parts.join(' · ') : undefined;
     };
 
@@ -340,10 +351,11 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
         let lastDraw = 0;
         const progress = (what: string) => (done: number, of: number): void => {
           if (mine !== gen) return;
-          checking = `${what} ${done.toLocaleString('en-US')} of ${of.toLocaleString('en-US')} files`;
+          // Called once a file: the words are made only when they are drawn.
           const now = performance.now();
           if (now - lastDraw > 150) {
             lastDraw = now;
+            checking = `${what} ${done.toLocaleString('en-US')} of ${of.toLocaleString('en-US')} files`;
             drawStatus();
           }
         };
@@ -363,6 +375,14 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
         }
         checking = null;
         show(evaluate());
+        // A run its read budget stopped is continued after a quiet moment, from the files not read yet, until each is read once.
+        if (held.broken?.overBudget === true || held.dup?.overBudget === true) {
+          setTimeout(() => {
+            if (mine !== gen || !root) return;
+            if (held.dup?.overBudget === true) held.dup = null;
+            refresh({ keepActive: true });
+          }, CONTINUE_MS);
+        }
       }
       if (wantsLines) {
         searching = true;
@@ -443,17 +463,6 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
         }),
     );
   }
-
-  /** Whether a path check looked at `e` (it reads the Markdown and text files of what it was given). */
-  function brokenLooked(run: BrokenRun, e: IndexEntry): boolean {
-    let seen = lookedAt.get(run);
-    if (seen === undefined) {
-      seen = new Set(run.entries.map((x) => x.path));
-      lookedAt.set(run, seen);
-    }
-    return seen.has(e.path);
-  }
-  const lookedAt = new WeakMap<BrokenRun, Set<string>>();
 
   function statusLine(shown: number, total: number, note?: string): string {
     const parts = [shown === total ? `${total.toLocaleString('en-US')} ${total === 1 ? 'file' : 'files'}` : `${shown.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} files`];
@@ -874,7 +883,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     if (copies.length > 0) {
       previewEl.append(el('h4', 'marxy-library-preview-head', copies.length === 1 ? '1 near copy' : `${copies.length} near copies`));
       for (const c of copies) {
-        previewEl.append(el('p', 'marxy-library-preview-path', `${c.rel}${c.similarity === null ? '' : `, ${c.similarity}% alike`}`));
+        previewEl.append(el('p', 'marxy-library-preview-path', `${c.rel}${copySimilarity(c)}`));
         const row = el('div', 'marxy-library-preview-actions');
         const compare = el('button', undefined, 'Compare');
         compare.type = 'button';

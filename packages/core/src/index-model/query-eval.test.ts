@@ -172,6 +172,8 @@ test('is:broken matches the files the check found, each missing path a reason; -
     { kind: 'missing', path: 'docs/old.md' },
   ]);
   assert.deepEqual(run('is:broken', { broken: new Map() }), [], 'a check that found nothing matches nothing');
+  // A file the check read only in part says so on its row.
+  assert.deepEqual(hitOf('is:broken', '/r/README.md', { broken, partly: new Set(['/r/README.md']) })!.why.at(-1), { kind: 'partial' });
   assert.deepEqual(run('is:broken,pinned', { broken }), ['/r/README.md', '/r/notes/standup.md'], 'any of');
 });
 
@@ -187,6 +189,8 @@ test('is:dup matches the files in a group, each other member a reason with its s
     { kind: 'copy', path: '/r/plans/archive/old-cache.md', rel: 'archive/old-cache.md', similarity: 91 },
   ]);
   assert.deepEqual(run('is:dup kind:readme', { dups }), [], 'and the other terms still hold');
+  const cut = new Map([['/r/plans/cache.md', { group: '/r/plans/cache.md', copies: [{ path: '/r/plans/archive/old-cache.md', similarity: 100, partial: true }] }]]);
+  assert.deepEqual(hitOf('is:dup', '/r/plans/cache.md', { dups: cut })!.why[1], { kind: 'copy', path: '/r/plans/archive/old-cache.md', rel: 'archive/old-cache.md', similarity: 100, partial: true });
 });
 
 test('is:read and is:unread follow the read time against the modification time', () => {

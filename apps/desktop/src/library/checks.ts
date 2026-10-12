@@ -11,12 +11,13 @@
 // able to make a later save of the reader's file refuse. Existence is asked with `shell.stat` only. Nothing leaves the
 // machine. A run is held to `CONTENT_SEARCH_LIMITS.maxTotalBytes`; past it the files not reached are counted, not guessed.
 //
-// Off the redraw path: the reads are the shell's, and the work between them (shingles, path mentions, scores) runs in slices
-// of about five milliseconds, yielding to the page between them (the sidebar's counts do the same, Q-07), so the palette
-// and the field keep answering while a check runs. A newer request aborts an older one.
+// Off the main thread and off the redraw path: the reads are the shell's; cutting shingles and parsing for path mentions run in
+// the checks' worker (checks.worker.ts, the page only where no worker can run); the rest (scores, stats, bookkeeping) runs in
+// slices of about three milliseconds shared by the concurrent readers, yielding to the page between them (as the sidebar's
+// counts do, Q-07), so the palette and the field keep answering while a check runs. A newer request aborts an older one.
 import type { IndexEntry } from '@marxy/core';
 import { CONTENT_SEARCH_LIMITS } from '@marxy/core/src/index-model/content-search.ts';
-import { brokenPaths, mentionsOf, type StatFn } from '@marxy/core/src/index-model/broken-paths.ts';
+import { brokenPaths, type StatFn } from '@marxy/core/src/index-model/broken-paths.ts';
 import {
   DEFAULT_DUP_THRESHOLD,
   fillBuckets,
@@ -24,7 +25,6 @@ import {
   groupDuplicates,
   MAX_DUP_THRESHOLD,
   MIN_DUP_THRESHOLD,
-  shingles,
   similarity,
   type DupGroup,
   type ScoredPair,
@@ -32,6 +32,7 @@ import {
 import type { DupFacts } from '@marxy/core/src/index-model/query-eval.ts';
 import type { AppHandle } from '../app.ts';
 import { MEASURE_READ_BYTES, type ReadHead } from './measure.ts';
+import { digestOnPage, workerDigest, type Digest } from './checks-digest.ts';
 
 /** What the checks need of the app: a bounded read, a stat, the home folder, and where a file's paths are resolved. */
 export interface ChecksDeps {
@@ -43,6 +44,8 @@ export interface ChecksDeps {
   rootOf(entry: IndexEntry): string;
   /** The palette's folded-copy key (C-15): two worktree copies with the same key are one file, not near copies. */
   copyKey?(entry: IndexEntry): string | undefined;
+  /** Where a file's bytes become shingles and path mentions: the checks' worker in the app, the page by default. */
+  readonly digest?: Digest;
 }
 
 export interface CheckOptions {
@@ -68,6 +71,8 @@ export interface DupRun {
   readonly of: number;
   /** The read budget ran out before every candidate was read. */
   readonly overBudget: boolean;
+  /** Candidates read only in part (their first 256 KB): their scores are of that part. */
+  readonly cut: ReadonlySet<string>;
 }
 
 /** What one run of the broken-path check found. */
@@ -79,37 +84,65 @@ export interface BrokenRun {
   /** Markdown and text files asked about: the only ones that can name a path. */
   readonly of: number;
   readonly overBudget: boolean;
+  /** The files actually checked (a run stopped by its budget leaves some out): what a later query may reuse. */
+  readonly checkedPaths: ReadonlySet<string>;
+  /** Files checked only in their first 256 KB: a path named after it is not seen. */
+  readonly cut: ReadonlySet<string>;
 }
 
 /** The kinds of file whose prose can name a path (`pathMentions` is a Markdown rule). */
 export const canNamePaths = (e: IndexEntry): boolean => e.kind === 'markdown' || e.kind === 'text';
 
-const SLICE_MS = 5;
+const SLICE_MS = 3;
 /** Entries put in buckets between two looks at the clock. */
-const BUCKET_SLICE = 2000;
+const BUCKET_SLICE = 1000;
 const CONCURRENCY = 6;
 
+/**
+ * One turn of the event loop for the page (input, paint) before the work goes on. One channel serves every turn: a new
+ * MessageChannel per turn cost WebKit a pause of about 45 ms every few hundred turns, under load, to collect the ports.
+ */
+let turnChannel: MessageChannel | null = null;
+const turnWaiters: Array<() => void> = [];
 const yieldToUi = (): Promise<void> =>
   new Promise((resolve) => {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => {
-      channel.port1.close();
-      resolve();
-    };
-    channel.port2.postMessage(0);
+    // Node (the tests) runs a port's messages back to back, ahead of its timers; its own turn is setImmediate.
+    const immediate = (globalThis as { setImmediate?: (cb: () => void) => unknown }).setImmediate;
+    if (immediate !== undefined) {
+      immediate(resolve);
+      return;
+    }
+    if (turnChannel === null) {
+      turnChannel = new MessageChannel();
+      turnChannel.port1.onmessage = () => {
+        for (const wake of turnWaiters.splice(0)) wake();
+      };
+    }
+    turnWaiters.push(resolve);
+    if (turnWaiters.length === 1) turnChannel.port2.postMessage(0);
   });
 
-/** A clock for slices: `maybeYield` gives the page a turn once the current slice has held the thread for `SLICE_MS`. */
+/**
+ * A clock for slices: `maybeYield` gives the page a turn once the current slice has held the thread for `SLICE_MS`. It is
+ * shared by the concurrent readers of a run: while one turn is pending every reader waits for it before more work, so the
+ * readers cannot each finish one more file before the page gets its turn (under load that stacked to 50 ms).
+ */
 class Slicer {
   private from = performance.now();
+  private pending: Promise<void> | null = null;
   /** The longest stretch the thread was held between two turns (ms): what the measurements report. */
   longest = 0;
   async maybeYield(): Promise<void> {
-    const held = performance.now() - this.from;
-    if (held < SLICE_MS) return;
-    this.longest = Math.max(this.longest, held);
-    await yieldToUi();
-    this.from = performance.now();
+    if (this.pending === null) {
+      const held = performance.now() - this.from;
+      if (held < SLICE_MS) return;
+      this.longest = Math.max(this.longest, held);
+      this.pending = yieldToUi().then(() => {
+        this.from = performance.now();
+        this.pending = null;
+      });
+    }
+    await this.pending;
   }
   end(): void {
     this.longest = Math.max(this.longest, performance.now() - this.from);
@@ -120,11 +153,13 @@ const stampOf = (e: IndexEntry): string => `${e.mtimeMs}:${e.size}`;
 
 interface FileFacts {
   readonly stamp: string;
+  /** Only the first `MEASURE_READ_BYTES` were read: the file is longer. */
+  cut?: boolean;
   shingles?: Uint32Array;
   mentions?: readonly string[];
 }
 
-const decoder = new TextDecoder('utf-8');
+const EMPTY = new Uint8Array(0);
 
 /** The checks for one app instance: what they learnt, file by file, and the reader's threshold for the session. */
 export class LibraryChecks {
@@ -186,7 +221,12 @@ export class LibraryChecks {
     opts: BrokenOptions,
   ): Promise<{ readonly known: number; readonly overBudget: boolean }> {
     const budget = opts.budgetBytes ?? CONTENT_SEARCH_LIMITS.maxTotalBytes;
-    const todo = entries.filter((e) => this.facts(e)?.[need] === undefined);
+    // What is still to learn, sorted out in slices: 50,000 lookups at once are a frame on a loaded machine.
+    const todo: IndexEntry[] = [];
+    for (let at = 0; at < entries.length; at += BUCKET_SLICE) {
+      for (const e of entries.slice(at, at + BUCKET_SLICE)) if (this.facts(e)?.[need] === undefined) todo.push(e);
+      await slicer.maybeYield();
+    }
     let known = entries.length - todo.length;
     let bytes = 0;
     let overBudget = false;
@@ -210,14 +250,18 @@ export class LibraryChecks {
         }
         if (aborted()) return;
         bytes += data?.length ?? 0;
-        const binary = data === null || data.subarray(0, CONTENT_SEARCH_LIMITS.binarySniffBytes).includes(0);
-        const text = binary ? '' : decoder.decode(data!);
+        // The costly part (shingles, the parse for path mentions) is the digest's: the worker's in the app.
+        const got = await (this.deps.digest ?? digestOnPage)(data ?? EMPTY, {
+          shingles: need === 'shingles' || opts.alsoShingles?.has(entry.path) === true,
+          mentions: need === 'mentions',
+        });
+        if (aborted()) return;
+        await slicer.maybeYield();
+        if (aborted()) return;
         const held = this.facts(entry) ?? { stamp: stampOf(entry) };
-        if (need === 'shingles') held.shingles = shingles(text);
-        else {
-          held.mentions = mentionsOf(text);
-          if (opts.alsoShingles?.has(entry.path)) held.shingles = shingles(text);
-        }
+        held.cut = data !== null && data.length >= MEASURE_READ_BYTES && entry.size > data.length;
+        if (got.shingles !== undefined) held.shingles = got.shingles;
+        if (got.mentions !== undefined) held.mentions = got.mentions;
         this.files.set(entry.path, held);
         known++;
         opts.onProgress?.(known, entries.length);
@@ -265,7 +309,8 @@ export class LibraryChecks {
     }
     slicer.end();
     this.longestSliceMs = slicer.longest;
-    const run: DupRun = { entries, scored, read: learnt.known, of: candidates.length, overBudget: learnt.overBudget };
+    const cut = new Set(candidates.filter((e) => this.facts(e)?.cut === true).map((e) => e.path));
+    const run: DupRun = { entries, scored, read: learnt.known, of: candidates.length, overBudget: learnt.overBudget, cut };
     this.lastDup = run;
     return run;
   }
@@ -273,26 +318,36 @@ export class LibraryChecks {
   /** The broken-path check over the Markdown and text files of `entries`. */
   async runBroken(entries: readonly IndexEntry[], opts: BrokenOptions = {}): Promise<BrokenRun | null> {
     const slicer = new Slicer();
-    const named = entries.filter(canNamePaths);
+    const named: IndexEntry[] = [];
+    for (let at = 0; at < entries.length; at += BUCKET_SLICE) {
+      for (const e of entries.slice(at, at + BUCKET_SLICE)) if (canNamePaths(e)) named.push(e);
+      await slicer.maybeYield();
+    }
     const learnt = await this.learn(named, 'mentions', slicer, opts);
     if (opts.signal?.aborted) return null;
     const home = await this.deps.home().catch(() => null);
     // One stat per path in a run: many files name the same folders.
     const asked = new Map<string, ReturnType<StatFn>>();
+    // Each new stat gives the page its turn first if one is due: a file can name many paths.
     const stat: StatFn = (p) => {
       let held = asked.get(p);
       if (held === undefined) {
-        held = this.deps.stat(p);
+        held = slicer.maybeYield().then(() => this.deps.stat(p));
         asked.set(p, held);
       }
       return held;
     };
     const broken = new Map<string, readonly string[]>();
+    const checkedPaths = new Set<string>();
+    const cut = new Set<string>();
     let checked = 0;
     for (const e of named) {
-      const mentions = this.facts(e)?.mentions;
+      const facts = this.facts(e);
+      const mentions = facts?.mentions;
       if (mentions === undefined) continue;
       checked++;
+      checkedPaths.add(e.path);
+      if (facts?.cut === true) cut.add(e.path);
       if (mentions.length === 0) continue;
       const result = await brokenPaths(mentions, e.path, this.deps.rootOf(e), home, stat);
       if (opts.signal?.aborted) return null;
@@ -301,7 +356,7 @@ export class LibraryChecks {
     }
     slicer.end();
     this.longestSliceMs = Math.max(this.longestSliceMs, slicer.longest);
-    const run: BrokenRun = { entries, broken, checked, of: named.length, overBudget: learnt.overBudget };
+    const run: BrokenRun = { entries, broken, checked, of: named.length, overBudget: learnt.overBudget, checkedPaths, cut };
     this.lastBroken = run;
     return run;
   }
@@ -340,7 +395,11 @@ export class LibraryChecks {
         const i = index.get(m.entry)!;
         out.set(m.entry.path, {
           group,
-          copies: g.members.filter((o) => o !== m).map((o) => ({ path: o.entry.path, similarity: score(i, index.get(o.entry)!) ?? null })),
+          copies: g.members.filter((o) => o !== m).map((o) => ({
+            path: o.entry.path,
+            similarity: score(i, index.get(o.entry)!) ?? null,
+            partial: run.cut.has(m.entry.path) || run.cut.has(o.entry.path),
+          })),
         });
       }
     }
@@ -348,34 +407,47 @@ export class LibraryChecks {
   }
 }
 
+/** How far a built-in's check got: all of its files, or `checked` of `of` (the read budget stopped the run). */
+export interface BuiltinCount {
+  readonly count: number;
+  /** Null when every file was checked; otherwise the count is a floor ("at least"). */
+  readonly partial: { readonly checked: number; readonly of: number } | null;
+}
+
 /**
  * The sidebar's two built-ins (Q-06): how many files have broken paths and how many groups of near copies the library
  * holds, made off the redraw path. `request` is cheap: it compares the entries with those of the last run and, when they
  * differ, runs both checks after a quiet moment (never later than `MAX_WAIT_MS` after the first request). Until a run lands,
  * the old counts show. A newer request aborts a run under way.
+ *
+ * A run its read budget stopped keeps that fact (the counts are floors, and the row says so) and is followed, after a quiet
+ * moment, by another over the same entries: the files already read are not read again, so each run goes on from where the
+ * last one stopped, until every file has been checked once and the counts are whole (commitment 4).
  */
 export class BuiltinCounts {
   private readonly checks: LibraryChecks;
   private readonly onChange: () => void;
+  private readonly budgetBytes: number | undefined;
   private doneFor: { entries: readonly IndexEntry[]; threshold: number } | null = null;
   private wanted: readonly IndexEntry[] | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private firstAskedAt = 0;
   private abort: AbortController | null = null;
   private running: Promise<void> = Promise.resolve();
-  private held: { readonly broken: number; readonly dupGroups: number } | null = null;
+  private held: { readonly broken: BuiltinCount; readonly dupGroups: BuiltinCount } | null = null;
   /** Runs begun (tests): a request that changes nothing begins none. */
   runs = 0;
   static readonly QUIET_MS = 400;
   static readonly MAX_WAIT_MS = 3000;
 
-  constructor(checks: LibraryChecks, onChange: () => void) {
+  constructor(checks: LibraryChecks, onChange: () => void, opts: { readonly budgetBytes?: number } = {}) {
     this.checks = checks;
     this.onChange = onChange;
+    this.budgetBytes = opts.budgetBytes;
   }
 
   /** The counts, or null before the first run lands. */
-  get(): { readonly broken: number; readonly dupGroups: number } | null {
+  get(): { readonly broken: BuiltinCount; readonly dupGroups: BuiltinCount } | null {
     return this.held;
   }
 
@@ -393,7 +465,7 @@ export class BuiltinCounts {
     if (this.timer === null) this.firstAskedAt = at;
     else if (at - this.firstAskedAt < BuiltinCounts.MAX_WAIT_MS) clearTimeout(this.timer);
     else return;
-    this.timer = setTimeout(() => this.start(), this.doneFor === null ? 0 : BuiltinCounts.QUIET_MS);
+    this.timer = setTimeout(() => this.start(), this.held === null ? 0 : BuiltinCounts.QUIET_MS);
   }
 
   cancel(): void {
@@ -424,19 +496,30 @@ export class BuiltinCounts {
     this.abort = controller;
     this.runs++;
     const threshold = this.checks.threshold;
+    const budget = this.budgetBytes === undefined ? {} : { budgetBytes: this.budgetBytes };
     this.running = (async () => {
       // One read per file: the near-duplicate candidates' shingles are cut while their paths are read.
       const alsoShingles = new Set((await this.checks.dupCandidates(entries)).files.map((e) => e.path));
       if (controller.signal.aborted) return;
-      const broken = await this.checks.runBroken(entries, { signal: controller.signal, alsoShingles });
+      const broken = await this.checks.runBroken(entries, { signal: controller.signal, alsoShingles, ...budget });
       if (broken === null || controller.signal.aborted) return;
-      const dups = await this.checks.runDups(entries, { signal: controller.signal });
+      const dups = await this.checks.runDups(entries, { signal: controller.signal, ...budget });
       if (dups === null || controller.signal.aborted) return;
-      const next = { broken: broken.broken.size, dupGroups: this.checks.groups(dups, threshold).length };
-      this.doneFor = { entries, threshold };
-      if (this.held?.broken !== next.broken || this.held?.dupGroups !== next.dupGroups) {
+      const next = {
+        broken: { count: broken.broken.size, partial: broken.overBudget ? { checked: broken.checked, of: broken.of } : null },
+        dupGroups: { count: this.checks.groups(dups, threshold).length, partial: dups.overBudget ? { checked: dups.read, of: dups.of } : null },
+      };
+      const whole = next.broken.partial === null && next.dupGroups.partial === null;
+      if (whole) this.doneFor = { entries, threshold };
+      if (JSON.stringify(this.held) !== JSON.stringify(next)) {
         this.held = next;
         this.onChange();
+      }
+      // Stopped by the budget: go on from there after a quiet moment, unless something newer was asked for.
+      if (!whole && this.timer === null && this.abort === controller) {
+        this.wanted = entries;
+        this.firstAskedAt = Date.now();
+        this.timer = setTimeout(() => this.start(), BuiltinCounts.QUIET_MS);
       }
     })().catch((error: unknown) => {
       console.warn('marxy: the library checks failed', error);
@@ -459,6 +542,7 @@ export function checksFor(handle: AppHandle): LibraryChecks {
         .then(async (p) => (p ? (await import('../theme/user-theme.ts')).inferHomeFromConfig(p.config) : null))
         .catch(() => null)),
     rootOf: (entry) => handle.imageRoot(entry.path),
+    digest: workerDigest(),
     copyKey: (entry) => {
       const key = handle.index.checkoutKey(entry.path);
       return key === undefined ? undefined : `${key.group}\0${key.rel}\0${entry.size}\0${entry.title}`;

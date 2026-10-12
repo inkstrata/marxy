@@ -1173,3 +1173,30 @@ test('the built-ins read nothing while their section is folded, and nothing whil
   });
 });
 const readsOfR = (page) => page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'readHead' && c.args[0].startsWith('/r/')).length);
+
+test('a built-in its read budget cut short shows its count as a floor, "N+", says how far it got, and goes on until whole', async () => {
+  await withPage(async (page) => {
+    await boot(page, { open: ['/r/a.md'], index: [...entries, q06Entry('/r/broken.md', 2), q06Entry('/r/plan.md', 3), q06Entry('/r/plan v2.md', 1)], data: Q06_DATA });
+    // A tiny budget, through the module the app itself loaded, so each run reads a file or two.
+    const url = await page.evaluate(() => performance.getEntriesByType('resource').map((r) => r.name).find((n) => n.includes('index-model/content-search.ts')));
+    assert.ok(url, 'the app loaded content-search.ts');
+    await page.evaluate(async (u) => {
+      (await import(u)).CONTENT_SEARCH_LIMITS.maxTotalBytes = 1;
+    }, url);
+    await unfold(page);
+    // The first landings are partial: a floor ("+") or "not finished", with how far the check got in the accessible name.
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-marxy-sidebar-row^="smart-builtin:"]')].some((r) => /files checked/.test(r.getAttribute('aria-label'))));
+    const partial = (await builtinRows(page)).find((r) => /files checked/.test(r.label));
+    assert.match(partial.label, /^(Broken paths|Near-duplicates), built-in, (at least \d+ (file|files|group|groups)|not finished), \d+ of \d+ files checked$/);
+    assert.match(partial.count, /^(\d+\+|not finished)$/);
+    // Later runs go on from where each stopped, and the counts become whole.
+    await page.waitForFunction(() => {
+      const rows = [...document.querySelectorAll('[data-marxy-sidebar-row^="smart-builtin:"]')];
+      return rows.length === 2 && rows.every((r) => !/checked/.test(r.getAttribute('aria-label')));
+    }, undefined, { timeout: 60_000 });
+    assert.deepEqual((await builtinRows(page)).map((r) => [r.name, r.count, r.label]), [
+      ['Broken paths', '1', 'Broken paths, built-in, 1 file'],
+      ['Near-duplicates', '1', 'Near-duplicates, built-in, 1 group'],
+    ]);
+  });
+});
