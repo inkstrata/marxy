@@ -240,7 +240,7 @@ chrome.
 | `Mod+P` / `Mod+K` | palette (documents) | W-19: `Mod+K` is the same palette; either again closes it |
 | `Mod+Shift+P` | palette on commands (`>`) | W-19: the command list, including the operations; again closes it |
 | `Mod+/` | palette on the transforms (`>Transform`) | W-19, W-21: one row per transform core can run (`Transform: <name>`), none that is `NOT_YET`; again closes it; in Source `Mod+/` opens the palette, it does not toggle a comment. A choice opens the result sheet (below) |
-| `Mod+1` / `Mod+2` / `Mod+3` | Read / Split / Source | W-19 (`commands/view-mode.ts`): Read and Source set the focused pane's mode and do nothing when it is already there (`Mod+E` flips). Split shows the document twice, Read left and Source right; with two panes over two files it refuses and says why |
+| `Mod+1` / `Mod+2` / `Mod+3` | Read / Split / Source | W-19 (`commands/view-mode.ts`): Read and Source set the focused pane's mode and do nothing when it is already there (`Mod+E` flips). Split shows the document twice, Read left and Source right; with two panes over two files it refuses and says why. Inside Split (two panes, one document), Read and Source end it in one pane in that mode, and Split again goes back to one pane in Read (F-44); the pane that closes has its Source text folded into the store first, and a close that would lose text asks as `Mod+Shift+\` does |
 | `Mod+E` | toggle Rendered / Source | position kept (§08) |
 | `Ctrl+Mod+S` / `Mod+Alt+I` | dock or undock the sidebar / the inspector | W-03: from folded they unfold with that panel; physical keys, so they work from Source (§Peeking) |
 | `Mod+F` | find | `Enter` next, `Shift+Enter` previous, `Esc` closes and keeps the reading position |
