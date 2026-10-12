@@ -232,6 +232,83 @@ test('the fallback on a 1 MB document does not hang the typesetter: first match 
   });
 });
 
+/** The 1 MB document of the tests below: the prose-volume fixture repeated. */
+const bigDocument = () => {
+  const unit = readFileSync(new URL('../../../fixtures/corpus/15-prose-volume.md', import.meta.url), 'utf8');
+  const text = Array.from({ length: Math.ceil(1_000_000 / unit.length) }, (_, i) => unit.replace(/^# .*$/m, `# Volume ${i}`)).join('\n\n');
+  assert.ok(text.length >= 1_000_000);
+  return text;
+};
+
+test('with tens of thousands of matches only a window near the view is held, and it follows the view and the current match (F-43)', async () => {
+  files['/r/big.md'] = bigDocument();
+  await withPanes(['/r/big.md'], async (page, mod) => {
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    await page.keyboard.press(`${mod}+KeyF`);
+    await page.keyboard.type('the');
+    await settle(page);
+    await page.waitForFunction(() => /\d+ of \d{5,}/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 30_000 });
+    // Every Range a find holds is updated by the engine on every DOM change, and the typesetter makes
+    // thousands of them: the held Ranges are the matches near the view, not the matches.
+    const held = () => page.evaluate(() => {
+      const ranges = [...(CSS.highlights.get('marxy-find') ?? [])];
+      const view = document.documentElement.clientHeight;
+      return { size: ranges.length, inView: ranges.filter((r) => { const t = r.getBoundingClientRect(); return t.bottom > 0 && t.top < view; }).length, text: [...new Set(ranges.map((r) => r.toString().toLowerCase()))] };
+    });
+    const top = await held();
+    assert.ok(top.size > 0 && top.size <= 600, `${top.size} Ranges held for the matches near the view`);
+    assert.ok(top.inView > 0, 'the matches on screen are highlighted');
+    assert.deepEqual(top.text, ['the']);
+
+    // Shift+Enter from the first match wraps to the last, thousands of screens away: it is current,
+    // on screen, and the window is made again around it.
+    await page.keyboard.press('Shift+Enter');
+    await settle(page);
+    const count = await page.textContent('.marxy-find-count');
+    const [, n, total] = /^(\d+) of (\d+)$/.exec(count);
+    assert.equal(n, total, `the last match is current: ${count}`);
+    const last = await page.evaluate(() => {
+      const range = [...(CSS.highlights.get('marxy-find-current') ?? [])][0];
+      return range ? { text: range.toString(), top: range.getClientRects()[0].top, height: window.innerHeight } : null;
+    });
+    assert.equal(last?.text.toLowerCase(), 'the');
+    // (The end of the document is as near the reading line as the page can scroll it.)
+    assert.ok(last.top >= 0 && last.top < last.height, `last match top ${last.top} in a window ${last.height} high`);
+    const end = await held();
+    assert.ok(end.size > 0 && end.size <= 600 && end.inView > 0, `window at the end: ${end.size} held, ${end.inView} on screen`);
+
+    // Scrolling back a long way makes it again where the reader is.
+    await page.evaluate(() => { document.scrollingElement.scrollTop = 0; });
+    await settle(page);
+    const start = await held();
+    assert.ok(start.size > 0 && start.size <= 600 && start.inView > 0, `window at the start: ${start.size} held, ${start.inView} on screen`);
+  });
+});
+
+test('the typesetter is not slowed by an open find with tens of thousands of matches (F-43)', async () => {
+  files['/r/big.md'] = bigDocument();
+  await withPanes(['/r/big.md'], async (page, mod) => {
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    // Paragraphs set per second, idle and then with find open on the same page. Before F-43 every line
+    // break the typesetter made updated each of some 18,000 live Ranges: four times slower, or worse.
+    const setCount = () => page.evaluate(() => document.querySelectorAll('#doc p.marxy-set').length);
+    const timeToSet = async (more) => {
+      const from = await setCount();
+      const started = Date.now();
+      await page.waitForFunction((n) => document.querySelectorAll('#doc p.marxy-set').length >= n, from + more, { timeout: 60_000 });
+      return Date.now() - started;
+    };
+    await timeToSet(20);
+    const idle = await timeToSet(160);
+    await page.keyboard.press(`${mod}+KeyF`);
+    await page.keyboard.type('the');
+    await page.waitForFunction(() => /\d+ of \d{5,}/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 30_000 });
+    const withFind = await timeToSet(160);
+    console.log(`typesetter, 1 MB: 160 paragraphs in ${idle} ms idle, ${withFind} ms with find open`);
+    assert.ok(withFind < 2.5 * idle + 1_000, `${withFind} ms with find open against ${idle} ms idle`);
+  });
+});
+
 test('find matches only visible reading text: not a hidden link destination, elided code, aria-hidden text or Marxy labels', async () => {
   await withPanes(['/r/hid.md'], async (page, mod) => {
     await page.waitForSelector('#doc .marxy-elided', { timeout: 15_000 });
