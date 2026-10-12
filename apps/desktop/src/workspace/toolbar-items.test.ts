@@ -76,9 +76,10 @@ test('the mode switch is drawn when any of its three commands is registered', ()
   assert.deepEqual(ids(visibleItems(TOOLBAR_ITEMS, ['view.mode-source'], [])), ['title', 'mode']);
 });
 
-test('the doors that fold into More are real button doors, each with its own place in the order', () => {
+test('the doors that fold into More are real button doors (the inspector\'s panel toggle too, last: W-09), each with its own place in the order', () => {
   const byId = new Map(TOOLBAR_ITEMS.map((i) => [i.id, i]));
-  for (const id of Object.keys(FOLD_ORDER)) assert.equal(byId.get(id)?.kind, 'button', `${id} is a button door`);
+  for (const id of Object.keys(FOLD_ORDER)) assert.equal(byId.get(id)?.kind, id === 'inspector' ? 'toggle' : 'button', `${id} is a button door`);
+  assert.equal(Math.max(...Object.values(FOLD_ORDER)), FOLD_ORDER.inspector, 'the inspector folds after every other door');
   const orders = Object.values(FOLD_ORDER);
   assert.equal(new Set(orders).size, orders.length);
 });
