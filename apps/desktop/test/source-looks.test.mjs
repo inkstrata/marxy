@@ -118,28 +118,142 @@ test('L-06.1 Source tokens carry the --marxy-tok-* colours (TypeScript and Markd
   }
 });
 
-test('L-06.2 every code line is a whole number of grid units tall', async () => {
+/**
+ * Sets the text size the way the reader does (Mod+= and Mod+-), one step at a time, until the root says `px`.
+ * The size properties the reader's choice sets (`--marxy-size-body` and the rest) are what Source follows.
+ */
+async function setTextSize(page, px) {
+  const read = () => page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-size-body')));
+  for (let i = 0; i < 40; i++) {
+    const now = await read();
+    if (now === px) return;
+    await page.keyboard.press(now < px ? 'Meta+Equal' : 'Meta+Minus');
+    await page.waitForFunction((was) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-size-body')) !== was, now);
+  }
+  throw new Error(`could not reach text size ${px}`);
+}
+
+test('V-12 Source sets its own type: 14 on 21 at the default, scaling with the reader\'s text size (K-R1 a, ADR-0067)', async () => {
   const browser = await launchWebkit();
   try {
-    const page = await browser.newPage({ viewport: { width: 640, height: 800 } });
-    await boot(page, '/src/a.ts', TS + 'const long = "' + 'word '.repeat(60) + '";\n');
-    const m = await page.evaluate(() => {
-      const root = getComputedStyle(document.documentElement);
-      const unit = parseFloat(root.getPropertyValue('--marxy-line-box')) / 2;
-      const code = parseFloat(root.getPropertyValue('--marxy-line-box-code'));
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await boot(page, '/src/a.ts', TS);
+    // Seven-tenths of the body to the half pixel, and a line of one and a half times that to the pixel.
+    const want = { 16: [11, 17], 20: [14, 21], 26: [18, 27] };
+    for (const size of [16, 20, 26]) {
+      await setTextSize(page, size);
+      const seen = await page.evaluate(() => {
+        const root = getComputedStyle(document.documentElement);
+        const content = getComputedStyle(document.querySelector('#marxy-source .cm-content'));
+        const line = getComputedStyle(document.querySelector('#marxy-source .cm-line'));
+        return {
+          sizeToken: root.getPropertyValue('--marxy-size-source').trim(),
+          lineToken: root.getPropertyValue('--marxy-line-box-source').trim(),
+          fontSize: content.fontSize,
+          lineHeight: line.lineHeight,
+          rowHeight: document.querySelector('#marxy-source .cm-line').getBoundingClientRect().height,
+          proseBox: root.getPropertyValue('--marxy-line-box-code').trim(),
+        };
+      });
+      const [px, lineBox] = want[size];
+      assert.equal(seen.sizeToken, `${px}px`, `--marxy-size-source at ${size}`);
+      assert.equal(seen.lineToken, `${lineBox}px`, `--marxy-line-box-source at ${size}`);
+      assert.equal(seen.fontSize, `${px}px`, `.cm-content font size at ${size}`);
+      assert.equal(seen.lineHeight, `${lineBox}px`, `.cm-line line height at ${size}`);
+      assert.equal(seen.rowHeight, lineBox, `a row is one line box at ${size}`);
+      // Rendered's code blocks keep their own metrics: 18 on 30 at the default, on the prose grid.
+      if (size === 20) assert.equal(seen.proseBox, '30px');
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+test('V-12 the gutter takes its padding from the line box, not CodeMirror\'s 3px and 5px; the numbers are tabular and secondary', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await boot(page, '/src/a.ts', TS);
+    for (const size of [20, 26]) {
+      await setTextSize(page, size);
+      const seen = await page.evaluate(`(() => {
+        const probe = ${probe};
+        const el = [...document.querySelectorAll('#marxy-source .cm-lineNumbers .cm-gutterElement')].find((e) => e.textContent === '2');
+        const cs = getComputedStyle(el);
+        return {
+          line: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-line-box-source')),
+          left: cs.paddingLeft, right: cs.paddingRight,
+          align: cs.textAlign, numeric: cs.fontVariantNumeric, color: cs.color,
+          want: probe('var(--marxy-color-text-secondary)', 'color'),
+        };
+      })()`);
+      assert.equal(seen.left, `${seen.line / 2}px`, `left padding at ${size}`);
+      assert.equal(seen.right, `${seen.line / 2}px`, `right padding at ${size}`);
+      assert.equal(seen.align, 'right');
+      assert.match(seen.numeric, /tabular-nums/);
+      assert.equal(seen.color, seen.want);
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+test('V-12 Source takes the article\'s weight: the body weight token plus the platform offset, not 400', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await boot(page, '/src/a.ts', TS);
+    for (const variant of ['dark', 'light']) {
+      await setVariant(page, variant);
+      const seen = await page.evaluate(() => {
+        const root = getComputedStyle(document.documentElement);
+        return {
+          want: parseFloat(root.getPropertyValue('--marxy-weight-body')) + parseFloat(root.getPropertyValue('--marxy-weight-offset') || '0'),
+          content: getComputedStyle(document.querySelector('#marxy-source .cm-content')).fontWeight,
+          gutter: getComputedStyle(document.querySelector('#marxy-source .cm-lineNumbers .cm-gutterElement')).fontWeight,
+          axis: getComputedStyle(document.querySelector('#marxy-source .cm-content')).fontVariationSettings,
+        };
+      });
+      assert.equal(seen.content, String(seen.want), `.cm-content weight in ${variant}`);
+      assert.equal(seen.gutter, String(seen.want), `gutter weight in ${variant}`);
+      assert.ok(seen.axis.includes(String(seen.want)), `the wght axis follows the weight in ${variant}: ${seen.axis}`);
+    }
+    // The dark ground sets its body weight below 400 (a face reads heavier on dark), so Source is lighter than the 400 it wore.
+    await setVariant(page, 'dark');
+    assert.ok(parseFloat(await page.evaluate(() => getComputedStyle(document.querySelector('#marxy-source .cm-content')).fontWeight)) < 400);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('V-12 nothing at rest: no tinted line without the caret, and a fold chevron only over the gutter', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await boot(page, '/src/a.ts', TS);
+    const rest = () => page.evaluate(() => {
+      const line = document.querySelector('#marxy-source .cm-activeLine');
+      const chevrons = [...document.querySelectorAll('#marxy-source .cm-foldGutter .marxy-fold-open')];
       return {
-        unit,
-        code,
-        lineHeights: [...document.querySelectorAll('#marxy-source .cm-line')].map((l) => l.getBoundingClientRect().height),
-        lineHeightCss: getComputedStyle(document.querySelector('#marxy-source .cm-line')).lineHeight,
+        line: line && getComputedStyle(line).backgroundColor,
+        chevrons: chevrons.length,
+        shown: chevrons.filter((c) => getComputedStyle(c).opacity !== '0').length,
+        focused: Boolean(document.querySelector('#marxy-source .cm-editor.cm-focused')),
       };
     });
-    assert.equal(m.lineHeightCss, `${m.code}px`);
-    assert.ok(m.lineHeights.length > 5);
-    for (const h of m.lineHeights) {
-      assert.equal(h % m.unit, 0, `line height ${h} is not a multiple of ${m.unit}`);
-    }
-    assert.ok(m.lineHeights.some((h) => h > m.code), 'the wrapped line should be taller than one code line');
+    await page.mouse.move(700, 600);
+    const at = await rest();
+    assert.equal(at.focused, false, 'the editor does not hold focus on open');
+    assert.ok(at.line, 'there is an active line to tint');
+    assert.match(at.line, /rgba\(0, 0, 0, 0\)|transparent/, `active line at rest: ${at.line}`);
+    assert.ok(at.chevrons > 0, 'a block line has a fold chevron in the DOM');
+    assert.equal(at.shown, 0, 'no chevron is drawn at rest');
+    await page.hover('#marxy-source .cm-gutters');
+    assert.ok((await rest()).shown > 0, 'a chevron shows over the gutter');
+    await page.mouse.move(700, 600);
+    await page.click('#marxy-source .cm-line >> nth=2');
+    const focused = await rest();
+    assert.doesNotMatch(focused.line, /rgba\(0, 0, 0, 0\)/, 'the line is tinted while the caret is in the editor');
   } finally {
     await browser.close();
   }
@@ -207,10 +321,7 @@ test('L-06.4 changing variant or size re-themes the same editor, keeping selecti
     assert.notEqual(after.cls, before.cls, 'the editor must be told it is now a light theme');
     assert.equal(after.text, before.text);
     assert.equal(after.sel, before.sel);
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty('--marxy-size-body', '24px');
-      document.documentElement.style.setProperty('--marxy-line-box', '36px');
-    });
+    await setTextSize(page, 24);
     await page.waitForFunction((pad) => getComputedStyle(document.querySelector('#marxy-source .cm-content')).paddingTop !== pad, after.padTop);
     assert.equal((await snap()).sentinel, 'same');
     await page.keyboard.press('Meta+Z');
