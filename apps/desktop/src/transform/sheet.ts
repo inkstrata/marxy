@@ -14,7 +14,7 @@
 // is never touched; Open as new document and Add another step stay. Esc writes nothing.
 //
 // The sheet never reads the pasteboard. Text reaches the page only as `textContent`.
-import { TRANSFORMS, transformById } from '@marxy/core';
+import { TRANSFORMS, transformById, type ParsedText } from '@marxy/core';
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import { writeCopy } from '../commands/copy-write.ts';
 import type { AppContext } from '../commands/registry.ts';
@@ -41,6 +41,13 @@ export interface SheetTarget {
    * made from the readable input, so a conversion never spells a lone surrogate (`\udcff`).
    */
   readonly readable?: (text: string) => string;
+  /**
+   * The store's parse of the document's text, set only where `text` is the whole document and the store holds a parse
+   * that is exactly this text's (F-60.1; `DocumentStore.textParse`). Handed to the steps, which use it only for a step
+   * that reads exactly this text. A target made at one version and run after an edit holds that version's pair, whose
+   * text no longer matches what a step reads, so the step parses.
+   */
+  readonly parsed?: ParsedText;
   /** Replaces the input with `output` as one undo step. `stale` when the document is no longer what the sheet read. */
   apply(output: string, label: string): Promise<ApplyOutcome>;
   /** Hands focus back to where the reader was. */
@@ -272,7 +279,7 @@ const readableIn = (target: SheetTarget, text: string): string => (target.readab
  */
 function runChain(target: SheetTarget, chain: Chain): string {
   const input = canApply(chain) ? target.text : readableIn(target, target.text);
-  return output(createChain(input, chain.steps, chain.eol));
+  return output(createChain(input, chain.steps, chain.eol), target.parsed);
 }
 
 function paint(l: Live): void {
@@ -459,7 +466,7 @@ function addToChain(l: Live, id: string): void {
     // The previous step's text is the input of the new one: only the new step runs. It is run again from the start
     // only when the new step turns an `edit` chain into new text, which is made from the readable input.
     const again = canApply(l.chain) && !canApply(next) && readableIn(l.target, l.target.text) !== l.target.text;
-    result = again ? runChain(l.target, next) : runStep(id, l.result, next.eol);
+    result = again ? runChain(l.target, next) : runStep(id, l.result, next.eol, l.target.parsed);
   } catch (error) {
     say(l, `Could not run that step: ${error instanceof Error ? error.message : String(error)}. The result is as it was.`);
     return;

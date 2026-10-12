@@ -5,7 +5,7 @@
 //
 // `applyToStore` is the one place Apply writes: one splice over one range of the store's bytes, refused (the
 // store untouched) when the bytes are no longer the ones the sheet read.
-import { runTransform, transformById, type TransformKind } from '@marxy/core';
+import { runTransform, transformById, type ParsedText, type TransformKind } from '@marxy/core';
 
 /** The line ending a file uses throughout, when it is not LF: the chain writes its results in it. */
 export type Eol = '\r\n' | '\r';
@@ -46,25 +46,30 @@ function settled(text: string, kind: TransformKind | undefined, eol: Eol | null)
  * One step on `text`: the transform, then the result in the document's line ending. The only place a step runs, so
  * a chain made all at once and one grown a step at a time (the sheet keeps each step's text and runs only the new
  * one) give the same text.
+ *
+ * `parsed` is the store's parse of the document's text (`DocumentStore.textParse`, F-60.1), handed to every step and
+ * used by core only for a step whose text is exactly the one it parses: the first step of a whole-document chain, or
+ * a later one after steps that changed nothing. A step on any other text parses for itself. It is a cache, so it never
+ * changes what a step gives.
  */
-export function runStep(id: string, text: string, eol: Eol | null): string {
-  return settled(runTransform(id, text), transformById(id)?.kind, eol);
+export function runStep(id: string, text: string, eol: Eol | null, parsed?: ParsedText | null): string {
+  return settled(runTransform(id, text, parsed ? { parsed } : {}), transformById(id)?.kind, eol);
 }
 
 /** The text after each step, in order: `outputs(chain)[i]` is the input of step `i + 1`. */
-export function outputs(chain: Chain): readonly string[] {
+export function outputs(chain: Chain, parsed?: ParsedText | null): readonly string[] {
   const out: string[] = [];
   let text = chain.input;
   for (const id of chain.steps) {
-    text = runStep(id, text, chain.eol);
+    text = runStep(id, text, chain.eol, parsed);
     out.push(text);
   }
   return out;
 }
 
 /** What the chain makes: the input itself with no steps, else the last step's text. */
-export function output(chain: Chain): string {
-  return outputs(chain).at(-1) ?? chain.input;
+export function output(chain: Chain, parsed?: ParsedText | null): string {
+  return outputs(chain, parsed).at(-1) ?? chain.input;
 }
 
 /**

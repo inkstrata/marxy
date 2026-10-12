@@ -67,7 +67,9 @@ async function sourceInput(): Promise<CopyAsInput | null> {
   // A byte that is not UTF-8 is a lone surrogate in the editor's text; it is copied as U+FFFD (F-34.1).
   const text = readableText(held);
   const path = pathOfOpen();
-  return copyAsFromText(text, path === undefined ? {} : { path });
+  // With nothing selected this is the whole file: the store's parse of it, when it is exactly this text (F-60.1).
+  const parsed = from === to ? (appHandle()?.document()?.textParse() ?? undefined) : undefined;
+  return copyAsFromText(text, { ...(path === undefined ? {} : { path }), ...(parsed === undefined ? {} : { parsed }) });
 }
 
 /** Rendered: the selection, else the document. A drag copies as the reader sees it; a block, from its bytes. */
@@ -101,7 +103,12 @@ function renderedInput(): CopyAsInput | null {
     if (block) input = { document: doc, node: block, range: block.src, text: textOf(buffer, block.src) };
   }
   input ??= operationInputFor({ kind: 'document' }, doc, buffer) ?? undefined;
-  return input ? copyAsFromOperation(input, ref) : null;
+  if (!input) return null;
+  const copy = copyAsFromOperation(input, ref);
+  // With nothing selected this is the whole document: the store's parse of its bytes, when the text is exactly those
+  // bytes (F-60.1). The targets that run a transform use it only if they read exactly that text.
+  const parsed = sel.kind === 'none' ? handle.document()?.textParse() : null;
+  return parsed ? { ...copy, parsed } : copy;
 }
 
 /** What `ctx` would copy: Source's selection or file, else Rendered's selection or document. Null when nothing is open. */

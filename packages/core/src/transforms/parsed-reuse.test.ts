@@ -168,3 +168,38 @@ test('the parse a body is given does not outlive the call: a later run without i
   assert.ok(parseCount() > at, 'the call without a parse must make its own');
   assert.equal(runTransform('strip-hr', text, { parsed: held }), runTransform('strip-hr', text));
 });
+
+test('the guard: a parse whose root does not end at the text\'s UTF-8 length is ignored, whatever its text says (F-60.1)', () => {
+  // `text` has multi-byte characters, so its length in UTF-16 units and in bytes differ; the mismatched parse is the
+  // parse of a different document carried under this text, as a stale parse mislabelled with the current text would be.
+  const text = '# Café 日本語 🙂\n\n---\n\n* one\n* two\n';
+  const stale = '# Café\n\n---\n\n* one\n';
+  const staleDoc = parseMarkdown(enc.encode(stale), { file: FILE });
+  assert.notEqual(staleDoc.src.end, enc.encode(text).length);
+  const wrong: ParsedText = { text, doc: staleDoc };
+  const right: ParsedText = { text, doc: parseMarkdown(enc.encode(text), { file: FILE }) };
+  assert.equal(right.doc.src.end, enc.encode(text).length, 'the root ends at the text\'s byte length');
+
+  for (const t of TRANSFORMS) assert.equal(t.fn(text, { parsed: wrong }), t.fn(text), `${t.id}: used a parse of other bytes`);
+  resetProseCaches();
+  let at = parseCount();
+  const out = runTransform('strip-hr', text, { parsed: wrong });
+  assert.ok(parseCount() > at, 'a mismatched parse must be ignored: the body parses afresh');
+  assert.notEqual(out, text, 'the sample has a rule to strip');
+  resetProseCaches();
+  assert.equal(out, runTransform('strip-hr', text));
+  // The matching parse is still used.
+  resetProseCaches();
+  at = parseCount();
+  runTransform('strip-hr', text, { parsed: right });
+  assert.equal(parseCount(), at, 'the matching parse is used');
+
+  // Copy as: the same guard, for the targets that run a transform and for plain and rich text.
+  for (const target of COPY_TARGETS) {
+    const built = (parsed: ParsedText): string => JSON.stringify(target.build(copyAsFromText(text, { path: '/notes/doc.md', parsed })));
+    assert.equal(built(wrong), built(right), `copy as ${target.id}: used a parse of other bytes`);
+  }
+  at = parseCount();
+  copyAsFromText(text, { parsed: wrong }).plain();
+  assert.ok(parseCount() > at, 'Copy as parses afresh for a mismatched parse');
+});

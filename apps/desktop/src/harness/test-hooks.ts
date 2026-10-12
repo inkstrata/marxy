@@ -3,7 +3,7 @@
 // release build that contains `installTestHooks`. Each hook is built on the running app's handle (its
 // store, view and selection), never on module state, and `installTestHooks` again (a second `startApp`
 // in one page) moves them all to the new handle.
-import { createBuffer, parseMarkdown, sectionRange, textOf, type Node } from '@marxy/core';
+import { createBuffer, parseCount, parseMarkdown, sectionRange, textOf, type Node } from '@marxy/core';
 import { alignTablePipes } from '@marxy/core/src/operations/align-table-pipes.ts';
 import type { AppHandle } from '../app.ts';
 import { sourceViewCommands } from '../commands/source-view.ts';
@@ -59,6 +59,8 @@ export function installTestHooks(handle: AppHandle): void {
     resolve,
     textOf,
     parseMarkdown,
+    /** How many parses have been made so far (F-60.1): a test reads the difference around an action. */
+    parseCount,
     sectionRange,
     createBuffer,
   };
