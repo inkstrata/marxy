@@ -85,9 +85,9 @@ test('inside inline code or across its edge a command declines; Code takes the s
   const text = 'a `code here` b';
   for (const kind of ['bold', 'italic', 'strike', 'link'] as const) {
     assert.deepEqual(wrapSelection(text, { from: 4, to: 4 }, kind), { declined: 'code' }, `${kind} in code`);
-    assert.deepEqual(wrapSelection(text, { from: 0, to: 6 }, kind), { declined: 'code' }, `${kind} across the edge`);
+    assert.deepEqual(wrapSelection(text, { from: 0, to: 6 }, kind), { declined: 'cuts' }, `${kind} across the edge`);
   }
-  assert.deepEqual(wrapSelection(text, { from: 0, to: 6 }, 'code'), { declined: 'code' }, 'partly overlapping');
+  assert.deepEqual(wrapSelection(text, { from: 0, to: 6 }, 'code'), { declined: 'cuts' }, 'partly overlapping');
   assert.equal(wrapped(text, 4, 4, 'code').text, 'a code here b');
   assert.equal(wrapped('a ``x ` y`` b', 5, 5, 'code').text, 'a x ` y b');
   assert.deepEqual(wrapSelection(text, { from: 14, to: 15 }, 'bold').hasOwnProperty('edit'), true, 'text after the span is fine');
@@ -325,4 +325,80 @@ test('a wrap never moves a byte it was not asked to: over every selection of a l
       }
     }
   }
+});
+
+// F-78: three rough edges.
+test('F-78: a phrase that holds a whole code span wraps; inside or across a span declines, the pill saying which', async () => {
+  const text = 'so run `npm i` now ok\n';
+  const from = text.indexOf('run');
+  const to = text.indexOf(' ok');
+  assert.equal(wrapped(text, from, to, 'bold').text, 'so **run `npm i` now** ok\n');
+  assert.equal(wrapped(text, from, to, 'italic').text, 'so *run `npm i` now* ok\n');
+  assert.equal(wrapped(text, from, to, 'strike').text, 'so ~~run `npm i` now~~ ok\n');
+  assert.equal(wrapped(text, from, to, 'link').text, 'so [run `npm i` now](url) ok\n');
+  // Bold twice returns the bytes.
+  const once = wrapped(text, from, to, 'bold');
+  assert.equal(wrapped(once.text, once.edit.selection.from, once.edit.selection.to, 'bold').text, text);
+  // The span alone, selected with its ticks, wraps too.
+  assert.equal(wrapped(text, text.indexOf('`'), text.indexOf(' now'), 'bold').text, 'so run **`npm i`** now ok\n');
+  // Caret word inside the span, and a selection inside it, decline as inside code.
+  const inside = wrapSelection(text, { from: text.indexOf('npm') + 1, to: text.indexOf('npm') + 1 }, 'bold');
+  assert.deepEqual(inside, { declined: 'code' });
+  assert.deepEqual(wrapSelection(text, { from: text.indexOf('npm'), to: text.indexOf('npm') + 3 }, 'italic'), { declined: 'code' });
+  // Cutting across an edge says so.
+  assert.deepEqual(wrapSelection(text, { from, to: text.indexOf('npm') + 2 }, 'bold'), { declined: 'cuts' });
+  assert.deepEqual(wrapSelection(text, { from: text.indexOf('npm'), to }, 'link'), { declined: 'cuts' });
+  assert.equal(formatRefusalText({ wrap: 'bold' }, 'cuts'), 'Not formatted · the text is unchanged · the selection cuts across code');
+  // End to end: the bytes, CRLF kept, one undo step.
+  const bytes = fileBytes(text, '\r\n');
+  const r = await session(bytes, { wrap: 'bold' }, { from, to });
+  assert.equal(decoder.decode(r.bytes), 'so **run `npm i` now** ok\r\n');
+  assert.equal(r.steps, 1);
+  assert.deepEqual([...r.undo()], [...bytes]);
+  const cut = await session(bytes, { wrap: 'bold' }, { from, to: text.indexOf('npm') + 2 });
+  assert.equal(cut.ran, false);
+  assert.deepEqual(cut.said, ['Not formatted · the text is unchanged · the selection cuts across code']);
+  assert.deepEqual([...cut.bytes], [...bytes]);
+});
+
+test('F-78: a block Insert with the caret inside an inline code span declines and writes nothing', async () => {
+  const text = 'use `npm i` here\n';
+  const caret = text.indexOf('npm') + 1;
+  for (const insert of INSERTS) {
+    assert.deepEqual(insertAtCaret(text, caret, insert, '\n'), { declined: 'code' }, insert);
+    // Against the span's edges is outside it, so it still inserts.
+    assert.ok('edit' in insertAtCaret(text, text.indexOf('`'), insert, '\n'), `${insert} before`);
+    assert.ok('edit' in insertAtCaret(text, text.indexOf(' here'), insert, '\n'), `${insert} after`);
+  }
+  const bytes = fileBytes(text, '\r\n');
+  const r = await session(bytes, { insert: 'table' }, { from: caret, to: caret });
+  assert.equal(r.ran, false);
+  assert.deepEqual(r.said, ["Not inserted · the text is unchanged · it's inside code"]);
+  assert.deepEqual([...r.bytes], [...bytes]);
+});
+
+test('F-78: Code on text with backticks uses a longer run, pads at an edge, and unwraps any run length', async () => {
+  const wrapCode = (t: string, a: number, b: number) => wrapped(t, a, b, 'code');
+  assert.equal(wrapCode('x a`b y\n', 2, 5).text, 'x ``a`b`` y\n');
+  assert.equal(wrapCode('x a``b y\n', 2, 6).text, 'x ```a``b``` y\n');
+  assert.equal(wrapCode('x `a y\n', 2, 4).text, 'x `` `a `` y\n');
+  assert.equal(wrapCode('x a` y\n', 2, 4).text, 'x `` a` `` y\n');
+  assert.equal(wrapCode('x `` y\n', 2, 4).text, 'x ``` `` ``` y\n');
+  assert.equal(wrapCode('x ab y\n', 2, 4).text, 'x `ab` y\n');
+  // The span holds exactly the text: every case round-trips through unwrap to the original bytes.
+  for (const t of ['x a`b y\n', 'x a``b y\n', 'x `a y\n', 'x a` y\n', 'x `` y\n', 'x `a` b y\n']) {
+    const from = 2;
+    const to = t.indexOf(' y');
+    const once = wrapCode(t, from, to);
+    assert.equal(once.selected, t.slice(from, to), `${JSON.stringify(t)} keeps the text selected`);
+    const back = wrapped(once.text, once.edit.selection.from, once.edit.selection.to, 'code');
+    assert.equal(back.text, t, `${JSON.stringify(t)} unwraps`);
+  }
+  // Selecting the whole padded span unwraps it too.
+  assert.equal(wrapped('x `` `a `` y\n', 2, 10, 'code').text, 'x `a y\n');
+  const bytes = fileBytes('x a`b y\n', '\r\n');
+  const r = await session(bytes, { wrap: 'code' }, { from: 2, to: 5 });
+  assert.equal(decoder.decode(r.bytes), 'x ``a`b`` y\r\n');
+  assert.equal(r.steps, 1);
+  assert.deepEqual([...r.undo()], [...bytes]);
 });

@@ -21,7 +21,7 @@ export type InsertKind = 'table' | 'fence' | 'rule' | 'details' | 'footnote';
 export type FormatOp = { readonly wrap: WrapKind } | { readonly insert: InsertKind };
 
 /** Why a command declined; nothing is written when it does. */
-export type Decline = 'code' | 'paragraphs';
+export type Decline = 'code' | 'cuts' | 'paragraphs';
 
 export interface FormatChange {
   readonly from: number;
@@ -125,6 +125,23 @@ function codeSpanAt(text: string, from: number, to: number): { from: number; to:
   return null;
 }
 
+/**
+ * How `[from, to]` meets inline code: not at all (or it holds whole spans, which is fine to wrap), inside one span, or
+ * cutting across the edge of one, where `span` is the first such span.
+ */
+function codeMeeting(text: string, from: number, to: number, kind: WrapKind): { how: 'inside' | 'cuts'; span: { from: number; to: number } } | null {
+  for (const s of inlineCodeSpans(text)) {
+    if (from === to) {
+      if (from > s.from && from < s.to) return { how: 'inside', span: s };
+    } else if (from < s.to && to > s.from) {
+      // A selection that is exactly one span is that span (Code takes it off); one that holds whole spans is clear of them.
+      if (from <= s.from && to >= s.to && !(kind === 'code' && from === s.from && to === s.to)) continue;
+      return { how: from >= s.from && to <= s.to ? 'inside' : 'cuts', span: s };
+    }
+  }
+  return null;
+}
+
 const WORD = /[\p{L}\p{N}\p{M}_]+(?:['’][\p{L}\p{N}\p{M}_]+)*/gu;
 
 /** The word the caret is in or against, on its line, or null. */
@@ -187,15 +204,24 @@ export function wrapSelection(text: string, sel: { readonly from: number; readon
     if (word !== null) ({ from, to } = word);
   }
   // Inside inline code, or across its edge, the markers would be text: Code takes the span's own backticks off, the rest decline.
-  const span = codeSpanAt(text, from, to);
-  if (span !== null) {
-    if (kind !== 'code' || from < span.from || to > span.to) return { declined: 'code' };
-    return unwrapSpan(text, span);
+  const meeting = codeMeeting(text, from, to, kind);
+  if (meeting !== null) {
+    if (meeting.how === 'cuts') return { declined: 'cuts' };
+    if (kind !== 'code') return { declined: 'code' };
+    return unwrapSpan(text, meeting.span);
   }
   const body = text.slice(from, to);
   if (/\n[ \t]*\n/.test(body) || body.split('\n').slice(1).some((l) => BLOCK_START.test(l))) return { declined: 'paragraphs' };
 
   if (kind === 'link') return wrapLink(text, from, to);
+  if (kind === 'code') {
+    // An empty pair of any run length, with the caret between, comes out.
+    const left = runAt(text, from, -1, '`');
+    if (from === to && left > 0 && left === runAt(text, to, 1, '`')) {
+      return { edit: { changes: [{ from: from - left, to: from, insert: '' }, { from: to, to: to + left, insert: '' }], selection: { from: from - left, to: from - left } } };
+    }
+    return wrapCode(body, from, to);
+  }
   const [primary, alternate] = MARKS[kind];
   // Either marker takes it off.
   for (const mark of alternate === undefined ? [primary] : [primary, alternate]) {
@@ -220,13 +246,34 @@ export function wrapSelection(text: string, sel: { readonly from: number; readon
 /** The span's own backticks come off; what was inside is selected. */
 function unwrapSpan(text: string, span: { from: number; to: number }): FormatOutcome {
   const run = runAt(text, span.from + 1, 1, '`') + 1;
+  const inner = text.slice(span.from + run, span.to - run);
+  // CommonMark pads text that starts or ends with a backtick with one space each side; that pad goes with the run.
+  const cut = inner.length >= 2 && inner.startsWith(' ') && inner.endsWith(' ') && inner.trim() !== '' ? run + 1 : run;
   return {
     edit: {
       changes: [
-        { from: span.from, to: span.from + run, insert: '' },
-        { from: span.to - run, to: span.to, insert: '' },
+        { from: span.from, to: span.from + cut, insert: '' },
+        { from: span.to - cut, to: span.to, insert: '' },
       ],
-      selection: { from: span.from, to: span.to - 2 * run },
+      selection: { from: span.from, to: span.to - 2 * cut },
+    },
+  };
+}
+
+/** Wraps in a backtick run longer than any run in the text, padded with a space when the text starts or ends with a backtick, so the span renders exactly the text. */
+function wrapCode(body: string, from: number, to: number): FormatOutcome {
+  const longest = Math.max(0, ...(body.match(/`+/g) ?? []).map((r) => r.length));
+  const run = '`'.repeat(longest + 1);
+  const pad = body.startsWith('`') || body.endsWith('`') ? ' ' : '';
+  const open = run + pad;
+  if (from === to) return { edit: { changes: [{ from, to, insert: run + run }], selection: { from: from + run.length, to: from + run.length } } };
+  return {
+    edit: {
+      changes: [
+        { from, to: from, insert: open },
+        { from: to, to, insert: pad + run },
+      ],
+      selection: { from: from + open.length, to: to + open.length },
     },
   };
 }
@@ -347,6 +394,7 @@ export function insertAtCaret(text: string, requested: number, kind: InsertKind,
   // A block never lands in front matter or before it: it goes after the closing line.
   let caret = requested;
   if (fm !== null && caret <= fm && kind !== 'footnote') caret = fm;
+  if (codeSpanAt(text, requested, requested) !== null) return { declined: 'code' };
   if (touchesFence(text, caret, caret) && !(fm !== null && caret === fm && kind !== 'footnote')) return { declined: 'code' };
   if (kind === 'footnote') return insertFootnote(text, caret, eol);
   const lineFrom = text.lastIndexOf('\n', caret - 1) + 1;
@@ -396,6 +444,7 @@ function insertFootnote(text: string, caret: number, eol: string): FormatOutcome
 
 /** The refusal for a declined command, in the X-21 template: what happened, what is unchanged, what to do (rulings, question 10). */
 export function formatRefusalText(op: FormatOp, why: Decline): string {
+  if (why === 'cuts') return 'Not formatted · the text is unchanged · the selection cuts across code';
   if (why === 'code') return `${'wrap' in op ? 'Not formatted' : 'Not inserted'} · the text is unchanged · it's inside code`;
   return `${'wrap' in op ? 'Not formatted' : 'Not inserted'} · the text is unchanged · select inside one paragraph`;
 }
