@@ -9,6 +9,10 @@
 //   Add another step           the same list of transforms, run on the result
 //   Esc                        closes; nothing changed, nothing copied
 //
+// An input of scope `clipboard` (J-06) is the pasteboard's text, read once when the reader ran the command. Its primary
+// action is Write back (Return; one plain-text pasteboard item through `writeCopy`); Apply is not offered, the document
+// is never touched; Open as new document and Add another step stay. Esc writes nothing.
+//
 // The sheet never reads the pasteboard. Text reaches the page only as `textContent`.
 import { TRANSFORMS, transformById } from '@marxy/core';
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
@@ -23,7 +27,7 @@ import { addStep, canApply, characterCount, createChain, output, runStep, type A
 export interface SheetTarget {
   /** The input exactly as the document holds it (a byte-order mark kept): what a transform is run on. */
   readonly text: string;
-  readonly scope: 'selection' | 'document';
+  readonly scope: 'selection' | 'document' | 'clipboard';
   /** The line ending a CRLF or CR document uses throughout, so results are written in it; null otherwise. */
   readonly eol: Eol | null;
   /** Whether the file is Markdown: `outsideCode` transforms set fenced code and front matter aside by Markdown's rules. */
@@ -242,19 +246,22 @@ function paint(l: Live): void {
   const after = l.result;
   const unchanged = after === before;
 
-  const editable = canApply(chain) && target.applyRefusal === undefined;
+  const clipboard = target.scope === 'clipboard';
+  const editable = !clipboard && canApply(chain) && target.applyRefusal === undefined;
 
   const head = el('div', 'marxy-transform-head');
   const title = el('h2', 'marxy-transform-title', 'Transform ');
   title.id = 'marxy-transform-title';
-  title.append(el('span', 'marxy-transform-scope', target.scope === 'selection' ? 'the selection' : 'the document'));
+  title.append(el('span', 'marxy-transform-scope', target.scope === 'selection' ? 'the selection' : target.scope === 'clipboard' ? 'the clipboard' : 'the document'));
   const steps = el('ol', 'marxy-transform-steps');
   steps.setAttribute('aria-label', 'Steps');
   for (const name of stepNames(chain)) steps.append(el('li', undefined, name));
   head.append(title, steps);
 
   const notes: string[] = [];
-  if (!canApply(chain)) {
+  if (clipboard) {
+    notes.push('Write back replaces the clipboard with the After text as plain text; nothing else on it is kept. Esc writes nothing.');
+  } else if (!canApply(chain)) {
     notes.push('This result is new text, not an edit of the input, so it can be copied or opened as a document but not applied.');
   } else if (target.applyRefusal !== undefined) {
     notes.push(target.applyRefusal);
@@ -302,7 +309,8 @@ function paint(l: Live): void {
     });
     return b;
   };
-  const copy = button('Copy result', keyLabel('Enter', mac), () => void copyResult(l), 'marxy-transform-primary');
+  const copy = button(clipboard ? 'Write back' : 'Copy result', keyLabel('Enter', mac), () => void copyResult(l), 'marxy-transform-primary');
+  if (clipboard) copy.title = 'Replace what is on the clipboard with the result, as plain text';
   copy.id = 'marxy-transform-copy';
   actions.append(copy);
   if (editable) {
@@ -428,10 +436,13 @@ async function copyResult(l: Live): Promise<void> {
   if (l.busy) return;
   l.busy = true;
   try {
-    // The mark is the file's, not the text's: a copy carries the text alone.
-    const wrote = await writeCopy(l.ctx, { text: withoutBom(readableIn(l.target, l.result)) }, 'Copied result');
+    const clip = l.target.scope === 'clipboard';
+    // The mark is the file's, not the text's: a copy carries the text alone. The clipboard's own text keeps every character.
+    const text = clip ? readableIn(l.target, l.result) : withoutBom(readableIn(l.target, l.result));
+    const wrote = await writeCopy(l.ctx, { text }, clip ? `Clipboard transformed: ${stepNames(l.chain).join(', then ')}` : 'Copied result');
     if (live !== l) return;
     if (wrote) closeTransformSheet();
+    else if (clip) say(l, 'Could not write the clipboard, which may now be empty. Before still holds the original text; Open as new document keeps it.');
     else say(l, 'Could not copy the result. Nothing was changed.');
   } finally {
     l.busy = false;
@@ -439,7 +450,7 @@ async function copyResult(l: Live): Promise<void> {
 }
 
 async function applyResult(l: Live): Promise<void> {
-  if (l.busy || !canApply(l.chain) || l.target.applyRefusal !== undefined) return;
+  if (l.busy || l.target.scope === 'clipboard' || !canApply(l.chain) || l.target.applyRefusal !== undefined) return;
   if (l.result === l.target.text) {
     say(l, 'The result is the text as it is. Nothing to apply.');
     return;
