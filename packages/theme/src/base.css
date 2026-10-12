@@ -831,7 +831,7 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
 .marxy-toolbar button:not([role="radio"]) { display: inline-flex; align-items: center; justify-content: center; gap: 0.3em; min-width: calc(var(--marxy-size-chrome) * 28 / 13); height: calc(var(--marxy-size-chrome) * 28 / 13); max-height: calc(var(--marxy-ws-toolbar-h, 52px) - 4px); padding: 0 0.4em; border-radius: 999px; }
 .marxy-toolbar [data-marxy-toolbar-item="copy"] { gap: 0; }
 .marxy-toolbar [data-marxy-toolbar-item="copy"] .marxy-toolbar-copy-menu { min-width: 0; padding: 0 0.2em; }
-.marxy-toolbar [data-marxy-toolbar-item="mode"] { gap: 0; padding: 1px; border: 1px solid var(--marxy-color-rule); border-radius: 999px; }
+.marxy-toolbar [data-marxy-toolbar-item="mode"] { gap: 0; padding: 0.1em; border: 1px solid var(--marxy-color-rule); border-radius: 999px; }
 .marxy-toolbar [data-marxy-toolbar-item="mode"] button { display: inline-flex; align-items: center; gap: 0.3em; height: calc(var(--marxy-size-chrome) * 24 / 13); padding: 0 0.5em; border-radius: 999px; }
 .marxy-toolbar [data-marxy-toolbar-item="mode"] button[aria-checked="true"] { font-weight: 650; }
 .marxy-toolbar [data-marxy-toolbar-item="kind"] button { display: inline-flex; align-items: center; gap: 0.4em; height: calc(var(--marxy-size-chrome) * 24 / 13); padding: 0 0.8em 0 0.65em; border: 1px solid var(--marxy-color-rule); border-radius: 999px; }
