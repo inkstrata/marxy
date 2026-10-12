@@ -81,25 +81,52 @@ function injectStyles(doc: Document): void {
       overflow: hidden;
       color: var(--marxy-color-text);
     }
+    #marxy-transform::backdrop { background: rgb(0 0 0 / 25%); }
     #marxy-transform:not([open]) { display: none; }
     #marxy-transform[open] { display: flex; flex-direction: column; }
     #marxy-transform .marxy-transform-head { padding: 1rem 1.25rem 0.5rem; }
-    #marxy-transform .marxy-transform-title { margin: 0; font-size: 1.15em; font-weight: 600; }
+    #marxy-transform .marxy-transform-headline { display: flex; align-items: baseline; gap: 0.75rem; }
+    /* The headings stay for the outline; the page's heading rule (the reading face) does not reach them. */
+    #marxy-transform :is(.marxy-transform-title, .marxy-transform-label h3) {
+      margin: 0;
+      padding: 0;
+      font-family: var(--marxy-face-chrome);
+      font-variation-settings: normal;
+      letter-spacing: normal;
+      line-height: 1.3;
+    }
+    #marxy-transform .marxy-transform-title { font-size: 1.15em; font-weight: 600; }
     #marxy-transform .marxy-transform-scope { color: var(--marxy-color-text-secondary); font-weight: 400; }
+    #marxy-transform .marxy-transform-counts { margin-inline-start: auto; color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
+    #marxy-transform .marxy-transform-close {
+      flex: none;
+      align-self: center;
+      font: inherit;
+      line-height: 1;
+      color: var(--marxy-color-text-secondary);
+      padding: 0.25rem 0.5rem;
+      background: transparent;
+      border: 0;
+      border-radius: calc(var(--marxy-size-chrome) * 6 / 13);
+      cursor: default;
+    }
+    #marxy-transform .marxy-transform-close:hover { color: var(--marxy-color-text); background: var(--marxy-color-accent-wash); }
     #marxy-transform .marxy-transform-steps { margin: 0.35rem 0 0; padding-inline-start: 1.5rem; color: var(--marxy-color-text-secondary); }
     #marxy-transform .marxy-transform-note { margin: 0; padding: 0.25rem 1.25rem; color: var(--marxy-color-text-secondary); }
     #marxy-transform .marxy-transform-body {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1rem;
+      gap: 0;
       padding: 0.5rem 1.25rem;
       min-height: 0;
       flex: 1 1 auto;
       overflow: hidden;
     }
-    #marxy-transform .marxy-transform-side { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    #marxy-transform .marxy-transform-side { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding-inline: 0.75rem; }
+    #marxy-transform .marxy-transform-side:first-child { padding-inline-start: 0; border-inline-end: 1px solid var(--marxy-color-rule); }
+    #marxy-transform .marxy-transform-side:last-child { padding-inline-end: 0; }
     #marxy-transform .marxy-transform-label { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 0.25rem; }
-    #marxy-transform .marxy-transform-label h3 { margin: 0; font-size: 1em; font-weight: 600; }
+    #marxy-transform .marxy-transform-label h3 { font-size: 1em; font-weight: 600; }
     #marxy-transform .marxy-transform-count { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
     #marxy-transform .marxy-transform-text {
       margin: 0;
@@ -107,12 +134,16 @@ function injectStyles(doc: Document): void {
       overflow: auto;
       min-height: 8rem;
       max-height: 55vh;
-      border: 1px solid var(--marxy-color-rule-strong);
+      border: 0;
+      border-radius: calc(var(--marxy-size-chrome) * 6 / 13);
       background: var(--marxy-color-code-bg);
       color: var(--marxy-color-code-text);
       font-family: var(--marxy-face-mono);
       font-size: 0.95em;
       line-height: 1.45;
+      /* Display only: the wrap is the pane's, the text and the bytes are as they were. */
+      box-sizing: border-box;
+      max-width: 100%;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       tab-size: 4;
@@ -142,6 +173,10 @@ function injectStyles(doc: Document): void {
       padding: 0.75rem 1.25rem 1rem;
       border-top: 1px solid var(--marxy-color-rule);
     }
+    /* The others at the left; Apply, then the primary action, at the right (order only: the DOM and Tab order are unchanged). */
+    #marxy-transform .marxy-transform-actions::before { content: ''; flex: 1 1 0; order: 1; }
+    #marxy-transform .marxy-transform-actions #marxy-transform-apply { order: 2; }
+    #marxy-transform .marxy-transform-actions button.marxy-transform-primary { order: 3; }
     #marxy-transform .marxy-transform-actions button {
       font: inherit;
       color: inherit;
@@ -151,9 +186,11 @@ function injectStyles(doc: Document): void {
       border-radius: calc(var(--marxy-size-chrome) * 6 / 13);
       cursor: default;
     }
-    #marxy-transform .marxy-transform-actions button.marxy-transform-primary { background: var(--marxy-color-accent-wash); }
+    #marxy-transform .marxy-transform-actions button.marxy-transform-primary { background: var(--marxy-color-accent); border-color: var(--marxy-color-accent); color: var(--marxy-color-accent-fg); }
+    #marxy-transform .marxy-transform-actions button.marxy-transform-primary .marxy-transform-key { color: inherit; opacity: 0.8; }
     #marxy-transform .marxy-transform-actions button[aria-disabled="true"] { opacity: 0.55; }
-    #marxy-transform .marxy-transform-actions button:hover:not([aria-disabled="true"]) { background: var(--marxy-color-accent-wash); }
+    #marxy-transform .marxy-transform-actions button:hover:not([aria-disabled="true"]):not(.marxy-transform-primary) { background: var(--marxy-color-accent-wash); }
+    #marxy-transform .marxy-transform-actions button.marxy-transform-primary:hover:not([aria-disabled="true"]) { background: var(--marxy-color-accent-strong); }
     #marxy-transform .marxy-transform-key { margin-inline-start: 0.5rem; color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
     #marxy-transform button:focus-visible, #marxy-transform .marxy-transform-text:focus-visible, #marxy-transform .marxy-transform-filter:focus-visible {
       outline: 2px solid var(--marxy-color-accent);
@@ -161,6 +198,7 @@ function injectStyles(doc: Document): void {
     }
     @media (max-width: 720px) {
       #marxy-transform .marxy-transform-body { grid-template-columns: 1fr; overflow: auto; }
+      #marxy-transform .marxy-transform-side, #marxy-transform .marxy-transform-side:first-child, #marxy-transform .marxy-transform-side:last-child { padding-inline: 0; border-inline-end: 0; }
     }
     @media (forced-colors: active) {
       #marxy-transform .marxy-transform-text { border-color: CanvasText; background: Canvas; color: CanvasText; }
@@ -256,7 +294,17 @@ function paint(l: Live): void {
   const steps = el('ol', 'marxy-transform-steps');
   steps.setAttribute('aria-label', 'Steps');
   for (const name of stepNames(chain)) steps.append(el('li', undefined, name));
-  head.append(title, steps);
+  const counts = el('span', 'marxy-transform-counts', `${countLabel(characterCount(before)).replace(/ characters?$/, '')} \u2192 ${countLabel(characterCount(after))}`);
+  counts.setAttribute('aria-label', `${countLabel(characterCount(before))} to ${countLabel(characterCount(after))}`);
+  const close = el('button', 'marxy-transform-close', '\u00d7');
+  close.type = 'button';
+  close.id = 'marxy-transform-close';
+  close.setAttribute('aria-label', 'Close');
+  close.title = `Close (Esc)`;
+  close.addEventListener('click', () => closeTransformSheet());
+  const headline = el('div', 'marxy-transform-headline');
+  headline.append(title, counts, close);
+  head.append(headline, steps);
 
   const notes: string[] = [];
   if (clipboard) {
