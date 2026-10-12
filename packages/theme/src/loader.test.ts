@@ -214,9 +214,10 @@ test('a theme-less page and the default theme resolve every v1 token alike, and 
     .filter((d) => !V2_NAMES.includes(d.name) && !d.name.startsWith('--marxy-root-'));
   assert.ok(v1.length >= 55, `${v1.length} v1 tokens`);
   const bare = resolveRoot(tokensCss);
-  const withDefault = resolveRoot(tokensCss, readFileSync(fileURLToPath(new URL('../default/theme.css', import.meta.url)), 'utf8').replace(/:root\[data-marxy-variant="light"\]\s*\{[^}]*\}/, ''));
+  const withDefault = resolveRoot(tokensCss, readFileSync(fileURLToPath(new URL('../default/theme.css', import.meta.url)), 'utf8').replace(/:root\[data-marxy-variant="light"\]\s*\{[^}]*\}/, '').replace(/\[data-marxy-kind="[a-z]+"\]\s*\{[^}]*\}/g, ''));
   // H-04: the default theme now owns the palette and the weights (Night and Paper); every other v1 token
-  // (rhythm, sizes, families, knobs) still resolves as the contract's own default.
+  // (rhythm, sizes, families, knobs) still resolves as the contract's own default. The kind scopes (K-05b) are not
+  // :root and are held by the test at the end of this file.
   const themeSets = (name: string) => /^--marxy-(?:color-|tok-|weight-)/.test(name);
   for (const { name, value } of v1) {
     if (!themeSets(name)) assert.equal(withDefault(name), bare(name), name);
@@ -352,4 +353,26 @@ test('the avg-char check never rewrites the theme: loadTheme leaves the declared
   ]);
   const { css } = await loadTheme(dir, (r) => Promise.resolve(files.get(r)!), (p) => p);
   assert.match(css, /--marxy-avg-char:0\.9\}/);
+});
+
+test('the default theme gives article, readme and report a profile, written as the loader would compile it (K-05b)', () => {
+  const css = readFileSync(fileURLToPath(new URL('../default/theme.css', import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const scopes = new Map([...css.matchAll(/\[data-marxy-kind="([a-z]+)"\]\s*\{([^}]*)\}/g)].map((m) => [m[1]!, m[2]!]));
+  assert.deepEqual([...scopes.keys()].sort(), ['article', 'readme', 'report']);
+  const globalOnly = ['--marxy-color-surface', '--marxy-shadow-surface', '--marxy-face-chrome', '--marxy-size-chrome', '--marxy-typeset'];
+  const roots = ['--marxy-root-size-body', '--marxy-root-size-code', '--marxy-root-size-caption', '--marxy-root-line-box', '--marxy-root-line-box-code', '--marxy-root-lh-h1', '--marxy-root-lh-h2'];
+  for (const [kind, body] of scopes) {
+    const chars = Number(/--marxy-measure-chars:\s*([\d.]+)/.exec(body)?.[1]);
+    assert.ok(chars >= 45 && chars <= 80, `${kind}: ${chars} characters is outside the 45-80 clamp`);
+    assert.ok(Number(/--marxy-avg-char:\s*([\d.]+)/.exec(body)?.[1]) > 0.35, `${kind}: its face's average advance is declared`);
+    assert.match(body, /--marxy-font-text:\s*var\(--marxy-face-(article|readme|sans)\)/, `${kind}: the text slot points at a face role`);
+    assert.ok(!/--marxy-measure\s*:/.test(body), `${kind}: --marxy-measure is computed, never set`);
+    for (const name of globalOnly) assert.ok(!body.includes(`${name}:`), `${kind}: ${name} is global-only`);
+    for (const m of body.matchAll(/(--marxy-(?:size-body|size-code|size-caption|line-box|line-box-code|lh-h1|lh-h2))\s*:\s*([^;]+);/g)) {
+      const ratio = /(?:calc\(|round\(calc\()\s*([\d.]+)\s*\*\s*var\((--marxy-root-[a-z0-9-]+)\)/.exec(m[2]!);
+      assert.ok(ratio !== null && roots.includes(ratio[2]!), `${kind}: ${m[1]} is ${m[2]}; a size in a kind scope is a multiple of the reader's root copy`);
+      assert.ok(Number(ratio![1]) >= 0.5 && Number(ratio![1]) <= 2, `${kind}: ${m[1]} ratio ${ratio![1]} is within the loader's range`);
+      if (/line-box/.test(m[1]!)) assert.match(m[2]!, /^round\(.*,\s*2px\)$/, `${kind}: ${m[1]} is rounded to an even pixel`);
+    }
+  }
 });

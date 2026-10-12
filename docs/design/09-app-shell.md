@@ -41,8 +41,13 @@ by `detectFileKind` over the file's first `KIND_HEAD_BYTES`, the reader's `[[kin
 (`kinds.json`): *show as* beats a rule, a rule beats detection. A missing or unreadable `config.toml` or `kinds.json`
 is as if empty. A live reload, an edit and a save never decide it again; opening the file again does, and a failed open
 leaves the attribute off. The full result, with every reason that fired, is `OpenPath.detected()` (a pane's
-`content.detected()`), and `Pane.kind()` reads the attribute. No stylesheet has a rule on the attribute yet (the
-profiles are K-05b), so it changes no pixel. The palette's kind icon reads the index entry's `readerKind`, and the
+`content.detected()`), and `Pane.kind()` reads the attribute. The default theme has a rule on it for three kinds
+(K-05b, `docs/design/05-theme.md` §Kind profiles): `article`, `readme` and `report` change the face, size, line box
+and column of the pane's Rendered page, and the Source editor in the same pane keeps the reader's sizes. The launch's
+document is decided before its first paint, from the bytes in hand and the config read the launch makes anyway
+(K-05a.1), so a profile does not move the page after first text: the launch shift is 0 by
+`docs/taste-review/2026-10-k05b/cls-launch.mjs`. A `kinds.json` still unread then is not waited for; the kind is decided
+again when it arrives, and only if the answer differs. The palette's kind icon reads the index entry's `readerKind`, and the
 path alone only for an entry that has none.
 
 **The workspace (W-02; ADR-0058).** The window is *folded* (the skeleton above, exactly) or *unfolded*. Unfolding

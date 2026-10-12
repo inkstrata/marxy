@@ -140,3 +140,52 @@
   --marxy-tok-marker: #4a4f55;
   --marxy-tok-heading: #0f1113;
 }
+
+/* The kind profiles (K-05b; ADR-0059 item 7, ADR-0060, docs/plan/direction-2026-10/03-kinds-and-the-look.md
+   §Profiles). `data-marxy-kind` is on each pane root, so a scope here covers Night and Paper alike: it sets no
+   colour and no weight, only the face role, the size as a multiple of the reader's own, the measure and the
+   face's average advance. The sizes are written as the calc() that the loader compiles for a user theme from a
+   bare ratio (this file is inlined as it stands, not loaded), over the system-owned root copies, so the
+   reader's text size still wins (WCAG 1.4.4). Every line box is a whole even pixel (ADR-0030) at the default
+   size. `--marxy-avg-char` is measured (docs/taste-review/2026-10-k05b/capture.mjs --measure; H-06) for the
+   face at the size and weight it is set at, so the column holds its character count whatever the face.
+   Reader Typography ch.7 and 10 (Overrides by content type): documentation and reports are ragged with space
+   between paragraphs, a README follows the forge's own reading conventions. The kinds with no profile here
+   read as they do today. */
+[data-marxy-kind="article"] {
+  /* Source Serif 4, the editorial face (H-04): 20 on 30 as today, 66 average characters (ch.10 "Measure"). */
+  --marxy-font-text: var(--marxy-face-article);
+  --marxy-font-heading: var(--marxy-face-article);
+  --marxy-measure-chars: 66;
+  --marxy-avg-char: 0.434;
+}
+[data-marxy-kind="readme"] {
+  /* Inter, 16 on 26 (0.8 and 0.8667 of 20 on 30), 80 average characters: the clamp's edge, not Galley's 84
+     (ADR-0060, last Consequence; the loader clamps a reflowing kind to 45-80). */
+  --marxy-font-text: var(--marxy-face-readme);
+  --marxy-font-heading: var(--marxy-face-readme);
+  --marxy-size-body: calc(0.8 * var(--marxy-root-size-body));
+  --marxy-line-box: round(calc(0.8667 * var(--marxy-root-line-box)), 2px);
+  --marxy-size-code: calc(0.78 * var(--marxy-root-size-code));
+  --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
+  --marxy-size-caption: calc(0.87 * var(--marxy-root-size-caption));
+  --marxy-lh-h1: calc(0.8 * var(--marxy-root-lh-h1));
+  --marxy-lh-h2: calc(0.8 * var(--marxy-root-lh-h2));
+  --marxy-measure-chars: 80;
+  --marxy-avg-char: 0.454;
+}
+[data-marxy-kind="report"] {
+  /* Atkinson Hyperlegible Next, 17 on 26 (0.85 and 0.8667), 74 average characters, ragged: identifiers and
+     paths must not break (ch.10, Documentation). */
+  --marxy-font-text: var(--marxy-face-sans);
+  --marxy-font-heading: var(--marxy-face-sans);
+  --marxy-size-body: calc(0.85 * var(--marxy-root-size-body));
+  --marxy-line-box: round(calc(0.8667 * var(--marxy-root-line-box)), 2px);
+  --marxy-size-code: calc(0.83 * var(--marxy-root-size-code));
+  --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
+  --marxy-size-caption: calc(0.87 * var(--marxy-root-size-caption));
+  --marxy-lh-h1: calc(0.85 * var(--marxy-root-lh-h1));
+  --marxy-lh-h2: calc(0.85 * var(--marxy-root-lh-h2));
+  --marxy-measure-chars: 74;
+  --marxy-avg-char: 0.425;
+}

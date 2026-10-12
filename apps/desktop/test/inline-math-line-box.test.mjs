@@ -68,7 +68,11 @@ async function measure(source, opts) {
       const top0 = doc.getBoundingClientRect().top + scrollY;
       const rows = [...doc.querySelectorAll('li, p')].filter((el) => el.querySelector('.katex')).map((el) => {
         const r = el.getBoundingClientRect();
-        const next = el.nextElementSibling ?? el.parentElement.nextElementSibling;
+        // The grid is the blocks' (ADR-0030): a bare inline element between two blocks (a top-level <b>) sits where its own
+        // face's ascent puts the box inside an anonymous line, which moves with the face (K-05b: Source Serif 4), so the next
+        // block is the next one that is not inline.
+        let next = el.nextElementSibling ?? el.parentElement.nextElementSibling;
+        while (next && getComputedStyle(next).display.startsWith('inline')) next = next.nextElementSibling;
         return { tag: el.tagName, h: r.height, nextTop: next ? next.getBoundingClientRect().top + scrollY - top0 : null, top: r.top + scrollY - top0 };
       });
       return { lb, rows, katex: doc.querySelectorAll('.katex').length };

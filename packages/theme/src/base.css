@@ -22,7 +22,23 @@
 /* A pane's kind scope may set its own measure (ADR-0059 item 7). --marxy-measure is computed on :root in
    tokens.css, so a per-kind --marxy-measure-chars would change nothing below it: the same computation is
    repeated where the kind's values apply. :root keeps its declaration, so a v1 theme renders as before. */
-[data-marxy-kind] { --marxy-measure: calc(var(--marxy-measure-chars) * var(--marxy-avg-char) * 1em); }
+[data-marxy-kind] {
+  --marxy-measure: calc(var(--marxy-measure-chars) * var(--marxy-avg-char) * 1em);
+  /* The heading sizes are derived from the body size and the ratio, which a kind may set: derived again here, as
+     the measure is, or a README's headings would be sized from the reader's 20 px body (K-05b). */
+  --marxy-size-h1: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 3)), 1px);
+  --marxy-size-h2: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 2)), 1px);
+  --marxy-size-h3: round(calc(var(--marxy-size-body) * var(--marxy-scale-ratio)), 1px);
+}
+/* Source is the same editor whatever the kind: a profile is how the text is read, not how the bytes are shown, so
+   the editor takes the reader's own sizes back (K-05b). */
+.marxy-source-mount {
+  --marxy-size-body: var(--marxy-root-size-body);
+  --marxy-size-code: var(--marxy-root-size-code);
+  --marxy-size-caption: var(--marxy-root-size-caption);
+  --marxy-line-box: var(--marxy-root-line-box);
+  --marxy-line-box-code: var(--marxy-root-line-box-code);
+}
 
 html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-color-text); }
 ::selection { background: var(--marxy-color-selection); }

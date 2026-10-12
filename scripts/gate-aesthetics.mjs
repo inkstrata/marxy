@@ -20,6 +20,7 @@ import {
   surveyInPage,
   TEXT_SPACING_CSS,
   spacingAppliedFailures,
+  KIND_BODY_RATIO,
   text200AppliedFailures,
 } from './probe-layout.mjs';
 
@@ -553,6 +554,10 @@ const EXPECTED_FAILURES = [
   ...rowsFor('noticeColumn/sight', 'L-05', NOTICE_SIGHT_CELLS, ["15-prose-volume.md"]),
   ...rowsFor('noticeColumn/source', 'L-05', NOTICE_SOURCE_CELLS, ["15-prose-volume.md"]),
   ...rowsFor('room/even', 'L-04', WIDE_BLOCK_CELLS, ["01-long-technical.md", "02-readme-real-world.md", "03-ai-plan.md", "05-pathological-table-and-nesting.md", "06-math.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "28-artifact-fences.md", "28-llm-answer.md", "30-notebook-export.md", "31-essay.md", "32-long-reference.md"]),
+  // K-05b: the article profile's column is narrower (Source Serif 4 is a narrower face than Literata at the same character
+  // count), so this fence's fixed width passes the column by 1.03 px at 960 px and 16 px text. The same cause as the rows above (a
+  // wide block grows to the right only, H1): L-04 clears it with the rest, and the row is held both ways like them.
+  ...rowsFor('room/even', 'L-04', ["960x16-dark", "960x16-light"], ["29-hidden-characters.md"]),
 ];
 
 /**
@@ -1441,6 +1446,20 @@ function geometrySelftestCases() {
       name: 'text200 (size applied)',
       html: themed(PROSE, '.marxy-article{font-size:20px}'),
       ok: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX}px}`),
+      run: checkText200,
+    },
+    {
+      // K-05b: a report's body is 0.85 of the reader's size, so 200 % of it is 34 px. 40 px on a report is the profile not applied.
+      name: 'text200 (a report is held to its profile)',
+      html: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX}px}`).replace('<article ', '<article data-marxy-kind="report" '),
+      ok: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX * KIND_BODY_RATIO.report}px}`).replace('<article ', '<article data-marxy-kind="report" '),
+      run: checkText200,
+    },
+    {
+      // A kind with no profile ratio is still held to the reader's 40 px: the report's 34 px is a failure on an article.
+      name: 'text200 (an article is not given the report ratio)',
+      html: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX * KIND_BODY_RATIO.report}px}`).replace('<article ', '<article data-marxy-kind="article" '),
+      ok: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX}px}`).replace('<article ', '<article data-marxy-kind="article" '),
       run: checkText200,
     },
   ];
