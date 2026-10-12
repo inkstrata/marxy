@@ -322,8 +322,12 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
         const region = item.needsFill!;
         control.setAttribute('aria-pressed', 'false');
         syncs.push((ctx) => {
-          disable(control, enabled(id, ctx));
-          control.setAttribute('aria-pressed', String(workspace.arrangement?.[region] ?? false));
+          const ok = enabled(id, ctx);
+          disable(control, ok);
+          // A door shows only what is behind it (W-05): shut for the narrow Source and Split, it is not pressed and says why.
+          const shut = region === 'inspector' && workspace.inspectorHidden();
+          control.setAttribute('aria-pressed', String(!shut && (workspace.arrangement?.[region] ?? false)));
+          control.title = shut ? 'The inspector needs a wider window in Source and Split' : tipFor(command, mac);
         });
       } else if (id === 'nav.back' || id === 'nav.forward') {
         // `when` says a document is open. Whether there is anywhere to go is the histories': the palette's
@@ -437,8 +441,22 @@ export function mountToolbar(el: HTMLElement, handle: AppHandle, signal: Documen
   // Each pane writes `<body data-marxy-mode>` while it has focus: the switch follows a mode change from any route (⌘E, ⌘1 to ⌘3).
   const observer = new MutationObserver(refresh);
   observer.observe(document.body, { attributes: true, attributeFilter: ['data-marxy-mode'] });
+  // The narrow inspector door also follows Split coming and going and the window's width (U-08).
+  const splitObserver = new MutationObserver(refresh);
+  const main = document.getElementById('marxy-main');
+  if (main) splitObserver.observe(main, { attributes: true, attributeFilter: ['data-marxy-split'] });
+  window.addEventListener('resize', refresh);
+  // A panel docked by its key (not from this row) is seen too: the toggles follow the regions' own state.
+  const panelObserver = new MutationObserver(refresh);
+  for (const region of ['sidebar', 'inspector'] as const) {
+    const regionEl = workspace.region(region);
+    if (regionEl) panelObserver.observe(regionEl, { attributes: true, attributeFilter: ['hidden'] });
+  }
   return () => {
+    panelObserver.disconnect();
     off();
+    splitObserver.disconnect();
+    window.removeEventListener('resize', refresh);
     observer.disconnect();
     relayout.disconnect();
     contents.disconnect();

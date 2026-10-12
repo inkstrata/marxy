@@ -24,7 +24,11 @@ function panelCommand(id: string, title: string, key: string, region: WorkspaceR
     title,
     key,
     group: 'view',
-    when: () => appHandle()?.workspace().hasFill(region) === true,
+    // The inspector is not drawn over Source or Split in a narrow window (U-08): the door is shut, the docked choice kept.
+    when: () => {
+      const w = appHandle()?.workspace();
+      return w?.hasFill(region) === true && !(region === 'inspector' && w.inspectorHidden());
+    },
     async run() {
       await appHandle()?.workspace().dock(region);
     },
