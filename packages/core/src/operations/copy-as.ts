@@ -10,7 +10,8 @@ import type { Heading } from '../contracts/ast.ts';
 import type { Operation, OperationInput } from '../contracts/operation.ts';
 import { createBuffer, textOf } from '../buffer/buffer.ts';
 import { parseMarkdown } from '../parse/parse.ts';
-import { runTransform, transformById } from '../transforms/registry.ts';
+import { runTransform, transformById, type TransformContext } from '../transforms/registry.ts';
+import type { ParsedText } from '../transforms/types.ts';
 import { copyPlain } from './copy-plain.ts';
 import { copyRich } from './copy-rich.ts';
 import { copySource } from './copy-source.ts';
@@ -30,6 +31,11 @@ export interface CopyAsInput {
   readonly title: string;
   /** The document's path, or undefined for a scratch document (nothing to link to). */
   readonly path?: string;
+  /**
+   * A parse the caller already holds of the markdown (F-60). The targets that run a transform hand it on; it is used
+   * only when the transform reads exactly this text, and never changes what a target gives.
+   */
+  readonly parsed?: ParsedText;
 }
 
 export interface CopyAsResult {
@@ -48,15 +54,17 @@ export interface CopyTarget {
 /** The part of the transform registry a target needs; a test stands in for it. */
 export interface CopyAsRegistry {
   has(id: string): boolean;
-  run(id: string, text: string): string;
+  run(id: string, text: string, ctx?: TransformContext): string;
 }
 
 const REGISTRY: CopyAsRegistry = {
   has: (id) => transformById(id) !== undefined,
-  run: (id, text) => runTransform(id, text),
+  run: (id, text, ctx) => runTransform(id, text, ctx),
 };
 
 const stripBom = (s: string): string => (s.startsWith(BOM) ? s.slice(1) : s);
+/** The transform context a target builds: the parse it was handed, if any. The registry decides whether it fits. */
+const ctxOf = (i: CopyAsInput): TransformContext => (i.parsed === undefined ? {} : { parsed: i.parsed });
 const eolOf = (s: string): string => /\r\n|\n|\r/.exec(s)?.[0] ?? '\n';
 
 /** A link destination that survives markdown: spaces and parentheses escaped. */
@@ -69,9 +77,9 @@ const DEFINITIONS: readonly { readonly id: string; readonly name: string; readon
   { id: 'plain', name: 'Plain text', transform: null, build: (i) => ({ text: i.plain() }) },
   { id: 'rich', name: 'Rich text', transform: null, build: (i) => i.rich() },
   { id: 'html', name: 'HTML source', transform: null, build: (i) => ({ text: i.rich().html }) },
-  { id: 'slack', name: 'Slack', transform: 'to-slack', build: (i, r) => ({ text: r.run('to-slack', stripBom(i.markdown())) }) },
-  { id: 'jira', name: 'Jira wiki', transform: 'to-jira', build: (i, r) => ({ text: r.run('to-jira', stripBom(i.markdown())) }) },
-  { id: 'json-string', name: 'JSON string', transform: 'json-string', build: (i, r) => ({ text: r.run('json-string', stripBom(i.markdown())) }) },
+  { id: 'slack', name: 'Slack', transform: 'to-slack', build: (i, r) => ({ text: r.run('to-slack', stripBom(i.markdown()), ctxOf(i)) }) },
+  { id: 'jira', name: 'Jira wiki', transform: 'to-jira', build: (i, r) => ({ text: r.run('to-jira', stripBom(i.markdown()), ctxOf(i)) }) },
+  { id: 'json-string', name: 'JSON string', transform: 'json-string', build: (i, r) => ({ text: r.run('json-string', stripBom(i.markdown()), ctxOf(i)) }) },
   {
     id: 'quote',
     name: 'Quote with source',
@@ -79,7 +87,7 @@ const DEFINITIONS: readonly { readonly id: string; readonly name: string; readon
     build(i, r) {
       const md = stripBom(i.markdown());
       const eol = eolOf(md);
-      const quoted = r.run('quote', md).replace(/\s+$/, '');
+      const quoted = r.run('quote', md, ctxOf(i)).replace(/\s+$/, '');
       const source = i.path === undefined ? `— ${label(i.title)}` : `— [${label(i.title)}](${destination(i.path)})`;
       return { text: `${quoted}${eol}${eol}${source}${eol}` };
     },
@@ -124,14 +132,17 @@ export function copyAsFromOperation(input: OperationInput, ref: { readonly path?
 
 /**
  * Inputs for markdown text that has no block of its own in a parsed document, a Source selection: the text is
- * parsed as a document of its own for plain and rich text; the markdown is the text, byte for byte.
+ * parsed as a document of its own for plain and rich text, or `ref.parsed` is used when it is the parse of exactly
+ * this text (F-60); the markdown is the text, byte for byte.
  */
-export function copyAsFromText(text: string, ref: { readonly path?: string; readonly title?: string } = {}): CopyAsInput {
+export function copyAsFromText(text: string, ref: { readonly path?: string; readonly title?: string; readonly parsed?: ParsedText } = {}): CopyAsInput {
   let whole: OperationInput | null = null;
+  // A parse of exactly this text, in an LF text with no byte-order mark, is the document this would build (F-60).
+  const held = ref.parsed !== undefined && ref.parsed.text === text && !text.includes('\r') && !text.startsWith(BOM) ? ref.parsed : undefined;
   const parsed = (): OperationInput => {
     if (whole === null) {
       const bytes = new TextEncoder().encode(text);
-      const document = parseMarkdown(bytes, { file: ref.path ?? 'copy.md' });
+      const document = held?.doc ?? parseMarkdown(bytes, { file: ref.path ?? 'copy.md' });
       whole = { document, range: document.src, text: textOf(createBuffer('copy.md', bytes), document.src) };
     }
     return whole;
@@ -143,5 +154,6 @@ export function copyAsFromText(text: string, ref: { readonly path?: string; read
     rich: () => from(parsed()).rich(),
     title: ref.title ?? titleFor({ document: parsed().document }, ref.path),
     ...(ref.path === undefined ? {} : { path: ref.path }),
+    ...(ref.parsed === undefined ? {} : { parsed: ref.parsed }),
   };
 }

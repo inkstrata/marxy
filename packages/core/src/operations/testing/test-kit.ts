@@ -12,6 +12,7 @@ import type { Document, Node, Source } from '../../contracts/ast.ts';
 import type { Operation } from '../../contracts/operation.ts';
 import { createBuffer, splice, textOf } from '../../buffer/buffer.ts';
 import { parseMarkdown } from '../../parse/parse.ts';
+import type { ParsedText } from '../../transforms/types.ts';
 import { corpusDocuments } from './corpus.ts';
 
 /** The most target spans one `assertMinimalDiff` call accepts: the decomposition search is bounded, loudly. */
@@ -396,4 +397,41 @@ export function stackedMarkerDocuments(): string[] {
     '- 1. step\n  - 2. nested\n\nplain\n',
     '+ - * deep\n- [ ] - [x] twice\n',
   ];
+}
+
+// -------------------------------------------------------------------------------------------------
+// A parse handed in is only a cache (F-60)
+
+/** `text` with its last character changed: a string that differs by exactly one character (`x` for the empty text). */
+export function oneCharOff(text: string): string {
+  if (text === '') return 'x';
+  return text.slice(0, -1) + (text.endsWith('x') ? 'y' : 'x');
+}
+
+const OTHER = '# Some other text\n\n- with *its* own `blocks`\n';
+let otherParse: Document | undefined;
+
+/**
+ * The parses a caller might hand in for `text`: one of exactly `text` (`held`, or made here), one of `text` with a
+ * character changed, and one of some other text. The first is named `/held/doc.md`, not what a body parses under,
+ * so a body that read the file name from it would differ. Made once per text, since a parse is the costly part;
+ * `withOther: false` leaves out the third, for a large text where each run is dear.
+ */
+export function heldParses(text: string, held?: Document, withOther = true): readonly ParsedText[] {
+  const parseOf = (t: string): Document => parseMarkdown(enc.encode(t), { file: '/held/doc.md' });
+  otherParse ??= parseOf(OTHER);
+  const off = oneCharOff(text);
+  const pair = [{ text, doc: held ?? parseOf(text) }, { text: off, doc: parseOf(off) }];
+  return withOther ? [...pair, { text: OTHER, doc: otherParse }] : pair;
+}
+
+/**
+ * The property of an optional, already-made parse: `run(parsed)` gives the bytes `run(undefined)` gives, for each of
+ * `parses` (see `heldParses`): a matching parse, one a character off, one of other text. Returns the runs compared.
+ */
+export function assertParsedIsOnlyACache(what: string, run: (parsed: ParsedText | undefined) => string, parses: readonly ParsedText[]): number {
+  const base = run(undefined);
+  const names = ['a matching parse', 'a parse of a text one character off', 'a parse of some other text'];
+  parses.forEach((parsed, k) => assert.equal(run(parsed), base, `${what}: ${names[k] ?? 'a parse'} changed the result`));
+  return parses.length;
 }

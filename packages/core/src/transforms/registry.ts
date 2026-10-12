@@ -11,9 +11,10 @@ import { CLEAN } from './clean.ts';
 import { CONVERT } from './convert.ts';
 import { EXTRACT } from './extract.ts';
 import { LINES } from './lines.ts';
+import { withParse } from './prose.ts';
 import type { TransformContext, TransformDef, TransformKind } from './types.ts';
 
-export type { TransformContext, TransformKind } from './types.ts';
+export type { ParsedText, TransformContext, TransformKind } from './types.ts';
 
 export type TransformGroup = 'Clean' | 'Convert' | 'Lines' | 'Case' | 'Extract';
 
@@ -51,13 +52,13 @@ function wrap(def: TransformDef): Transform['fn'] {
     const body = bom ? text.slice(1) : text;
     const keepBom = (s: string): string => (bom && def.kind === 'edit' ? BOM + s : s);
     if (def.raw) {
-      const out = def.run(body, ctx);
+      const out = withParse(body, ctx.parsed, () => def.run(body, ctx));
       return out === body ? text : keepBom(out);
     }
     const endings = body.match(/\r\n|\r|\n/g) ?? [];
     const eol = endings[0] ?? '\n';
     const lf = body.replace(/\r\n|\r/g, '\n');
-    const out = def.run(lf, ctx);
+    const out = withParse(lf, ctx.parsed, () => def.run(lf, ctx));
     if (out === lf) return text;
     let restored: string;
     if (new Set(endings).size > 1 && out.split('\n').length - 1 === endings.length) {

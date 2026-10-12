@@ -140,8 +140,8 @@ jobs:
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       - name: Build the frontend
         run: pnpm --filter @marxy/desktop build:web
-      - name: Perf harness over the corpus, 256 KB and 1 MB, reload, second open and palette
-        run: pnpm perf --files corpus --large 256k,1m --reload --open-second --palette --record results/perf-nightly.json --summary "$GITHUB_STEP_SUMMARY"
+      - name: Perf harness over the corpus, 256 KB and 1 MB, reload, second open, palette and large parses
+        run: pnpm perf --files corpus --large 256k,1m --reload --open-second --palette --parse --record results/perf-nightly.json --summary "$GITHUB_STEP_SUMMARY"
         env:
           MARXY_RUNNER_CLASS: ubuntu-latest
       - uses: actions/upload-artifact@v4

@@ -15,7 +15,7 @@
 // transcript (`--transcript`, B-25); the nightly does not record one yet.
 //
 // usage: node scripts/perf-harness.mjs [--build] [--runs N] [--files a.md,b.md|corpus] [--large 256k,1m,5m]
-//                                      [--transcript 64k,256k,1m] [--reload] [--open-second] [--palette] [--grid-only]
+//                                      [--transcript 64k,256k,1m] [--reload] [--open-second] [--palette] [--parse] [--grid-only]
 //                                      [--json <path>] [--record <path>] [--summary <path>]
 //        node scripts/perf-harness.mjs --write <dir> --large 1m      writes big-1m.md and exits
 //        node scripts/perf-harness.mjs --write <dir> --transcript 1m writes transcript-1m.md and exits
@@ -28,6 +28,8 @@
 //                    time from the call to its `render` mark (05 §8.2)
 //   --palette        in Node, no browser: prepareIndex, then searchPrepared 200 times at 5k, 20k and
 //                    50k synthetic entries; p50 and p95 (05 §7.1)
+//   --parse          in Node, no browser: `parseMarkdown` over a generated prose document and a block-dense one
+//                    at 256 KB, 1 MB and 2 MB, the median of three; the `parse_large` rows (F-60)
 //   --record <path>  one JSON record: date, commit, runner, Node and WebKit versions, and the numbers
 //   --summary <path> append a Markdown table of the record to <path> (the nightly job's step summary)
 
@@ -172,6 +174,78 @@ export function corpusFiles(dir = fileURLToPath(CORPUS)) {
 export const PALETTE_SIZES = [5_000, 20_000, 50_000];
 export const PALETTE_SAMPLES = 200;
 
+/** The sizes and shapes `--parse` measures (F-60): the cost the open document's parse is reused to avoid. */
+export const PARSE_SIZES = { '256k': 256 * 1024, '1m': 1024 * 1024, '2m': 2 * 1024 * 1024 };
+export const PARSE_SHAPES = ['prose', 'dense'];
+export const PARSE_SAMPLES = 3;
+
+const PROSE_SENTENCES = [
+  'A reader opens a file and the first page is there before the rest has finished arriving.',
+  'The *quick* brown fox, which had read **every** word, jumped over the [lazy dog](https://example.invalid/dog) twice.',
+  'Set the line at a measure of sixty-six characters, and the eye finds its place again without hunting.',
+  'Nothing here leaves the machine unless the reader asks, and then it says what it sends and to whom.',
+  'See `parseMarkdown` for the one place the bytes become a tree; every node there carries its range.',
+  'Numbers such as 4.5 microseconds a byte are a trend to watch, never a bound to fail on.',
+];
+
+/**
+ * A prose document of at least `targetBytes`: paragraphs of two to five sentences from a fixed list, with a heading
+ * every twelfth paragraph. Deterministic. Nearly all of it is inline text, the shape that parses fastest.
+ */
+export function generateProse(targetBytes) {
+  const parts = [];
+  let bytes = 0;
+  for (let p = 0; bytes < targetBytes; p++) {
+    if (p % 12 === 0) parts.push(`## Section ${p / 12 + 1}\n\n`);
+    const n = 2 + (p % 4);
+    const para = Array.from({ length: n }, (_, k) => PROSE_SENTENCES[(p + k * 5) % PROSE_SENTENCES.length]).join(' ');
+    parts.push(`${para}\n\n`);
+    bytes += Buffer.byteLength(parts[parts.length - 1]);
+  }
+  return new Uint8Array(Buffer.from(parts.join(''), 'utf8'));
+}
+
+/**
+ * A document of at least `targetBytes` made of short blocks: lists, quotes, tables, fences, headings, tasks, math and
+ * HTML, cycled from the structured generator's block list (the property tests' own). Deterministic. The shape that
+ * parses slowest, since each block opens and closes its own containers.
+ */
+export async function generateDense(targetBytes) {
+  const { BLOCKS } = await import(new URL('packages/core/src/parse/testing/structured.ts', ROOT).href);
+  const parts = [];
+  let bytes = 0;
+  for (let i = 0; bytes < targetBytes; i++) {
+    parts.push(`${BLOCKS[i % BLOCKS.length]}\n`);
+    bytes += Buffer.byteLength(parts[parts.length - 1]);
+  }
+  return new Uint8Array(Buffer.from(parts.join(''), 'utf8'));
+}
+
+/**
+ * `parseMarkdown` over each shape at each size in Node, no browser (F-60): one warm-up parse of the 256 KB prose
+ * document, then the median of `samples` timed parses per row. `parse` is injected so a test can time a stand-in.
+ */
+export async function parseLarge({ sizes = PARSE_SIZES, shapes = PARSE_SHAPES, samples = PARSE_SAMPLES, parse } = {}) {
+  const run = parse ?? (await import(new URL('packages/core/src/parse/parse.ts', ROOT).href)).parseMarkdown;
+  run(generateProse(PARSE_SIZES['256k']), { file: 'warm.md' });
+  const rows = [];
+  for (const shape of shapes) {
+    for (const [size, target] of Object.entries(sizes)) {
+      const bytes = shape === 'prose' ? generateProse(target) : await generateDense(target);
+      const times = [];
+      for (let i = 0; i < samples; i++) {
+        const t = performance.now();
+        run(bytes, { file: `${shape}-${size}.md` });
+        times.push(performance.now() - t);
+      }
+      const row = { name: 'parse_large', shape, size, bytes: bytes.length, samples: times.length, parse_ms: round(median(times)), us_per_byte: round2((median(times) * 1000) / bytes.length) };
+      console.log(JSON.stringify({ parse_large: row }));
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
 /** The measurements one document must yield, given what was asked for. */
 export function requiredStages({ reload = false, openSecond = false } = {}) {
   return ['first_text', 'typeset_viewport', ...(reload ? ['live_reload'] : []), ...(openSecond ? ['open_render'] : [])];
@@ -182,7 +256,7 @@ export function requiredStages({ reload = false, openSecond = false } = {}) {
  * row per size. `missing` names every requested measurement that produced no sample, and is the only
  * thing that makes a run exit non-zero (ADR-0032: a number never does).
  */
-export function buildRecord({ meta = {}, documents = [], palette = [], requested = {} }) {
+export function buildRecord({ meta = {}, documents = [], palette = [], parseLarge: parseRows = [], requested = {} }) {
   const need = requiredStages(requested);
   const missing = [];
   for (const doc of documents) {
@@ -194,14 +268,23 @@ export function buildRecord({ meta = {}, documents = [], palette = [], requested
       if (typeof row?.p95_ms !== 'number' || !Number.isFinite(row.p95_ms)) missing.push(`palette ${size}: p95_ms`);
     }
   }
+  if (requested.parse) {
+    for (const shape of PARSE_SHAPES) {
+      for (const size of Object.keys(PARSE_SIZES)) {
+        const row = parseRows.find((r) => r.shape === shape && r.size === size);
+        if (typeof row?.parse_ms !== 'number' || !Number.isFinite(row.parse_ms)) missing.push(`parse_large ${shape} ${size}: parse_ms`);
+      }
+    }
+  }
   return {
     schema: 1,
     ...meta,
     note:
       "Recorded, never gated (ADR-0032). The nightly run is Playwright WebKit on a GitHub-hosted Linux runner: a different engine build and a slower machine than the audit's Mac, so read these numbers as a trend from night to night, not as a comparison with docs/research/audit-2026-10/05-performance-audit.md.",
-    requested: { reload: !!requested.reload, open_second: !!requested.openSecond, palette: !!requested.palette },
+    requested: { reload: !!requested.reload, open_second: !!requested.openSecond, palette: !!requested.palette, parse: !!requested.parse },
     documents,
     palette,
+    parse_large: parseRows,
     missing,
   };
 }
@@ -222,6 +305,10 @@ export function summaryTable(record) {
     lines.push('', '| Palette entries | prepare | p50 | p95 |', '| ---: | ---: | ---: | ---: |');
     for (const r of record.palette) lines.push(`| ${r.entries} | ${cell(r.prepare_ms)} | ${cell(r.p50_ms)} | ${cell(r.p95_ms)} |`);
   }
+  if (record.parse_large?.length) {
+    lines.push('', '| parse_large | Bytes | parse ms | µs per byte |', '| --- | ---: | ---: | ---: |');
+    for (const r of record.parse_large) lines.push(`| ${r.shape} ${r.size} | ${r.bytes} | ${cell(r.parse_ms)} | ${cell(r.us_per_byte)} |`);
+  }
   const tail = record.missing.length ? `**No sample:** ${record.missing.join('; ')}.` : 'Every requested measurement produced a sample.';
   lines.push('', `Milliseconds; medians of ${record.runs ?? '?'} runs per document. open_render is the open call to the first \`render\` mark, not to content_complete, which for a large document comes later (05 §8.2). ${tail}`, '');
   return lines.join('\n');
@@ -235,7 +322,7 @@ function medians(records) {
 const round = (x) => Math.round(x * 10) / 10;
 
 export function parseArgs(argv) {
-  const opts = { build: false, runs: 5, files: [], large: [], transcript: [], gridOnly: false, reload: false, openSecond: false, palette: false, json: undefined, record: undefined, summary: undefined, write: undefined };
+  const opts = { build: false, runs: 5, files: [], large: [], transcript: [], gridOnly: false, reload: false, openSecond: false, palette: false, parse: false, json: undefined, record: undefined, summary: undefined, write: undefined };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const value = () => {
@@ -252,6 +339,7 @@ export function parseArgs(argv) {
     else if (a === '--reload') opts.reload = true;
     else if (a === '--open-second') opts.openSecond = true;
     else if (a === '--palette') opts.palette = true;
+    else if (a === '--parse') opts.parse = true;
     else if (a === '--json') opts.json = value();
     else if (a === '--record') opts.record = value();
     else if (a === '--summary') opts.summary = value();
@@ -259,7 +347,7 @@ export function parseArgs(argv) {
     else throw new Error(`unknown argument ${a}`);
   }
   if (!(opts.runs >= 1)) throw new Error('--runs must be at least 1');
-  if (opts.gridOnly && (opts.reload || opts.openSecond || opts.palette || opts.record)) throw new Error('--grid-only times the grid pass alone; it takes no --reload, --open-second, --palette or --record');
+  if (opts.gridOnly && (opts.reload || opts.openSecond || opts.palette || opts.parse || opts.record)) throw new Error('--grid-only times the grid pass alone; it takes no --reload, --open-second, --palette, --parse or --record');
   return opts;
 }
 
@@ -271,7 +359,7 @@ function documents(opts) {
   const docs = opts.files.map((name) => ({ name, bytes: readFileSync(new URL(name, CORPUS)) }));
   for (const size of opts.large) docs.push({ name: `big-${size}`, bytes: generateLarge(parseSize(size)) });
   for (const size of opts.transcript) docs.push({ name: `transcript-${size}`, bytes: generateTranscript(parseSize(size)) });
-  if (docs.length === 0 && !opts.palette) docs.push({ name: `big-1m`, bytes: generateLarge(SIZES['1m']) });
+  if (docs.length === 0 && !opts.palette && !opts.parse) docs.push({ name: `big-1m`, bytes: generateLarge(SIZES['1m']) });
   return docs;
 }
 
@@ -488,8 +576,9 @@ async function main(argv) {
   }
   // With no harness build yet (a fresh checkout, or a job that ran only build:web), build one rather
   // than fail: the shipped dist/ no longer holds app.html (B-16.1).
-  if (opts.build || !existsSync(join(HARNESS_DIST, 'app.html'))) buildHarness();
   const docs = documents(opts);
+  // A run of Node-only measurements (--palette, --parse) opens no page, so it needs no build.
+  if (docs.length && (opts.build || !existsSync(join(HARNESS_DIST, 'app.html')))) buildHarness();
   const results = [];
   let webkit = null;
   if (docs.length) {
@@ -538,6 +627,7 @@ async function main(argv) {
   if (opts.gridOnly) return 0;
 
   const palette = opts.palette ? await palettePerf() : [];
+  const parseRows = opts.parse ? await parseLarge() : [];
   const record = buildRecord({
     meta: {
       date: new Date().toISOString(),
@@ -549,7 +639,8 @@ async function main(argv) {
     },
     documents: results,
     palette,
-    requested: { reload: opts.reload, openSecond: opts.openSecond, palette: opts.palette },
+    parseLarge: parseRows,
+    requested: { reload: opts.reload, openSecond: opts.openSecond, palette: opts.palette, parse: opts.parse },
   });
   if (opts.record) {
     mkdirSync(dirname(opts.record), { recursive: true });

@@ -4,8 +4,8 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  PALETTE_SIZES, buildRecord, commitOf, corpusFiles, detailMs, firstMarks, generateLarge, generateTranscript, liveReloadMs, median, openRenderMs,
-  palettePerf, parseArgs, parseSize, percentile, stageDeltas, summaryTable,
+  PALETTE_SIZES, PARSE_SHAPES, PARSE_SIZES, buildRecord, commitOf, corpusFiles, detailMs, firstMarks, generateDense, generateLarge, generateProse, generateTranscript, liveReloadMs, median, openRenderMs,
+  palettePerf, parseArgs, parseLarge, parseSize, percentile, stageDeltas, summaryTable,
 } from './perf-harness.mjs';
 
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -199,7 +199,7 @@ test('nightly.yml runs the harness with flags it accepts, and the start-up measu
   const opts = parseArgs(run.replace(/"\$GITHUB_STEP_SUMMARY"/, 'summary.md').split(/\s+/));
   assert.deepEqual(opts.files, corpusFiles());
   assert.deepEqual(opts.large, ['256k', '1m']);
-  assert.deepEqual([opts.reload, opts.openSecond, opts.palette, opts.record], [true, true, true, 'results/perf-nightly.json']);
+  assert.deepEqual([opts.reload, opts.openSecond, opts.palette, opts.parse, opts.record], [true, true, true, true, 'results/perf-nightly.json']);
   const startup = jobBlock(nightly, 'startup-macos');
   assert.ok(startup, 'nightly.yml has no startup-macos job');
   assert.match(startup, /run: node scripts\/measure-startup\.mjs\n/);
@@ -208,4 +208,43 @@ test('nightly.yml runs the harness with flags it accepts, and the start-up measu
 test('the record names the commit it measured', () => {
   const head = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
   assert.equal(commitOf(), head);
+});
+
+// F-60: the large-document parse figure.
+
+const PARSE_ROWS = PARSE_SHAPES.flatMap((shape) => Object.keys(PARSE_SIZES).map((size) => ({ name: 'parse_large', shape, size, bytes: 1, samples: 3, parse_ms: 5, us_per_byte: 1 })));
+
+test('--parse is a flag, and the generated parse documents are deterministic and at least the size asked for', async () => {
+  assert.equal(parseArgs(['--parse']).parse, true);
+  assert.equal(parseArgs([]).parse, false);
+  assert.throws(() => parseArgs(['--grid-only', '--parse']), /grid-only/);
+  for (const target of [4096, 40_000]) {
+    for (const make of [generateProse, generateDense]) {
+      const a = await make(target);
+      assert.equal(sha(a), sha(await make(target)), `${make.name}: two calls, two different documents`);
+      assert.ok(a.length >= target);
+    }
+  }
+});
+
+test('parseLarge times the parse once per shape and size and reports the median of its samples', async () => {
+  const seen = [];
+  const rows = await parseLarge({ sizes: { '256k': 3000, '1m': 6000, '2m': 9000 }, samples: 3, parse: (bytes, options) => seen.push([bytes.length, options.file]) });
+  assert.deepEqual(rows.map((r) => [r.shape, r.size]), PARSE_SHAPES.flatMap((shape) => Object.keys(PARSE_SIZES).map((size) => [shape, size])));
+  assert.equal(seen.length, 1 + rows.length * 3, 'one warm-up, then three samples a row');
+  for (const r of rows) assert.ok(Number.isFinite(r.parse_ms) && r.name === 'parse_large' && r.samples === 3 && r.bytes >= 3000, JSON.stringify(r));
+});
+
+test('a requested parse figure with no sample is named in missing; the six rows pass; a slow one never fails', () => {
+  const requested = { parse: true };
+  assert.deepEqual(buildRecord({ parseLarge: PARSE_ROWS, requested }).missing, []);
+  const slow = PARSE_ROWS.map((r) => ({ ...r, parse_ms: 9e9 }));
+  assert.deepEqual(buildRecord({ parseLarge: slow, requested }).missing, [], 'a number never fails (ADR-0032)');
+  const partial = PARSE_ROWS.filter((r) => !(r.shape === 'dense' && r.size === '2m')).map((r) => (r.shape === 'prose' && r.size === '1m' ? { ...r, parse_ms: NaN } : r));
+  assert.deepEqual(buildRecord({ parseLarge: partial, requested }).missing, ['parse_large prose 1m: parse_ms', 'parse_large dense 2m: parse_ms']);
+  assert.deepEqual(buildRecord({ parseLarge: [], requested: {} }).missing, [], 'not requested, not missing');
+  const record = buildRecord({ parseLarge: PARSE_ROWS, requested });
+  assert.equal(record.parse_large.length, 6);
+  assert.equal(record.requested.parse, true);
+  assert.match(summaryTable({ ...record, documents: [], palette: [] }), /parse_large/);
 });
