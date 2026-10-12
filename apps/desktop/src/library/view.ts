@@ -31,7 +31,7 @@ import {
 } from '@marxy/core/src/index-model/index.ts';
 import type { ContentHit } from '@marxy/shell-api';
 import type { AppHandle } from '../app.ts';
-import { appHandle, palette } from '../commands/app-handle.ts';
+import { palette } from '../commands/app-handle.ts';
 import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
 import { splitRefusal } from '../pane/fit.ts';
 import { focusOrigin } from '../pane/focus.ts';
@@ -236,9 +236,11 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
       const shown = all.filter((h) => !h.unmeasured);
       // A new query starts at the top; the stages of one query, landing later, leave the reader where they have scrolled to.
       if (first && keep === undefined) listEl.scrollTop = 0;
+      // A later stage keeps the row the reader has moved to since, not the one the query started on.
+      const kept = first ? keep : hits[active]?.entry.path;
       first = false;
       hits = sortHits(shown, sortKey(typing));
-      const at = keep === undefined ? -1 : hits.findIndex((h) => h.entry.path === keep);
+      const at = kept === undefined ? -1 : hits.findIndex((h) => h.entry.path === kept);
       active = at >= 0 ? at : 0;
       status = statusLine(shown.length, base.length, note);
       drawResults();
@@ -950,6 +952,3 @@ export function libraryFor(handle: AppHandle): LibraryController {
   if (!current) current = { handle, controller: mountLibrary(handle.workspace(), handle) };
   return current.controller;
 }
-
-/** Whether the library is showing now: what `library.open` asks to leave it alone. */
-export const libraryIsOpen = (): boolean => current?.controller.isOpen === true && current.handle === appHandle();

@@ -92,7 +92,7 @@ export interface QueryContext {
   readonly lines?: LineMatches;
 }
 
-/** Statuses that parse and match nothing until a later story builds what they need. */
+/** Statuses that parse and match nothing: what they need does not exist yet (near-duplicates and broken paths are Q-06, archiving Q-05, index health Q-04, the capture inbox P-01). */
 export const UNAVAILABLE_STATUSES: readonly string[] = ['dup', 'broken', 'archived', 'error', 'captured'];
 
 /** The note a chip carries when its term is not a plain filter, or null. Nothing here changes what the parser said. */
