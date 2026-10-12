@@ -61,6 +61,12 @@
   --marxy-tok-attribute: var(--marxy-color-code-text);
   --marxy-tok-marker: #a39e94;
   --marxy-tok-heading: #f2eee6;
+  --marxy-tok-builtin: var(--marxy-tok-function);
+  --marxy-tok-property: var(--marxy-color-code-text);
+  --marxy-tok-decorator: var(--marxy-tok-function);
+  --marxy-tok-self: var(--marxy-color-code-text);
+  --marxy-tok-escape: var(--marxy-tok-string);
+  --marxy-tok-mark: var(--marxy-tok-marker);
   --marxy-tok-link: var(--marxy-color-link);
 }
 :root[data-marxy-variant="light"] {

@@ -13,7 +13,7 @@ Models: every story runs on Sonnet first (the author, 2026-10-10), medium, high 
 | V-10 | `# comment` in a `.py` file becomes a heading in Rendered | **does not reproduce**: re-check, then park or narrow to K-13 |
 | V-11 | A code file shows as a Markdown page before Source mounts; `⌘E` during the open lands in Rendered | **reproduces** (Rendered at the first 60 ms sample) |
 | V-12 | Source wears 18 on 30 px, no hanging indent on a wrapped line | **reproduces** |
-| V-13 | Highlighting gaps; the modes colour code differently | not checked |
+| V-13 | Highlighting gaps; the modes colour code differently | **reproduces** (checked 2026-10-12 against `main`) |
 | V-09, V-14 | Four extension tables disagree; about nine grammars (no Go, shell, TOML, C) | **reproduces** |
 | V-15 | Rendered typeset while hidden; stale editor after a reload | not checked |
 | V-16 | Tab width 4 in Source, 8 in Rendered | **reproduces** |
@@ -541,7 +541,11 @@ broadly generous
   take a token hue: generous applies to syntax, not to status.
 
 **Paths.**
-- `docs/adr/0057-generous-highlighting.md`
+- `docs/adr/0068-generous-highlighting.md`, its row in `docs/adr/README.md`
+- `packages/core/src/highlight/roles.ts` (the one role table), `apps/desktop/src/source/language.ts`,
+  `packages/theme/ink/theme.css`, `packages/theme/src/loader.ts`, `packages/theme/tokens.contract.json`,
+  `scripts/gate-contrast.mjs`, `scripts/gate-aesthetics.mjs`, `scripts/check-tokens.test.mjs`
+  (the six new names reach each list that enumerates the tokens)
 - `packages/theme/src/tokens.css`, `packages/theme/default/theme.css`
 - `scripts/registry.json`
 - `packages/core/src/highlight/scopes.ts`
@@ -552,6 +556,16 @@ broadly generous
 - `changelog.d/V-13.md`
 
 The aesthetics baselines move. Regenerate them in this PR, alone in its wave (`00-orchestration.md`).
+
+**Amended 2026-10-12 (V-13, against `main`).**
+- ADR-0068 is written at `docs/adr/0068-generous-highlighting.md` (the card's path said 0057, a number taken by an older
+  ADR). `heading`, `marker` and `link` were already contract 2's, so the new names are six, not seven:
+  `-builtin`, `-property`, `-decorator`, `-self`, `-escape`, `-mark`.
+- The parity test covers Python, TypeScript and Rust in both engines. Go and shell have no Lezer grammar until V-14, so
+  their Rendered roles are tested alone. Where Lezer cannot tell what Shiki can (Python `self`, Python builtins, a
+  Rust field access, a Rust string escape), the test names the gap and fails when it closes.
+- Not done, with the reason in the ADR: Rendered's heavier weight on a definition, and Markdown frontmatter as a
+  decorator with a YAML body. Link text keeps `-link` (ADR-0059's role) rather than `function`.
 
 **Acceptance.**
 - `palettes.test.mjs` asserts the contrast and the lightness separation for every role in both variants.

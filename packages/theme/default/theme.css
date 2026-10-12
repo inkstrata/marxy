@@ -70,22 +70,29 @@
   --marxy-color-diff-add-word: #232f25;
   --marxy-color-diff-del-word: #342625;
 
-  /* code tokens: restrained (ADR-0033); keyword, type, variable, operator, punctuation stay code text */
-  --marxy-tok-keyword: var(--marxy-color-code-text);
-  --marxy-tok-string: #a9d49c;
+  /* code tokens: a hue per role (ADR-0068), built in OKLCH; the palette test holds the contrast and the lightness gaps.
+     Variables and punctuation stay the code text. */
+  --marxy-tok-keyword: #d4bcff;
+  --marxy-tok-string: #b8e3a1;
   --marxy-tok-comment: #9aa3ab;
-  --marxy-tok-number: #e7c08c;
-  --marxy-tok-function: #8fb4ff;
-  --marxy-tok-type: var(--marxy-color-code-text);
+  --marxy-tok-number: #eac586;
+  --marxy-tok-function: #81aaf7;
+  --marxy-tok-type: #70c2be;
   --marxy-tok-variable: var(--marxy-color-code-text);
-  --marxy-tok-operator: var(--marxy-color-code-text);
+  --marxy-tok-operator: #9dc7cb;
   --marxy-tok-punctuation: var(--marxy-color-code-text);
-  --marxy-tok-constant: #e7c08c;
-  --marxy-tok-tag: #8fb4ff;
-  --marxy-tok-attribute: var(--marxy-color-code-text);
+  --marxy-tok-constant: #eac586;
+  --marxy-tok-tag: #81aaf7;
+  --marxy-tok-attribute: #92cee7;
+  --marxy-tok-builtin: #f4a0c8;
+  --marxy-tok-property: #92cee7;
+  --marxy-tok-decorator: #f7a97c;
+  --marxy-tok-self: #fb9797;
+  --marxy-tok-escape: #43bd99;
   --marxy-tok-marker: #a3aab1;
   --marxy-tok-heading: #e2e6e9;
   --marxy-tok-link: var(--marxy-color-link);
+  --marxy-tok-mark: #97a7b7;
 }
 :root[data-marxy-variant="light"] {
   --marxy-weight-body: 400;
@@ -131,14 +138,24 @@
   --marxy-color-diff-add-word: #d0dacd;
   --marxy-color-diff-del-word: #e8d3ce;
 
-  --marxy-tok-string: #2a5d25;
+  --marxy-tok-keyword: #491a70;
+  --marxy-tok-string: #1b490f;
   --marxy-tok-comment: #4f575f;
-  --marxy-tok-number: #86400a;
-  --marxy-tok-function: #1b5a8c;
-  --marxy-tok-constant: #86400a;
-  --marxy-tok-tag: #1b5a8c;
+  --marxy-tok-number: #7d4000;
+  --marxy-tok-function: #23588a;
+  --marxy-tok-type: #006162;
+  --marxy-tok-constant: #7d4000;
+  --marxy-tok-tag: #23588a;
+  --marxy-tok-operator: #234951;
+  --marxy-tok-attribute: #005c78;
+  --marxy-tok-builtin: #812258;
+  --marxy-tok-property: #005c78;
+  --marxy-tok-decorator: #8b3f03;
+  --marxy-tok-self: #94212a;
+  --marxy-tok-escape: #00654b;
   --marxy-tok-marker: #4a4f55;
   --marxy-tok-heading: #0f1113;
+  --marxy-tok-mark: #495766;
 }
 
 /* The kind profiles (K-05b; ADR-0059 item 7, ADR-0060, docs/plan/direction-2026-10/03-kinds-and-the-look.md

@@ -194,3 +194,74 @@ test('H-04: Night is the default dark and Paper the default light; Ink keeps the
     assert.match(readFileSync(new URL(`../${dir}/theme.toml`, import.meta.url), 'utf8'), /^contract = 2$/m, dir);
   }
 });
+
+// ---- V-13 (ADR-0068): a hue per code role, built in OKLCH ------------------------------------------------------
+// The roles are the names in the one role table (packages/core/src/highlight/roles.ts), read as text so this test
+// needs no TypeScript loader.
+const ROLE_NAMES = [...readFileSync(new URL('../../core/src/highlight/roles.ts', import.meta.url), 'utf8').matchAll(/^  (\w+): \{/gm)].map((m) => m[1]);
+
+function toOklab(hex) {
+  const lin = parseHex(hex).map((c) => {
+    const s = c / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  const [r, g, b] = lin;
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return { L: 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s };
+}
+
+function variantTables() {
+  return {
+    dark: { ...readDarkTokens(), ...palettes.dark },
+    light: { ...readDarkTokens(), ...readLightBlock(), ...palettes.light },
+  };
+}
+
+test('V-13: the role table names the roles the default theme gives a value, in both variants', () => {
+  assert.ok(ROLE_NAMES.length >= 21, ROLE_NAMES.join());
+  for (const [label, table] of Object.entries(variantTables())) {
+    for (const role of ROLE_NAMES) {
+      assert.ok(table[`--marxy-tok-${role}`], `${label}: --marxy-tok-${role} has no value`);
+    }
+  }
+});
+
+test('V-13: every role is at least 4.5:1 on the code ground and on the page ground, in both variants', () => {
+  for (const [label, table] of Object.entries(variantTables())) {
+    for (const role of ROLE_NAMES) {
+      const fg = parseHex(resolveColor(table[`--marxy-tok-${role}`], table));
+      for (const ground of ['--marxy-color-code-bg', '--marxy-color-bg']) {
+        const ratio = contrastRgb(fg, parseHex(resolveColor(table[ground], table)));
+        assert.ok(ratio >= 4.5, `${label} ${role} on ${ground}: ${ratio.toFixed(2)} < 4.5:1`);
+      }
+    }
+  }
+});
+
+test('V-13: roles that sit side by side in code differ in lightness as well as hue (OKLab L, at least 0.05)', () => {
+  const pairs = [['keyword', 'function'], ['type', 'variable'], ['string', 'escape']];
+  for (const [label, table] of Object.entries(variantTables())) {
+    for (const [a, b] of pairs) {
+      const la = toOklab(resolveColor(table[`--marxy-tok-${a}`], table)).L;
+      const lb = toOklab(resolveColor(table[`--marxy-tok-${b}`], table)).L;
+      assert.ok(Math.abs(la - lb) >= 0.05, `${label} ${a} / ${b}: ΔL ${Math.abs(la - lb).toFixed(3)} < 0.05`);
+    }
+  }
+});
+
+test('V-13: comments are read, not dimmed (5:1 on the code ground), and no two hue roles share a colour except where the table says', () => {
+  const SHARED = [['number', 'constant'], ['function', 'tag'], ['property', 'attribute']];
+  for (const [label, table] of Object.entries(variantTables())) {
+    const ratio = contrastRgb(parseHex(resolveColor(table['--marxy-tok-comment'], table)), parseHex(resolveColor(table['--marxy-color-code-bg'], table)));
+    assert.ok(ratio >= 5, `${label} comment: ${ratio.toFixed(2)} < 5:1`);
+    const seen = new Map();
+    for (const role of ['keyword', 'string', 'escape', 'number', 'constant', 'function', 'builtin', 'type', 'property', 'decorator', 'self', 'tag', 'attribute', 'operator']) {
+      const hex = resolveColor(table[`--marxy-tok-${role}`], table).toLowerCase();
+      const other = seen.get(hex);
+      if (other) assert.ok(SHARED.some(([x, y]) => (x === other && y === role) || (y === other && x === role)), `${label}: ${role} and ${other} share ${hex}`);
+      seen.set(hex, role);
+    }
+  }
+});

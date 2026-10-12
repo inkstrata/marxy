@@ -211,7 +211,8 @@ test('tokens.css declares the 27 contract-2 names and the system-owned root copi
 test('a theme-less page and the default theme resolve every v1 token alike, and no v1 token reads a v2 name', () => {
   const v1 = [...tokensCss.matchAll(/^\s*(--marxy-[\w-]+)\s*:\s*([^;]+);/gm)]
     .map((m) => ({ name: m[1]!, value: m[2]! }))
-    .filter((d) => !V2_NAMES.includes(d.name) && !d.name.startsWith('--marxy-root-'));
+    // ADR-0068's six roles are optional additions with fallbacks of their own, and may read the v1 roles and the v2 marker.
+    .filter((d) => !V2_NAMES.includes(d.name) && !d.name.startsWith('--marxy-root-') && !/^--marxy-tok-(?:builtin|property|decorator|self|escape|mark)$/.test(d.name));
   assert.ok(v1.length >= 55, `${v1.length} v1 tokens`);
   const bare = resolveRoot(tokensCss);
   const withDefault = resolveRoot(tokensCss, readFileSync(fileURLToPath(new URL('../default/theme.css', import.meta.url)), 'utf8').replace(/:root\[data-marxy-variant="light"\]\s*\{[^}]*\}/, '').replace(/\[data-marxy-kind="[a-z]+"\]\s*\{[^}]*\}/g, ''));

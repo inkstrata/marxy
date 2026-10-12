@@ -53,10 +53,10 @@
   --marxy-color-diff-add-word: #17352b; /* diff: intra-line addition tint (dark) */
   --marxy-color-diff-del-word: #4a1e0e; /* diff: intra-line deletion tint (dark) */
 
-  /* code token colours (added by ADR-0024, with defaults; mapping to scopes in docs/design/02-render.md).
-     Restrained (ADR-0033): colour marks what a reader looks for — strings, literals, comments and
-     names being defined or called. Keywords, types, variables, operators and punctuation stay in
-     the code text colour. Comments are read, not dimmed. */
+  /* code token colours (added by ADR-0024, with defaults; roles in packages/core/src/highlight/roles.ts).
+     These are the v1 fallbacks, the restrained palette of ADR-0033: colour marks strings, literals, comments
+     and names being defined or called, and the other roles stay in the code text colour. The default theme
+     gives every role its own hue (ADR-0068). Comments are read, not dimmed. */
   --marxy-tok-keyword: var(--marxy-color-code-text);
   --marxy-tok-string: #a8c48a;
   --marxy-tok-comment: #d4ad73;
@@ -93,6 +93,12 @@
   --marxy-tok-marker: var(--marxy-tok-punctuation);                   /* Markdown syntax markers in Source (#, *, >, fences) */
   --marxy-tok-heading: var(--marxy-color-code-text);                  /* Markdown heading text in Source */
   --marxy-tok-link: var(--marxy-color-link);                          /* link text and destinations in Source */
+  --marxy-tok-builtin: var(--marxy-tok-function);                     /* names the language provides: print, len, Vec, console (ADR-0068) */
+  --marxy-tok-property: var(--marxy-tok-variable);                    /* a member read or defined: obj.name, a struct field, an object key */
+  --marxy-tok-decorator: var(--marxy-tok-keyword);                    /* an annotation: @decorator, #[derive] */
+  --marxy-tok-self: var(--marxy-tok-keyword);                         /* self, this, cls */
+  --marxy-tok-escape: var(--marxy-tok-string);                        /* an escape inside a string: \n, \u00e9 */
+  --marxy-tok-mark: var(--marxy-tok-marker);                          /* Markdown block marks in Source: quote marks, list bullets and numbers, the rule */
   --marxy-shadow-surface: none;                                       /* the elevation under a summoned surface; never a surface's only boundary */
 
   /* face roles: the type set. The slots (--marxy-font-*) stay the face the text is set in; a kind scope points a slot at a role */

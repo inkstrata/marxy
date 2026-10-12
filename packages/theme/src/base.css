@@ -424,7 +424,7 @@ pre code, a code { font-size: inherit; color: inherit; }
 a code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em); }
 .marxy-tok-keyword { color: var(--marxy-tok-keyword); }
 .marxy-tok-string { color: var(--marxy-tok-string); }
-.marxy-tok-comment { color: var(--marxy-tok-comment); }
+.marxy-tok-comment { color: var(--marxy-tok-comment); font-style: italic; }
 .marxy-tok-number { color: var(--marxy-tok-number); }
 .marxy-tok-function { color: var(--marxy-tok-function); }
 .marxy-tok-type { color: var(--marxy-tok-type); }
@@ -434,6 +434,11 @@ a code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em);
 .marxy-tok-constant { color: var(--marxy-tok-constant); }
 .marxy-tok-tag { color: var(--marxy-tok-tag); }
 .marxy-tok-attribute { color: var(--marxy-tok-attribute); }
+.marxy-tok-builtin { color: var(--marxy-tok-builtin); }
+.marxy-tok-property { color: var(--marxy-tok-property); }
+.marxy-tok-decorator { color: var(--marxy-tok-decorator); }
+.marxy-tok-self { color: var(--marxy-tok-self); }
+.marxy-tok-escape { color: var(--marxy-tok-escape); }
 .marxy-diff-add { background: var(--marxy-color-diff-add); }
 .marxy-diff-del { background: var(--marxy-color-diff-del); }
 .marxy-diff-add-word { background: var(--marxy-color-diff-add-word); }
