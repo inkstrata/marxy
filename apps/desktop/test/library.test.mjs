@@ -499,6 +499,44 @@ test('the table has real column headers, 30 px rows, no invented Measure column,
   });
 });
 
+test('the header facts follow the live state: a refused watch, a walk in progress, the real byte sum and the feed\'s count', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    const stub = (watch, busy) => page.evaluate(([w, b]) => {
+      const index = window.__marxyHandle.index;
+      index.watchState = () => w;
+      index.indexing = () => b;
+    }, [watch, busy]);
+    const stats = () => page.evaluate(() => [...document.querySelectorAll('.marxy-library-stat')].map((x) => x.textContent));
+    const reopen = async () => {
+      if (await view(page)) await page.keyboard.press('Escape');
+      await openLibrary(page);
+      return stats();
+    };
+    await stub('refused', false);
+    let s = await reopen();
+    assert.ok(s.some((x) => x.startsWith('Not watching:')), `refused: ${s}`);
+    assert.ok(!s.includes('Watching'));
+    await stub('live', true);
+    s = await reopen();
+    assert.ok(s.includes('Indexing') && !s.includes('Indexed'), `walking: ${s}`);
+    assert.ok(s.includes('Watching'));
+    await stub('none', false);
+    s = await reopen();
+    assert.ok(s.includes('Indexed') && s.includes('Not watching'), `idle, unwatched: ${s}`);
+    const fed = await page.evaluate(() => window.__marxyHandle.palette.feed.entries());
+    assert.equal(s[0], `${fed.length.toLocaleString('en-US')} files`, 'the count is the feed\'s');
+    const bytes = fed.reduce((n, e) => n + e.size, 0);
+    assert.ok(bytes > 1024, 'the fixture is big enough to read as KB');
+    assert.equal(s[1], `${(bytes / 1024).toFixed(1)} KB`, 'the size is the sum of the listed files');
+    // A walk that ends while the view is open redraws the header.
+    await page.evaluate(() => { window.__marxyHandle.index.indexing = () => true; });
+    await page.evaluate(() => window.__marxyHandle.palette.setIndexEntries(window.__marxyHandle.palette.feed.entries()));
+    await settle(page, 300);
+    assert.ok((await stats()).includes('Indexing'), 'a feed change redraws from the live state');
+  });
+});
+
 test('a column header sorts like the Sort control and announces it with aria-sort', async () => {
   await withPage(async (page) => {
     await unfold(page);
