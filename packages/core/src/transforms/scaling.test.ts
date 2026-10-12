@@ -78,7 +78,7 @@ test('ten times as many list items take at most twenty times as long to parse', 
   const enc = new TextEncoder();
   const lists = (bytes: number): Uint8Array => enc.encode('* one\n* two\n\npara\n\n'.repeat(bytes / 20));
   const small = best(3, () => parseMarkdown(lists(40_000)));
-  const large = best(1, () => parseMarkdown(lists(400_000)));
+  const large = best(3, () => parseMarkdown(lists(400_000)));
   assert.ok(large < 20 * small, `parse: ${small.toFixed(0)} ms at 40 KB, ${large.toFixed(0)} ms at 400 KB`);
 });
 
@@ -88,8 +88,10 @@ test('ten times the text takes at most thirty times as long, for every transform
   // behind it. Every transform runs on the small text first, then on the large one, so each is parsed only a few times.
   const time = (id: string, text: string, runs: number): number =>
     best(runs, () => runTransform(id, text, { lang: 'sh' }), () => parseText(text));
-  const small = new Map(TRANSFORMS.map(({ id }) => [id, time(id, SMALL, 3)]));
-  const rows = TRANSFORMS.map(({ id }) => ({ id, small: small.get(id)!, large: time(id, LARGE, 1) }));
+  // The fastest of several runs on each side, because a load spike only ever makes a run slower: a quadratic step is
+  // slow on every run, so the minimum still shows it, while one unlucky run no longer fails the check (F-39).
+  const small = new Map(TRANSFORMS.map(({ id }) => [id, time(id, SMALL, 5)]));
+  const rows = TRANSFORMS.map(({ id }) => ({ id, small: small.get(id)!, large: time(id, LARGE, 5) }));
   // Under 20 ms the ratio is mostly noise, and nothing that fast freezes a window.
   assert.deepEqual(superlinear(rows, 20), [], 'superlinear transforms');
 });
