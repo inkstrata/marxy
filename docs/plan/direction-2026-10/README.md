@@ -83,6 +83,7 @@ ADR-0063 (capture) and ADR-0065 (clipboard) are accepted.
 | [14-cards-waves-6-7.md](14-cards-waves-6-7.md) | Cards for waves 6 and 7: W-05 (the toolbar), W-04, W-03, W-21, J-06, and K-07 (the kind chip and strip) |
 | [15-cards-wave-8.md](15-cards-wave-8.md) | Cards for wave 8: W-06 (tabs), W-07 (the sidebar I), W-09 (the inspector and its Links tab), Q-03 (the library view) |
 | [17-design-pass-chrome.md](17-design-pass-chrome.md) | X-21: the app beside mock v2, screen by screen; the ranked gaps, the direction, the questions for the author (X-19's folded in) and cards U-00 to U-10 and V-05 |
+| [18-cards-wave-9.md](18-cards-wave-9.md) | Cards for wave 9: H-05 (themes), K-20, K-11, K-08, K-09, K-10a and K-10b (kinds read as their kind), W-08 (the sidebar's trees), Q-07 (smart collections), and the dispatch order |
 | [studio/](studio/README.md) | The clipboard studio designed to build (J-D1): every mock surface with a verdict; history, the workbench, the rules; collect and the ring for the author |
 | [galley/](galley/README.md) | Reference copies of Galley's tokens, typography spec and contrast audit |
 | `mock-v2/` | The mockup: Galley's prototype adapted to this direction |
