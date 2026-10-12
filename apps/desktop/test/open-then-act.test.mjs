@@ -203,24 +203,43 @@ test('Edit collection over unsaved edits, Save and open: writes linky.md, then c
   }
 });
 
-test('Edit collection in a split: focus moves to the other pane during the prompt; Source is still entered on the pane that got collection.toml', async () => {
+test('Edit collection in a split: the Jump to source it runs acts on, and stays with, the pane that got collection.toml', async () => {
   const browser = await launchWebkit();
   try {
     const page = await bootDirty(browser);
     await page.evaluate(() => window.__h.panes().openIn('other', '/repo/docs/c.md'));
     await page.waitForFunction(() => window.__h.panes().panes[1]?.path() === '/repo/docs/c.md');
     await page.evaluate(() => window.__h.panes().focus(window.__h.panes().panes[0]));
+    // Record which pane is focused, and what it shows, at the instant Jump to source runs: that is the pane it acts on.
+    await page.evaluate(() => {
+      const h = window.__h;
+      const real = h.jumpToSource.bind(h);
+      window.__jumped = [];
+      h.jumpToSource = (...args) => {
+        const panes = h.panes();
+        window.__jumped.push({ slot: panes.focused.slot, path: panes.focused.path() });
+        return real(...args);
+      };
+    });
     await editCollection(page);
     await asked(page);
     await page.evaluate(() => window.__h.panes().focus(window.__h.panes().panes[1]));
     await choose(page, 'Open without saving');
     await page.waitForFunction(() => window.__h.panes().panes[0].path() === '/collection.toml');
-    await page.waitForFunction(() => window.__h.panes().panes[0].view.mode === 'source');
+    await page.waitForFunction(() => window.__jumped.length > 0);
     const got = await page.evaluate(() => {
       const panes = window.__h.panes();
-      return { modes: panes.panes.map((p) => p.view.mode), focused: panes.focused.slot, other: panes.panes[1].path() };
+      return {
+        jumped: window.__jumped,
+        modes: panes.panes.map((p) => p.view.mode),
+        focused: panes.focused.slot,
+        paths: panes.panes.map((p) => p.path()),
+      };
     });
-    assert.deepEqual(got, { modes: ['source', 'rendered'], focused: 0, other: '/repo/docs/c.md' });
+    assert.deepEqual(got.jumped, [{ slot: 0, path: '/collection.toml' }], 'Jump to source ran on the pane showing collection.toml');
+    assert.deepEqual(got.paths, ['/collection.toml', '/repo/docs/c.md']);
+    assert.deepEqual(got.modes, ['source', 'rendered'], 'the other pane was left in Rendered');
+    assert.equal(got.focused, 0, 'and focus is on the pane that got the document');
   } finally {
     await browser.close();
   }

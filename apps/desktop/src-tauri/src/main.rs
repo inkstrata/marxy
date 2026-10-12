@@ -1128,6 +1128,7 @@ fn main() {
             config_paths,
             commands::fs::read_dir,
             commands::fs::stat_file,
+            commands::fs::real_path,
             read_head,
             clipboard_write,
             pasteboard::pasteboard_types,

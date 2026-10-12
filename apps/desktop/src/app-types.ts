@@ -25,6 +25,7 @@ export type AppShell = Pick<
   | 'platform'
   | 'startupMarks'
   | 'readDir'
+  | 'realPath'
   | 'setTitle'
   | 'saveDialog'
   | 'allowAssetScope'

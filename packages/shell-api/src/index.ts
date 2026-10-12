@@ -146,6 +146,11 @@ export interface Shell {
   quit(code?: number): Promise<void>;
   /** List one directory level with the deny list applied in the shell. */
   readDir(dir: string): Promise<readonly FileStat[]>;
+  /**
+   * The path with every symlink and `.`/`..` segment resolved by the OS (F-37.1): the spelling `readDir` and `watch`
+   * report. Reads only metadata of the path and its ancestors; rejects `not-found` for a path that does not exist.
+   */
+  realPath(path: string): Promise<string>;
   /** Set the window title. A title change never moves or reveals the window controls. */
   setTitle(title: string): Promise<void>;
   /**
@@ -206,6 +211,7 @@ function stubShellImpl(): Shell {
     mark: async () => {},
     quit: async () => {},
     readDir: async () => [],
+    realPath: async (path) => path,
     setTitle: async () => {},
     setWindowControls: async () => {},
     imageSize: async () => null,

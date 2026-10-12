@@ -102,6 +102,7 @@ export const shell: Pick<
   | 'clipboardWriteItem'
   | 'configPaths'
   | 'readDir'
+  | 'realPath'
   | 'setTitle'
   | 'saveDialog'
   | 'onCloseRequested'
@@ -144,6 +145,13 @@ export const shell: Pick<
       const error = shellErrorFromInvoke(err) as ReturnType<typeof shellErrorFromInvoke> & { path?: string };
       error.path = path;
       throw error;
+    }
+  },
+  realPath: async (path) => {
+    try {
+      return await invoke<string>('real_path', { path });
+    } catch (err) {
+      throw shellErrorFromInvoke(err);
     }
   },
   stat: async (path) => {

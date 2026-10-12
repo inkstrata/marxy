@@ -170,6 +170,18 @@ pub fn read_dir(dir: String) -> Result<Vec<FileStat>, ShellError> {
     Ok(out)
 }
 
+/// The path with every symlink and `.`/`..` resolved (F-37.1), as `read_dir` and the watches spell paths.
+#[tauri::command]
+pub fn real_path(path: String) -> Result<String, ShellError> {
+    match Path::new(&path).canonicalize() {
+        Ok(p) => Ok(p.to_string_lossy().into_owned()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Err(ShellError::not_found(&path, format!("{path}: not found")))
+        }
+        Err(e) => Err(ShellError::io(&path, e.to_string())),
+    }
+}
+
 /// The most `read_head` ever returns, whatever the caller asks for: the index's head size.
 pub const MAX_HEAD_BYTES: u64 = 256 * 1024;
 
@@ -543,6 +555,32 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("tmpdir");
         dir
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn real_path_resolves_links_and_dots_as_the_os_does_and_rejects_a_missing_path() {
+        let dir = scratch_dir("real-path").canonicalize().unwrap();
+        fs::create_dir_all(dir.join("real/deep")).unwrap();
+        fs::create_dir(dir.join("elsewhere")).unwrap();
+        std::os::unix::fs::symlink(dir.join("real"), dir.join("link")).unwrap();
+        std::os::unix::fs::symlink(dir.join("elsewhere"), dir.join("real/sub")).unwrap();
+        let resolve = |p: String| real_path(p).unwrap();
+        assert_eq!(
+            resolve(dir.join("link").to_string_lossy().into_owned()),
+            dir.join("real").to_string_lossy()
+        );
+        // `sub` is a link: `..` is taken from its target, not from `link/`.
+        assert_eq!(
+            resolve(format!("{}/link/sub/..", dir.display())),
+            dir.to_string_lossy()
+        );
+        assert_eq!(
+            real_path(format!("{}/gone", dir.display()))
+                .unwrap_err()
+                .code,
+            "not-found"
+        );
     }
 
     #[test]
