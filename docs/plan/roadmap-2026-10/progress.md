@@ -268,9 +268,10 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 | F-36 | The find-pane 1 MB fallback test times out on main | sonnet | ready | — | — | Reported by several agents under load. |
 | X-15 | Cards for wave 8 (W-06, W-07, W-09, Q-03) | sonnet | ready | — | — |  |
 | F-37 | Bug sweep S-13 (packet P-24): Edit collection enters Source on the pane it opened in; the walk refuses `.`/`..` segments | sonnet | merged | [#595](https://github.com/inkstrata/marxy/pull/595) | — | With W-05.2; closes F-21.1. Review: merge at 9ea7ccfb. Follow-ups (F-37.1): the split test proves focus, not the wrong-pane symptom; a non-canonical root indexes nothing (pre-existing: read_dir returns canonical paths). |
-| F-38 | Bug sweep S-13 (packet P-25): an ol `start` is judged as one HTML decode reads it (`&hyphen;` is U+2010; ASCII-only trim) | sonnet | in review | [#593](https://github.com/inkstrata/marxy/pull/593) | — | Sanitiser: code-owned, the author merges. Review: merge at 637481e5. Open ruling for the author: the fixed-point double decode (`&amp;#45;3` → `-3`). Suggestion: enum values are still trimmed (`type=" checkbox"`). |
+| F-38 | Bug sweep S-13 (packet P-25): an ol `start` is judged as one HTML decode reads it (`&hyphen;` is U+2010; ASCII-only trim) | sonnet | merged | [#593](https://github.com/inkstrata/marxy/pull/593) | — | Sanitiser: code-owned, the author merges. Review: merge at 637481e5. Ruling (author, 2026-10-11, the default): keep the fixed-point decode (`&amp;#45;3` → `-3`); it is the safe direction for scheme checks. Merged by the author. Suggestion: enum values are still trimmed (`type=" checkbox"`). |
 | F-39 | The J-03.2 "ten times the text" timing test fails on main under load | sonnet (low) | merged | [#596](https://github.com/inkstrata/marxy/pull/596) | — | Red on #591's own run, #581 and #593. Minimum of 5 runs per side; 20/20 local passes. Lead verdict: merge at 6c526873. |
-| X-17 | Hand off the 2026-10-11 night session (S-13 curated) | lead | in review | — | — | This PR. |
+| X-17 | Hand off the 2026-10-11 night session (S-13 curated) | lead | merged | [#597](https://github.com/inkstrata/marxy/pull/597) | — | |
+| X-18 | Record the author\'s rulings: open questions resolved to their defaults | lead | in review | — | — | This PR. |
 
 ## Handoff
 
@@ -295,4 +296,4 @@ F-34.2's cut-off adversarial review should be rerun on main as part of the next 
 Author rulings recorded this session: E-04's Esc keeps; H-04's taste; H-04.1's font download; F-21 on Opus;
 F-31 (ADR-0013 amended); every veto on the replan's list accepted (⌘\ folds, Open beside ⌥⌘\, pane focus
 ⌘⌥←/→, ⇧⌘C Copy as, D-15's two-frame allowance, K-R1 (a), K-R3 (a), K-R4 (a), E-12 superseded); the lead may
-edit nightly.yml for the store walk. Waiting: ADR-0069 (F-34.1), ADR-0067 (V-12), ADR-0060, ADR-0061.
+edit nightly.yml for the store walk. Waiting: ADR-0069 (F-34.1), ADR-0067 (V-12), ADR-0060, ADR-0061. 2026-10-11 night (X-18): the author resolved every open question to its default: all four ADRs accepted as written; F-38 keeps the fixed-point decode.

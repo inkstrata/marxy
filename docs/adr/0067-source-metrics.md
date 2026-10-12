@@ -1,6 +1,6 @@
 # ADR-0067 — Source has its own metrics: a tighter type on a 1.5 line, an exact gutter, code that scrolls
 
-- **Status:** proposed (V-12)
+- **Status:** accepted (author, 2026-10-11, X-18; the default, as proposed)
 - **Date:** 2026-10-11
 - **Amends:** ADR-0030 (the grid unit is half a line box: Source is the one surface that leaves it, by reason) and
   ADR-0031 (the contract gains the two names below; names and kinds, never values). Builds on ADR-0024 (an added
