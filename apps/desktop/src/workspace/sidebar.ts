@@ -140,6 +140,8 @@ export class SmartCounts {
   runs = 0;
 
   private readonly onChange: () => void;
+  /** A stored count has changed since `onChange` last fired. */
+  private dirty = false;
 
   constructor(onChange: () => void) {
     this.onChange = onChange;
@@ -153,8 +155,10 @@ export class SmartCounts {
   /** Resolves when no run is under way or waiting (tests). */
   async settled(): Promise<void> {
     for (;;) {
-      await this.running;
-      if (this.timer === null && this.wanted === null) return;
+      const run = this.running;
+      await run;
+      // A run that was replaced while awaited is not the last: wait for the one that replaced it.
+      if (run === this.running && this.timer === null && this.wanted === null) return;
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
   }
@@ -228,7 +232,6 @@ export class SmartCounts {
     const ctx = queryContext(input);
     const entries = scopeEntries('all', input);
     let sliceFrom = performance.now();
-    let changed = false;
     for (const q of new Set(queries)) {
       const plan = this.planOf(q);
       let total: number | null = null;
@@ -246,7 +249,7 @@ export class SmartCounts {
       if (mine !== this.generation) return;
       if (this.counts.get(q) !== total) {
         this.counts.set(q, total);
-        changed = true;
+        this.dirty = true;
       }
     }
     if (mine !== this.generation) return;
@@ -254,6 +257,10 @@ export class SmartCounts {
     this.inFlight = null;
     // Counts of queries the file no longer holds are let go.
     for (const q of [...this.counts.keys()]) if (!queries.includes(q)) this.counts.delete(q);
-    if (changed) this.onChange();
+    // Told once the stored counts differ from what was last announced, even when the run that stored them was replaced.
+    if (this.dirty) {
+      this.dirty = false;
+      this.onChange();
+    }
   }
 }

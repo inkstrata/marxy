@@ -180,3 +180,20 @@ test('a newer request replaces a run under way, a pin or a changed key counts ag
   assert.equal(counts.runs, runs + 2, 'folded: nothing counted');
   assert.equal(counts.get('kind:report'), indexOnlyCount('kind:report', scope(fewer)), 'the counts stand as they were');
 });
+
+test('a count stored by a run that was replaced is still announced: the next run, finding it equal, tells the view', async () => {
+  // Large enough that B is still counting when C's quiet moment ends and C replaces it.
+  const entries = (reports: number): IndexEntry[] => many(300_000).map((e, i) => ({ ...e, readerKind: i < reports ? ('report' as const) : ('notes' as const) }));
+  const queries = ['kind:report', 'path:f size:>=0', 'path:f size:>=0 modified:<30d', 'size:>=0'];
+  let shown: number | null | undefined;
+  const counts = new SmartCounts(() => { shown = counts.get('kind:report'); });
+  counts.request(queries, scope(entries(5)), 'k');
+  await counts.settled();
+  assert.equal(shown, 5);
+  counts.request(queries, scope(entries(6)), 'k'); // B
+  while (counts.get('kind:report') !== 6) await new Promise((r) => setTimeout(r, 2)); // B has stored its first count
+  counts.request(queries, scope(entries(6)), 'k'); // C replaces B: every count equals what B stored
+  await counts.settled();
+  assert.equal(counts.get('kind:report'), 6);
+  assert.equal(shown, 6, 'the view was told, though C changed nothing it had stored');
+});
