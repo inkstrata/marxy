@@ -864,9 +864,9 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
 .marxy-links-empty { margin: 0.2em 0; color: var(--marxy-color-text-secondary); }
 .marxy-link-row { appearance: none; -webkit-appearance: none; display: flex; flex-direction: column; gap: 0.1em; box-sizing: border-box; width: 100%; margin: 0; padding: 0.35em 0.4em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: inherit; font: inherit; text-align: start; cursor: default; overflow-wrap: anywhere; }
 button.marxy-link-row:hover { background: var(--marxy-color-selection); }
-.marxy-link-dest, .marxy-link-status { color: var(--marxy-color-text-secondary); }
-.marxy-link-mismatch { color: var(--marxy-color-text); font-weight: 600; }
-.marxy-link-mismatch::before { content: "\26A0\FE0E  "; }
+.marxy-inspector .marxy-link-dest, .marxy-inspector .marxy-link-status { color: var(--marxy-color-text-secondary); }
+.marxy-inspector .marxy-link-mismatch { color: var(--marxy-color-text); font-weight: 600; }
+.marxy-inspector .marxy-link-mismatch::before { content: "\26A0\FE0E  "; }
 /* The sidebar (W-07 layout; W-04 owns the look). One column in the `sidebar` region, 252 px (`--marxy-ws-sidebar-w`; the
    panel scrolls, the page does not): an optional Library row, then two sections, each a header button (the title, and a
    quiet count once folded) over a list of rows. A row is the kind's glyph, the title and a quiet age; the title shrinks
