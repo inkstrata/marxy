@@ -274,6 +274,29 @@ function openSeed(seed) {
             return { label: `type ${token.text} in Source, pane ${p.slot} (${name(p.path)})` };
           },
         },
+        // F-42: Mod+S and a key in the same task. The save's fold has not settled when the key lands, and the editor
+        // taking the store's bytes back must not delete it (I3 finds the token in the editor, a buffer or a file after).
+        saveAndType: {
+          weight: 4,
+          applicable: () => true,
+          async run(s) {
+            const p = d.pick(s.panes);
+            const token = newToken();
+            await toSource(page, p.slot);
+            await typeAtLineEnd(page, p.slot, 1 + d.int(8), d.chance(0.5) ? 'x' : '');
+            await page.evaluate(
+              async ({ slot, text, mod }) => {
+                const { activeSourceEditor } = await import('/src/source/editor.ts');
+                const view = activeSourceEditor(window.__marxyHandle.panes().panes[slot].parts.source).view;
+                view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 's', code: 'KeyS', metaKey: mod === 'Meta', ctrlKey: mod === 'Control', bubbles: true, cancelable: true }));
+                const at = view.state.selection.main.head;
+                view.dispatch({ changes: { from: at, insert: text }, selection: { anchor: at + text.length }, userEvent: 'input.type' });
+              },
+              { slot: p.slot, text: token.text, mod },
+            );
+            return { label: `Mod+S and ${token.text} in one task, Source pane ${p.slot} (${name(p.path)})` };
+          },
+        },
         fold: {
           weight: 3,
           applicable: (s) => s.panes.some((p) => p.unfolded),
@@ -302,6 +325,11 @@ function openSeed(seed) {
               const { undoDocumentEdit } = await import('/src/commands/edits.ts');
               await undoDocumentEdit(window.__marxyHandle.panes().panes[slot].view.store());
             }, p.slot);
+            // A token the undo took out of the buffer is withdrawn even if the file on disk still holds it (a save wrote
+            // it first): the next save writes the undo over it, and that is what the reader asked for.
+            await settle(page);
+            const undone = (await look(page)).panes[p.slot].buffer;
+            for (const t of tokens) if (t.live && p.buffer?.includes(t.text) && !undone?.includes(t.text)) t.live = false;
             // An undo takes back what the reader typed: those tokens are dropped by design.
             return { label: `undo in pane ${p.slot}`, mayDrop: (after) => tokens.filter((t) => t.live && !found(after).some((f) => f.id === t.id)).map((t) => t.id) };
           },
@@ -315,7 +343,12 @@ function openSeed(seed) {
             const p = d.pick(s.panes);
             await toSource(page, p.slot);
             await typeAtLineEnd(page, p.slot, 1 + d.int(12), '');
+            const held = (await look(page)).panes[p.slot].editor;
             await page.keyboard.press(d.pick(['Delete', 'Backspace']));
+            // A key that takes a character out of a token withdraws it, though another pane's editor or the store still
+            // holds it: this editor's text folds in later and the token goes then (the reader deleted it).
+            const kept = (await look(page)).panes[p.slot].editor;
+            for (const t of tokens) if (t.live && held?.includes(t.text) && !kept?.includes(t.text)) t.live = false;
             return { label: `delete a character or a line break in Source, pane ${p.slot} (${name(p.path)})`, mayDrop: (after) => tokens.filter((t) => t.live && !found(after).some((f) => f.id === t.id)).map((t) => t.id) };
           },
         },
