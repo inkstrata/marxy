@@ -688,6 +688,8 @@ Every bar shows only what the bytes say, and says nothing else (no score, no sum
 | Right strip (8 px) | marks at the height of their bytes: invisible and bidi characters (the rule of `shouldFlagInvisible`) and, while the find panel is open, its matches. Hover names the place (`U+200B ZERO WIDTH SPACE at 23:14`); a click selects it. Pointer-only and `aria-hidden`: Find and the bottom bar say the same in words |
 | Bottom bar (24 px) | `Ln, Col · byte` (column in characters, a tab is one; the byte offset from the start of the file, counted from the text once it has been edited); a selection's length in characters and bytes; the character after the caret by code point, named where it cannot be seen (`U+200B ZERO WIDTH SPACE`), `Byte FF, not UTF-8`, `U+000D U+000A CRLF` at the end of a CRLF line, `End of file` |
 
+The bars cost rows: in an 800 px folded window about 33 rows of Markdown and 32 of code are in view, where ADR-0067 counted about 37 with the text alone.
+
 Line numbers for Markdown stay off (L-06.1, ruling Q14); `Ln, Col` is in the bottom bar. The measures (words, tokens: W-16), the
 language, the notes marks (V-04) and the line-ending and indentation menus (V-08) are not built. The bars are not focus stops and the
 caret readout is plain text, not a live region, so a screen reader reads it when asked and does not announce every key. Source's
