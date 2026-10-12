@@ -84,8 +84,10 @@ test('"Show this file as" collapses to one row that opens its own list', () => {
   assert.deepEqual(rows(''), ['Save', 'Show this file as…']);
   assert.equal(rows('').filter((t) => t.startsWith('Show this file as')).length, 1);
   assert.deepEqual(rows('show'), ['Show this file as…']);
+  assert.deepEqual(rows('as'), ['Show this file as…'], 'only the family\'s own words: still one row');
   assert.equal(rows('Show this file as').length, 4, 'the phrase lists the members');
   assert.equal(drillText('palette.drill.show-as'), 'Show this file as ');
+  assert.equal(drillText('palette.drill.show-as', '>show lo'), 'Show this file as lo', 'a typed remainder is kept');
   assert.equal(drillText('document.save'), undefined);
 });
 
@@ -253,4 +255,17 @@ test('Take theirs also counts Source text unfolded in the OTHER pane: the fold r
   assert.equal(dec.decode(store.snapshot().buffer.bytes), '# Theirs\n');
   assert.equal(store.snapshot().canUndo, false);
   assert.match(said.join(' '), /discarded and cannot be brought back with Undo/);
+});
+
+test('a typed kind name lists the members directly, as before the collapse (U-04 review)', () => {
+  const all = [
+    ...['log', 'changelog', 'code'].flatMap((k) => [
+      cmd(`kind.show-as.${k}`, `Show this file as ${k}`, 'document'),
+      cmd(`kind.folder.${k}`, `Always open this folder as ${k}`, 'app'),
+    ]),
+  ];
+  const rows = (q: string) => paletteCommands(all, ctx, q).map((c) => c.title);
+  assert.deepEqual(rows('log').sort(), ['Always open this folder as changelog', 'Always open this folder as log', 'Show this file as changelog', 'Show this file as log']);
+  assert.deepEqual(rows('show as log').filter((t) => t.startsWith('Show')).sort(), ['Show this file as changelog', 'Show this file as log']);
+  assert.ok(!rows('as log').some((t) => t.endsWith('\u2026')), 'no drill row once a kind is named');
 });

@@ -492,9 +492,10 @@ const MODE_CHIPS: readonly ModeChip[] = [
 
 const PROMPT = 'Search files, or type > for commands, / for content';
 
-/** The footer's hints: the chord labels come from `chords.ts` and the registry spellings, never retyped. */
-function footerHints(doc: PaletteOwnerDocument, mac: boolean): HTMLElement {
-  const foot = doc.createElement('div') as HTMLElement;
+type FooterMode = 'files' | 'commands' | 'content';
+
+/** The footer's hints for the active mode: the chord labels come from the registry spellings, never retyped. */
+function fillFooter(foot: HTMLElement, doc: PaletteOwnerDocument, mac: boolean, mode: FooterMode): void {
   foot.className = 'marxy-palette-foot';
   const hint = (keys: readonly string[], what: string, end = false): HTMLElement => {
     const one = doc.createElement('span') as HTMLElement;
@@ -509,16 +510,22 @@ function footerHints(doc: PaletteOwnerDocument, mac: boolean): HTMLElement {
     return one;
   };
   const chord = (spec: string) => keyLabel(spec, mac);
-  foot.append(
-    hint(['↑', '↓'], 'move'),
-    hint([chord('Enter')], 'open'),
-    hint([chord('Mod+Enter')], 'open beside'),
-    hint([chord('Mod+.')], 'pin'),
-    hint([chord('Tab')], 'headings'),
-    hint([chord('Mod+Shift+P')], 'commands', true),
-    hint([chord('Mod+/')], 'transforms'),
-  );
-  return foot;
+  const move = hint(['\u2191', '\u2193'], 'move');
+  const items =
+    mode === 'commands'
+      ? [move, hint([chord('Enter')], 'run'), hint([chord('Mod+/')], 'transforms', true), hint([chord('Mod+Shift+P')], 'commands')]
+      : mode === 'content'
+        ? [move, hint([chord('Enter')], 'open'), hint([chord('Mod+Enter')], 'open beside')]
+        : [
+            move,
+            hint([chord('Enter')], 'open'),
+            hint([chord('Mod+Enter')], 'open beside'),
+            hint([chord('Mod+.')], 'pin'),
+            hint([chord('Tab')], 'headings'),
+            hint([chord('Mod+Shift+P')], 'commands', true),
+            hint([chord('Mod+/')], 'transforms'),
+          ];
+  foot.replaceChildren(...items);
 }
 
 function ensurePaletteStructure(
@@ -598,7 +605,9 @@ function ensurePaletteStructure(
   const notice = owner.createElement('p') as HTMLParagraphElement;
   notice.className = 'marxy-palette-notice';
   notice.hidden = true;
-  dialog.replaceChildren(field, modes, body, notice, footerHints(owner, mac));
+  const foot = owner.createElement('div') as HTMLElement;
+  fillFooter(foot, owner, mac, 'files');
+  dialog.replaceChildren(field, modes, body, notice, foot);
   return found();
 }
 
@@ -687,10 +696,8 @@ function commandRow(doc: Document, cmd: Command, selected: boolean, copyId: stri
   const title = doc.createElement('span') as HTMLSpanElement;
   title.className = 'marxy-palette-title';
   title.textContent = cmd.title;
-  const sub = doc.createElement('span') as HTMLSpanElement;
-  sub.className = 'marxy-palette-sub';
-  sub.textContent = group;
-  text.append(title, sub);
+  // No second line: the group header above already names the group.
+  text.append(title);
   row.append(groupGlyph(doc, group), text);
   const spec = cmd.key ?? (cmd.id === copyId ? 'Mod+C' : undefined);
   if (spec !== undefined) {
@@ -1082,7 +1089,14 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     else input.removeAttribute('aria-activedescendant');
   };
   /** Which chip is on: the prefix the query starts with, or the Headings section. */
+  let footerMode: FooterMode = 'files';
   const syncChips = () => {
+    const mode: FooterMode = model.phase === 'operations' ? 'commands' : model.phase === 'content' ? 'content' : 'files';
+    const foot = deps.dialog.querySelector('.marxy-palette-foot');
+    if (mode !== footerMode && foot instanceof HTMLElement) {
+      footerMode = mode;
+      fillFooter(foot, document, isMacPlatform(), mode);
+    }
     const prefix = model.phase === 'operations' ? '>' : model.phase === 'content' ? '/' : '';
     MODE_CHIPS.forEach((mode, i) => {
       const on = mode.headings ? prefix === '' && section === 'headings' : mode.prefix === prefix && !(prefix === '' && section === 'headings');
@@ -1162,7 +1176,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   /** Runs a command row; a row that opens a list (U-04) turns the query into that list instead of closing. */
   const runCommandRow = (cmd: Command | undefined) => {
     if (cmd === undefined) return;
-    const drill = drillText(cmd.id);
+    const drill = drillText(cmd.id, input.value);
     if (drill !== undefined) {
       input.value = `>${drill}`;
       selected = 0;

@@ -360,7 +360,7 @@ test('⇧⌘C leaves the open palette alone, and Copy as… from the palette sti
     await noMenuAfter(page, async () => page.keyboard.press(`${await mod(page)}+Shift+KeyC`));
     assert.equal(await page.evaluate(() => document.getElementById('marxy-palette')?.open), true, 'the palette is still open');
     await page.keyboard.type('>Copy as');
-    await page.waitForFunction(() => /Copy as…\s*Copy\s*⇧⌘C/.test(document.getElementById('marxy-palette').innerText));
+    await page.waitForFunction(() => /Copy as…\s*⇧⌘C/.test(document.getElementById('marxy-palette').innerText));
     // The rows are ranked; arrow down to the one named Copy as… (the targets sort before it).
     for (let i = 0; i < 12 && !(await page.evaluate(() => /Copy as…/.test(document.querySelector('#marxy-palette [aria-selected="true"]')?.textContent ?? ''))); i++) await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');

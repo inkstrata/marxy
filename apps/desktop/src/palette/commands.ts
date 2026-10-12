@@ -36,16 +36,30 @@ const DRILLS: readonly { readonly id: string; readonly idPrefix: string; readonl
   { id: 'palette.drill.folder-as', idPrefix: 'kind.folder.', phrase: 'Always open this folder as' },
 ];
 
-/** The text the query becomes when a drill row is chosen, or undefined for any other command. */
-export function drillText(id: string): string | undefined {
-  const drill = DRILLS.find((d) => d.id === id);
-  return drill === undefined ? undefined : `${drill.phrase} `;
+/** A word of a family's phrase, or the start of one (`sho`, `as`): typing it names the family, not a member. */
+function isPhraseWord(token: string, phrase: string): boolean {
+  return phrase.toLowerCase().split(' ').some((word) => word.startsWith(token));
 }
 
+/** What the reader typed beyond the family's own words: `log` in `>show as log`. */
+function remainderOf(needle: string, phrase: string): string {
+  return needle.split(/\s+/).filter((t) => t !== '' && !isPhraseWord(t, phrase)).join(' ');
+}
+
+/** The text the query becomes when a drill row is chosen (the typed remainder kept), or undefined for any other command. */
+export function drillText(id: string, query = ''): string | undefined {
+  const drill = DRILLS.find((d) => d.id === id);
+  if (drill === undefined) return undefined;
+  const rest = remainderOf(query.trim().replace(/^>/, '').toLowerCase(), drill.phrase);
+  return `${drill.phrase} ${rest === '' ? '' : `${rest}`}`;
+}
+
+/** A family collapses only while the query names no member: `>show` collapses, `>log` and `>show as log` list. */
 function collapseFamilies(kept: readonly Command[], needle: string): readonly Command[] {
   let out = kept;
   for (const drill of DRILLS) {
-    if (needle.includes(drill.phrase.toLowerCase())) continue;
+    // The phrase typed in full (the state a drill row leaves) lists the members too.
+    if (remainderOf(needle, drill.phrase) !== '' || needle.includes(drill.phrase.toLowerCase())) continue;
     const members = out.filter((c) => c.id.startsWith(drill.idPrefix));
     if (members.length < 2) continue;
     const row: Command = {

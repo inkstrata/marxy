@@ -904,7 +904,7 @@ test('the field has its prompt, glyph and Esc button; the chips swap the prefix 
   }
 });
 
-test('> lists the commands under group headers that are not options; the arrows walk the rows only; a row is two lines of 46 px (U-04)', async () => {
+test('> lists the commands under group headers that are not options; the arrows walk the rows only; a row is 46 px (U-04)', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage();
@@ -916,7 +916,6 @@ test('> lists the commands under group headers that are not options; the arrows 
       const groups = [...dialog.querySelectorAll('[role=listbox] [role=group]')].map((g) => ({
         name: document.getElementById(g.getAttribute('aria-labelledby')).textContent,
         titles: [...g.querySelectorAll('[role=option] .marxy-palette-title')].map((t) => t.textContent),
-        subs: [...new Set([...g.querySelectorAll('[role=option] .marxy-palette-sub')].map((t) => t.textContent))],
       }));
       const rows = [...dialog.querySelectorAll('.marxy-palette-row')];
       return {
@@ -932,7 +931,6 @@ test('> lists the commands under group headers that are not options; the arrows 
     const names = listing.groups.map((g) => g.name);
     assert.deepEqual(names, order.filter((n) => names.includes(n)), 'the groups are in the written order');
     assert.ok(names.length >= 4, `several command groups show: ${names}`);
-    for (const g of listing.groups) assert.deepEqual(g.subs, [g.name], `${g.name}: each row names its group on its second line`);
     assert.ok(!listing.headersAreOptions);
     assert.equal(listing.rowCount, listing.optionCount);
     assert.deepEqual(listing.heights, [46], 'every row is 46 px');
@@ -970,6 +968,14 @@ test('> lists the commands under group headers that are not options; the arrows 
     assert.equal(opened.open, true);
     assert.equal(opened.query, '>Show this file as ');
     assert.ok(opened.titles.length > 3 && opened.titles.every((t) => t.startsWith('Show this file as')), JSON.stringify(opened.titles));
+
+    // A kind's name lists its rows directly (`>log`, `>show as log`), as main does; no drill row stands in.
+    for (const [q, want] of [['>log', ['Show this file as log', 'Always open this folder as log']], ['>show as log', ['Show this file as log']]]) {
+      await page.fill('#marxy-palette .marxy-palette-query', q);
+      const titles = await page.$$eval('#marxy-palette .marxy-palette-title', (els) => els.map((t) => t.textContent));
+      for (const t of want) assert.ok(titles.includes(t), `${q}: ${t} in ${JSON.stringify(titles)}`);
+      assert.ok(!titles.some((t) => t.endsWith('…')), `${q}: no drill row`);
+    }
   } finally {
     await browser.close();
   }
