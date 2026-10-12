@@ -124,6 +124,11 @@ test('shared chords: the two owners of Esc are never runnable together, in any s
     }
   }
   assert.equal(foldable, 1, 'Esc folds only an unfolded window with no selection');
+  // W-03.1: an open peek is closed by the same Esc, after a selection and not before it.
+  setAppHandle({ workspace: () => ({ mode: 'folded', peeked: 'toolbar' }) });
+  assert.ok(fold.when({ selection: { kind: 'none' } }), 'a peek is closed by Esc');
+  assert.ok(!fold.when({ selection: { kind: 'node' } }), 'a selection goes first');
+  assert.ok(clear.when({ selection: { kind: 'node' } }));
   setAppHandle(null);
 });
 

@@ -40,9 +40,16 @@ export function panelCommands(): readonly Command[] {
       title: 'Fold the workspace',
       key: 'Escape',
       group: 'view',
-      when: (ctx: AppContext) => appHandle()?.workspace().mode === 'unfolded' && ctx.selection.kind === 'none' && !overlayIsOpen(),
+      // Esc's order (X-21 Q9): a sheet, find and the other overlays, then a selection, then an open peek, then fold.
+      when: (ctx: AppContext) => {
+        const w = appHandle()?.workspace();
+        return w !== undefined && (w.mode === 'unfolded' || w.peeked != null) && ctx.selection.kind === 'none' && !overlayIsOpen();
+      },
       async run() {
-        await appHandle()?.workspace().fold();
+        const w = appHandle()?.workspace();
+        // A peek is closed by Esc and nothing else happens; the window was already folded.
+        if (w?.peeked != null) w.unpeek();
+        else await w?.fold();
       },
     },
   ];
