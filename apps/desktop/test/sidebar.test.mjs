@@ -130,7 +130,7 @@ test('with ten files opened Recent shows eight, newest first, and nothing else i
     await drawn(page);
     assert.deepEqual(await sections(page), [{ id: 'recent', expanded: 'true', count: null, rows: [...tenOpen].reverse().slice(0, 8) }]);
     const row = await page.evaluate(() => {
-      const r = document.querySelector('.marxy-sidebar [data-marxy-sidebar-row]');
+      const r = document.querySelector('.marxy-sidebar-section [data-marxy-sidebar-row]');
       return { glyph: r.querySelector('.marxy-kind-glyph svg') !== null, name: r.querySelector('.marxy-sidebar-name').textContent, age: r.querySelector('.marxy-sidebar-age').textContent };
     });
     assert.deepEqual(row, { glyph: true, name: 'Note j', age: 'now' === row.age ? 'now' : row.age });
@@ -164,7 +164,7 @@ test('the lists follow a document opened while the sidebar is up', async () => {
     await drawn(page);
     assert.deepEqual((await sections(page))[0].rows, ['/r/a.md']);
     await page.evaluate(() => window.__marxyHandle.open('/r/b.md'));
-    await page.waitForFunction(() => document.querySelectorAll('.marxy-sidebar [data-marxy-sidebar-row]').length === 2);
+    await page.waitForFunction(() => document.querySelectorAll('.marxy-sidebar-section [data-marxy-sidebar-row]').length === 2);
     assert.deepEqual((await sections(page))[0].rows, ['/r/b.md', '/r/a.md']);
   });
 });
@@ -217,26 +217,34 @@ test('Alt-click on a header folds every section and a second one opens every sec
 
 // --- the Library row ----------------------------------------------------------------------------------------
 
-test('no library.open command, no Library row; a stub command with that id adds it, and removing it removes it', async () => {
+test('the real library.open command draws the Library row at the top; with it removed the row goes, and a stub command with that id brings it back', async () => {
   await withPage(async (page) => {
     await boot(page, { open: ['/r/a.md'] });
     await unfold(page);
     await drawn(page);
     const library = () => page.evaluate(() => [...document.querySelectorAll('.marxy-sidebar-library')].map((b) => b.textContent));
-    assert.deepEqual(await library(), []);
+    assert.deepEqual(await library(), ['Library'], 'the real command (Q-03) is registered');
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-sidebar').firstElementChild.className), 'marxy-sidebar-library', 'at the top');
     await page.evaluate(() => {
       const handle = window.__marxyHandle;
       window.__realCommands = handle.commands.bind(handle);
-      handle.commands = () => [...window.__realCommands(), { id: 'library.open', title: 'Open the library', group: 'view', when: () => true, async run() { window.__ran = (window.__ran ?? 0) + 1; } }];
+      handle.commands = () => window.__realCommands().filter((c) => c.id !== 'library.open');
+    });
+    await fold(page);
+    await unfold(page);
+    await drawn(page);
+    assert.deepEqual(await library(), [], 'no library.open command, no Library row');
+    await page.evaluate(() => {
+      const handle = window.__marxyHandle;
+      handle.commands = () => [...window.__realCommands().filter((c) => c.id !== 'library.open'), { id: 'library.open', title: 'Open the library', group: 'view', when: () => true, async run() { window.__ran = (window.__ran ?? 0) + 1; } }];
     });
     await fold(page);
     await unfold(page);
     await drawn(page);
     assert.deepEqual(await library(), ['Library']);
-    assert.equal(await page.evaluate(() => document.querySelector('.marxy-sidebar').firstElementChild.className), 'marxy-sidebar-library', 'at the top');
     await page.click('.marxy-sidebar-library');
     assert.equal(await page.evaluate(() => window.__ran), 1);
-    await page.evaluate(() => { window.__marxyHandle.commands = window.__realCommands; });
+    await page.evaluate(() => { window.__marxyHandle.commands = () => window.__realCommands().filter((c) => c.id !== 'library.open'); });
     await fold(page);
     await unfold(page);
     await drawn(page);
@@ -275,7 +283,8 @@ test('every row and header has an accessible name; Tab reaches the sidebar once,
     await drawn(page);
     const named = await page.evaluate(() => [...document.querySelectorAll('.marxy-sidebar button')].map((b) => (b.getAttribute('aria-label') ?? '').trim()));
     assert.ok(named.length >= 5 && named.every((n) => n !== ''), named.join('|'));
-    assert.match(named[0], /^Recent, 3 documents$/);
+    assert.equal(named[0], 'Library', 'the Library row (Q-03) leads');
+    assert.match(named[1], /^Recent, 3 documents$/);
     assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-sidebar button[tabindex="0"]').length), 1, 'one tab stop');
     const active = () => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName);
     // The toolbar follows the sidebar in the page: Shift+Tab from its first control reaches the sidebar's one stop.
