@@ -76,3 +76,22 @@ test('an entity-encoded minus decodes first: &minus; and &#8722; are U+2212 and 
   assert.equal(ol('&#45;&#45;3'), '<ol><li>x</li></ol>');
   assert.equal(ol('&#43;3'), '<ol><li>x</li></ol>');
 });
+
+// S-13-0003: the emitted start must be one the browser would also parse as that integer.
+test('start="&hyphen;3" is not read as -3 (HTML says U+2010, not hyphen-minus)', () => {
+  const out = ol('&hyphen;3');
+  assert.doesNotMatch(out, /start="-?3"/);
+  assert.equal(out, '<ol><li>x</li></ol>');
+});
+
+test('start="&nbsp;3" is not read as 3 (HTML does not trim U+00A0 from an integer)', () => {
+  const out = ol('&nbsp;3');
+  assert.doesNotMatch(out, /start="3"/);
+  assert.equal(out, '<ol><li>x</li></ol>');
+});
+
+test('ASCII whitespace around a start is still trimmed, as HTML does', () => {
+  assert.equal(ol('&Tab;&NewLine;3&#32;'), '<ol start="3"><li>x</li></ol>');
+  assert.equal(ol('&#xFEFF;3'), '<ol><li>x</li></ol>');
+  assert.equal(ol('&#x2028;3'), '<ol><li>x</li></ol>');
+});

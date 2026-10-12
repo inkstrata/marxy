@@ -151,6 +151,14 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, opt
 }
 
 /** Where a removed element ends, and what it cost when it never ended. */
+/**
+ * Trims only what HTML's own attribute parsing calls space (TAB, LF, FF, CR, SPACE). `String.trim` also strips
+ * U+00A0, U+FEFF and U+2028, which a browser keeps, so a value Marxy accepted could be one the browser rejects.
+ */
+function trimAsciiWhitespace(value: string): string {
+  return value.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '');
+}
+
 function removeFrom(input: string, tag: StartTag, name: string, removed: Removal[]): number {
   if (selfClosingHonoured(name, tag)) return tag.end;
   const { end, closed } = skipRemoved(input, tag.end, name);
@@ -323,13 +331,13 @@ function attributeValue(
       return refuse(decision.reason ?? 'refused', url);
     }
     case 'enum': {
-      const value = decodeReferences(raw ?? '').trim().toLowerCase();
+      const value = trimAsciiWhitespace(decodeReferences(raw ?? '')).toLowerCase();
       return rule.values.includes(value)
         ? ` ${key}="${escapeAttribute(value)}"`
         : refuse(`${key} must be one of ${rule.values.join(', ')}`);
     }
     case 'pattern': {
-      const value = decodeReferences(raw ?? '').trim();
+      const value = trimAsciiWhitespace(decodeReferences(raw ?? ''));
       if (!rule.pattern.test(value)) return refuse(`${key} does not match ${String(rule.pattern)}`);
       if ((key === 'id' || key === 'name') && !rendererOwned) {
         const lower = value.toLowerCase();
