@@ -57,6 +57,17 @@ async function roundTrip(bytesB64: string, path: string, byteOffset: number) {
   };
 }
 
+/** Mount `path` and report at once what Source shows, then again after the grammar has had time to arrive (V-14 round 1). */
+async function mountTimed(bytesB64: string, path: string, waitMs: number) {
+  const started = performance.now();
+  const { editor } = await mountEditor(bytesB64, path);
+  const mountedAt = performance.now() - started;
+  const coloured = (): boolean => editor.view.contentDOM.querySelector('.cm-line span') !== null;
+  const first = { text: editor.docText(), coloured: coloured() };
+  await new Promise((r) => setTimeout(r, waitMs));
+  return { mountedAt, first, later: { text: editor.docText(), coloured: coloured() }, inSource: editor.view.dom.isConnected };
+}
+
 async function multiCursorUndo(bytesB64: string, path: string) {
   const { editor } = await mountEditor(bytesB64, path);
   const { EditorSelection } = await import('@codemirror/state');
@@ -275,6 +286,7 @@ declare global {
       scrollPerf: typeof scrollPerf;
       roundTrip: typeof roundTrip;
       multiCursorUndo: typeof multiCursorUndo;
+      mountTimed: typeof mountTimed;
       strayBytes: typeof strayBytes;
       strayClipboard: typeof strayClipboard;
       strayFind: typeof strayFind;
@@ -283,4 +295,4 @@ declare global {
   }
 }
 
-window.marxySourceHarness = { scrollPerf, roundTrip, multiCursorUndo, strayBytes, strayClipboard, strayFind, strayJoin };
+window.marxySourceHarness = { scrollPerf, roundTrip, multiCursorUndo, mountTimed, strayBytes, strayClipboard, strayFind, strayJoin };

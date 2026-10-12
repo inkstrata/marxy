@@ -4,7 +4,7 @@ import type { Buffer } from '@marxy/core';
 import type { EditorView } from '@codemirror/view';
 import { Compartment, type Extension } from '@codemirror/state';
 import { cmDocText, lineSeparatorFor } from './buffer-commit.ts';
-import { languageExtension, LARGE_FILE_BYTES } from './language.ts';
+import { LARGE_FILE_BYTES } from './language.ts';
 import { setLineNumbersChoice } from './line-numbers.ts';
 import { marxyHighlighting } from './highlight-style.ts';
 import { liveMarxyTheme, sourceHang, type SourceLook } from './theme-bridge.ts';
@@ -37,6 +37,7 @@ export interface SourceEditor {
 const lineNumbersCompartment = new Compartment();
 const tabSizeCompartment = new Compartment();
 const lineSeparatorCompartment = new Compartment();
+export const languageCompartment = new Compartment();
 const themeCompartment = new Compartment();
 /** Holds the editor's history, so `clearHistory` can drop it: CodeMirror has no other way to forget what it can undo. */
 const historyCompartment = new Compartment();
@@ -90,7 +91,7 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
     return existing;
   }
   const cm = await loadCodeMirror();
-  const built = await cm.createSourceEditor(opts, { lineNumbersCompartment, tabSizeCompartment, lineSeparatorCompartment });
+  const built = await cm.createSourceEditor(opts, { lineNumbersCompartment, tabSizeCompartment, lineSeparatorCompartment, languageCompartment });
   const rawDestroy = built.destroy.bind(built);
   // `wrapper` is only read inside its own `destroy`, which runs after this literal is fully built and
   // registered; comparing against `built` (the pre-wrap object) would never match the registered
@@ -173,7 +174,7 @@ function isMacPlatform(): boolean {
 export async function baseExtensions(
   buffer: Buffer,
   lineNumbers: boolean,
-  compartments?: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment?: Compartment },
+  compartments?: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment?: Compartment; languageCompartment?: Compartment },
   island = false,
 ): Promise<Extension[]> {
   const { history, defaultKeymap, historyKeymap } = await import('@codemirror/commands');
@@ -241,8 +242,8 @@ export async function baseExtensions(
     if (look === 'island' || wraps) exts.push(EditorView.lineWrapping);
     if (wraps && look === 'prose') exts.push(sourceHang());
     exts.push(...(await foldingExtensions()));
-    const lang = await languageExtension(buffer.path, buffer.bytes.length);
-    if (lang) exts.push(lang);
+    // The language is attached after the mount (`attachLanguage`): the text never waits on a grammar (commitment 5).
+    exts.push((compartments?.languageCompartment ?? languageCompartment).of([]));
   }
   return exts;
 }

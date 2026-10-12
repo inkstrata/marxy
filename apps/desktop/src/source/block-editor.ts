@@ -10,6 +10,7 @@ import { Compartment, EditorState, Prec } from '@codemirror/state';
 import { EditorView, keymap, type KeyBinding } from '@codemirror/view';
 import { SOURCE_EDIT_ENTRIES } from '../commands/source-edit.ts';
 import { baseExtensions } from './editor.ts';
+import { attachLanguage } from './language.ts';
 import { runStructure } from './structure.ts';
 
 export interface BlockEditor {
@@ -63,6 +64,7 @@ export async function openBlockEditor(
     lineNumbersCompartment: new Compartment(),
     tabSizeCompartment: new Compartment(),
     lineSeparatorCompartment: new Compartment(),
+    languageCompartment: new Compartment(),
   };
   const extensions = await baseExtensions(buffer, false, compartments, true);
   const leave = (): boolean => {
@@ -84,11 +86,16 @@ export async function openBlockEditor(
     ],
   });
   const view = new EditorView({ state, parent: host });
+  let destroyed = false;
+  void attachLanguage(view, buffer, () => !destroyed, compartments.languageCompartment);
   return {
     view,
     text: () => view.state.sliceDoc(0, view.state.doc.length),
     // Not `view.focus()`: WebKit scrolls a focused element into view, and the reader's place is not for the editor to move.
     focus: () => view.contentDOM.focus({ preventScroll: true }),
-    destroy: () => view.destroy(),
+    destroy: () => {
+      destroyed = true;
+      view.destroy();
+    },
   };
 }

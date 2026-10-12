@@ -2,13 +2,13 @@
 // and a file whose lines end in CRLF, CR or a mixture is coloured the same and leaves Source byte for byte.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState } from '@codemirror/state';
 import { ensureSyntaxTree } from '@codemirror/language';
 import { highlightTree, tagHighlighter } from '@lezer/highlight';
 import { ROLES } from '@marxy/core/src/highlight/roles.ts';
 import { createBuffer } from '../../../../packages/core/src/buffer/buffer.ts';
 import { cmDocText, leaveSourceMode, lineSeparatorFor } from './buffer-commit.ts';
-import { languageExtension } from './language.ts';
+import { attachLanguage, fenceDescription, languageExtension } from './language.ts';
 import { lezerTag, ROLE_ORDER } from './highlight-style.ts';
 
 const highlighter = tagHighlighter(ROLE_ORDER.map((role) => ({ tag: ROLES[role].lezer.map(lezerTag), class: `role-${role}` })));
@@ -74,4 +74,63 @@ test('V-14: LF, CRLF, CR and mixed (CRLF with LF) endings give the same colours 
     assert.equal(at(r, '"x"'), 'string', name);
     assert.deepEqual(leaveSourceMode(r.buffer, cmDocText(r.buffer)).buffer.bytes, enc.encode(text), `${name}: bytes`);
   }
+});
+
+// Review round 1: a grammar that will not load leaves Source on screen, uncoloured; the text never waits for it.
+const goBuffer = () => createBuffer('a.go', enc.encode('package main\nfunc f() {}\n'));
+const lazyLoad = () => {
+  let release, fail;
+  const promise = new Promise((res, rej) => ((release = res), (fail = rej)));
+  return { promise, release, fail };
+};
+/** A stand-in for the view: applies each dispatch to a state that holds the language compartment, as the editor does. */
+function fakeEditor(buffer) {
+  const comp = new Compartment();
+  let state = EditorState.create({ doc: cmDocText(buffer), extensions: [comp.of([])] });
+  return { comp, get state() { return state; }, view: { dispatch: (spec) => { state = state.update(spec).state; } } };
+}
+const coloured = (state) => {
+  let any = false;
+  const tree = ensureSyntaxTree(state, state.doc.length, 10_000);
+  if (tree) highlightTree(tree, highlighter, () => (any = true));
+  return any;
+};
+const goLoaders = (loader) => ({ go: loader });
+
+test('V-14 round 1: a loader that rejects leaves the text uncoloured and does not throw', async () => {
+  const buffer = goBuffer();
+  assert.equal(await languageExtension('a.go', 10, goLoaders(async () => { throw new Error('chunk 404'); })), null);
+  const ed = fakeEditor(buffer);
+  await attachLanguage(ed.view, buffer, () => true, ed.comp, goLoaders(async () => { throw new Error('chunk 404'); }));
+  assert.equal(ed.state.doc.toString(), cmDocText(buffer));
+  assert.equal(coloured(ed.state), false);
+});
+
+test('V-14 round 1: the language arrives later, when the loader resolves', async () => {
+  const buffer = goBuffer();
+  const ed = fakeEditor(buffer);
+  const slow = lazyLoad();
+  const done = attachLanguage(ed.view, buffer, () => true, ed.comp, goLoaders(() => slow.promise));
+  assert.equal(coloured(ed.state), false);
+  slow.release((await import('@codemirror/lang-go')).go());
+  await done;
+  assert.equal(coloured(ed.state), true);
+});
+
+test('V-14 round 1: a file switched away from before the loader resolves gets no stale language', async () => {
+  const buffer = goBuffer();
+  const ed = fakeEditor(buffer);
+  const slow = lazyLoad();
+  let current = true;
+  const done = attachLanguage(ed.view, buffer, () => current, ed.comp, goLoaders(() => slow.promise));
+  current = false; // the editor now shows another file, or was destroyed
+  slow.release((await import('@codemirror/lang-go')).go());
+  await done;
+  assert.equal(coloured(ed.state), false);
+});
+
+test('V-14 round 1: a fence whose grammar fails to load stays plain, with no rejection', async () => {
+  const d = fenceDescription('go', async () => { throw new Error('chunk 404'); });
+  const support = await d.load();
+  assert.ok(support.language);
 });

@@ -1,6 +1,8 @@
 // CodeMirror language support by file extension; MIT @codemirror/lang-* only (§09).
 
-import type { Extension } from '@codemirror/state';
+import type { Buffer } from '@marxy/core';
+import type { Compartment, Extension } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
 import { isUntitled } from '../document/untitled.ts';
 import { fileTypeOf } from '@marxy/core/src/index-model/file-types.ts';
 import { LanguageDescription, LanguageSupport, StreamLanguage, type LRLanguage, type StreamParser } from '@codemirror/language';
@@ -28,7 +30,7 @@ const MARK_PROPS = {
 /** Above this size, Source mode skips language and line wrapping (§09). */
 export const LARGE_FILE_BYTES = 2 * 1024 * 1024;
 
-type LangLoader = () => Promise<LanguageSupport>;
+export type LangLoader = () => Promise<LanguageSupport>;
 
 /** A legacy CodeMirror 5 mode wrapped as a language; its token names map to Lezer tags in `@codemirror/language`. */
 const legacy = (parser: unknown): LanguageSupport =>
@@ -71,6 +73,10 @@ const FENCE_ALIASES: Record<string, string> = {
   toml: 'toml', dockerfile: 'dockerfile', docker: 'dockerfile',
 };
 
+/** A language that colours nothing: what a fence takes when its grammar cannot be loaded. */
+const plainText = (): LanguageSupport =>
+  new LanguageSupport(StreamLanguage.define({ token: (stream) => (stream.skipToEnd(), null) } as StreamParser<unknown>));
+
 const FENCE_DESCRIPTIONS = new Map<string, LanguageDescription>();
 
 /**
@@ -83,21 +89,42 @@ function fenceLanguage(info: string): LanguageDescription | null {
   if (!cm || cm === 'markdown') return null;
   let d = FENCE_DESCRIPTIONS.get(cm);
   if (!d) {
-    const loader = BY_CM_ID[cm];
-    d = LanguageDescription.of({
-      name: cm,
-      load: loader,
-    });
+    d = fenceDescription(cm, BY_CM_ID[cm]!);
     FENCE_DESCRIPTIONS.set(cm, d);
   }
   return d;
 }
 
-/** Language extension for `path`, or none when unknown or over the size threshold. */
-export async function languageExtension(path: string, byteLength: number): Promise<Extension | null> {
+/** A fence's language. A grammar that will not load leaves the fence plain; a rejection would be left unhandled in the parser. */
+export function fenceDescription(name: string, loader: LangLoader): LanguageDescription {
+  return LanguageDescription.of({ name, load: () => loader().catch(plainText) });
+}
+
+/** Language extension for `path`, or none when unknown, over the size threshold, or the grammar fails to load (the text stays, uncoloured). */
+export async function languageExtension(path: string, byteLength: number, loaders: Record<string, LangLoader> = BY_CM_ID): Promise<Extension | null> {
   if (byteLength > LARGE_FILE_BYTES) return null;
   const cm = isUntitled(path) ? 'markdown' : fileTypeOf(path)?.cm;
-  const loader = cm ? BY_CM_ID[cm] : undefined;
+  const loader = cm ? loaders[cm] : undefined;
   if (!loader) return null;
-  return loader();
+  try {
+    return await loader();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Load the grammar for `buffer` and put it in `compartment` once it arrives, unless `current()` says the editor has
+ * moved on (destroyed, or showing another file). A grammar that fails to load leaves the text uncoloured; Source stays.
+ */
+export async function attachLanguage(
+  view: Pick<EditorView, 'dispatch'>,
+  buffer: Pick<Buffer, 'path' | 'bytes'>,
+  current: () => boolean,
+  compartment: Compartment,
+  loaders?: Record<string, LangLoader>,
+): Promise<void> {
+  const lang = await languageExtension(buffer.path, buffer.bytes.length, loaders);
+  if (!lang || !current()) return;
+  view.dispatch({ effects: compartment.reconfigure(lang) });
 }

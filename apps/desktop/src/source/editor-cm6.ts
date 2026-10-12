@@ -4,13 +4,14 @@ import { encodeSourceText, type Buffer } from '@marxy/core';
 import { Compartment, EditorState, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { baseExtensions, clearHistory, editorDocConfig, toggleLineNumbersInView, type SourceEditor, type SourceEditorOptions } from './editor.ts';
+import { attachLanguage } from './language.ts';
 import { resolveLineNumbers } from './line-numbers.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
 import { readBack } from './stray-bytes.ts';
 
 export async function createSourceEditor(
   opts: SourceEditorOptions,
-  compartments: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment: Compartment },
+  compartments: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment: Compartment; languageCompartment: Compartment },
 ): Promise<SourceEditor> {
   let buffer = opts.buffer;
   const { doc } = editorDocConfig(buffer);
@@ -18,6 +19,14 @@ export async function createSourceEditor(
   const exts = await baseExtensions(buffer, lineNumbers, compartments);
   const state = EditorState.create({ doc, extensions: exts });
   const view = new EditorView({ state, parent: opts.parent });
+  // The grammar arrives after the text; a destroyed editor or another file by then gets none (generation counter).
+  let generation = 0;
+  let destroyed = false;
+  const attach = (): void => {
+    const mine = ++generation;
+    void attachLanguage(view, buffer, () => !destroyed && mine === generation, compartments.languageCompartment);
+  };
+  attach();
   // `doc.toString()` joins lines with \n whatever EditorState.lineSeparator says; the buffer's text
   // (and foldText's offsets into it) use the file's own separator, so read the doc through sliceDoc.
   const textNow = (): string => view.state.sliceDoc(0, view.state.doc.length);
@@ -31,10 +40,17 @@ export async function createSourceEditor(
       return buffer;
     },
     destroy() {
+      destroyed = true;
       view.destroy();
     },
     replaceBuffer(next: Buffer) {
+      const otherFile = next.path !== buffer.path;
       buffer = next;
+      if (otherFile) {
+        // The old file's grammar goes at once; the new one comes when it has loaded.
+        view.dispatch({ effects: compartments.languageCompartment.reconfigure([]), annotations: Transaction.addToHistory.of(false) });
+        attach();
+      }
       const { doc: nextDoc, lineSeparator } = editorDocConfig(next);
       const separatorChanged = view.state.lineBreak !== lineSeparator;
       // The buffer this editor's own edits were folded into already reads as its text: keep the
