@@ -54,11 +54,15 @@ function foldRangeOf(kind: DepthFoldKind, node: SyntaxNode, doc: Text): FoldRang
     range = foldInside(node);
   } else {
     // A block container is folded through the pair or item that holds it, which is what the language offers on that line.
-    const holder = node.parent;
+    // An anchor (`&a`) or a tag (`!!map`) sits between the pair or item and the container it names.
+    let holder = node.parent;
+    while (holder && (holder.name === 'Anchored' || holder.name === 'Tagged')) holder = holder.parent;
     range = holder && (holder.name === 'Pair' || holder.name === 'Item') ? { from: doc.lineAt(holder.from).to, to: holder.to } : null;
   }
   if (!range || range.from >= range.to) return null;
-  return doc.lineAt(range.from).number < doc.lineAt(range.to).number ? range : null;
+  if (doc.lineAt(range.from).number >= doc.lineAt(range.to).number) return null;
+  // A pair of brackets with nothing between them has nothing to hide, so there is nothing to say a count of.
+  return doc.sliceString(range.from, range.to).trim() === '' ? null : range;
 }
 
 /**
@@ -89,15 +93,18 @@ export function rangesAtDepth(state: EditorState, tree: Tree, depth: number): Fo
 }
 
 /**
- * How many lines a fold hides: those that show nothing of their own once it is closed. The line it opens on stays,
- * and so does the line it closes on when something (a closing bracket) is left of the fold's end. A fold that hides
- * a line break only reads "1 line".
+ * How many lines a fold hides: every line that has text in the hidden range. The lines between its two ends all do; the
+ * line it opens on and the line it closes on count only if something other than white space of theirs is hidden (`{x: 1,`
+ * after a flow bracket does; the indent before a closing bracket does not). A fold that hides only a line break reads
+ * "1 line".
  */
 export function hiddenLines(doc: Text, from: number, to: number): number {
   const first = doc.lineAt(from);
   const last = doc.lineAt(to);
-  const whole = last.number - first.number - 1 + (to >= last.to ? 1 : 0);
-  return Math.max(1, whole);
+  let lines = last.number - first.number - 1;
+  if (doc.sliceString(from, first.to).trim() !== '') lines += 1;
+  if (doc.sliceString(last.from, to).trim() !== '') lines += 1;
+  return Math.max(1, lines);
 }
 
 /** How many lines the reader sees: the document's lines, less the line breaks each fold swallows. */
@@ -114,24 +121,38 @@ export function foldLabel(lines: number): string {
   return `… ${lines} ${lines === 1 ? 'line' : 'lines'}`;
 }
 
-/** The placeholder: text in the flow, naming what it hides. A click unfolds it, as CodeMirror's own does. */
-function placeholderDOM(_view: EditorView, onclick: (event: Event) => void, prepared: unknown): HTMLElement {
+/**
+ * The placeholder: text in the flow, naming what it hides. A click unfolds it, as CodeMirror's own does, and so do Enter
+ * and Space on it: it is a button a keyboard can reach (Tab from the text), named for what it is and what it does.
+ */
+function placeholderDOM(view: EditorView, onclick: (event: Event) => void, prepared: unknown): HTMLElement {
   const lines = typeof prepared === 'number' ? prepared : 1;
   const el = document.createElement('span');
   el.className = 'marxy-fold-placeholder';
   el.textContent = foldLabel(lines);
   el.title = 'Unfold';
-  el.setAttribute('aria-label', `${lines} ${lines === 1 ? 'line' : 'lines'} folded`);
+  el.setAttribute('role', 'button');
+  el.tabIndex = 0;
+  el.setAttribute('aria-label', `${lines} ${lines === 1 ? 'line' : 'lines'} folded, press Enter to unfold`);
   el.onclick = onclick;
+  el.onkeydown = (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    event.stopPropagation();
+    onclick(event);
+    view.focus();
+  };
   return el;
 }
 
 /**
  * A fold whose placeholder was counted when it was made must be counted again when a change reaches into it (a
- * replace-all, an undo): this unfolds and folds the same range in the same transaction, so the count is read again.
+ * replace-all, an undo): this unfolds and folds the same range in the same transaction, so the count is read again. It
+ * relabels the folds CodeMirror keeps; it never brings back one a deletion opened.
  */
 const recountFolds = EditorState.transactionExtender.of((tr) => {
-  if (!tr.docChanged) return null;
+  // CodeMirror opens a fold a deletion touches, so that text is never deleted out of sight (commitment 4): leave it open.
+  if (!tr.docChanged || tr.isUserEvent('delete')) return null;
   const effects: StateEffect<FoldRange>[] = [];
   foldedRanges(tr.startState).between(0, tr.startState.doc.length, (from, to) => {
     if (!tr.changes.touchesRange(from, to)) return;

@@ -20,16 +20,17 @@ const JSON_PATH = '/r/data.json';
 const files = {
   [JSON_PATH]: ITEMS,
   '/r/Cargo.toml': '[package]\nname = "x"\n\n[dependencies]\na = "1"\nb = { version = "2",\n  features = ["c"] }\n',
+  '/r/notes.md': '# Title\n\nbody one\nbody two\n\n## Next\n\ntext\n',
   '/r/ci.yml': 'name: ci\njobs:\n  test:\n    steps:\n      - run: a\n      - run: b\n  lint:\n    steps:\n      - run: c\n',
 };
 
 /** A page tall enough to draw all of a folded file (CodeMirror draws only what is in view). */
-async function withApp(open, fn, { height = 2600 } = {}) {
+async function withApp(open, fn, { height = 2600, inSource = true } = {}) {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 1470, height } });
     await bootTwoPanes(page, { files, open: [open], guard: true });
-    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-line'));
+    if (inSource) await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-line'));
     await fn(page, (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control');
   } finally {
     await browser.close();
@@ -199,5 +200,59 @@ test('YAML folds by depth too, and TOML is offered nothing', async () => {
     assert.deepEqual(await offered(page), []);
     await page.evaluate(`(${runCommandSource})('source.fold-depth-1')`);
     assert.equal((await shown(page)).folds, 0, 'running it by id does nothing either');
+  });
+});
+
+/** Where the editor's caret is, and puts it at `at`. */
+const caretAt = (page, at) =>
+  page.evaluate(async (at) => {
+    const { activeSourceEditor } = await import('/src/source/editor.ts');
+    const view = activeSourceEditor().view;
+    view.dispatch({ selection: { anchor: at } });
+    view.focus();
+    return view.state.doc.length;
+  }, at);
+
+test('Backspace at the end of a fold opens it, in JSON and in Markdown: no text is deleted out of sight', async () => {
+  await withApp(JSON_PATH, async (page) => {
+    await run(page, 'source.fold-depth-1');
+    assert.equal((await shown(page)).folds, 1);
+    // The fold hides the items array's inside; its end is the `]`'s start.
+    await caretAt(page, ITEMS.lastIndexOf(']'));
+    assert.equal((await shown(page)).folds, 1, 'the caret at its end does not open it');
+    await page.keyboard.press('Backspace');
+    const s = await shown(page);
+    assert.equal(s.folds, 0, 'the fold opened');
+    assert.ok(s.doc.length < ITEMS.length, 'the hidden indent went, and the fold is open for the reader to see it go');
+  });
+  await withApp('/r/notes.md', async (page, mod) => {
+    await page.keyboard.press(`${mod}+e`);
+    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-line'));
+    await page.evaluate(`(${runCommandSource})('view.toggle-line-numbers')`);
+    await page.waitForSelector('#marxy-source .cm-foldGutter .marxy-fold-open', { state: 'attached' });
+    // The first line's chevron folds the `# Title` section.
+    await page.locator('#marxy-source .cm-foldGutter .marxy-fold-open').first().click({ force: true });
+    assert.equal((await shown(page)).placeholders.length, 1, 'the heading folded');
+    const text = files['/r/notes.md'];
+    await caretAt(page, text.indexOf('## Next'));
+    await page.keyboard.press('Backspace');
+    const s = await shown(page);
+    assert.equal(s.placeholders.length, 0, 'the fold opened');
+    assert.equal(s.doc.length, text.length - 1);
+  }, { inSource: false });
+});
+
+test('a placeholder is a button the keyboard reaches: Tab to it, Enter unfolds, and it says what it is', async () => {
+  await withApp(JSON_PATH, async (page) => {
+    await run(page, 'source.fold-depth-1');
+    const first = page.locator('#marxy-source .marxy-fold-placeholder').first();
+    assert.equal(await first.getAttribute('role'), 'button');
+    assert.equal(await first.getAttribute('aria-label'), '540 lines folded, press Enter to unfold');
+    await first.focus();
+    assert.equal(await page.evaluate(() => document.activeElement?.className), 'marxy-fold-placeholder');
+    await page.keyboard.press('Enter');
+    const s = await shown(page);
+    assert.equal(s.folds, 0);
+    assert.equal(s.doc, ITEMS);
   });
 });

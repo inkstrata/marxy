@@ -700,15 +700,16 @@ window's top off the reading line's margin, so a place round-trips through Rende
 
 A fold is a view and nothing else: CodeMirror keeps it as a decoration, so the document, a copy of it (Mod+A, Mod+C copies the
 hidden text too), a save and the bytes are the file's own with it or without it (commitment 3). Nothing is folded at rest and no
-fold is remembered. Every fold's placeholder is text in the flow that says what it hides, `… 42 lines` (`… 1 line`), counted as
-the lines that show nothing of their own once it is closed (the line it opens on stays, and so does the line a closing bracket
-is on); a click on it unfolds that fold, and a change that reaches into a fold counts it again (commitment 4). Large files
-(over 2 MB) have no folding.
+fold is remembered. Every fold's placeholder is text in the flow that says what it hides, `… 42 lines` (`… 1 line`): the number
+of lines that have text under the fold (all between its two ends, and an end line only if something other than white space of it
+is hidden). The placeholder is a button: a click, or Enter or Space once Tab has reached it, unfolds it. A change that reaches into a
+fold counts it again; a deletion opens the fold it touches, as CodeMirror does, so no text is deleted out of sight (commitment 4).
+Large files (over 2 MB) have no folding.
 
 For a JSON or YAML file in Source the palette offers **Fold to depth 1** to **4** and **Unfold all** (`source.fold-depth-N`,
 `source.unfold-all`; no keys until the menu bar checks conflicts). Depth counts the containers a value sits in: the file's top
 container is depth 0 and always shows its entries, depth *N* folds every container nested *N* deep, using the range the language
-folds by hand (a bracket's inside; a YAML pair or item), so the gutter's chevron undoes one. Fold to depth replaces the folds there
+folds by hand (a bracket's inside; a YAML pair or item, behind an anchor or tag too), so the gutter's chevron undoes one. Fold to depth replaces the folds there
 were; a caret inside a new fold moves to the line it opens on; a depth that folds nothing says so. The lens is not offered for
 TOML (its mode has no tree), for a file over the large-file limit, or in Rendered. A fence in Rendered is not folded.
 

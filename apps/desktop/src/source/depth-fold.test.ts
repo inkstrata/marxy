@@ -2,9 +2,11 @@
 // says it hides, that nothing changes the document, and where the lens is not offered.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { deleteCharBackward } from '@codemirror/commands';
 import { json } from '@codemirror/lang-json';
+import { markdown } from '@codemirror/lang-markdown';
 import { yaml } from '@codemirror/lang-yaml';
-import { foldedRanges, ensureSyntaxTree } from '@codemirror/language';
+import { foldEffect, foldedRanges, ensureSyntaxTree } from '@codemirror/language';
 import { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { sourceViewCommands } from '../commands/source-view.ts';
@@ -167,4 +169,73 @@ test('the five commands are offered by the file open in Source, and by nothing e
   assert.deepEqual(offered('source', '/r/Cargo.toml', 544), [false, false, false, false, false]);
   assert.deepEqual(offered('source', '/r/big.json', LARGE_FILE_BYTES + 1), [false, false, false, false, false]);
   assert.deepEqual(offered('rendered', '/r/data.json', 544), [false, false, false, false, false]);
+});
+
+/** What each fold's placeholder was prepared to say: the counts the widgets hold, in document order. */
+function counts(state: EditorState): number[] {
+  const out: number[] = [];
+  foldedRanges(state).between(0, state.doc.length, (_from, _to, deco) => void out.push((deco.spec.widget as { value: number }).value));
+  return out;
+}
+
+test('a change inside a fold counts it again; an undo of it does too (the recount)', () => {
+  const view = fakeView(stateOf('{\n  "a": {\n    "x": 1,\n    "y": 2\n  },\n  "b": 1\n}\n'));
+  fold(view, 1);
+  assert.deepEqual(counts(view.state), [2]);
+  const at = view.state.doc.toString().indexOf('"y"');
+  view.dispatch({ changes: { from: at, insert: '"w": 0,\n"v": 0,\n' } });
+  assert.deepEqual(counts(view.state), [4], 'two lines went in');
+  view.dispatch({ changes: { from: at, to: at + '"w": 0,\n"v": 0,\n'.length } });
+  assert.deepEqual(counts(view.state), [2], 'and came out');
+});
+
+test('a deletion opens the fold it touches and does not bring it back (commitment 4: no text deleted out of sight)', () => {
+  const doc = '{\n  "a": {\n    "x": 1,\n    "y": 2\n  },\n  "b": 1\n}\n';
+  // JSON: Backspace with the caret at the end of the fold deletes hidden text, so the fold opens.
+  const view = fakeView(stateOf(doc));
+  fold(view, 1);
+  let end = 0;
+  foldedRanges(view.state).between(0, doc.length, (_from, to) => void (end = to));
+  view.dispatch({ selection: { anchor: end } });
+  assert.equal(deleteCharBackward({ state: view.state, dispatch: view.dispatch } as never), true);
+  assert.equal(foldedRanges(view.state).size, 0, 'the fold is open');
+  assert.ok(view.state.doc.length < doc.length, 'the hidden indent was deleted, and the reader can see the fold open');
+  // A deletion that runs from visible text into a fold opens it too.
+  const spanning = fakeView(stateOf(doc));
+  fold(spanning, 1);
+  const mid = doc.indexOf('"x"');
+  spanning.dispatch({ changes: { from: doc.indexOf('"a"'), to: mid }, userEvent: 'delete.selection' });
+  assert.equal(foldedRanges(spanning.state).size, 0, 'the rest of the fold is not left closed');
+  // Markdown: the same, with a heading's fold.
+  const md = '# Title\n\nbody one\nbody two\n\n## Next\n\ntext\n';
+  const mdState = EditorState.create({ doc: md, extensions: [markdown(), ...countedFolding()] });
+  ensureSyntaxTree(mdState, md.length, 5000);
+  const from = md.indexOf('\n\nbody');
+  const to = md.indexOf('\n\n## Next');
+  const mdView = fakeView(mdState);
+  mdView.dispatch({ effects: foldEffect.of({ from, to }), selection: { anchor: to } });
+  assert.equal(foldedRanges(mdView.state).size, 1);
+  assert.equal(deleteCharBackward({ state: mdView.state, dispatch: mdView.dispatch } as never), true);
+  assert.equal(foldedRanges(mdView.state).size, 0, 'a Markdown fold opens on Backspace at its end');
+});
+
+test('YAML behind an anchor or a tag folds like any other, so a file of only those does not say "not nested"', () => {
+  const doc = 'base: &b\n  x: 1\n  y: 2\nother:\n  z: 3\nlist: &l\n  - a\n  - b\ntagged: !!map\n  q: 1\n  r: 2\n';
+  const view = fakeView(stateOf(doc, 'yaml'));
+  const result = fold(view, 1);
+  assert.deepEqual(result.kind === 'folded' ? [result.folds, result.lines] : result, [4, 2 + 1 + 2 + 2]);
+  assert.equal(visibleLines(view.state), 5, 'four keys and the final empty line');
+  const only = fakeView(stateOf('a: &a\n  x: 1\n  y: 2\nb: !!set\n  p: 1\n  q: 2\n', 'yaml'));
+  assert.equal(fold(only, 1).kind, 'folded');
+});
+
+test('the count is the lines with hidden text: a flow map that opens on a line with content counts it', () => {
+  const doc = 'a: {x: 1,\n  y: [1,\n   2]}\nb: 1\n';
+  const state = stateOf(doc, 'yaml');
+  const tree = ensureSyntaxTree(state, state.doc.length, 5000)!;
+  const [only] = rangesAtDepth(state, tree, 1);
+  assert.equal(hiddenLines(state.doc, only.from, only.to), 3);
+  // Brackets with nothing between them hide nothing, so the lens leaves them.
+  const empty = stateOf('{\n  "a": [\n  ],\n  "b": 1\n}\n');
+  assert.deepEqual(rangesAtDepth(empty, ensureSyntaxTree(empty, empty.doc.length, 5000)!, 1), []);
 });
