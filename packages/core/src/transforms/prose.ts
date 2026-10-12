@@ -74,7 +74,10 @@ export function gapsOf(lf: string, doc?: Document): Span[] {
   const gaps: Span[] = [];
   let at = 0;
   for (const p of protectedSpans(lf, doc)) {
-    if (p.start > at) gaps.push({ start: at, end: p.start });
+    // A block nested in a list or quote starts after its container's indent and markers; those bytes are on the
+    // block's own line, so the protected span is widened back to the line start and no caller can touch them (F-51).
+    const start = Math.max(at, lf.lastIndexOf('\n', p.start - 1) + 1);
+    if (start > at) gaps.push({ start: at, end: start });
     at = Math.max(at, p.end);
   }
   if (at < lf.length) gaps.push({ start: at, end: lf.length });

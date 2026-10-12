@@ -358,3 +358,22 @@ export function corpusProperties(op: Operation, opts: CorpusOptions): CorpusStat
   assert.ok(count > 0, `${op.id}: no corpus node was accepted, so nothing was checked`);
   return { files, variants, applied: count };
 }
+
+/**
+ * Documents with code nested in lists and quotes (F-51): indented and fenced blocks after a container's indent or `> `,
+ * each with prose and blank runs around it. LF text; for the property that a prose transform hands code back as it was.
+ */
+export function nestedCodeDocuments(): string[] {
+  // [the first line's prefix, the continuation lines' prefix]
+  const containers: [string, string][] = [['', ''], ['> ', '> '], ['- ', '  '], ['1. ', '   '], ['> - ', '>   '], ['- > ', '  > ']];
+  const out: string[] = [];
+  for (const [first, cont] of containers) {
+    const blank = cont.trimEnd();
+    for (const extra of ['', ' ']) {
+      out.push(`${first}item  \n${blank}\n${blank}\n${cont}    ${extra}code  \n${cont}    more\n${blank}\n${blank}\n\nafter \n`);
+      out.push(`${first}item\n${blank}\n${cont}${extra}\`\`\`js\n${cont}${extra}x  \n${blank}\n${blank}\n${cont}${extra}\`\`\`\n\n\n\nafter\n`);
+    }
+  }
+  out.push('- item\n\n         code\n', '1. step\n\n       code\n');
+  return out;
+}

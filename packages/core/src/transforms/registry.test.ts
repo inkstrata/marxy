@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { parseMarkdown } from '../parse/parse.ts';
 import { corpusDocuments } from '../operations/testing/corpus.ts';
 import {
-  assertLineSeparatorsPreserved, canFail, cr, crlf, mixedAllEndings, mixedEndings, withBom,
+  assertLineSeparatorsPreserved, canFail, cr, crlf, mixedAllEndings, mixedEndings, nestedCodeDocuments, withBom,
 } from '../operations/testing/test-kit.ts';
 import { CATALOGUE, DEFINITION_IDS, NOT_YET, TRANSFORMS, runTransform, transformById } from './registry.ts';
 import ids from './ids.json' with { type: 'json' };
@@ -138,6 +138,40 @@ test('mixed endings: every transform keeps each line\'s own ending', () => {
     const lines = new Set(mixed.match(/[^\r\n]*(?:\r\n|\r|\n)/g));
     for (const l of transformById(id)!.fn(mixed).match(/[^\r\n]*(?:\r\n|\r|\n)/g) ?? []) assert.ok(lines.has(l), `${id}: ${JSON.stringify(l)}`);
   }
+});
+
+// F-51: a block nested in a list or quote starts after its container's indent; the whole line, from its line start,
+// is the code's, so a prose transform that strips or rewrites the bytes before the block is a failure.
+function codeLines(text: string): string[] {
+  const doc = parseMarkdown(new TextEncoder().encode(text), { file: 'x' });
+  return nodesOf(text, doc, ['codeBlock']).flatMap(({ span }) => {
+    const from = text.lastIndexOf('\n', span.start - 1) + 1;
+    return text.slice(from, span.end).split('\n');
+  });
+}
+
+function assertCodeLinesKept(id: string, fn: (s: string) => string): void {
+  let checked = 0;
+  for (const text of nestedCodeDocuments()) {
+    const out = fn(text).split('\n');
+    for (const line of codeLines(text)) {
+      checked++;
+      assert.ok(out.includes(line), `${id}: a code line changed: ${JSON.stringify(line)} in ${JSON.stringify(text)}`);
+    }
+  }
+  assert.ok(checked > 20);
+}
+
+for (const t of TRANSFORMS.filter((x) => x.outsideCode)) {
+  test(`${t.id}: code nested in a list or quote keeps its lines from their line start (F-51)`, () => {
+    assertCodeLinesKept(t.id, t.fn);
+    assertCodeLinesKept(`${t.id} (CRLF)`, (s) => t.fn(crlf(s)).replace(/\r\n/g, '\n'));
+  });
+}
+
+test('the nested-code property can fail', () => {
+  canFail(() => assertCodeLinesKept('trim', (s) => s.replace(/[ \t]+$/gm, '')));
+  canFail(() => assertCodeLinesKept('unindent', (s) => s.replace(/^ +/gm, '')));
 });
 
 test('the protected-bytes property can fail', () => {

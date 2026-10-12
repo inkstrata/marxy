@@ -41,6 +41,11 @@ const cases: Case[] = [
   ['collapse-blank', 'trims trailing space and collapses blank runs', 'a  \nb\t\n\n\n\n\nc \n', 'a  \nb\n\nc\n'],
   ['collapse-blank', 'trims a trailing space that is not a hard break', 'a \nb\n', 'a\nb\n'],
   ['collapse-blank', 'leaves a fenced block alone', 'a\n\n\n\nb\n```\nx   \n\n\n\ny\n```\n', 'a\n\nb\n```\nx   \n\n\n\ny\n```\n'],
+  ['collapse-blank', 'keeps the indent of indented code after a bullet item (F-51)', '- item\n\n      code\n', '- item\n\n      code\n'],
+  ['collapse-blank', 'keeps the indent of indented code after a numbered item (F-51)', '1. step\n\n       code\n', '1. step\n\n       code\n'],
+  ['collapse-blank', 'keeps the indent of a fenced block in a list item (F-51)', '- item\n\n  ```js\n  x\n  ```\n', '- item\n\n  ```js\n  x\n  ```\n'],
+  ['collapse-blank', 'keeps the indent of indented code in a quoted list item (F-51)', '> - item\n>\n>       code\n', '> - item\n>\n>       code\n'],
+  ['collapse-blank', 'keeps the indent of the nine-space code line (F-51)', '- item\n\n         code\n', '- item\n\n         code\n'],
   // normalize-bullets
   ['normalize-bullets', '* and + become -', '* a\n* b\n  + c\n', '- a\n- b\n  - c\n'],
   ['normalize-bullets', 'leaves numbers, - and emphasis alone', '1. a\n2. b\n\n- c\n\n*it* and * not a list\n', '1. a\n2. b\n\n- c\n\n*it* and * not a list\n'],
