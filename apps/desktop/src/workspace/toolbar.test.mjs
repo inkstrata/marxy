@@ -75,33 +75,41 @@ test('a fill is made on unfold, disposed on fold and made again on the next unfo
     const got = await page.evaluate(async () => {
       const ws = window.__marxyHandle.workspace();
       const log = [];
+      // The tab row (W-06) fills `tabs` itself, so this stub joins it: it adds one element of its own and takes out only that.
       const before = ws.hasFill('tabs');
+      const stubs = () => ws.region('tabs').querySelectorAll('[data-stub]').length;
       const withdraw = ws.fill('tabs', (el) => {
-        el.textContent = 'stub';
+        const stub = document.createElement('i');
+        stub.setAttribute('data-stub', '');
+        el.append(stub);
         log.push(`made ${el.getAttribute('data-marxy-workspace-region')}`);
-        return () => log.push('disposed');
+        return () => {
+          stub.remove();
+          log.push('disposed');
+        };
       });
       const registered = ws.hasFill('tabs');
       log.push(`folded: ${document.querySelector('[data-marxy-workspace-region="strip"]') === null}`);
       await ws.unfold();
-      log.push(`text: ${ws.region('tabs').textContent}`);
+      log.push(`stubs: ${stubs()}`);
       await ws.fold();
       await ws.unfold();
-      log.push(`again: ${ws.region('tabs').textContent}`);
+      log.push(`again: ${stubs()}`);
       withdraw();
       log.push(`withdrawn: ${ws.hasFill('tabs')}`);
       await ws.fold();
       await ws.unfold();
-      log.push(`after: ${JSON.stringify(ws.region('tabs').textContent)}`);
+      log.push(`after: ${stubs()}`);
       // Registered while unfolded, it is made at once.
       ws.fill('status-bar', (el) => void (el.textContent = 'late'));
       log.push(`late: ${ws.region('status-bar').textContent}`);
       return { before, registered, log };
     });
     assert.deepEqual(got, {
-      before: false,
+      before: true,
       registered: true,
-      log: ['folded: true', 'made tabs', 'text: stub', 'disposed', 'made tabs', 'again: stub', 'disposed', 'withdrawn: false', 'after: ""', 'late: late'],
+      // `withdrawn` stays true: the tab row's own fill is still registered.
+      log: ['folded: true', 'made tabs', 'stubs: 1', 'disposed', 'made tabs', 'again: 1', 'disposed', 'withdrawn: true', 'after: 0', 'late: late'],
     });
   });
 });

@@ -31,6 +31,7 @@ import { conflictCopyPath, openDocumentStore } from '../../src/document/store.ts
 import { createStoreRegistry } from '../../src/document/registry.ts';
 import { oneWatchPerStore, watchDocument } from '../../src/document/live-reload.ts';
 import { save } from '../../src/save.ts';
+import { TabList } from '../../src/workspace/tabs.ts';
 import { createMemoryShell } from '../../src/shell/memory.ts';
 import { clearNotices, notify, SOURCE_HELD_APART } from '../../src/notices/index.ts';
 import { DISK_CHANGED_CHOOSE, FILE_REMOVED_ON_DISK } from '../../src/notices/disk.ts';
@@ -222,6 +223,9 @@ export function createModel(seed, rand) {
     disk: new Map(Object.entries(files).map(([path, bytes]) => [path, bytes.slice()])),
     docs: [],
     views: [null, null],
+    // W-06: the unfolded window's tab row (the real `TabList`) and the pane the reader is in. A tab is a path and holds no buffer.
+    tabs: new TabList(),
+    focus: 0,
     tokens: [],
     allowed: new Set(),
     dropped: new Set(),
@@ -379,9 +383,31 @@ export class World {
     const doc = docOf(model, store) ?? this.newDoc(store, path, bytes);
     await this.watches.watch(store);
     model.views[slot] = { slot, doc, mode: 'rendered', draft: null, typed: [], heldApart: false, fake: null };
+    model.focus = slot;
     // A pane that comes to show a document another pane holds unfolded in Source folds the holder first (app.ts).
     if (held) for (const other of viewsOf(model, doc)) if (other.slot !== slot && unfolded(other)) await this.fold(other);
     return doc;
+  }
+
+  /**
+   * The tab row follows the panes after every step (tabs-view.ts `reconcile`, through the same `TabList.sync`), and
+   * the structure a reader would see is checked: a tab for every document a pane shows, none twice, none past the cap.
+   */
+  syncTabs() {
+    const { model } = this;
+    if (!model.views[model.focus]) model.focus = [0, 1].find((slot) => model.views[slot]) ?? 0;
+    const view = model.views[model.focus];
+    model.tabs.sync(
+      [0, 1].map((slot) => ({ key: slot, path: model.views[slot]?.doc.path ?? null, store: model.views[slot]?.doc.store ?? null })),
+      view?.doc.path ?? null,
+    );
+    const { tabs, active } = model.tabs.snapshot();
+    if (new Set(tabs).size !== tabs.length) this.fail('tabs', `a path has two tabs: ${tabs.join(', ')}`);
+    if (tabs.length > 24) this.fail('tabs', `${tabs.length} tabs, past the cap`);
+    for (const v of model.views) {
+      if (v && !tabs.includes(v.doc.path)) this.fail('tabs', `${v.doc.path} is shown in pane ${v.slot} and has no tab`);
+    }
+    if (view && active !== view.doc.path) this.fail('tabs', `the focused pane shows ${view.doc.path} and the active tab is ${active}`);
   }
 
   /** The pane lets its store go; the last holder closes it (and its watch). */
@@ -642,6 +668,8 @@ function insertIntoText(world, text, token, piece, typed) {
   return text.slice(0, at) + token.text + piece + text.slice(at);
 }
 
+/** Leaving this view's document asks (a notice with Save, Discard, Dismiss): its Source text is unfolded, or it is the last holder of a dirty buffer (close.ts `lostByLeaving`). */
+const asks = (model, view) => unfolded(view) || (lastHolder(model, view) && dirty(view.doc));
 const slotsWith = (model, test = () => true) => [0, 1].filter((slot) => model.views[slot] && test(model.views[slot]));
 const lastHolder = (model, view) => viewsOf(model, view.doc).length === 1;
 const anyUnsaved = (model, doc) => dirty(doc) || viewsOf(model, doc).some(unfolded);
@@ -779,6 +807,82 @@ export const OPS = {
       const path = view.doc.path;
       world.detach(slot);
       return `close pane ${slot} (${path}), discarding what is unsaved`;
+    },
+  },
+
+  // W-06: a click on a tab shows its document in the focused pane, asking first over unsaved edits as any open does.
+  tabSwitch: {
+    name: 'tabSwitch',
+    weight: 4,
+    applicable: (model) => model.views[model.focus] != null && model.tabs.snapshot().tabs.some((p) => p !== model.views[model.focus].doc.path),
+    async run(world, model) {
+      const d = model.d;
+      const slot = model.focus;
+      const view = model.views[slot];
+      // A file another program deleted cannot be opened again from its tab: the walk clicks the others.
+      const { tabs } = model.tabs.snapshot();
+      const choices = tabs.filter((p) => p !== view.doc.path && (model.disk.get(p) != null || model.views.some((v) => v?.doc.path === p)));
+      if (choices.length === 0) return 'tab: every other tab is a deleted file';
+      const target = d.pick(choices);
+      const beside = model.views.findIndex((v, i) => i !== slot && v?.doc.path === target);
+      if (beside >= 0) {
+        // The other pane already shows it: the click moves focus there and shows nothing twice.
+        model.focus = beside;
+        world.syncTabs();
+        return `click tab ${target}: focus moves to pane ${beside}`;
+      }
+      const before = JSON.stringify([model.tabs.snapshot(), model.views.map((v) => v?.doc.path ?? null)]);
+      let how = '';
+      if (asks(model, view)) {
+        if (d.chance(0.5)) {
+          // Dismiss: the pane, its buffer, its draft and the row are as they were.
+          world.syncTabs();
+          if (JSON.stringify([model.tabs.snapshot(), model.views.map((v) => v?.doc.path ?? null)]) !== before) world.fail('tabs', 'Dismiss changed the row or a pane');
+          return `click tab ${target} over unsaved edits in pane ${slot}: Dismiss`;
+        }
+        world.mayDrop(model, view.typed.map((t) => t.id));
+        if (lastHolder(model, view)) world.mayDrop(model, tokensIn(model, latin1(view.doc.buf)));
+        how = ', discarding what is unsaved';
+      }
+      await world.open(slot, target);
+      world.syncTabs();
+      if (model.views[slot]?.doc.path !== target) world.fail('tabs', `the click on ${target} left pane ${slot} on ${model.views[slot]?.doc.path}`);
+      return `click tab ${target} in pane ${slot}${how}`;
+    },
+  },
+
+  // W-06: the close button removes a tab; on the document a pane shows it opens the next tab there first (asking the same way).
+  tabClose: {
+    name: 'tabClose',
+    weight: 3,
+    applicable: (model) => model.tabs.snapshot().tabs.length >= 2,
+    async run(world, model) {
+      const d = model.d;
+      const { tabs } = model.tabs.snapshot();
+      const target = d.pick(tabs);
+      const slot = model.views.findIndex((v) => v?.doc.path === target);
+      if (slot < 0) {
+        model.tabs.close(target);
+        world.syncTabs();
+        return `close tab ${target}: no pane shows it, nothing else moves`;
+      }
+      const view = model.views[slot];
+      const elsewhere = new Set(model.views.flatMap((v, i) => (v && i !== slot ? [v.doc.path] : [])));
+      const next = model.tabs.neighbour(target, elsewhere);
+      if (next === null || (model.disk.get(next) == null && !elsewhere.has(next))) return `close tab ${target}: no tab to show instead`;
+      const keep = model.focus;
+      let how = '';
+      if (asks(model, view)) {
+        if (d.chance(0.5)) return `close tab ${target} over unsaved edits in pane ${slot}: Dismiss`;
+        world.mayDrop(model, view.typed.map((t) => t.id));
+        if (lastHolder(model, view)) world.mayDrop(model, tokensIn(model, latin1(view.doc.buf)));
+        how = ', discarding what is unsaved';
+      }
+      await world.open(slot, next);
+      model.tabs.close(target);
+      model.focus = keep;
+      world.syncTabs();
+      return `close tab ${target} in pane ${slot}: ${next} shown there${how}`;
     },
   },
 
@@ -1481,6 +1585,7 @@ export async function runWalk(seed, { steps } = {}) {
       try {
         label = await op.run(world, model, rand);
         model.trace.push(label);
+        world.syncTabs();
       } catch (error) {
         model.trace.push(`${op.name}: threw ${error?.message ?? error}`);
         const failure = error instanceof WalkFailure ? error : { invariant: 'step', message: `${op.name} threw: ${error?.stack ?? error}` };

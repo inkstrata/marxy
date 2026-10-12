@@ -817,6 +817,39 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
 .marxy-toolbar-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .marxy-toolbar-folder { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .marxy-toolbar-dirty[hidden] { display: none; }
+/* The tab row (W-06 layout; W-04 owns the look). One row in the `tabs` region, a tab per document opened since the window
+   unfolded: the kind's glyph, the name and the unsaved dot, and a close button. The row fills the band's height and
+   never wraps; when the tabs do not fit (a narrow window, chrome_size 26, many documents) each shrinks to a floor of
+   six ems and the row scrolls, with the edge that hides tabs faded into the ground as the toolbar's is, so the page
+   itself never scrolls sideways. The active tab is the focused pane's document (accent line under it); a document
+   the other pane shows has a quiet line of the secondary text. The close button is out of the tab stops: Delete
+   closes the tab that has focus. */
+.marxy-tabs {
+  --marxy-tabs-fade: calc(var(--marxy-size-chrome) * 2);
+  display: flex; align-items: stretch; gap: 2px; height: 100%; padding-inline-start: 0.9em; min-width: 0;
+  overflow-x: auto; scrollbar-width: none; user-select: none; -webkit-user-select: none;
+  background:
+    linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-tabs-fade) 100% no-repeat local,
+    linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-tabs-fade) 100% no-repeat local,
+    linear-gradient(to right, color-mix(in srgb, var(--marxy-color-text) 28%, transparent), transparent) left center / var(--marxy-tabs-fade) 100% no-repeat scroll,
+    linear-gradient(to left, color-mix(in srgb, var(--marxy-color-text) 28%, transparent), transparent) right center / var(--marxy-tabs-fade) 100% no-repeat scroll;
+}
+.marxy-tabs::-webkit-scrollbar { display: none; }
+/* The end of the row is a margin, not padding: padding at the end of a scrolling flex row is not scrolled to. */
+.marxy-tab:last-child { margin-inline-end: 0.9em; }
+.marxy-tab { display: flex; align-items: stretch; flex: 0 1 14em; min-width: 6em; max-width: 14em; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); }
+.marxy-tab > button { appearance: none; -webkit-appearance: none; margin: 0; padding: 0; border: 0; border-radius: inherit; background: none; color: inherit; font: inherit; line-height: 1; cursor: default; white-space: nowrap; }
+.marxy-tab > button:hover { background: var(--marxy-color-selection); }
+.marxy-tab > button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-tab-open { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 0.4em; padding-inline: 0.6em 0.3em; overflow: hidden; text-align: start; }
+.marxy-tab-open .marxy-kind-glyph { flex: none; display: inline-flex; }
+.marxy-tab-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.marxy-tab-dirty { flex: none; }
+.marxy-tab-dirty[hidden], .marxy-tab-close[hidden] { display: none; }
+.marxy-tab-close { flex: none; padding-inline: 0.5em; color: var(--marxy-color-text-secondary); }
+.marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 var(--marxy-color-text-secondary); }
+.marxy-tab[data-marxy-tab-active] { background: var(--marxy-color-accent-wash); box-shadow: inset 0 -2px 0 var(--marxy-color-accent); }
+
 /* The panes: the middle of the grid, below the bands. A split fills what the bands leave (index.html gives it the window's height). */
 body[data-marxy-workspace="unfolded"] #marxy-main { grid-column: 2; grid-row: 4; min-height: var(--marxy-ws-panes-h); }
 body[data-marxy-workspace="unfolded"] #marxy-main[data-marxy-split] { height: var(--marxy-ws-panes-h); }
@@ -851,6 +884,19 @@ body[data-marxy-workspace="unfolded"][data-marxy-mode="source"] #marxy-main:not(
   .marxy-toolbar button[aria-pressed="true"] { background: Highlight; color: HighlightText; box-shadow: none; }
   .marxy-toolbar button[aria-disabled="true"] { color: GrayText; background: none; }
   .marxy-toolbar button[aria-disabled="true"][aria-checked="true"] { background: none; color: GrayText; outline: 1px dashed GrayText; outline-offset: -1px; }
+  .marxy-tabs {
+    background:
+      linear-gradient(to right, Canvas, Canvas) left center / var(--marxy-tabs-fade) 100% no-repeat local,
+      linear-gradient(to left, Canvas, Canvas) right center / var(--marxy-tabs-fade) 100% no-repeat local,
+      linear-gradient(to right, GrayText, Canvas) left center / var(--marxy-tabs-fade) 100% no-repeat scroll,
+      linear-gradient(to left, GrayText, Canvas) right center / var(--marxy-tabs-fade) 100% no-repeat scroll;
+  }
+  .marxy-tab > button { color: CanvasText; }
+  .marxy-tab > button:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
+  .marxy-tab > button:focus-visible { outline: 2px solid Highlight; }
+  .marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 GrayText; }
+  .marxy-tab[data-marxy-tab-active] { background: Highlight; color: HighlightText; box-shadow: none; }
+  .marxy-tab[data-marxy-tab-active] > button { color: HighlightText; }
   .marxy-verb-menu-item:focus { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .marxy-verb-menu-item:focus .marxy-verb-menu-key { color: HighlightText; }
   .marxy-divider::before { background: CanvasText; animation: none !important; forced-color-adjust: none; }

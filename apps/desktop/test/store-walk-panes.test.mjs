@@ -10,6 +10,8 @@
 //   I3  every token typed is still in a buffer, an editor or a file (unless a step that says so dropped it)
 //   I4  an outside write is announced: a clean store shows it, a dirty one holds it for a choice and says so
 //   I5  one store per path, one watch per store
+// W-06 adds the tab row: the walk unfolds the window and clicks real tabs and close buttons (tabSwitch, tabClose),
+// and every step also asks the page the row's own questions (a tab for each document a pane shows, none twice).
 // What only the node layer covers: the exact history/baseline arithmetic (I6, I7) and the weighted mix of
 // steps over CRLF, mixed and BOM files. What only this layer covers: the views and the notices.
 //
@@ -125,6 +127,10 @@ const look = (page) =>
           notices: [...(document.getElementById(slot === 0 ? 'marxy-notices' : 'marxy-notices-2')?.querySelectorAll('.marxy-notice-text') ?? [])].map((n) => n.textContent),
         };
       }),
+      tabs: [...document.querySelectorAll('.marxy-tab')].map((t) => t.getAttribute('data-marxy-tab')),
+      activeTab: document.querySelector('.marxy-tab[data-marxy-tab-active]')?.getAttribute('data-marxy-tab') ?? null,
+      bandHidden: document.querySelector('[data-marxy-workspace-region="tabs"]')?.hidden ?? null,
+      focused: h.panes().panes.indexOf(h.panes().focused),
       stores: stores.length,
       watches: window.__marxyWatches,
       files,
@@ -164,7 +170,8 @@ function openSeed(seed) {
       const second = d.chance(0.5) ? first : d.pick(PATHS);
       await bootTwoPanes(page, { files: FILES, open: [first, second], guard: true });
       await watchWrites(page);
-      log.push(`open ${first} and ${second}`);
+      await page.evaluate(() => window.__marxyHandle.workspace().unfold());
+      log.push(`open ${first} and ${second}, window unfolded`);
       const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
       const tokens = [];
       let nextToken = 0;
@@ -196,6 +203,11 @@ function openSeed(seed) {
           byStore.set(p.storeIndex, p.path);
         }
         const paths = seen.panes.map((p) => p.path);
+        // W-06: the row shows a tab for every document a pane shows, none twice, the focused pane's active, hidden below two.
+        for (const p of seen.panes) if (!seen.tabs.includes(p.path)) fail('tabs', `${p.path} is shown in pane ${p.slot} and has no tab (${seen.tabs.join(', ')})`);
+        if (new Set(seen.tabs).size !== seen.tabs.length) fail('tabs', `a path has two tabs: ${seen.tabs.join(', ')}`);
+        if (seen.activeTab !== seen.panes[seen.focused]?.path) fail('tabs', `the focused pane shows ${seen.panes[seen.focused]?.path} and the active tab is ${seen.activeTab}`);
+        if (seen.bandHidden !== (seen.tabs.length < 2)) fail('tabs', `${seen.tabs.length} tab(s) and the band is ${seen.bandHidden ? 'hidden' : 'shown'}`);
         for (const p of seen.panes) {
           const other = seen.panes.find((q) => q.slot !== p.slot && q.path === p.path);
           if (other && other.storeIndex !== p.storeIndex) fail('I5 (one store per path)', `${p.path} is shown through two stores`);
@@ -324,6 +336,41 @@ function openSeed(seed) {
             await answer(page);
             await page.evaluate(() => window.__opening);
             return { label: `open ${name(path)} in pane ${p.slot}`, mayDrop: () => tokensIn(p.buffer) };
+          },
+        },
+        // W-06: a click on a tab shows its document in the focused pane, asking first over unsaved edits as any open does.
+        tabSwitch: {
+          weight: 5,
+          applicable: (s) => s.tabs.length >= 2,
+          async run(s) {
+            const slot = d.pick(s.panes).slot;
+            await focusPane(page, slot);
+            const here = s.panes[slot];
+            const target = d.pick(s.tabs.filter((t) => t !== here.path));
+            if (!target) return { label: 'every tab is the focused pane\'s document' };
+            const beside = s.panes.some((q) => q.slot !== slot && q.path === target);
+            await page.click(`[data-marxy-tab="${target}"] [role=tab]`);
+            // Over unsaved edits the click asks: Dismiss (nothing changes) or discard (what is unsaved goes).
+            const discard = d.chance(0.5);
+            const asked = await answer(page, discard ? 'Open without saving' : 'Dismiss');
+            const label = `click tab ${name(target)} in pane ${slot}${beside ? ' (shown beside: focus moves)' : ''}${asked ? (discard ? ': discard' : ': Dismiss') : ''}`;
+            return { label, mayDrop: asked && discard ? () => [...tokensIn(here.buffer), ...tokensIn(here.editor)] : undefined };
+          },
+        },
+        // W-06: the close button removes a tab; on the document a pane shows it opens the next tab there first.
+        tabClose: {
+          weight: 3,
+          applicable: (s) => s.tabs.length >= 2,
+          async run(s) {
+            const target = d.pick(s.tabs);
+            const owner = s.panes.find((q) => q.path === target);
+            const closable = await page.evaluate((t) => !document.querySelector(`[data-marxy-tab="${t}"] .marxy-tab-close`).hidden, target);
+            if (!closable) return { label: `tab ${name(target)} has no close button` };
+            await page.click(`[data-marxy-tab="${target}"] .marxy-tab-close`);
+            const discard = d.chance(0.5);
+            const asked = await answer(page, discard ? 'Open without saving' : 'Dismiss');
+            const label = `close tab ${name(target)}${owner ? ` in pane ${owner.slot}` : ''}${asked ? (discard ? ': discard' : ': Dismiss') : ''}`;
+            return { label, mayDrop: owner && asked && discard ? () => [...tokensIn(owner.buffer), ...tokensIn(owner.editor)] : undefined };
           },
         },
         outsideWrite: {
