@@ -25,6 +25,7 @@ import {
   type ContentSearch,
   type ContentState,
 } from './content.ts';
+import { paletteChordFor } from './chords.ts';
 import type { PaletteKey } from './keys.ts';
 import { keyLabel, paletteCommands } from './commands.ts';
 import {
@@ -991,9 +992,9 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     (event) => {
       if (!isMod(event) || event.altKey) return;
       const key = event.key.toLowerCase();
-      const commands = (key === 'p' && event.shiftKey) || (key === '/' && !event.shiftKey);
-      const documents = (key === 'p' || key === 'k') && !event.shiftKey;
-      if (!commands && !documents) return;
+      const chord = paletteChordFor(key, event.shiftKey);
+      if (!chord) return;
+      const documents = chord.opens === 'documents';
       event.preventDefault();
       // Only Mod+/ is also a Source editor chord (CodeMirror's toggle comment): it stops here. The others go on,
       // so an open verb menu still closes on them.

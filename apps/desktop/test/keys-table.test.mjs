@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { PANE_CHORDS } from '../src/pane/keys.ts';
 import { commands } from '../src/commands/index.ts';
 import { registryChord } from '../src/source/structure.ts';
+import { PALETTE_CHORDS } from '../src/palette/chords.ts';
 import { setAppHandle } from '../src/commands/app-handle.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -18,9 +19,6 @@ const MAC = true;
 const PHYSICAL = { Backslash: '\\', ArrowLeft: 'arrowleft', ArrowRight: 'arrowright', Slash: '/' };
 const physical = (code) => PHYSICAL[code] ?? code.replace(/^(Digit|Key)/, '').toLowerCase();
 const paneChord = (c) => registryChord(['Mod', c.ctrl ? 'Ctrl' : null, c.alt ? 'Alt' : null, c.shift ? 'Shift' : null, physical(c.code)].filter(Boolean).join('+'), MAC);
-
-/** The palette's summoning chords (palette/view.ts): not registry commands. */
-const PALETTE_CHORDS = ['Mod+P', 'Mod+K', 'Mod+Shift+P', 'Mod+/'];
 
 /** Native menu accelerators, from main.rs; an item that replays a command's chord names that owner. */
 const MENU_OWNERS = {
@@ -48,7 +46,7 @@ function table() {
   };
   for (const cmd of commands()) for (const spec of [cmd.key, ...(cmd.keys ?? [])].filter(Boolean)) claim(registryChord(spec, MAC), cmd.id, 'command');
   for (const chord of PANE_CHORDS) claim(paneChord(chord), chord.command, 'pane');
-  for (const spec of PALETTE_CHORDS) claim(registryChord(spec, MAC), 'palette', 'palette');
+  for (const { spec } of PALETTE_CHORDS) claim(registryChord(spec, MAC), 'palette', 'palette');
   for (const item of menuAccelerators()) claim(item.chord, MENU_OWNERS[item.id] ?? item.id, 'menu');
   return owners;
 }

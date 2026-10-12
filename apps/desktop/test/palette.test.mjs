@@ -225,6 +225,51 @@ test('Mod+K and Mod+P toggle the palette; Mod+Shift+P opens it on commands and M
   }
 });
 
+test('the palette chords work from the find field and with a typed query open (W-19.1)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    await page.evaluate(async ({ doc, argv }) => {
+      await window.marxyPaletteBoot.start({ '/docs/readme.md': doc }, argv, []);
+    }, { doc: Buffer.from(HEADING_DOC).toString('base64'), argv: ['/docs/readme.md'] });
+    const mod = modChord(await page.evaluate(() => navigator.platform));
+    const state = () =>
+      page.evaluate(() => ({
+        open: document.querySelector('#marxy-palette')?.open === true,
+        query: document.querySelector('#marxy-palette .marxy-palette-query')?.value,
+      }));
+    const press = async (chord) => { await page.keyboard.press(chord); await page.waitForTimeout(50); };
+
+    // From inside the find field each chord still opens the palette.
+    await press(`${mod}+KeyF`);
+    await page.waitForSelector('.marxy-find input');
+    for (const [chord, query] of [[`${mod}+KeyK`, ''], [`${mod}+KeyP`, ''], [`${mod}+Shift+KeyP`, '>'], [`${mod}+Slash`, '>Transform']]) {
+      await page.focus('.marxy-find input');
+      await press(chord);
+      const opened = await state();
+      assert.equal(opened.open, true, `${chord} opens from the find field`);
+      assert.equal(opened.query, query, `${chord} opens on ${JSON.stringify(query)} from the find field`);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(50);
+      assert.equal((await state()).open, false);
+    }
+
+    // With the palette open on a typed query, Mod+/ and Mod+Shift+P reset it, and Mod+K closes it.
+    await press(`${mod}+KeyK`);
+    await page.keyboard.type('doc');
+    await press(`${mod}+Slash`);
+    assert.deepEqual(await state(), { open: true, query: '>Transform' });
+    await press(`${mod}+Shift+KeyP`);
+    assert.deepEqual(await state(), { open: true, query: '>' });
+    await press(`${mod}+KeyK`);
+    assert.equal((await state()).open, false);
+  } finally {
+    await browser.close();
+  }
+});
+
 test('a row shows the kind its index entry recorded (K-05a); the path decides only for an entry that records none', async () => {
   const browser = await launchWebkit();
   try {
