@@ -305,6 +305,80 @@ test('U-08: a docked inspector lies over the page at 760 px, moves nothing, and 
   });
 });
 
+/** The inspector door as a reader meets it: the toggle's state, what the palette lists, and whether it is drawn. */
+const inspectorDoor = (page) =>
+  page.evaluate(() => {
+    const el = document.querySelector('[data-marxy-workspace-region="inspector"]');
+    const toggle = document.querySelector('[data-marxy-toolbar-item="inspector"] button');
+    return {
+      docked: window.__marxyHandle.workspace().arrangement?.inspector,
+      drawn: !!el && !el.hidden && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0,
+      pressed: toggle?.getAttribute('aria-pressed') ?? 'absent',
+      disabled: toggle?.getAttribute('aria-disabled') ?? 'no',
+      tip: toggle?.title ?? '',
+    };
+  });
+/** The palette lists a command that is `listed` and whose `when` holds (palette/commands.ts); `when` here ignores its context. */
+const paletteListsInspector = (page) =>
+  page.evaluate(() => {
+    const c = window.__marxyHandle.commands().find((x) => x.id === 'view.toggle-inspector');
+    return c.listed !== false && c.when({});
+  });
+
+for (const [name, open, enter] of [
+  ['Source', ['/r/A.md'], async (page, mod) => { await page.keyboard.press(`${mod}+KeyE`); await page.waitForSelector('.cm-editor'); }],
+  ['Split', ['/r/A.md', '/r/B.md'], async (page) => { await page.setViewportSize({ width: 760, height: 900 }); await page.waitForTimeout(300); assert.equal(await page.evaluate(() => document.getElementById('marxy-main').hasAttribute('data-marxy-split')), true, 'a split is showing'); }],
+]) {
+  test(`U-08: at 760 px in ${name} the inspector key does nothing, the door says why, and widening shows the docked choice`, async () => {
+    const browser = await launchWebkit();
+    try {
+      // A split needs room to lay out: it is made wide, then the window is narrowed.
+      const page = await browser.newPage({ viewport: { width: open.length > 1 ? 1900 : 760, height: 900 } });
+      await bootTwoPanes(page, { files, open });
+      const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+      await enter(page, mod);
+      await unfold(page);
+      await page.waitForTimeout(100);
+      await page.keyboard.press(`${mod}+Alt+KeyI`);
+      await page.waitForTimeout(100);
+      const shut = await inspectorDoor(page);
+      assert.equal(shut.docked, false, 'the key did nothing: the inspector was not docked');
+      assert.equal(shut.pressed, 'false', 'the toggle is not shown as on');
+      assert.equal(shut.disabled, 'true', 'the toggle is disabled');
+      assert.match(shut.tip, /wider window/, 'and says why');
+      assert.equal(shut.drawn, false);
+      assert.equal(await paletteListsInspector(page), false, 'the palette does not offer it');
+      // The reader's choice is kept: docked while the door is shut (a stored choice), it shows once the window widens.
+      await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
+      const kept = await inspectorDoor(page);
+      assert.equal(kept.pressed, 'false', 'a docked choice is still not shown as on while it cannot show');
+      assert.equal(kept.drawn, false);
+      await page.setViewportSize({ width: 1100, height: 900 });
+      await page.waitForTimeout(300);
+      const wide = await inspectorDoor(page);
+      assert.equal(wide.docked, true, 'the choice was kept');
+      assert.equal(wide.pressed, 'true');
+      assert.equal(wide.disabled, 'no');
+      assert.equal(wide.drawn, true, 'widening shows the inspector');
+      assert.equal(await paletteListsInspector(page), true, 'and the palette offers it again');
+    } finally {
+      await browser.close();
+    }
+  });
+}
+
+test('U-08: at 760 px in Read the inspector key still docks it over the page, and the toggle is on', async () => {
+  await withPage(760, async (page) => {
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    await unfold(page);
+    await page.keyboard.press(`${mod}+Alt+KeyI`);
+    await page.waitForTimeout(100);
+    const door = await inspectorDoor(page);
+    assert.deepEqual([door.docked, door.drawn, door.pressed, door.disabled], [true, true, 'true', 'no']);
+    assert.equal(await paletteListsInspector(page), true);
+  });
+});
+
 test('U-08: the narrow default is not the reader\'s choice: widening brings the sidebar back, and a choice made narrow stays', async () => {
   const browser = await launchWebkit();
   try {

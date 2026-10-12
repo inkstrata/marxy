@@ -134,6 +134,11 @@ export interface Workspace {
   /** Whether anything is registered to fill `region`: what a control that lives in another region asks. */
   hasFill(region: WorkspaceRegion): boolean;
   /**
+   * Whether the inspector cannot be shown now (U-08): the window is under `NARROW_WINDOW` and the focused pane is in Source or the
+   * layout is Split, where the stylesheet never lays it over the page. The reader's docked choice is kept; the door is shut.
+   */
+  inspectorHidden(): boolean;
+  /**
    * The sidebar's folded sections (W-07), kept in workspace.json beside the panels by the one store. Nothing has
    * been read until the first call, so a launch still touches nothing; a window with no store remembers none.
    */
@@ -366,6 +371,9 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
     },
 
     hasFill: (name) => (fills.get(name)?.length ?? 0) > 0,
+
+    inspectorHidden: () =>
+      deps.windowWidth() < NARROW_WINDOW && (deps.body.getAttribute('data-marxy-mode') === 'source' || deps.body.querySelector('#marxy-main[data-marxy-split]') !== null),
 
     async loadSections() {
       if (sections) return sections;
