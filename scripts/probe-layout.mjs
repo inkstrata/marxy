@@ -665,6 +665,8 @@ export function surveyInPage() {
     maxSetLinePastBoxPx: r(maxOver),
     blockOverlaps: overlaps,
     bodyFontPx: parseFloat(getComputedStyle(a).fontSize),
+    // The kind the pane root carries (null when the page has none): a kind's profile sets the body size as a ratio of the reader's.
+    kind: a.closest('[data-marxy-kind]')?.getAttribute('data-marxy-kind') ?? null,
     // What the page actually computes, per kind of text block: for each of the four WCAG 1.4.12 properties the
     // element of that kind that falls shortest of its condition (px, with the font size it is judged against),
     // so one paragraph set right cannot vouch for a list or a heading that was not.
@@ -729,9 +731,21 @@ export function spacingAppliedFailures(s) {
   return out;
 }
 
-/** The 200 % condition: body text is `want` px (twice the default size), not whatever the page happened to use. */
+/**
+ * The body size a kind's profile sets as a multiple of the reader's own text size (K-05b, theme.css: a README is 16 px
+ * at the reader's 20, a report 17 px). The reader still gets twice the profile's size at 200 %, so that is what the check
+ * expects. Written out here, not read from the stylesheet, so a profile whose ratio moves fails the gate until someone
+ * says so; a kind with no entry (every other kind, and a page with no kind) is held to the reader's size as before.
+ */
+export const KIND_BODY_RATIO = { readme: 0.8, report: 0.85 };
+
+/** The 200 % condition: body text is `want` px (twice the default size) times the kind's profile ratio, not whatever the page happened to use. */
 export function text200AppliedFailures(s, want) {
-  return s.bodyFontPx === want ? [] : [`body text is ${s.bodyFontPx}px, not ${want}px (200 %): the size was not applied`];
+  const ratio = KIND_BODY_RATIO[s.kind] ?? 1;
+  const expected = want * ratio;
+  if (Math.abs(s.bodyFontPx - expected) < 0.01) return [];
+  const why = ratio === 1 ? `${want}px (200 %)` : `${expected}px (200 % of the ${s.kind} profile's ${ratio} of the reader's size)`;
+  return [`body text is ${s.bodyFontPx}px, not ${why}: the size was not applied`];
 }
 
 /** The four WCAG 1.4.12 overrides, as a reader theme: the typesetter sets with them. */
