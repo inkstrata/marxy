@@ -84,8 +84,9 @@ export async function measureFiles(
   let reads = 0;
   let overBudget = false;
   let next = 0;
+  const aborted = (): boolean => opts.signal?.aborted === true;
   const worker = async (): Promise<void> => {
-    while (opts.signal?.aborted !== true) {
+    while (!aborted()) {
       if (cache.bytesRead >= budget) {
         overBudget = true;
         return;
@@ -99,7 +100,7 @@ export async function measureFiles(
       } catch {
         bytes = null;
       }
-      if (opts.signal?.aborted === true) return;
+      if (aborted()) return;
       cache.bytesRead += bytes?.length ?? 0;
       cache.set(entry, bytes === null ? { words: 0, hasCode: false, hasPaths: false, hasLinks: false, openTasks: 0 } : measureBytes(bytes, entry.size));
       measured++;

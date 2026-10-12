@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { IndexEntry } from '@marxy/core';
 import { emptySession, recordOpen, togglePin } from '../palette/session.ts';
-import { changedPredicate, collectionNames, libraryScopes, scopeEntries, scopeIsOrdered, withSessionRead, type ScopeInput } from './scopes.ts';
+import { changedPredicate, libraryScopes, scopeEntries, scopeIsOrdered, withSessionRead, type ScopeInput } from './scopes.ts';
 
 const NOW = 1_000_000;
 const entry = (path: string, root: string, over: Partial<IndexEntry> = {}): IndexEntry => ({
@@ -26,7 +26,7 @@ function input(over: Partial<ScopeInput> = {}): ScopeInput {
   session = togglePin(session, '/gone.md');
   return {
     entries,
-    declared: [{ path: '/notes', name: 'Notes' }, { path: '/empty' }],
+    declared: ['/notes', '/empty'],
     session,
     nowMs: NOW,
     watched: (root) => root !== '/unwatched',
@@ -39,7 +39,7 @@ test('the scopes, in order, with their counts', () => {
   const scopes = libraryScopes(input());
   assert.deepEqual(scopes.map((s) => [s.id, s.label, s.path, s.count]), [
     ['all', 'All files', undefined, 5],
-    ['folder:/notes', 'Notes', '/notes', 2],
+    ['folder:/notes', 'notes', '/notes', 2],
     ['folder:/empty', 'empty', '/empty', 0],
     ['recent', 'Recent', undefined, 3],
     ['pinned', 'Pinned', undefined, 1],
@@ -69,11 +69,4 @@ test('Changed is the palette\'s rule: modified after it was read, or after Marxy
   const afterRead = changedPredicate(input({ session: { ...read, readAt: { '/repo/c.md': 900_000 } } }));
   assert.equal(afterRead(entries[2]!), false, 'the session\'s read time over the index\'s');
   assert.equal(withSessionRead(entries[2]!, { ...read, readAt: { '/repo/c.md': 5 } }).lastReadMs, 5);
-});
-
-test('in: answers to a folder\'s declared name and to its own', () => {
-  const names = collectionNames([{ path: '/notes', name: 'My Notes' }, { path: '/repo' }]);
-  assert.deepEqual(names('/notes'), ['My Notes', 'notes']);
-  assert.deepEqual(names('/repo'), ['repo']);
-  assert.deepEqual(names('/other/place'), ['place']);
 });

@@ -176,8 +176,7 @@ test('text: lines the caller has searched are reasons, and make a file match', (
   const why = hitOf('needle', '/r/notes/standup.md', { lines })!.why;
   assert.deepEqual(why, [
     { kind: 'line', line: 12, preview: 'the needle in it', matchStart: 4, matchEnd: 10 },
-    { kind: 'line', line: 20, preview: 'needle again', matchStart: 0, matchEnd: 6 },
-  ], 'two lines at most per term');
+  ], 'one line per term: the preview lists the rest');
   assert.deepEqual(run('-needle kind:notes', { lines }), [], 'a negated term excludes a file with a matching line');
 });
 

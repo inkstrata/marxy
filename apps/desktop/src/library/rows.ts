@@ -7,8 +7,8 @@ import { pathUnder, basename } from '@marxy/core/src/index-model/paths.ts';
 import type { QueryHit, Reason } from '@marxy/core/src/index-model/query-eval.ts';
 import { relativeAge, spokenAge } from '../palette/empty-state.ts';
 
-/** A row shows at most this many reasons, one line each; the last of them says how many more there were. */
-export const MAX_WHY = 3;
+/** A row shows at most this many reason lines, one line each; the last of them says how many more there were. */
+export const MAX_WHY = 4;
 
 /** One reason as the line it is drawn as: `title`, `path`, `heading "Cache"`, `line 12: ...`, `kind:report`. */
 export function reasonLine(r: Reason): string {

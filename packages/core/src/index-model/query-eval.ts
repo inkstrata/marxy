@@ -248,7 +248,8 @@ function contentMatcher(t: FieldTerm, ctx: QueryContext): Matcher {
   };
 }
 
-const MAX_LINES_PER_TERM = 2;
+/** A row has room for one matching line per term; the preview lists more from the search itself. */
+const MAX_LINES_PER_TERM = 1;
 
 function textMatcher(n: TextNeedle, ctx: QueryContext): Matcher {
   const exact = isCaseSensitiveQuery(n.text);
@@ -266,7 +267,8 @@ function textMatcher(n: TextNeedle, ctx: QueryContext): Matcher {
       reasons.push({ kind: 'path' });
       score += 1;
     }
-    const heading = e.headings.find((h) => fold(h.text).includes(needle));
+    // The first heading is usually the title; it is not a second reason.
+    const heading = e.headings.find((h) => h.text !== e.title && fold(h.text).includes(needle));
     if (heading) {
       reasons.push({ kind: 'heading', text: heading.text, level: heading.level });
       score += 1.5;

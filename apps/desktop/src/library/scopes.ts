@@ -8,12 +8,6 @@ import { emptyQueryPaths, type PaletteSession } from '../palette/session.ts';
 
 export type ScopeId = 'all' | 'recent' | 'pinned' | 'changed' | `folder:${string}`;
 
-/** A folder `collection.toml` declares. */
-export interface DeclaredFolder {
-  readonly path: string;
-  readonly name?: string;
-}
-
 export interface LibraryScope {
   readonly id: ScopeId;
   readonly label: string;
@@ -26,7 +20,8 @@ export interface LibraryScope {
 export interface ScopeInput {
   /** Every entry the palette searches, in its scope order (`feed.entries()`). */
   readonly entries: readonly IndexEntry[];
-  readonly declared: readonly DeclaredFolder[];
+  /** The folders `collection.toml` declares, in file order (the feed's `declared()`). */
+  readonly declared: readonly string[];
   readonly session: PaletteSession;
   readonly nowMs: number;
   /** Whether a root is watched (the index service's `isWatched`): nothing in an unwatched root counts as changed. */
@@ -47,15 +42,6 @@ export function changedPredicate(input: Pick<ScopeInput, 'session' | 'nowMs' | '
 }
 
 const folderId = (path: string): ScopeId => `folder:${path}`;
-
-/** The names a collection answers to for `in:`: the declared name and the folder's own name; for any other root, its folder's name. */
-export function collectionNames(declared: readonly DeclaredFolder[]): (root: string) => readonly string[] {
-  const byPath = new Map(declared.map((d) => [d.path, d.name] as const));
-  return (root) => {
-    const name = byPath.get(root);
-    return name === undefined || name === basename(root) ? [basename(root)] : [name, basename(root)];
-  };
-}
 
 /** The entries of one scope, in the scope's own order: the index's for a folder and All files, last opened first for Recent. */
 export function scopeEntries(id: ScopeId, input: ScopeInput): readonly IndexEntry[] {
@@ -82,9 +68,9 @@ export function scopeEntries(id: ScopeId, input: ScopeInput): readonly IndexEntr
 /** The scopes the library offers, in the order it draws them. A folder the index holds nothing of yet still has its scope. */
 export function libraryScopes(input: ScopeInput): readonly LibraryScope[] {
   const scopes: LibraryScope[] = [{ id: 'all', label: 'All files', count: input.entries.length }];
-  for (const folder of input.declared) {
-    const id = folderId(folder.path);
-    scopes.push({ id, label: folder.name ?? basename(folder.path), path: folder.path, count: scopeEntries(id, input).length });
+  for (const path of input.declared) {
+    const id = folderId(path);
+    scopes.push({ id, label: basename(path), path, count: scopeEntries(id, input).length });
   }
   for (const [id, label] of [['recent', 'Recent'], ['pinned', 'Pinned'], ['changed', 'Changed since you read']] as const) {
     scopes.push({ id, label, count: scopeEntries(id, input).length });

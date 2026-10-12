@@ -24,13 +24,13 @@ test('each reason is one short line', () => {
   assert.equal(reasonLine({ kind: 'field', label: 'words:>500', detail: '≥1,203 words' }), 'words:>500 (≥1,203 words)');
 });
 
-test('over three reasons, the last line counts the rest rather than dropping them', () => {
-  const many: Reason[] = ['a', 'b', 'c', 'd', 'e'].map((label) => ({ kind: 'field', label }));
-  assert.equal(MAX_WHY, 3);
-  assert.deepEqual(whyLines(many), ['a', 'b', '3 more reasons']);
-  assert.deepEqual(whyLines(many, 5), ['a', 'b', 'c', 'd', 'e']);
+test('over four reasons, the last line counts the rest rather than dropping them', () => {
+  const many: Reason[] = ['a', 'b', 'c', 'd', 'e', 'f'].map((label) => ({ kind: 'field', label }));
+  assert.equal(MAX_WHY, 4);
+  assert.deepEqual(whyLines(many), ['a', 'b', 'c', '3 more reasons']);
+  assert.deepEqual(whyLines(many, 6), ['a', 'b', 'c', 'd', 'e', 'f']);
   assert.deepEqual(whyLines([{ kind: 'title' }, { kind: 'title' }]), ['title'], 'a repeat is one line');
-  assert.equal(whyCount(hit(entry('/r/x.md'), many)), 3);
+  assert.equal(whyCount(hit(entry('/r/x.md'), many)), 4);
   assert.equal(whyCount(hit(entry('/r/x.md'))), 0);
 });
 
