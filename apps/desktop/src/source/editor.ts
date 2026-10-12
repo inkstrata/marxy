@@ -158,6 +158,7 @@ export async function baseExtensions(
   buffer: Buffer,
   lineNumbers: boolean,
   compartments?: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment?: Compartment },
+  island = false,
 ): Promise<Extension[]> {
   const { history, defaultKeymap, historyKeymap } = await import('@codemirror/commands');
   const { EditorState } = await import('@codemirror/state');
@@ -174,10 +175,10 @@ export async function baseExtensions(
   const sepComp = compartments?.lineSeparatorCompartment ?? lineSeparatorCompartment;
   const tabComp = compartments?.tabSizeCompartment ?? tabSizeCompartment;
 
-  // The in-place block editor is the one caller that opts out of stray-byte restoring: an island inside Rendered's
-  // page, which keeps Rendered's code metrics. Every other mount is Source and wears its own (V-12, ADR-0067).
+  // The in-place block editor is the one caller that passes `island`: an island inside Rendered's page, which keeps
+  // Rendered's code metrics. Every other mount is Source and wears its own (V-12, ADR-0067).
   const wraps = sourceWraps(buffer.path) && !isLargeSourceFile(buffer);
-  const look: SourceLook = !strayRestore ? 'island' : wraps ? 'prose' : 'code';
+  const look: SourceLook = island ? 'island' : wraps ? 'prose' : 'code';
   const exts: Extension[] = [
     // The read-back of a save joins the edit before it (stray-bytes.ts `readBack`); every other join is the default's.
     history({ joinToEvent: (tr, adjacent) => adjacent || tr.annotation(readBack) === true }),
