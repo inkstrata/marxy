@@ -9,6 +9,7 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { checkInvariants } from '../src/parse/invariants.ts';
 import { parseMarkdown } from '../src/parse/parse.ts';
+import { codeLanguageOf, isCodeFile, parseCode } from '../src/parse/code.ts';
 import { renderDocumentSafeHtml } from '../src/render/pipeline.ts';
 import type { Node } from '../src/contracts/ast.ts';
 import { KIND_HEAD_BYTES, detectKind } from '../src/kind/detect.ts';
@@ -74,6 +75,25 @@ for (const name of fixtures) {
   const html = `${renderDocumentSafeHtml(document).html}\n`;
   if (!compare(name, new URL(`${base}.ast.txt`, goldens), ast, 'parsed')) failed++;
   if (!compare(name, new URL(`${base}.html.txt`, goldens), html, 'rendered')) failed++;
+}
+
+// Code files (V-10): the corpus's `04-source.*` are read as code, one block over all their bytes, never as Markdown.
+const codeFixtures = readdirSync(corpus).filter((name) => /^\d\d-/.test(name) && !name.endsWith('.md') && isCodeFile(name)).sort();
+if (codeFixtures.length === 0) {
+  console.error('golden: no code files in the corpus');
+  failed++;
+}
+for (const name of codeFixtures) {
+  const bytes = new Uint8Array(readFileSync(new URL(name, corpus)));
+  const document = parseCode(bytes, { file: name, lang: codeLanguageOf(name) });
+  const violations = checkInvariants(document, bytes);
+  if (violations.length > 0 || document.children.some((child) => child.type !== 'codeBlock')) {
+    failed++;
+    console.error(`golden: ${name} is not one clean code block: ${violations.map((v) => v.detail).join('; ')}`);
+    continue;
+  }
+  if (!compare(name, new URL(`${name}.ast.txt`, goldens), `${serialise(document).join('\n')}\n`, 'parsed')) failed++;
+  if (!compare(name, new URL(`${name}.html.txt`, goldens), `${renderDocumentSafeHtml(document).html}\n`, 'rendered')) failed++;
 }
 
 /** Writes the golden under `--update`; otherwise reports whether it matches. */

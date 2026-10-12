@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Node } from '@marxy/core';
 import { cmDocText } from '../source/buffer-commit.ts';
-import { HISTORY_DEPTH, conflictCopyPath, openDocumentStore, type DocumentSnapshot, type StoreIo, type Transition } from './store.ts';
+import { HISTORY_DEPTH, astOf as parsedAs, conflictCopyPath, openDocumentStore, type DocumentSnapshot, type StoreIo, type Transition } from './store.ts';
 import { importSpecs } from '../../../../scripts/lib/imports.mjs';
 
 const enc = new TextEncoder();
@@ -894,13 +894,11 @@ test('the file deleted while a choice is pending: Keep mine saves the copy and k
 
 // --- A store opened lazily: a file that opens in Source has no parse until something asks (V-11.1) -------------
 
-import { parseMarkdown } from '@marxy/core';
-
 const CODE = '# a comment\n\ndef main():\n    # another\n    return 1\n';
 const lazyStore = (io: StoreIo = recordingIo(), path = '/repo/x.py', bytes = CODE) =>
   openDocumentStore(io, path, enc.encode(bytes), undefined, { lazy: true });
-/** What the parse of these bytes under this name is, as a string that compares. */
-const parseOf = (bytes: Uint8Array, file: string): string => JSON.stringify(parseMarkdown(bytes, { file }));
+/** What the parse of these bytes under this name is, as a string that compares: a code file's is one code block (V-10). */
+const parseOf = (bytes: Uint8Array, file: string): string => JSON.stringify(parsedAs(file, bytes));
 const astOf = (snap: DocumentSnapshot): string => JSON.stringify(snap.ast);
 
 test('lazy: opening, subscribing and reading the buffer and flags make no parse; the first read of the AST makes it, once', () => {

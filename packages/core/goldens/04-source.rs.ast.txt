@@ -1,0 +1,2 @@
+document [0,4423)
+  codeBlock [0,4423) lang=rust content=[0,4423) value="// Tauri shell for the marxy spike. Same frontend as the Electron shell; only this crate differs.\n#![cfg_attr(not(debug_…"

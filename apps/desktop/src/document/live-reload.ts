@@ -3,7 +3,7 @@
 // many views show it, the store is read and reloaded once, every view is asked before it is (a view
 // holding Source text the store cannot see keeps the change out), and each view is put at its own place
 // in the new bytes (D-10).
-import { contentHash, reparseMarkdown } from '@marxy/core';
+import { contentHash } from '@marxy/core';
 import { followPath, restorePosition } from '@marxy/core/src/position/restore.ts';
 import { effectForOpenDocument } from '@marxy/core/src/position/watch-events.ts';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
@@ -14,7 +14,7 @@ import type { AppShell } from '../app.ts';
 import { clearDiskChangedChooseNotices, diskChangedChooseNotice, fileRefusedNotice, fileRefusedText, fileRemovedNotice } from '../notices/disk.ts';
 import { paneOf, type NoticeTarget } from '../notices/index.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
-import type { DocumentStore } from './store.ts';
+import { reparsedAst, type DocumentStore } from './store.ts';
 
 export interface LiveReloadDeps {
   readonly shell: Pick<AppShell, 'watch' | 'readFile' | 'peekFile' | 'mark' | 'allowAssetScope'>;
@@ -259,7 +259,7 @@ export async function watchDocument(
     // The new bytes' parse, of only the blocks the change touched (B-23): the place is mapped through it.
     // The store's reload reparses the same way from its own parse, which costs as little.
     // Read here, not above: a store opened lazily (a file that opens in Source) parses when asked, and the held-apart branch above has no use for it.
-    const document = reparseMarkdown(store.snapshot().ast, buffer.bytes, diskBytes, { file: path });
+    const document = reparsedAst(path, store.snapshot().ast, buffer.bytes, diskBytes);
     // A reload maps the place through the watch's own reading of the change (ADR-0037 §6), never
     // through a splice: every view's through the same edit.
     const places = new Map<RenderedView, ReadingPosition>();

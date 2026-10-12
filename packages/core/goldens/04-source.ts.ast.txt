@@ -1,0 +1,2 @@
+document [0,8973)
+  codeBlock [0,8973) lang=typescript content=[0,8973) value="import { getBridge, type Bridge } from './bridge';\nconst scriptStart = Date.now();\nconst app = document.getElementById('…"

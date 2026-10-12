@@ -418,6 +418,35 @@ for (const [what, breakIt] of [
   });
 }
 
+test('Rendered of a .py is the code, byte for byte, in one highlighted block with no heading (V-10)', async () => {
+  const page = await freshPage();
+  const py = '# Inventory\n\n## section one\ndef f():\n\t# tab comment *not emphasis*\n    return 1  # _x_\n';
+  await startSampled(page, { ...FILES, '/repo/inv.py': py }, ['/repo/inv.py']);
+  await started(page);
+  for (let i = 0; i < 3; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);
+  await drained(page);
+  assert.equal(await mode(page), 'rendered');
+  await page.waitForFunction(() => document.querySelector('#doc pre > code')?.dataset.marxyDone === 'highlight', null, { timeout: 15000 });
+  const seen = await page.evaluate(() => ({
+    headings: document.querySelectorAll('#doc h1, #doc h2, #doc h3').length,
+    blocks: document.querySelectorAll('#doc pre').length,
+    others: [...document.querySelector('#doc').children].filter((c) => c.tagName !== 'PRE').map((c) => c.tagName),
+    text: document.querySelector('#doc pre > code').textContent,
+    lang: document.querySelector('#doc pre > code').className,
+    ranges: [document.querySelector('#doc pre > code').dataset.marxyS, document.querySelector('#doc pre > code').dataset.marxyE],
+    coloured: document.querySelectorAll('#doc pre > code span[class^="marxy-tok-"]').length,
+  }));
+  assert.equal(seen.headings, 0, 'a # comment is not a heading');
+  assert.equal(seen.blocks, 1, 'one block covers the file');
+  assert.deepEqual(seen.others, []);
+  assert.equal(seen.text, py, 'the file text, byte for byte, tabs and underscores kept');
+  assert.match(seen.lang, /language-python/);
+  assert.deepEqual(seen.ranges, ['0', String(new TextEncoder().encode(py).length)]);
+  assert.ok(seen.coloured > 0, 'the code is coloured by role');
+  assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-outline-item, #outline li').length), 0, 'a code file has no outline yet (K-13)');
+  await page.close();
+});
+
 test('text typed in a .py before the parse was ever made is saved as typed, and Rendered parses it', async () => {
   const page = await freshPage();
   await startSampled(page, FILES, ['/repo/x.py']);

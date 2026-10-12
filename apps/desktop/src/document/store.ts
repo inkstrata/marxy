@@ -9,7 +9,7 @@
 // here writes except `save`; `dirty` is derived as `buffer ≠ disk` (§5). Transitions run one at a time
 // on the store's own queue (§2).
 
-import { createBuffer, parseMarkdown, reparseMarkdown, splice, type Buffer, type Document, type Edit } from '@marxy/core';
+import { codeLanguageOf, createBuffer, isCodeFile, parseCode, parseMarkdown, reparseMarkdown, splice, type Buffer, type Document, type Edit } from '@marxy/core';
 import { buildNodeMap, type NodeMap } from '../render/post.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
 import { isUntitled } from './untitled.ts';
@@ -242,6 +242,19 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 /**
+ * The AST for `bytes` as `path`: a code file (the file-type table's kind, V-09) is one code block over all of its
+ * bytes and is never read as Markdown (V-10); every other file is Markdown.
+ */
+export function astOf(path: string, bytes: Uint8Array): Document {
+  return isCodeFile(path) ? parseCode(bytes, { file: path, lang: codeLanguageOf(path) }) : parseMarkdown(bytes, { file: path });
+}
+
+/** `astOf(path, after)`, from the parse of `before` when the file is Markdown (B-23); a code file is parsed whole, which is one pass. */
+export function reparsedAst(path: string, previous: Document, before: Uint8Array, after: Uint8Array): Document {
+  return isCodeFile(path) ? astOf(path, after) : reparseMarkdown(previous, before, after, { file: path });
+}
+
+/**
  * The parse of `buffer` as `path`, made now; or, for a store opened lazily whose parse nobody has read yet
  * (`lazy`), made when first read. Every node carries `{file, start, end}` for that path.
  */
@@ -251,12 +264,12 @@ function parsed(path: string, buffer: Buffer, made?: Preparsed, lazy?: { readonl
     return {
       buffer,
       tree: lazyTree(() => {
-        const ast = parseMarkdown(buffer.bytes, { file: path });
+        const ast = astOf(path, buffer.bytes);
         return { ast, nodeMap: buildNodeMap(ast) };
       }, lazy.onMade),
     };
   }
-  const ast = parseMarkdown(buffer.bytes, { file: path });
+  const ast = astOf(path, buffer.bytes);
   return { buffer, tree: treeOf(ast, buildNodeMap(ast)) };
 }
 
@@ -596,7 +609,7 @@ export function openDocumentStore(
     // read yet is not made for it (the new one is made when read, from the bytes).
     const tree: Tree = state.tree.made
       ? (() => {
-          const ast = reparseMarkdown(state.tree.get().ast, state.buffer.bytes, buffer.bytes, { file: state.path });
+          const ast = reparsedAst(state.path, state.tree.get().ast, state.buffer.bytes, buffer.bytes);
           return treeOf(ast, buildNodeMap(ast));
         })()
       : parse(state.path, buffer).tree;
