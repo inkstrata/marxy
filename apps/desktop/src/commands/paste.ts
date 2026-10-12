@@ -55,8 +55,13 @@ export function pasteCommands(): readonly Command[] {
         if (got.refused !== undefined) return ctx.showNotice(got.refused);
         const { converted } = got;
         if (converted.markdown === '') return ctx.showNotice(NOTHING_TO_PASTE, { transient: true });
-        const opened = await openScratch(converted.markdown, { label: 'Pasted' });
-        if (opened && converted.kind === 'html') ctx.showNotice(CONVERTED_NOTICE, { transient: true });
+        // The notice comes once the scratch is on screen, after any unsaved-edits prompt is answered "open".
+        await openScratch(converted.markdown, {
+          label: 'Pasted',
+          onLanded() {
+            if (converted.kind === 'html') ctx.showNotice(CONVERTED_NOTICE, { transient: true });
+          },
+        });
       },
     },
     {

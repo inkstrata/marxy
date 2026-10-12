@@ -89,7 +89,8 @@ equality was not byte equality, and no diff over that text can make it so.
   did not edit keeps its bytes, however many edits are made around it, and the editor marks it like Source (F-34.2).
   Line endings are the same: only a line break the reader made (a bare LF) takes the block's first ending, and an ending the
   text already holds is never rewritten; in a block that mixes endings, edited across one of its bare LFs, a new break stays
-  an LF (F-40).
+  an LF (F-40). In such a block the text names every ending, so an LF that the cut was widened over (the other half of a CRLF
+  whose CR was deleted) is the file's own and is never converted: deleting only a CR is written (F-40.1).
   Its copy, cut and paste carry the private type as Source's do. The block's text is read for the page (the notice that
   names a kept block) through `readableText`.
 - The Source table tools work on a table that holds a stray byte: they run on a copy with each such code unit stood in

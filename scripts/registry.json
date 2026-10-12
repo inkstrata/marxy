@@ -74,6 +74,8 @@
     "data-marxy-tab",
     "data-marxy-tab-active",
     "data-marxy-tab-shown",
+    "data-marxy-sidebar-section",
+    "data-marxy-sidebar-row",
     "data-marxy-edit"
   ],
   "classPrefix": "marxy-",
