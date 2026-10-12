@@ -66,7 +66,7 @@ export interface ClipboardMeta {
 }
 
 export type ShellError = {
-  readonly code: 'not-found' | 'permission' | 'io' | 'invalid' | 'unsupported';
+  readonly code: 'not-found' | 'permission' | 'io' | 'invalid' | 'unsupported' | 'refused';
   readonly message: string;
   readonly path?: string;
 };

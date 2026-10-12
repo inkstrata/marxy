@@ -277,3 +277,45 @@ test('an outside write of exactly the buffer\'s bytes raises no choice (V-07)', 
   assert.deepEqual(told, []);
   assert.equal(store.conflict(), null);
 });
+
+// F-52.1: `read_file` refuses a file over the ceiling and one that is not a regular file; live reload said "removed".
+function refusedReload(refusal: string): Promise<{ said: string[]; bytes: string; writes: number }> {
+  return (async () => {
+    const fake = fakeShell(new Map([['/d/app.log', enc.encode('# A log\n')]]));
+    let writes = 0;
+    const store = openDocumentStore(
+      { writeFileAtomic: async () => { writes++; } },
+      '/d/app.log',
+      fake.disk.get('/d/app.log')!,
+    );
+    const view = fakeView(store, { byteOffset: 0, fraction: 0, mode: 'rendered' });
+    Object.assign(view, { host: null });
+    fake.shell.readFile = async () => {
+      throw Object.assign(new Error(refusal), { code: 'refused' });
+    };
+    const said: string[] = [];
+    const d = deps(fake.shell);
+    Object.assign(d, { onRefused: (text: string) => { said.push(text); } });
+    await watchDocument(store, () => [view], d);
+    fake.watches[0].emit([{ kind: 'modified', path: '/d/app.log' }]);
+    await d.queue;
+    return { said, bytes: new TextDecoder().decode(store.snapshot().buffer.bytes), writes };
+  })();
+}
+
+test('an open file that grows past the ceiling says so, not that it was removed; the buffer stays (F-52.1)', async () => {
+  const r = await refusedReload('/d/app.log: too large to open (300 MB; the most Marxy opens is 256 MB)');
+  assert.deepEqual(r.said, [
+    'app.log grew to 300 MB, past the 256 MB Marxy opens · your open copy is unchanged · Make the file smaller on disk to reload it, or Save as to keep this copy.',
+  ]);
+  assert.equal(r.bytes, '# A log\n');
+  assert.equal(r.writes, 0);
+});
+
+test('an open file that becomes a pipe or a folder says so, not that it was removed (F-52.1)', async () => {
+  const r = await refusedReload('/d/app.log: not a regular file (a folder, pipe or device cannot be opened)');
+  assert.equal(r.said.length, 1);
+  assert.match(r.said[0], /^app\.log is no longer a regular file .* · your open copy is unchanged · /);
+  assert.equal(r.bytes, '# A log\n');
+  assert.equal(r.writes, 0);
+});

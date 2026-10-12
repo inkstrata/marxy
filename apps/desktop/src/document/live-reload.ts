@@ -6,12 +6,12 @@
 import { contentHash, reparseMarkdown } from '@marxy/core';
 import { followPath, restorePosition } from '@marxy/core/src/position/restore.ts';
 import { effectForOpenDocument } from '@marxy/core/src/position/watch-events.ts';
-import { dirname } from '@marxy/core/src/index-model/paths.ts';
+import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { classify } from '@marxy/core/src/index-model/kinds.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import type { AppShell } from '../app.ts';
-import { clearDiskChangedChooseNotices, diskChangedChooseNotice, fileRemovedNotice } from '../notices/disk.ts';
+import { clearDiskChangedChooseNotices, diskChangedChooseNotice, fileRefusedNotice, fileRefusedText, fileRemovedNotice } from '../notices/disk.ts';
 import { paneOf, type NoticeTarget } from '../notices/index.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
 import type { DocumentStore } from './store.ts';
@@ -32,6 +32,8 @@ export interface LiveReloadDeps {
   renamed(path: string): Promise<void>;
   /** Says the change is waiting for the reader's choice (V-07), in a pane; the page's own notice unless a test names one. */
   readonly onConflict?: (target: NoticeTarget) => void;
+  /** Says the open file can no longer be opened (F-52.1), in a pane; the page's own notice unless a test names one. */
+  readonly onRefused?: (text: string, target: NoticeTarget) => void;
   /** A markdown file in the watched folder changed (not the echo of Marxy's own save): re-walk its root. */
   changed(path: string): void;
 }
@@ -110,15 +112,19 @@ export async function watchDocument(
   /** The watch being moved to the store's new folder, awaited by a rename follow. */
   let moving: Promise<void> = Promise.resolve();
 
-  async function readOpenFileWithRetry(path: string): Promise<Uint8Array | null> {
+  /** The file's bytes; `null` when it is gone, or `{ refused }` (the shell's words) when it is there and cannot be opened (F-52.1). */
+  async function readOpenFileWithRetry(path: string): Promise<Uint8Array | { readonly refused: string } | null> {
+    let refused: string | null = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         return await (shell.peekFile ? shell.peekFile(path) : shell.readFile(path));
-      } catch {
+      } catch (e) {
+        const err = e as { code?: string; message?: string } | null;
+        refused = err?.code === 'refused' ? String(err.message ?? '') : null;
         if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 50));
       }
     }
-    return null;
+    return refused === null ? null : { refused };
   }
 
   /**
@@ -226,9 +232,16 @@ export async function watchDocument(
       for (const [view, place] of places) await deps.open(effect.path, followPath(place, effect.path).byteOffset, view);
       return;
     }
-    const diskBytes = await readOpenFileWithRetry(path);
+    const read_ = await readOpenFileWithRetry(path);
     const read = performance.now();
+    const diskBytes = read_ !== null && 'refused' in read_ ? null : read_;
     refreshIndexForWatch(events, path, diskBytes);
+    if (read_ !== null && 'refused' in read_) {
+      // The file is there, but Marxy cannot open what it has become: the buffer is kept and nothing is written.
+      const text = fileRefusedText(basename(path), read_.refused);
+      for (const view of views()) (deps.onRefused ?? fileRefusedNotice)(text, targetOf(view));
+      return;
+    }
     if (diskBytes === null) {
       say(fileRemovedNotice);
       return;
