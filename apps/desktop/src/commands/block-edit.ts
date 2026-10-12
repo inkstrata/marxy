@@ -199,14 +199,14 @@ async function openResolved(ctx: AppContext): Promise<void> {
   const target = resolveTarget(ctx);
   if (target === null) return;
   if (typeof target === 'string') {
-    ctx.showNotice(target, { transient: true });
+    ctx.showNotice(target, { kind: 'refused' });
     return;
   }
   const { view, store, article, snapshot, range, node } = target;
   const hidden = elementsFor(article, range);
   const first = hidden[0];
   if (!first?.parentNode) {
-    ctx.showNotice(NO_BLOCK_TO_EDIT, { transient: true });
+    ctx.showNotice(NO_BLOCK_TO_EDIT, { kind: 'refused' });
     return;
   }
   // The block's Source text (ADR-0069): each byte that is not UTF-8 is a code unit of its own, so the fold is exact (F-34.2).
@@ -269,16 +269,16 @@ async function openResolved(ctx: AppContext): Promise<void> {
           // The block is not there to fold into: add the reader's text beside it, replace nothing, say which text it is.
           const place = insertionFor(snap, at.start, text);
           const range = { file: snap.path, start: place.start, end: place.start };
-          if (await store.apply({ range, replacement: encodeSourceText(place.replacement), label: LABEL })) notify({ kind: 'info', text: changedUnderneath(text) });
-          else notify({ kind: 'info', text: COULD_NOT_KEEP });
+          if (await store.apply({ range, replacement: encodeSourceText(place.replacement), label: LABEL })) notify({ kind: 'error', text: changedUnderneath(text) });
+          else notify({ kind: 'error', text: COULD_NOT_KEEP });
           return;
         }
         const fold = foldSlice(snap.buffer, at, text);
         if (fold === null) return;
-        if (!(await store.apply({ range: fold.range, replacement: fold.replacement, label: LABEL }))) notify({ kind: 'info', text: COULD_NOT_KEEP });
+        if (!(await store.apply({ range: fold.range, replacement: fold.replacement, label: LABEL }))) notify({ kind: 'error', text: COULD_NOT_KEEP });
       } catch (e) {
         console.warn(`marxy: a block edited in place could not be put back: ${String(e)}`);
-        notify({ kind: 'info', text: COULD_NOT_KEEP });
+        notify({ kind: 'error', text: COULD_NOT_KEEP });
       }
     })();
   };
@@ -330,7 +330,7 @@ async function openResolved(ctx: AppContext): Promise<void> {
             // Another change took the page (and with it this editor) while the apply waited: it put the text back itself.
             if (released) return false;
             committing = null;
-            notify({ kind: 'info', text: `${COULD_NOT_KEEP} The editor is still open; copy your text out of it.` });
+            notify({ kind: 'error', text: `${COULD_NOT_KEEP} The editor is still open; copy your text out of it.` });
             return false;
           }
           // The page followed the store (the view released the editor as it set the page); the reader goes on from here.
@@ -354,7 +354,7 @@ async function openResolved(ctx: AppContext): Promise<void> {
     editor = await openBlockEditor(host, snapshot.buffer, range, { leave: () => void setTimeout(() => void self.leave(), 0) });
   } catch (e) {
     console.warn(`marxy: the block editor could not open: ${String(e)}`);
-    ctx.showNotice('The block editor could not open; Mod+E opens Source', { transient: true });
+    ctx.showNotice('The block editor could not open; Mod+E opens Source', { kind: 'error' });
     return;
   }
   // The page or the bytes may have moved while CodeMirror loaded: the block this was made for may be gone.

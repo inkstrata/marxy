@@ -65,7 +65,7 @@ export function viewModeCommands(): readonly Command[] {
         if (panes.panes.length === 2) {
           const [left, right] = panes.panes;
           if (left.path() === null || left.path() !== right.path()) {
-            ctx.showNotice(SPLIT_TWO_DOCUMENTS);
+            ctx.showNotice(SPLIT_TWO_DOCUMENTS, { kind: 'refused' });
             return;
           }
           // Split again is the way back: one pane in Read.

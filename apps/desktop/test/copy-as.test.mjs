@@ -89,8 +89,8 @@ const rowIds = (page) => page.evaluate(() => [...document.querySelectorAll('.mar
 /** The copy notices on the page (the document's own notices, such as simplified HTML, are not ours). */
 const notices = (page) =>
   page.evaluate(() =>
-    [...document.querySelectorAll('#marxy-notices > *')]
-      .map((n) => n.textContent.trim().replace(/Dismiss$/, ''))
+    [...document.querySelectorAll('#marxy-notices .marxy-notice-text')]
+      .map((n) => n.textContent.trim())
       .filter((t) => t.startsWith('Copied') || t.startsWith('Could not')),
   );
 

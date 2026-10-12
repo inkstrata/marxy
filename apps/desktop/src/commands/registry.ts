@@ -5,6 +5,7 @@ import type { Selection } from '../selection/selection.ts';
 import type { DocumentStore } from '../document/store.ts';
 import { attachDocumentEdits } from './edits.ts';
 import { apply } from '../selection/apply.ts';
+import type { NoticeKind } from '../notices/index.ts';
 
 export interface AppContext {
   /**
@@ -26,7 +27,11 @@ export interface AppContext {
   /** The page the selection was made on and the bytes it was rendered from (B-13): a drag's copies read it. */
   renderedPage?(): { readonly article: HTMLElement; readonly buffer: Buffer; readonly version: number } | null;
   closePalette(): void;
-  showNotice(text: string, opts?: { transient?: boolean }): void;
+  /**
+   * Says `text` in the focused pane (U-02). `kind` is what the news is (`done` fades; `refused` and `error` stay until
+   * dismissed); with none it is `info`, or `done` when `transient`.
+   */
+  showNotice(text: string, opts?: { transient?: boolean; kind?: NoticeKind }): void;
   applyBufferMutation?(input: {
     readonly range: OperationInput['range'];
     readonly replacement: string;

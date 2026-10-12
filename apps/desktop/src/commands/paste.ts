@@ -50,16 +50,16 @@ export function pasteCommands(): readonly Command[] {
       when: () => !inSourceMode(),
       async run(ctx) {
         const shell = pasteShellOf(ctx.shell);
-        if (!shell) return ctx.showNotice('Not pasted: this window has no clipboard access.');
+        if (!shell) return ctx.showNotice('Not pasted: this window has no clipboard access.', { kind: 'refused' });
         const got = await readConverted(shell);
-        if (got.refused !== undefined) return ctx.showNotice(got.refused);
+        if (got.refused !== undefined) return ctx.showNotice(got.refused, { kind: 'refused' });
         const { converted } = got;
-        if (converted.markdown === '') return ctx.showNotice(NOTHING_TO_PASTE, { transient: true });
+        if (converted.markdown === '') return ctx.showNotice(NOTHING_TO_PASTE, { kind: 'refused' });
         // The notice comes once the scratch is on screen, after any unsaved-edits prompt is answered "open".
         await openScratch(converted.markdown, {
           label: 'Pasted',
           onLanded() {
-            if (converted.kind === 'html') ctx.showNotice(CONVERTED_NOTICE, { transient: true });
+            if (converted.kind === 'html') ctx.showNotice(CONVERTED_NOTICE, { kind: 'done' });
           },
         });
       },
@@ -81,7 +81,7 @@ export function pasteCommands(): readonly Command[] {
         const { pastePlainText } = await import('../source/paste.ts');
         const editor = activeSourceEditor();
         if (!editor) return;
-        if (!shell) return ctx.showNotice('Not pasted: this window has no clipboard access.');
+        if (!shell) return ctx.showNotice('Not pasted: this window has no clipboard access.', { kind: 'refused' });
         editor.view.focus();
         await pastePlainText(editor.view, shell);
       },

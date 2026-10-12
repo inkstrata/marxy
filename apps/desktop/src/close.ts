@@ -5,7 +5,7 @@
 import type { Shell } from '@marxy/shell-api';
 import type { DocumentStore } from './document/store.ts';
 import { documentName } from './document/untitled.ts';
-import { ensureNoticesRegion, notify, SOURCE_HELD_APART } from './notices/index.ts';
+import { ensureNoticesRegion, noticeLine, notify, placeNotice, removeNotice, SOURCE_HELD_APART } from './notices/index.ts';
 import type { SaveResult } from './save.ts';
 
 /** What the guard reads of a pane (pane/index.ts's `Pane<AppPane>`, narrowed). */
@@ -86,7 +86,7 @@ function documentOf(pane: GuardPane, all: readonly GuardPane[]): DirtyDocument |
       // A pane still holding Source text the store lacks (held apart from another pane's fold, D-11) would
       // lose it to whatever is written: the save, and so the prompt's open or close, stops.
       if (showing().some((p) => p.view.sourceHasUnfoldedEdits())) {
-        notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: pane.host });
+        notify({ kind: 'refused', text: SOURCE_HELD_APART }, { pane: pane.host });
         return 'cancelled';
       }
       return pane.content.save();
@@ -291,28 +291,7 @@ export function guardPaneClose<P extends GuardPane & { path(): string | null }>(
 
 /** Why a pane the reader asked to close is still there, said in that pane (the D-01 review). */
 export function showCloseRefused(pane: Pick<GuardPane, 'host'>, reason: string): void {
-  const line = noticeLine(`This pane stays open: ${reason}`);
-  appendButton(line, 'marxy-notice-dismiss', 'Dismiss', () => line.remove());
-  ensureNoticesRegion(pane.host).append(line);
-}
-
-function noticeLine(text: string): HTMLElement {
-  const line = document.createElement('div');
-  line.className = 'marxy-notice';
-  const span = document.createElement('span');
-  span.className = 'marxy-notice-text';
-  span.textContent = text;
-  line.append(span);
-  return line;
-}
-
-function appendButton(line: HTMLElement, className: string, label: string, onClick: () => void): void {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.className = className;
-  b.textContent = label;
-  b.addEventListener('click', onClick);
-  line.append(b);
+  placeNotice(ensureNoticesRegion(pane.host), noticeLine({ kind: 'refused', text: `This pane stays open: ${reason}` }));
 }
 
 function showPrompt(prompt: Prompt): void {
@@ -322,7 +301,6 @@ function showPrompt(prompt: Prompt): void {
   }
   notice = null;
   const { doc } = prompt;
-  const line = noticeLine(`${doc.name} has changes that are not saved.`);
   let settled = false;
   // A close waiting on the notice is refused, not left waiting, if the notice goes without an answer (an
   // open in its pane clears the region, another prompt replaces it).
@@ -332,7 +310,7 @@ function showPrompt(prompt: Prompt): void {
   const answered = (): void => {
     settled = true;
     watch.disconnect();
-    line.remove();
+    removeNotice(line);
   };
   function stop(): void {
     if (settled) return;
@@ -340,30 +318,44 @@ function showPrompt(prompt: Prompt): void {
     prompt.stop?.();
   }
 
-  appendButton(line, 'marxy-notice-action', prompt.saveLabel, () => {
-    answered();
-    void (async () => {
-      const result = await doc.save();
-      if (result !== 'saved' && result !== 'unchanged') {
-        prompt.stop?.();
-        return;
-      }
-      // The reader kept editing while the save ran: what they see is not what reached disk, and going on
-      // would drop it. Ask again.
-      if (doc.isDirty()) showPrompt(prompt);
-      else await prompt.proceed();
-    })();
+  // A decision (U-02): it stays until answered, takes focus on its first button, and is answered from the keyboard.
+  // Dismiss, and Esc on it, stop the action (`stop`), as the button always has.
+  const line = noticeLine({
+    kind: 'decision',
+    text: `${doc.name} has changes that are not saved.`,
+    onDismiss: stop,
+    actions: [
+      {
+        label: prompt.saveLabel,
+        onClick: () => {
+          answered();
+          void (async () => {
+            const result = await doc.save();
+            if (result !== 'saved' && result !== 'unchanged') {
+              prompt.stop?.();
+              return;
+            }
+            // The reader kept editing while the save ran: what they see is not what reached disk, and going on
+            // would drop it. Ask again.
+            if (doc.isDirty()) showPrompt(prompt);
+            else await prompt.proceed();
+          })();
+        },
+      },
+      {
+        label: prompt.discardLabel,
+        onClick: () => {
+          answered();
+          void (async () => {
+            await prompt.discarded?.();
+            await prompt.proceed();
+          })();
+        },
+      },
+    ],
   });
-  appendButton(line, 'marxy-notice-action', prompt.discardLabel, () => {
-    answered();
-    void (async () => {
-      await prompt.discarded?.();
-      await prompt.proceed();
-    })();
-  });
-  appendButton(line, 'marxy-notice-dismiss', 'Dismiss', stop);
 
-  ensureNoticesRegion(doc.pane.host).append(line);
+  placeNotice(ensureNoticesRegion(doc.pane.host), line);
   notice = { line, prompt, stop };
   if (prompt.stop) watch.observe(document.documentElement, { childList: true, subtree: true });
 }

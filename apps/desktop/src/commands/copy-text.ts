@@ -63,7 +63,7 @@ export function copyTextCommands(): readonly Command[] {
         // The bytes are those of the page the drag was made on: a page set since has dropped the drag.
         if (!page || !src || ctx.selection.version !== page.version || src.end > page.buffer.bytes.length) {
           ctx.closePalette();
-          ctx.showNotice('Nothing to copy as markdown: the selection holds no block', { transient: true });
+          ctx.showNotice('Nothing to copy as markdown: the selection holds no block', { kind: 'refused' });
           return;
         }
         return write(ctx, { text: textOf(page.buffer, src) }, 'Copied as markdown');

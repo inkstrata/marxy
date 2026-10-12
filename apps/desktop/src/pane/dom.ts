@@ -72,7 +72,8 @@ export function createPaneElement(slot: Slot): PaneParts {
   source.className = 'marxy-source-mount';
   source.hidden = true;
   const parts: PaneParts = { host, notices, article, source, findSlot: findSlot() };
-  host.append(notices, article, source, parts.findSlot);
+  // The notices region is last: it pins to the pane's bottom edge, which a sticky box can only do after the content (index.html).
+  host.append(article, source, parts.findSlot, notices);
   applySlot(parts, slot);
   return parts;
 }
@@ -95,8 +96,8 @@ export function adoptFirstPane(): { readonly main: HTMLElement; readonly parts: 
     const before = article.previousElementSibling;
     const notices = before?.id === 'marxy-notices' ? before : null;
     article.parentElement!.insertBefore(host, notices ?? article);
-    if (notices) host.append(notices);
     host.append(article);
+    if (notices) host.append(notices);
   }
   host.setAttribute('data-marxy-pane', '0');
   // Made the way notices/index.ts always has (zero-height, no padding) where the page has none.
@@ -110,6 +111,8 @@ export function adoptFirstPane(): { readonly main: HTMLElement; readonly parts: 
     host.append(source);
   }
   const slot = host.querySelector<HTMLElement>(':scope > .marxy-find-slot') ?? host.appendChild(findSlot());
+  // The region goes last whatever order the page was written in (it pins to the pane's foot, after the content).
+  if (host.lastElementChild !== notices) host.append(notices);
   // `#marxy-main` is the grid two panes share; a bare harness page has none, and its pane's parent stands in.
   const main = host.closest<HTMLElement>('#marxy-main') ?? host.parentElement!;
   return { main, parts: { host, notices, article, source, findSlot: slot } };

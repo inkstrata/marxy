@@ -79,7 +79,7 @@ Every summoned surface (palette, verb menu, find, outline, a peek) and every men
 `base.css`; the palette and outline runtime sheets and the verb menu's markup take its classes and keep layout only.
 Face and size are `--marxy-face-chrome` and `--marxy-size-chrome`; a raised surface has `--marxy-color-surface`,
 `--marxy-shadow-surface` and a `--marxy-color-rule` outline. Every length is a ratio of the chrome size (the numbers are
-at 13 px), so the reader's `chrome_size` scales them. The text being read is not part of this, and nor yet are notices: they sit in flow above the article and `gate:aesthetics` pins their height to the grid (its baselines and the L-05 expected-failure rows), so they keep the text face and caption size until L-05. A new surface takes
+at 13 px), so the reader's `chrome_size` scales them. The text being read is not part of this. Notices are (U-02): a pill floated at its pane's foot, off the column, on the surface roles with a 10 px radius at 13 and the status role's colour for its glyph and word (`docs/design/09-app-shell.md` §Notices). A new surface takes
 `.marxy-surface` (and `-md` or `-lg`), a new menu row `.marxy-menu-row` and `.marxy-menu-key`; no literal shadow colour,
 radius or font face goes in those rules (`packages/theme/src/chrome-spec.test.ts`; computed in
 `apps/desktop/test/chrome-surfaces.test.mjs`).

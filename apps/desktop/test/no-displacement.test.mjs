@@ -3,8 +3,10 @@
 // SURFACES below: scroll the article partway, record the first visible line's rect and the scroll position, open the
 // surface, check both are unchanged, close it, check again. The real app over the memory shell, in WebKit.
 //
-// Notices are covered (F-46): the region floats over the top edge of its pane, so raising or dismissing one moves nothing.
-// A floating notice can cover the top line of text while it is up; the guard measures the rect and the scroll, not the cover.
+// Notices are covered (F-46, U-02): a notice is a pill floated at the foot of its pane, off the column's flow, so raising or
+// dismissing one (an outcome, a refusal, a decision that takes focus, three stacked) moves nothing. A floating notice can
+// cover a line of text while it is up; the guard measures the rect and the scroll, not the cover. Notices over Source are
+// measured in test/notices-pill.test.mjs, where the editor's own lines are the text.
 // Not covered, on purpose: the inline block editor (in flow by design; it holds the reading line, see commands/block-edit.ts).
 //
 // To add a surface: append `{ name, open, close }` to SURFACES. `open(page, s)` runs the command and resolves when the
@@ -133,6 +135,53 @@ export const SURFACES = [
     },
     close: async (page) => {
       await page.locator('.marxy-notice .marxy-notice-dismiss').first().click();
+      await gone(page, '.marxy-notice');
+    },
+  },
+  {
+    name: 'notice (refusal, which stays until dismissed)',
+    splitToo: true,
+    open: async (page) => {
+      await page.evaluate(async () => {
+        const { notify } = await import('/src/notices/index.ts');
+        notify({ kind: 'refused', text: 'A refusal, raised for the guard.' });
+      });
+      await page.waitForSelector('.marxy-notice[data-notice-kind="refused"]');
+    },
+    close: async (page) => {
+      await page.locator('.marxy-notice .marxy-notice-dismiss').first().click();
+      await gone(page, '.marxy-notice');
+    },
+  },
+  {
+    name: 'notice (decision, which takes focus; Esc dismisses it)',
+    splitToo: true,
+    open: async (page) => {
+      await page.evaluate(async () => {
+        const { notify } = await import('/src/notices/index.ts');
+        notify({ kind: 'decision', text: 'A decision, raised for the guard.', actions: [{ label: 'Choose', onClick: () => {} }] });
+      });
+      await page.waitForFunction(() => document.activeElement?.classList.contains('marxy-notice-action'));
+    },
+    close: async (page) => {
+      await escapeKey(page);
+      await gone(page, '.marxy-notice');
+    },
+  },
+  {
+    name: 'notices (three at once)',
+    splitToo: true,
+    open: async (page) => {
+      await page.evaluate(async () => {
+        const { notify } = await import('/src/notices/index.ts');
+        notify({ kind: 'done', text: 'First.' });
+        notify({ kind: 'refused', text: 'Second.' });
+        notify({ kind: 'error', text: 'Third.' });
+      });
+      await page.waitForFunction(() => document.querySelectorAll('.marxy-notice').length === 3);
+    },
+    close: async (page) => {
+      for (let i = 0; i < 3; i++) await page.locator('.marxy-notice .marxy-notice-dismiss').first().click();
       await gone(page, '.marxy-notice');
     },
   },

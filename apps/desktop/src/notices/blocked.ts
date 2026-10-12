@@ -4,7 +4,7 @@ import type { BlockedImage } from '@marxy/core/src/render/images.ts';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
 import type { Grants } from '../trust/trust.ts';
 import { blockedImageNoticeText } from '@marxy/core/src/render/images.ts';
-import { dismiss, ensureNoticesRegion, focusedPane, notify } from './index.ts';
+import { dismiss, ensureNoticesRegion, focusedPane, noticeLine, notify, placeNotice } from './index.ts';
 import { blockedTrustNoticeText, htmlGrantWouldChangeForNotice } from './trust-copy.ts';
 
 export interface BlockedNoticeOpts {
@@ -77,37 +77,19 @@ export function trustBlockedNotices(opts: BlockedNoticeOpts): void {
 
   if (text === '' && !htmlAction) return;
 
-  const region = ensureNoticesRegion(opts.pane ?? focusedPane());
-  const line = document.createElement('div');
-  line.className = 'marxy-notice';
-  line.dataset.noticeKind = 'blocked';
-
-  const span = document.createElement('span');
-  span.className = 'marxy-notice-text';
-  span.textContent = text;
-  line.append(span);
-
-  if (htmlAction && opts.onGrantHtml) {
-    const html = document.createElement('button');
-    html.type = 'button';
-    html.className = 'marxy-notice-action';
-    html.textContent = "Show this document's HTML";
-    html.addEventListener('click', () => opts.onGrantHtml!());
-    line.append(html);
-  }
-
-  const dismiss = document.createElement('button');
-  dismiss.type = 'button';
-  dismiss.className = 'marxy-notice-dismiss';
-  dismiss.textContent = 'Dismiss';
-  dismiss.addEventListener('click', () => {
-    dismissBlockedNoticeForPath(opts.path);
-    line.remove();
-    opts.onDismiss?.();
-  });
-  line.append(dismiss);
-
-  region.append(line);
+  const onGrantHtml = opts.onGrantHtml;
+  placeNotice(
+    ensureNoticesRegion(opts.pane ?? focusedPane()),
+    noticeLine({
+      kind: 'blocked',
+      text,
+      actions: htmlAction && onGrantHtml ? [{ label: "Show this document's HTML", onClick: () => onGrantHtml() }] : [],
+      onDismiss: () => {
+        dismissBlockedNoticeForPath(opts.path);
+        opts.onDismiss?.();
+      },
+    }),
+  );
 }
 
 export function grantSummaryNotice(path: string, html: boolean): void {

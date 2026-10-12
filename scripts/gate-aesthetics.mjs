@@ -437,7 +437,7 @@ const checkRoom = geometryCheck('room');
 const checkMarks = geometryCheck('marks');
 const checkNoClip = geometryCheck('noClip');
 
-/** Rule 5 on the app's own `#marxy-notices` region. */
+/** Rule 5 (U-02) on the app's own `#marxy-notices` region: a pill that moves nothing, centred on its pane and in view. */
 async function checkNoticeColumn(page) {
   return noticeFailures(await page.evaluate(measureNoticeInPage, {}));
 }
@@ -540,21 +540,14 @@ const rowsFor = (check, story, cells, documents) => documents.map((document) => 
 // `-source` after one in Source mode. They are measured, not chosen: `--emit-expected` prints them.
 // The code box sits 15 px inside the prose edge (H2, code): every cell, in every document that has a code block.
 const CODE_BOX_CELLS = ["320x20-dark", "480x20-dark-classic", "720x20-dark", "720x20-light", "960x16-dark", "960x16-light", "960x20-dark", "960x20-dark-classic", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
-// A notice is off the column (H6): its region sizes the column in em at its own 16 px, so every cell but 960 px at 16 px, where that font is the article's.
-const NOTICE_EDGE_CELLS = ["320x20-dark", "720x20-dark", "720x20-light", "960x20-dark", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
-// A notice is not a whole number of grid units high (H6).
-const NOTICE_GRID_CELLS = ["320x20-dark", "960x16-dark", "960x16-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light"];
-// A notice covers the first line of text in Source (H6).
-const NOTICE_SOURCE_CELLS = ["320x20-dark-source", "960x20-dark-source"];
 // A wide block grows to the right only (H1): every cell with room to grow (720 px and up) in every document that has one.
 const WIDE_BLOCK_CELLS = ["720x20-dark", "720x20-light", "960x16-dark", "960x16-light", "960x20-dark", "960x20-dark-classic", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
 
 /** One row per document for each check, each naming the cells it fails in and the story that clears it. */
 const EXPECTED_FAILURES = [
   ...rowsFor('blockEdges/code', 'L-04', CODE_BOX_CELLS, ["02-readme-real-world.md", "03-ai-plan.md", "06-math.md", "09-gfm-everything.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "27-alerts.md", "28-artifact-fences.md", "28-llm-answer.md", "29-hidden-characters.md", "30-notebook-export.md", "32-long-reference.md"]),
-  ...rowsFor('noticeColumn/edges', 'L-05', NOTICE_EDGE_CELLS, ["15-prose-volume.md"]),
-  ...rowsFor('noticeColumn/grid', 'L-05', NOTICE_GRID_CELLS, ["15-prose-volume.md"]),
-  ...rowsFor('noticeColumn/source', 'L-05', NOTICE_SOURCE_CELLS, ["15-prose-volume.md"]),
+  // U-02 cleared the three L-05 rows (a notice is off the column, a whole number of grid units high, and over Source text): a notice is
+  // a pill at its pane's foot now, and noticeColumn measures that it moves nothing, is centred and in view, and clears Source's text.
   ...rowsFor('room/even', 'L-04', WIDE_BLOCK_CELLS, ["01-long-technical.md", "02-readme-real-world.md", "03-ai-plan.md", "05-pathological-table-and-nesting.md", "06-math.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "28-artifact-fences.md", "28-llm-answer.md", "30-notebook-export.md", "31-essay.md", "32-long-reference.md"]),
   // K-05b: the article profile's column is narrower (Source Serif 4 is a narrower face than Literata at the same character
   // count), so this fence's fixed width passes the column by 1.03 px at 960 px and 16 px text. The same cause as the rows above (a
@@ -1323,15 +1316,17 @@ async function splitCase(browser, twoPane) {
  * expected failure cannot make a control pass.
  */
 function geometrySelftestCases() {
-  const themed = (body, extraCss = '', before = '') =>
-    `<!doctype html><html lang="en" data-marxy-variant="dark"><head><meta charset="utf-8"><style>${defaultThemeCss()}${extraCss}</style></head><body><main id="marxy-main">${before}<article id="doc" class="marxy-article">${body}</article></main></body></html>`;
+  const themed = (body, extraCss = '', before = '', after = '') =>
+    `<!doctype html><html lang="en" data-marxy-variant="dark"><head><meta charset="utf-8"><style>${defaultThemeCss()}${extraCss}</style></head><body><main id="marxy-main">${before}<article id="doc" class="marxy-article">${body}</article>${after}</main></body></html>`;
   const blk = (tag, i, inner, style = '') => `<${tag} data-marxy-s="${i * 100}" data-marxy-e="${i * 100 + 99}"${style ? ` style="${style}"` : ''}>${inner}</${tag}>`;
   const PROSE = blk('p', 0, 'A short paragraph of body text that sits on the column and nowhere else.');
   const LONG = 'A long paragraph of body text, set over several lines so that the longest of them must come close to the right edge of the column. '.repeat(6);
-  const TALL = blk('div', 9, '', 'height:3000px');
+  const TALL = blk('div', 9, '', 'height:9000px');
   const REGION = '<div id="marxy-notices" role="status"></div>';
   const SOURCE = '<div id="marxy-source"><div class="cm-content"><div class="cm-line" style="height:30px">first line of source</div></div></div>';
   const FIXED_NOTICES = '#marxy-notices{position:fixed;top:0;left:0;right:0}';
+  /** The region as index.html places it: a zero-height layer pinned to the foot, its pills centred and stacking upward. */
+  const FOOT_NOTICES = '#marxy-notices{position:sticky;bottom:40px;height:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;pointer-events:none}';
   const measured = async (page) => page.evaluate(measureInPage, { blocks: true, notice: false });
   const details = (list) => list.map((f) => f.detail);
   const sub = (name) => async (page) => (await checkNoticeColumn(page)).filter((f) => f.sub === name).map((f) => f.detail);
@@ -1383,23 +1378,24 @@ function geometrySelftestCases() {
       run: async (page) => details(checkNoClip(await measured(page))),
     },
     {
-      name: 'noticeColumn (edges)',
-      html: themed(PROSE, '#marxy-notices{margin-inline-start:140px}', REGION),
-      // The region inside the article's own column, with nothing of its own to move it, sits on the column.
-      ok: themed(`<div id="marxy-notices" role="status" style="padding:0 !important;margin:0 !important;max-width:none !important"></div>` + PROSE),
-      run: sub('edges'),
+      // A notice in the column's flow, above the article, pushes the text down: the fault U-02 removed.
+      name: 'noticeColumn (displaces)',
+      html: themed(PROSE, '', REGION),
+      ok: themed(PROSE, FOOT_NOTICES, '', REGION),
+      run: sub('displaces'),
     },
     {
+      name: 'noticeColumn (centre)',
+      html: themed(PROSE, FOOT_NOTICES + '#marxy-notices{align-items:flex-start !important}', '', REGION),
+      ok: themed(PROSE, FOOT_NOTICES, '', REGION),
+      run: sub('centre'),
+    },
+    {
+      // In the flow at the end of a long page, a notice is out of view three screens down from the top.
       name: 'noticeColumn (in sight)',
-      html: themed(PROSE + TALL, '#marxy-notices{position:static !important}', REGION),
-      ok: themed(PROSE + TALL, '#marxy-notices{position:sticky;top:0}', REGION),
+      html: themed(PROSE + TALL, '#marxy-notices{position:static !important}', '', REGION),
+      ok: themed(PROSE + TALL, FOOT_NOTICES, '', REGION),
       run: sub('sight'),
-    },
-    {
-      name: 'noticeColumn (grid units)',
-      html: themed(PROSE, '.marxy-notice{padding-block:7px !important;line-height:1 !important}', REGION),
-      ok: themed(PROSE, '.marxy-notice{display:block !important;height:30px !important;padding:0 !important;border:0 !important}', REGION),
-      run: sub('grid'),
     },
     {
       name: 'noticeColumn (not over Source text)',

@@ -347,7 +347,8 @@ export function measureInPage(args) {
       })()
     : null;
 
-  // Notice region: mirror apps/desktop/index.html (#marxy-notices above the article, in the main).
+  // Notice region, as the app had it until U-02: #marxy-notices above the article, in the main, in the page's flow. The app's notices
+  // are pills at the pane's foot now (measureNoticeInPage below); this model is kept so the layout audit can be rerun on an earlier ref.
   let notice = null;
   if (args.notice) {
     const main = document.getElementById('marxy-main');
@@ -545,9 +546,11 @@ export function geometryFailures(cell, { classic: _classic = false } = {}) {
 }
 
 /**
- * Rule 5, measured on the app's own `#marxy-notices` region: one line built the way notify() builds it,
- * its box against the column, whether it is in view three screens down, and its height in grid units.
- * Serialised into the page. The line is removed again, so the region is empty as before.
+ * Rule 5 (U-02), measured on the app's own `#marxy-notices` region: a notice is a pill off the column. One is built the
+ * way notify() builds it and put in the region; this reads whether it moved the page (the article's top and the
+ * document's height), where it sits against its pane (centred, inside it), whether it is in view at the top of the page
+ * and three screens down, and, in Source, whether it covers the first line of text. Serialised into the page. The pill is
+ * removed again, so the region is empty as before.
  */
 export function measureNoticeInPage(args = {}) {
   const r2 = (n) => Math.round(n * 100) / 100;
@@ -555,14 +558,14 @@ export function measureNoticeInPage(args = {}) {
   const article = document.getElementById('doc');
   const html = document.documentElement;
   if (!region) return { missing: true };
-  const cs = getComputedStyle(article);
-  const ar = article.getBoundingClientRect();
-  const colL = ar.left + parseFloat(cs.paddingLeft);
-  const colR = ar.right - parseFloat(cs.paddingRight);
-  const unit = parseFloat(cs.lineHeight) / 2;
   const line = document.createElement('div');
   line.className = 'marxy-notice';
-  line.dataset.noticeKind = 'info';
+  line.dataset.noticeKind = 'refused';
+  // Read where it rests, not mid-way through its 160 ms pop.
+  line.style.animation = 'none';
+  const word = document.createElement('span');
+  word.className = 'marxy-notice-kind';
+  word.textContent = 'Not done';
   const text = document.createElement('span');
   text.className = 'marxy-notice-text';
   text.textContent = 'The file changed on disk.';
@@ -570,31 +573,39 @@ export function measureNoticeInPage(args = {}) {
   dismiss.type = 'button';
   dismiss.className = 'marxy-notice-dismiss';
   dismiss.textContent = 'Dismiss';
-  line.append(text, dismiss);
+  line.append(word, text, dismiss);
+  const articleTop = article.getBoundingClientRect().top;
+  const scrollHeight = html.scrollHeight;
   region.append(line);
   void region.offsetHeight;
   const box = line.getBoundingClientRect();
   if (args.source) {
     // Source mode: the notice must not sit on the editor's first line of text.
     const first = document.querySelector('#marxy-source .cm-content .cm-line');
-    const text = first?.getBoundingClientRect();
-    const covers = Boolean(text) && box.left < text.right && box.right > text.left && box.top < text.bottom && box.bottom > text.top;
+    const t = first?.getBoundingClientRect();
+    const covers = Boolean(t) && box.left < t.right && box.right > t.left && box.top < t.bottom && box.bottom > t.top;
     line.remove();
-    return { missing: !text, source: true, covers, noticeTop: r2(box.top), noticeBottom: r2(box.bottom), textTop: text ? r2(text.top) : null };
+    return { missing: !t, source: true, covers, noticeTop: r2(box.top), noticeBottom: r2(box.bottom), textTop: t ? r2(t.top) : null };
   }
+  const pane = region.closest('section.marxy-pane') ?? region.parentElement;
+  const pr = pane.getBoundingClientRect();
   const out = {
     missing: false,
-    edgeL: r2(box.left - colL),
-    edgeR: r2(box.right - colR),
-    heightInUnits: r2(box.height / unit),
+    articleMoved: r2(article.getBoundingClientRect().top - articleTop),
+    heightGrew: r2(html.scrollHeight - scrollHeight),
+    centreOff: r2((box.left + box.right) / 2 - (pr.left + pr.right) / 2),
+    outsideL: r2(Math.max(0, pr.left - box.left)),
+    outsideR: r2(Math.max(0, box.right - pr.right)),
     position: getComputedStyle(region).position,
   };
+  const inView = (b) => b.top >= 0 && b.bottom <= window.innerHeight + 0.5;
+  out.inViewTop = inView(box);
   const maxScroll = html.scrollHeight - window.innerHeight;
   out.scrollable = maxScroll > 0;
   if (maxScroll > 0) {
     window.scrollTo(0, Math.min(maxScroll, Math.round(window.innerHeight * 3)));
     const b = line.getBoundingClientRect();
-    out.inViewScrolled = b.bottom > 0 && b.top < window.innerHeight;
+    out.inViewScrolled = inView(b);
     out.topScrolled = r2(b.top);
     window.scrollTo(0, 0);
   } else out.inViewScrolled = true;
@@ -611,10 +622,9 @@ export function noticeFailures(n) {
     if (n.covers) add('source', `in Source the notice (${n.noticeTop} to ${n.noticeBottom}px) covers the first line of text (from ${n.textTop}px)`);
     return out;
   }
-  if (Math.abs(n.edgeL) > 1 || Math.abs(n.edgeR) > 1) add('edges', `the notice's edges are ${n.edgeL}px and ${n.edgeR}px from the column's`);
-  if (!n.inViewScrolled) add('sight', `scrolled down, the notice is at ${n.topScrolled}px and out of view`);
-  const off = Math.abs(n.heightInUnits - Math.round(n.heightInUnits));
-  if (off > 0.05) add('grid', `the notice is ${n.heightInUnits} grid units high`);
+  if (Math.abs(n.articleMoved) > 0.5 || Math.abs(n.heightGrew) > 0.5) add('displaces', `raising a notice moved the article by ${n.articleMoved}px and grew the page by ${n.heightGrew}px`);
+  if (Math.abs(n.centreOff) > 1 || n.outsideL > 0.5 || n.outsideR > 0.5) add('centre', `the notice is ${n.centreOff}px off its pane's centre and ${Math.max(n.outsideL, n.outsideR)}px outside it`);
+  if (!n.inViewTop || !n.inViewScrolled) add('sight', `the notice is out of view${n.inViewTop ? ` scrolled down (at ${n.topScrolled}px)` : ' at the top of the page'}`);
   return out;
 }
 

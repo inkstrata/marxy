@@ -23,7 +23,7 @@ export interface PaneChord {
  * Every pane chord, `Mod` held for each. `Mod+\` folds and unfolds the workspace (W-02, ADR-0058; it is listed
  * here for the physical key, not because it is a pane's); `Mod+Alt+\` is `view.open-beside` (D-07, moved there
  * by W-02) and `view.close-pane` (D-08) is listed now so the table is whole; until their story registers the command the chord does nothing. `Alt+Arrow`
- * without `Mod` is history (palette/keys.ts), not a pane chord. No `Mod+W`: the native menu's Close Window
+ * without `Mod` is history (palette/keys.ts), not a pane chord. `Mod+Alt+N` focuses the newest notice (U-02), from Source too. No `Mod+W`: the native menu's Close Window
  * quits.
  */
 export const PANE_CHORDS: readonly PaneChord[] = [
@@ -34,6 +34,7 @@ export const PANE_CHORDS: readonly PaneChord[] = [
   { code: 'ArrowRight', alt: true, command: 'view.focus-right' },
   { code: 'KeyS', ctrl: true, command: 'view.toggle-sidebar' },
   { code: 'KeyI', alt: true, command: 'view.toggle-inspector' },
+  { code: 'KeyN', alt: true, command: 'notices.focus' },
 ];
 
 /** The chord `event` presses, or null. `Mod` is Command on macOS and Ctrl elsewhere, and only it. */

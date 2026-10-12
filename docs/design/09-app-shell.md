@@ -9,10 +9,10 @@ visible else. Everything below is summoned and dismissed.
 <body data-marxy-mode="rendered" data-marxy-variant="dark">   <!-- dark is primary (ADR-0024) -->
   <main id="marxy-main">
     <section class="marxy-pane" data-marxy-pane="0" data-marxy-focus>   <!-- one pane per document shown (ADR-0057) -->
-      <div id="marxy-notices" role="status"></div>          <!-- empty at rest -->
       <article id="doc" class="marxy-article" data-marxy-s="0" data-marxy-e="…"></article>
       <div id="marxy-source" class="marxy-source-mount" hidden></div>   <!-- CodeMirror mounts here in Source mode -->
       <div class="marxy-find-slot"></div>                   <!-- empty and not drawn at rest; Rendered find fills it -->
+      <div id="marxy-notices" role="status"></div>          <!-- empty at rest; last, so it can pin to the pane's foot (§Notices) -->
     </section>
   </main>
   <dialog id="marxy-palette"></dialog>                      <!-- §07 -->
@@ -265,6 +265,7 @@ chrome.
 | `Ctrl+Mod+S` / `Mod+Alt+I` | dock or undock the sidebar / the inspector | W-03: from folded they unfold with that panel; physical keys, so they work from Source (§Peeking) |
 | `Mod+F` | find | `Enter` next, `Shift+Enter` previous, `Esc` closes and keeps the reading position |
 | `Mod+Shift+O` | outline | `↑/↓ Enter`, `Esc` |
+| `Mod+Alt+N` | go to the newest notice | U-02: a pane chord, by physical key, so it works from Source; `Tab` and the arrows move among the notice's buttons, `Esc` dismisses it and gives focus back (§Notices) |
 | `Mod+[` / `Mod+]` | back / forward | history stack (§07) |
 | `Mod+S` | save | byte-faithful, atomic |
 | `Mod+Z` / `Mod+Shift+Z` | undo / redo | in Rendered mode: the operation history (§01); in Source: CodeMirror's |
@@ -561,19 +562,47 @@ Markdown the sheet says which steps do that. The data-safety walk (`test/support
 
 ## Notices (`#marxy-notices`)
 
-One region per pane (D-10), in flow above its article, empty at rest. A notice about a file is said in the
-pane that shows it and in no other, one about the app in the focused pane; the same words twice in a pane
-are one line, and a document opened in a pane clears that pane's notices only. A notice is a single line with up to two
-actions, dismissible, and it never overlaps the text. Kinds in v1: blocked content (§02),
-external change while dirty (§08), file removed, save failed, theme warnings (§05), index
-truncated (§07), operation summary (transient, 4 s). Never a modal dialog.
+News is a **pill at the foot of the pane it is about** (U-02; the author's rulings on X-19, `docs/plan/direction-2026-10/rulings-x21.md`
+1 to 10). Nothing is ever put in the reading column's flow or in a document's text.
 
-Styled in `packages/theme/src/base.css` (MARXY-264): the region shares the article's own column
-width and margins, and each `.marxy-notice` is its own line with a background
-(`--marxy-color-notice`) and border distinct from the page, spaced in grid-unit multiples so it
-reads as the app speaking rather than as page content. `.marxy-notice-dismiss` and
-`.marxy-notice-action` (theme-document.ts's "Use this theme") share one button style with a
-hover and focus-visible state.
+**Where.** One region per pane (D-10), `[role=status]`, the pane's last child (`#marxy-notices`, `#marxy-notices-2`), empty and not
+drawn at rest. It is a zero-height layer pinned to the bottom edge of what the reader sees of the pane (sticky in a pane that
+scrolls; the pane is at least a screen tall; in Source, fixed to the window or absolute in its pane, because the editor's mount
+is out of the pane's flow). Its pills are centred on the pane and stack upward, newest nearest the edge; at most three show
+(`MAX_SHOWN`), a decision always among them, and the older wait under them and come up as the newer go. A notice about a file
+is said in the pane that shows it and in no other, one about the app in the focused pane; the same words twice in a pane are one
+line, and a document opened in a pane clears that pane's notices only. Unfolded, a pane's pills clear the status bar. Raising or
+dismissing one moves no text, a pixel of `scrollTop` or the document's height (`test/no-displacement.test.mjs`, the `noticeColumn`
+rows of `gate:aesthetics`).
+
+**What.** A pill is the chrome face on the surface roles (`.marxy-notice`): a glyph, a word for its kind, the text, its actions
+and Dismiss. Kind is told by the glyph and the word first and by `--marxy-color-status-*` after, never by colour alone:
+
+| Kind | Word | Glyph | Goes when |
+| --- | --- | --- | --- |
+| `done` (an outcome; `info` with `transient` is the same) | Done | check | fades at 4 s; held while the pointer or focus is on it |
+| `refused`, `error` | Not done | slashed circle, triangle | stays until dismissed |
+| `decision` | Needs you | question | stays until answered; takes focus |
+| `info`, `blocked` | Note | i, shield | stays until dismissed |
+
+A refusal says what was not done and that the file is unchanged. Every notice is built by `noticeLine` and placed by `placeNotice`
+(`notices/index.ts`): the glyph, the word and the buttons are the same wherever it comes from. `ctx.showNotice(text, { kind })`
+names the kind; with none it is `info`, or `done` with `transient`. Where a call site is not yet classified (kind settings,
+the collection, the live-reload lines, theme and index news) it is `info`, a note that stays.
+
+**Announced.** The region stays a polite live region. A decision is `role="alertdialog"` and moves focus to its first button
+(Save, the safe one), so it is read and answered at once; it is not modal. The unsaved-changes guard (`close.ts`) is one.
+Window close stays the native dialog.
+
+**Keys.** `Mod+Alt+N` (a pane chord, `pane/keys.ts`, so it works from Source) focuses the newest notice showing. Tab, Shift+Tab and
+the arrow keys move among the pill's buttons (the pill does this itself: a macOS webview does not Tab to buttons unless Full
+Keyboard Access is on); a decision wraps. Esc on a focused notice dismisses it, as Dismiss does (so a decision's Esc stops the
+action), and focus goes back to where it came from. Esc elsewhere keeps its order (sheet, find, peek).
+
+**Look.** `packages/theme/src/base.css`: the surface ground and outline and elevation, a 10 px radius (at 13), the status role's
+colour and wash for the glyph and word, quiet text buttons; forced colours keep the outline, and reduced motion removes the
+slide and the fade (an outcome then goes at once). Placement is `index.html`'s (and `gate.html`'s copy), and `base.css`'s for
+the unfolded workspace. Not built: a history of notices, progress for slow work, sound (rulings 6 to 8).
 
 ## Source mode (D-A15)
 

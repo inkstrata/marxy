@@ -22,7 +22,7 @@ export function paneOpenCommands(): readonly Command[] {
         if (!panes || !controller) return;
         const refusal = splitRefusal(panes);
         if (refusal !== null) {
-          ctx.showNotice(refusal);
+          ctx.showNotice(refusal, { kind: 'refused' });
           return;
         }
         controller.open('', { target: 'split' });

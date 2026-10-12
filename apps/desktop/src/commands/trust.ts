@@ -9,7 +9,7 @@ async function runRevoke(revoke: (() => Promise<void>) | null): Promise<void> {
   try {
     await revoke?.();
   } catch (err) {
-    notify({ kind: 'info', text: trustWriteFailedText(err) });
+    notify({ kind: 'error', text: trustWriteFailedText(err) });
   }
 }
 

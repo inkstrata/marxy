@@ -60,7 +60,7 @@ export function editorCommands(): readonly Command[] {
           // Only the path and the line leave the webview; the program is Rust's to choose (D-A31).
           await shell.revealInExternalEditor(path, line);
         } catch (err) {
-          ctx.showNotice(`Could not open ${baseName(path)} in the external editor: ${reasonOf(err)}.`);
+          ctx.showNotice(`Could not open ${baseName(path)} in the external editor: ${reasonOf(err)}.`, { kind: 'error' });
         }
       },
     },

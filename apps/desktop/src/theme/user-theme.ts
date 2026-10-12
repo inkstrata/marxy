@@ -127,7 +127,7 @@ export async function startUserTheme(ctx: UserThemeContext, dir: string | null):
     const msg = e instanceof Error ? e.message : String(e);
     const where = displayPath(dir);
     notify({
-      kind: 'info',
+      kind: 'error',
       text: msg.includes('theme.css') ? `Theme at ${where} could not be read: theme.css not found.` : `Theme at ${where} could not be read: ${msg}.`,
     });
     return { stop };

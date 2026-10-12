@@ -48,9 +48,8 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
    length below is a ratio of the chrome size (28 px for a row at 13), so the reader's chrome_size scales them and a
    theme's values are untouched. The ratios live here once: the palette and outline sheets and the verb menu's markup
    take these classes and keep layout only. Radii are system constants by the surface's size: 6 (a menu, find, a
-   peek), 9 (the palette), 13 (a sheet). The text being read is outside all of this. Notices are not on this list yet: they
-   sit in the page's flow above the article, and their height is pinned to the grid by gate:aesthetics' baselines and its
-   L-05 expected-failure rows, so they keep the text face and caption size until L-05 moves them. */
+   peek), 9 (the palette), 13 (a sheet), 10 (a notice's pill). The text being read is outside all of this. Notices float off the
+   column and wear the same chrome (U-02, below). */
 .marxy-surface,
 .marxy-verb-menu,
 .marxy-find {
@@ -89,57 +88,98 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
   white-space: nowrap;
 }
 
-/* Notices: one region in flow above the article, empty at rest (docs/design/09-app-shell.md
-   §Notices, MARXY-138). A line reads as the app speaking, not page content, so it gets its own
-   background and border rather than sitting as bare text; spacing is in grid-unit multiples like
-   everything else (MARXY-264). The column matches the article's own so a notice lines up with
-   the text it sits above. */
-#marxy-notices {
-  --marxy-column: clamp(calc(45 * var(--marxy-avg-char) * 1em), var(--marxy-measure), calc(80 * var(--marxy-avg-char) * 1em));
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--marxy-line-box) / 4);
-  max-width: var(--marxy-column);
-  margin-inline: auto;
-  padding: calc(var(--marxy-line-box) / 2) 3rem 0;
-}
+/* Notices (U-02; docs/design/09-app-shell.md §Notices, X-21 rulings 1 to 10): a pill off the reading column, floated at its
+   pane's foot (index.html places the region; nothing here is in the column's flow). It is the app speaking, so it takes
+   the chrome face and the surface roles, like every summoned surface (W-04): the surface ground and outline, the elevation,
+   a 10 px radius at 13. What kind of news it is is told by a glyph and a word first (Done, Not done, Needs you, Note) and
+   by the status role's colour and wash after, never by colour alone; each status colour is held at 4.5:1 on the surface
+   and on its wash by gate:contrast. The pill hugs its text and wraps it at 40 em; its buttons are quiet text. Forced colours
+   keep its outline; reduced motion removes its slide and its fade. */
 .marxy-notice {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  column-gap: 1.5em;
-  row-gap: calc(var(--marxy-line-box) / 4);
-  padding: calc(var(--marxy-line-box) / 4) calc(var(--marxy-line-box) / 2);
-  font-family: var(--marxy-font-text);
-  font-size: var(--marxy-size-caption);
-  line-height: 1.4;
+  --marxy-notice-ink: var(--marxy-color-status-info);
+  --marxy-notice-wash: transparent;
+  box-sizing: border-box;
+  /* Glyph, word, text and the buttons on one line; with an action, the buttons are a row of their own under the text. */
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: calc(var(--marxy-size-chrome) * 8 / 13);
+  row-gap: calc(var(--marxy-size-chrome) * 5 / 13);
+  width: max-content;
+  max-width: min(40em, 100%);
+  padding: calc(var(--marxy-size-chrome) * 7 / 13) calc(var(--marxy-size-chrome) * 12 / 13);
+  font-family: var(--marxy-face-chrome);
+  font-size: var(--marxy-size-chrome);
+  line-height: 1.3;
   color: var(--marxy-color-text);
-  background: var(--marxy-color-notice);
+  background-color: var(--marxy-color-surface);
+  background-image: linear-gradient(var(--marxy-notice-wash), var(--marxy-notice-wash));
   border: 1px solid var(--marxy-color-rule);
-  border-radius: var(--marxy-code-radius);
+  border-radius: calc(var(--marxy-size-chrome) * 10 / 13);
+  box-shadow: var(--marxy-shadow-surface);
+  animation: marxy-notice-in 160ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition: opacity 180ms;
 }
-.marxy-notice-text { flex: 1 1 auto; }
+.marxy-notice-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: calc(var(--marxy-size-chrome) * 4 / 13) calc(var(--marxy-size-chrome) * 8 / 13);
+}
+.marxy-notice:has(.marxy-notice-action) .marxy-notice-buttons { grid-column: 1 / -1; justify-self: end; }
+.marxy-notice[data-notice-kind="done"] { --marxy-notice-ink: var(--marxy-color-status-ok); --marxy-notice-wash: var(--marxy-color-status-ok-wash); }
+.marxy-notice[data-notice-kind="refused"],
+.marxy-notice[data-notice-kind="blocked"] { --marxy-notice-ink: var(--marxy-color-status-warn); --marxy-notice-wash: var(--marxy-color-status-warn-wash); }
+.marxy-notice[data-notice-kind="error"] { --marxy-notice-ink: var(--marxy-color-status-err); --marxy-notice-wash: var(--marxy-color-status-err-wash); }
+/* A decision is the one pill that asks: the accent outline, and it holds focus. */
+.marxy-notice[data-notice-kind="decision"] {
+  border-color: var(--marxy-color-accent);
+  box-shadow: 0 0 0 1px var(--marxy-color-accent), var(--marxy-shadow-surface);
+}
+.marxy-notice[data-notice-leaving] { opacity: 0; }
+.marxy-notice:focus-visible {
+  outline: 2px solid var(--marxy-color-accent);
+  outline-offset: 2px;
+}
+.marxy-notice-glyph {
+  display: inline-flex;
+  align-items: center;
+  color: var(--marxy-notice-ink);
+}
+.marxy-notice-glyph > svg { width: 1.1em; height: 1.1em; }
+.marxy-notice-kind {
+  font-weight: 650;
+  color: var(--marxy-notice-ink);
+}
+.marxy-notice-text { min-width: 0; overflow-wrap: anywhere; }
 .marxy-notice-dismiss,
 .marxy-notice-action {
-  flex: 0 0 auto;
   appearance: none;
   font: inherit;
   color: var(--marxy-color-text);
   background: none;
-  border: 1px solid var(--marxy-color-text-secondary);
-  border-radius: var(--marxy-code-radius);
-  padding: 0.15em 0.75em;
+  border: 0;
+  border-radius: calc(var(--marxy-size-chrome) * 4 / 13);
+  padding: 0.1em 0.35em;
+  text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
 }
+.marxy-notice-action { font-weight: 650; }
+.marxy-notice-dismiss { color: var(--marxy-color-text-secondary); }
 .marxy-notice-dismiss:hover,
 .marxy-notice-action:hover {
-  border-color: var(--marxy-color-accent);
   color: var(--marxy-color-accent);
 }
 .marxy-notice-dismiss:focus-visible,
 .marxy-notice-action:focus-visible {
   outline: 2px solid var(--marxy-color-accent);
-  outline-offset: 2px;
+  outline-offset: 1px;
+}
+/* The mock's pop: it settles down onto its place from above, so no moment of it reaches below the pane's foot. */
+@keyframes marxy-notice-in { from { opacity: 0; transform: translateY(-3px) scale(0.985); } }
+@media (prefers-reduced-motion: reduce) {
+  .marxy-notice { animation: none; transition: none; }
 }
 
 /* The verb menu (C-13, ADR-0054): summoned by right-click, the context-menu key or Enter; built on open
@@ -920,12 +960,18 @@ button.marxy-link-row:hover { background: var(--marxy-color-selection); }
 body[data-marxy-workspace="unfolded"] #marxy-main { grid-column: 2; grid-row: 4; min-height: var(--marxy-ws-panes-h); }
 body[data-marxy-workspace="unfolded"] #marxy-main[data-marxy-split] { height: var(--marxy-ws-panes-h); }
 body[data-marxy-workspace="unfolded"] #marxy-main[data-marxy-split] > .marxy-pane { height: var(--marxy-ws-panes-h); }
-/* One pane in Source: index.html fixes the editor's mount to the window (inset 0) and the notices to its top
-   edge, which paints the source under the sidebar and the bands. Unfolded they sit in the panes' column, as the
-   split's mount does. The selectors outweigh index.html's, which are not touched. */
+/* One pane in Source: index.html fixes the editor's mount to the window (inset 0), which paints the source under the
+   sidebar and the bands. Unfolded it sits in the panes' column, as the split's mount does. The selectors outweigh
+   index.html's, which are not touched. */
 body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) { position: relative; }
 body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) .marxy-source-mount:not([hidden]) { position: absolute; inset: 0; overflow: auto; }
-body[data-marxy-workspace="unfolded"][data-marxy-mode="source"] #marxy-main:not([data-marxy-split]) #marxy-notices { position: absolute; top: 0; left: 0; right: 0; }
+/* The notices' pills sit 40 px (at 13) above the window's foot, as the mock's toast does: 14 above the status bar when it is
+   shown. One pane in Rendered scrolls the window under the bar, so its region (sticky to the window's foot) keeps the
+   window-relative 40. Two panes, and one pane in Source, end above the bar, so their foot is the pane's own: the 40 less the
+   bar, never under 14 (U-02). */
+body[data-marxy-workspace="unfolded"] { --marxy-notice-foot: max(calc(var(--marxy-size-chrome) * 14 / 13), calc(var(--marxy-size-chrome) * 40 / 13 - var(--marxy-ws-status-h))); }
+body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) > .marxy-pane:not([data-marxy-mode="source"]) > [role="status"] { bottom: calc(var(--marxy-size-chrome) * 40 / 13); }
+body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) > .marxy-pane[data-marxy-mode="source"] > [role="status"] { position: absolute; }
 
 /* The library view (Q-03; ADR-0062 item 2). A sibling of the panes in the unfolded workspace: it stands in the panes' cell of
    the grid while they are hidden (`hidden` and `inert`, set by the view). The panes keep their box and lose only their paint
@@ -1016,6 +1062,10 @@ body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-ro
   del, s { text-decoration: line-through; }
   :is(pre, table):focus-visible { outline: 2px solid ButtonText; outline-offset: 2px; }
   .marxy-surface, .marxy-verb-menu, .marxy-find { border-color: CanvasText; background: Canvas; color: CanvasText; box-shadow: none; }
+  /* A notice keeps its outline, and its buttons read as links; a decision's outline is the thicker one (U-02). */
+  .marxy-notice { border-color: CanvasText; background: Canvas; background-image: none; color: CanvasText; box-shadow: none; }
+  .marxy-notice[data-notice-kind="decision"] { border-width: 2px; }
+  .marxy-notice-dismiss, .marxy-notice-action { color: LinkText; }
   /* The toolbar's states and scroll fade drop with background and shadow, so each is redrawn in system colours (W-04). */
   .marxy-toolbar {
     forced-color-adjust: none;

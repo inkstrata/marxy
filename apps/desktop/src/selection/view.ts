@@ -381,7 +381,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     if (!panes || !from) return;
     const refusal = splitRefusal(panes);
     if (refusal !== null) {
-      notify({ kind: 'info', text: refusal });
+      notify({ kind: 'refused', text: refusal });
       return;
     }
     const opened = await panes.openIn(from.slot === 0 ? 1 : 0, target);
@@ -417,7 +417,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
 
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href)) {
       ev?.preventDefault();
-      notify({ kind: 'info', text: 'That link uses a scheme Marxy does not open.' });
+      notify({ kind: 'refused', text: 'That link uses a scheme Marxy does not open.' });
       return;
     }
 
@@ -425,7 +425,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     const local = localLinkTarget(path, href, opts.imageRoot(path), { allowSource: beside });
     ev?.preventDefault();
     if ('refused' in local) {
-      notify({ kind: 'info', text: local.refused });
+      notify({ kind: 'refused', text: local.refused });
       return;
     }
     const { target, fragment } = local;
@@ -444,13 +444,13 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       // let the next save overwrite another program's change.
       bytes = await (opts.shell.peekFile ?? opts.shell.readFile).call(opts.shell, target);
     } catch {
-      notify({ kind: 'info', text: 'That document could not be found.' });
+      notify({ kind: 'refused', text: 'That document could not be found.' });
       return;
     }
 
     if (beside) {
       if ((defaultModeForPath(target) === 'source' || isNamedTextFamily(target)) && !looksLikeText(bytes)) {
-        notify({ kind: 'info', text: 'That file is not text.' });
+        notify({ kind: 'refused', text: 'That file is not text.' });
         return;
       }
       await openBesideOf(record, target, fragment);

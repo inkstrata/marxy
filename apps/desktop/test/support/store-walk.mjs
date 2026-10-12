@@ -163,6 +163,24 @@ class El {
   setAttribute(name, value) {
     this.attrs[name] = value;
   }
+  hasAttribute(name) {
+    return name in this.attrs;
+  }
+  removeAttribute(name) {
+    delete this.attrs[name];
+  }
+  get classList() {
+    return { contains: (name) => this.className.split(' ').includes(name) };
+  }
+  /** The notices (U-02) ask where focus is and whether a pill holds it; nothing here has focus. */
+  contains(node) {
+    for (let n = node; n; n = n.parentElement) if (n === this) return true;
+    return false;
+  }
+  closest() {
+    return null;
+  }
+  focus() {}
   addEventListener() {}
   querySelector(selector) {
     const cls = selector.startsWith('.') ? selector.slice(1) : null;
@@ -196,9 +214,14 @@ function installDom() {
       log.length = 0;
     },
   };
+  // A notice is an `HTMLElement` with an SVG glyph (notices/index.ts, U-02); this stub stands for both.
+  globalThis.HTMLElement ??= El;
+  globalThis.Element ??= El;
   globalThis.document = {
     body,
+    activeElement: null,
     createElement: (tag) => new El(tag, log),
+    createElementNS: (_ns, tag) => new El(tag, log),
     getElementById: (id) => body.find(id),
     querySelector: () => null,
     querySelectorAll: () => [],

@@ -19,7 +19,7 @@ async function remember(ctx: AppContext, key: 'variant' | 'size', tomlValue: str
   try {
     await writeReaderKey(shell, key, tomlValue);
   } catch (e) {
-    ctx.showNotice(`config.toml could not be updated: ${e instanceof Error ? e.message : String(e)}`);
+    ctx.showNotice(`config.toml could not be updated: ${e instanceof Error ? e.message : String(e)}`, { kind: 'error' });
   }
 }
 

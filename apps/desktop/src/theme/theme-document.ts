@@ -1,7 +1,7 @@
 // Notice and config write when a theme file is opened as a document (docs/design/05-theme.md §App side). MARXY-177.
 import { basename, dirname, joinPath } from '@marxy/core/src/index-model/paths.ts';
 import { setTopLevelKey } from '@marxy/theme';
-import { ensureNoticesRegion } from '../notices/index.ts';
+import { ensureNoticesRegion, noticeLine, placeNotice, removeNotice } from '../notices/index.ts';
 import { startUserTheme, type UserThemeContext, type UserThemeShell } from './user-theme.ts';
 
 function isThemeFileName(path: string): boolean {
@@ -29,34 +29,20 @@ export async function maybeThemeDocumentNotice(
   const dir = dirname(openPath);
   if (!(await themePairExists(ctx.shell, dir))) return;
 
-  const region = ensureNoticesRegion();
-  const line = document.createElement('div');
-  line.className = 'marxy-notice';
-  line.dataset.noticeKind = 'info';
-
-  const text = document.createElement('span');
-  text.className = 'marxy-notice-text';
-  text.textContent = 'This is a marxy theme.';
-  line.append(text);
-
-  const use = document.createElement('button');
-  use.type = 'button';
-  use.className = 'marxy-notice-action';
-  use.textContent = 'Use this theme';
-  use.addEventListener('click', () => {
-    line.remove();
-    void onAdopt(dir);
+  const line = noticeLine({
+    kind: 'info',
+    text: 'This is a marxy theme.',
+    actions: [
+      {
+        label: 'Use this theme',
+        onClick: () => {
+          removeNotice(line);
+          void onAdopt(dir);
+        },
+      },
+    ],
   });
-  line.append(use);
-
-  const dismiss = document.createElement('button');
-  dismiss.type = 'button';
-  dismiss.className = 'marxy-notice-dismiss';
-  dismiss.textContent = 'Dismiss';
-  dismiss.addEventListener('click', () => line.remove());
-  line.append(dismiss);
-
-  region.append(line);
+  placeNotice(ensureNoticesRegion(), line);
 }
 
 /** A TOML basic string: `"`, control characters and (defensively) backslashes escaped. */

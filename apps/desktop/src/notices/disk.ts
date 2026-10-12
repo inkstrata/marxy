@@ -28,7 +28,8 @@ export function fileRefusedText(name: string, message: string): string {
 }
 
 export function fileRefusedNotice(text: string, target?: NoticeTarget): void {
-  notify({ kind: 'info', text }, target);
+  // Not done (the reload), and the open copy is unchanged: it stays until dismissed, with the glyph and word of a refusal.
+  notify({ kind: 'refused', text }, target);
 }
 
 export function diskChangedEditsKeptNotice(target?: NoticeTarget): void {

@@ -28,7 +28,7 @@ export function guardSaveAsDialog(deps: SaveAsGuardDeps): (options: Parameters<A
       const unsaved = other.snapshot().dirty || deps.hasUnfoldedEdits(other);
       if (unsaved) {
         notify(
-          { kind: 'info', text: `${documentName(picked)} is open in the other pane with changes that are not saved. Save or close it there first; nothing was written.` },
+          { kind: 'refused', text: `${documentName(picked)} is open in the other pane with changes that are not saved. Save or close it there first; nothing was written.` },
           { pane: deps.pane },
         );
         return null;

@@ -14,7 +14,7 @@ function openStore(): DocumentStore | null {
 
 async function reportFailedChange(what: string, e: unknown): Promise<void> {
   const { notify } = await import('../notices/index.ts');
-  notify({ kind: 'info', text: `Could not ${what}: ${e instanceof Error ? e.message : String(e)}. The document is unchanged.` });
+  notify({ kind: 'error', text: `Could not ${what}: ${e instanceof Error ? e.message : String(e)}. The document is unchanged.` });
 }
 
 /**

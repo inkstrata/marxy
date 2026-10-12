@@ -85,15 +85,15 @@ async function show(ctx: AppContext, snap: DocumentSnapshot, before: Uint8Array,
   await yieldToUi();
   const name = isUntitled(snap.path) ? documentName(snap.path) : basename(snap.path);
   const result = changesDocument(name, before, after, against);
-  if (result.kind === 'too-large') return ctx.showNotice(TOO_LARGE, { transient: true });
-  if (result.kind === 'none') return ctx.showNotice(NO_DIFFERENCE, { transient: true });
+  if (result.kind === 'too-large') return ctx.showNotice(TOO_LARGE, { kind: 'refused' });
+  if (result.kind === 'none') return ctx.showNotice(NO_DIFFERENCE, { kind: 'done' });
   if (beside) {
     // Over unsaved edits the diff must not replace the document (the reader would be asked to save or
     // discard just to look): it opens beside it, as the second pane the window can hold, or says why not.
     const panes = appHandle()?.panes();
     if (panes && panes.panes.length === 1) {
       const refusal = splitRefusal(panes);
-      if (refusal !== null) return ctx.showNotice(refusal);
+      if (refusal !== null) return ctx.showNotice(refusal, { kind: 'refused' });
       const path = panes.focused.path();
       if (path === null) return;
       await panes.openIn('other', path, { at: panes.focused.view.position().byteOffset });

@@ -462,10 +462,10 @@ async function applyResult(l: Live): Promise<void> {
     if (live !== l) return;
     if (outcome === 'applied') {
       closeTransformSheet();
-      l.ctx.showNotice(`Applied ${names}. Undo restores the text; nothing is saved until you save.`, { transient: true });
+      l.ctx.showNotice(`Applied ${names}. Undo restores the text; nothing is saved until you save.`, { kind: 'done' });
     } else if (outcome === 'stale') {
       say(l, STALE_NOTICE);
-      l.ctx.showNotice(STALE_NOTICE, { transient: true });
+      l.ctx.showNotice(STALE_NOTICE, { kind: 'refused' });
     } else {
       say(l, 'The result is the text as it is. Nothing to apply.');
     }

@@ -15,7 +15,7 @@ export async function splitSame(ctx: AppContext): Promise<void> {
   if (path === null) return;
   const refusal = splitRefusal(panes);
   if (refusal !== null) {
-    ctx.showNotice(refusal);
+    ctx.showNotice(refusal, { kind: 'refused' });
     return;
   }
   // The second pane lands where the first is now, and the first keeps the focus.
