@@ -15,7 +15,7 @@ import type { PieceSource } from '../frontispiece/pieces.ts';
 import { wireArticle } from '../commands/document.ts';
 import type { DocumentSnapshot, DocumentStore, Transition } from '../document/store.ts';
 import { documentName } from '../document/untitled.ts';
-import { currentPosition as positionOf, restoreScrollToPosition } from '../position/index.ts';
+import { currentPosition as positionOf, restoreScrollToPosition, type HeldPosition } from '../position/index.ts';
 import type { ScrollerGeometry } from '../position/position.ts';
 import { renderRecord, spliceRendered, type RenderRecord } from '../render/incremental.ts';
 import { resolveImageRoot, stripNonLocalImages } from '../render/images.ts';
@@ -389,7 +389,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     blocks: BlockList,
     path: string,
     mode: ReadingPosition['mode'],
-  ): ReadingPosition =>
+  ): HeldPosition =>
     positionOf(geometry, inScroller(blocks, geometry === seen ? seenOffset : contentOffset()), path, mode);
   const onScrollerScroll = (): void => {
     // A scroll nobody here made (every restore notes its own, and the event finds nothing moved) is the
@@ -405,7 +405,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   scrollTarget(scroller).addEventListener('scroll', onScrollerScroll, { passive: true });
 
   /** Puts `p` on the reading line of this view's scroller, and notes where that left it. */
-  function restoreTo(blocks: BlockList, p: ReadingPosition, offset: number = contentOffset()): void {
+  function restoreTo(blocks: BlockList, p: HeldPosition, offset: number = contentOffset()): void {
     restoreScrollToPosition(scroller, inScroller(blocks, offset), p);
     noteScroll();
   }
@@ -477,7 +477,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * typesetter has set the new page (A-02): its passes reflow paragraphs above the reading line, and
    * at 1 MB they run for seconds after the render returns.
    */
-  let heldPosition: ReadingPosition | null = null;
+  let heldPosition: HeldPosition | null = null;
   /**
    * The place a burst of resizes holds (F-27): taken when the first resize is noticed, ended when its
    * relayout has set the page. Reader input in between releases it (`releaseAnchor`), and the relayout
@@ -1005,7 +1005,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * Restores `position` on the page a re-render just made, and holds it there through the passes that
    * follow: until the reader scrolls, or until the document is wholly in and wholly set.
    */
-  function holdPosition(position: ReadingPosition): void {
+  function holdPosition(position: HeldPosition): void {
     mountThrough(position.byteOffset);
     if (!shown) return;
     restoreTo(shown.blocks, position);
