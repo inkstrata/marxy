@@ -83,3 +83,22 @@ export function hasEntry(files = [], key, readFile) {
   }
   return list.some(isFragmentPath);
 }
+
+/** The id a fragment's line ends in, `(B-02.1)` → `B-02.1`, or null. */
+export function lineKey(text) {
+  const lines = String(text ?? '').split('\n').map(l => l.trim()).filter(Boolean);
+  return lines.length === 1 ? lines[0].match(/\(([^()\s]+)\)$/)?.[1] ?? null : null;
+}
+
+/** Why a fragment is wrong, or null: one line ending in `(ID)` where ID equals the file name, case included. */
+export function fragmentProblem(file, text) {
+  const key = fragmentKey(file);
+  if (!key) return null;
+  if (!validFragment(text, key)) {
+    const said = lineKey(text);
+    return said && said !== key
+      ? `${file} names ${key} but its line ends in (${said})`
+      : `${file} is not one line ending in (${key})`;
+  }
+  return null;
+}

@@ -11,7 +11,7 @@ branch, before a PR), and CI (the merge).
 pnpm new module core buffer            # start a unit in the house shape (also: operation, command)
 …implement…
 pnpm precheck                          # typecheck/lint/test for what you touched + the gates your paths need
-pnpm check                             # the nine hygiene checks, in one command
+pnpm check                             # the ten hygiene checks, in one command
 gh pr create --body-file FILE          # the template in .github/pull_request_template.md; never --body
 ```
 
