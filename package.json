@@ -25,6 +25,8 @@
     "lint:commits": "commitlint --from origin/main --to HEAD --verbose",
     "prepare": "git config core.hooksPath .githooks || true",
     "check": "node scripts/check.mjs",
+    "waves": "node scripts/waves.mjs",
+    "waves:check": "node scripts/waves.mjs --check",
     "check:story": "node scripts/check-story.mjs",
     "check:pr": "node scripts/check-pr.mjs",
     "lint:theme": "pnpm --filter @marxy/theme lint",
