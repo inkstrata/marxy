@@ -3,7 +3,7 @@
 import type { Buffer } from '@marxy/core';
 import { lineOf } from '@marxy/core';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
-import { ensureNoticesRegion, focusedPane } from './index.ts';
+import { ensureNoticesRegion, focusedPane, noticeLine, placeNotice } from './index.ts';
 import { truncationNoticeText } from './trust-copy.ts';
 
 export interface TruncationNoticeOpts {
@@ -29,32 +29,14 @@ export function truncationNotices(opts: TruncationNoticeOpts): void {
     if (removal.what !== 'truncation' || removal.src === undefined) continue;
     const line = lineOf(opts.buffer, removal.src.start);
     const remaining = countLinesFrom(removal.src.start, opts.buffer);
-    const region = ensureNoticesRegion(opts.pane ?? focusedPane());
-    const row = document.createElement('div');
-    row.className = 'marxy-notice';
-    row.dataset.noticeKind = 'blocked';
-
-    const text = document.createElement('span');
-    text.className = 'marxy-notice-text';
-    text.textContent = truncationNoticeText(line, remaining, removal.name);
-    row.append(text);
-
-    if (opts.showSource) {
-      const action = document.createElement('button');
-      action.type = 'button';
-      action.className = 'marxy-notice-action';
-      action.textContent = 'Show source';
-      action.addEventListener('click', () => opts.showSource!(line));
-      row.append(action);
-    }
-
-    const dismiss = document.createElement('button');
-    dismiss.type = 'button';
-    dismiss.className = 'marxy-notice-dismiss';
-    dismiss.textContent = 'Dismiss';
-    dismiss.addEventListener('click', () => row.remove());
-    row.append(dismiss);
-
-    region.append(row);
+    const { showSource } = opts;
+    placeNotice(
+      ensureNoticesRegion(opts.pane ?? focusedPane()),
+      noticeLine({
+        kind: 'blocked',
+        text: truncationNoticeText(line, remaining, removal.name),
+        actions: showSource ? [{ label: 'Show source', onClick: () => showSource(line) }] : [],
+      }),
+    );
   }
 }

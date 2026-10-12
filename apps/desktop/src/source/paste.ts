@@ -6,7 +6,7 @@ import { isolateHistory } from '@codemirror/commands';
 import type { EditorState, Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { appHandle } from '../commands/app-handle.ts';
-import { notify, paneOf } from '../notices/index.ts';
+import { notify, paneOf, type NoticeKind } from '../notices/index.ts';
 import { CONVERTED_NOTICE, NOTHING_TO_PASTE, pasteShellOf, readConverted, readForPaste, type PasteShell } from '../paste/read-clipboard.ts';
 import { readableText } from '@marxy/core';
 
@@ -36,9 +36,9 @@ export function insertPasted(view: EditorView, text: string): boolean {
   return true;
 }
 
-const say = (view: EditorView, text: string, transient = false): void => {
+const say = (view: EditorView, text: string, kind: NoticeKind = 'refused'): void => {
   const pane = paneOf(view.dom);
-  notify({ kind: 'info', text, ...(transient ? { transient: true } : {}) }, pane === undefined ? {} : { pane });
+  notify({ kind, text }, pane === undefined ? {} : { pane });
 };
 
 /** Where the editor was when the paste began: the document and selection it must still hold when the pasteboard has been read. */
@@ -85,12 +85,12 @@ export async function pasteFromClipboard(view: EditorView, shell: PasteShell, fa
   if (!unmoved()) return say(view, MOVED);
   const { converted, payload } = got;
   if (converted.kind === 'html') {
-    if (insertPasted(view, converted.markdown)) say(view, CONVERTED_NOTICE, true);
-    else say(view, NOTHING_TO_PASTE, true);
+    if (insertPasted(view, converted.markdown)) say(view, CONVERTED_NOTICE, 'done');
+    else say(view, NOTHING_TO_PASTE);
     return;
   }
   // markdown, text, json, empty: the clipboard's own text, as the editor's paste would have put it in.
-  if (!insertPasted(view, payload.text ?? '')) say(view, NOTHING_TO_PASTE, true);
+  if (!insertPasted(view, payload.text ?? '')) say(view, NOTHING_TO_PASTE);
 }
 
 /** The plain text of the pasteboard, unconverted (`Paste and Match Style`). */
@@ -99,7 +99,7 @@ export async function pastePlainText(view: EditorView, shell: PasteShell): Promi
   const got = await readForPaste(shell, { html: false, text: true });
   if (got.refused !== undefined) return say(view, got.refused);
   if (!unmoved()) return say(view, MOVED);
-  if (!insertPasted(view, got.text ?? '')) say(view, NOTHING_TO_PASTE, true);
+  if (!insertPasted(view, got.text ?? '')) say(view, NOTHING_TO_PASTE);
 }
 
 const isMac = (): boolean => typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');

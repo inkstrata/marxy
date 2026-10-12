@@ -47,10 +47,10 @@ export async function writeCopy(ctx: AppContext, rep: CopyRep, label: string): P
   } catch (err) {
     ctx.closePalette();
     const why = err instanceof Error ? err.message : String(err);
-    ctx.showNotice(`Could not copy: ${why}`, { transient: true });
+    ctx.showNotice(`Could not copy: ${why}`, { kind: 'error' });
     return false;
   }
   ctx.closePalette();
-  ctx.showNotice(`${label}, ${sizeLabel(size)}`, { transient: true });
+  ctx.showNotice(`${label}, ${sizeLabel(size)}`, { kind: 'done' });
   return true;
 }

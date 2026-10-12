@@ -19,6 +19,7 @@ function fakeElement(): any {
   getElementById: () => fakeElement(),
   querySelector: () => null,
   createElement: () => fakeElement(),
+  createElementNS: () => fakeElement(), // a notice's glyph is an SVG element (U-02)
   body: fakeElement(),
 };
 

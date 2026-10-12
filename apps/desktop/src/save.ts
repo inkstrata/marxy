@@ -4,7 +4,7 @@ import type { Shell, ShellError } from '@marxy/shell-api';
 import { appHandle } from './commands/app-handle.ts';
 import type { DocumentStore } from './document/store.ts';
 import { documentName, isUntitled } from './document/untitled.ts';
-import { ensureNoticesRegion, focusedPane } from './notices/index.ts';
+import { ensureNoticesRegion, focusedPane, noticeLine, placeNotice, removeNotice } from './notices/index.ts';
 
 export type SaveResult = 'saved' | 'unchanged' | 'cancelled' | 'failed';
 
@@ -37,30 +37,21 @@ function readOnlyNoticeName(path: string): string {
 }
 
 function showSaveFailedNotice(path: string, reason: string, retry: () => void, pane?: HTMLElement): void {
-  const region = ensureNoticesRegion(pane ?? focusedPane());
-  const line = document.createElement('div');
-  line.className = 'marxy-notice';
-  const text = document.createElement('span');
-  text.className = 'marxy-notice-text';
-  const name = documentName(path);
-  text.textContent = `Could not save ${name}: ${reason}`;
-  line.append(text);
-  const saveAs = document.createElement('button');
-  saveAs.type = 'button';
-  saveAs.className = 'marxy-notice-action';
-  saveAs.textContent = 'Save as…';
-  saveAs.addEventListener('click', () => {
-    line.remove();
-    void retry();
+  // Not done: the write failed and nothing was changed, so it stays until dismissed (U-02).
+  const line = noticeLine({
+    kind: 'error',
+    text: `Could not save ${documentName(path)}: ${reason}`,
+    actions: [
+      {
+        label: 'Save as…',
+        onClick: () => {
+          removeNotice(line);
+          void retry();
+        },
+      },
+    ],
   });
-  line.append(saveAs);
-  const dismiss = document.createElement('button');
-  dismiss.type = 'button';
-  dismiss.className = 'marxy-notice-dismiss';
-  dismiss.textContent = 'Dismiss';
-  dismiss.addEventListener('click', () => line.remove());
-  line.append(dismiss);
-  region.append(line);
+  placeNotice(ensureNoticesRegion(pane ?? focusedPane()), line);
 }
 
 /**
@@ -89,7 +80,7 @@ export async function save(
   // while this pane's typing is still only in its editor. Refuse, and say why.
   if (deps.holdsUnfoldedSource?.()) {
     const { notify, SOURCE_HELD_APART } = await import('./notices/index.ts');
-    notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: deps.pane });
+    notify({ kind: 'refused', text: SOURCE_HELD_APART }, { pane: deps.pane });
     return 'cancelled';
   }
   const snap = store.snapshot();
@@ -107,7 +98,7 @@ export async function save(
   if (path.startsWith('marxy:')) {
     const { notify } = await import('./notices/index.ts');
     notify({
-      kind: 'info',
+      kind: 'refused',
       text: `${readOnlyNoticeName(path)} is part of Marxy and cannot be saved`,
     }, { pane: deps.pane });
     return 'cancelled';

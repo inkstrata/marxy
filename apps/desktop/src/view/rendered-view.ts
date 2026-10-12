@@ -658,7 +658,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (bare) showPlainText();
     notify(
       {
-        kind: 'info',
+        kind: 'error',
         text: `Source could not open ${path ? documentName(path) : 'this file'}: ${reason}.${bare ? ' The file is shown here as plain text.' : ''}`,
       },
       { pane: paneOf(doc) },
@@ -717,7 +717,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (!sourceEditor || !open) return;
     // Held apart from the other pane's fold (D-11): leaving would fold this text over it. Stay, and say why.
     if (stillHeldApart()) {
-      notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: paneOf(doc) });
+      notify({ kind: 'refused', text: SOURCE_HELD_APART }, { pane: paneOf(doc) });
       return;
     }
     // Leaving Source is one history entry (`commitSource`): Mod+Z in Rendered undoes what was typed there.
@@ -761,7 +761,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   /** Whether `editor` was held apart by the fold that just ran, so Source stays and says why (as at the top of `leaveSourceForRendered`). */
   function keepsSourceHeldApart(editor: MountedSourceEditor): boolean {
     if (sourceEditor !== editor || !stillHeldApart()) return false;
-    notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: paneOf(doc) });
+    notify({ kind: 'refused', text: SOURCE_HELD_APART }, { pane: paneOf(doc) });
     return true;
   }
 
@@ -1453,7 +1453,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * the other's. Its text still counts as unsaved, so a close, an open over it or quitting asks first.
    */
   function holdApart(): void {
-    if (!heldApart) notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: paneOf(doc) });
+    if (!heldApart) notify({ kind: 'refused', text: SOURCE_HELD_APART }, { pane: paneOf(doc) });
     heldApart = true;
   }
 

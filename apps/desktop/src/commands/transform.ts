@@ -134,14 +134,14 @@ export async function openTransform(ctx: AppContext, id: string): Promise<void> 
   const sheet = await import('../transform/sheet.ts');
   const target = inSourceMode() ? await sourceTarget() : await renderedTarget(ctx);
   if (typeof target === 'string') {
-    ctx.showNotice(target, { transient: true });
+    ctx.showNotice(target, { kind: 'refused' });
     return;
   }
   try {
     sheet.openTransformSheet(ctx, target, id);
   } catch (error) {
     // A transform that throws leaves the document alone: it only ever read the text.
-    ctx.showNotice(`Could not run ${id}: ${error instanceof Error ? error.message : String(error)}. The document is unchanged.`, { transient: true });
+    ctx.showNotice(`Could not run ${id}: ${error instanceof Error ? error.message : String(error)}. The document is unchanged.`, { kind: 'error' });
   }
 }
 

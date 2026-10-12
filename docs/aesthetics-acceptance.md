@@ -29,7 +29,7 @@ and screenshot); the nightly run adds them (ADR-0047).
 | Geometry: room | no block box passes the column plus `--marxy-room` on either side, at any depth, and a box that overhangs the column overhangs both sides alike within 1 px | L-02, 3 |
 | Geometry: marks | no list marker or checkbox sits left of the gutter floor | L-02, 3 |
 | Geometry: no clip | no ink is cut off by the window; no set line runs past its paragraph's box once the app's relayout has settled; the page never scrolls sideways | L-02, 3 and 4 |
-| Geometry: notice column | on the app's own `#marxy-notices` region: a notice is on the column's edges within 1 px, in view three screens down, a whole number of grid units high, and in Source never on the first line of text | L-02, 5 |
+| Geometry: notice column | on the app's own `#marxy-notices` region: a notice is a pill off the column (U-02). Raising one moves neither the article nor the page's height, it is centred on its pane within 1 px and inside it, it is in view at the top of the page and three screens down, and in Source it is never on the first line of text | L-02, 5; U-02 |
 | Geometry: text spacing | with the four WCAG 1.4.12 overrides loaded as a reader theme (line height 1.5, paragraph spacing 2, letter spacing 0.12, word spacing 0.16, all in em), nothing is clipped, no block overlaps, no set line passes its box and the page does not scroll sideways | WCAG 1.4.12, L-02, 6 |
 | Geometry: 200 % text | the same, with the reader's size set to 40 px through the config | WCAG 1.4.4, L-02, 6 |
 | Screenshot diff | per engine, per fixture, pixel diff ≤ 0.1 % against the committed baseline unless the PR updates the baseline (a taste-review entry in `docs/taste-review/queue.d/` is welcome, not required) | drift |

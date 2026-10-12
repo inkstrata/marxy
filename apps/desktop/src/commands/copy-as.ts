@@ -119,7 +119,7 @@ function targetCommand(target: CopyTarget): Command {
       const input = await copyAsInput();
       if (!input) {
         ctx.closePalette();
-        ctx.showNotice('Nothing to copy', { transient: true });
+        ctx.showNotice('Nothing to copy', { kind: 'refused' });
         return;
       }
       const { text, html } = target.build(input);

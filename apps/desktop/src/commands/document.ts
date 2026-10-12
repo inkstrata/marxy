@@ -89,14 +89,14 @@ async function resolveDiskConflict(ctx: AppContext, choice: 'mine' | 'theirs'): 
   const app = appHandle();
   await app?.foldSource();
   if (app?.hasUnfoldedSource()) {
-    ctx.showNotice(SOURCE_HELD_APART);
+    ctx.showNotice(SOURCE_HELD_APART, { kind: 'refused' });
     return;
   }
   const outcome = await store.resolveConflict(choice);
   if (outcome.result === 'failed') {
     const err = outcome.error;
     const said = err && typeof err === 'object' && 'message' in err ? String((err as ShellError).message) : String(err);
-    ctx.showNotice(`Could not save a copy: ${said.replace(/\.$/, '')}. Nothing was changed; your edits are still here.`);
+    ctx.showNotice(`Could not save a copy: ${said.replace(/\.$/, '')}. Nothing was changed; your edits are still here.`, { kind: 'error' });
     return;
   }
   if (outcome.result === 'none') return;

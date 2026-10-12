@@ -97,7 +97,7 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
         // screen and would otherwise do nothing.
         store = null;
         loadFailed = true;
-        notify({ kind: 'info', text: TRUST_UNREADABLE_TEXT });
+        notify({ kind: 'error', text: TRUST_UNREADABLE_TEXT });
       }
     })();
     return loading;
@@ -166,9 +166,9 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
     if (!current) return false;
     try {
       if (await change(current)) return true;
-      notify({ kind: 'info', text: TRUST_NEWER_VERSION_TEXT });
+      notify({ kind: 'error', text: TRUST_NEWER_VERSION_TEXT });
     } catch (err) {
-      notify({ kind: 'info', text: trustWriteFailedText(err) });
+      notify({ kind: 'error', text: trustWriteFailedText(err) });
     }
     return false;
   }
@@ -178,7 +178,7 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
     if (!path || !deps.buffer()) return;
     // A grant is kept by file path, and a scratch document has none: it stays blocked until it is saved (E-13).
     if (isUntitled(path)) {
-      notify({ kind: 'info', text: 'Raw HTML in a document that is not saved yet stays blocked. Save it first, then allow it.' });
+      notify({ kind: 'refused', text: 'Raw HTML in a document that is not saved yet stays blocked. Save it first, then allow it.' });
       return;
     }
     if (!store && loadFailed) {

@@ -12,6 +12,7 @@ import { documentCommands } from './document.ts';
 import { editorCommands } from './editor.ts';
 import { findCommands } from './find.ts';
 import { navigationCommands } from './navigation.ts';
+import { noticeCommands } from './notices.ts';
 import { outlineCommands } from './outline.ts';
 import { pasteCommands } from './paste.ts';
 import { paneLayoutCommands } from './pane-layout.ts';
@@ -43,6 +44,7 @@ export function commands(): readonly Command[] {
     ...blockEditCommands(),
     ...trustRevokeCommands(),
     ...navigationCommands(),
+    ...noticeCommands(),
     ...paneFocusCommands(),
     ...appearanceCommands(),
     ...outlineCommands(),

@@ -241,7 +241,7 @@ local commands are the same as when they ran on pull requests.
 | `gate:aesthetics` room | a block box passes the column plus the room, or overhangs one side more than the other | as above |
 | `gate:aesthetics` marks | a list marker or checkbox sits left of the gutter floor | as above |
 | `gate:aesthetics` noClip | ink cut off by the window, a set line past its box after the relayout, or sideways scroll | as above |
-| `gate:aesthetics` noticeColumn | a notice is off the column, out of view when scrolled, not a whole number of grid units high, or over Source text | as above |
+| `gate:aesthetics` noticeColumn | raising a notice moves the article or grows the page, it is off its pane's centre or outside it, out of view (at the top or scrolled), or over Source text | as above |
 | `gate:aesthetics` textSpacing, text200 | something clipped, overlapping or scrolling sideways with 1.4.12 text spacing or at 40 px text | as above |
 | `gate:aesthetics` an expected failure | a case in `EXPECTED_FAILURES` now passes (delete its row), or a failing case has no row (fix the page, never add a row without the story that clears it) | `node scripts/gate-aesthetics.mjs --mechanical --emit-expected` |
 | `gate:specimen` | a specimen render moved or made a network request | `pnpm gate:specimen` |

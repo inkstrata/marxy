@@ -76,7 +76,7 @@ export function buildAppContext(handle: AppHandle | null = appHandle()): AppCont
       applyDocumentMutation(store, { ...input, baseVersion: runtime?.version }),
     closePalette: () => paletteCloser(),
     showNotice(text, opts) {
-      notify({ kind: 'info', text, transient: opts?.transient });
+      notify({ kind: opts?.kind ?? 'info', text, transient: opts?.transient });
     },
   };
 }
@@ -246,7 +246,7 @@ export function installCommandKeys(handle: AppHandle): void {
     // A command that rejects is said, never an unhandled rejection that leaves the key doing nothing (V-11).
     void Promise.resolve(cmd.run(appCtx)).catch((e: unknown) => {
       console.warn(`marxy: ${cmd.title} did not run: ${String(e)}`);
-      notify({ kind: 'info', text: `${cmd.title} did not run: ${e instanceof Error ? e.message : String(e)}` });
+      notify({ kind: 'error', text: `${cmd.title} did not run: ${e instanceof Error ? e.message : String(e)}` });
     });
   });
 }

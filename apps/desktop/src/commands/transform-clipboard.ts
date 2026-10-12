@@ -9,10 +9,10 @@ import type { AppContext, Command } from './registry.ts';
 
 export async function transformClipboard(ctx: AppContext, id: string): Promise<void> {
   const shell = pasteShellOf(ctx.shell);
-  if (!shell) return ctx.showNotice('Not transformed: this window has no clipboard access.', { transient: true });
+  if (!shell) return ctx.showNotice('Not transformed: this window has no clipboard access.', { kind: 'refused' });
   const got = await readForTransform(shell);
-  if (got.refused !== undefined) return ctx.showNotice(got.refused, { transient: true });
-  if (got.empty === true) return ctx.showNotice(NOTHING_TO_TRANSFORM, { transient: true });
+  if (got.refused !== undefined) return ctx.showNotice(got.refused, { kind: 'refused' });
+  if (got.empty === true) return ctx.showNotice(NOTHING_TO_TRANSFORM, { kind: 'refused' });
   const sheet = await import('../transform/sheet.ts');
   const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const target: SheetTarget = {
@@ -29,7 +29,7 @@ export async function transformClipboard(ctx: AppContext, id: string): Promise<v
   try {
     sheet.openTransformSheet(ctx, target, id);
   } catch (error) {
-    ctx.showNotice(`Could not run ${id}: ${error instanceof Error ? error.message : String(error)}. The clipboard is unchanged.`, { transient: true });
+    ctx.showNotice(`Could not run ${id}: ${error instanceof Error ? error.message : String(error)}. The clipboard is unchanged.`, { kind: 'error' });
   }
 }
 

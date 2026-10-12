@@ -249,14 +249,14 @@ const APP_STATES = {
     await unfoldedWithTabs(page);
     await page.evaluate(async () => {
       const { notify } = await import('/src/notices/index.ts');
-      notify({ kind: 'info', text: 'Copied as Markdown, 3.1 KB.' });
+      notify({ kind: 'done', text: 'Copied as Markdown, 3.1 KB' });
     });
     await settle(page, 400);
   },
   async '07-notice-folded'(page) {
     await page.evaluate(async () => {
       const { notify } = await import('/src/notices/index.ts');
-      notify({ kind: 'info', text: 'Copied as Markdown, 3.1 KB.' });
+      notify({ kind: 'done', text: 'Copied as Markdown, 3.1 KB' });
     });
     await settle(page, 400);
   },

@@ -222,8 +222,19 @@ test('negative control (H5): a nested block past the gutter floor is reported at
 });
 
 
+// The notice region as the theme styled it until U-02 (a column in em at the region's own font, in the page's flow). The app's
+// notices are pills off the column now (gate-aesthetics.mjs measures that); the probe's own notice model is the old one, kept
+// so that the layout audit can be rerun against an earlier ref, and this crafted page is what its negative control reads.
+const LEGACY_NOTICE_CSS = `
+  #marxy-notices { --marxy-column: clamp(calc(45 * var(--marxy-avg-char) * 1em), var(--marxy-measure), calc(80 * var(--marxy-avg-char) * 1em));
+    display: flex; flex-direction: column; gap: calc(var(--marxy-line-box) / 4); max-width: var(--marxy-column); margin-inline: auto;
+    padding: calc(var(--marxy-line-box) / 2) 3rem 0; }
+  .marxy-notice { display: flex; align-items: baseline; flex-wrap: wrap; width: auto; max-width: none; border-radius: 0; animation: none; box-shadow: none;
+    padding: calc(var(--marxy-line-box) / 4) calc(var(--marxy-line-box) / 2); font-family: var(--marxy-font-text);
+    font-size: var(--marxy-size-caption); line-height: 1.4; border: 1px solid var(--marxy-color-rule); }`;
+
 test('negative control (H6): a notice region sized at a different font than the article is off the column by what its geometry implies', async () => {
-  const bad = await measure(page(PROSE), 960, { notice: true });
+  const bad = await measure(page(PROSE, { extraCss: LEGACY_NOTICE_CSS }), 960, { notice: true });
   const h6 = bad.offenders.filter((o) => o.h === 'H6' && o.k === 'notice');
   assert.equal(h6.length, 1, JSON.stringify(bad.notice));
   const n = bad.notice;
@@ -236,7 +247,7 @@ test('negative control (H6): a notice region sized at a different font than the 
   assert.ok(Math.abs(n.edgeIfRegionPaddingMatchedArticle - n.boxVsColumnL) < 0.5, JSON.stringify(n));
   assert.match(h6[0].why, /sizes its column in em at its own 16px font/);
   // Twin: the article at the browser's 16px font puts the region on the column.
-  const ok = await measure(page(PROSE, { extraCss: '.marxy-article{font-size:16px}' }), 960, { notice: true });
+  const ok = await measure(page(PROSE, { extraCss: `${LEGACY_NOTICE_CSS}.marxy-article{font-size:16px}` }), 960, { notice: true });
   assert.deepEqual(ok.offenders.filter((o) => o.h === 'H6' && o.k === 'notice'), []);
 });
 
