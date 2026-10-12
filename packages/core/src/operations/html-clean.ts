@@ -12,8 +12,9 @@ import { parseMarkdown } from '../parse/parse.ts';
 export function sectionOf(input: OperationInput): Document {
   const { document, range } = input;
   const inside = document.children.filter((block) => block.src.start >= range.start && block.src.end <= range.end);
+  // A block that is not inside must lie wholly outside; testing the range again, not `inside.includes`, keeps this one pass (F-58).
   const covered = inside.length > 0 && document.children.every(
-    (block) => inside.includes(block) || block.src.end <= range.start || block.src.start >= range.end,
+    (block) => (block.src.start >= range.start && block.src.end <= range.end) || block.src.end <= range.start || block.src.start >= range.end,
   );
   if (covered) return { ...document, src: range, children: inside };
   return parseMarkdown(new TextEncoder().encode(input.text), { file: document.path });
