@@ -304,20 +304,20 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 | X-18 | Record the author\'s rulings: open questions resolved to their defaults | lead | merged | [#598](https://github.com/inkstrata/marxy/pull/598) | — | 2026-10-12: merged; ADR-0060, 0061, 0067 and 0069 accepted on the author's defaults. |
 | X-19 | a design pass on how notifications, errors and command-opened surfaces reach the reader | opus (high) | merged | [#616](https://github.com/inkstrata/marxy/pull/616) | — | Card in `direction-2026-10/16-design-pass-notifications.md`. Decides nothing; 11 questions for the author. Blocks W-04.1 and the clipboard UX. 2026-10-12: merged; folded into X-21. |
 | X-20 | A one-page overview of what each wave lets the reader do | sonnet | merged | [#617](https://github.com/inkstrata/marxy/pull/617) | — | `waves.md`; `scripts/waves.mjs` rewrites its State and PR columns from this ledger. |
-| X-21 | A design pass on the chrome, Source and the news, toward mock v2 (folds in X-19) | opus | merged | [#621](https://github.com/inkstrata/marxy/pull/621) | — | `direction-2026-10/17-design-pass-chrome.md`; pairs in `docs/taste-review/2026-10-x21/`. Decides nothing: 22 questions (X-19's, de-duplicated, and 11 new), 12 cards, ADR-0070 proposed. 2026-10-12: merged; awaits the author's answers to its 22 questions. |
+| X-21 | A design pass on the chrome, Source and the news, toward mock v2 (folds in X-19) | opus | merged | [#621](https://github.com/inkstrata/marxy/pull/621) | — | `direction-2026-10/17-design-pass-chrome.md`; pairs in `docs/taste-review/2026-10-x21/`. Decides nothing: 22 questions (X-19's, de-duplicated, and 11 new), 12 cards, ADR-0070 proposed. 2026-10-12: merged; the author accepted the recommended default for all 22 questions (`direction-2026-10/rulings-x21.md`). |
 | X-22 | The ledger after the 2026-10-11 night session | planner | in review | [#624](https://github.com/inkstrata/marxy/pull/624) | — | This PR. |
-| U-00 | The pair harness: `scripts/mock-pair.mjs` makes the app-beside-mock pair for a screen | sonnet (low) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). |
-| U-01 | The unfolded frame: the bands reach the window edge; no region shows empty | sonnet (medium) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). Question 12. |
-| U-02 | News floats: every notice is a pill off the reading column | sonnet (high) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). After X-19's answers and F-46. |
-| U-03 | The toolbar in icons, with the segmented view control and the two-line title | sonnet (medium) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). Question 17. |
-| V-05 | The Source frame: top bar, column ruler, gutter, mark strip, bottom bar | sonnet (high) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). In `05-plan.md`, first carded here. Questions 13, 14. |
-| U-04 | The palette's field, glyphs, groups, chips and footer | sonnet (medium) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). Question 16; the preview stays W-13. |
-| U-05 | The Transform sheet on the chrome spec | sonnet (low) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). Question 15; after W-21.1. |
-| U-06 | The sidebar's look: search field, section heads, rows | sonnet (medium) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). |
-| U-07 | The tabs' look: width, active ground, close on hover, the + | sonnet (low) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). |
-| U-08 | The narrow window | sonnet (low) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). After U-01; question 18. |
-| U-09 | The tool strip: the kind label and glyphs | sonnet (low) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). |
-| U-10 | The library's table: columns, filters, header | sonnet (medium) | waiting on X-21 | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). |
+| U-00 | The pair harness: `scripts/mock-pair.mjs` makes the app-beside-mock pair for a screen | sonnet (low) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). |
+| U-01 | The unfolded frame: the bands reach the window edge; no region shows empty | sonnet (medium) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). Question 12. |
+| U-02 | News floats: every notice is a pill off the reading column | sonnet (high) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). After X-19's answers and F-46. |
+| U-03 | The toolbar in icons, with the segmented view control and the two-line title | sonnet (medium) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). Question 17. |
+| V-05 | The Source frame: top bar, column ruler, gutter, mark strip, bottom bar | sonnet (high) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). In `05-plan.md`, first carded here. Questions 13, 14. |
+| U-04 | The palette's field, glyphs, groups, chips and footer | sonnet (medium) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). Question 16; the preview stays W-13. |
+| U-05 | The Transform sheet on the chrome spec | sonnet (low) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). Question 15; after W-21.1. |
+| U-06 | The sidebar's look: search field, section heads, rows | sonnet (medium) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). |
+| U-07 | The tabs' look: width, active ground, close on hover, the + | sonnet (low) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). |
+| U-08 | The narrow window | sonnet (low) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). After U-01; question 18. |
+| U-09 | The tool strip: the kind label and glyphs | sonnet (low) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). |
+| U-10 | The library's table: columns, filters, header | sonnet (medium) | ready | — | — | Card in `direction-2026-10/17-design-pass-chrome.md` (X-21). |
 
 ## Handoff
 

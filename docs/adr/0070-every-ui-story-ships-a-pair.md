@@ -1,6 +1,6 @@
 # ADR-0070 — Every UI story ships an app-beside-mock pair; the mock's spec holds until a ruling departs from it
 
-- **Status:** proposed (X-21, 2026-10-11)
+- **Status:** accepted (X-21 rulings, 2026-10-12; proposed 2026-10-11)
 - **Date:** 2026-10-11
 - **Builds on:** ADR-0016 (taste review is human and batched), ADR-0047 (screenshot comparison is nightly monitoring),
   ADR-0058 (the fold-up workspace, drawn by the mock), ADR-0059 (token contract v2, the mock's roles).
