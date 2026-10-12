@@ -124,7 +124,7 @@ test('Sort lines on the clipboard: the sheet shows Before and After, Return writ
     assert.equal(sheet.title, 'Transform the clipboard');
     assert.equal(sheet.before, LIST);
     assert.equal(sheet.after, want);
-    assert.deepEqual(sheet.buttons, ['Write back', 'Open as new document', 'Add another step'], 'Apply is not offered');
+    assert.deepEqual(sheet.buttons, ['Open as new document', 'Add another step', 'Write back'], 'Apply is not offered');
     assert.equal(sheet.focus, 'marxy-transform-copy');
     let traffic = await s.traffic();
     assert.deepEqual([traffic.types, traffic.reads, traffic.writes], [1, 1, 0], 'one pair of reads (text only), nothing written yet');

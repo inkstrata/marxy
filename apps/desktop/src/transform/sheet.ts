@@ -173,10 +173,8 @@ function injectStyles(doc: Document): void {
       padding: 0.75rem 1.25rem 1rem;
       border-top: 1px solid var(--marxy-color-rule);
     }
-    /* The others at the left; Apply, then the primary action, at the right (order only: the DOM and Tab order are unchanged). */
-    #marxy-transform .marxy-transform-actions::before { content: ''; flex: 1 1 0; order: 1; }
-    #marxy-transform .marxy-transform-actions #marxy-transform-apply { order: 2; }
-    #marxy-transform .marxy-transform-actions button.marxy-transform-primary { order: 3; }
+    /* The others at the left; Apply, then the primary action, at the right: the DOM is in the visual order, so Tab follows the eye. */
+    #marxy-transform .marxy-transform-actions #marxy-transform-more { margin-inline-end: auto; }
     #marxy-transform .marxy-transform-actions button {
       font: inherit;
       color: inherit;
@@ -357,17 +355,6 @@ function paint(l: Live): void {
     });
     return b;
   };
-  const copy = button(clipboard ? 'Write back' : 'Copy result', keyLabel('Enter', mac), () => void copyResult(l), 'marxy-transform-primary');
-  if (clipboard) copy.title = 'Replace what is on the clipboard with the result, as plain text';
-  copy.id = 'marxy-transform-copy';
-  actions.append(copy);
-  if (editable) {
-    const apply = button('Apply', keyLabel('Mod+Enter', mac), () => void applyResult(l));
-    apply.id = 'marxy-transform-apply';
-    apply.title = 'Replace the text in the document with the result; one undo restores it';
-    if (unchanged) apply.setAttribute('aria-disabled', 'true');
-    actions.append(apply);
-  }
   const open = button('Open as new document', null, () => void openAsDocument(l));
   open.id = 'marxy-transform-open';
   const more = button('Add another step', null, () => togglePicker(l));
@@ -375,6 +362,17 @@ function paint(l: Live): void {
   more.setAttribute('aria-haspopup', 'listbox');
   more.setAttribute('aria-expanded', String(l.picker !== null));
   actions.append(open, more);
+  if (editable) {
+    const apply = button('Apply', keyLabel('Mod+Enter', mac), () => void applyResult(l));
+    apply.id = 'marxy-transform-apply';
+    apply.title = 'Replace the text in the document with the result; one undo restores it';
+    if (unchanged) apply.setAttribute('aria-disabled', 'true');
+    actions.append(apply);
+  }
+  const copy = button(clipboard ? 'Write back' : 'Copy result', keyLabel('Enter', mac), () => void copyResult(l), 'marxy-transform-primary');
+  if (clipboard) copy.title = 'Replace what is on the clipboard with the result, as plain text';
+  copy.id = 'marxy-transform-copy';
+  actions.append(copy);
 
   dialog.setAttribute('aria-labelledby', 'marxy-transform-title');
   dialog.replaceChildren(head, note, body, status, picker, actions);

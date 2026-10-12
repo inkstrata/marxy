@@ -212,9 +212,26 @@ test('U-05: chrome face on the headings, counts and a named close button in the 
     assert.ok(got.rightmost, 'Copy result sits at the right, the others at the left');
     // Wrapping is display only: the text in the page is the bytes, and Copy writes them.
     assert.ok(!before.after.includes('​'));
+    // Tab follows the eye: the tabbable controls in document order (which is the Tab order, no tabindex above 0) run
+    // left to right on the screen, Copy result last.
+    const order = await page.evaluate(() => {
+      const d = document.getElementById('marxy-transform');
+      const stops = [...d.querySelectorAll('button, [tabindex="0"]')].filter((e) => e.closest('.marxy-transform-actions') || e.id === 'marxy-transform-close');
+      return stops.map((e) => ({ id: e.id, x: e.getBoundingClientRect().left, y: e.getBoundingClientRect().top }));
+    });
+    assert.deepEqual(order.map((o) => o.id), ['marxy-transform-close', 'marxy-transform-open', 'marxy-transform-more', 'marxy-transform-apply', 'marxy-transform-copy']);
+    const row = order.slice(1);
+    assert.ok(row.every((o, i) => i === 0 || o.x > row[i - 1].x), 'the actions run left to right in Tab order');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'marxy-transform-copy', 'the sheet opens with focus on Copy result');
+    const offPage = () => page.evaluate(() => document.activeElement?.closest('#marxy-transform') === null);
     await page.locator('#marxy-transform-close').click();
     await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
+    assert.ok(await offPage(), 'after Close, focus is back on the page');
     assert.equal(await s.store(), doc, 'closing changed nothing');
+    await s.choose('Sort lines');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
+    assert.ok(await offPage(), 'after Esc, focus is back on the page');
     await s.choose('Sort lines');
     const want = (await s.sheet()).after;
     await page.keyboard.press('Enter');
@@ -237,7 +254,7 @@ test('Sort lines on a selected list: Before is the selection\'s bytes, After is 
     assert.equal(sheet.countBefore, `${[...list.text].length} characters`);
     assert.equal(sheet.countAfter, `${[...want].length} characters`);
     assert.deepEqual(sheet.steps, ['Sort lines']);
-    assert.deepEqual(sheet.buttons, ['Copy result', 'Apply', 'Open as new document', 'Add another step']);
+    assert.deepEqual(sheet.buttons, ['Open as new document', 'Add another step', 'Apply', 'Copy result']);
     assert.equal(sheet.focus, 'marxy-transform-copy', 'Return is Copy result');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => !document.getElementById('marxy-transform').open);
