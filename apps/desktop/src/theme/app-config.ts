@@ -6,6 +6,7 @@ import type { KindRule } from '@marxy/core';
 import { joinPath } from '@marxy/core/src/index-model/paths.ts';
 import { emptyKindsEnvelope, parseKindsFile, type KindsEnvelope } from '@marxy/core/src/kind/show-as.ts';
 import { parseConfig, type Config } from '@marxy/theme';
+import { reportConfigWarnings } from '../notices/config-copy.ts';
 import { notify } from '../notices/index.ts';
 import type { AppShell } from '../app.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
@@ -73,6 +74,7 @@ export function createAppConfig(shell: AppShell, views: () => readonly RenderedV
   let choices: KindsEnvelope | null = null;
   let later: Promise<KindsEnvelope> = Promise.resolve(emptyKindsEnvelope());
   let userTheme: { stop(): void } | null = null;
+  let held: readonly string[] = [];
   const context = (): UserThemeContext => ({ shell, views });
 
   /** The theme directory: from the bytes the pre-paint read already has, else from the file (A-14). */
@@ -94,7 +96,12 @@ export function createAppConfig(shell: AppShell, views: () => readonly RenderedV
           }),
         );
         const read = peekConfigRead();
-        if (read !== null) rules = parseConfig(read.bytes, { home: inferHomeFromConfig(read.path) }).config.kindRules;
+        if (read !== null) {
+          const parsed = parseConfig(read.bytes, { home: inferHomeFromConfig(read.path) });
+          rules = parsed.config.kindRules;
+          // Held with the other config notices: opening a document clears notices, so they show with the theme start.
+          held = parsed.warnings;
+        }
       } catch {
         /* defaults stand */
       }
@@ -102,6 +109,7 @@ export function createAppConfig(shell: AppShell, views: () => readonly RenderedV
     launchKindInputs: () => ({ rules, choices, later }),
     async startUserTheme() {
       for (const text of takeConfigNotices()) notify({ kind: 'refused', text });
+      reportConfigWarnings(held);
       const dir = await themeDir();
       userTheme?.stop();
       userTheme = await startUserTheme(context(), dir);

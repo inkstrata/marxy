@@ -8,6 +8,7 @@
 // kind's tools whose commands are registered (`toolsFor`), nothing when there are none, and then the band is hidden
 // from emptiness on the element itself. The remembered panel arrangement is never touched.
 import { parseConfig } from '@marxy/theme';
+import { reportConfigWarnings } from '../notices/config-copy.ts';
 import type { Kind } from '@marxy/core/src/contracts/kinds.ts';
 import type { AppHandle } from '../app.ts';
 import type { Command } from '../commands/registry.ts';
@@ -80,7 +81,9 @@ async function stripConfig(handle: AppHandle): Promise<{ readonly strip: Readonl
     if (!configPaths) return { strip: {} };
     const { config } = await configPaths();
     if (config === '') return { strip: {} };
-    return { strip: parseConfig(await readFile(config)).config.strip };
+    const parsed = parseConfig(await readFile(config));
+    reportConfigWarnings(parsed.warnings);
+    return { strip: parsed.config.strip };
   } catch {
     return { strip: {} };
   }

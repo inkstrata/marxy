@@ -2,7 +2,7 @@
 // with the kind it is (U-02.1). One template (X-21 ruling 10): what happened · what is unchanged · what to do. A part
 // that has nothing to say is left out, never padded. Nothing here claims a write that did not happen: an outcome says what
 // was written, and every refusal and failure says the file is as it was.
-import type { NoticeKind } from './index.ts';
+import { notify as defaultNotify, type NoticeInput, type NoticeKind } from './index.ts';
 
 /** A notice's kind and its words, said by `notify`. */
 export interface Said {
@@ -134,3 +134,45 @@ export const CONFLICT_COPY_FAILED = (reason: string): Said => ({
   kind: 'error',
   text: said(`Could not save a copy: ${reason.replace(/\.$/, '')}`, 'nothing was changed; your edits are still here', 'Try again, or save somewhere else.'),
 });
+
+// K-07.1: `[strip]` and `[[kind]]` parse warnings of config.toml, shown once.
+
+const MAX_SHOWN = 3;
+const FIX = 'fix it in config.toml';
+
+/** The refusal text for one parser warning, or null when it is not about `[strip]` or `[[kind]]`. */
+export function configWarningText(warning: string): string | null {
+  const rule = /^kind (\d+) (.*?)(?:; (?:skipped|ignored))?$/.exec(warning);
+  if (rule !== null) {
+    const what = /^read was not true or false/.test(rule[2]!) ? 'has a `read` that is not true or false' : rule[2]!;
+    const ignoredOnly = /; ignored$/.test(warning);
+    return `[[kind]] rule ${rule[1]} ${ignoredOnly ? 'partly ignored' : 'skipped'}: ${what} · the other rules apply · ${FIX}`;
+  }
+  const dropped = /^more than (\d+) kind rules; kind (\d+) dropped$/.exec(warning);
+  if (dropped !== null) return `[[kind]] rule ${dropped[2]} dropped: only ${dropped[1]} rules are read · the first ${dropped[1]} apply · ${FIX}`;
+  if (warning.startsWith('kind must be')) return `[[kind]] ignored: it is not a list of tables · no kind rules apply · ${FIX}`;
+  if (warning.startsWith('strip must be')) return `[strip] ignored: it is not a table of kind = [tools] · every strip keeps its default tools · ${FIX}`;
+  if (warning.startsWith('strip.')) return `[strip] ${warning.replace(/^strip\./, '')} · the other entries apply · ${FIX}`;
+  return null;
+}
+
+/**
+ * Shows each `[strip]` / `[[kind]]` warning of a config read as a `refused` notice. The same set of warnings read again
+ * (a reload of an unchanged file) shows nothing; a changed set shows afresh; a clean read forgets. Nothing is written.
+ */
+export function createConfigWarningReporter(notify: (input: NoticeInput) => unknown = defaultNotify): (warnings: readonly string[]) => void {
+  let shown = '';
+  return (warnings) => {
+    const texts = warnings.map(configWarningText).filter((t): t is string => t !== null);
+    const signature = texts.join('\n');
+    if (signature === shown) return;
+    shown = signature;
+    for (const text of texts.slice(0, MAX_SHOWN)) notify({ kind: 'refused', text });
+    if (texts.length > MAX_SHOWN) {
+      notify({ kind: 'refused', text: `${texts.length - MAX_SHOWN} more problems in [strip] or [[kind]] · the rest of config.toml applies · ${FIX}` });
+    }
+  };
+}
+
+/** The reporter the app uses: one per page, so a re-read of an unchanged config.toml stays quiet. */
+export const reportConfigWarnings = createConfigWarningReporter();
