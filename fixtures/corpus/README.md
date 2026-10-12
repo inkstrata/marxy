@@ -69,3 +69,13 @@ assembled from short templates. Nothing is third-party text.
 
 Licence: MIT, same as the rest of this repository, for all five files and the generator.
 `pnpm gate:licences` is unaffected because nothing copyleft entered the lockfile or the corpus.
+
+## 35-build.log
+
+Original text written for K-08: a service log in the usual shape (an ISO timestamp, a level word, a
+component, a message), with every case a log reader meets: DEBUG, INFO, WARN, ERROR and FATAL
+heads; stack frames and a blank line that continue an error; a hint that continues a warning; a
+level word inside a message that is not a level; a tab inside a line; and two ANSI escape sequences
+(ESC, 0x1B, four of them on purpose). Every name, host and number is invented; the host is
+`harbor.example.invalid` (RFC 2606). Do not let an editor or formatter strip the ESC bytes:
+`.gitattributes` marks `fixtures/corpus/**` as `-text`.

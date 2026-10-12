@@ -51,3 +51,11 @@ down drift 0.52 px off the grid, past the 0.5 px tolerance). The introduction is
 assembled from short templates. Nothing is third-party text.</p>
 <p data-marxy-s="3947" data-marxy-e="4131">Licence: MIT, same as the rest of this repository, for all five files and the generator.
 <code data-marxy-s="4036" data-marxy-e="4056">pnpm gate:licences</code> is unaffected because nothing copyleft entered the lockfile or the corpus.</p>
+<h2 data-marxy-s="4133" data-marxy-e="4148">35-build.log</h2>
+<p data-marxy-s="4150" data-marxy-e="4778">Original text written for K-08: a service log in the usual shape (an ISO timestamp, a level word, a
+component, a message), with every case a log reader meets: DEBUG, INFO, WARN, ERROR and FATAL
+heads; stack frames and a blank line that continue an error; a hint that continues a warning; a
+level word inside a message that is not a level; a tab inside a line; and two ANSI escape sequences
+(ESC, 0x1B, four of them on purpose). Every name, host and number is invented; the host is
+<code data-marxy-s="4631" data-marxy-e="4655">harbor.example.invalid</code> (RFC 2606). Do not let an editor or formatter strip the ESC bytes:
+<code data-marxy-s="4723" data-marxy-e="4739">.gitattributes</code> marks <code data-marxy-s="4746" data-marxy-e="4766">fixtures/corpus/**</code> as <code data-marxy-s="4770" data-marxy-e="4777">-text</code>.</p>

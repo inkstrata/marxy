@@ -6,6 +6,7 @@ import { collectionCommands } from './collection.ts';
 import { compareCommands } from './compare.ts';
 import { kindCommands } from './kind.ts';
 import { libraryCommands } from './library.ts';
+import { logCommands } from './log.ts';
 import { copyAsCommands } from './copy-as.ts';
 import { copyTextCommands } from './copy-text.ts';
 import { documentCommands } from './document.ts';
@@ -58,6 +59,7 @@ export function commands(): readonly Command[] {
     ...editorCommands(),
     ...collectionCommands(),
     ...kindCommands(),
+    ...logCommands(),
     ...tabCommands(),
     ...libraryCommands(),
     ...copyTextCommands(),

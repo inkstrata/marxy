@@ -35,14 +35,16 @@ test('every command a tool names is a command the registry has today, or the too
   for (const id of named) assert.ok(real.includes(id), `${id} is not registered`);
 });
 
-test('today the strip holds only what exists: Changes for report and changelog, Outline for readme and docs, Line numbers for code', () => {
+test('today the strip holds only what exists: Changes for report and changelog, Outline for readme and docs, Line numbers for code, two tools for a log', () => {
   const drawn = (kind: (typeof KINDS)[number]) => toolsFor(kind, none, real).map((t) => t.label);
   assert.deepEqual(drawn('report'), ['Changes']);
   assert.deepEqual(drawn('changelog'), ['Changes']);
   assert.deepEqual(drawn('readme'), ['Outline']);
   assert.deepEqual(drawn('docs'), ['Outline']);
   assert.deepEqual(drawn('code'), ['Line numbers']);
-  for (const kind of ['article', 'book', 'transcript', 'data', 'notes', 'log', 'terminal', 'diff', 'html'] as const) {
+  // K-08: exactly these two; Wrap and Follow tail have no command yet and are not drawn.
+  assert.deepEqual(drawn('log'), ['Filter by level', 'Jump to first error']);
+  for (const kind of ['article', 'book', 'transcript', 'data', 'notes', 'terminal', 'diff', 'html'] as const) {
     assert.deepEqual(drawn(kind), [], kind);
   }
 });

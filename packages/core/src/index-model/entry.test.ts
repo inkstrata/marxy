@@ -176,9 +176,10 @@ test('a paragraph that only starts like a list marker is not in a container (MAR
   assertAgrees('-1 degrees\n===\n<my-tag>\n# Not a heading\n', []);
 });
 
-test('the four log and data extensions are indexed, each with its ADR-0060 reader kind from the path alone (K-06)', () => {
+test('the log and data extensions are indexed, each with its ADR-0060 reader kind from the path alone (K-06)', () => {
   const expected: Record<string, string> = {
     'a.log': 'log',
+    'a.out': 'log',
     'b.csv': 'data',
     'c.tsv': 'data',
     'd.jsonl': 'data',

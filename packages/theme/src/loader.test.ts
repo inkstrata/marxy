@@ -359,14 +359,18 @@ test('the avg-char check never rewrites the theme: loadTheme leaves the declared
 test('the default theme gives article, readme, report and transcript a profile, written as the loader would compile it (K-05b)', () => {
   const css = readFileSync(fileURLToPath(new URL('../default/theme.css', import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   const scopes = new Map([...css.matchAll(/\[data-marxy-kind="([a-z]+)"\]\s*\{([^}]*)\}/g)].map((m) => [m[1]!, m[2]!]));
-  assert.deepEqual([...scopes.keys()].sort(), ['article', 'readme', 'report', 'transcript']);
+  assert.deepEqual([...scopes.keys()].sort(), ['article', 'log', 'readme', 'report', 'transcript']);
   const globalOnly = ['--marxy-color-surface', '--marxy-shadow-surface', '--marxy-face-chrome', '--marxy-size-chrome', '--marxy-typeset'];
   const roots = ['--marxy-root-size-body', '--marxy-root-size-code', '--marxy-root-size-caption', '--marxy-root-line-box', '--marxy-root-line-box-code', '--marxy-root-lh-h1', '--marxy-root-lh-h2'];
   for (const [kind, body] of scopes) {
-    const chars = Number(/--marxy-measure-chars:\s*([\d.]+)/.exec(body)?.[1]);
-    assert.ok(chars >= 45 && chars <= 80, `${kind}: ${chars} characters is outside the 45-80 clamp`);
-    assert.ok(Number(/--marxy-avg-char:\s*([\d.]+)/.exec(body)?.[1]) > 0.35, `${kind}: its face's average advance is declared`);
-    assert.match(body, /--marxy-font-text:\s*var\(--marxy-face-(article|readme|sans)\)/, `${kind}: the text slot points at a face role`);
+    // A log (K-08) is code-like text as authored: it has a size and a line box, and no measure or text face of its own.
+    if (kind === 'log') assert.ok(!/--marxy-(measure|font-text|avg-char)/.test(body), 'log: only the size and the line box');
+    else {
+      const chars = Number(/--marxy-measure-chars:\s*([\d.]+)/.exec(body)?.[1]);
+      assert.ok(chars >= 45 && chars <= 80, `${kind}: ${chars} characters is outside the 45-80 clamp`);
+      assert.ok(Number(/--marxy-avg-char:\s*([\d.]+)/.exec(body)?.[1]) > 0.35, `${kind}: its face's average advance is declared`);
+      assert.match(body, /--marxy-font-text:\s*var\(--marxy-face-(article|readme|sans)\)/, `${kind}: the text slot points at a face role`);
+    }
     assert.ok(!/--marxy-measure\s*:/.test(body), `${kind}: --marxy-measure is computed, never set`);
     for (const name of globalOnly) assert.ok(!body.includes(`${name}:`), `${kind}: ${name} is global-only`);
     for (const m of body.matchAll(/(--marxy-(?:size-body|size-code|size-caption|line-box|line-box-code|lh-h1|lh-h2))\s*:\s*([^;]+);/g)) {

@@ -93,6 +93,20 @@ export function invisibleHexLabel(cp: number): string {
   return cp.toString(16).toUpperCase().padStart(4, '0');
 }
 
+/**
+ * What a marker draws in its box: the hex label, except for ESC, which is the control picture `␛` (K-08). An ANSI
+ * escape sequence is one ESC and then ordinary characters, and the picture is what a terminal user knows it by; every
+ * other control keeps its hex label. The byte is never interpreted: a marker is only ever drawn over it.
+ */
+export function invisibleLabel(cp: number): string {
+  return cp === 0x1b ? '\u241b' : invisibleHexLabel(cp);
+}
+
+/** True for the markers that draw the ESC picture, which the theme sets bare in the comment colour (K-08). */
+export function isEscape(cp: number): boolean {
+  return cp === 0x1b;
+}
+
 /** Rule-table segmentation so HTML tests and the app DOM post-pass share one walk. */
 export function invisibleSegments(text: string, ctx: InvisibleContext): InvisibleSegment[] {
   const cps: number[] = [];
@@ -134,12 +148,12 @@ export function invisibleSegments(text: string, ctx: InvisibleContext): Invisibl
 }
 
 function markerFor(cp: number, bidi: boolean): string {
-  const hex = invisibleHexLabel(cp);
+  const label = invisibleLabel(cp);
   const ch = escapeText(String.fromCodePoint(cp));
   const bidiClass = bidi ? ' marxy-invisible-bidi' : '';
   return (
-    `<code class="marxy-invisible">` +
-    `<code class="marxy-invisible-glyph" aria-hidden="true">${hex}</code>` +
+    `<code class="marxy-invisible${isEscape(cp) ? ' marxy-invisible-esc' : ''}">` +
+    `<code class="marxy-invisible-glyph" aria-hidden="true">${label}</code>` +
     `<code class="marxy-invisible-byte${bidiClass}" aria-hidden="true">${ch}</code>` +
     `</code>`
   );

@@ -2,9 +2,10 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import type { CodeBlock, Node } from '../contracts/ast.ts';
-import { CODE_CHUNK_LINES, codeLanguageOf, isCodeFile, parseCode } from './code.ts';
+import { CODE_CHUNK_LINES, LOG_ENTRY_MAX_LINES, codeLanguageOf, isCodeFile, parseCode } from './code.ts';
 import { checkInvariants } from './invariants.ts';
 import { outlineFrom } from '../outline/index.ts';
+import { LINE_ENDINGS } from './line-endings.ts';
 import { parseMarkdown } from './parse.ts';
 
 const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
@@ -49,7 +50,9 @@ test('an empty file has no block, and a file with no grammar has no lang', () =>
 test('the file-type table decides which files are code', () => {
   assert.ok(isCodeFile('/r/inventory.py') && isCodeFile('/r/Makefile') && isCodeFile('/r/a.rs'));
   // Read by their own stories, or trust-gated: they stay as they render today.
-  for (const name of ['a.html', 'a.htm', 'a.log', 'a.csv', 'a.tsv', 'a.jsonl']) assert.ok(!isCodeFile(`/r/${name}`), name);
+  for (const name of ['a.html', 'a.htm', 'a.csv', 'a.tsv', 'a.jsonl']) assert.ok(!isCodeFile(`/r/${name}`), name);
+  // A log is read as text in lines with its own classes (K-08), so it is code to the parse and not Markdown.
+  for (const name of ['a.log', 'a.out']) assert.ok(isCodeFile(`/r/${name}`) && codeLanguageOf(`/r/${name}`) === 'log', name);
   assert.ok(!isCodeFile('/r/a.md') && !isCodeFile('/r/a.txt') && !isCodeFile('/r/README') && !isCodeFile('/r/theme.css') && !isCodeFile('/r/unknown.xyz'));
   assert.equal(codeLanguageOf('/r/a.sh'), 'bash');
 });
@@ -89,4 +92,43 @@ test('a NUL byte stays in the bytes and is the replacement character in the valu
   const block = doc.children[0] as CodeBlock;
   assert.equal(block.value, 'a\ufffdb\n\ufffd');
   assert.deepEqual([block.src.start, block.src.end], [0, bytes.length]);
+});
+
+// K-08: a log's pieces end at the end of a log entry, so every piece but a forced cut begins at a head.
+const HEAD = '2026-10-12T09:30:00Z INFO  x message\n';
+const FRAME = '    at frame (a.ts:1:1)\n';
+const pieces = (text: string, lang = 'log'): string[] => {
+  const bytes = encode(text);
+  const doc = parseCode(bytes, { file: 'x.log', lang });
+  assert.deepEqual(checkInvariants(doc, bytes), [], 'the pieces are the file');
+  const out = doc.children.map((c) => new TextDecoder().decode(bytes.subarray(c.src.start, c.src.end)));
+  assert.ok(out.join('') === text.replace(/^\ufeff/, ''), 'tiled with no gap, less any byte-order mark');
+  return out;
+};
+
+test('a log is cut after 200 lines at the end of its entry: a stack trace is never cut from its line, and each piece but the first begins at a head (K-08)', () => {
+  // 195 heads, then an entry whose 30 frames cross line 200, then more heads.
+  const text = HEAD.repeat(195) + HEAD + FRAME.repeat(30) + HEAD.repeat(10);
+  const parts = pieces(text);
+  assert.equal(parts.length, 2);
+  assert.equal(parts[0]!.split(LINE_ENDINGS).length - 1, 196 + 30, 'the first piece runs on to the end of the entry');
+  assert.ok(parts[1]!.startsWith('2026-'), 'the next piece opens with a head');
+  for (const part of parts.slice(1)) assert.match(part, /^2026-/);
+});
+
+test('a log entry longer than the cap is cut at the cap; a file with no head at all is cut at 200 lines like any code (K-08)', () => {
+  const long = pieces(HEAD + FRAME.repeat(LOG_ENTRY_MAX_LINES + 500));
+  assert.equal(long[0]!.split(LINE_ENDINGS).length - 1, LOG_ENTRY_MAX_LINES);
+  assert.ok(long.length >= 2);
+  const none = pieces('some output\n'.repeat(450));
+  assert.deepEqual(none.map((p) => p.split(LINE_ENDINGS).length - 1), [200, 200, 50]);
+  // The same file as code in another language is cut at 200 whatever its lines look like.
+  assert.deepEqual(pieces(HEAD.repeat(450), 'python').map((p) => p.split(LINE_ENDINGS).length - 1), [200, 200, 50]);
+});
+
+test('a log with CRLF endings, a BOM and a final line without a newline tiles the same way (K-08)', () => {
+  const crlf = (HEAD + FRAME).replaceAll('\n', '\r\n');
+  const parts = pieces('﻿' + crlf.repeat(150) + HEAD.trimEnd());
+  assert.ok(parts.length >= 2);
+  assert.ok(parts.slice(1).every((p) => p.startsWith('2026-')));
 });

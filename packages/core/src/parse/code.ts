@@ -8,6 +8,7 @@
 
 import type { Document, Source } from '../contracts/ast.ts';
 import { fileTypeOf } from '../index-model/file-types.ts';
+import { TIMESTAMP } from '../kind/detect.ts';
 import { registerLineStarts } from '../sourcemap/line-starts.ts';
 import { decodeWithOffsets } from './byte-offsets.ts';
 import { lineStarts, markDefinitions } from './from-mdast.ts';
@@ -15,9 +16,24 @@ import { nextLineEnding } from './line-endings.ts';
 
 /** The most lines in one piece of a code file. */
 export const CODE_CHUNK_LINES = 200;
+/**
+ * The most lines in one piece of a log (K-08). A log's piece ends at the end of a log entry (before the next line that
+ * opens with a timestamp and a level word) once it has 200 lines, so a stack trace is never cut from the line it
+ * belongs to and every piece begins at a head: what the level of a line is can be read from its piece alone. An entry
+ * longer than this is cut here, and a piece with no head in it at all is cut at 200 like any other code.
+ */
+export const LOG_ENTRY_MAX_LINES = 1000;
 
-/** Kind `source` in the file-type table, but read by their own stories (K-06 data, K-08 logs, K-10 tables) or trust-gated (HTML). */
-const READ_ELSEWHERE: ReadonlySet<string> = new Set(['html', 'htm', 'log', 'csv', 'tsv', 'jsonl']);
+/** Whether the line starting at `at` opens with a timestamp and a level word; only its first characters are read. */
+function isLogHead(text: string, at: number): boolean {
+  const first = text.charCodeAt(at);
+  // A head opens with a bracket or a digit: most continuation lines (frames, wrapped text) are rejected here.
+  if (!(first === 0x5b || (first >= 0x30 && first <= 0x39))) return false;
+  return TIMESTAMP.test(text.slice(at, at + 160));
+}
+
+/** Kind `source` in the file-type table, but read by their own stories (K-06 data, K-10 tables) or trust-gated (HTML). */
+const READ_ELSEWHERE: ReadonlySet<string> = new Set(['html', 'htm', 'csv', 'tsv', 'jsonl']);
 
 export interface CodeParseOptions {
   /** Absolute path, or a stable identifier for an untitled buffer. Defaults to `untitled`. */
@@ -46,11 +62,21 @@ export function parseCode(bytes: Uint8Array, options: CodeParseOptions = {}): Do
   while (bytes[skipped] === 0xef && bytes[skipped + 1] === 0xbb && bytes[skipped + 2] === 0xbf) skipped += 3;
   const { text, offsets } = decodeWithOffsets(bytes, skipped);
   const children: Document['children'][number][] = [];
+  const isLog = options.lang === 'log';
   for (let at = 0; at < text.length; ) {
     let end = at;
-    for (let lines = 0; lines < CODE_CHUNK_LINES && end < text.length; lines++) {
+    let lines = 0;
+    let sawHead = false;
+    for (; lines < CODE_CHUNK_LINES && end < text.length; lines++) {
+      if (isLog && !sawHead) sawHead = isLogHead(text, end);
       const ending = nextLineEnding(text, end);
       end = ending === undefined ? text.length : ending.end;
+    }
+    // A log's piece runs on to the end of its entry (K-08): the next piece opens with a head.
+    while (isLog && sawHead && end < text.length && lines < LOG_ENTRY_MAX_LINES && !isLogHead(text, end)) {
+      const ending = nextLineEnding(text, end);
+      end = ending === undefined ? text.length : ending.end;
+      lines++;
     }
     const piece = text.slice(at, end);
     const last = /\r\n$|[\r\n]$/.exec(piece);

@@ -2,7 +2,7 @@
 // A range is copied into an inert document, never cloned in the page's own: a clone made there is a live
 // element, and an image clone fetches its source again (C-06 review).
 
-const SKIP = new Set(['marxy-elided', 'marxy-invisible-glyph', 'marxy-link-dest', 'marxy-link-host-label']);
+const SKIP = new Set(['marxy-elided', 'marxy-invisible-glyph', 'marxy-link-dest', 'marxy-link-host-label', 'marxy-log-hidden-run']);
 
 let inertDoc: Document | null = null;
 
@@ -111,6 +111,8 @@ export function codeRunSourceText(range: Range, article: HTMLElement, bytes: Uin
   const decoder = new TextDecoder('utf-8', { fatal: false, ignoreBOM: true });
   const out: string[] = [];
   for (const code of pieces) {
+    // A piece the log filter hides whole (K-08) is not on the page: a copy of what is shown has none of it.
+    if (code.parentElement?.classList.contains('marxy-log-hidden-piece')) continue;
     const start = Number(code.dataset.marxyS);
     const end = Number(code.dataset.marxyE);
     if (!Number.isInteger(start) || !Number.isInteger(end) || end > bytes.length || start > end) return null;
@@ -147,7 +149,31 @@ export function codeRunSourceText(range: Range, article: HTMLElement, bytes: Uin
       if (i === -1) return source.length;
       return source[i] === '\n' && source[i - 1] === '\r' ? i + 1 : i;
     };
-    out.push(source.slice(sourceIndex(from), to === Number.POSITIVE_INFINITY ? source.length : sourceIndex(to)));
+    const first = sourceIndex(from);
+    const last = to === Number.POSITIVE_INFINITY ? source.length : sourceIndex(to);
+    out.push(withoutHiddenLines(code, source, first, last));
   }
   return out.join('');
+}
+
+/**
+ * `source` from `first` to `last`, less the lines the log filter hides in `code` (K-08). A copy takes what the reader sees
+ * as well as the bytes of it: a selection from the first line to the last of a filtered log is the lines shown, each as the
+ * file has it, and not the thousands between. The page's lines are the piece's lines in order, so the n-th hidden page
+ * line is the n-th line of `source`; a piece the filter has not handled has none, and its slice is the slice.
+ */
+function withoutHiddenLines(code: HTMLElement, source: string, first: number, last: number): string {
+  if (code.querySelector('.marxy-log-hidden') === null) return source.slice(first, last);
+  const pageLines = [...code.children].filter((child) => child.classList.contains('marxy-line'));
+  const kept: string[] = [];
+  let at = 0;
+  for (let n = 0; at < source.length; n++) {
+    let end = at;
+    while (end < source.length && source[end] !== '\n' && source[end] !== '\r') end++;
+    end = source[end] === '\r' && source[end + 1] === '\n' ? end + 2 : Math.min(end + 1, source.length);
+    const hidden = pageLines[n]?.classList.contains('marxy-log-hidden') === true;
+    if (!hidden && end > first && at < last) kept.push(source.slice(Math.max(at, first), Math.min(end, last)));
+    at = end;
+  }
+  return kept.join('');
 }
