@@ -85,7 +85,8 @@
     "data-marxy-sidebar-row",
     "data-marxy-sidebar-search",
     "data-marxy-sidebar-foot",
-    "data-marxy-edit"
+    "data-marxy-edit",
+    "data-marxy-facet-on"
   ],
   "classes": [
     "marxy-toolbar-glyph",
@@ -108,7 +109,19 @@
     "marxy-sidebar-search-label",
     "marxy-sidebar-chip",
     "marxy-sidebar-chevron",
-    "marxy-sidebar-foot"
+    "marxy-sidebar-foot",
+    "marxy-library-stats",
+    "marxy-library-stat",
+    "marxy-library-facets",
+    "marxy-library-facet",
+    "marxy-library-facet-button",
+    "marxy-library-facet-menu",
+    "marxy-library-facet-item",
+    "marxy-library-facet-count",
+    "marxy-library-grid-head",
+    "marxy-library-colhead",
+    "marxy-library-cell",
+    "marxy-library-row-whys"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

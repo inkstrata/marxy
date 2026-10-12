@@ -39,6 +39,7 @@ import { focusOrigin } from '../pane/focus.ts';
 import { CONTENT_DEBOUNCE_MS, CONTENT_FILE_CAP, CONTENT_MIN_CHARS } from '../palette/content.ts';
 import { coverPanes } from '../workspace/pane-cover.ts';
 import type { Workspace } from '../workspace/state.ts';
+import { activeItem, chooseFacet, facetMenus, type FacetMenu } from './facets.ts';
 import { MeasureCache, measureFiles } from './measure.ts';
 import { libraryRow, sortChoices, sortHits, whyCount, type LibraryRow, type SortKey } from './rows.ts';
 import {
@@ -163,6 +164,14 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   let previewEl!: HTMLElement;
   let probeLine!: HTMLElement;
   let probePad!: HTMLElement;
+  let probeRow!: HTMLElement;
+  let gridHead!: HTMLElement;
+  let statsEl!: HTMLElement;
+  let facetsEl!: HTMLElement;
+  let openMenu: { readonly button: HTMLButtonElement; readonly menu: HTMLElement } | null = null;
+  let rowH = 30;
+  /** The entries of the current scope before any query: what the header counts and what the rows are drawn from. */
+  let baseEntries: readonly IndexEntry[] = [];
 
   const feed = () => palette()?.feed ?? null;
   const input = (): ScopeInput | null => {
@@ -230,6 +239,9 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     lineCapNote = null;
     drawChips(text, query);
     const base = scopeEntries(scopeId, scopeInputs);
+    baseEntries = base;
+    drawHeaderFacts();
+    drawFacets();
     const baseCtx = context(scopeInputs);
     const wantsLines = textTerms(query).some((t) => t.text.length >= CONTENT_MIN_CHARS);
     const wantsMeasure = usesContentKeys(query);
@@ -399,9 +411,16 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   function measureProbes(): void {
     lineHeight = Math.max(12, probeLine.getBoundingClientRect().height || 20);
     rowPad = probePad.getBoundingClientRect().height || 6;
+    rowH = Math.max(20, probeRow.getBoundingClientRect().height || 30);
   }
 
-  const rowHeight = (hit: QueryHit): number => (2 + whyCount(hit)) * lineHeight + 2 * rowPad;
+  /** A row is one table line; each reason the row says is a quiet line under it, across the columns. */
+  const rowHeight = (hit: QueryHit): number => {
+    const why = whyCount(hit);
+    return rowH + (why > 0 ? why * lineHeight + rowPad / 2 : 0);
+  };
+  /** The part of the scroller's height below the sticky column header: where rows can be seen. */
+  const viewHeight = (): number => Math.max(0, listEl.clientHeight - gridHead.offsetHeight);
 
   function layout(): void {
     tops = new Array<number>(hits.length + 1);
@@ -431,34 +450,49 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   function buildRow(index: number, row: LibraryRow): HTMLElement {
     const node = el('div', 'marxy-library-row');
     node.id = ROW_ID(index);
-    node.setAttribute('role', 'option');
+    node.setAttribute('role', 'row');
     node.setAttribute('data-marxy-library-row', row.path);
     node.setAttribute('aria-selected', index === active ? 'true' : 'false');
-    node.setAttribute('aria-posinset', String(index + 1));
-    node.setAttribute('aria-setsize', String(hits.length));
+    node.setAttribute('aria-rowindex', String(index + 2));
     node.dataset.index = String(index);
     node.style.top = `${tops[index]}px`;
     node.style.height = `${tops[index + 1]! - tops[index]!}px`;
     const label = [row.title, row.rel, row.kindLabel, `modified ${row.spokenAge}`, ...row.marks.map((m) => m.label), ...row.why.map((w) => `matched: ${w}`)].join(', ');
     node.setAttribute('aria-label', label);
 
-    const first = el('div', 'marxy-library-row-title');
-    if (row.kind !== null) first.append(kindIconElement(document, row.kind, langOfPath(row.path)));
-    first.append(el('span', 'marxy-library-row-name', row.title));
+    const cell = (name: string): HTMLElement => {
+      const c = el('div', `marxy-library-cell marxy-library-cell-${name}`);
+      c.setAttribute('role', 'gridcell');
+      return c;
+    };
+    const name = cell('name');
+    if (row.kind !== null) {
+      const glyph = kindIconElement(document, row.kind, langOfPath(row.path));
+      glyph.setAttribute('aria-hidden', 'true');
+      name.append(glyph);
+    }
+    name.append(el('span', 'marxy-library-row-name', row.title));
+    const path = cell('path');
+    path.append(el('span', 'marxy-library-row-rel', row.rel));
+    path.title = row.rel;
+    const modified = cell('modified');
+    modified.append(el('span', 'marxy-library-row-age', row.age));
+    modified.title = `Modified ${row.spokenAge}`;
+    const status = cell('status');
     for (const mark of row.marks) {
       const m = el('span', 'marxy-library-mark');
       m.title = mark.label;
       m.append(markIcon(mark.name), el('span', 'marxy-library-mark-name', mark.label));
-      first.append(m);
+      status.append(m);
     }
-    const age = el('span', 'marxy-library-row-age', row.age);
-    age.title = `Modified ${row.spokenAge}`;
-    first.append(age);
-
-    const second = el('div', 'marxy-library-row-path');
-    second.append(el('span', 'marxy-library-row-rel', row.rel), el('span', 'marxy-library-row-kind', row.kindLabel));
-    node.append(first, second);
-    for (const line of row.why) node.append(el('div', 'marxy-library-row-why', line));
+    node.append(name, path, modified, status);
+    if (row.why.length > 0) {
+      const why = el('div', 'marxy-library-row-whys');
+      why.setAttribute('role', 'gridcell');
+      why.setAttribute('aria-colspan', '4');
+      for (const line of row.why) why.append(el('div', 'marxy-library-row-why', line));
+      node.append(why);
+    }
     return node;
   }
 
@@ -472,7 +506,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     const ctx = { nowMs: scoped.nowMs, pinned: new Set(scoped.session.pinned), changed: changedPredicate(scoped) };
     const top = listEl.scrollTop;
     const first = Math.max(0, rowAt(top) - OVERSCAN);
-    const last = Math.min(hits.length - 1, rowAt(top + listEl.clientHeight) + OVERSCAN);
+    const last = Math.min(hits.length - 1, rowAt(top + viewHeight()) + OVERSCAN);
     const nodes: HTMLElement[] = [];
     for (let i = first; i <= last; i++) nodes.push(buildRow(i, libraryRow(hits[i]!, ctx)));
     rowsEl.replaceChildren(...nodes);
@@ -488,7 +522,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   function drawResults(): void {
     measureProbes();
     layout();
-    listEl.scrollTop = Math.min(listEl.scrollTop, Math.max(0, (tops[hits.length] ?? 0) - listEl.clientHeight));
+    listEl.scrollTop = Math.min(listEl.scrollTop, Math.max(0, (tops[hits.length] ?? 0) - viewHeight()));
     drawRows();
     drawStatus();
     drawPreview();
@@ -502,6 +536,104 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
       return option;
     }));
     listEl.setAttribute('aria-busy', measuring || searching ? 'true' : 'false');
+    listEl.setAttribute('aria-rowcount', String(hits.length + 1));
+    for (const [key, head] of headCells) {
+      const sorted = key === current;
+      head.setAttribute('aria-sort', sorted ? (key === 'modified' ? 'descending' : 'ascending') : 'none');
+    }
+    sortButtons(choices);
+  }
+
+  /** The sortable column headers are offered only for the keys the Sort control offers now. */
+  function sortButtons(choices: readonly SortKey[]): void {
+    for (const [key, head] of headCells) head.querySelector('button')!.disabled = !choices.includes(key);
+  }
+
+  // ---- the header of facts and the filter menus ------------------------------------------------------------------
+
+  function watchFact(): string | null {
+    // Only the whole library, or one folder, has a watch to report; Recent, Pinned and Changed are made of the session.
+    if (scopeId !== 'all' && !scopeId.startsWith('folder:')) return null;
+    if (scopeId.startsWith('folder:') && !handle.index.isWatched(scopeId.slice('folder:'.length))) return 'Not watching';
+    const state = handle.index.watchState();
+    return state === 'live' ? 'Watching' : state === 'refused' ? 'Not watching: the watch limit was reached' : 'Not watching';
+  }
+
+  /** Counts the documents the rows are drawn from (the scope's own set, as the palette's feed folds it), never the raw index. */
+  function drawHeaderFacts(): void {
+    const n = baseEntries.length;
+    const size = baseEntries.reduce((sum, e) => sum + e.size, 0);
+    const facts = [`${n.toLocaleString('en-US')} ${n === 1 ? 'file' : 'files'}`, bytesText(size)];
+    if (scopeId === 'all' || scopeId.startsWith('folder:')) facts.push(handle.index.indexing() ? 'Indexing' : 'Indexed');
+    const watch = watchFact();
+    if (watch !== null) facts.push(watch);
+    statsEl.replaceChildren(...facts.map((f) => el('span', 'marxy-library-stat', f)));
+  }
+
+  function closeMenu(): void {
+    if (!openMenu) return;
+    openMenu.menu.hidden = true;
+    openMenu.button.setAttribute('aria-expanded', 'false');
+    openMenu = null;
+  }
+
+  function drawFacets(): void {
+    const scoped = input();
+    if (!scoped) return;
+    const ctx = context(scoped);
+    const menus = facetMenus({ entries: baseEntries, nowMs: scoped.nowMs, pinned: ctx.pinned, recent: ctx.recent, changed: ctx.changed });
+    closeMenu();
+    facetsEl.replaceChildren(...menus.map((m) => facetMenuElement(m)));
+    facetsEl.hidden = menus.length === 0;
+  }
+
+  function facetMenuElement(menu: FacetMenu): HTMLElement {
+    const wrap = el('div', 'marxy-library-facet');
+    const button = el('button', 'marxy-library-facet-button');
+    button.type = 'button';
+    button.setAttribute('aria-haspopup', 'menu');
+    button.setAttribute('aria-expanded', 'false');
+    const chosen = activeItem(field.value, menu);
+    button.append(el('span', undefined, chosen ? `${menu.label}: ${chosen.label}` : menu.label));
+    if (chosen) button.setAttribute('data-marxy-facet-on', '');
+    const list = el('div', 'marxy-library-facet-menu');
+    list.setAttribute('role', 'menu');
+    list.setAttribute('aria-label', menu.label);
+    list.hidden = true;
+    for (const item of menu.items) {
+      const row = el('button', 'marxy-library-facet-item');
+      row.type = 'button';
+      row.setAttribute('role', 'menuitemradio');
+      row.setAttribute('aria-checked', chosen?.term === item.term ? 'true' : 'false');
+      row.append(el('span', undefined, item.label), el('span', 'marxy-library-facet-count', item.count.toLocaleString('en-US')));
+      row.addEventListener('click', () => {
+        field.value = chooseFacet(field.value, menu, item);
+        active = 0;
+        closeMenu();
+        refresh();
+        updateSuggestions();
+        field.focus();
+      });
+      list.append(row);
+    }
+    button.addEventListener('click', () => {
+      const wasOpen = openMenu?.button === button;
+      closeMenu();
+      if (wasOpen) return;
+      list.hidden = false;
+      button.setAttribute('aria-expanded', 'true');
+      openMenu = { button, menu: list };
+      list.querySelector<HTMLElement>('[aria-checked="true"], button')?.focus();
+    });
+    list.addEventListener('keydown', (event) => {
+      const items = [...list.querySelectorAll<HTMLElement>('button')];
+      const at = items.indexOf(document.activeElement as HTMLElement);
+      if (event.key === 'ArrowDown') { event.preventDefault(); items[(at + 1) % items.length]?.focus(); }
+      else if (event.key === 'ArrowUp') { event.preventDefault(); items[(at - 1 + items.length) % items.length]?.focus(); }
+      else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeMenu(); button.focus(); }
+    });
+    wrap.append(button, list);
+    return wrap;
   }
 
   function ensureVisible(index: number): void {
@@ -509,7 +641,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     const top = tops[index]!;
     const bottom = tops[index + 1]!;
     if (top < listEl.scrollTop) listEl.scrollTop = top;
-    else if (bottom > listEl.scrollTop + listEl.clientHeight) listEl.scrollTop = bottom - listEl.clientHeight;
+    else if (bottom > listEl.scrollTop + viewHeight()) listEl.scrollTop = bottom - viewHeight();
     drawRows();
   }
 
@@ -714,7 +846,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
   }
 
   function onListKey(event: KeyboardEvent): void {
-    const page = Math.max(1, Math.floor(listEl.clientHeight / (lineHeight * 4)));
+    const page = Math.max(1, Math.floor(viewHeight() / rowH));
     switch (event.key) {
       case 'ArrowDown': event.preventDefault(); setActive(active + 1); break;
       case 'ArrowUp': event.preventDefault(); if (active === 0) field.focus(); else setActive(active - 1); break;
@@ -731,6 +863,9 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
 
   // ---- building and tearing down ----------------------------------------------------------------------------
 
+  /** The columns, left to right; a header sorts by the key beside it. Measure is not a column: no measure exists per entry yet (W-16). */
+  const COLUMNS: readonly (readonly [SortKey | null, string])[] = [['name', 'Name'], ['path', 'Path'], ['modified', 'Modified'], [null, 'Status']];
+  const headCells = new Map<SortKey, HTMLElement>();
   const SORT_LABEL: Readonly<Record<SortKey, string>> = { relevance: 'Relevance', opened: 'Last opened', modified: 'Modified', name: 'Name', path: 'Path' };
 
   function drawScopes(): void {
@@ -751,6 +886,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     const current = scopes.find((s) => s.id === scopeId) ?? scopes[0]!;
     titleEl.textContent = current.label;
     blurbEl.textContent = current.path ?? SCOPE_BLURB[current.id] ?? '';
+    drawHeaderFacts();
   }
 
   function setScope(id: ScopeId): void {
@@ -775,7 +911,8 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     const heading = el('div', 'marxy-library-heading');
     titleEl = el('h2', 'marxy-library-title');
     blurbEl = el('p', 'marxy-library-blurb');
-    heading.append(titleEl, blurbEl);
+    statsEl = el('p', 'marxy-library-stats');
+    heading.append(titleEl, blurbEl, statsEl);
     scopeNav = el('nav', 'marxy-library-scopes');
     scopeNav.setAttribute('aria-label', 'Scopes');
     head.append(heading, scopeNav);
@@ -801,28 +938,53 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
     search.append(field, suggestEl, chipsEl);
 
     const bar = el('div', 'marxy-library-bar');
-    statusEl = el('div', 'marxy-library-status');
-    statusEl.setAttribute('role', 'status');
+    facetsEl = el('div', 'marxy-library-facets');
+    facetsEl.hidden = true;
     const sortLabel = el('label', 'marxy-library-sort', 'Sort ');
     sortEl = el('select');
     sortEl.setAttribute('aria-label', 'Sort results by');
     sortLabel.append(sortEl);
-    bar.append(statusEl, sortLabel);
+    bar.append(facetsEl, sortLabel);
+    statusEl = el('div', 'marxy-library-status');
+    statusEl.setAttribute('role', 'status');
 
     const body = el('div', 'marxy-library-body');
     listEl = el('div', 'marxy-library-results');
     listEl.tabIndex = 0;
-    listEl.setAttribute('role', 'listbox');
+    listEl.setAttribute('role', 'grid');
     listEl.setAttribute('aria-label', 'Results');
+    listEl.setAttribute('aria-colcount', '4');
+    gridHead = el('div', 'marxy-library-grid-head');
+    gridHead.setAttribute('role', 'row');
+    gridHead.setAttribute('aria-rowindex', '1');
+    headCells.clear();
+    for (const [key, label] of COLUMNS) {
+      const head = el('div', `marxy-library-colhead marxy-library-cell-${label.toLowerCase()}`);
+      head.setAttribute('role', 'columnheader');
+      if (key === null) head.textContent = label;
+      else {
+        const b = el('button', undefined, label);
+        b.type = 'button';
+        b.addEventListener('click', () => {
+          sortChoice = key;
+          refresh({ keepActive: true });
+        });
+        head.append(b);
+        headCells.set(key, head);
+      }
+      gridHead.append(head);
+    }
     rowsEl = el('div', 'marxy-library-rows');
-    listEl.append(rowsEl);
+    rowsEl.setAttribute('role', 'rowgroup');
+    listEl.append(gridHead, rowsEl);
     previewEl = el('aside', 'marxy-library-preview');
     previewEl.setAttribute('aria-label', 'Preview');
     body.append(listEl, previewEl);
 
     probeLine = el('span', 'marxy-library-probe marxy-library-probe-line');
     probePad = el('span', 'marxy-library-probe marxy-library-probe-pad');
-    section.append(head, search, bar, body, probeLine, probePad);
+    probeRow = el('span', 'marxy-library-probe marxy-library-probe-row');
+    section.append(head, search, bar, body, statusEl, probeLine, probePad, probeRow);
 
     field.addEventListener('input', () => {
       active = 0;
@@ -839,6 +1001,9 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
       suggestions = [];
       field.setAttribute('aria-expanded', 'false');
       field.removeAttribute('aria-activedescendant');
+    });
+    section.addEventListener('mousedown', (event) => {
+      if (openMenu && !(event.target as Element).closest('.marxy-library-facet')) closeMenu();
     });
     sortEl.addEventListener('change', () => {
       sortChoice = sortEl.value as SortKey;
@@ -944,6 +1109,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
       }, 100);
     }));
     teardown.push(() => { if (pending !== 0) clearTimeout(pending); });
+    teardown.push(handle.index.onStatusChange(() => { if (root) drawHeaderFacts(); }));
     field.focus();
     updateSuggestions();
   }

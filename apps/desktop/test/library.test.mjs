@@ -387,7 +387,7 @@ test('nothing is read at launch or on opening, and none for index keys; the line
   });
 });
 
-test('the list is a listbox with aria-activedescendant; every control has a name; status marks have words', async () => {
+test('the list is a grid with aria-activedescendant; every control has a name; status marks have words', async () => {
   await withPage(async (page) => {
     await unfold(page);
     // Pin a file the way a reader does, from the palette, before the library is opened.
@@ -399,15 +399,15 @@ test('the list is a listbox with aria-activedescendant; every control has a name
     await settle(page, 100);
     await openLibrary(page);
     const audit = await page.evaluate(() => {
-      const unnamed = [...document.querySelectorAll('[data-marxy-library] button, [data-marxy-library] input, [data-marxy-library] select, [data-marxy-library] [role=listbox]')].filter((c) => {
+      const unnamed = [...document.querySelectorAll('[data-marxy-library] button, [data-marxy-library] input, [data-marxy-library] select, [data-marxy-library] [role=grid]')].filter((c) => {
         const label = c.getAttribute('aria-label') || c.textContent.trim() || c.labels?.[0]?.textContent.trim() || c.getAttribute('placeholder');
         return !label;
       }).map((c) => c.outerHTML.slice(0, 80));
       const list = document.querySelector('.marxy-library-results');
-      return { unnamed, role: list.getAttribute('role'), options: [...document.querySelectorAll('[data-marxy-library-row]')].every((r) => r.getAttribute('role') === 'option' && r.getAttribute('aria-selected') !== null && r.getAttribute('aria-label')) };
+      return { unnamed, role: list.getAttribute('role'), options: [...document.querySelectorAll('[data-marxy-library-row]')].every((r) => r.getAttribute('role') === 'row' && r.getAttribute('aria-selected') !== null && r.getAttribute('aria-label')) };
     });
     assert.deepEqual(audit.unnamed, []);
-    assert.equal(audit.role, 'listbox');
+    assert.equal(audit.role, 'grid');
     assert.equal(audit.options, true);
     const marks = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-library-row="/r/standup.md"] .marxy-library-mark')].map((m) => m.textContent));
     assert.deepEqual(marks, ['Pinned'], 'an icon with a name');
@@ -463,6 +463,93 @@ test('20,000 entries: only the first screenful has nodes, and the time to it is 
     assert.ok(scrolled < 80);
     assert.match(await page.textContent('.marxy-library-status'), /20,00\d files|20,001 files/);
   }, { extraEntries: many });
+});
+
+// --- the table (U-10) ----------------------------------------------------------------------------------------------
+
+test('the table has real column headers, 30 px rows, no invented Measure column, and a header of true facts', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    const t = await page.evaluate(() => {
+      const grid = document.querySelector('.marxy-library-results');
+      const row = document.querySelector('[data-marxy-library-row]');
+      const heads = [...grid.querySelectorAll('[role=columnheader]')].map((h) => h.textContent.trim());
+      const plain = [...document.querySelectorAll('[data-marxy-library-row]')].find((r) => r.querySelector('.marxy-library-row-whys') === null);
+      return {
+        heads,
+        rowsCount: Number(grid.getAttribute('aria-rowcount')),
+        rowH: plain.getBoundingClientRect().height,
+        cells: [...plain.querySelectorAll('[role=gridcell]')].length,
+        stats: [...document.querySelectorAll('.marxy-library-stat')].map((x) => x.textContent),
+        rowIndex: row.getAttribute('aria-rowindex'),
+      };
+    });
+    assert.deepEqual(t.heads, ['Name', 'Path', 'Modified', 'Status'], 'Measure is left out: no measure exists per entry');
+    assert.equal(Math.round(t.rowH), 30, 'rows are 30 px at the 13 px chrome size');
+    assert.equal(t.cells, 4);
+    assert.equal(t.rowIndex, '2', 'the header is row 1');
+    assert.equal(t.rowsCount - 1, entries.length, 'rowcount counts the header');
+    assert.equal(t.stats[0], `${entries.length} files`, 'the header counts what the list draws');
+    assert.equal(t.stats.length >= 3, true);
+    const state = await page.evaluate(() => window.__marxyHandle.index.watchState());
+    assert.equal(t.stats.at(-1), state === 'live' ? 'Watching' : 'Not watching', `the header says what the watch is, not what was declared: ${t.stats}`);
+    const rows = await rowsOf(page);
+    assert.equal(rows.length, entries.length, 'unfiltered, the header count equals the rows');
+  });
+});
+
+test('a column header sorts like the Sort control and announces it with aria-sort', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    const sort = () => page.evaluate(() => ({ select: document.querySelector('.marxy-library-sort select').value, heads: Object.fromEntries([...document.querySelectorAll('[role=columnheader]')].map((h) => [h.textContent.trim(), h.getAttribute('aria-sort')])) }));
+    assert.equal((await sort()).heads.Modified, 'descending');
+    assert.equal((await sort()).heads.Status, null, 'Status does not sort');
+    await page.click('[role=columnheader] button:has-text("Name")');
+    await settle(page);
+    const s = await sort();
+    assert.equal(s.select, 'name');
+    assert.equal(s.heads.Name, 'ascending');
+    assert.equal(s.heads.Modified, 'none');
+    const titles = (await rowsOf(page)).map((r) => r.title);
+    assert.deepEqual(titles, [...titles].sort((a, b) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' })));
+  });
+});
+
+test('filter menus only write query text, offer only what the scope holds, and toggle off', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    const buttons = await page.evaluate(() => [...document.querySelectorAll('.marxy-library-facet-button')].map((b) => b.textContent.replace(/\s+/g, ' ').trim()));
+    assert.ok(buttons.includes('Kind') && buttons.includes('Modified'), `menus: ${buttons}`);
+    assert.ok(!buttons.includes('Status'), 'nothing pinned, recent or changed: that menu is not drawn');
+    await page.click('.marxy-library-facet-button:has-text("Kind")');
+    const items = await page.evaluate(() => [...document.querySelectorAll('.marxy-library-facet-item')].filter((i) => i.offsetParent !== null).map((i) => i.firstChild.textContent));
+    assert.deepEqual(items.sort(), ['article', 'code', 'notes', 'report']);
+    await page.click('.marxy-library-facet-item:has-text("report")');
+    await settle(page);
+    assert.equal(await page.inputValue('.marxy-library-field'), 'kind:report');
+    assert.equal((await rowsOf(page)).length, 4);
+    assert.match(await page.textContent('.marxy-library-status'), /4 of \d+ files/);
+    await page.click('.marxy-library-facet-button:has-text("Kind")');
+    await page.click('.marxy-library-facet-item[aria-checked=true]');
+    await settle(page);
+    assert.equal(await page.inputValue('.marxy-library-field'), '');
+    assert.equal((await rowsOf(page)).length, entries.length);
+  });
+});
+
+test('arrow keys move through rows of the grid and Return opens', async () => {
+  await withPage(async (page) => {
+    await unfold(page);
+    await openLibrary(page);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    const sel = await page.evaluate(() => ({ at: document.querySelector('[data-marxy-library-row][aria-selected=true]').getAttribute('aria-rowindex'), ad: document.querySelector('.marxy-library-results').getAttribute('aria-activedescendant') }));
+    assert.equal(sel.at, '3');
+    assert.equal(sel.ad, 'marxy-library-row-1');
+  });
 });
 
 // --- a tab click while the view shows (the review of #609) ---------------------------------------------------------
