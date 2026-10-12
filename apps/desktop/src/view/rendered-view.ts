@@ -43,6 +43,7 @@ interface MountedSourceEditor {
   readonly view: {
     scrollDOM: HTMLElement;
     lineBlockAtHeight(height: number): { from: number };
+    readonly dom: HTMLElement;
     readonly state: CmStateLike & { readonly selection: { readonly main: { readonly anchor: number; readonly head: number } } };
     dispatch(spec: { selection: { anchor: number; head: number } }): void;
   };
@@ -1221,23 +1222,46 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // or the next Source entry would reuse an editor holding the previous document (F-12). Only this
     // mount's: another view's editor is its own (D-01).
     const shared = activeSourceEditorIn?.(sourceHost) ?? null;
-    if (sourceEditor) retiredSource.add(sourceEditor);
-    if (shared) retiredSource.add(shared);
+    const leaving = sourceEditor ?? shared;
+    // An open that is coming leaves the old text on screen until the next document can take its place, as a
+    // picture of it and never as the editor: the editor is destroyed here, as ever, so it cannot be typed into with
+    // no store behind it, reused for the next file, or destroyed twice (V-15).
+    const kept =
+      keepSourceShowing && viewMode === 'source' && leaving
+        ? { picture: pictureOfSource(leaving), top: leaving.view.scrollDOM.scrollTop }
+        : null;
+    sourceEditor?.destroy();
+    if (shared && shared !== sourceEditor) shared.destroy();
     sourceEditor = null;
     heldApart = false;
-    // An open that is coming leaves Source on screen, with the old text in it, until the next document can take
-    // its place (`dropRetiredSource`): an editor emptied now is a frame of nothing (V-15).
-    if (!keepSourceShowing || viewMode !== 'source') dropRetiredSource();
+    if (kept) {
+      dropRetiredSource();
+      retiredPicture = kept.picture;
+      sourceHost.replaceChildren(kept.picture);
+      kept.picture.querySelector('.cm-scroller')?.scrollTo({ top: kept.top });
+    } else if (!(keepSourceShowing && retiredPicture)) {
+      dropRetiredSource();
+      sourceHost.replaceChildren();
+    }
   }
 
-  /** Editors of a document that was closed, still on screen while Source waits for what replaces it. */
-  const retiredSource = new Set<MountedSourceEditor>();
+  /** The old Source text kept on screen while an open replaces it: not an editor, inert, gone when the next page shows. */
+  let retiredPicture: HTMLElement | null = null;
 
-  /** The editors `clear` retired go, and so does whatever is left in Source's mount. */
+  function pictureOfSource(editor: MountedSourceEditor): HTMLElement {
+    const picture = editor.view.dom.cloneNode(true) as HTMLElement;
+    picture.classList.remove('cm-focused');
+    for (const el of picture.querySelectorAll('[contenteditable]')) el.setAttribute('contenteditable', 'false');
+    picture.setAttribute('inert', '');
+    picture.setAttribute('aria-hidden', 'true');
+    picture.style.pointerEvents = 'none';
+    return picture;
+  }
+
+  /** The picture of the old Source text goes. */
   function dropRetiredSource(): void {
-    for (const editor of retiredSource) editor.destroy();
-    retiredSource.clear();
-    if (sourceEditor === null) sourceHost.replaceChildren();
+    retiredPicture?.remove();
+    retiredPicture = null;
   }
 
   /** Source text the reader typed and has not yet folded into the store: the store cannot see it. */

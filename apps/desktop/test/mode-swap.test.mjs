@@ -231,24 +231,26 @@ test('Show source and then an immediate open of another file: the next Mod+E com
       const commit = store.commitSource.bind(store);
       store.commitSource = (...args) => { window.__commits.push(String(args[0]).slice(0, 20)); return commit(...args); };
     });
-    console.log('DBG', await mode(page), JSON.stringify(await editorText(page)), await page.evaluate(() => window.__marxyHandle.currentPath()));
     assert.equal(await page.evaluate(() => window.__marxyHandle.currentPath()), '/d/other.md');
     // Whatever mode the open ended in, the editor on the page is the new document's, never the closed one's.
-    if (await mode(page) === 'source') {
-      assert.equal(await editorText(page), OTHER, 'Source holds the closed document');
-    }
+    const landedIn = await mode(page);
+    const shows = async () => (await mode(page)) === 'source' ? await editorText(page) : await docText(page);
+    const showsOther = async () => (await mode(page)) === 'source' ? (await editorText(page)) === OTHER : (await docText(page)).includes('Other text');
+    assert.ok(await showsOther(), `${landedIn} shows ${JSON.stringify((await shows()).slice(0, 40))}, not the other document`);
     await page.keyboard.press(`${modKey}+e`);
     await drained(page);
     await page.waitForTimeout(300);
-    if (await mode(page) === 'source') assert.equal(await editorText(page), OTHER, 'Source holds the closed document');
+    assert.notEqual(await mode(page), landedIn);
+    assert.ok(await showsOther(), 'the other mode shows the closed document');
     await page.keyboard.press(`${modKey}+e`);
     await drained(page);
     await page.waitForTimeout(300);
+    assert.equal(await mode(page), landedIn);
     assert.deepEqual(await page.evaluate(() => window.__commits.filter((c) => c !== '# Other\n\nOther text.')), [], 'the closed document was folded into the new store');
     assert.equal(await page.evaluate(() => window.__marxyHandle.document().snapshot().canUndo), false, 'nothing was committed');
     assert.equal(await isDirty(page), false);
     assert.deepEqual(await bufferBytes(page), [...Buffer.from(OTHER)]);
-    assert.ok((await docText(page)).includes('Other text') || (await mode(page)) === 'source');
+    assert.ok(await showsOther(), 'the document shown at the end is the other one');
   });
 });
 
@@ -370,14 +372,20 @@ test('Rendered after an edit is current whichever way Source was left: Read, Mod
 
 // Nothing is set while hidden.
 
-test('while Source shows, a reload, a theme relayout and a trust change leave the hidden page alone, and Rendered is right when it comes back', async () => {
+/**
+ * What a cause does while Source shows (`cause`, run with the page in Source): the hidden article is left alone (no
+ * mutation, no repaint), and the first frame Rendered is visible again shows a page set after the cause, not the old
+ * one. Each cause is its own test, so that one `pageStale = true` removed fails its own and no other cause covers it.
+ */
+async function staleCase({ files, path, cause, setup, wanted, typeset = true }) {
   await withPage(async (page) => {
-    await boot(page, { '/d/wrapped.md': b64(wrappedMd) }, ['/d/wrapped.md']);
+    await boot(page, files, [path]);
     await settle(page);
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight / 3));
-    await settle(page);
+    // Every element of the page Rendered holds before Source: a page set again has none of these marks.
+    await page.evaluate(() => { for (const el of document.querySelectorAll('#doc *')) el.__old = true; });
     await toSource(page);
     await page.waitForTimeout(300);
+    await setup?.(page);
     await page.evaluate(() => {
       const article = document.getElementById('doc');
       window.__mutations = 0;
@@ -385,30 +393,190 @@ test('while Source shows, a reload, a theme relayout and a trust change leave th
       window.__observer = new MutationObserver((records) => { window.__mutations += records.length; });
       window.__observer.observe(article, { subtree: true, childList: true, attributes: true, characterData: true });
     });
-    // A reload from disk, a theme change and a trust change, in turn.
-    await page.evaluate(async (text) => {
-      const shell = window.__marxyHandle.shell;
-      await shell.writeFileAtomic('/d/wrapped.md', new TextEncoder().encode(text));
-      shell.emit([{ kind: 'modified', path: '/d/wrapped.md' }]);
-    }, wrappedMd.replace('# Wrapped', '# Wrapped by disk'));
-    await page.waitForFunction(() => document.querySelector('#marxy-source .cm-content').textContent.includes('by disk'));
-    await page.evaluate(async () => {
-      const view = window.__marxyHandle.panes().focused.view;
-      await view.relayoutForTheme();
-      view.rerender(0);
-      await view.settled();
-    });
+    await cause(page);
     await page.waitForTimeout(300);
     const quiet = await page.evaluate(() => ({
       mutations: window.__mutations + window.__observer.takeRecords().length,
       repaints: performance.getEntriesByName('marxy:repaint').length - window.__repaints,
     }));
     assert.deepEqual(quiet, { mutations: 0, repaints: 0 }, 'the hidden article was set while Source showed');
+    // The first moment the article is visible again.
+    await page.evaluate(() => {
+      const article = document.getElementById('doc');
+      window.__first = null;
+      window.__observer.disconnect();
+      new MutationObserver(() => {
+        if (article.hidden || window.__first) return;
+        const ps = [...article.querySelectorAll(':scope > p')];
+        window.__first = {
+          text: article.textContent,
+          details: article.querySelector('details') !== null,
+          old: [...article.querySelectorAll('*')].some((el) => el.__old === true),
+          fontSize: ps[0] ? getComputedStyle(ps[0]).fontSize : null,
+        };
+      }).observe(article, { attributes: true, attributeFilter: ['hidden'] });
+    });
     await toRendered(page);
     await settle(page);
-    assert.ok((await docText(page)).includes('Wrapped by disk'), 'Rendered shows the file as it now is');
-    const unset = await page.evaluate(() => [...document.querySelectorAll('#doc > p')].filter((p) => !p.classList.contains('marxy-set')).length);
-    assert.equal(unset, 0, `${unset} paragraphs are not typeset`);
+    const first = await page.evaluate(() => window.__first);
+    assert.ok(first, 'Rendered was never visible');
+    assert.equal(first.old, false, 'Rendered came back showing the page it had before the cause');
+    wanted(first);
+    if (typeset) {
+      const unset = await page.evaluate(() => [...document.querySelectorAll('#doc > p')].filter((p) => !p.classList.contains('marxy-set')).length);
+      assert.equal(unset, 0, `${unset} paragraphs are not typeset`);
+    }
     assert.equal(await isDirty(page), false);
   });
+}
+
+test('while Source shows, a reload from disk leaves the hidden page alone, and Rendered is the file as it now is when it comes back', async () => {
+  await staleCase({
+    files: { '/d/wrapped.md': b64(wrappedMd) },
+    path: '/d/wrapped.md',
+    cause: async (page) => {
+      await page.evaluate(async (text) => {
+        const shell = window.__marxyHandle.shell;
+        await shell.writeFileAtomic('/d/wrapped.md', new TextEncoder().encode(text));
+        shell.emit([{ kind: 'modified', path: '/d/wrapped.md' }]);
+      }, wrappedMd.replace('# Wrapped', '# Wrapped by disk'));
+      await page.waitForFunction(() => document.querySelector('#marxy-source .cm-content').textContent.includes('by disk'));
+    },
+    wanted: (first) => assert.ok(first.text.includes('Wrapped by disk'), 'the first frame of Rendered is not the file as it now is'),
+  });
 });
+
+test('while Source shows, a theme relayout leaves the hidden page alone, and Rendered is set to the theme when it comes back', async () => {
+  await staleCase({
+    files: { '/d/wrapped.md': b64(wrappedMd) },
+    path: '/d/wrapped.md',
+    setup: async (page) => {
+      await page.evaluate(() => {
+        const style = document.createElement('style');
+        style.id = 'zz-test-theme';
+        document.head.append(style);
+      });
+    },
+    cause: async (page) => {
+      await page.evaluate(async () => {
+        document.getElementById('zz-test-theme').textContent = '#doc > p { font-size: 23px !important; }';
+        await window.__marxyHandle.panes().focused.view.relayoutForTheme();
+      });
+    },
+    wanted: (first) => assert.equal(first.fontSize, '23px', 'the first frame of Rendered is not set to the theme'),
+  });
+});
+
+test('while Source shows, a trust change leaves the hidden page alone, and Rendered shows the new trust when it comes back', async () => {
+  const html = '# HTML\n\nLead paragraph.\n\n<details><summary>HTMLMARK summary</summary>\n\nHTMLMARK body words.\n\n</details>\n\nAfter paragraph.\n';
+  const trust = JSON.stringify({ version: 1, documents: { '/d/h.md': { html: true, at: 1 } } });
+  await staleCase({
+    files: { '/d/h.md': b64(html), '/data/trust.json': b64(trust) },
+    path: '/d/h.md',
+    typeset: false,
+    cause: async (page) => {
+      await page.evaluate(() => window.__marxyHandle.commands().find((c) => c.id === 'trust.revoke-html').run({ shell: window.__marxyHandle.shell, selection: { kind: 'none' }, operationInput: () => null, closePalette: () => {}, showNotice: () => {} }));
+    },
+    wanted: (first) => assert.equal(first.details, false, 'the first frame of Rendered still shows the HTML that was revoked'),
+  });
+});
+
+// Opening another file from Source: the new file's text, exactly, and nothing typed into the old one.
+
+const slowMarks = (page, ms, only) => page.evaluate(({ ms, only }) => {
+  const shell = window.__marxyHandle.shell;
+  const mark = shell.mark.bind(shell);
+  shell.mark = async (name, ...args) => {
+    if (!only || only === name) await new Promise((resolve) => setTimeout(resolve, ms));
+    return mark(name, ...args);
+  };
+}, { ms, only });
+/** The whole document of the Source editor on the page, as CodeMirror holds it (the DOM shows only the lines in view). */
+const exactEditorText = (page) => page.evaluate(() => document.querySelector('#marxy-source .cm-content').cmTile.root.view.state.doc.toString());
+const sample = (word, path) => path.endsWith('.py')
+  ? `# ${word}\nvalue_${word} = 1\n${'x = 2\n'.repeat(60)}`
+  : `# ${word}\n\n${word} paragraph one.\n\n${'filler paragraph '.repeat(40)}\n`;
+/** What `#marxy-source` shows now: how many editors it holds and any text a reader could type into. */
+const sourceHostState = (page) => page.evaluate(() => {
+  const host = document.getElementById('marxy-source');
+  return {
+    editors: host.querySelectorAll('.cm-editor').length,
+    typable: host.querySelectorAll('[contenteditable="true"]').length,
+    inert: host.querySelectorAll('[inert]').length,
+    text: [...host.querySelectorAll('.cm-line')].map((l) => l.textContent).join('\n'),
+  };
+});
+
+for (const [from, to] of [['/d/a.py', '/d/b.py'], ['/d/a.md', '/d/b.py'], ['/d/a.py', '/d/b.md'], ['/d/a.md', '/d/b.md']]) {
+  test(`opening ${to.slice(3)} from Source on ${from.slice(3)} shows the new file's exact text, in Source, and never an empty or doubled editor`, async () => {
+    await withPage(async (page) => {
+      const a = sample('AAAA', from);
+      const b = sample('BBBB', to);
+      await boot(page, { [from]: b64(a), [to]: b64(b) }, [from]);
+      await settle(page);
+      if ((await mode(page)) !== 'source') await toSource(page);
+      await page.waitForTimeout(300);
+      await slowMarks(page, 100);
+      await page.evaluate(() => {
+        window.__frames = [];
+        window.__sampling = true;
+        const host = document.getElementById('marxy-source');
+        const loop = () => {
+          if (!host.hidden && host.getClientRects().length > 0) {
+            window.__frames.push({ editors: host.querySelectorAll('.cm-editor').length, lines: host.querySelectorAll('.cm-line').length });
+          }
+          if (window.__sampling) requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+      });
+      await page.evaluate((p) => window.__marxyHandle.open(p), to);
+      await settle(page);
+      await page.evaluate(() => { window.__sampling = false; });
+      const frames = await page.evaluate(() => window.__frames);
+      assert.deepEqual(frames.filter((f) => f.editors !== 1 || f.lines === 0), [], 'a frame showed Source with no editor, no text, or two editors');
+      assert.equal(await page.evaluate(() => window.__marxyHandle.currentPath()), to);
+      if ((await mode(page)) !== 'source') await toSource(page);
+      const state = await sourceHostState(page);
+      assert.equal(state.editors, 1, `Source holds ${state.editors} editors`);
+      assert.equal(state.inert, 0, 'a picture of the old text is left in Source');
+      assert.equal(await exactEditorText(page), b, 'Source does not show the new file exactly');
+      assert.deepEqual(await bufferBytes(page), [...Buffer.from(b)]);
+      assert.equal(await isDirty(page), false);
+    });
+  });
+}
+
+for (const [from, to] of [['/d/a.md', '/d/b.md'], ['/d/a.py', '/d/b.py']]) {
+  test(`keys typed into Source while ${to.slice(3)} opens from ${from.slice(3)} are refused, shown nowhere and lost from nothing`, async () => {
+    await withPage(async (page) => {
+      const a = sample('AAAA', from);
+      const b = sample('BBBB', to);
+      await boot(page, { [from]: b64(a), [to]: b64(b) }, [from]);
+      await settle(page);
+      if ((await mode(page)) !== 'source') await toSource(page);
+      await page.waitForTimeout(300);
+      // The open reads its file slowly: the old store is gone and the new page is not there yet for 600 ms.
+      await slowMarks(page, 600, 'file_read');
+      await page.evaluate((p) => { window.__open = window.__marxyHandle.open(p); }, to);
+      await page.waitForTimeout(300);
+      assert.equal(await page.evaluate(() => window.__marxyHandle.currentPath()), null, 'the open was not in its gap');
+      const during = await sourceHostState(page);
+      assert.ok(during.text.length > 0, 'nothing of the old text stayed on screen');
+      assert.equal(during.typable, 0, 'the old text is still an editor a reader can type into');
+      // Click and type where the old text is.
+      const box = await page.evaluate(() => { const r = document.querySelector('#marxy-source .cm-content').getBoundingClientRect(); return { x: r.x + 80, y: r.y + 20 }; });
+      await page.mouse.click(box.x, box.y);
+      await page.keyboard.type('LOSTKEYS');
+      const typed = await sourceHostState(page);
+      assert.equal(typed.text.includes('LOSTKEYS'), false, 'keys typed in the gap show on screen, and the next page will drop them');
+      assert.equal(typed.typable, 0);
+      await page.evaluate(() => window.__open);
+      await settle(page);
+      if ((await mode(page)) !== 'source') await toSource(page);
+      assert.equal(await exactEditorText(page), b);
+      assert.deepEqual(await bufferBytes(page), [...Buffer.from(b)]);
+      assert.equal(await isDirty(page), false);
+      assert.equal(await page.evaluate(async () => new TextDecoder().decode(await window.__marxyHandle.shell.readFile('/d/' + window.__marxyHandle.currentPath().split('/').pop())).includes('LOSTKEYS')), false);
+    });
+  });
+}
