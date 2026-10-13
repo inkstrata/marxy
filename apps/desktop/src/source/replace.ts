@@ -231,7 +231,10 @@ export function nextMatch(
   const re = compileQuery(query);
   if (!(re instanceof RegExp)) return re;
   const template = unquote(query.replace, query.literal);
-  for (const start of from > 0 ? [from, 0] : [0]) {
+  // A start inside a surrogate pair moves to the pair's end: the search never starts in the middle of a character.
+  const pair = from > 0 && from < text.length && /[\ud800-\udbff]/.test(text[from - 1] as string) && /[\udc00-\udfff]/.test(text[from] as string);
+  const at = Math.min(pair ? from + 1 : from, text.length + 1);
+  for (const start of at > 0 ? [at, 0] : [0]) {
     for (const { match, from: f, to } of eachMatch(text, re, query, start, isWord)) {
       const replacement = query.regexp === true ? expandReplacement(template, match, text) : template;
       return { from: f, to, insert: inFileEndings(replacement, lineBreak), text: replacement };

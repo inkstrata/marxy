@@ -429,3 +429,19 @@ test('Apply right after typing is its own undo step: one undo takes back the rep
   undo(ed.target as never);
   assert.equal(ed.state.doc.toString(), typed, 'the typing stays; only the replacements went');
 });
+
+test('empty matches next to astral characters: one at a time never starts inside a pair, and Replace all matches JavaScript', async () => {
+  for (const [text, search] of [['😀😀', '(?:)'], ['a😀b', '^|\\b'], ['𝔸x😀', 'x*'], ['😀\n𝔸', '$']] as const) {
+    for (let from = 0; from <= text.length + 1; from++) {
+      const m = nextMatch(text, { search, replace: '.', regexp: true }, from);
+      assert.ok(m !== null && !('error' in m), `${search} from ${from}`);
+      const c = text.charCodeAt(m.from);
+      assert.ok(!(c >= 0xdc00 && c < 0xe000 && m.from > 0), `${search} from ${from}: starts at ${m.from}, inside a pair`);
+    }
+    assert.equal(applyPlan(text, plan(text, { search, replace: '.', regexp: true })), text.replace(new RegExp(search, 'gmu'), '.'));
+    // Replace pressed over and over walks the whole text without throwing.
+    const ed = editor(encoder.encode(text));
+    await withQuery(ed.target, { search, replace: '.', regexp: true });
+    for (let press = 0; press < 3 * text.length + 4; press++) assert.doesNotThrow(() => replaceNext(ed.target), `${search}, press ${press}`);
+  }
+});

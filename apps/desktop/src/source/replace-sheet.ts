@@ -167,7 +167,15 @@ export function replaceOne(view: EditorView): boolean {
     notify({ kind: 'refused', text: `${re.error} Nothing was replaced; change what is in the Find field and try again.` }, target);
     return false;
   }
-  if (replaceNext(view)) return true;
+  let ran: boolean;
+  try {
+    ran = replaceNext(view);
+  } catch (error) {
+    // Never uncaught, never silent: what failed, that nothing changed, what to do.
+    notify({ kind: 'error', text: `Replace could not run (${error instanceof Error ? error.message : String(error)}). Nothing was replaced; try Replace all\u2026, which shows every change first.` }, target);
+    return false;
+  }
+  if (ran) return true;
   notify({ kind: 'info', fades: true, text: `No matches for \u201c${readableText(query.search)}\u201d. Nothing was replaced.` }, target);
   return false;
 }

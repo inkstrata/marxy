@@ -294,3 +294,25 @@ test('typed and undone while the preview is open: Apply still refuses, and says 
     assert.equal(await s.doc(), LF_DOC);
   });
 });
+
+test('Replace one at a time with an empty-match expression over emoji: no uncaught error, and Replace all… matches JavaScript', async () => {
+  const doc = 'a😀😀b 𝔸\n';
+  await withApp({ [A]: doc }, async (page, s) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await openReplace(page, s, '(?:)', '|');
+    await page.click('.cm-search label:has(input[name=re])');
+    await page.evaluate(async () => (await import('/src/source/editor.ts')).activeSourceEditor().view.dispatch({ selection: { anchor: 0 } }));
+    for (let i = 0; i < 6; i++) await page.evaluate(() => document.querySelector('.cm-search button[name=replace]').click());
+    assert.deepEqual(errors, [], 'no uncaught error');
+    assert.ok(!(await s.notices()).some((n) => /could not run/.test(n)), 'nothing failed');
+    await page.click('.cm-content');
+    for (let i = 0; i < 6; i++) await page.keyboard.press(`${s.mod}+z`);
+    assert.equal(await s.doc(), doc);
+    await page.evaluate(() => document.querySelector('.cm-search button[name=replaceAll]').click());
+    await page.waitForSelector('#marxy-replace[open]');
+    await page.keyboard.press(`${s.mod}+Enter`);
+    await page.waitForFunction(() => !document.getElementById('marxy-replace').open);
+    assert.equal(await s.doc(), doc.replace(/(?:)/gmu, '|'));
+  });
+});
