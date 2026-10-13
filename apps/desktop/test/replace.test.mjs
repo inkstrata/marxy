@@ -247,3 +247,50 @@ test('a 10 MB text: the preview and Apply stay responsive (measured), and the te
     assert.ok(undone.same, 'one undo restores the text');
   });
 });
+
+test('a plain query with a hyphen is found and replaced, and a Replace that cannot run says why', async () => {
+  const doc = 'A well-known fact, well-known twice.\n';
+  await withApp({ [A]: doc }, async (page, s) => {
+    await openReplace(page, s, 'well-known', 'famous');
+    await replaceAll(page);
+    await page.waitForSelector('#marxy-replace[open]');
+    assert.equal((await s.preview()).count, '2 replacements on 1 line');
+    await page.keyboard.press(`${s.mod}+Enter`);
+    await page.waitForFunction(() => !document.getElementById('marxy-replace').open);
+    assert.equal(await s.doc(), 'A famous fact, famous twice.\n');
+    // Replace, one at a time, with a regular expression that does not parse: a refusal, not silence.
+    await page.fill('.cm-search input[name=search]', '(');
+    await page.click('.cm-search label:has(input[name=re])');
+    await page.click('.cm-search button[name=replace]');
+    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice .marxy-notice-text')].some((n) => /regular expression is not valid.*Nothing was replaced/.test(n.textContent)));
+    // And with nothing to find. (The refusal pill sits over the panel's checkboxes; the box is set as a click would.)
+    await page.evaluate(() => {
+      const box = document.querySelector('.cm-search input[name=re]');
+      box.checked = false;
+      box.dispatchEvent(new Event('change'));
+    });
+    await page.fill('.cm-search input[name=search]', 'zzz');
+    await page.evaluate(() => document.querySelector('.cm-search button[name=replace]').click());
+    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice .marxy-notice-text')].some((n) => /No matches for “zzz”/.test(n.textContent)));
+    assert.equal(await s.doc(), 'A famous fact, famous twice.\n');
+  });
+});
+
+test('typed and undone while the preview is open: Apply still refuses, and says the preview may be out of date', async () => {
+  await withApp({ [A]: LF_DOC }, async (page, s) => {
+    await openReplace(page, s, 'colour', 'color');
+    await replaceAll(page);
+    await page.waitForSelector('#marxy-replace[open]');
+    await page.evaluate(async () => {
+      const view = (await import('/src/source/editor.ts')).activeSourceEditor().view;
+      view.dispatch({ changes: { from: 0, insert: 'X' } });
+      view.dispatch({ changes: { from: 0, to: 1 } });
+    });
+    assert.equal(await s.doc(), LF_DOC, 'the text reads the same');
+    await page.keyboard.press(`${s.mod}+Enter`);
+    await s.settle();
+    const preview = await s.preview();
+    assert.match(preview.status, /^The preview may be out of date: .* Nothing was replaced; run Replace all again\.$/);
+    assert.equal(await s.doc(), LF_DOC);
+  });
+});

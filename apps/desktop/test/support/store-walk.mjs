@@ -1201,8 +1201,9 @@ export const OPS = {
       if (!tables.some(outside)) {
         world.fail('I6', `${at} changed bytes outside every table (tables: ${tables.map((t) => `${t.start}..${t.end}`).join(', ')}; ${before.length} bytes became ${after.length})`);
       }
+      // A file with no line ending yet takes LF from a replacement that holds one; any other file keeps the kinds it has.
       const had = endingKinds(before);
-      for (const kind of endingKinds(after)) if (!had.has(kind)) world.fail('I6', `${at} wrote a line ending (${JSON.stringify(kind)}) the file did not have`);
+      if (had.size > 0) for (const kind of endingKinds(after)) if (!had.has(kind)) world.fail('I6', `${at} wrote a line ending (${JSON.stringify(kind)}) the file did not have`);
       if (bomLength(before) !== bomLength(after)) world.fail('I6', `${at} changed the byte-order mark`);
       doc.past.push(before);
       doc.future = [];
@@ -1252,6 +1253,8 @@ export const OPS = {
         { search: '$', regexp: true },
         { search: ' +', regexp: true },
         { search: 'e', regexp: false, wholeWord: true },
+        // Punctuation as a plain query (a hyphen, a pipe, a bracket): each must find itself.
+        { search: d.pick(['-', '|', '[', ']', '*', '`', '#', '/', '(', '.', ':', '\\', '- [ ]', '```']), regexp: false },
       ];
       const q = d.pick(queries);
       const replace = q.regexp ? d.pick(['', 'X', '$1', '$&$&', '[$2]', 'é\\n', '$1\\n$2']) : d.pick(['', 'X', 'é😀', 'two\\nlines', q.search + q.search]);
@@ -1291,15 +1294,17 @@ export const OPS = {
       const tailText = text.slice(plan.changes[plan.changes.length - 1].to).replace(/\n/g, sep);
       if (!/[\udc80-\udcff]/.test(tailText) && !plain(after).endsWith(plain(enc.encode(tailText)))) world.fail('I6', `${at}: bytes after the last change moved`);
       if (bomLength(before) !== bomLength(after)) world.fail('I6', `${at} changed the byte-order mark`);
+      // A file with no line ending yet takes LF from a replacement that holds one; any other file keeps the kinds it has.
       const had = endingKinds(before);
-      for (const kind of endingKinds(after)) if (!had.has(kind)) world.fail('I6', `${at} wrote a line ending (${JSON.stringify(kind)}) the file did not have`);
+      if (had.size > 0) for (const kind of endingKinds(after)) if (!had.has(kind)) world.fail('I6', `${at} wrote a line ending (${JSON.stringify(kind)}) the file did not have`);
       // A file that is valid UTF-8 in one kind of ending: exactly JavaScript's own replace of its text.
       const strict = (() => { try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(before); } catch { return null; } })();
       if (strict !== null && had.size <= 1) {
         const body = strict.slice(bomLength(before) === 3 ? 1 : 0).split(sep).join('\n');
         const flags = `gmu${query.caseSensitive ? '' : 'i'}`;
         const unq = (t) => t.replace(/\\([nrt\\])/g, (_, c) => (c === 'n' ? '\n' : c === 'r' ? '\r' : c === 't' ? '\t' : '\\'));
-        const esc = (t) => t.replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&');
+        // Every character as a code point escape: independent of the set the code escapes.
+        const esc = (t) => [...t].map((c) => `\\u{${c.codePointAt(0).toString(16)}}`).join('');
         const W = '[\\p{Alphabetic}\\p{Number}_]';
         const re = query.regexp ? new RegExp(query.search, flags) : query.wholeWord ? new RegExp(`(?<!${W})${esc(unq(query.search))}(?!${W})`, flags) : new RegExp(esc(unq(query.search)), flags);
         const out = query.regexp ? body.replace(re, unq(query.replace)) : body.replace(re, () => unq(query.replace));

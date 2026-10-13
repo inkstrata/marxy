@@ -65,7 +65,11 @@ export function unquote(text: string, literal = false): string {
   return text.replace(/\\([nrt\\])/g, (_, ch: string) => (ch === 'n' ? '\n' : ch === 'r' ? '\r' : ch === 't' ? '\t' : '\\'));
 }
 
-const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&');
+/**
+ * A plain query as an expression: the syntax characters escaped and nothing else, because under the `u` flag an escape
+ * of any other character (`\-`, `\/`, `\"`) is an error. CodeMirror escapes the same set.
+ */
+export const escapeRegExp = (s: string): string => s.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 
 /** The expression a query searches with, or the reason it cannot: an empty query, or a regular expression that does not parse. */
 export function compileQuery(query: ReplaceQuery): RegExp | { readonly error: string } {
@@ -189,21 +193,27 @@ function* eachMatch(
   isWord: IsWord,
 ): Generator<{ readonly match: RegExpExecArray; readonly from: number; readonly to: number }> {
   re.lastIndex = start;
+  // Where the next match may start at the earliest. A match before it means the search did not move on (a step into the
+  // middle of a surrogate pair, which the `u` flag reads from the pair's start): an error, never a loop.
+  let floor = start;
   while (re.lastIndex <= text.length) {
     const m = re.exec(text);
     if (m === null) return;
     const from = m.index;
+    if (from < floor) throw new Error(`Replace: the search went back from ${floor} to ${from}; nothing was planned.`);
     const to = from + m[0].length;
     const kept = !splitsCrlf(text, from) && !splitsCrlf(text, to) && (query.wholeWord !== true || wholeWordAt(text, from, to, isWord));
     if (!kept) {
       // Turned down: looked for again one character on, as `\b` in the expression would be.
       re.lastIndex = advance(text, from);
+      floor = re.lastIndex;
       continue;
     }
     // Where the next search starts is decided before the consumer runs: it must not move `re`.
     const next = to === from ? advance(text, from) : to;
     yield { match: m, from, to };
     re.lastIndex = next;
+    floor = next;
   }
 }
 

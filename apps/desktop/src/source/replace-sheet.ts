@@ -27,6 +27,7 @@ import { appHandle } from '../commands/app-handle.ts';
 import { notify, paneOf } from '../notices/index.ts';
 import { keyLabel } from '../palette/commands.ts';
 import {
+  compileQuery,
   countLine,
   nextMatch,
   planReplace,
@@ -51,6 +52,8 @@ export const replaceAllEvent = Annotation.define<number>();
 
 export const STALE_REPLACE =
   'The document changed while the preview was open. Nothing was replaced; run Replace all again to see the changes as they are now.';
+export const MAYBE_STALE_REPLACE =
+  'The preview may be out of date: the text was edited while it was open, though it reads the same now. Nothing was replaced; run Replace all again.';
 export const DISK_REPLACE =
   'The file changed on disk while the preview was open. Nothing was replaced; choose which version to keep, then run Replace all again.';
 
@@ -91,8 +94,20 @@ export function applyReplacePlan(target: ReplaceTarget, doc: Text, plan: Replace
   const { state } = target;
   const span = plan.changes.length > spanAbove ? spanOf(doc.toString(), plan, state.lineBreak) : null;
   const changes = span ? [span] : plan.changes;
+  const set = state.changes(changes.map((c) => ({ from: c.from, to: c.to, insert: c.insert })));
+  // One change over the stretch would map a selection inside it onto the whole stretch, which the next keystroke would
+  // overwrite: a range that touches the stretch becomes a caret at the end of the last replacement instead.
+  const selection = span
+    ? EditorSelection.create(
+        state.selection.ranges.map((r) =>
+          r.to <= span.from || r.from >= span.to ? r.map(set) : EditorSelection.cursor(set.mapPos(span.to, 1)),
+        ),
+        state.selection.mainIndex,
+      )
+    : undefined;
   target.dispatch({
-    changes: state.changes(changes.map((c) => ({ from: c.from, to: c.to, insert: c.insert }))),
+    changes: set,
+    ...(selection ? { selection } : {}),
     userEvent: 'input.replace.all',
     // One undo step, never joined to the typing before it or after it.
     annotations: [isolateHistory.of('full'), replaceAllEvent.of(plan.changes.length)],
@@ -141,6 +156,20 @@ export function replaceNext(target: ReplaceTarget): boolean {
     effects: EditorView.announce.of(`Replaced the match on line ${state.doc.lineAt(found.from).number}.`),
   });
   return true;
+}
+
+/** Replace from the panel: when it cannot run (a query that does not compile, no match), a notice says why; never nothing. */
+export function replaceOne(view: EditorView): boolean {
+  const query = queryOf(view.state);
+  const target = paneOf(view.dom) ? { pane: paneOf(view.dom) as HTMLElement } : {};
+  const re = compileQuery(query);
+  if (!(re instanceof RegExp)) {
+    notify({ kind: 'refused', text: `${re.error} Nothing was replaced; change what is in the Find field and try again.` }, target);
+    return false;
+  }
+  if (replaceNext(view)) return true;
+  notify({ kind: 'info', fades: true, text: `No matches for \u201c${readableText(query.search)}\u201d. Nothing was replaced.` }, target);
+  return false;
 }
 
 // ---- the panel ------------------------------------------------------------------------------------------------------
@@ -214,7 +243,7 @@ class ReplacePanel implements Panel {
         : [
             elt('br', {}),
             this.replaceField,
-            button('replace', () => replaceNext(view), phrase('replace')),
+            button('replace', () => replaceOne(view), phrase('replace')),
             button('replaceAll', () => openReplacePreview(view), `${phrase('replace all')}…`),
           ]),
       close,
@@ -251,7 +280,7 @@ class ReplacePanel implements Panel {
     } else if (e.key === 'Enter' && e.target === this.replaceField) {
       e.preventDefault();
       this.commit();
-      replaceNext(this.view);
+      replaceOne(this.view);
     }
   }
 
@@ -560,11 +589,14 @@ function applyPreview(l: Live): void {
   const store = storeOf(l.view);
   const conflictNow = store?.conflict() ?? null;
   let refusal: string | null = null;
-  if (!l.view.dom.isConnected || l.view.state.doc !== l.doc) refusal = STALE_REPLACE;
+  // The guard is the very document the preview was made from; the words say whether its text differs now (typed and
+  // undone reads the same, and is still refused: the rows were made from another document).
+  const staleWords = (): string => (l.view.state.doc.eq(l.doc) ? MAYBE_STALE_REPLACE : STALE_REPLACE);
+  if (!l.view.dom.isConnected || l.view.state.doc !== l.doc) refusal = staleWords();
   else if (conflictNow !== l.conflict) refusal = DISK_REPLACE;
   if (refusal === null) {
     const outcome = applyReplacePlan(l.view, l.doc, l.plan);
-    if (outcome === 'stale') refusal = STALE_REPLACE;
+    if (outcome === 'stale') refusal = staleWords();
     else {
       closeReplacePreview();
       notify({ kind: 'done', text: `Made ${countLine(l.plan)}. Undo puts the text back; nothing is saved until you save.` }, pane ? { pane } : {});

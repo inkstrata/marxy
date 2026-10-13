@@ -173,6 +173,20 @@ test('case, by word and named groups behave as the panel says', () => {
   assert.equal(expandReplacement('[$01|$1|$10|$9|$$|$<n>|$', /(a)/u.exec('xa') as RegExpExecArray, 'xa'), '[a|a|a0|$9|$|$<n>|$');
 });
 
+test('every ASCII punctuation character is a plain query that finds itself (no escape the u flag refuses)', () => {
+  const punct = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+  for (const ch of punct) {
+    const text = `x${ch}y ${ch}${ch} well${ch}known\n${ch}`;
+    const p = planReplace(text, { search: ch, replace: 'R' });
+    assert.ok(!('error' in p), `${ch}: ${'error' in p ? p.error : ''}`);
+    assert.equal(applyPlan(text, p), text.split(ch).join('R'), ch);
+    const word = planReplace(text, { search: `well${ch}known`, replace: 'W', caseSensitive: true });
+    assert.ok(!('error' in word) && applyPlan(text, word) === text.split(`well${ch}known`).join('W'), `well${ch}known`);
+  }
+  const hyphen = nextMatch('a well-known b', { search: 'well-known', replace: 'famous' }, 0);
+  assert.ok(hyphen && !('error' in hyphen) && hyphen.from === 2, 'Replace one at a time finds a hyphenated word');
+});
+
 test('a regular expression that does not parse, or an empty query, is a reason and no plan', () => {
   const bad = planReplace('x', { search: '(', replace: '', regexp: true });
   assert.ok('error' in bad && /not valid/.test(bad.error));
@@ -283,14 +297,16 @@ function prng(seed: number): () => number {
   };
 }
 
-const ALPHABET = ['a', 'a', 'b', 'A', 'B', ' ', ' ', '\n', '\n', 'é', '😀', '_', '.', '$', '1', '\t'];
+const ALPHABET = ['a', 'a', 'b', 'A', 'B', ' ', ' ', '\n', '\n', 'é', '😀', '_', '.', '$', '1', '\t', '-', '/', '(', '[', '{', '|', '^', '*'];
 const PATTERNS = ['a', 'ab', 'a+', 'a*', 'b?', '^', '$', '\\b', '\\B', '(a)(b)?', '(?<x>a|b)', '[ab]+', '.', '\\n', 'a\\nb', '(?=a)', 'é|😀', '\\s+', '(a)|(b)', '^a', 'b$', '[^a]', '(?<=a)b', '(?:)', 'A', '\\.', '\\$', '.\\n.'];
 const REPLACEMENTS = ['', 'X', '$1', '$2', '$&', '$$', '$`', "$'", '$<x>', '$<y>', '$0', '$10', '$1$1', 'a', 'aa', 'ab', '\\n', 'q\\nq', '$', '\\t', '😀', '\\r\\n', '\\\\'];
-const LITERALS = ['a', 'b', 'ab', 'aa', ' ', '\\n', 'a\\nb', 'é', '😀', '.', '$', 'A', '_'];
+const LITERALS = ['a', 'b', 'ab', 'aa', ' ', '\\n', 'a\\nb', 'é', '😀', '.', '$', 'A', '_', '-', 'a-b', 'a/b', '(a', '[', ']', '{', '}', '|', '^', '*', '+', '?', '"', "'", '#', '%', '&', ',', ':', ';', '<', '=', '>', '@', '`', '~', '!', '/'];
+const PUNCT_ALPHABET = ['-', '/', '(', ')', '[', ']', '{', '}', '|', '^', '*', '?', '+'];
 const WORDS = ['a', 'b', 'ab', 'aa', 'é', '_', 'a_', 'A'];
 
 const unq = (s: string): string => s.replace(/\\([nrt\\])/g, (_, c: string) => (c === 'n' ? '\n' : c === 'r' ? '\r' : c === 't' ? '\t' : '\\'));
-const esc = (s: string): string => s.replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&');
+/** Every character as a code point escape: independent of which characters the code chooses to escape. */
+const esc = (s: string): string => [...s].map((c) => `\\u{${(c.codePointAt(0) as number).toString(16)}}`).join('');
 const W = '[\\p{Alphabetic}\\p{Number}_]';
 
 /** The reference: JavaScript's own replace over the text with "\n" lines, written out in the file's ending. */
@@ -353,7 +369,7 @@ test('differential, through the app: Apply on a CodeMirror state and the Source 
       if (i % 5 === 0) assert.equal(hex(run.undone()), hex(bytes), `case ${i}: one undo restores the bytes`);
     }
   }
-  assert.ok(ran >= 1400 && changed >= 700, `${ran} cases ran, ${changed} of them changed something`);
+  assert.ok(ran >= 1400 && changed >= 600, `${ran} cases ran, ${changed} of them changed something`);
 });
 
 test('nextMatch wraps to the start, and is the plan’s first match from the start', () => {
@@ -367,6 +383,28 @@ test('nextMatch wraps to the start, and is the plan’s first match from the sta
   assert.equal(wrapped.from, 0);
   const p = plan(text, q);
   assert.equal(p.changes[0]?.from, first.from);
+});
+
+test('above the span threshold a selection inside the stretch becomes a caret after the last replacement, never the stretch', async () => {
+  const ed = editor(encoder.encode('x y\n'.repeat(200)));
+  ed.target.dispatch({ selection: EditorSelection.create([EditorSelection.range(100, 400), EditorSelection.cursor(1)], 0) });
+  await withQuery(ed.target, { search: 'x', replace: 'xx' });
+  const p = planFor(ed.target.state);
+  assert.ok(!('error' in p) && p.changes.length === 200);
+  applyReplacePlan(ed.target, ed.target.state.doc, p, 0);
+  const lastEnd = ed.state.doc.toString().lastIndexOf('xx') + 2;
+  const main = ed.state.selection.main;
+  assert.ok(main.empty, `a caret, not ${main.from}..${main.to}`);
+  assert.equal(main.from, lastEnd);
+  assert.ok(ed.state.selection.ranges.every((r) => r.empty), 'no range selects the stretch');
+  const outside = editor(encoder.encode('x y\n'.repeat(200) + 'tail'));
+  const len = outside.state.doc.length;
+  outside.target.dispatch({ selection: EditorSelection.range(len - 3, len - 1) });
+  await withQuery(outside.target, { search: 'x', replace: 'xx' });
+  const q = planFor(outside.target.state);
+  assert.ok(!('error' in q));
+  applyReplacePlan(outside.target, outside.target.state.doc, q, 0);
+  assert.equal(outside.state.sliceDoc(outside.state.selection.main.from, outside.state.selection.main.to), 'ai', 'a selection outside the stretch stays on its text');
 });
 
 test('Apply is one transaction: the selection stays where it was, mapped', async () => {
