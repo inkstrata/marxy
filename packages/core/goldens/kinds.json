@@ -418,6 +418,25 @@
       }
     ]
   },
+  "33-article-byline.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 5,
+        "signal": "byline: author with published or source",
+        "kind": "article",
+        "at": "front matter",
+        "decisive": true
+      },
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "33-article-byline.md",
+        "decisive": false
+      }
+    ]
+  },
   "34-chat-transcript.md": {
     "kind": "transcript",
     "reasons": [

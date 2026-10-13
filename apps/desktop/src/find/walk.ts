@@ -24,6 +24,10 @@ export const NON_CONTENT = [
   '.katex',
   '.marxy-elided', '.marxy-line-omitted', '.marxy-link-dest', '.marxy-link-host-label', '.marxy-invisible-glyph',
   '.marxy-notices', '.marxy-notice', '.marxy-find-slot',
+  // An article's byline and dek (K-20): their keys are clipped for a screen reader and a byline value's quotes and a
+  // source's scheme and path are not drawn, so none is what the reader reads; Source still finds them in the bytes.
+  '[data-marxy-kind="article"] .marxy-article > dl:first-child > dt[data-marxy-fm-part]',
+  '[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="byline"] :is([data-marxy-fm-part="quote"],[data-marxy-fm-part="scheme"],[data-marxy-fm-part="path"])',
   // A log the level filter is on (K-08): the lines it hides are not read, and neither are the words that stand for them.
   '.marxy-log-hidden-text', '.marxy-log-hidden-piece', '.marxy-log-hidden-run',
 ].join(', ');

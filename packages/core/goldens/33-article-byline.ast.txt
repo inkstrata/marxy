@@ -1,0 +1,18 @@
+document [0,1645)
+  frontmatter [0,253) value="title: Leading, measured\ndescription: Why the space between lines is the one setting a reader feels before reading a wor…"
+  heading [255,274) level=1
+    text [257,274) value="Leading, measured"
+  paragraph [276,408)
+    emphasis [276,408)
+      text [277,407) value="An opening paragraph wholly in italics sits where a dek would, but this file's front matter names a description, and the…"
+  paragraph [410,712)
+    text [410,712) value="Most readers could not name the distance between two lines of text, yet every one of them notices when it is wrong. Set …"
+  paragraph [714,1047)
+    text [714,1047) value="The usual advice is a ratio: one and a half times the size of the type. It is a good start and a poor rule. A face with …"
+  blockquote [1049,1140)
+    paragraph [1051,1140)
+      text [1051,1140) value="Leading is not a number to be chosen once. It follows the face, the size and the measure."
+  paragraph [1142,1424)
+    text [1142,1424) value="Measure matters as much as the face. A long line needs more space between lines, so that the return sweep of the eye lan…"
+  paragraph [1426,1644)
+    text [1426,1644) value="None of this is new. Compositors adjusted leading by eye for centuries, a strip of lead at a time. What is new is that a…"

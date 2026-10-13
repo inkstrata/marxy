@@ -86,3 +86,11 @@ Original text written for K-09: a unified diff in the shape `git diff` writes, t
 added, removed and context lines, an `index` line, hunk headers with a function name after the second `@@`, one added line
 long enough to wrap in the reader (the hang past the marker column), and a `\ No newline at end of file` note. Every name
 is invented. A `.diff` opens in Read; the goldens move only if the code-file parse or the kind table does.
+
+## 33-article-byline.md
+
+Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair
+of outer quotes the byline drops), a date and a web source with a path and a query, after a title, a description and a
+list of tags, so the byline's rows move ahead of rows the bytes put first. Its opening paragraph is wholly in emphasis
+directly after the title; the description is the dek, so that paragraph stays a paragraph (the key wins). Every name is
+invented; the source is `example.org` (RFC 2606).

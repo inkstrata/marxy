@@ -138,7 +138,7 @@ function block(node: Block, tight: boolean, ctx: Context): string {
       // A tight list item's paragraph has no tags of its own, which is what makes the list tight.
       return tight
         ? inlines(node.children, ctx, paragraphTypo(node.children))
-        : `<p${prov(node.src, ctx)}>${inlines(node.children, ctx, paragraphTypo(node.children))}</p>`;
+        : `<p${emphasisAttr(node.children, ctx)}${prov(node.src, ctx)}>${inlines(node.children, ctx, paragraphTypo(node.children))}</p>`;
     case 'heading': {
       const id = ctx.headingIds.get(`${node.src.start}-${node.src.end}`);
       const idAttr = id === undefined ? '' : ` id="${escapeAttribute(id)}"`;
@@ -198,6 +198,17 @@ function block(node: Block, tight: boolean, ctx: Context): string {
     default:
       return '';
   }
+}
+
+/**
+ * ` emphasis="whole"` on a paragraph that is one emphasis and nothing else (K-20): a fact about the paragraph alone, in
+ * every kind, so a block re-rendered on its own carries it too. Only the article profile reads it, as the dek when it
+ * directly follows the title under a byline with no dek key (theme.css).
+ */
+function emphasisAttr(children: readonly Inline[], ctx: Context): string {
+  if (ctx.names.emphasis === undefined) return '';
+  const own = children.filter((child) => !(child.type === 'text' && child.value.trim() === ''));
+  return own.length === 1 && own[0]!.type === 'emphasis' ? ` ${ctx.names.emphasis}="whole"` : '';
 }
 
 function alertBlocks(node: Blockquote, alert: ParsedAlert, ctx: Context): string {

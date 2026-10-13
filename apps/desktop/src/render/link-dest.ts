@@ -1,6 +1,7 @@
 // Destination-on-summon labels: trusted DOM after sanitise, hidden at rest (MARXY-236).
 
 import { linkDestinationLabel } from '@marxy/core/src/render/index.ts';
+import { applyBylineLinks } from './byline-link.ts';
 
 const DEST = 'marxy-link-dest';
 
@@ -8,6 +9,8 @@ const DEST = 'marxy-link-dest';
 export function applyLinkDestinations(root: ParentNode): void {
   const doc = root instanceof Document ? root : root.ownerDocument;
   if (doc === null) return;
+  // An article's byline source becomes a link first, so it is labelled like every other (K-20).
+  applyBylineLinks(root);
   for (const a of root.querySelectorAll('a[href]')) {
     if (a.querySelector(`.${DEST}`) !== null) continue;
     const dest = linkDestinationLabel(a.getAttribute('href') ?? '');

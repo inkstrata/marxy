@@ -275,3 +275,79 @@
 @media (forced-colors: active) {
   [data-marxy-kind="transcript"] [data-marxy-speaker] { forced-color-adjust: auto; font-weight: 700; }
 }
+/* An article's byline and dek (K-20; mock-v2 TYPOGRAPHY "Article"). The front-matter head stays where the bytes put it,
+   above the title, and keeps every row in the bytes' order: the core marks the byline's rows (author, published,
+   source), and an article sets them as one line ahead of the rest (`order`), values only, with a rule beneath. The keys stay on the page for a screen
+   reader (clipped, not removed); one pair of outer quotes and a web source's scheme and path are hidden (the core marks
+   them only when the host shown is the host the link goes to), so the source shows its host, a link to the whole URL
+   (made by the app in an article only) whose destination is summoned like every link's. Every other row keeps the
+   head's two columns. The dek is the first `description`, `dek` or `subtitle` row, or else a paragraph wholly in
+   emphasis directly after the title; never both. Other kinds keep the quiet head. */
+[data-marxy-kind="article"] .marxy-article > dl:first-child:has(> [data-marxy-fm-part="byline"]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+[data-marxy-kind="article"] .marxy-article > dl:first-child:has(> [data-marxy-fm-part="byline"])::before {
+  /* The line break after the byline, drawn as its rule: placed after the byline's items (order -1) and before the rest. */
+  content: "";
+  flex: 0 0 100%;
+  height: 0;
+  border-top: 1px solid var(--marxy-color-rule);
+  margin-bottom: -1px;
+}
+[data-marxy-kind="article"] .marxy-article > dl:first-child > [data-marxy-fm-part="byline"] { order: -1; }
+[data-marxy-kind="article"] .marxy-article > dl:first-child > dt:is([data-marxy-fm-part="byline"], [data-marxy-fm-part="dek"]) {
+  position: absolute;
+  /* Kept for a screen reader, painted nowhere: clip-path clips the overflowing text too, so nothing is cut short by an
+     overflow a text-spacing check would count. */
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="byline"] {
+  /* A value is a short run, never a paragraph to set: as a flex box it is not one the typesetter takes (it sets only a
+     block), so its hidden quotes are never measured and it never breaks inside. */
+  display: flex;
+  align-items: baseline;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--marxy-face-chrome);
+  color: var(--marxy-color-text-secondary);
+}
+[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-key="author"][data-marxy-fm-part="byline"] {
+  color: var(--marxy-color-text-strong);
+  font-weight: calc(650 + var(--marxy-weight-offset));
+}
+[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="byline"] a { color: var(--marxy-color-link); }
+[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="byline"] :is([data-marxy-fm-part="quote"], [data-marxy-fm-part="scheme"], [data-marxy-fm-part="path"]) {
+  display: none;
+}
+[data-marxy-kind="article"] .marxy-article > dl:first-child:has(> [data-marxy-fm-part="byline"]) > dt:not([data-marxy-fm-part]) {
+  flex: 0 0 14ch;
+}
+[data-marxy-kind="article"] .marxy-article > dl:first-child:has(> [data-marxy-fm-part="byline"]) > dd:not([data-marxy-fm-part]) {
+  /* The rest of the line: a basis an em short of it (a key's 14ch is measured in the key's own face), then grown, so the
+     next key never fits beside it. */
+  flex: 1 1 calc(100% - 14ch - var(--marxy-half) - 1em);
+  min-width: 0;
+}
+[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="dek"],
+[data-marxy-kind="article"] .marxy-article > dl:first-child:has(> [data-marxy-fm-part="byline"]):not(:has(> [data-marxy-fm-part="dek"])) + h1 + p[data-marxy-emphasis="whole"] {
+  /* Larger and quieter than the text (TYPOGRAPHY "Article"): 1.2 of the body on its line box, in the text face, in the
+     secondary text colour (given through --marxy-dek-color by the rule below, which names no heading: the title is
+     only where the dek is found, never what is coloured). */
+  --marxy-dek-color: var(--marxy-color-text-secondary);
+  flex: 0 0 100%;
+  font-family: var(--marxy-font-text);
+  font-size: calc(1.2 * var(--marxy-size-body));
+  font-style: italic;
+  line-height: var(--marxy-line-box);
+}
+[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="dek"],
+[data-marxy-kind="article"] .marxy-article > p[data-marxy-emphasis="whole"] {
+  /* Unset (any other paragraph wholly in emphasis), the property is invalid and the colour inherits as before. */
+  color: var(--marxy-dek-color);
+}

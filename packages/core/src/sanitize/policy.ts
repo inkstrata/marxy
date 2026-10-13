@@ -298,12 +298,38 @@ export interface ProvenanceNames {
    * pipeline pass, so a document cannot write one. Absent in a policy that does not admit it.
    */
   readonly speaker?: string;
+  /**
+   * The front-matter head's own markers (K-20), under names only the renderer knows in a pipeline pass like `speaker`:
+   * the key a `dt`/`dd` row is for, the part of an article's head a row or a span is (byline, dek, a quote mark, a URL's
+   * scheme or path), and a paragraph wholly in emphasis. Absent in a policy that does not admit them.
+   */
+  readonly fmKey?: string;
+  readonly fmPart?: string;
+  readonly emphasis?: string;
 }
 
 export const SPEAKER_ATTR = 'data-marxy-speaker';
-export const PROVENANCE_ATTRIBUTES: ProvenanceNames = { start: 'data-marxy-s', end: 'data-marxy-e', speaker: SPEAKER_ATTR };
+export const FM_KEY_ATTR = 'data-marxy-fm-key';
+export const FM_PART_ATTR = 'data-marxy-fm-part';
+export const EMPHASIS_ATTR = 'data-marxy-emphasis';
+export const PROVENANCE_ATTRIBUTES: ProvenanceNames = {
+  start: 'data-marxy-s',
+  end: 'data-marxy-e',
+  speaker: SPEAKER_ATTR,
+  fmKey: FM_KEY_ATTR,
+  fmPart: FM_PART_ATTR,
+  emphasis: EMPHASIS_ATTR,
+};
 
 const SPEAKER_ROLE: AttributeRule = { kind: 'enum', values: ['you', 'assistant', 'tool', 'system'] };
+/** A head row's part (K-20): only an article's profile styles it. */
+const FM_ROW_PART: AttributeRule = { kind: 'enum', values: ['byline', 'dek'] };
+/**
+ * A span inside a byline value (K-20): a quote mark, or a URL's scheme or path, each hidden by the article profile; or a
+ * web source's whole URL, which the app makes a link in an article.
+ */
+const FM_SPAN_PART: AttributeRule = { kind: 'enum', values: ['quote', 'scheme', 'path', 'url'] };
+const EMPHASIS_WHOLE: AttributeRule = { kind: 'enum', values: ['whole'] };
 const HEADINGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const;
 
 /** A byte offset: decimal, no sign, no leading space, at most a gigabyte of document. */
@@ -335,6 +361,19 @@ export function withProvenance(
       const rule = elements[h];
       if (rule !== undefined) elements[h] = { ...rule, attributes: { ...rule.attributes, [names.speaker]: SPEAKER_ROLE } };
     }
+  }
+  if (names.fmKey !== undefined && names.fmPart !== undefined) {
+    for (const row of ['dt', 'dd'] as const) {
+      const rule = elements[row];
+      if (rule !== undefined) elements[row] = { ...rule, attributes: { ...rule.attributes, [names.fmKey]: TEXT, [names.fmPart]: FM_ROW_PART } };
+    }
+    // A span is the renderer's only with its part: a document's own span lacks the secret name and, as `requires`
+    // fails on an element the policy also lists as transparent, is unwrapped as before (sanitize-html.ts).
+    elements.span = { attributes: { [names.fmPart]: FM_SPAN_PART }, requires: [names.fmPart] };
+  }
+  if (names.emphasis !== undefined) {
+    const p = elements.p;
+    if (p !== undefined) elements.p = { ...p, attributes: { ...p.attributes, [names.emphasis]: EMPHASIS_WHOLE } };
   }
   return {
     ...policy,

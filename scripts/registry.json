@@ -96,7 +96,10 @@
     "data-marxy-facet-on",
     "data-marxy-fact",
     "data-marxy-status-item",
-    "data-marxy-tab-new"
+    "data-marxy-tab-new",
+    "data-marxy-fm-key",
+    "data-marxy-fm-part",
+    "data-marxy-emphasis"
   ],
   "customProperties": [
     "--marxy-col",
