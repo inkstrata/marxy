@@ -106,7 +106,8 @@
     "data-marxy-outline-action",
     "data-marxy-outline-open",
     "data-marxy-lens",
-    "data-marxy-decoded"
+    "data-marxy-decoded",
+    "data-marxy-pending"
   ],
   "customProperties": [
     "--marxy-col",
@@ -252,7 +253,20 @@
     "marxy-outline-title",
     "marxy-term-prompt",
     "marxy-term-command",
-    "marxy-term-start"
+    "marxy-term-start",
+    "marxy-palette-aside",
+    "marxy-palette-prev-chips",
+    "marxy-palette-prev-chip",
+    "marxy-palette-prev-chip-lead",
+    "marxy-palette-prev-title",
+    "marxy-palette-prev-group",
+    "marxy-palette-prev-note",
+    "marxy-palette-prev-more",
+    "marxy-palette-prev-image",
+    "marxy-palette-prev-result",
+    "marxy-palette-prev-text",
+    "marxy-palette-prev-prose",
+    "marxy-palette-prev-code"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

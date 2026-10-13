@@ -20,13 +20,15 @@ export interface CheckoutKey {
  * Folded hits keep the order of the list; each bucket takes the place of its first member.
  * `named` holds the folder names a query spelled out (`b/agents`): a copy in such a checkout is
  * listed as it is, never folded, so a folded copy is always one query away. `dropped[i]` is how many
- * copies folded into `hits[i]`.
+ * copies folded into `hits[i]`. With `byHeading`, two hits on different headings of one document are not copies of each
+ * other (a section list, W-13): only the same heading of the same file folds.
  */
 export function foldHitsCounted(
   hits: readonly IndexHit[],
   keyOf: (path: string) => CheckoutKey | undefined,
   currentCheckout: string | undefined,
   named: ReadonlySet<string> = new Set(),
+  byHeading = false,
 ): { hits: IndexHit[]; dropped: number[] } {
   const winner = new Map<string, { hit: IndexHit; dropped: number }>();
   const slots: (IndexHit | string)[] = [];
@@ -36,7 +38,7 @@ export function foldHitsCounted(
       slots.push(hit);
       continue;
     }
-    const bucket = `${key.group}\0${key.rel}\0${hit.entry.size}\0${hit.entry.title}`;
+    const bucket = `${key.group}\0${key.rel}\0${hit.entry.size}\0${hit.entry.title}${byHeading ? `\0${hit.heading ?? ''}` : ''}`;
     const held = winner.get(bucket);
     if (held === undefined) {
       winner.set(bucket, { hit, dropped: 0 });

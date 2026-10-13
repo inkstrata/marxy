@@ -164,6 +164,46 @@ not exist until summoned.
 Opening a heading hit navigates to the document and scrolls the heading to the reading line
 (§09). Opening any document pushes to history.
 
+### Prefixes
+
+The first character of the query picks what is searched (mock-v2 `04-palette.md`, §Modes). `>` is commands, `/` is
+file contents (C-17), and two marks list headings, never body text (W-13):
+
+- `@words` searches the headings of **every document in the collection** (`sectionResults` in `search.ts`):
+  `@install` finds every *Install* section. Each row leads with the heading and names its document and folder under it;
+  Enter opens the document at that heading (`jumpForHit`), `Mod+Enter` beside. Matching is the palette's own
+  (`matchScore` over the NFC-lowercased heading), a heading in the current root before one in another, then by score.
+  Copies of one document in other checkouts fold to one hit per heading (`foldHitsCounted`, `byHeading`). With nothing
+  after the mark, the headings of the documents read last, in read order. There is no mode chip for it: the chips follow
+  U-04's list, and the footer names the mark.
+- `#words` is the headings of **the open document**, in the same way; with nothing after the mark, all of them, in order.
+  With no document open it lists nothing and says so.
+
+Neither mark is a fuzzy file query: `@` or `#` first is a heading query. A body-text search is `/`.
+
+### Preview
+
+Beside the results, when the palette is at least 720 px wide (a container query on the dialog; narrower, there is no
+column and nothing is read), a column shows what the **highlighted row** would open or do
+(`apps/desktop/src/render/palette-preview.ts`). It is part of the dialog, which overlays the page: nothing under it
+moves (ADR-0058). It follows the highlight after a pause of 200 ms (`createPreviewFollower`): never on the keystroke or
+the arrow, so the keystroke path is the one measured above and a held arrow key reads no file until it is released. While
+the pause runs the column keeps what it showed, dimmed (`data-marxy-pending`). Closing the palette empties it.
+
+| Row | Column |
+| --- | --- |
+| a file | its kind, its words (Markdown) or lines (code, a log, data), its size, a "2 near copies" chip when Q-06's check has already found some (never started from here), then its first forty lines set in their own kind: Markdown through the same parse and allow-list as Read (front matter set aside and named), code through the code parse and the page's own highlighter, a log as a log, a diff tinted |
+| a heading hit | its section: from the heading to the next heading of its level or above, up to sixty lines, set as the document sets it |
+| a command | its title, group and key, and a line on what it does (the registry carries no prose: the line is by family) |
+| a transform | its result on the selection, else on the first 1,400 characters of the document; never a run over more |
+
+What it reads: `shell.readHead` of the highlighted file, at most 256 KB (the shell's cap), once per highlight (the last six
+are kept while the palette is open), and nothing else; never `readFile`, so the stale-write guard is not armed. A file over
+`LARGE_FILE_BYTES` (2 MB) is not read: the column shows its kind, its size from the index, and "Too large to preview". A file
+that is not text (a NUL in its first 8 KB) shows its kind and size and says so. Words and lines of a file longer than the read
+are a floor, marked with `+`. Every image in a preview is its alt text and every link has no address, so a preview fetches
+nothing and leaves nowhere. The preview writes nothing and opens nothing; Escape leaves the session as it was.
+
 ## History, MRU, pins (`history.json`, §11)
 
 ```json

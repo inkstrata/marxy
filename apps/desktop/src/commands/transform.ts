@@ -137,6 +137,45 @@ async function sourceTarget(): Promise<SheetTarget | string> {
   };
 }
 
+/** The characters of the document a transform's preview is run on (`TRANSFORM_INPUT_CHARS`): the document is never read past this for it. */
+const PREVIEW_DOCUMENT_BYTES = 8 * 1024;
+
+/**
+ * What the palette's preview (W-13) runs a transform on: the selection, else the document's first characters. Read only:
+ * it folds nothing, resolves no range for Apply and writes nothing. null when there is nothing to run on, or when the
+ * selection cannot be matched to the page (the command itself would refuse it).
+ */
+export async function transformPreviewInput(ctx: AppContext): Promise<{ text: string; scope: 'selection' | 'document' } | null> {
+  if (inSourceMode()) {
+    const { activeSourceEditor } = await import('../source/editor.ts');
+    const state = activeSourceEditor()?.view.state;
+    if (state === undefined) return null;
+    const filled = state.selection.ranges.filter((r) => !r.empty);
+    if (filled.length > 1) return null;
+    const main = filled[0];
+    if (main) return { text: state.doc.sliceString(main.from, Math.min(main.to, main.from + PREVIEW_DOCUMENT_BYTES), state.lineBreak), scope: 'selection' };
+    return { text: state.doc.sliceString(0, Math.min(state.doc.length, PREVIEW_DOCUMENT_BYTES), state.lineBreak), scope: 'document' };
+  }
+  const store = ctx.document ?? appHandle()?.document() ?? null;
+  if (store === null) return null;
+  const sel = ctx.selection;
+  if (sel.kind === 'none') {
+    const bytes = store.snapshot().buffer.bytes;
+    return { text: new TextDecoder().decode(bytes.subarray(0, PREVIEW_DOCUMENT_BYTES)), scope: 'document' };
+  }
+  if (sel.kind === 'text') {
+    const page = ctx.renderedPage?.() ?? null;
+    if (!page || !sel.src || sel.version !== page.version) return null;
+    try {
+      return { text: textOf(page.buffer, { file: store.snapshot().path, start: sel.src.start, end: sel.src.end }), scope: 'selection' };
+    } catch {
+      return null;
+    }
+  }
+  const input = ctx.operationInput();
+  return input === null ? null : { text: input.text, scope: sel.kind === 'document' ? 'document' : 'selection' };
+}
+
 /** Runs transform `id` on the selection, else the document, and opens the sheet on the result. */
 export async function openTransform(ctx: AppContext, id: string): Promise<void> {
   const sheet = await import('../transform/sheet.ts');

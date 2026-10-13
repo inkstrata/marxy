@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
-import { emptySession } from './session.ts';
-import { jumpForHit, paletteResults } from './search.ts';
+import { emptySession, recordOpen } from './session.ts';
+import { jumpForHit, paletteResults, sectionQuery } from './search.ts';
+import type { CheckoutKey } from './fold.ts';
 import { judge, MUTATIONS, SEARCH_PREPARED_BODY_MUTATION } from '../../scripts/mutations.mjs';
 
 const MODEL_FILES = ['session.ts', 'search.ts', 'keys.ts'] as const;
@@ -241,4 +242,116 @@ test('two hits with equal score and equal last read: the newer file comes first,
   assert.deepEqual(hits.map((hit) => hit.entry.path), ['/repo/b.md', '/repo/a.md']);
   const reversed = paletteResults('notes', [newer, older], emptySession('/repo'));
   assert.deepEqual(reversed.map((hit) => hit.entry.path), ['/repo/b.md', '/repo/a.md']);
+});
+
+// `@` finds a heading in any document, `#` in this one (W-13).
+const INSTALL_ENTRIES = [
+  doc({
+    path: '/repo/guide.md',
+    title: 'Guide',
+    headings: [
+      { level: 1, text: 'Guide', byteOffset: 0 },
+      { level: 2, text: 'Install', byteOffset: 30 },
+      { level: 2, text: 'Use', byteOffset: 90 },
+    ],
+  }),
+  doc({
+    path: '/repo/cli.md',
+    title: 'The CLI',
+    headings: [
+      { level: 1, text: 'The CLI', byteOffset: 0 },
+      { level: 2, text: 'Installing from source', byteOffset: 44 },
+    ],
+  }),
+  doc({
+    path: '/repo/notes.md',
+    title: 'Notes',
+    // Body text says install; no heading does: `@` never reads bodies.
+    headings: [{ level: 1, text: 'Notes', byteOffset: 0 }],
+  }),
+  doc({
+    path: '/repo/faq.md',
+    title: 'FAQ',
+    headings: [{ level: 2, text: 'How do I install it?', byteOffset: 12 }],
+  }),
+];
+
+test('`@install` returns each document\'s Install heading, with its document; `#install` only this document\'s', () => {
+  const session = emptySession('/repo');
+  const everywhere = paletteResults('@install', INSTALL_ENTRIES, session, { currentPath: '/repo/guide.md' });
+  assert.deepEqual(
+    everywhere.map((hit) => [hit.entry.path, hit.entry.headings[hit.heading!]!.text]).sort(),
+    [
+      ['/repo/cli.md', 'Installing from source'],
+      ['/repo/faq.md', 'How do I install it?'],
+      ['/repo/guide.md', 'Install'],
+    ],
+  );
+  assert.ok(everywhere.every((hit) => hit.heading !== undefined), 'every hit is a heading, none a document');
+  assert.equal(everywhere[0]?.entry.path, '/repo/guide.md', 'the exact heading ranks first');
+  assert.deepEqual(jumpForHit(everywhere[0]!), { path: '/repo/guide.md', byteOffset: 30, headingText: 'Install' });
+
+  const here = paletteResults('#install', INSTALL_ENTRIES, session, { currentPath: '/repo/guide.md' });
+  assert.deepEqual(here.map((hit) => [hit.entry.path, hit.heading]), [['/repo/guide.md', 1]]);
+  const elsewhere = paletteResults('#install', INSTALL_ENTRIES, session, { currentPath: '/repo/cli.md' });
+  assert.deepEqual(elsewhere.map((hit) => hit.entry.path), ['/repo/cli.md']);
+  assert.deepEqual(paletteResults('#install', INSTALL_ENTRIES, session), [], 'no open document, no headings here');
+});
+
+test('`@` is headings only: a word that is only in a title, a path or a body is not found', () => {
+  const session = emptySession('/repo');
+  const entries = [
+    doc({ path: '/repo/install-notes.md', title: 'Install notes', headings: [{ level: 1, text: 'Overview', byteOffset: 0 }] }),
+  ];
+  assert.deepEqual(paletteResults('@install', entries, session), []);
+});
+
+test('with nothing after the mark, `#` lists this document\'s headings in order and `@` those of the documents read last', () => {
+  const session = recordOpen(recordOpen(emptySession('/repo'), '/repo/cli.md'), '/repo/guide.md');
+  const here = paletteResults('#', INSTALL_ENTRIES, session, { currentPath: '/repo/guide.md' });
+  assert.deepEqual(here.map((hit) => hit.heading), [0, 1, 2]);
+  const recent = paletteResults('@', INSTALL_ENTRIES, session);
+  assert.deepEqual(
+    recent.map((hit) => [hit.entry.path, hit.heading]),
+    [['/repo/guide.md', 0], ['/repo/guide.md', 1], ['/repo/guide.md', 2], ['/repo/cli.md', 0], ['/repo/cli.md', 1]],
+  );
+});
+
+test('`@` matches a heading as the palette matches anything: scattered letters, a decomposed heading against a composed query', () => {
+  const session = emptySession('/repo');
+  const entries = [doc({ path: '/repo/a.md', title: 'A', headings: [{ level: 2, text: 'Café menu'.normalize('NFD'), byteOffset: 4 }] })];
+  assert.equal(paletteResults('@café', entries, session).length, 1);
+  assert.equal(paletteResults('@cm', entries, session).length, 1);
+});
+
+test('copies of one document in other checkouts fold to one heading hit, and two headings of one file stay two', () => {
+  const copy = (root: string): IndexEntry =>
+    doc({
+      path: `${root}/guide.md`,
+      root,
+      title: 'Guide',
+      size: 99,
+      headings: [
+        { level: 2, text: 'Install', byteOffset: 30 },
+        { level: 2, text: 'Install again', byteOffset: 60 },
+      ],
+    });
+  const entries = [copy('/a'), copy('/b'), copy('/c')];
+  const keyOf = (path: string): CheckoutKey => {
+    const root = path.slice(0, 2);
+    return { group: 'g', rel: 'guide.md', checkout: root };
+  };
+  const folded: number[] = [];
+  const hits = paletteResults('@install', entries, emptySession('/a'), {
+    fold: { keyOf, currentCheckout: '/a', folded: (n) => folded.push(n) },
+  });
+  assert.deepEqual(hits.map((hit) => [hit.entry.root, hit.heading]), [['/a', 0], ['/a', 1]]);
+  assert.deepEqual(folded, [4], 'two copies of each heading folded away');
+});
+
+test('sectionQuery reads the marks and leaves every other query alone', () => {
+  assert.deepEqual(sectionQuery('@ install'), { scope: 'everywhere', text: 'install' });
+  assert.deepEqual(sectionQuery('  #Install '), { scope: 'here', text: 'Install' });
+  assert.deepEqual(sectionQuery('@'), { scope: 'everywhere', text: '' });
+  for (const other of ['install', '>@x', '/@x', 'a@b', 'a#b', '']) assert.equal(sectionQuery(other), null, other);
 });
