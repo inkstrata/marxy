@@ -61,6 +61,7 @@ export {
   type CompletionItem,
   type CompletionContext,
 } from './query.ts';
+export { countsAsMarkdown, countWords, createWordCounter, type WordCounter, type WordCountOptions } from './words.ts';
 export {
   capQuery,
   evaluateQuery,

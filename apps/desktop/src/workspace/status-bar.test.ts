@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Text } from '@codemirror/state';
 import { createBuffer } from '@marxy/core/src/buffer/buffer.ts';
+import { outlineFrom, parseMarkdown } from '@marxy/core';
 import { measureText } from '@marxy/core/src/index-model/query-eval.ts';
 import { KINDS, type Kind } from '@marxy/core/src/contracts/kinds.ts';
 import { encodingFact, lineCountOf } from '../source/frame-facts.ts';
@@ -13,6 +14,7 @@ import {
   PROSE_KINDS,
   type StatusInput,
   caretOf,
+  countsAsMarkdown,
   countWords,
   createWordCounter,
   isButton,
@@ -43,7 +45,7 @@ function snapshot(over: {
     document: {
       kind: over.kind,
       path: over.path,
-      words: over.words === undefined ? countWords(buffer.text) : over.words,
+      words: over.words === undefined ? countWords(buffer.text, { markdown: countsAsMarkdown(over.path) }) : over.words,
       lines,
       caret: over.caret ?? null,
       heading: over.heading ?? null,
@@ -151,20 +153,60 @@ test('a code file names its language; a kind that is not code names none', () =>
   assert.equal(kindLabel('data', '/r/a.json'), 'Data');
 });
 
-test('the word counter agrees with the library\'s words: count, over odd text and over any way of cutting it into chunks', () => {
+test('the bar and the library count alike: one function, over odd text, any way of cutting it, and either reading', () => {
   const samples = [
     '', ' ', 'one', 'one two', '  leading and trailing  ', 'a-b c_d e.f', '--- *** ___', '12 34, 5.6', 'café naïve',
-    '你好 世界', '𝒜 𝒝', 'x y z　w﻿v', '# Title\n\nBody text here.\n\n- item\n- item two\n',
-    'a b c', '\u{1F600} \u{1F600}a', 'tab\tseparated\tvalues',
+    '你好 世界', '我们今天去公园', '今日は公園に行きました', '𝒜 𝒞', 'x y z　w﻿v', '# Title\n\nBody text here.\n\n- item\n- item two\n',
+    'a b c', '\u{1F600} \u{1F600}a', 'tab\tseparated\tvalues', '---\na: b\n---\nbody `x` 世界\n\n```\ncode here\n```\n',
   ];
-  for (const text of samples) {
-    assert.equal(countWords(text), measureText(text).words, JSON.stringify(text));
-    for (const size of [1, 2, 3, 5]) {
-      const counter = createWordCounter();
-      for (let i = 0; i < text.length; i += size) counter.feed(text.slice(i, i + size));
-      assert.equal(counter.done(), measureText(text).words, `${JSON.stringify(text)} in chunks of ${size}`);
+  for (const markdown of [false, true]) {
+    for (const text of samples) {
+      const expected = measureText(text, { markdown }).words;
+      assert.equal(countWords(text, { markdown }), expected, JSON.stringify(text));
+      for (const size of [1, 2, 3, 5]) {
+        const counter = createWordCounter({ markdown });
+        for (let i = 0; i < text.length; i += size) counter.feed(text.slice(i, i + size));
+        assert.equal(counter.done(), expected, `${JSON.stringify(text)} in chunks of ${size}`);
+      }
     }
   }
+});
+
+test('a Markdown report counts its prose: a fence of 50 words and front matter of 10 are left out', () => {
+  const fifty = Array.from({ length: 50 }, (_, i) => `code${i}`).join(' ');
+  const ten = Array.from({ length: 10 }, (_, i) => `meta${i}`).join(' ');
+  const text = `---\ntags: ${ten}\n---\n\n# A title\n\nSix words of prose in one paragraph.\n\n\`\`\`js\n${fifty}\n\`\`\`\n`;
+  const md = textsOf(snapshot({ kind: 'report', path: '/r/a.md', text }));
+  assert.equal(md.measure, '9 words', 'two in the heading, seven in the paragraph');
+  const txt = textsOf(snapshot({ kind: 'notes', path: '/r/a.txt', text }));
+  assert.notEqual(txt.measure, '9 words', 'a plain-text file is counted whole');
+  const item = (path: string) => statusItems(snapshot({ kind: 'report', path, text })).find((i) => i.id === 'measure')!;
+  assert.equal(item('/r/a.md').title, 'Words in the text, not counting code and front matter');
+  assert.equal(item('/r/a.txt').title, 'Words in the text');
+});
+
+test('a Chinese report counts words, not runs', () => {
+  assert.equal(textsOf(snapshot({ kind: 'report', path: '/r/a.md', text: '我们今天去公园\n' })).measure, '4 words');
+});
+
+test('the sections of the Outline add up to the bar\'s total, however much code, front matter and comment lies between', () => {
+  const text = [
+    '---', 'title: Front', 'tags: a b c', '---', '', 'Intro words before any heading.', '',
+    '# One', '', 'Alpha beta gamma.', '', '```md', '# Not a heading', 'fenced words here', '```', '',
+    '## Two', '', '<!-- a note', '## also not a heading', '-->', '', 'Delta 我们今天去公园 epsilon.', '', '    indented code lines', '',
+    '# Three', '', '- item one', '- item two', '', '  ```', '  in a list fence', '  ```', '', 'Last words.', '',
+  ].join('\n');
+  const bytes = bytesOf(text);
+  const doc = parseMarkdown(bytes);
+  const cuts = [...new Set(outlineFrom(doc).map((e) => e.src.start).filter((at) => at > 0))].sort((a, b) => a - b);
+  assert.ok(cuts.length >= 3, 'the heading lines are the section starts');
+  const decoder = new TextDecoder();
+  const edges = [0, ...cuts, bytes.length];
+  let sum = 0;
+  for (let i = 0; i + 1 < edges.length; i++) sum += countWords(decoder.decode(bytes.subarray(edges[i], edges[i + 1])), { markdown: true });
+  const total = countWords(text, { markdown: true });
+  assert.equal(sum, total);
+  assert.ok(total > 10 && total < countWords(text), 'and the skips took something out');
 });
 
 test('the line count from the bytes is the editor\'s own count, for every ending and with or without a last break', () => {
