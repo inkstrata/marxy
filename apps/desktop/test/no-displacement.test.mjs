@@ -227,6 +227,27 @@ export const SURFACES = [
     },
   },
   {
+    // The New menu (W-14): the toolbar's + when the window is unfolded, else the same menu opened by its command at the window's
+    // corner. It floats over the page and is gone when closed; the reading column does not move for it.
+    name: 'New menu (opened, then closed)',
+    open: async (page) => {
+      const door = page.locator('[data-marxy-toolbar-item="new"] button');
+      if (await door.count()) await door.click();
+      else {
+        await page.evaluate(async () => {
+          const { buildAppContext } = await import('/src/selection/bind.ts');
+          const handle = window.__marxyHandle;
+          await handle.commands().find((c) => c.id === 'document.new-menu').run(buildAppContext(handle));
+        });
+      }
+      await page.waitForSelector('.marxy-verb-menu[aria-label="New"]');
+    },
+    close: async (page) => {
+      await escapeKey(page);
+      await gone(page, '.marxy-verb-menu');
+    },
+  },
+  {
     name: 'notice (empty clipboard transform)',
     splitToo: true,
     open: async (page, s) => {

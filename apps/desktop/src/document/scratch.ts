@@ -8,6 +8,10 @@ import type { AppPanes } from '../pane/index.ts';
 export interface ScratchOptions {
   /** Names the document in the window title, in place of "Untitled". */
   readonly label?: string;
+  /** The folder its Save As opens in (*New file here*). Nothing is written there: only the dialog starts in it. */
+  readonly saveIn?: string;
+  /** Opens in Source, where the reader can type: a new empty document (*New file*) has nothing to read in Rendered. */
+  readonly source?: boolean;
   /** Runs once the scratch is on screen: after the unsaved-edits prompt is answered "open", never when it is dismissed. */
   readonly onLanded?: () => void;
 }
@@ -30,10 +34,11 @@ export const BOM_KEPT_NOTICE = 'The text begins with U+FEFF (a byte-order mark):
  */
 export async function openScratchIn(panes: Pick<AppPanes, 'openScratch'>, text: string, opts?: ScratchOptions): Promise<boolean> {
   const keptBom = text.startsWith('\uFEFF');
-  let pane: { readonly host: HTMLElement } | null = null;
+  let pane: { readonly host: HTMLElement; readonly view: { setMode(mode: 'rendered' | 'source'): Promise<void> } } | null = null;
   let landed = false;
   const announce = (): void => {
     if (!pane || !landed) return;
+    if (opts?.source) void pane.view.setMode('source');
     notify({ kind: 'done', text: SCRATCH_NOTICE }, { pane: pane.host });
     if (keptBom) notify({ kind: 'done', text: BOM_KEPT_NOTICE }, { pane: pane.host });
     opts?.onLanded?.();

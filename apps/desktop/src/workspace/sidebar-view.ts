@@ -29,6 +29,7 @@ import { changedPredicate, type ScopeInput } from '../library/scopes.ts';
 import { collectionOf, editQueryInSource } from '../collection/load.ts';
 import { BuiltinCounts, checksFor, type BuiltinCount } from '../library/checks.ts';
 import { openVerbMenu } from '../selection/verb-menu.ts';
+import { newFile } from '../document/new-file.ts';
 import { SIDEBAR_SECTIONS, sidebarSections, SmartCounts, smartRows, type SidebarMark, type SidebarSection, type SmartRow } from './sidebar.ts';
 import {
   changedByGroup,
@@ -351,6 +352,16 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     });
   };
 
+  /** A folder row's menu (W-14): one action, *New file here*, a new file whose Save As opens in this folder. Nothing is written by it. */
+  const folderMenu = (folder: string, at: { x: number; y: number }): void => {
+    openVerbMenu(at, buildAppContext(handle), {
+      registered: [],
+      allActions: () => {},
+      label: 'Folder',
+      rows: [{ command: null, title: 'New file here', key: 'new-file-here', run: () => void newFile(folder) }],
+    });
+  };
+
   const smartSectionNode = (rows: readonly DrawnSmart[]): HTMLElement => {
     const node = document.createElement('section');
     node.className = 'marxy-sidebar-section';
@@ -543,6 +554,14 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
     label.textContent = name;
     button.append(chevron);
     button.addEventListener('mousedown', (event) => event.preventDefault());
+    // A folder or a repository (it can be open or shut) has the menu; a file row does not.
+    if (open !== null) {
+      button.setAttribute('aria-haspopup', 'menu');
+      button.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        folderMenu(path, { x: event.clientX, y: event.clientY });
+      });
+    }
     item.append(button);
     return { item, button, label };
   };
@@ -643,6 +662,12 @@ export function mountSidebar(el: HTMLElement, handle: AppHandle, signal: Documen
         event.preventDefault();
         smartMenu({ name: row.name, q: row.q, count: null }, { x: rect.left + rect.width / 2, y: rect.bottom });
       }
+      return;
+    }
+    if (stops[at]!.getAttribute('role') === 'treeitem' && stops[at]!.hasAttribute('aria-expanded') && (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))) {
+      const rect = stops[at]!.getBoundingClientRect();
+      event.preventDefault();
+      folderMenu(stops[at]!.getAttribute('data-marxy-sidebar-row')!, { x: rect.left + rect.width / 2, y: rect.bottom });
       return;
     }
     const isFileRow = (!smartRow && stops[at]!.classList.contains('marxy-sidebar-row')) || (stops[at]!.getAttribute('role') === 'treeitem' && !stops[at]!.hasAttribute('aria-expanded'));

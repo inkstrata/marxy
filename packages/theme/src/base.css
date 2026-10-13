@@ -1145,6 +1145,12 @@ button.marxy-status-item:focus-visible { outline: 2px solid var(--marxy-color-ac
 /* The active tab is the page's own ground, continuous with it, and heavier; no outline and no accent line. */
 .marxy-tab[data-marxy-tab-active] { background: var(--marxy-color-bg); font-weight: 600; box-shadow: none; }
 .marxy-tab[data-marxy-tab-active] > button:hover { background: none; }
+/* The row's + (W-14): a quiet mark at the end of the tabs, with the New menu under it. It is not a tab (no `.marxy-tab`), so a
+   count of tabs does not include it; it carries the row's end margin. */
+.marxy-tab-new { display: flex; align-items: stretch; flex: none; margin-inline-end: 0.9em; border-radius: calc(var(--marxy-size-chrome) * 6 / 13) calc(var(--marxy-size-chrome) * 6 / 13) 0 0; }
+.marxy-tab-new > button { appearance: none; -webkit-appearance: none; margin: 0; padding: 0 0.7em; border: 0; border-radius: inherit; background: none; color: var(--marxy-color-text-secondary); font: inherit; line-height: 1; cursor: default; }
+.marxy-tab-new > button:hover { background: var(--marxy-color-selection); }
+.marxy-tab-new > button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
 
 /* The inspector's content (W-09): a strip of tabs and the selected panel, in the `inspector` region's column. Layout only; W-04 owns the look.
    Nothing here changes the region's width, so the reading column does not move. A link's destination is text, never an anchor. */
@@ -1380,7 +1386,7 @@ body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-ro
       linear-gradient(to right, GrayText, Canvas) left center / var(--marxy-tabs-fade) 100% no-repeat scroll,
       linear-gradient(to left, GrayText, Canvas) right center / var(--marxy-tabs-fade) 100% no-repeat scroll;
   }
-  .marxy-tab > button { color: CanvasText; }
+  .marxy-tab > button, .marxy-tab-new > button { color: CanvasText; }
   .marxy-tab > button:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
   .marxy-tab > button:focus-visible { outline: 2px solid Highlight; }
   .marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 GrayText; }

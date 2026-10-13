@@ -281,8 +281,8 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
     queueSaveDialog(path) {
       queuedSave = path;
     },
-    async saveDialog() {
-      record('saveDialog');
+    async saveDialog(opts) {
+      record('saveDialog', [opts ?? {}]);
       const path = queuedSave ?? null;
       queuedSave = undefined;
       return path;

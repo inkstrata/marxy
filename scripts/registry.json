@@ -95,7 +95,8 @@
     "data-marxy-edit",
     "data-marxy-facet-on",
     "data-marxy-fact",
-    "data-marxy-status-item"
+    "data-marxy-status-item",
+    "data-marxy-tab-new"
   ],
   "customProperties": [
     "--marxy-col",
@@ -220,7 +221,8 @@
     "marxy-sidebar-row-smart",
     "marxy-status-bar",
     "marxy-status-item",
-    "marxy-status-grow"
+    "marxy-status-grow",
+    "marxy-tab-new"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",
