@@ -1,4 +1,4 @@
-document [0,6943)
+document [0,8062)
   htmlBlock [0,72) value="<!-- Inventory and provenance for the fixture corpus the gates walk. -->"
   heading [74,90) level=1
     text [76,90) value="Fixture corpus"
@@ -228,3 +228,49 @@ document [0,6943)
     text [6750,6832) value="). These are text for operations and the save path to be tried on, not pages to be"
     softBreak [6832,6833)
     text [6833,6942) value="judged, so the goldens, the fidelity gate and the operation tests read them and the aesthetics gate does not."
+  heading [6943,6960) level=2
+    text [6946,6960) value="37-results.csv"
+  paragraph [6962,7349)
+    text [6962,7040) value="Original data written for K-10b: a benchmark table in the shape of the mock's "
+    code [7040,7051) value="bench-csv"
+    text [7051,7084) value=" (a corpus name, five numbers and"
+    softBreak [7084,7085)
+    text [7085,7187) value="a host), eight rows under a header row of distinct words, so the table lens uses row 1 as its header. "
+    code [7187,7196) value="cold_ms"
+    text [7196,7202) value=" holds"
+    softBreak [7202,7203)
+    text [7203,7256) value="numbers whose text order is not their numeric order ("
+    code [7256,7262) value="9900"
+    text [7262,7269) value=" after "
+    code [7269,7277) value="118400"
+    text [7277,7325) value=" as text), which the sort test reads. Every name"
+    softBreak [7325,7326)
+    text [7326,7349) value="and number is invented."
+  heading [7351,7368) level=2
+    text [7354,7368) value="38-awkward.csv"
+  paragraph [7370,8061)
+    text [7370,7490) value="Original data written for K-10b: every case the table lens must show honestly, in one CRLF file that starts with a UTF-8"
+    softBreak [7490,7491)
+    text [7491,7557) value="byte-order mark. A quoted field holding a comma; a doubled quote ("
+    code [7557,7575) value="\"said \"\"hello\"\"\""
+    text [7575,7614) value=", a decoded cell); a quoted CRLF inside"
+    softBreak [7614,7615)
+    text [7615,7705) value="a field; empty fields; a short row and a long one (ragged); a byte after a closing quote ("
+    code [7705,7713) value="\"Gil\"x"
+    text [7713,7736) value=", an unreadable row); a"
+    softBreak [7736,7737)
+    text [7737,7843) value="blank line; a bidi control (U+202E) and a zero-width space inside a quoted field; a space before a quote ("
+    code [7843,7854) value=" \"spaced\""
+    text [7854,7855) value=","
+    softBreak [7855,7856)
+    text [7856,7973) value="verbatim); an unclosed quote on a line of its own, with a well-formed row after it; and cells a spreadsheet would run"
+    softBreak [7973,7974)
+    text [7974,7975) value="("
+    code [7975,7986) value="=SUM(…)"
+    text [7986,7988) value=", "
+    code [7988,7994) value="+cmd"
+    text [7994,7996) value=", "
+    code [7996,8003) value="@risk"
+    text [8003,8021) value=") next to a plain "
+    code [8021,8025) value="-5"
+    text [8025,8061) value=". Every name and number is invented."

@@ -1475,3 +1475,127 @@ body[data-marxy-peek] > [data-marxy-workspace-region="inspector"] { top: 0; bott
   pre.language-log .marxy-line { border-inline-start-color: Canvas; }
   pre.language-log .marxy-log-error { border-inline-start-color: CanvasText; }
 }
+
+/* The table lens (K-10b, ADR-0071): a CSV or TSV as a grid in place of its Source, in the Source mount, as mock-v2's data view
+   draws it. The Source frame stays mounted under it and keeps its place, hidden. A line of what the grid is and reshaped
+   sits over it; the grid scrolls in its own box under a sticky header row and a sticky row-number column, in the sans
+   face at the chrome's size, numbers right-aligned in tabular figures, identifiers in the code face. A decoded cell (a
+   collapsed "") carries a bar at its start edge, a shape and not a colour alone; an absent cell (a short row) is hatched,
+   apart from an empty one; an unreadable row is its own line in the code face under a label. */
+.marxy-source-mount[data-marxy-lens] { display: flex; justify-content: center; box-sizing: border-box; }
+.marxy-source-mount[data-marxy-lens] > .marxy-source-frame { display: none; }
+.marxy-table-lens {
+  /* The pane's width and the grid's height, never taller than the pane: the grid scrolls inside it. */
+  flex: 1 1 0;
+  align-self: flex-start;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--marxy-color-bg);
+  border: 1px solid var(--marxy-color-rule);
+  border-radius: calc(var(--marxy-size-chrome) * 13 / 13);
+  font-family: var(--marxy-face-sans);
+  font-size: var(--marxy-size-chrome);
+  color: var(--marxy-color-text);
+}
+.marxy-table-lens-info {
+  flex: none;
+  margin: 0;
+  padding: 0.55em 1em;
+  border-block-end: 1px solid var(--marxy-color-rule);
+  font-family: var(--marxy-face-chrome);
+  font-size: calc(var(--marxy-size-chrome) * 11.5 / 13);
+  line-height: 1.5;
+  color: var(--marxy-color-text-secondary);
+}
+.marxy-table-lens-sep { color: var(--marxy-color-text-faint); }
+.marxy-table-lens-count {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline dotted var(--marxy-color-text-faint);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+.marxy-table-lens-count:hover { color: var(--marxy-color-text-strong); }
+.marxy-table-lens-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
+/* Focus is shown by the rule under the header line turning to the accent, and by the selected cell's own outline. */
+.marxy-table-lens-grid:focus-visible { outline: none; }
+.marxy-table-lens:focus-within .marxy-table-lens-info { border-block-end-color: var(--marxy-color-accent); }
+.marxy-table-lens-grid {
+  /* The article's table rules (a block that scrolls, the body's size, inset rules) are not the grid's. */
+  display: table;
+  max-width: none;
+  overflow: visible;
+  font-size: inherit;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.45;
+}
+.marxy-table-lens-grid :is(th, td) {
+  padding: 0.45em 0.75em;
+  border-block-end: 1px solid var(--marxy-color-rule);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: none;
+}
+.marxy-table-lens-grid :is(th, td):last-child { padding-inline-end: 0.75em; }
+.marxy-table-lens-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  vertical-align: bottom;
+  background: var(--marxy-color-surface);
+  border-block-end-color: var(--marxy-color-rule-strong);
+  font-weight: 600;
+  color: var(--marxy-color-text-strong);
+}
+.marxy-table-lens-sort { display: inline-flex; align-items: center; gap: 0.3em; max-width: 100%; border: 0; padding: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+.marxy-table-lens-name { overflow: hidden; text-overflow: ellipsis; }
+.marxy-table-lens-arrow { color: var(--marxy-color-text-faint); font-weight: 400; }
+th[aria-sort="ascending"] .marxy-table-lens-arrow, th[aria-sort="descending"] .marxy-table-lens-arrow { color: var(--marxy-color-accent); }
+.marxy-table-lens-type { display: block; font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 10.5 / 13); font-weight: 500; color: var(--marxy-color-text-faint); }
+.marxy-table-lens-grid .marxy-table-lens-rn {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--marxy-color-bg);
+  text-align: right;
+  font-weight: 400;
+  font-size: calc(var(--marxy-size-chrome) * 11.5 / 13);
+  color: var(--marxy-color-text-faint);
+}
+.marxy-table-lens-grid thead .marxy-table-lens-rn { z-index: 3; background: var(--marxy-color-surface); }
+.marxy-table-lens-grid .marxy-table-lens-num { text-align: right; }
+.marxy-table-lens-grid td.marxy-table-lens-ident { font-family: var(--marxy-face-mono); font-size: calc(var(--marxy-size-chrome) * 12.5 / 13); }
+.marxy-table-lens-grid td[data-marxy-decoded] { box-shadow: inset 2px 0 0 var(--marxy-color-text-faint); }
+.marxy-table-lens-grid td.marxy-table-lens-selected { background: var(--marxy-color-selection); outline: 1px solid var(--marxy-color-accent); outline-offset: -1px; }
+.marxy-table-lens-absent { background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--marxy-color-rule) 4px 5px); }
+.marxy-table-lens-break, .marxy-table-lens-replaced { color: var(--marxy-color-text-faint); padding-inline: 0.1em; }
+.marxy-table-lens-replaced { text-decoration: underline wavy var(--marxy-color-status-warn); }
+.marxy-table-lens-grid :is(.marxy-table-lens-unreadable, .marxy-table-lens-pending) td { white-space: pre; box-shadow: inset 2px 0 0 var(--marxy-color-status-warn); }
+.marxy-table-lens-grid :is(.marxy-table-lens-unreadable, .marxy-table-lens-pending) code { font-family: var(--marxy-face-mono); font-size: calc(var(--marxy-size-chrome) * 12 / 13); }
+.marxy-table-lens-label { margin-inline-end: 1em; font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-secondary); }
+.marxy-table-lens-spacer td { padding: 0; border: 0; }
+.marxy-table-lens-grid tfoot td, .marxy-table-lens-grid tfoot th {
+  position: sticky;
+  bottom: 0;
+  background: var(--marxy-color-surface);
+  border-block-start: 1px solid var(--marxy-color-rule-strong);
+  font-size: calc(var(--marxy-size-chrome) * 11.5 / 13);
+  line-height: 1.5;
+  vertical-align: top;
+}
+.marxy-table-lens-grid tfoot .marxy-table-lens-rn { z-index: 3; background: var(--marxy-color-surface); }
+.marxy-table-lens-stat { color: var(--marxy-color-text-faint); }

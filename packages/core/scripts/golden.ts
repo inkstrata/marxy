@@ -13,6 +13,7 @@ import { codeLanguageOf, isCodeFile, parseCode } from '../src/parse/code.ts';
 import { renderDocumentSafeHtml } from '../src/render/pipeline.ts';
 import type { Node } from '../src/contracts/ast.ts';
 import { KIND_HEAD_BYTES, detectKind } from '../src/kind/detect.ts';
+import { checkTableInvariants, deriveTable, delimiterFor } from '../src/data/delimited.ts';
 
 const corpus = new URL('../../../fixtures/corpus/', import.meta.url);
 const goldens = new URL('../goldens/', import.meta.url);
@@ -124,6 +125,15 @@ for (const name of readdirSync(corpus).sort()) {
   kinds[name] = { kind, reasons };
 }
 if (!compare('the corpus', new URL('kinds.json', goldens), `${JSON.stringify(kinds, null, 2)}\n`, 'detected')) failed++;
+
+// The table deriver (K-10b, ADR-0071): every CSV and TSV in the corpus read as a table holds DERIVED_TABLE_INVARIANTS.
+const tableFixtures = readdirSync(corpus).filter((name) => delimiterFor(name) !== null).sort();
+for (const name of tableFixtures) {
+  const bytes = new Uint8Array(readFileSync(new URL(name, corpus)));
+  const problems = checkTableInvariants(deriveTable(bytes, name), bytes);
+  for (const problem of problems) console.error(`golden: ${name}: ${problem}`);
+  if (problems.length > 0) failed++;
+}
 
 function firstDifference(actual: string, expected: string, what: string): string[] {
   const a = actual.split('\n');

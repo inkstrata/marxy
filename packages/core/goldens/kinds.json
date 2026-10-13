@@ -487,6 +487,30 @@
       }
     ]
   },
+  "37-results.csv": {
+    "kind": "data",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .csv",
+        "kind": "data",
+        "at": "37-results.csv",
+        "decisive": true
+      }
+    ]
+  },
+  "38-awkward.csv": {
+    "kind": "data",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .csv",
+        "kind": "data",
+        "at": "38-awkward.csv",
+        "decisive": true
+      }
+    ]
+  },
   "README.md": {
     "kind": "readme",
     "reasons": [

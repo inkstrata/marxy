@@ -106,3 +106,18 @@ text byte, in both, and a move of that section changes the file's last byte on p
 The two files have no number on purpose: the numbered `.md` files are the reading corpus, and each owes the aesthetics gate a screenshot baseline for
 each engine (`packages/theme` tests, `gate-aesthetics.mjs`, `probe-layout.mjs`). These are text for operations and the save path to be tried on, not pages to be
 judged, so the goldens, the fidelity gate and the operation tests read them and the aesthetics gate does not.
+## 37-results.csv
+
+Original data written for K-10b: a benchmark table in the shape of the mock's `bench-csv` (a corpus name, five numbers and
+a host), eight rows under a header row of distinct words, so the table lens uses row 1 as its header. `cold_ms` holds
+numbers whose text order is not their numeric order (`9900` after `118400` as text), which the sort test reads. Every name
+and number is invented.
+
+## 38-awkward.csv
+
+Original data written for K-10b: every case the table lens must show honestly, in one CRLF file that starts with a UTF-8
+byte-order mark. A quoted field holding a comma; a doubled quote (`"said ""hello"""`, a decoded cell); a quoted CRLF inside
+a field; empty fields; a short row and a long one (ragged); a byte after a closing quote (`"Gil"x`, an unreadable row); a
+blank line; a bidi control (U+202E) and a zero-width space inside a quoted field; a space before a quote (` "spaced"`,
+verbatim); an unclosed quote on a line of its own, with a well-formed row after it; and cells a spreadsheet would run
+(`=SUM(…)`, `+cmd`, `@risk`) next to a plain `-5`. Every name and number is invented.
