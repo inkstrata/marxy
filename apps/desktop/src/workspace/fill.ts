@@ -10,6 +10,7 @@ import { LINKS_TAB } from './links-tab.ts';
 import { installPeek } from './peek.ts';
 import { mountSidebar } from './sidebar-view.ts';
 import { mountTabs } from './tabs-view.ts';
+import { mountStatusBar } from './status-bar.ts';
 import { createDocumentSignal, mountToolbar } from './toolbar.ts';
 
 export function installWorkspaceFills(handle: AppHandle): void {
@@ -28,6 +29,8 @@ export function installWorkspaceFills(handle: AppHandle): void {
   // The inspector: a strip of the tabs registered (Links is the only one; Outline, Metadata and Versions register theirs, W-10, W-17, V-06) and the selected panel. Folded there is none.
   registerInspectorTab(LINKS_TAB);
   workspace.fill('inspector', (el) => mountInspector(el, handle, signal));
+  // The status bar: the file's kind, one measure, where you are and its encoding on the left, the theme and text size on the right; an item with a tab behind it opens that tab (W-11). Folded there is none.
+  workspace.fill('status-bar', (el) => mountStatusBar(el, handle, signal));
   // Folded, the pointer resting at an edge shows that edge's panel (W-03); the listeners exist only while folded.
   installPeek(workspace);
 }

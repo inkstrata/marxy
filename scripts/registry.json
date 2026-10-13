@@ -94,7 +94,8 @@
     "data-marxy-sidebar-depth",
     "data-marxy-edit",
     "data-marxy-facet-on",
-    "data-marxy-fact"
+    "data-marxy-fact",
+    "data-marxy-status-item"
   ],
   "customProperties": [
     "--marxy-col",
@@ -216,7 +217,10 @@
     "marxy-library-save-form",
     "marxy-library-save-name",
     "marxy-library-notices",
-    "marxy-sidebar-row-smart"
+    "marxy-sidebar-row-smart",
+    "marxy-status-bar",
+    "marxy-status-item",
+    "marxy-status-grow"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",
