@@ -235,7 +235,9 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
     },
     async writeFileAtomic(path, bytes) {
       record('writeFileAtomic', [path, bytes]);
-      if (writeReject) {
+      // The next write a test means is the reader's or Marxy's other state; Marxy's version copies (V-06, `versions-<sha1>`) are
+      // written on their own schedule after first text and must not take the refusal meant for a save.
+      if (writeReject && !/\/versions-[0-9a-f]{40}(?:\.json|-\d\d)$/.test(path)) {
         const code = writeReject;
         writeReject = null;
         const err = new Error(`${path}: refused`) as Error & { code: typeof code; path: string };

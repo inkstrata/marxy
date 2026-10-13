@@ -35,7 +35,7 @@ test('a listing that is not a list says what it is, never nothing', () => {
 
 test('each row says when, why and how large, and what is wrong with its copy', () => {
   const now = new Date(2026, 9, 13, 16, 0).getTime();
-  const base = { id: 3, slot: 1, size: 1300, reason: 'before save' as const, bytes: 'ok' as const };
+  const base = { id: 3, slot: 1, size: 1300, hash: 'a'.repeat(64), reason: 'before save' as const, bytes: 'ok' as const };
   const today = versionRowWords({ ...base, time: new Date(2026, 9, 13, 14, 32).getTime() }, now);
   assert.equal(today.when, '14.32 today');
   assert.equal(today.what, 'before save · 1.3 KB');

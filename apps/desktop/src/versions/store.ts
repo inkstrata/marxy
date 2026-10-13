@@ -186,7 +186,7 @@ const isNotFound = (error: unknown): boolean => codeOf(error) === 'not-found';
 
 /** SHA-256 of `bytes` in hex: each version's, kept in the manifest and checked whenever its slot is read. */
 export async function hashBytes(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const digest = await crypto.subtle.digest('SHA-256', bytes as Uint8Array<ArrayBuffer>);
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 

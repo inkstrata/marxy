@@ -374,7 +374,7 @@ test('a newer Marxy\'s manifest is listed as newer and never written; another fi
   assert.deepEqual(await store.list('/r/x.md'), { kind: 'newer' });
   assert.equal((await store.keep('/r/x.md', enc('a'), 'read')).result, 'refused');
   assert.deepEqual(io.writes, []);
-  const other = formatManifest({ path: '/elsewhere.md', next: 2, saved: null, versions: [{ id: 1, slot: 1, time: io.clock, size: 1, reason: 'read' }] });
+  const other = formatManifest({ path: '/elsewhere.md', next: 2, saved: null, versions: [{ id: 1, slot: 1, time: io.clock, size: 1, hash: 'a'.repeat(64), reason: 'read' }] });
   io.files.set(manifestPath(DATA, key), other);
   const listing = await store.list('/r/x.md');
   assert.equal(listing.kind, 'damaged');
