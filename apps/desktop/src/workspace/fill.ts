@@ -8,6 +8,7 @@ import { mountKindChip, mountStrip } from './kind-chip.ts';
 import { mountInspector, registerInspectorTab } from './inspector.ts';
 import { LINKS_TAB } from './links-tab.ts';
 import { OUTLINE_TAB } from './outline-tab.ts';
+import { VERSIONS_TAB } from './versions-tab.ts';
 import { installPeek } from './peek.ts';
 import { mountSidebar } from './sidebar-view.ts';
 import { mountTabs } from './tabs-view.ts';
@@ -30,6 +31,8 @@ export function installWorkspaceFills(handle: AppHandle): void {
   // The inspector: a strip of the tabs registered (Links, then Outline: the headings with the words of each section, where a row jumps or moves its section, W-10; Metadata and Versions register theirs, W-17, V-06) and the selected panel. Folded there is none.
   registerInspectorTab(LINKS_TAB);
   registerInspectorTab(OUTLINE_TAB);
+  // Versions (V-06, ADR-0072): Changed since you read, the file's earlier versions, a diff from each, Restore to a copy beside it.
+  registerInspectorTab(VERSIONS_TAB);
   workspace.fill('inspector', (el) => mountInspector(el, handle, signal));
   // The status bar: the file's kind, one measure, where you are and its encoding on the left, the theme and text size on the right; an item with a tab behind it opens that tab (W-11). Folded there is none.
   workspace.fill('status-bar', (el) => mountStatusBar(el, handle, signal));

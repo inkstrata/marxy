@@ -118,7 +118,7 @@ test('Save and close writes, then closes', () =>
     await clickButton(page, 'Save and close');
     await page.waitForFunction(() => window.__boot.handle.shell.calls.some((c) => c.method === 'confirmClose'));
     const documentWrites = await page.evaluate(() =>
-      window.__boot.handle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !String(c.args[0]).startsWith('/data/index-')).length,
+      window.__boot.handle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !/^\/data\/(index|versions)-/.test(String(c.args[0]))).length,
     );
     assert.equal(documentWrites, 1);
   }));

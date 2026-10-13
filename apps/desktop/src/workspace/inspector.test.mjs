@@ -77,23 +77,23 @@ const rowsOf = (page) =>
   );
 const column = (page) => page.evaluate(() => { const r = document.getElementById('doc').getBoundingClientRect(); return { x: r.x, width: r.width }; });
 
-test('folded there is no inspector element; unfolded it holds Links and Outline, and a registered stub adds a tab and its withdrawal takes it away', async () => {
+test('folded there is no inspector element; unfolded it holds Links, Outline and Versions, and a registered stub adds a tab and its withdrawal takes it away', async () => {
   await withPage(1700, async (page) => {
     assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-inspector, [data-marxy-inspector-tab], [data-marxy-link-row]').length), 0, 'folded');
     await page.evaluate(() => window.__marxyHandle.workspace().unfold());
     await page.waitForSelector('[data-marxy-inspector-tab]');
-    assert.deepEqual(await tabsOf(page), ['links', 'outline']);
+    assert.deepEqual(await tabsOf(page), ['links', 'outline', 'versions']);
     assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-inspector-tab]').getAttribute('aria-selected')), 'true');
     await page.evaluate(async () => {
       const { registerInspectorTab } = await import('/src/workspace/inspector.ts');
       window.__off = registerInspectorTab({ id: 'stub', title: 'Stub', mount: (el) => { el.textContent = 'stub panel'; return () => { el.textContent = ''; }; } });
     });
-    assert.deepEqual(await tabsOf(page), ['links', 'outline', 'stub']);
+    assert.deepEqual(await tabsOf(page), ['links', 'outline', 'versions', 'stub']);
     await page.click('[data-marxy-inspector-tab="stub"]');
     assert.equal(await page.evaluate(() => document.querySelector('.marxy-inspector-panel').textContent), 'stub panel');
     assert.equal(await page.evaluate(() => document.querySelectorAll('[data-marxy-link-row]').length), 0, 'the Links panel was let go');
     await page.evaluate(() => window.__off());
-    assert.deepEqual(await tabsOf(page), ['links', 'outline'], 'the withdrawn tab is gone, and the shell falls back to the first');
+    assert.deepEqual(await tabsOf(page), ['links', 'outline', 'versions'], 'the withdrawn tab is gone, and the shell falls back to the first');
     assert.ok((await rowsOf(page)).length > 0, 'Links is mounted again');
     await page.evaluate(() => window.__marxyHandle.workspace().fold());
     assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-inspector, [data-marxy-inspector-tab]').length), 0, 'folded again');

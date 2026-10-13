@@ -138,7 +138,7 @@ Every commitment keeps a gate on the path (ADR-0056 has the table with its evide
 | --- | --- |
 | 1. Free | `gate:licences` and `check-deps` (`fast`); `gate-licences --require-registry` over `Cargo.lock` (`rust`) |
 | 2. Private | `gate:no-network`, and the lite files `release-csp`, `images`, `user-theme`, `palette-preview` (`browser-lite`); the theme sanitiser's unit tests (`fast`) |
-| 3. Faithful | `gate:fidelity`, `gate:golden`, the splice property (`fast`); the lite files `save`, `explicit-save`, `data-loss`, `save-trust-r4`, `save-close-r5`, `close-guard`, `operations-edit`, `live-reload` |
+| 3. Faithful | `gate:fidelity`, `gate:golden`, the splice property (`fast`); the lite files `save`, `explicit-save`, `data-loss`, `save-trust-r4`, `save-close-r5`, `close-guard`, `operations-edit`, `live-reload`, `versions-tab` (a restored version is written beside the file, never over one; versioning writes only in the data folder, V-06) |
 | 4. Nothing hidden silently | core's unit tests for bidi, zero-width, link targets and folds (`fast`) |
 | 5. First text never waits | the 1 MB first-text test in `progressive.test.mjs` (`browser-lite`) |
 

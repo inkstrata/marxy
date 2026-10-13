@@ -25,6 +25,7 @@ column_guide = true             # Source mode: a hairline at column 80, or the f
 external_editor = "code --goto {file}:{line}"   # {file} {line} substituted; absent → the OS default opener
 resident = false                # stay running after the last window closes (ADR-0013)
 copy_format = "markdown"        # the Copy as row that is first and chosen by Return: markdown | plain | rich | html | slack | jira | json-string | quote (J-04)
+versions = true                 # keep local versions of the files you read and save (ADR-0072, V-06); false keeps no new ones, and the Versions tab says so
 
 [linux]
 weight_offset = 75              # overrides the WebKitGTK-version table (§05)
@@ -229,7 +230,7 @@ newer-version rules as `layout.json`.
 | `workspace.json` | the docked panels, the sidebar's folded sections (above) | 6 regions, 4 sections | app |
 | `history.json` | opens, pins, recent roots (§07) | 500 opens, 12 roots | app |
 | `trust.json` | per-document grants: HTML, image hosts ([§12](13-trust.md)) | 2 000 paths, LRU | app |
-| `versions/<hash(path)>/` | byte-exact copies of one reader file (slots) and a readable `manifest.json`: path, times, sizes, reasons (*read*, *before save*, *before reload*); ADR-0072 | 20 per file, 30 days, 200 MB in all, oldest first; never a denied file or one over the large-file limit; off with `versions = false` | app |
+| `versions-<sha1(path)>.json`, `versions-<sha1(path)>-01` … `-20` | one reader file's versions (ADR-0072, as amended by V-06): the manifest names the path, when Marxy last saved over it (a time), and for each version its slot, time, size and reason (*read*, *before save*, *before reload*); each slot holds one version's bytes exactly, and identical bytes share a slot. Flat in the data folder, as `index-<sha1>.json` is, because `writeFileAtomic` makes no folders. A dropped or cleared version leaves the manifest first and then its slot is overwritten with zero bytes (there is no delete). A manifest that is not this shape is reported in the Versions tab and never written over by keeping | 20 per file, 30 days, 200 MB in all, oldest first; never a denied file, one over the large-file limit (2 MB), a scratch document or a file in the data folder; off with `versions = false` | app (`apps/desktop/src/versions/`) |
 
 Every file starts with `"version": 1`. Reading a file whose `version` is newer than the app
 knows → ignore it (do not overwrite; a newer Marxy wrote it). Unparseable → rename to
@@ -240,9 +241,9 @@ off the critical path). Writes are atomic through `shell.writeFileAtomic`.
 
 Document contents, document hashes tied to identities, window geometry keyed by document,
 anything network-derived. The one exception to "document contents" is local versions
-(ADR-0072): byte-exact copies under `versions/`, kept to the limits above, never sent anywhere,
-never written beside or over the reader's files, and cleared by *Clear versions of this file*,
-*Clear all versions* or `versions = false`. The index stores paths, titles and headings, which are already on the
+(ADR-0072): byte-exact copies in the `versions-*` files, kept to the limits above, never sent anywhere,
+never written beside or over the reader's files, and cleared by *Clear versions of this file* or
+*Clear all versions* (`versions = false` keeps no new ones and leaves those kept until they age out or are cleared). The index stores paths, titles and headings, which are already on the
 reader's disk in the documents themselves.
 
 ## Tests

@@ -9,6 +9,7 @@ import { oneWatchPerStore, watchDocument } from '../document/live-reload.ts';
 import { createStoreRegistry } from '../document/registry.ts';
 import type { DocumentStore } from '../document/store.ts';
 import { createUntitledNamer, documentName } from '../document/untitled.ts';
+import { installVersionRecorder } from '../versions/recorder.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { createRenderedView, type RenderedView, type RenderedViewDeps, type ViewHost } from '../view/rendered-view.ts';
@@ -165,6 +166,10 @@ export function createPanes(deps: PanesDeps): AppPanes {
     mark: (name, data) => void shell.mark(name, Date.now(), data),
   });
   set = panes;
+  // Local versions (V-06, ADR-0072): each store the panes open is followed, and a copy kept at its open, before each save and
+  // before each outside change, after first text. Here and not in app.ts, which the composition-root gate holds under 300 lines.
+  const versions = installVersionRecorder({ shell, panes, rootFor: (path) => deps.open.index.rootFor(path), ready: deps.view.measure.ready });
+  const destroyPanes = panes.destroy;
   installScroll(panes);
   panes.onSplit((m) => createDivider(panes, m).destroy);
   // Focus moves the window title to the focused pane's document.
@@ -175,6 +180,10 @@ export function createPanes(deps: PanesDeps): AppPanes {
     void panes.focused.content.refreshTitle();
   });
   return Object.assign(panes, {
+    destroy() {
+      versions?.stop();
+      destroyPanes();
+    },
     openScratch(bytes: Uint8Array, opts?: { readonly label?: string; readonly saveIn?: string; readonly onLanded?: () => void }) {
       return panes.openIn(panes.panes.length > 1 ? 'other' : 'focused', untitled.next(), {
         scratch: { bytes, label: opts?.label, saveIn: opts?.saveIn },

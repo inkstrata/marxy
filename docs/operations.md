@@ -57,7 +57,9 @@ and held by the byte-fidelity property over every corpus file and by its own tab
 
 Around them, not operations: **Edit block in place** (`Mod+Enter`, ADR-0048, E-04), **Paste as a new Markdown
 document** (`Mod+V` in Rendered, J-05), the scratch document that paste and the comparisons open (E-13), and
-**Show what changed on disk** and **Show unsaved changes** (E-17).
+**Show what changed on disk** and **Show unsaved changes** (E-17), and the local versions' **Show changes since you
+read**, **Clear versions of this file** and **Clear all versions** with the inspector's Versions tab (V-06, ADR-0072): a
+version's diff is the same scratch document, and *Restore to a copy* writes a new file beside the original, never over it.
 
 The phase's screen criterion is one test, `apps/desktop/test/phase-e-flow.test.mjs`: paste an assistant's answer,
 unwrap its fence, tick and untick a task, fix a typo in place, save, then undo to the pasted text, on LF and CRLF

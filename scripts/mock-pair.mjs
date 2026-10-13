@@ -55,6 +55,7 @@ export const SCREENS = {
   '08-narrow': 'The narrow window, 760 px (mock 01-workspace)',
   '09-inspector-outline': 'The inspector docked on its Outline tab: headings with the words of each section (mock 01-workspace)',
   '03-terminal': 'A shell session in the reader (mock 01-workspace, doc=shell-session)',
+  '09-inspector-versions': 'The inspector docked on its Versions tab: Changed since you read and the earlier versions (mock 01-workspace)',
 };
 
 /** The file names one screen produces: <screen>-<theme>-{app,mock}.png. */
@@ -327,6 +328,31 @@ const APP_STATES = {
     await settle(page, 600);
   },
   async '03-terminal'(page) { await openDoc(page, SHELL_SESSION); await settle(page, 900); },
+  async '09-inspector-versions'(page) {
+    await unfoldedWithTabs(page);
+    // The card's scenario on the plan: read at open, an edit saved, then another program rewrites a line.
+    await page.evaluate(async () => {
+      const { versionRecorder } = await import('/src/versions/recorder.ts');
+      const h = window.__marxyHandle;
+      const store = h.document();
+      const path = store.snapshot().path;
+      const text = new TextDecoder().decode(store.snapshot().buffer.bytes);
+      const at = new TextEncoder().encode(text.slice(0, text.indexOf('\n## ') + 1)).length;
+      await store.apply({ range: { file: path, start: at, end: at }, replacement: 'A line the reader added and saved.\n\n', label: 'edit' });
+      await h.save();
+      await versionRecorder()?.settled();
+      const saved = new TextDecoder().decode(store.snapshot().buffer.bytes);
+      const outside = saved.replace(/\n## [^\n]*\n/, (m) => `${m}\nA paragraph another program wrote while the file was open.\n`);
+      await h.shell.writeFileAtomic(path, new TextEncoder().encode(outside));
+      h.shell.emit([{ kind: 'modified', path }]);
+    });
+    await page.waitForFunction(() => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes).includes('another program wrote'));
+    await page.evaluate(async () => (await import('/src/versions/recorder.ts')).versionRecorder()?.settled());
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
+    await page.locator('[data-marxy-inspector-tab="versions"]').click();
+    await page.waitForSelector('.marxy-versions [data-marxy-versions-since]');
+    await settle(page, 600);
+  },
 };
 const APP_OPTS = { '08-narrow': { width: NARROW }, '03-code': {}, '03-transcript': {} };
 
@@ -392,6 +418,7 @@ const MOCK_STATES = {
   '08-narrow': { file: '01-workspace.html', width: NARROW, run: async (page) => { await mockUnfold(page); await settle(page, 500); } },
   '09-inspector-outline': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
   '03-terminal': { file: '01-workspace.html', hash: '#doc=shell-session', run: async () => {} },
+  '09-inspector-versions': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="versions"]'); await settle(page, 600); } },
 };
 
 const browser = await launchWebkit();
