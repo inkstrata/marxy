@@ -52,6 +52,7 @@ export const SCREENS = {
   '07-notice': 'A notice, unfolded (mock toast)',
   '07-notice-folded': 'A notice, folded (mock toast)',
   '08-narrow': 'The narrow window, 760 px (mock 01-workspace)',
+  '09-inspector-outline': 'The inspector docked on its Outline tab: headings with the words of each section (mock 01-workspace)',
 };
 
 /** The file names one screen produces: <screen>-<theme>-{app,mock}.png. */
@@ -305,6 +306,21 @@ const APP_STATES = {
     await settle(page, 400);
   },
   async '08-narrow'(page) { await unfoldedWithTabs(page); },
+  async '09-inspector-outline'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
+    await page.locator('[data-marxy-inspector-tab="outline"]').click();
+    await page.waitForSelector('.marxy-outline [data-marxy-outline-row]');
+    // Landed in a section, so the row that marks the reading line is drawn.
+    await page.evaluate(async ({ plan }) => {
+      const store = window.__marxyHandle.document();
+      const text = new TextDecoder().decode(store.snapshot().buffer.bytes);
+      const at = new TextEncoder().encode(text.slice(0, text.indexOf('## Phases') + 20)).length;
+      await window.__marxyHandle.open(plan, { at });
+    }, { plan: PLAN });
+    await page.waitForSelector('.marxy-outline [aria-current="location"]');
+    await settle(page, 600);
+  },
 };
 const APP_OPTS = { '08-narrow': { width: NARROW }, '03-code': {}, '03-transcript': {} };
 
@@ -367,6 +383,7 @@ const MOCK_STATES = {
   '07-notice': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await settle(page, 300); await page.evaluate(() => window.Marxy.toast('Copied as Markdown · 3.1 KB', { icon: 'copy', ms: 60000 })); await settle(page, 500); } },
   '07-notice-folded': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.toast('Copied as Markdown · 3.1 KB', { icon: 'copy', ms: 60000 })); await settle(page, 500); } },
   '08-narrow': { file: '01-workspace.html', width: NARROW, run: async (page) => { await mockUnfold(page); await settle(page, 500); } },
+  '09-inspector-outline': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
 };
 
 const browser = await launchWebkit();

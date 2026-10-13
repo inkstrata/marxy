@@ -173,6 +173,7 @@ property and by `assertMinimalDiff` against the bytes each means to change (`ope
 | --- | --- | --- |
 | `unwrap-markdown-fence` | a `markdown` or `md` fenced block | the two fence lines go; every content byte stays |
 | `promote-heading`, `demote-heading` | a heading (its section is the range) | the `#` run of the heading and of each sub-heading, one level |
+| `move-section-up`, `move-section-down` | a heading, with both sections it trades as the range (`sectionSwapOf`) | nothing is rewritten: the two sections change places, each with its own bytes; if the second ends with no line ending (the last section of a file with none) the first one's line endings come between them, so the file ends as it did (W-10) |
 | `renumber-list`, `list-to-numbers`, `list-to-bullets`, `bullets-from-glyphs` | a list; a paragraph of glyph bullets | the marker bytes, and the continuation lines' indent where a marker's width moved |
 | `sort-list-items` | a list | the order of the top-level items, A to Z, each carrying its own bytes |
 | `format-json`, `format-yaml` | a fenced `json` or `yaml` block | the whitespace of the block's content, two spaces per level |

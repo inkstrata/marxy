@@ -541,5 +541,29 @@
         "decisive": true
       }
     ]
+  },
+  "sections-crlf.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "sections-crlf.md",
+        "decisive": true
+      }
+    ]
+  },
+  "sections.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "sections.md",
+        "decisive": true
+      }
+    ]
   }
 }

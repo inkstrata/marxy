@@ -26,6 +26,7 @@ const files = {
     filler(10), '',
   ].join('\n'),
   '/r/Plain.md': '# Plain\n\nNo links and no paths.\n',
+  '/r/Sections.md': '# A\n\na one\n\n## B\n\nb\n\n# C\n\nc\n',
   '/r/lib/a.ts': 'export const a = 1;\n',
   '/r/node_modules/p/x.js': 'x\n',
   '/r/s.py': '# see `src/helper.py` and [not a link](https://x.example)\ndef f():\n    return 1\n',
@@ -76,23 +77,23 @@ const rowsOf = (page) =>
   );
 const column = (page) => page.evaluate(() => { const r = document.getElementById('doc').getBoundingClientRect(); return { x: r.x, width: r.width }; });
 
-test('folded there is no inspector element; unfolded it holds exactly Links, and a registered stub adds a tab and its withdrawal takes it away', async () => {
+test('folded there is no inspector element; unfolded it holds Links and Outline, and a registered stub adds a tab and its withdrawal takes it away', async () => {
   await withPage(1700, async (page) => {
     assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-inspector, [data-marxy-inspector-tab], [data-marxy-link-row]').length), 0, 'folded');
     await page.evaluate(() => window.__marxyHandle.workspace().unfold());
     await page.waitForSelector('[data-marxy-inspector-tab]');
-    assert.deepEqual(await tabsOf(page), ['links']);
+    assert.deepEqual(await tabsOf(page), ['links', 'outline']);
     assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-inspector-tab]').getAttribute('aria-selected')), 'true');
     await page.evaluate(async () => {
       const { registerInspectorTab } = await import('/src/workspace/inspector.ts');
       window.__off = registerInspectorTab({ id: 'stub', title: 'Stub', mount: (el) => { el.textContent = 'stub panel'; return () => { el.textContent = ''; }; } });
     });
-    assert.deepEqual(await tabsOf(page), ['links', 'stub']);
+    assert.deepEqual(await tabsOf(page), ['links', 'outline', 'stub']);
     await page.click('[data-marxy-inspector-tab="stub"]');
     assert.equal(await page.evaluate(() => document.querySelector('.marxy-inspector-panel').textContent), 'stub panel');
     assert.equal(await page.evaluate(() => document.querySelectorAll('[data-marxy-link-row]').length), 0, 'the Links panel was let go');
     await page.evaluate(() => window.__off());
-    assert.deepEqual(await tabsOf(page), ['links'], 'the withdrawn tab is gone, and the shell falls back to the first');
+    assert.deepEqual(await tabsOf(page), ['links', 'outline'], 'the withdrawn tab is gone, and the shell falls back to the first');
     assert.ok((await rowsOf(page)).length > 0, 'Links is mounted again');
     await page.evaluate(() => window.__marxyHandle.workspace().fold());
     assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-inspector, [data-marxy-inspector-tab]').length), 0, 'folded again');
@@ -205,6 +206,38 @@ test('Tab reaches the inspector once and the arrows move inside it', async () =>
     // Shift+Tab comes back to where the reader was, once.
     await page.keyboard.press('Shift+Tab');
     assert.equal(await active(), 'lib/gone.ts, not found');
+  });
+});
+
+test('the Outline tab\'s rows rove with the arrows inside the one tab stop', async () => {
+  await withPage(1700, async (page) => {
+    await page.evaluate(() => window.__marxyHandle.open('/r/Sections.md'));
+    await page.click('[data-marxy-inspector-tab="outline"]');
+    await page.waitForFunction(() => document.querySelectorAll('.marxy-outline [data-marxy-outline-row]').length === 3);
+    const stops = await page.evaluate(() => document.querySelectorAll('[data-marxy-workspace-region="inspector"] [tabindex="0"]').length);
+    assert.equal(stops, 1, 'one tab stop in the whole region');
+    await page.focus('[data-marxy-inspector-tab="outline"]');
+    const active = () => page.evaluate(() => { const a = document.activeElement; return a.getAttribute('aria-label') ?? a.textContent; });
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await active(), 'Copy outline', 'the first stop in the panel');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await active(), 'A, level 1, 5 words');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await active(), 'B, level 2, 2 words');
+    await page.keyboard.press('End');
+    assert.equal(await active(), 'C, level 1, 2 words');
+    await page.keyboard.press('ArrowUp');
+    assert.equal(await active(), 'B, level 2, 2 words');
+    // Tab leaves the region; Shift+Tab comes back to where the reader was, once.
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement.closest('[data-marxy-workspace-region="inspector"]')), null);
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(await active(), 'B, level 2, 2 words');
+    // Home goes to the first stop, the Copy button; Up from the first row goes back to the tab.
+    await page.keyboard.press('Home');
+    assert.equal(await active(), 'Copy outline');
+    await page.keyboard.press('ArrowUp');
+    assert.equal(await active(), 'Outline');
   });
 });
 
