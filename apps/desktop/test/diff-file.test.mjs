@@ -259,9 +259,22 @@ const LARGE_SOURCE = `
     }
     return new TextEncoder().encode(parts.join(''));
   };
+  // One new file, one hunk: every line is added, so there is no header to cut a piece at.
+  window.__makeOneHunk = (mb) => {
+    const rows = [];
+    let bytes = 0;
+    let n = 0;
+    while (bytes < mb * 1024 * 1024) {
+      const row = '+line ' + n + ' of a new file, long enough to be a real line of text ' + (n % 97);
+      rows.push(row);
+      bytes += row.length + 1;
+      n++;
+    }
+    return new TextEncoder().encode('diff --git a/new.txt b/new.txt\\nnew file mode 100644\\n--- /dev/null\\n+++ b/new.txt\\n@@ -0,0 +1,' + n + ' @@\\n' + rows.join('\\n') + '\\n');
+  };
 `;
 
-test(`a diff of ${process.env.MARXY_DIFF_MB ?? 10} MB: first text does not wait for the last chunk`, () =>
+for (const shape of ['many files', 'one hunk']) test(`a diff of ${process.env.MARXY_DIFF_MB ?? 10} MB, ${shape}: first text does not wait for the last chunk`, () =>
   withPage(async (page) => {
     const mb = Number(process.env.MARXY_DIFF_MB ?? 10);
     const base = await harnessBase();
@@ -269,8 +282,8 @@ test(`a diff of ${process.env.MARXY_DIFF_MB ?? 10} MB: first text does not wait 
     await page.goto(`${base}app.html`);
     await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
     await page.evaluate(LARGE_SOURCE);
-    const size = await page.evaluate(async (size) => {
-      const bytes = window.__makeDiff(size);
+    const size = await page.evaluate(async ({ size, shape }) => {
+      const bytes = shape === 'one hunk' ? window.__makeOneHunk(size) : window.__makeDiff(size);
       const { createMemoryShell } = await import('/src/shell/memory.ts');
       const { startApp } = await import('/src/app.ts');
       const shell = createMemoryShell({ '/r/big.diff': bytes });
@@ -288,14 +301,29 @@ test(`a diff of ${process.env.MARXY_DIFF_MB ?? 10} MB: first text does not wait 
       await handle.ready;
       window.__marxyHandle = handle;
       return { bytes: bytes.length, lines: bytes.reduce((n, b) => n + (b === 10 ? 1 : 0), 0) };
-    }, mb);
+    }, { size: mb, shape });
     await page.waitForFunction(() => window.__firstText !== null, null, { timeout: 120_000 });
     const first = await page.evaluate(() => ({ at: window.__firstText, pieces: window.__piecesAtFirstText, total: window.__marxyHandle.panes().focused.view.document().ast.children.length }));
     console.log(`# diff ${mb} MB (${size.bytes} bytes, ${size.lines} lines, ${first.total} pieces): first text ${first.at.toFixed(0)} ms with ${first.pieces} pieces in the page`);
     assert.ok(first.pieces > 0, 'there is text at first text');
     assert.ok(first.pieces < first.total, `first text holds ${first.pieces} of ${first.total} pieces: it did not wait for the last chunk`);
-    const tinted = await page.evaluate(() => document.querySelectorAll('#doc .marxy-diff-add').length);
-    assert.ok(tinted > 0 || first.at > 0);
+    assert.ok(first.total > 1, 'more than one piece');
+    assert.ok(first.at < 3000, `first text ${first.at.toFixed(0)} ms`);
+    if (shape === 'one hunk') {
+      // The second piece begins inside the hunk: its first line is an added line, tinted because the state was carried over.
+      await page.evaluate(() => window.__marxyHandle.contentComplete());
+      await page.evaluate(() => document.querySelectorAll('#doc pre.language-diff')[1].scrollIntoView());
+      await page.waitForFunction(() => {
+        const pre = document.querySelectorAll('#doc pre.language-diff')[1];
+        return pre?.querySelector('code')?.dataset.marxyDone !== undefined;
+      }, null, { timeout: 60_000 });
+      const second = await page.evaluate(() => {
+        const line = document.querySelectorAll('#doc pre.language-diff')[1].querySelector('code > .marxy-line');
+        return { text: line.textContent.slice(0, 5), cls: [...line.classList] };
+      });
+      assert.equal(second.text, '+line');
+      assert.ok(second.cls.includes('marxy-diff-add'), 'a piece that begins inside a hunk is tinted');
+    }
   }));
 
 test('a hunk is read by its counts: removed `---` and `-- sql`, added `++x`, a signature untinted, across a piece boundary (K-09 round 1)', () =>
@@ -305,6 +333,9 @@ test('a hunk is read by its counts: removed `---` and `-- sql`, added `++x`, a s
     // Old: 300 context and three removed; new: 300 context and three added.
     await bootTwoPanes(page, { files: { '/r/p.patch': text }, open: ['/r/p.patch'] });
     await ready(page);
+    // Two pieces; the second is given its lines when it is near the reader, so bring it near.
+    await page.evaluate(() => document.querySelectorAll('#doc pre.language-diff')[1]?.scrollIntoView());
+    await page.waitForFunction(() => [...document.querySelectorAll('#doc pre.language-diff > code')].length >= 2 && [...document.querySelectorAll('#doc pre.language-diff > code')].every((c) => c.dataset.marxyDone !== undefined), null, { timeout: 15_000 });
     await page.evaluate(PAGE_LINES);
     const lines = await page.evaluate(() => window.__lines());
     const tint = (t) => lines.find((l) => l.text === t)?.cls.find((c) => c.startsWith('marxy-diff-'));

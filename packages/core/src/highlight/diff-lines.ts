@@ -9,11 +9,22 @@ import { DIFF_LINE_ADD, DIFF_LINE_DEL } from './line-classes.ts';
 
 const HUNK = /^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@/;
 
-/** The line class of each of `lines` (no line endings), or `undefined` for a line with none. */
-export function diffFileLineClasses(lines: readonly string[]): (string | undefined)[] {
+/** Where a piece of a diff file begins: the old and new lines its hunk still owes (both 0 outside a hunk). */
+export interface DiffState {
+  readonly old: number;
+  readonly new: number;
+}
+export const DIFF_OUTSIDE: DiffState = { old: 0, new: 0 };
+
+/**
+ * The line class of each of `lines` (no line endings), or `undefined` for a line with none, and the state after them.
+ * A file is cut into pieces at the usual size, a hunk spanning the cut: the state at the end of one piece is the state
+ * at the start of the next, so per-piece reading equals whole-file reading.
+ */
+export function diffFileRead(lines: readonly string[], start: DiffState = DIFF_OUTSIDE): { classes: (string | undefined)[]; end: DiffState } {
   const out: (string | undefined)[] = new Array(lines.length);
-  let oldLeft = 0;
-  let newLeft = 0;
+  let oldLeft = start.old;
+  let newLeft = start.new;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     out[i] = undefined;
@@ -34,5 +45,10 @@ export function diffFileLineClasses(lines: readonly string[]): (string | undefin
       newLeft = m[2] === undefined ? 1 : Number(m[2]);
     }
   }
-  return out;
+  return { classes: out, end: { old: oldLeft, new: newLeft } };
+}
+
+/** `diffFileRead`'s classes alone, for one whole file. */
+export function diffFileLineClasses(lines: readonly string[], start: DiffState = DIFF_OUTSIDE): (string | undefined)[] {
+  return diffFileRead(lines, start).classes;
 }

@@ -78,11 +78,6 @@ export function parseCode(bytes: Uint8Array, options: CodeParseOptions = {}): Do
       end = ending === undefined ? text.length : ending.end;
       lines++;
     }
-    // A diff's piece runs on to the next header (K-09): it then begins at one, so a hunk's counts are read from its piece alone.
-    while (options.lang === 'diff' && end < text.length && !text.startsWith('@@', end) && !text.startsWith('diff ', end)) {
-      const ending = nextLineEnding(text, end);
-      end = ending === undefined ? text.length : ending.end;
-    }
     const piece = text.slice(at, end);
     const last = /\r\n$|[\r\n]$/.exec(piece);
     const value = (last ? piece.slice(0, piece.length - last[0].length) : piece).replace(/\u0000/g, '\ufffd');

@@ -133,11 +133,3 @@ test('a log with CRLF endings, a BOM and a final line without a newline tiles th
   assert.ok(parts.length >= 2);
   assert.ok(parts.slice(1).every((p) => p.startsWith('2026-')));
 });
-
-test('a diff file is cut only before a hunk or file header, so a hunk is never split from its counts (K-09)', () => {
-  const body = Array.from({ length: 450 }, (_, i) => (i % 2 === 0 ? `-old ${i}` : `+new ${i}`)).join('\n');
-  const text = `diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1,225 +1,225 @@\n${body}\n@@ -400 +400 @@\n-x\n+y\n`;
-  const doc = parseCode(new TextEncoder().encode(text), { file: 'x.diff', lang: 'diff' });
-  assert.equal(doc.children.length, 2);
-  assert.ok((doc.children[1] as { value: string }).value.startsWith('@@ -400'));
-});
