@@ -159,6 +159,25 @@ fn set_title(app: tauri::AppHandle, title: String) -> Result<(), ShellError> {
         .map_err(|e| ShellError::io("", e.to_string()))
 }
 
+/// A save dialog's starting point from the webview's `defaultPath`: a bare name is only a file name, as
+/// it always was; a path with a folder in it starts the dialog in that folder (W-14: *New file here*),
+/// and only when the folder exists, since a name in a folder that is not there would start nowhere.
+/// Nothing is created or written: this only says where the dialog opens.
+fn save_dialog_start(default_path: &str) -> (Option<std::path::PathBuf>, String) {
+    let path = std::path::Path::new(default_path);
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| default_path.to_string());
+    match path
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty() && d.is_dir())
+    {
+        Some(dir) => (Some(dir.to_path_buf()), name),
+        None => (None, name),
+    }
+}
+
 #[tauri::command]
 async fn save_dialog(
     app: tauri::AppHandle,
@@ -168,7 +187,11 @@ async fn save_dialog(
     let path = tauri::async_runtime::spawn_blocking(move || {
         let mut picker = app.dialog().file();
         if let Some(path) = default_path {
-            picker = picker.set_file_name(&path);
+            let (dir, name) = save_dialog_start(&path);
+            if let Some(dir) = dir {
+                picker = picker.set_directory(dir);
+            }
+            picker = picker.set_file_name(&name);
         }
         picker.blocking_save_file()
     })
@@ -1187,8 +1210,8 @@ mod tests {
     use super::ClipboardPayload;
     use super::{
         absolute_document_path, clipboard_payload, document_paths_from_drop, enqueue_open_files,
-        navigation_allowed, percent_decode, resolve_watch_key, take_pending_opens,
-        OPENS_LISTENER_READY,
+        navigation_allowed, percent_decode, resolve_watch_key, save_dialog_start,
+        take_pending_opens, OPENS_LISTENER_READY,
     };
     use std::collections::HashMap;
     use std::sync::atomic::Ordering;
@@ -1216,6 +1239,28 @@ mod tests {
         OPENS_LISTENER_READY.store(false, Ordering::SeqCst);
         let _ = take_pending_opens();
         OPENS_LISTENER_READY.store(false, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn a_save_dialog_starts_in_the_folder_the_default_path_names_and_only_if_it_exists() {
+        let dir = std::env::temp_dir().join(format!("marxy-save-start-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let there = dir.join("Untitled.md");
+        let (start, name) = save_dialog_start(there.to_str().unwrap());
+        assert_eq!(start.as_deref(), Some(dir.as_path()));
+        assert_eq!(name, "Untitled.md");
+        // A bare name is only a name, as before.
+        assert_eq!(
+            save_dialog_start("Untitled.md"),
+            (None, "Untitled.md".to_string())
+        );
+        // A folder that is not there starts nowhere in particular; the name is kept.
+        let missing = dir.join("gone").join("Untitled.md");
+        assert_eq!(
+            save_dialog_start(missing.to_str().unwrap()),
+            (None, "Untitled.md".to_string())
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -119,7 +119,7 @@ export type AppHandle = {
    * and no file exists until Save As. Resolves true when the open was not refused, false when it was; over unsaved edits it
    * resolves while the prompt stands, so `onLanded` is what says it is on screen. Opens in the other pane when two are shown.
    */
-  openScratch(text: string, opts?: { readonly label?: string; readonly onLanded?: () => void }): Promise<boolean>;
+  openScratch(text: string, opts?: { readonly label?: string; readonly saveIn?: string; readonly onLanded?: () => void }): Promise<boolean>;
   /**
    * The open document's store subscription, seen through the app (ADR-0037): called with the document
    * on every committed transition and on each open, which moves the subscription to the new store, and

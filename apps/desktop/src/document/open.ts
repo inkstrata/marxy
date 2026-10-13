@@ -45,13 +45,14 @@ import { documentName, isUntitled } from './untitled.ts';
  * on the same terms (never on a Dismiss): state that must not lag the page across its awaits, such as a link
  * history, is set there (F-21).
  * `scratch` is what a scratch path (`untitled.ts`) opens: the bytes the document was born with, and a label
- * for its window title (E-13). A scratch path another pane already shows needs none.
+ * for its window title (E-13), and `saveIn`, the folder its Save As opens in (W-14: *New file here*). A scratch path another pane
+ * already shows needs none.
  */
 export interface OpenOptions {
   readonly at?: number;
   readonly onLanded?: () => void;
   readonly onCommitted?: () => void;
-  readonly scratch?: { readonly bytes: Uint8Array; readonly label?: string };
+  readonly scratch?: { readonly bytes: Uint8Array; readonly label?: string; readonly saveIn?: string };
 }
 
 /** The window's live reload: one watch per store, started by whichever pane shows it first (D-10). */
@@ -192,6 +193,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   let closed = false;
   /** What the open scratch document is called in the window title, if it was given a name (E-13). */
   let scratchLabel: string | undefined;
+  /** The folder the open scratch document's Save As opens in, if it was made for one (W-14). */
+  let scratchSaveIn: string | undefined;
   /** `onDocumentChange` subscribers: each moves its subscription to a newly opened store (B-12). */
   const followers = new Set<(next: DocumentStore) => void>();
   /** The byte the open in progress lands on (an `at`, or the stored place), read before anything re-notes it. */
@@ -344,6 +347,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       // in its editor for the next save, which is no reason to refuse this one (F-42.1).
       holdsUnfoldedSource: () => current === open && viewsOf(open).some((v) => v.sourceHeldApart()),
       pane: paneOf(doc),
+      saveIn: () => scratchSaveIn,
       onSaveAs: async (path, from) => {
         if (current !== open) return;
         await shell.allowAssetScope(dirname(path));
@@ -352,6 +356,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         // document had no watch: it is now a file, so it gets one, and its place in the folder's index.
         if (isUntitled(from)) {
           scratchLabel = undefined;
+          scratchSaveIn = undefined;
           await (await watches.watch(open)).moved();
           if (ownsTitle()) document.title = `${documentName(path)} — Marxy`;
           persistence.trackOpen(path, () => index.rootFor(path));
@@ -441,6 +446,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     if (kindInputs) await decideKind(file, bytes, kindInputs);
     else if (kind === 'launch') launchRedecide = decideLaunchKind(file, bytes);
     scratchLabel = untitled ? scratch?.label : undefined;
+    scratchSaveIn = untitled ? scratch?.saveIn : undefined;
     clearDismissForPath(file);
     await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
     // The open transition (ADR-0037): the store copies the bytes, parses them once and starts an empty
