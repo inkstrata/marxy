@@ -1,0 +1,312 @@
+// The inspector's Outline tab (W-10), in the real app over the memory shell, in WebKit. What the reader sees: the tab lists the
+// document's headings indented by level with the words of each section, a table under its section, and marks the section under
+// the reading line (Read) or the caret (Source); a row jumps; ⌥↓ and ⌥↑ move the whole section and one undo puts the exact bytes
+// back; the menu offers the four actions and says why one is unavailable; the list follows the document live; "where you are" in
+// the status bar opens the tab. The rules are outline-tab.test.ts; the bytes of a move are core's move-section.test.ts.
+import { strict as assert } from 'node:assert';
+import { existsSync } from 'node:fs';
+import { after, test as nodeTest } from 'node:test';
+import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { bootTwoPanes, closeHarness } from './support/two-pane.mjs';
+
+const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
+  ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
+  : false;
+const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
+after(() => closeHarness());
+
+const para = (i) => `Paragraph ${i} runs long enough to be a paragraph of the reading column and no more than that.`;
+const filler = (n, from = 0) => Array.from({ length: n }, (_, i) => para(from + i)).join('\n\n');
+// Words by hand: "Plan" 1 + "One two three." 3 + Method 3 + Results 2 (+ the table and filler counted below).
+const PLAN = [
+  '# Plan', '', 'One two three.', '',
+  '## Method', '', 'Alpha beta.', '',
+  '| Step | Who |', '|---|---|', '| 1 | me |', '',
+  '```sh', '# a comment, not a heading', '```', '',
+  filler(30), '',
+  '## Results', '', 'Gamma.', '',
+  filler(30, 100), '',
+  '# Last', '', 'End.', '',
+].join('\n');
+const SMALL = '# One\n\nfirst words\n\n## One A\n\nA a\n\n## One B\n\nB b\n\n# Two\n\nsecond\n';
+const files = {
+  '/r/Plan.md': PLAN,
+  '/r/Small.md': SMALL,
+  '/r/None.md': 'Just a paragraph, no heading at all.\n',
+  '/r/crlf.md': '# A\r\n\r\na\r\n\r\n# B\r\n\r\nb',
+  '/r/main.rs': 'fn main() {}\n',
+};
+
+async function withPage(fn, { open = ['/r/Small.md'], tab = true, width = 1700 } = {}) {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width, height: 900 } });
+    await bootTwoPanes(page, { files, open });
+    await page.evaluate(() => window.__marxyHandle.workspace().unfold());
+    if (tab) {
+      await page.evaluate(async () => {
+        const { selectInspectorTab } = await import('/src/workspace/inspector.ts');
+        selectInspectorTab('outline');
+      });
+      await page.waitForSelector('.marxy-outline');
+    }
+    await fn(page);
+  } finally {
+    await browser.close();
+  }
+}
+
+const frames = (page, n = 2) => page.evaluate((count) => new Promise((resolve) => { let left = count; const tick = () => (--left <= 0 ? resolve() : requestAnimationFrame(tick)); requestAnimationFrame(tick); }), n);
+const rowsOf = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('.marxy-outline-item')].map((li) => {
+      const row = li.querySelector('[data-marxy-outline-row]');
+      return {
+        kind: row.getAttribute('data-marxy-outline-row'),
+        text: row.querySelector('.marxy-outline-text').textContent,
+        words: row.querySelector('.marxy-outline-words')?.textContent ?? null,
+        level: row.getAttribute('data-marxy-outline-level'),
+        indent: parseFloat(getComputedStyle(row).paddingInlineStart),
+        current: row.getAttribute('aria-current'),
+        start: Number(row.getAttribute('data-marxy-outline-start')),
+      };
+    }),
+  );
+const bytesOf = (page) => page.evaluate(() => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes));
+const activeRow = (page) => page.evaluate(() => document.activeElement?.querySelector?.('.marxy-outline-text')?.textContent ?? document.activeElement?.className ?? null);
+const modOf = (page) => page.evaluate(() => (navigator.platform.toUpperCase().includes('MAC') ? 'Meta' : 'Control'));
+const focusRow = (page, text) =>
+  page.evaluate((t) => {
+    const row = [...document.querySelectorAll('[data-marxy-outline-row="heading"]')].find((r) => r.querySelector('.marxy-outline-text').textContent === t);
+    row.focus();
+  }, text);
+
+test('the tab lists the headings by level with the words of each section, a table under its section, and nothing from a fence', async () => {
+  await withPage(async (page) => {
+    assert.deepEqual((await rowsOf(page)).map((r) => [r.text, r.words, r.level]), [
+      ['One', '11', '1'],
+      ['One A', '4', '2'],
+      ['One B', '4', '2'],
+      ['Two', '2', '1'],
+    ]);
+    const rows = await rowsOf(page);
+    assert.ok(rows[1].indent > rows[0].indent && rows[2].indent === rows[1].indent, 'a sub-section is indented, siblings alike');
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-outline-count').textContent), '4 headings');
+    assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-outline-row="heading"]').title), '11 words in this section, with its sub-sections');
+  });
+  await withPage(async (page) => {
+    const rows = await rowsOf(page);
+    assert.deepEqual(rows.map((r) => (r.kind === 'table' ? r.text : `#${r.text}`)), ['#Plan', '#Method', 'Table: Step, Who', '#Results', '#Last']);
+    assert.equal(rows[2].indent > rows[1].indent, true, 'the table sits in from its section');
+    const words = Object.fromEntries(rows.filter((r) => r.kind === 'heading').map((r) => [r.text, Number(r.words.replace(/,/g, ''))]));
+    assert.equal(words.Method > 5 + 30 * 17 - 1, true, 'the filler is counted in the section that holds it');
+    // The bar's measure counts the whole text with the same counter: the outermost section plus what is above it is that number.
+    const total = await page.evaluate(() => Number(document.querySelector('[data-marxy-status-item="measure"]').textContent.replace(/[^0-9]/g, '')));
+    assert.equal(words.Plan + words.Last, total, 'the sections are the status bar\'s words, split');
+  }, { open: ['/r/Plan.md'] });
+});
+
+test('a document with no heading says so, and a file that opens in Source says the outline is listed for Markdown', async () => {
+  await withPage(async (page) => {
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-outline').textContent), 'No headingsNo headings in this document.');
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-outline-copy')), null, 'nothing to copy');
+    await page.evaluate(() => window.__marxyHandle.open('/r/main.rs'));
+    await page.waitForFunction(() => document.querySelector('.marxy-outline')?.textContent.includes('listed for Markdown'));
+  }, { open: ['/r/None.md'] });
+});
+
+test('"where you are" in the status bar opens the Outline tab, and the section under the reading line is marked as the page scrolls', async () => {
+  await withPage(async (page) => {
+    const where = '[data-marxy-status-item="where"]';
+    await page.waitForSelector(`button${where}`);
+    await page.click(`button${where}`);
+    await page.waitForSelector('.marxy-outline');
+    assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-inspector-tab="outline"]').hasAttribute('data-marxy-inspector-tab-active')), true);
+    const marked = async () => (await rowsOf(page)).filter((r) => r.current === 'location').map((r) => r.text);
+    await page.waitForFunction(() => document.querySelector('[aria-current="location"]'));
+    assert.deepEqual(await marked(), ['Plan']);
+    await page.evaluate((at) => window.__marxyHandle.open('/r/Plan.md', { at }), PLAN.indexOf('## Results') + 30);
+    await page.waitForFunction(() => document.querySelector('[aria-current="location"] .marxy-outline-text')?.textContent === 'Results');
+    assert.deepEqual(await marked(), ['Results']);
+    // The bar names the same section.
+    assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-status-item="where"]').textContent), 'Results');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForFunction(() => document.querySelector('[aria-current="location"] .marxy-outline-text')?.textContent === 'Plan');
+  }, { open: ['/r/Plan.md'], tab: false });
+});
+
+test('a row jumps to its heading on click and on Enter', async () => {
+  await withPage(async (page) => {
+    const rows = await rowsOf(page);
+    const start = rows.find((r) => r.text === 'Results').start;
+    await page.click('[data-marxy-outline-row="heading"][data-marxy-outline-start="' + start + '"]');
+    await page.waitForFunction((s) => Math.abs(window.__marxyHandle.sourceHarness().byteOffset - s) < 200, start);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForFunction(() => window.__marxyHandle.sourceHarness().byteOffset < 30);
+    await focusRow(page, 'Last');
+    await page.keyboard.press('Enter');
+    const last = rows.find((r) => r.text === 'Last').start;
+    await page.waitForFunction((s) => Math.abs(window.__marxyHandle.sourceHarness().byteOffset - s) < 200, last);
+  }, { open: ['/r/Plan.md'] });
+});
+
+test('⌥↓ on a row moves its whole section; the row keeps focus; one Mod+Z puts back the original bytes', async () => {
+  await withPage(async (page) => {
+    const original = await bytesOf(page);
+    await focusRow(page, 'One');
+    await page.keyboard.press('Alt+ArrowDown');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-outline-row="heading"]')?.querySelector('.marxy-outline-text').textContent === 'Two');
+    assert.equal(await bytesOf(page), '# Two\n\nsecond\n# One\n\nfirst words\n\n## One A\n\nA a\n\n## One B\n\nB b\n\n', 'the sections traded places, each with its own bytes');
+    assert.deepEqual((await rowsOf(page)).map((r) => r.text), ['Two', 'One', 'One A', 'One B']);
+    assert.equal(await activeRow(page), 'One', 'focus followed the section');
+    await page.keyboard.press(`${await modOf(page)}+KeyZ`);
+    await page.waitForFunction((o) => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes) === o, original);
+    assert.deepEqual((await rowsOf(page)).map((r) => r.text), ['One', 'One A', 'One B', 'Two'], 'the list follows the undo');
+    // Nothing else is in the history: one undo was all it took.
+    assert.equal(await page.evaluate(() => window.__marxyHandle.document().snapshot().canUndo), false);
+  });
+});
+
+test('⌥↑ on the first section of its level changes nothing and says why; the menu\'s unavailable items say the same', async () => {
+  await withPage(async (page) => {
+    const original = await bytesOf(page);
+    await focusRow(page, 'One A');
+    await page.keyboard.press('Alt+ArrowUp');
+    await page.waitForFunction(() => document.querySelector('.marxy-notice')?.textContent.includes('first section at its level'));
+    assert.equal(await bytesOf(page), original);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.document().snapshot().canUndo), false);
+    // The menu, from the keyboard: four actions, the two that cannot apply are marked and carry their reason.
+    await page.keyboard.press('ContextMenu');
+    await page.waitForSelector('.marxy-outline-menu');
+    const items = await page.evaluate(() => [...document.querySelectorAll('.marxy-outline-menu-item')].map((b) => ({ action: b.getAttribute('data-marxy-outline-action'), disabled: b.getAttribute('aria-disabled') === 'true', title: b.title, name: b.querySelector('.marxy-outline-menu-name').textContent, key: b.querySelector('.marxy-outline-menu-key')?.textContent ?? null })));
+    assert.deepEqual(items.map((i) => [i.action, i.disabled]), [['move-up', true], ['move-down', false], ['promote', false], ['demote', false]]);
+    assert.match(items[0].title, /first section at its level/);
+    assert.deepEqual(items.map((i) => i.name), ['Move section up', 'Move section down', 'Promote heading', 'Demote heading']);
+    assert.equal(items[1].key !== null && items[0].key !== null && items[2].key === null, true, 'the two moves show their keys');
+    // Esc closes the menu and leaves the workspace unfolded (the order of Esc: the menu first).
+    await page.keyboard.press('Escape');
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-outline-menu')), null);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().mode), 'unfolded');
+    assert.equal(await activeRow(page), 'One A', 'focus is back on the row');
+  });
+});
+
+test('the menu\'s Demote and Promote change the level of the section, as one undo step each', async () => {
+  await withPage(async (page) => {
+    await focusRow(page, 'One A');
+    await page.keyboard.press('ContextMenu');
+    await page.waitForSelector('.marxy-outline-menu');
+    await page.click('[data-marxy-outline-action="demote"]');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-outline-start]') && [...document.querySelectorAll('[data-marxy-outline-level]')].some((r) => r.getAttribute('data-marxy-outline-level') === '3'));
+    assert.equal(await bytesOf(page), SMALL.replace('## One A', '### One A'));
+    await page.click('[data-marxy-outline-start]'); // the first row's click is a jump, not an action
+    await focusRow(page, 'One A');
+    await page.keyboard.press('Shift+F10');
+    await page.waitForSelector('.marxy-outline-menu');
+    await page.click('[data-marxy-outline-action="promote"]');
+    await page.waitForFunction((o) => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes) === o, SMALL);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.document().snapshot().canUndo), true);
+  });
+});
+
+test('the list follows the document: an external change relists it, and so does an edit', async () => {
+  await withPage(async (page) => {
+    await page.evaluate(async () => {
+      const path = window.__marxyHandle.currentPath();
+      await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode('# Changed outside\n\nfive words are here now\n\n## Second\n\ntwo\n'));
+      window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+    });
+    await page.waitForFunction(() => document.querySelector('.marxy-outline-text')?.textContent === 'Changed outside');
+    assert.deepEqual((await rowsOf(page)).map((r) => [r.text, r.words]), [['Changed outside', '9'], ['Second', '2']]);
+    // An edit through the store (what a Rendered edit or an operation does) relists it too.
+    await page.evaluate(async () => {
+      const store = window.__marxyHandle.document();
+      await store.apply({ range: { file: store.snapshot().path, start: 0, end: 0 }, replacement: '# New first\n\n', label: 'test edit', baseVersion: store.snapshot().version });
+    });
+    await page.waitForFunction(() => document.querySelector('.marxy-outline-text')?.textContent === 'New first');
+    assert.equal((await rowsOf(page)).length, 3);
+  });
+});
+
+test('in Source the caret\'s section is marked, and a move made from the tab reaches the editor', async () => {
+  await withPage(async (page) => {
+    await page.evaluate(() => window.__marxyHandle.toggleMode());
+    await page.waitForFunction(() => window.__marxyHandle.panes().focused.view.mode === 'source' && document.querySelector('#marxy-source .cm-content'));
+    // The caret into "Two": click at the end of the document.
+    await page.evaluate(async () => {
+      const { activeSourceEditor } = await import('/src/source/editor.ts');
+      const view = activeSourceEditor(window.__marxyHandle.panes().focused.parts.source).view;
+      view.dispatch({ selection: { anchor: view.state.doc.length } });
+      view.focus();
+    });
+    await page.waitForFunction(() => document.querySelector('[aria-current="location"] .marxy-outline-text')?.textContent === 'Two');
+    await focusRow(page, 'Two');
+    await page.keyboard.press('Alt+ArrowUp');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-outline-row="heading"] .marxy-outline-text')?.textContent === 'Two');
+    const editor = await page.evaluate(async () => {
+      const { activeSourceEditor } = await import('/src/source/editor.ts');
+      return activeSourceEditor(window.__marxyHandle.panes().focused.parts.source).view.state.doc.toString();
+    });
+    assert.equal(editor, await bytesOf(page), 'Source shows the bytes the move wrote');
+    assert.match(editor, /^# Two\n/);
+  });
+});
+
+test('Copy outline puts the headings on the pasteboard as a nested Markdown list', async () => {
+  await withPage(async (page) => {
+    await page.click('[data-marxy-outline-action="copy"]');
+    await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
+    const text = await page.evaluate(() => {
+      const write = window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').at(-1);
+      return new TextDecoder().decode(write.args[0].find((rep) => rep.type === 'public.utf8-plain-text').bytes);
+    });
+    assert.equal(text, '- One\n  - One A\n  - One B\n- Two\n');
+  });
+});
+
+test('a CRLF file with no final line ending is moved with CRLF and still ends without one', async () => {
+  await withPage(async (page) => {
+    await focusRow(page, 'B');
+    await page.keyboard.press('Alt+ArrowUp');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-outline-row="heading"] .marxy-outline-text')?.textContent === 'B');
+    assert.equal(await bytesOf(page), '# B\r\n\r\nb\r\n\r\n# A\r\n\r\na');
+  }, { open: ['/r/crlf.md'] });
+});
+
+test('the move commands are offered when a row has focus or a section is selected, and not otherwise; running one moves the section', async () => {
+  await withPage(async (page) => {
+    const ask = (focus) =>
+      page.evaluate(async (row) => {
+        const { commands } = await import('/src/commands/index.ts');
+        const store = window.__marxyHandle.document();
+        const ast = store.snapshot().ast;
+        const heading = ast.children.find((b) => b.type === 'heading' && b.src.start === row);
+        const ctx = (node) => ({ document: store, operationInput: () => (node ? { node, range: node.src, text: '' } : null), operationInputs: () => [], closePalette() {}, showNotice() {} });
+        const list = commands().filter((c) => c.id.startsWith('outline.move-section-'));
+        return Object.fromEntries(list.map((c) => [c.id, { none: c.when(ctx(null)), selected: heading ? c.when(ctx(heading)) : null }]));
+      }, focus);
+    const two = (await rowsOf(page)).find((r) => r.text === 'Two').start;
+    const one = (await rowsOf(page)).find((r) => r.text === 'One').start;
+    // Nothing selected and no row focused: not offered.
+    assert.deepEqual(await ask(two), { 'outline.move-section-up': { none: false, selected: true }, 'outline.move-section-down': { none: false, selected: false } });
+    assert.deepEqual(await ask(one), { 'outline.move-section-up': { none: false, selected: false }, 'outline.move-section-down': { none: false, selected: true } });
+    // A row with focus is the target without any selection.
+    await focusRow(page, 'One');
+    assert.equal(await page.evaluate(async () => {
+      const { commands } = await import('/src/commands/index.ts');
+      const store = window.__marxyHandle.document();
+      const ctx = { document: store, operationInput: () => null, operationInputs: () => [], closePalette() {}, showNotice() {} };
+      const down = commands().find((c) => c.id === 'outline.move-section-down');
+      const up = commands().find((c) => c.id === 'outline.move-section-up');
+      return [down.when(ctx), up.when(ctx)].join();
+    }), 'true,false');
+    await page.evaluate(async () => {
+      const { commands } = await import('/src/commands/index.ts');
+      const store = window.__marxyHandle.document();
+      const ctx = { document: store, operationInput: () => null, operationInputs: () => [], closePalette() {}, showNotice() {} };
+      await commands().find((c) => c.id === 'outline.move-section-down').run(ctx);
+    });
+    assert.match(await bytesOf(page), /^# Two\n/);
+  });
+});

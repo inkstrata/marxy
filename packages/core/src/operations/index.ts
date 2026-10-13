@@ -14,6 +14,7 @@ import { formatJson } from './format-json.ts';
 import { formatYaml } from './format-yaml.ts';
 import { demoteHeading, promoteHeading } from './heading-level.ts';
 import { bulletsFromGlyphs, listToBullets, listToNumbers, renumberList } from './list-markers.ts';
+import { moveSectionDown, moveSectionUp } from './move-section.ts';
 import { sortListItems } from './sort-list-items.ts';
 import { toggleTask } from './toggle-task.ts';
 import { unwrapMarkdownFence } from './unwrap-markdown-fence.ts';
@@ -48,6 +49,8 @@ export const MUTATING_OPERATIONS: readonly Operation[] = [
   formatYaml,
   listToBullets,
   listToNumbers,
+  moveSectionDown,
+  moveSectionUp,
   promoteHeading,
   renumberList,
   sortListItems,

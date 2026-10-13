@@ -1,4 +1,4 @@
-document [0,5818)
+document [0,6943)
   htmlBlock [0,72) value="<!-- Inventory and provenance for the fixture corpus the gates walk. -->"
   heading [74,90) level=1
     text [76,90) value="Fixture corpus"
@@ -194,3 +194,37 @@ document [0,5818)
     text [5768,5792) value="invented; the source is "
     code [5792,5805) value="example.org"
     text [5805,5817) value=" (RFC 2606)."
+  heading [5819,5854) level=2
+    text [5822,5854) value="sections.md and sections-crlf.md"
+  paragraph [5856,6520)
+    text [5856,5985) value="Original text written for W-10: the document the Outline tab's moves are tried on, twice, the second with every line end…"
+    softBreak [5985,5986)
+    text [5986,6016) value="It has front matter holding a "
+    code [6016,6019) value="#"
+    text [6019,6116) value=" line, an introduction before the first heading, two ATX sibling sections with a section of their"
+    softBreak [6116,6117)
+    text [6117,6190) value="own below one of them, a fence, a quote and a list item that each hold a "
+    code [6190,6193) value="#"
+    text [6193,6241) value=" line that is not a heading, a table, two setext"
+    softBreak [6241,6242)
+    text [6242,6252) value="headings ("
+    code [6252,6257) value="==="
+    text [6257,6262) value=" and "
+    code [6262,6267) value="---"
+    text [6267,6390) value="), a heading indented by three spaces, and a last section with no final line ending and no full stop (so the file ends o…"
+    softBreak [6390,6391)
+    text [6391,6520) value="text byte, in both, and a move of that section changes the file's last byte on purpose). The goldens move only if the pa…"
+  paragraph [6522,6942)
+    text [6522,6576) value="The two files have no number on purpose: the numbered "
+    code [6576,6581) value=".md"
+    text [6581,6671) value=" files are the reading corpus, and each owes the aesthetics gate a screenshot baseline for"
+    softBreak [6671,6672)
+    text [6672,6685) value="each engine ("
+    code [6685,6701) value="packages/theme"
+    text [6701,6709) value=" tests, "
+    code [6709,6730) value="gate-aesthetics.mjs"
+    text [6730,6732) value=", "
+    code [6732,6750) value="probe-layout.mjs"
+    text [6750,6832) value="). These are text for operations and the save path to be tried on, not pages to be"
+    softBreak [6832,6833)
+    text [6833,6942) value="judged, so the goldens, the fidelity gate and the operation tests read them and the aesthetics gate does not."

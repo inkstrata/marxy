@@ -99,7 +99,12 @@
     "data-marxy-tab-new",
     "data-marxy-fm-key",
     "data-marxy-fm-part",
-    "data-marxy-emphasis"
+    "data-marxy-emphasis",
+    "data-marxy-outline-row",
+    "data-marxy-outline-start",
+    "data-marxy-outline-level",
+    "data-marxy-outline-action",
+    "data-marxy-outline-open"
   ],
   "customProperties": [
     "--marxy-col",
@@ -225,7 +230,23 @@
     "marxy-status-bar",
     "marxy-status-item",
     "marxy-status-grow",
-    "marxy-tab-new"
+    "marxy-tab-new",
+    "marxy-outline",
+    "marxy-outline-head",
+    "marxy-outline-count",
+    "marxy-outline-copy",
+    "marxy-outline-list",
+    "marxy-outline-empty",
+    "marxy-outline-item",
+    "marxy-outline-row",
+    "marxy-outline-text",
+    "marxy-outline-words",
+    "marxy-outline-table",
+    "marxy-outline-more",
+    "marxy-outline-menu",
+    "marxy-outline-menu-item",
+    "marxy-outline-menu-name",
+    "marxy-outline-menu-key"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

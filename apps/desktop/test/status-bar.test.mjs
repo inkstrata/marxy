@@ -209,6 +209,13 @@ test('an item is a button only where something is behind it: where you are opens
   await withPage(1280, async (page) => {
     await page.evaluate(() => window.__marxyHandle.open('/r/Plan.md'));
     await page.waitForFunction(() => document.querySelector('[data-marxy-status-item="where"]'));
+    // W-10 registers the real Outline tab, so the section is a button; withdraw it to see the bar with no tab behind the item.
+    assert.equal((await barOf(page)).where.tag, 'button', 'the Outline tab is registered: the section is a button');
+    await page.evaluate(async () => {
+      const { inspectorTabs, registerInspectorTab } = await import('/src/workspace/inspector.ts');
+      registerInspectorTab(inspectorTabs().find((t) => t.id === 'outline'))();
+    });
+    await page.waitForFunction(() => document.querySelector('[data-marxy-status-item="where"]')?.tagName === 'SPAN');
     const bar = await barOf(page);
     assert.equal(bar.where.tag, 'span', 'no Outline tab is registered: the section is plain text');
     for (const id of ['kind', 'measure', 'encoding', 'size']) assert.equal(bar[id].tag, 'span', `${id} has no tab behind it`);

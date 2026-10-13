@@ -37,6 +37,7 @@ import { createStoreRegistry } from '../../src/document/registry.ts';
 import { guardSaveAsDialog } from '../../src/document/save-as-guard.ts';
 import { oneWatchPerStore, watchDocument } from '../../src/document/live-reload.ts';
 import { save } from '../../src/save.ts';
+import { applyOutlineAction } from '../../src/workspace/outline-tab.ts';
 import { CONCEALED_REFUSAL, readConverted, readForPaste } from '../../src/paste/read-clipboard.ts';
 import { pastedText } from '../../src/source/paste.ts';
 import { TabList } from '../../src/workspace/tabs.ts';
@@ -98,6 +99,39 @@ const MARKDOWN = [
   '',
 ];
 
+const SECTIONS = [
+  'Preface words.',
+  '',
+  '# Alpha',
+  '',
+  'alpha text',
+  '',
+  '## Alpha one',
+  '',
+  'one',
+  '',
+  '```sh',
+  '# not a heading',
+  '```',
+  '',
+  '## Alpha two',
+  '',
+  'two',
+  '',
+  'Beta',
+  '====',
+  '',
+  'beta text',
+  '',
+  '# Gamma',
+  '',
+  'gamma text',
+  '',
+  '## Gamma one',
+  '',
+  'last words, no ending after them',
+].join('\n').split('\n');
+
 /** The starting files: path to bytes. */
 export function fixtures() {
   return {
@@ -119,6 +153,10 @@ export function fixtures() {
     [`${ROOT}/e.py`]: enc.encode('# not a heading\n\ndef f():\n\t# tab *star* _under_\n    return "é"\n'),
     // Short, and no ending after the last line.
     [`${ROOT}/d.md`]: enc.encode('# Tiny\n\nno trailing newline'),
+    // W-10: sections to move. Sibling sections at two levels, an ATX heading and a setext one, a `#` line in a fence, and no
+    // ending after the last line; then the same with CRLF behind a byte-order mark.
+    [`${ROOT}/f.md`]: enc.encode(SECTIONS.join('\n')),
+    [`${ROOT}/g.md`]: cat(new Uint8Array([0xef, 0xbb, 0xbf]), enc.encode(SECTIONS.join('\r\n'))),
   };
 }
 
@@ -1322,6 +1360,152 @@ export const OPS = {
         if (!same(copy(doc.store.snapshot().buffer.bytes), after)) world.fail('I6', `${at}: redo did not give the replaced bytes back`);
       }
       return `replaceAll ${at}: ${plan.changes.length} changes, ${before.length} bytes became ${after.length}`;
+    },
+  },
+
+  /**
+   * W-10: a Move up, Move down, Promote or Demote from the Outline tab, on a heading of a folded Markdown document. The
+   * oracle is the promise, written from the bytes and the parse of them and not from the operation: a move changes the two
+   * sections it trades and nothing else (the bytes before them and after them are as they were), adds and loses no byte,
+   * keeps the byte-order mark and the kinds of line ending, leaves the file ending as it did (with a line ending or without
+   * one), and equals the reference arithmetic (the second section, then the first; when the second has no line ending the
+   * first one's line endings come between and the file still ends on a text byte). One undo gives the exact bytes back. A
+   * level change touches only `#` runs inside its section. A refusal changes nothing, adds no history step, and is one of the
+   * known reasons: no sibling, bytes that are not UTF-8 in the range, or a result whose blocks the reparse shows would not be
+   * the document's blocks in their new order.
+   */
+  moveSection: {
+    name: 'moveSection',
+    weight: 6,
+    applicable: (model) => slotsWith(model, (v) => /\.md$/.test(v.doc.path) && viewsOf(model, v.doc).every((other) => !other.heldApart)).length > 0,
+    async run(world, model) {
+      const d = model.d;
+      const slot = d.pick(slotsWith(model, (v) => /\.md$/.test(v.doc.path) && viewsOf(model, v.doc).every((other) => !other.heldApart)));
+      const { doc } = model.views[slot];
+      await world.foldAll(doc);
+      const before = doc.buf.slice();
+      const tops = parseMarkdown(before).children.filter((b) => b.type === 'heading');
+      if (tops.length === 0) return `moveSection in pane ${slot} (${doc.path}): no heading`;
+      const action = d.weighted([['move-up', 4], ['move-down', 4], ['promote', 1], ['demote', 1]]);
+      const level = (n) => tops[n].level;
+      // Mostly a heading that has a sibling to trade with (the reference below says which); now and then any.
+      const sibling = (n) => {
+        if (action === 'move-up') {
+          let j = n - 1;
+          while (j >= 0 && level(j) > level(n)) j--;
+          return j >= 0 && level(j) === level(n);
+        }
+        if (action === 'move-down') {
+          const k = [...tops.keys()].find((m) => m > n && level(m) <= level(n));
+          return k !== undefined && level(k) === level(n);
+        }
+        return true;
+      };
+      const withSibling = [...tops.keys()].filter(sibling);
+      const i = withSibling.length > 0 && d.chance(0.85) ? d.pick(withSibling) : d.int(tops.length);
+      const at = `${action} of section ${i} of ${tops.length} in ${doc.path} (pane ${slot})`;
+      const lineStart = (byte) => {
+        let p = byte;
+        while (p > 0 && before[p - 1] !== 0x0a && before[p - 1] !== 0x0d) p--;
+        return p;
+      };
+      const startOf = (n) => lineStart(tops[n].src.start);
+      const endOf = (n) => {
+        let k = n + 1;
+        while (k < tops.length && level(k) > level(n)) k++;
+        return k < tops.length ? startOf(k) : before.length;
+      };
+      // The reference: which two sections trade places, from the levels the parse gave.
+      let pair = null;
+      if (action === 'move-up') {
+        let j = i - 1;
+        while (j >= 0 && level(j) > level(i)) j--;
+        if (j >= 0 && level(j) === level(i)) pair = { a0: startOf(j), a1: startOf(i), b1: endOf(i) };
+      } else if (action === 'move-down') {
+        const k = [...tops.keys()].find((n) => n > i && level(n) <= level(i));
+        if (k !== undefined && level(k) === level(i)) pair = { a0: startOf(i), a1: startOf(k), b1: endOf(k) };
+      }
+      const range = pair ? { start: pair.a0, end: pair.b1 } : { start: tops[i].src.start, end: endOf(i) };
+      const isText = (() => {
+        try {
+          new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(before.subarray(range.start, range.end));
+          return true;
+        } catch {
+          return false;
+        }
+      })();
+      const version = doc.store.snapshot().version;
+      // A store that opens lazily and has not been parsed is never parsed for the tab (V-11.1): the action says so and does nothing.
+      const unparsed = !doc.store.parsed();
+      const result = await applyOutlineAction(doc.store, tops[i].src.start, action);
+      const store = copy(doc.store.snapshot().buffer.bytes);
+      if (!result.applied) {
+        if (!same(store, before)) world.fail('I6', `${at} was refused (${result.why}) and the bytes changed`);
+        if (doc.store.snapshot().version !== version) world.fail('I7', `${at} was refused and the store moved on a version`);
+        const known = unparsed
+          ? /listed for Markdown/.test(result.why)
+          : (action === 'move-up' || action === 'move-down') && pair === null
+          ? /first section at its level|last section at its level/.test(result.why)
+          : !isText
+            ? /not text/.test(result.why)
+            : /run into each other|setext|already level|already a level|Not changed/.test(result.why);
+        if (!known) world.fail('I6', `${at} was refused for a reason the oracle does not know: ${result.why}`);
+        if (/run into each other/.test(result.why) && pair !== null) {
+          // The reference splice must really change the blocks: the reparse of it is not the two sections' blocks in their new order.
+          const first = before.subarray(pair.a0, pair.a1);
+          const second = before.subarray(pair.a1, pair.b1);
+          const trailing = (bytes) => { let n = bytes.length; while (n > 0 && (bytes[n - 1] === 0x0a || bytes[n - 1] === 0x0d)) n--; return bytes.length - n; };
+          const tail = trailing(first);
+          const swapped = trailing(second) === 0 && tail > 0 ? cat(second, first.subarray(first.length - tail), first.subarray(0, first.length - tail)) : cat(second, first);
+          const candidate = cat(before.subarray(0, pair.a0), swapped, before.subarray(pair.b1));
+          const shape = (bytes) => parseMarkdown(bytes).children.map((b) => (b.type === 'heading' ? `h${b.level}` : b.type)).sort().join();
+          if (shape(candidate) === shape(before)) world.fail('I6', `${at} was refused as running sections together, but the reference result keeps the blocks`);
+        }
+        return `${at}: refused, "${result.why.slice(0, 50)}", nothing changed`;
+      }
+      if (!isText) world.fail('I6', `${at} was applied to a range that holds bytes that are not UTF-8`);
+      // The oracle for an applied action.
+      if (action === 'move-up' || action === 'move-down') {
+        if (pair === null) world.fail('I6', `${at} moved where the reference has no sibling`);
+        const first = before.subarray(pair.a0, pair.a1);
+        const second = before.subarray(pair.a1, pair.b1);
+        const trailing = (bytes) => { let n = bytes.length; while (n > 0 && (bytes[n - 1] === 0x0a || bytes[n - 1] === 0x0d)) n--; return bytes.length - n; };
+        const tail = trailing(first);
+        // `\r\n` is one break: a tail that begins inside a CRLF pair would cut it; a section starts on a line, so it never does.
+        const want = trailing(second) === 0 && tail > 0
+          ? cat(before.subarray(0, pair.a0), second, first.subarray(first.length - tail), first.subarray(0, first.length - tail), before.subarray(pair.b1))
+          : cat(before.subarray(0, pair.a0), second, first, before.subarray(pair.b1));
+        if (!same(store, want)) {
+          let k = 0;
+          while (k < want.length && k < store.length && want[k] === store[k]) k++;
+          world.fail('I6', `${at}: the bytes are not the reference splice (first difference at byte ${k}; ${before.length} bytes became ${store.length}, the reference ${want.length})`);
+        }
+        if (store.length !== before.length) world.fail('I6', `${at} added or lost bytes (${before.length} became ${store.length})`);
+        if (!same([...store].sort((x, y) => x - y), [...before].sort((x, y) => x - y))) world.fail('I6', `${at} changed the bytes it moved`);
+      } else {
+        if (!same(store.subarray(0, range.start), before.subarray(0, range.start))) world.fail('I6', `${at} changed bytes before its section`);
+        const tailN = before.length - range.end;
+        if (!same(store.subarray(store.length - tailN), before.subarray(range.end))) world.fail('I6', `${at} changed bytes after its section`);
+        const body = (bytes) => latin1(bytes).replace(/#/g, '');
+        if (body(store.subarray(range.start, store.length - tailN)) !== body(before.subarray(range.start, range.end))) world.fail('I6', `${at} changed more than the # runs of its section`);
+      }
+      if (bomLength(before) !== bomLength(store)) world.fail('I6', `${at} changed the byte-order mark`);
+      const had = endingKinds(before);
+      for (const kind of endingKinds(store)) if (!had.has(kind)) world.fail('I6', `${at} wrote a line ending (${JSON.stringify(kind)}) the file did not have`);
+      const endsWithBreak = (bytes) => bytes.length > 0 && (bytes[bytes.length - 1] === 0x0a || bytes[bytes.length - 1] === 0x0d);
+      if (endsWithBreak(before) !== endsWithBreak(store)) world.fail('I6', `${at} changed whether the file ends with a line ending`);
+      doc.past.push(before);
+      doc.future = [];
+      doc.buf = store;
+      world.afterBytesChange(doc, null);
+      // One undo gives the exact old bytes back, and one redo the new ones (half the time).
+      if (d.chance(0.5)) {
+        if (!(await doc.store.undo())) world.fail('I7', `${at}: undo returned false right after the move`);
+        if (!same(copy(doc.store.snapshot().buffer.bytes), before)) world.fail('I6', `${at}: one undo did not restore the exact bytes`);
+        if (!(await doc.store.redo())) world.fail('I7', `${at}: redo returned false right after the undo`);
+        if (!same(copy(doc.store.snapshot().buffer.bytes), store)) world.fail('I6', `${at}: redo did not give the moved bytes back`);
+      }
+      return `${at}: ${before.length} bytes became ${store.length}`;
     },
   },
 

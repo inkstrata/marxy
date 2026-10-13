@@ -70,3 +70,12 @@ of outer quotes the byline drops), a date and a web source with a path and a que
 list of tags, so the byline’s rows move ahead of rows the bytes put first. Its opening paragraph is wholly in emphasis
 directly after the title; the description is the dek, so that paragraph stays a paragraph (the key wins). Every name is
 invented; the source is <code data-marxy-s="5792" data-marxy-e="5805">example.org</code> (RFC 2606).</p>
+<h2 id="sectionsmd-and-sections-crlfmd" data-marxy-s="5819" data-marxy-e="5854">sections.md and sections-crlf.md</h2>
+<p data-marxy-s="5856" data-marxy-e="6520">Original text written for W-10: the document the Outline tab’s moves are tried on, twice, the second with every line ending CRLF.
+It has front matter holding a <code data-marxy-s="6016" data-marxy-e="6019">#</code> line, an introduction before the first heading, two ATX sibling sections with a section of their
+own below one of them, a fence, a quote and a list item that each hold a <code data-marxy-s="6190" data-marxy-e="6193">#</code> line that is not a heading, a table, two setext
+headings (<code data-marxy-s="6252" data-marxy-e="6257">===</code> and <code data-marxy-s="6262" data-marxy-e="6267">---</code>), a heading indented by three spaces, and a last section with no final line ending and no full stop (so the file ends on a
+text byte, in both, and a move of that section changes the file’s last byte on purpose). The goldens move only if the parse does.</p>
+<p data-marxy-s="6522" data-marxy-e="6942">The two files have no number on purpose: the numbered <code data-marxy-s="6576" data-marxy-e="6581">.md</code> files are the reading corpus, and each owes the aesthetics gate a screenshot baseline for
+each engine (<code data-marxy-s="6685" data-marxy-e="6701">packages/theme</code> tests, <code data-marxy-s="6709" data-marxy-e="6730">gate-aesthetics.mjs</code>, <code data-marxy-s="6732" data-marxy-e="6750">probe-layout.mjs</code>). These are text for operations and the save path to be tried on, not pages to be
+judged, so the goldens, the fidelity gate and the operation tests read them and the aesthetics gate does not.</p>

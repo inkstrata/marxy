@@ -94,3 +94,15 @@ of outer quotes the byline drops), a date and a web source with a path and a que
 list of tags, so the byline's rows move ahead of rows the bytes put first. Its opening paragraph is wholly in emphasis
 directly after the title; the description is the dek, so that paragraph stays a paragraph (the key wins). Every name is
 invented; the source is `example.org` (RFC 2606).
+
+## sections.md and sections-crlf.md
+
+Original text written for W-10: the document the Outline tab's moves are tried on, twice, the second with every line ending CRLF.
+It has front matter holding a `#` line, an introduction before the first heading, two ATX sibling sections with a section of their
+own below one of them, a fence, a quote and a list item that each hold a `#` line that is not a heading, a table, two setext
+headings (`===` and `---`), a heading indented by three spaces, and a last section with no final line ending and no full stop (so the file ends on a
+text byte, in both, and a move of that section changes the file's last byte on purpose). The goldens move only if the parse does.
+
+The two files have no number on purpose: the numbered `.md` files are the reading corpus, and each owes the aesthetics gate a screenshot baseline for
+each engine (`packages/theme` tests, `gate-aesthetics.mjs`, `probe-layout.mjs`). These are text for operations and the save path to be tried on, not pages to be
+judged, so the goldens, the fidelity gate and the operation tests read them and the aesthetics gate does not.

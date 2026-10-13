@@ -10,14 +10,14 @@ export type PaletteGroup = (typeof PALETTE_GROUPS)[number];
 /** The operations that rewrite text: the rest of `op.*` is Copy or Extract by name. */
 const TRANSFORM_OPS = new Set([
   'align-table-pipes', 'bullets-from-glyphs', 'dedupe-lines', 'demote-heading', 'format-json', 'format-yaml',
-  'list-to-bullets', 'list-to-numbers', 'promote-heading', 'renumber-list', 'sort-list-items', 'toggle-task',
+  'list-to-bullets', 'list-to-numbers', 'move-section-down', 'move-section-up', 'promote-heading', 'renumber-list', 'sort-list-items', 'toggle-task',
   'unwrap-markdown-fence',
 ]);
 
 /** The group a command is listed under. Pure, by id, so a new command lands in View until it is named here. */
 export function paletteGroupOf(cmd: Pick<Command, 'id'>): PaletteGroup {
   const id = cmd.id;
-  if (id.startsWith('transform.')) return 'Transform';
+  if (id.startsWith('transform.') || id.startsWith('outline.move-section-')) return 'Transform';
   if (id.startsWith('op.extract-')) return 'Extract';
   if (id.startsWith('op.copy-') || id.startsWith('selection.copy-') || id.startsWith('copy-as.') || id.startsWith('paste.') || id === 'source.paste-plain' || id === 'source.table-copy-csv') return 'Copy';
   if (id.startsWith('op.')) return TRANSFORM_OPS.has(id.slice(3)) ? 'Transform' : 'View';
