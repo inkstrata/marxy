@@ -181,7 +181,10 @@ export async function baseExtensions(
   const { history, defaultKeymap, historyKeymap, selectParentSyntax } = await import('@codemirror/commands');
   const { EditorState } = await import('@codemirror/state');
   const { EditorView, drawSelection, highlightActiveLine, keymap } = await import('@codemirror/view');
-  const { searchKeymap } = await import('@codemirror/search');
+  const { search, searchKeymap } = await import('@codemirror/search');
+  // The find panel is CodeMirror's, with Replace and Replace all Marxy's: Replace all opens a preview and changes nothing
+  // until Apply (V-03).
+  const { createReplacePanel } = await import('./replace-sheet.ts');
   const { withoutRegistryChords } = await import('./structure.ts');
   const { pasteExtension } = await import('./paste.ts');
   const { strayBytes, readBack } = await import('./stray-bytes.ts');
@@ -204,6 +207,7 @@ export async function baseExtensions(
     EditorState.allowMultipleSelections.of(true),
     // Paste with HTML on the pasteboard becomes Markdown (J-05); any other paste is the editor's own.
     pasteExtension(),
+    search({ createPanel: createReplacePanel }),
     drawSelection(),
     highlightActiveLine(),
     // Special characters marked as before, and a byte that is not UTF-8 shown as its value; no lone surrogate

@@ -269,6 +269,24 @@ The `edit` kind's promise (line endings and BOM kept) is the registry's; Apply a
 result that has none to follow. This is the one place an operation's input can be a drag's blocks: a transform on a
 drag is on those blocks' bytes, as Copy as Markdown is.
 
+**Replace (V-03), an edit as a transformation.** Source only: `Mod+Alt+F` (`view.replace`, "Replace" in the palette) opens
+the find panel with its replace field. Rendered has no replace (it has no caret, and a replacement would reshape what is
+being read). The panel is CodeMirror's, rebuilt so two of its buttons are Marxy's (`source/replace-sheet.ts`): *Replace*
+changes the current match and selects the next, one undo step each; *Replace all…* changes nothing at once and opens a
+preview, a modal on the result sheet's classes: every change as a before-and-after line with its line number, the count
+("37 replacements on 21 lines"), *Apply* (`Mod+Return`) and *Cancel* (Esc). Past 2,000 changes the preview shows the
+first 200 and says how many more; Apply still makes them all. The change set is pure (`source/replace.ts`
+`planReplace`) and is the only thing Apply uses: the regular expression runs over the editor's text with `gmu` (and `i`
+unless Match case), `$1`, `$<name>`, `$&`, `` $` ``, `$'` and `$$` expand as `String.prototype.replace` expands them,
+matches never overlap and an empty match (`^`, `\b`) is stepped past, so a replacement that holds the query is made once.
+A match never splits the CR and LF of a CRLF a mixed-ending file holds inside a line; a match whose replacement is the
+text already there is no change and is not counted. Apply is one CodeMirror transaction (`isolateHistory`), one undo
+step, written in the file's own line ending (a `\n` typed in the replacement is the file's ending); above 5,000 changes
+it is one change over the stretch from the first to the last, the same bytes faster. Apply refuses, changes nothing and
+says so (in the preview and as a refusal notice) when the editor's text is not the one the preview was made from (an
+edit, or the file reloaded from disk) or a change on disk arrived while unsaved edits kept it out (`conflict()`); it does
+not re-preview, and the reader runs Replace all again. Apply never writes to disk.
+
 ## Palette integration (§09)
 
 `OPERATIONS.filter(op => op.canApply(input))` for the current selection; each entry shows
