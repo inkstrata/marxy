@@ -11,7 +11,7 @@ import {
   logRanks,
 } from './line-classes.ts';
 import { marxyScopeForTokenColor, type MarxyTokenScope } from './scopes.ts';
-import { diffFileLineClasses, diffFileRead, type DiffState } from './diff-lines.ts';
+import { diffFileLineClasses, type DiffState } from './diff-lines.ts';
 import { LANGUAGE_TO_GRAMMAR } from './languages.generated.ts';
 
 export type { MarxyTokenScope } from './scopes.ts';
