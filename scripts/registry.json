@@ -246,7 +246,8 @@
     "marxy-outline-menu",
     "marxy-outline-menu-item",
     "marxy-outline-menu-name",
-    "marxy-outline-menu-key"
+    "marxy-outline-menu-key",
+    "marxy-outline-title"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

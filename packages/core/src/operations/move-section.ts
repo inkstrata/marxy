@@ -133,21 +133,30 @@ export function swapRange(text: string, rangeStart: number, split: number): { re
   return { text: swapped.text, firstAtByte: new TextEncoder().encode(swapped.text.slice(0, swapped.firstAt)).length };
 }
 
+const latin1 = new TextDecoder('latin1');
+
 /**
- * The shape of the document's top-level blocks: each block's type (and a heading's level) in order. A move that leaves the
- * shape as `shapeAfterSwap` says has not merged a paragraph into a heading or split a section; the host checks it before it writes.
+ * What each top-level block is, to the byte: its type, a heading's level, and its exact bytes less the line endings that end it.
+ * A move that leaves the blocks as `keysAfterSwap` says has not changed what any part of the document is: no paragraph merged
+ * into a heading, no fence opened or closed (which turns code into headings and headings into code), no reference definition
+ * pulled into a heading. The host checks it before it writes.
  */
-export function blockShape(doc: Document): string[] {
-  return doc.children.map((b) => (b.type === 'heading' ? `h${b.level}` : b.type));
+export function blockKeys(doc: Document, bytes: Uint8Array): string[] {
+  return doc.children.map((b) => {
+    let end = b.src.end;
+    while (end > b.src.start && (bytes[end - 1] === 0x0a || bytes[end - 1] === 0x0d)) end--;
+    return `${b.type}${b.type === 'heading' ? b.level : ''}\0${latin1.decode(bytes.subarray(b.src.start, end))}`;
+  });
 }
 
-/** The shape the document must have once `swap` is made: the second section's blocks, then the first's, the rest as they were. */
-export function shapeAfterSwap(doc: Document, swap: SectionSwap): string[] {
+/** The keys the document must have once `swap` is made: the second section's blocks, then the first's, the rest as they were. */
+export function keysAfterSwap(doc: Document, bytes: Uint8Array, swap: SectionSwap): string[] {
+  const keys = blockKeys(doc, bytes);
   const part: string[][] = [[], [], [], []];
-  for (const b of doc.children) {
+  doc.children.forEach((b, i) => {
     const at = b.src.start < swap.range.start ? 0 : b.src.start < swap.split ? 1 : b.src.start < swap.range.end ? 2 : 3;
-    part[at]!.push(b.type === 'heading' ? `h${b.level}` : b.type);
-  }
+    part[at]!.push(keys[i]!);
+  });
   return [...part[0]!, ...part[2]!, ...part[1]!, ...part[3]!];
 }
 

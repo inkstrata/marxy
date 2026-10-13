@@ -4,7 +4,8 @@
 // of the document or the range holds bytes that are not text. What the reader sees is outline-tab.test.mjs, in WebKit.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createBuffer, parseMarkdown } from '@marxy/core';
+import { createBuffer, parseMarkdown, sectionRange } from '@marxy/core';
+import { blockKeys } from '@marxy/core/src/operations/move-section.ts';
 import { corpusDocuments } from '@marxy/core/src/operations/testing/corpus.ts';
 import { generate, reference, sectionIndexAfterDown, sectionIndexAfterUp } from '@marxy/core/src/operations/testing/sections.ts';
 import { openDocumentStore } from '../document/store.ts';
@@ -16,6 +17,7 @@ import {
   type HeadingRow,
   type OutlineAction,
   outlineMarkdown,
+  outlineModelFor,
   outlineModelOf,
   tableLabel,
 } from './outline-tab.ts';
@@ -51,7 +53,7 @@ test('outlineModelOf: a heading in a fence or in front matter is not a row; one 
 test('outlineModelOf: a table is listed under the section that holds it, as "Table: its first header cells"', () => {
   const md = '| Intro | Cell |\n|---|---|\n| 1 | 2 |\n\n# A\n\n| Place | Count | `code` | [link](x) | five |\n|---|---|---|---|---|\n| n | 1 | | | |\n\n## B\n\n|  | x |\n|--|--|\n| 1 | 2 |\n';
   const rows = modelOf(md).rows;
-  assert.deepEqual(rows.map((r) => (r.kind === 'heading' ? `#${r.text}` : r.label)), [
+  assert.deepEqual(rows.map((r) => (r.kind === 'heading' ? `#${r.text}` : r.kind === 'table' ? r.label : `title ${r.text}`)), [
     'Table: Intro, Cell',
     '#A',
     'Table: Place, Count, code, link, …',
@@ -61,6 +63,34 @@ test('outlineModelOf: a table is listed under the section that holds it, as "Tab
   assert.deepEqual(rows.map((r) => r.depth), [0, 0, 1, 1, 2], 'a table sits one step in from its section');
   const table = parseMarkdown('| a |\n|---|\n', { file: 't.md' }).children[0]!;
   assert.equal(tableLabel(table as never), 'Table: a');
+});
+
+test('outlineModelOf: a title that only front matter holds is the top row, so "where you are" has a row to mark; with an h1 there is none', () => {
+  const md = '---\ntitle: Front title\n---\n\nIntro words.\n\n## Section\n\ntext\n';
+  const rows = modelOf(md).rows;
+  assert.deepEqual(rows.map((r) => [r.kind, r.kind === 'table' ? r.label : r.text]), [['title', 'Front title'], ['heading', 'Section']]);
+  assert.equal(modelOf(md).headings, 1, 'a title is not a heading');
+  // The preamble is the title\'s, as the status bar says: the title row is marked above the first heading.
+  assert.equal(currentRow(rows, md.indexOf('Intro')), 0);
+  assert.equal(currentRow(rows, md.indexOf('text\n')), 1);
+  assert.deepEqual(modelOf('---\ntitle: Front title\n---\n\n# Real h1\n').rows.map((r) => r.kind), ['heading']);
+  assert.equal(outlineMarkdown(rows), '- Front title\n  - Section\n');
+});
+
+test('outlineModelOf: the sections of a large outline end where the card says, and the model is made once per buffer', () => {
+  const md = Array.from({ length: 4000 }, (_, i) => `${'#'.repeat(1 + (i % 3))} H${i}\n\nword ${i}\n`).join('\n');
+  const bytes = enc.encode(md);
+  const ast = parseMarkdown(bytes, { file: 'o.md' });
+  const buffer = createBuffer('o.md', bytes);
+  const t0 = performance.now();
+  const model = outlineModelOf(ast, buffer);
+  const took = performance.now() - t0;
+  assert.ok(took < 400, `${took.toFixed(0)} ms for 4,000 headings`);
+  // Each section's end is `sectionRange`'s.
+  const heads = ast.children.filter((b) => b.type === 'heading');
+  const rows = model.rows.filter((r): r is HeadingRow => r.kind === 'heading');
+  heads.forEach((h, i) => assert.equal(rows[i]!.end, sectionRange(ast, h as never).end, `heading ${i}`));
+  assert.equal(outlineModelFor(ast, buffer), outlineModelFor(ast, buffer));
 });
 
 test('outlineModelOf: a document with no heading has no heading rows', () => {
@@ -175,9 +205,40 @@ test('a move that would run a paragraph into a setext heading is refused, with t
   const store = storeOf(md);
   const result = await applyOutlineAction(store, startOf(md, 'C'), 'move-up');
   assert.equal(result.applied, false);
-  assert.match(result.applied ? '' : result.why, /run into each other/);
+  assert.match(result.applied ? '' : result.why, /code or a heading/);
   assert.equal(textOfStore(store), md);
   assert.equal(store.snapshot().canUndo, false);
+});
+
+test('a move that flips a fence\'s parity is refused: code would become a heading and a heading code (commitment 4)', async () => {
+  for (const md of ['# A\n~~~\n# H\n~~~\n# B\n~~~\ny\n', '# A\n```\n# H\n```\n# B\n```\ny\n']) {
+    const store = storeOf(md);
+    const result = await applyOutlineAction(store, startOf(md, 'B'), 'move-up');
+    assert.equal(result.applied, false, md);
+    assert.equal(result.applied ? '' : result.why, 'Not moved · the file is unchanged · moving it would change what is code or a heading here');
+    assert.equal(textOfStore(store), md);
+    assert.equal(store.snapshot().canUndo, false);
+  }
+});
+
+test('a move that would draw a link reference definition into a setext heading is refused', async () => {
+  const md = 'x\n\n[ref]: http://x.example\n# P\n\nTitle\n===\n';
+  const store = storeOf(md);
+  const result = await applyOutlineAction(store, startOf(md, 'Title'), 'move-up');
+  assert.equal(result.applied, false);
+  assert.match(result.applied ? '' : result.why, /code or a heading/);
+  assert.equal(textOfStore(store), md);
+});
+
+test('a heading in a quote or a list item is not moved, and the reason says so', async () => {
+  const md = '# A\n\n> ## Q\n> text\n\n- ### L\n\n# B\n';
+  const store = storeOf(md);
+  for (const [title, action] of [['Q', 'move-up'], ['Q', 'move-down'], ['L', 'move-up'], ['L', 'move-down']] as const) {
+    const result = await applyOutlineAction(store, startOf(md, title), action);
+    assert.equal(result.applied, false);
+    assert.match(result.applied ? '' : result.why, /inside a quote or a list item/, `${title} ${action}`);
+  }
+  assert.equal(textOfStore(store), md);
 });
 
 test('a range that holds a byte that is not UTF-8 is not moved: the splice would write U+FFFD over it', async () => {
@@ -241,9 +302,9 @@ test('differential: over random Markdown the app\'s move is the reference splice
         }
         if (!result.applied) {
           // Only the shape check may refuse a move the reference makes: the reference's bytes must really have changed the blocks.
-          assert.match(result.why, /run into each other/, where);
-          const shape = (s: string) => parseMarkdown(enc.encode(s), { file: 'o.md' }).children.map((b) => (b.type === 'heading' ? `h${b.level}` : b.type)).sort().join();
-          assert.notEqual(shape(want), shape(text), `refused a move that keeps the blocks: ${where}`);
+          assert.match(result.why, /code or a heading/, where);
+          const keys = (t: string) => { const b = enc.encode(t); return blockKeys(parseMarkdown(b, { file: 'o.md' }), b).sort().join('\n'); };
+          assert.notEqual(keys(want), keys(text), `refused a move that keeps the blocks: ${where}`);
           assert.equal(textOfStore(store), text, where);
           refused++;
           continue;

@@ -36,6 +36,8 @@ const files = {
   '/r/None.md': 'Just a paragraph, no heading at all.\n',
   '/r/crlf.md': '# A\r\n\r\na\r\n\r\n# B\r\n\r\nb',
   '/r/main.rs': 'fn main() {}\n',
+  '/r/Front.md': '---\ntitle: Front title\n---\n\nIntro words in the preamble.\n\n## Section\n\ntext here\n',
+  '/r/Many.md': Array.from({ length: 2000 }, (_, i) => `${i % 4 === 0 ? '#' : '##'} Heading ${i}\n\nword ${i}\n`).join('\n'),
 };
 
 async function withPage(fn, { open = ['/r/Small.md'], tab = true, width = 1700 } = {}) {
@@ -309,4 +311,42 @@ test('the move commands are offered when a row has focus or a section is selecte
     });
     assert.match(await bytesOf(page), /^# Two\n/);
   });
+});
+
+test('a title that only front matter holds is the top row, and it is the row marked above the first heading, as the status bar says', async () => {
+  await withPage(async (page) => {
+    const rows = await rowsOf(page);
+    assert.deepEqual(rows.map((r) => [r.kind, r.text]), [['title', 'Front title'], ['heading', 'Section']]);
+    await page.waitForFunction(() => document.querySelector('[aria-current="location"]'));
+    assert.equal((await rowsOf(page))[0].current, 'location');
+    assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-status-item="where"]').textContent), 'Front title');
+    // Its row is a jump like the others and has no menu.
+    assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-outline-row="title"]').closest('li').querySelector('.marxy-outline-more')), null);
+  }, { open: ['/r/Front.md'] });
+});
+
+test('a long outline draws only the rows near the view, and scrolling, End and the arrows reach every row', async () => {
+  await withPage(async (page) => {
+    const drawn = () => page.evaluate(() => document.querySelectorAll('[data-marxy-outline-row]').length);
+    assert.ok((await drawn()) < 200, `${await drawn()} rows drawn of 2,000`);
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-outline-count').textContent), '2,000 headings');
+    // The list is as tall as the whole outline: the scroll bar is the outline's.
+    const heights = await page.evaluate(() => { const l = document.querySelector('.marxy-outline-list'); return { list: l.getBoundingClientRect().height, row: l.querySelector('li').getBoundingClientRect().height }; });
+    assert.ok(Math.abs(heights.list - 2000 * heights.row) < 2000 * 0.5, JSON.stringify(heights));
+    // Scrolling draws the rows then in view.
+    await page.evaluate(() => { const s = document.querySelector('.marxy-outline').closest('[data-marxy-workspace-region]'); let n = document.querySelector('.marxy-outline'); while (n && !['auto', 'scroll'].includes(getComputedStyle(n).overflowY)) n = n.parentElement; n.scrollTop = n.scrollHeight; });
+    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-outline-text')].some((t) => t.textContent === 'Heading 1999'));
+    assert.ok((await drawn()) < 200);
+    // End goes to the last row from anywhere; Home to the first stop; the arrows walk across what is drawn.
+    await page.evaluate(() => document.querySelector('[data-marxy-outline-row]').focus());
+    await page.keyboard.press('Home');
+    assert.equal(await page.evaluate(() => document.activeElement.className), 'marxy-outline-copy');
+    await page.keyboard.press('End');
+    assert.equal(await page.evaluate(() => document.activeElement.querySelector('.marxy-outline-text')?.textContent), 'Heading 1999');
+    for (let i = 0; i < 60; i++) await page.keyboard.press('ArrowUp');
+    assert.equal(await page.evaluate(() => document.activeElement.querySelector('.marxy-outline-text')?.textContent), 'Heading 1939');
+    // A row far from the view is moved to from the list: the section moves, and the row is drawn and focused where it landed.
+    await page.keyboard.press('Alt+ArrowUp');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-outline-row]:focus')?.querySelector('.marxy-outline-text').textContent === 'Heading 1939');
+  }, { open: ['/r/Many.md'] });
 });

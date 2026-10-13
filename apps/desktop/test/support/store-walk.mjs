@@ -1448,9 +1448,9 @@ export const OPS = {
           ? /first section at its level|last section at its level/.test(result.why)
           : !isText
             ? /not text/.test(result.why)
-            : /run into each other|setext|already level|already a level|Not changed/.test(result.why);
+            : /code or a heading|setext|already level|already a level|Not changed/.test(result.why);
         if (!known) world.fail('I6', `${at} was refused for a reason the oracle does not know: ${result.why}`);
-        if (/run into each other/.test(result.why) && pair !== null) {
+        if (/code or a heading/.test(result.why) && pair !== null) {
           // The reference splice must really change the blocks: the reparse of it is not the two sections' blocks in their new order.
           const first = before.subarray(pair.a0, pair.a1);
           const second = before.subarray(pair.a1, pair.b1);
@@ -1458,8 +1458,13 @@ export const OPS = {
           const tail = trailing(first);
           const swapped = trailing(second) === 0 && tail > 0 ? cat(second, first.subarray(first.length - tail), first.subarray(0, first.length - tail)) : cat(second, first);
           const candidate = cat(before.subarray(0, pair.a0), swapped, before.subarray(pair.b1));
-          const shape = (bytes) => parseMarkdown(bytes).children.map((b) => (b.type === 'heading' ? `h${b.level}` : b.type)).sort().join();
-          if (shape(candidate) === shape(before)) world.fail('I6', `${at} was refused as running sections together, but the reference result keeps the blocks`);
+          // What each top-level block is, to the byte (type, level, its bytes less the line endings that end it), as a multiset.
+          const keys = (bytes) => parseMarkdown(bytes).children.map((b) => {
+            let e = b.src.end;
+            while (e > b.src.start && (bytes[e - 1] === 0x0a || bytes[e - 1] === 0x0d)) e--;
+            return `${b.type}${b.level ?? ''}\0${latin1(bytes.subarray(b.src.start, e))}`;
+          }).sort().join('\n');
+          if (keys(candidate) === keys(before)) world.fail('I6', `${at} was refused as changing what is code or a heading, but the reference result keeps every block`);
         }
         return `${at}: refused, "${result.why.slice(0, 50)}", nothing changed`;
       }

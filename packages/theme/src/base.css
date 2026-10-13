@@ -1182,7 +1182,7 @@ button.marxy-link-row:hover { background: var(--marxy-color-selection); }
 .marxy-outline-row:hover { background: var(--marxy-color-selection); }
 .marxy-outline-row[aria-current="location"] { background: var(--marxy-color-accent-wash); color: var(--marxy-color-text); }
 .marxy-outline-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.marxy-outline-row[data-marxy-outline-level="1"] .marxy-outline-text { font-weight: 600; }
+.marxy-outline-row[data-marxy-outline-level="1"] .marxy-outline-text, .marxy-outline-title .marxy-outline-text { font-weight: 600; }
 .marxy-outline-words { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; font-size: 0.92em; }
 .marxy-outline-table .marxy-outline-text { color: var(--marxy-color-text-secondary); font-size: 0.92em; }
 .marxy-outline-more { width: 1.1em; text-align: center; color: var(--marxy-color-text-secondary); visibility: hidden; }

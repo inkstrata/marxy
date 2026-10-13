@@ -43,26 +43,42 @@ export function generate(seed: number): { text: string; gen: Gen } {
 
   const sections: Gen['sections'] = [];
   const count = 1 + Math.floor(next() * 7);
-  for (let i = 0; i < count; i++) {
+  // The levels and styles first, so a section can tell whether a setext heading follows it.
+  const plan = Array.from({ length: count }, () => {
     const level = 1 + Math.floor(next() * 4);
+    return { level, style: level <= 2 && next() < 0.3 ? 'setext' : next() < 0.15 ? 'indent' : 'atx' };
+  });
+  for (let i = 0; i < count; i++) {
+    const { level, style } = plan[i]!;
     const lines: Line[] = [];
-    const style = level <= 2 && next() < 0.3 ? 'setext' : next() < 0.15 ? 'indent' : 'atx';
     const title = `S${i} ${pick(WORDS)}`;
     if (style === 'setext') lines.push(line(title), line(level === 1 ? '===' : '---'));
     else lines.push(line(`${style === 'indent' ? ' ' : ''}${'#'.repeat(level)} ${title}`));
+    let endsWithDef = false;
     for (let b = Math.floor(next() * 3); b > 0; b--) {
       lines.push(line(''));
-      const kind = pick(['para', 'fence', 'quote', 'list', 'comment', 'table']);
+      const kind = pick(['para', 'fence', 'quote', 'list', 'comment', 'table', 'def']);
+      endsWithDef = kind === 'def';
       if (kind === 'para') lines.push(line(words()), line(words()));
       else if (kind === 'fence') lines.push(line('```md'), line('# not a heading'), line('## nor this'), line('```'));
       else if (kind === 'quote') lines.push(line('> # quoted heading'), line('> text'));
       else if (kind === 'list') lines.push(line('- # listed heading'), line('- item'));
       else if (kind === 'comment') lines.push(line('<!-- # hidden -->'));
+      else if (kind === 'def') lines.push(line(`[r${i}]: http://x.example/${i}`));
       else lines.push(line('| a | b |'), line('|---|---|'), line('| 1 | 2 |'));
     }
-    // Blank lines after the body: at least one, so no section can run into the next, except sometimes at the very end.
-    for (let k = 1 + Math.floor(next() * 2); k > 0; k--) lines.push(line(''));
+    // Blank lines after the body: at least one, so no section can run into the next, except sometimes at the very end. The
+    // exception is a link reference definition last in the body: with no blank line after it, a setext heading that comes to sit
+    // directly under it (a move can bring one) is taken to start at the definition. The original never has that, so the model's
+    // sections are the parse's.
+    const bare = endsWithDef && (i === count - 1 || plan[i + 1]!.style !== 'setext') && next() < 0.5;
+    for (let k = bare ? 0 : 1 + Math.floor(next() * 2); k > 0; k--) lines.push(line(''));
     sections.push({ level, lines });
+  }
+  // The last section may end in a fence that never closes (a truncated answer): what follows it, in any order, is its text.
+  if (next() < 0.1) {
+    const last = sections[sections.length - 1]!.lines;
+    last.push(line('~~~'), line('# inside the open fence'), line('text'), line(''));
   }
   // The end of the file: perhaps no blank lines, perhaps no final line ending at all.
   const last = sections[sections.length - 1]!.lines;

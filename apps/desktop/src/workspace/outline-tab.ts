@@ -13,7 +13,7 @@
 // sub-sections', which is what moves with it. A table is listed under its section as "Table: its first header cells".
 import { type Buffer, byteToUtf16, type Document, type Heading, outlineFrom, parseMarkdown, sectionRange, type Node, type Table } from '@marxy/core';
 import { demoteHeading, promoteHeading } from '@marxy/core/src/operations/heading-level.ts';
-import { blockShape, moveSectionDown, moveSectionUp, sectionSwapOf, shapeAfterSwap, swapRange, type MoveDirection } from '@marxy/core/src/operations/move-section.ts';
+import { blockKeys, keysAfterSwap, moveSectionDown, moveSectionUp, sectionSwapOf, swapRange, type MoveDirection } from '@marxy/core/src/operations/move-section.ts';
 import type { Operation } from '@marxy/core';
 import { walk } from '@marxy/core/src/transforms/prose.ts';
 import type { AppHandle } from '../app.ts';
@@ -48,7 +48,15 @@ export interface TableRow {
   readonly start: number;
 }
 
-export type OutlineRow = HeadingRow | TableRow;
+/** A title that only front matter holds (and no h1 does): the top row, as the folded outline and the status bar's "where you are" name it. It is a name, not a section. */
+export interface TitleRow {
+  readonly kind: 'title';
+  readonly depth: number;
+  readonly text: string;
+  readonly start: number;
+}
+
+export type OutlineRow = HeadingRow | TableRow | TitleRow;
 
 export interface OutlineModel {
   readonly rows: readonly OutlineRow[];
@@ -94,8 +102,20 @@ export function outlineModelOf(ast: Document, buffer: Buffer): OutlineModel {
   });
   const entries = outlineFrom(ast);
   // `outlineFrom` puts a front-matter title first when the document has no h1; it is a name, not a heading.
-  const texts = entries.length === nodes.length + 1 ? entries.slice(1) : entries;
-  const ends = nodes.map((h) => sectionRange(ast, h).end);
+  const titled = entries.length === nodes.length + 1;
+  const texts = titled ? entries.slice(1) : entries;
+  // Where each section ends. The document's own headings (the long list in a large file) in one pass with a stack: a section ends at
+  // the next heading of the same or a higher level, else the end of the file, which is `sectionRange`'s rule for them. The few
+  // in a quote or a list item ask `sectionRange`, which bounds them by their container.
+  const topEnd = new Map<Heading, number>();
+  const open: Heading[] = [];
+  for (const block of ast.children) {
+    if (block.type !== 'heading') continue;
+    while (open.length > 0 && open[open.length - 1]!.level >= block.level) topEnd.set(open.pop()!, block.src.start);
+    open.push(block);
+  }
+  for (const h of open) topEnd.set(h, ast.src.end);
+  const ends = nodes.map((h) => topEnd.get(h) ?? sectionRange(ast, h).end);
 
   // Words by byte offset: one pass over the text, the count read at every place a section begins or ends. Those places follow
   // white space (a heading's `#` run follows its indent, a quote or list marker and a space; a section ends at a line start), so
@@ -134,7 +154,19 @@ export function outlineModelOf(ast: Document, buffer: Buffer): OutlineModel {
     rows.push({ kind: 'table', depth: under === null ? 0 : under.depth + 1, label: tableLabel(table), start: table.src.start });
   }
   rows.push(...headings.slice(h));
+  if (titled) rows.unshift({ kind: 'title', depth: 0, text: entries[0]!.text, start: entries[0]!.src.start });
   return { rows, headings: headings.length };
+}
+
+const models = new WeakMap<Buffer, OutlineModel>();
+/** `outlineModelOf` once per buffer (one per version of the document): a redraw for the same bytes is not a second walk. */
+export function outlineModelFor(ast: Document, buffer: Buffer): OutlineModel {
+  let model = models.get(buffer);
+  if (model === undefined) {
+    model = outlineModelOf(ast, buffer);
+    models.set(buffer, model);
+  }
+  return model;
 }
 
 /** The index in `rows` of the heading whose section holds `byte`: the last heading that starts at or before it, else -1. */
@@ -142,7 +174,7 @@ export function currentRow(rows: readonly OutlineRow[], byte: number): number {
   let found = -1;
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
-    if (row.kind === 'heading' && row.start <= byte) found = i;
+    if (row.kind !== 'table' && row.start <= byte) found = i;
   }
   return found;
 }
@@ -152,10 +184,11 @@ export function outlineMarkdown(rows: readonly OutlineRow[]): string {
   const stack: number[] = [];
   const lines: string[] = [];
   for (const row of rows) {
-    if (row.kind !== 'heading') continue;
-    while (stack.length > 0 && stack[stack.length - 1]! >= row.level) stack.pop();
+    if (row.kind === 'table') continue;
+    const level = row.kind === 'heading' ? row.level : 1;
+    while (stack.length > 0 && stack[stack.length - 1]! >= level) stack.pop();
     lines.push(`${'  '.repeat(stack.length)}- ${row.text === '' ? '(untitled)' : row.text}`);
-    stack.push(row.level);
+    stack.push(level);
   }
   return lines.length === 0 ? '' : `${lines.join('\n')}\n`;
 }
@@ -174,6 +207,8 @@ export const ACTION_TITLES: Readonly<Record<OutlineAction, string>> = {
 /** The key a row answers, spelt as a chord. */
 export const ACTION_KEYS: Readonly<Partial<Record<OutlineAction, string>>> = { 'move-up': 'Alt+ArrowUp', 'move-down': 'Alt+ArrowDown' };
 
+/** The whole notice (what happened · what is unchanged · what to do, X-21 Q10): a refusal that already says so is shown as it is. */
+const SHAPE_REFUSAL = 'Not moved · the file is unchanged · moving it would change what is code or a heading here';
 const NOT_TEXT = 'Not changed: this part of the file holds bytes that are not text, and Marxy leaves them exactly as they are';
 
 const strict = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
@@ -201,6 +236,7 @@ function planOf(ast: Document, heading: Heading, action: OutlineAction): Plan | 
     const direction: MoveDirection = action === 'move-up' ? 'up' : 'down';
     const swap = sectionSwapOf(ast, heading, direction);
     if (swap === null) {
+      if (!ast.children.includes(heading)) return 'Not moved: this heading is inside a quote or a list item, and only the document\'s own sections move';
       return direction === 'up'
         ? 'Not moved: this is the first section at its level, and a section does not move out of the one that holds it'
         : 'Not moved: this is the last section at its level, and a section does not move out of the one that holds it';
@@ -289,10 +325,13 @@ export async function applyOutlineAction(
     candidate.set(middle, plan.range.start);
     candidate.set(bytes.subarray(plan.range.end), plan.range.start + middle.length);
     const swap = { range: plan.range, split: plan.split };
-    const expected = shapeAfterSwap(ast, swap).join(' ');
-    if (blockShape(parseMarkdown(candidate, { file: snap.path })).join(' ') !== expected) {
-      return refuse('Not moved: the sections would run into each other and change what the document says. Add a blank line after the last paragraph of the one that would sit above a setext heading, then try again');
-    }
+    // Every top-level block of the result is a block of the document, byte for byte, in the new order (compared as text: the
+    // keys hold the blocks' own bytes). A block that is not has changed what it is: a fence that now opens or closes elsewhere
+    // turns code into headings and headings into code, a paragraph runs into a setext heading, a reference definition is drawn into one.
+    const expected = keysAfterSwap(ast, bytes, swap);
+    const made = parseMarkdown(candidate, { file: snap.path });
+    const got = blockKeys(made, candidate);
+    if (got.length !== expected.length || got.some((key, k) => key !== expected[k])) return refuse(SHAPE_REFUSAL);
   }
   landing?.(landed);
   let applied: boolean;
@@ -326,7 +365,7 @@ export async function runOutlineAction(handle: AppHandle, store: DocumentStore, 
   // Source text typed and not folded is part of the document (as for undo, `edits.ts`): it goes into the store first, for the pane that shows this one.
   if (handle.document() === store) await handle.foldSource();
   const result = await applyOutlineAction(store, start, action, landing);
-  if (!result.applied) notify({ kind: 'refused', text: `${result.why}. The document is unchanged.` });
+  if (!result.applied) notify({ kind: 'refused', text: result.why.includes(' · ') ? result.why : `${result.why}. The document is unchanged.` });
   return result;
 }
 
@@ -357,7 +396,15 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
   let openMenu: { readonly item: HTMLElement; readonly start: number; readonly close: () => void } | null = null;
   let markFrame = 0;
   let markToken = 0;
-  let items: HTMLElement[] = [];
+  /** The rows drawn, by index into `model.rows`: all of them for a short outline, those in view and a margin for a long one. */
+  const rendered = new Map<number, HTMLElement>();
+  let list: HTMLElement | null = null;
+  let startIndex = new Map<number, number>();
+  let winLo = 0;
+  let winHi = 0;
+  let rowH = 26;
+  let scroller: HTMLElement | null = null;
+  let winFrame = 0;
   /** The index of the row that carries the mark now; -1 when none does. */
   let marked = -1;
   let scrolled: { readonly pane: object; readonly off: () => void } | null = null;
@@ -395,8 +442,8 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
     const at = byte === null ? -1 : currentRow(model.rows, byte);
     if (at === marked) return;
     // Only the row that was marked and the one that is now: a long outline is not walked per scroll frame.
-    items[marked]?.querySelector('[data-marxy-outline-row]')?.removeAttribute('aria-current');
-    items[at]?.querySelector('[data-marxy-outline-row]')?.setAttribute('aria-current', 'location');
+    rendered.get(marked)?.querySelector('[data-marxy-outline-row]')?.removeAttribute('aria-current');
+    rendered.get(at)?.querySelector('[data-marxy-outline-row]')?.setAttribute('aria-current', 'location');
     marked = at;
   };
   const askMark = (): void => {
@@ -473,6 +520,147 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
   };
 
   // ---- the draw
+  /** Past this many rows only those in view, and a margin, are drawn: a 5,000-heading outline is not 5,000 buttons. */
+  const WINDOW_AT = 300;
+  const MARGIN = 25;
+
+  const makeItem = (index: number, store: DocumentStore): HTMLElement => {
+    const row = model!.rows[index]!;
+    const item = el('li', 'marxy-outline-item');
+    const button = el('button', 'marxy-outline-row');
+    button.type = 'button';
+    button.tabIndex = -1;
+    button.setAttribute('data-marxy-outline-row', row.kind);
+    button.setAttribute('data-marxy-outline-start', String(row.start));
+    button.style.paddingInlineStart = `${0.4 + row.depth * STEP_EM}em`;
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', () => {
+      closeMenu();
+      void handle.open(path!, { at: row.start });
+    });
+    if (row.kind === 'heading') {
+      button.setAttribute('data-marxy-outline-level', String(row.level));
+      button.append(el('span', 'marxy-outline-text', row.text === '' ? '(untitled)' : row.text), el('span', 'marxy-outline-words', formatCount(row.words)));
+      button.setAttribute('aria-label', `${row.text === '' ? 'Untitled' : row.text}, level ${row.level}, ${wordsLabel(row.words)}`);
+      button.title = `${wordsLabel(row.words)} in this section, with its sub-sections`;
+      // The mouse's way to the menu; the keyboard's is the context-menu key, and ⌥↑ and ⌥↓ need no menu.
+      const more = el('span', 'marxy-outline-more', '⋯');
+      more.setAttribute('aria-hidden', 'true');
+      more.title = 'Move or change the level of this section';
+      more.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (openMenu?.start === row.start) closeMenu();
+        else showMenu(item, row, store, false);
+      });
+      button.append(more);
+    } else if (row.kind === 'title') {
+      button.classList.add('marxy-outline-title');
+      button.append(el('span', 'marxy-outline-text', row.text === '' ? '(untitled)' : row.text));
+      button.setAttribute('aria-label', `${row.text === '' ? 'Untitled' : row.text}, title`);
+      button.title = 'The title in the front matter';
+    } else {
+      button.classList.add('marxy-outline-table');
+      button.append(el('span', 'marxy-outline-text', row.label));
+      button.setAttribute('aria-label', row.label);
+    }
+    if (index === marked) button.setAttribute('aria-current', 'location');
+    item.append(button);
+    return item;
+  };
+
+  /** Draws rows `[lo, hi)` and no others, changing only what differs from the rows drawn now (a focused row that stays is not touched). */
+  const renderRange = (lo: number, hi: number): void => {
+    const store = watched;
+    if (list === null || model === null || store === null) return;
+    if (openMenu !== null) {
+      const at = startIndex.get(openMenu.start);
+      if (at === undefined || at < lo || at >= hi) closeMenu();
+    }
+    const disjoint = hi <= winLo || lo >= winHi;
+    for (const [index, li] of [...rendered]) {
+      if (disjoint || index < lo || index >= hi) {
+        li.remove();
+        rendered.delete(index);
+      }
+    }
+    if (disjoint) {
+      const fragment = document.createDocumentFragment();
+      for (let i = lo; i < hi; i++) {
+        const li = makeItem(i, store);
+        rendered.set(i, li);
+        fragment.append(li);
+      }
+      list.append(fragment);
+    } else {
+      const before = document.createDocumentFragment();
+      for (let i = lo; i < winLo; i++) {
+        const li = makeItem(i, store);
+        rendered.set(i, li);
+        before.append(li);
+      }
+      list.prepend(before);
+      const after = document.createDocumentFragment();
+      for (let i = winHi; i < hi; i++) {
+        const li = makeItem(i, store);
+        rendered.set(i, li);
+        after.append(li);
+      }
+      list.append(after);
+    }
+    winLo = lo;
+    winHi = hi;
+    padWindow();
+  };
+
+  /** The rows not drawn are the list's padding: every row is one line of one height, so the scroll bar and the position are the whole outline's. */
+  const padWindow = (): void => {
+    if (list === null || model === null) return;
+    list.style.paddingBlockStart = winLo === 0 ? '' : `${winLo * rowH}px`;
+    list.style.paddingBlockEnd = winHi === model.rows.length ? '' : `${(model.rows.length - winHi) * rowH}px`;
+  };
+
+  const bindWindowScroll = (): void => {
+    if (scroller !== null) return;
+    scroller = scrollerOf();
+    scroller?.addEventListener('scroll', askWindow, { passive: true });
+  };
+
+  const scrollerOf = (): HTMLElement | null => {
+    for (let node = body.parentElement; node !== null; node = node.parentElement) {
+      const overflow = getComputedStyle(node).overflowY;
+      if (overflow === 'auto' || overflow === 'scroll') return node;
+    }
+    return null;
+  };
+
+  /** The rows that should be drawn now: all, or those in view with a margin. */
+  const wanted = (): [number, number] => {
+    const n = model?.rows.length ?? 0;
+    if (n <= WINDOW_AT || list === null) return [0, n];
+    scroller ??= scrollerOf();
+    const viewport = scroller?.clientHeight || 800;
+    const past = scroller === null ? 0 : Math.max(0, scroller.getBoundingClientRect().top - list.getBoundingClientRect().top);
+    const first = Math.min(n - 1, Math.floor(past / rowH));
+    return [Math.max(0, first - MARGIN), Math.min(n, first + Math.ceil(viewport / rowH) + 1 + MARGIN)];
+  };
+
+  const renderWindow = (): void => {
+    winFrame = 0;
+    if (gone) return;
+    const [lo, hi] = wanted();
+    if (lo !== winLo || hi !== winHi) renderRange(lo, hi);
+  };
+  const askWindow = (): void => {
+    if (winFrame === 0 && !gone) winFrame = requestAnimationFrame(renderWindow);
+  };
+
+  /** Makes sure row `index` is drawn, with a margin around it. */
+  const ensureRow = (index: number): void => {
+    if (rendered.has(index) || model === null) return;
+    const n = model.rows.length;
+    renderRange(Math.max(0, index - MARGIN), Math.min(n, index + MARGIN + 1));
+  };
+
   const draw = (): void => {
     if (gone || !ctx.visible()) return;
     const pane = handle.panes().focused;
@@ -484,12 +672,16 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
       watched = store;
       unsubscribeStore = store ? store.subscribe(() => draw()) : null;
     }
+    const clear = (message: string): void => {
+      model = null;
+      list = null;
+      rendered.clear();
+      marked = -1;
+      body.replaceChildren(el('p', 'marxy-outline-empty', message));
+    };
     if (!store || path === null) {
       drawnKey = '';
-      model = null;
-      items = [];
-      marked = -1;
-      body.replaceChildren(el('p', 'marxy-outline-empty', 'No document is open.'));
+      clear('No document is open.');
       return;
     }
     const snap = store.snapshot();
@@ -506,13 +698,10 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
     const keepAt = hadFocus ? ((document.activeElement as HTMLElement).dataset.marxyOutlineStart ?? null) : null;
     // A file that opens in Source and has not been parsed is never parsed for this tab (as for Links, V-11.1).
     if (!parsed) {
-      model = null;
-      items = [];
-      marked = -1;
-      body.replaceChildren(el('p', 'marxy-outline-empty', 'The outline is listed for Markdown.'));
+      clear('The outline is listed for Markdown.');
       return;
     }
-    model = outlineModelOf(snap.ast, snap.buffer);
+    model = outlineModelFor(snap.ast, snap.buffer);
     marked = -1;
     const { rows, headings } = model;
     const parts: HTMLElement[] = [];
@@ -528,65 +717,47 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
       head.append(copy);
     }
     parts.push(head);
+    rendered.clear();
+    list = null;
     if (headings === 0) {
       parts.push(el('p', 'marxy-outline-empty', 'No headings in this document.'));
-      items = [];
     } else {
-      const list = el('ul', 'marxy-outline-list');
+      list = el('ul', 'marxy-outline-list');
       list.setAttribute('aria-label', 'Headings');
-      items = rows.map((row) => {
-        const item = el('li', 'marxy-outline-item');
-        const button = el('button', 'marxy-outline-row');
-        button.type = 'button';
-        button.tabIndex = -1;
-        button.setAttribute('data-marxy-outline-row', row.kind);
-        button.setAttribute('data-marxy-outline-start', String(row.start));
-        button.style.paddingInlineStart = `${0.4 + row.depth * STEP_EM}em`;
-        button.addEventListener('mousedown', (event) => event.preventDefault());
-        button.addEventListener('click', () => {
-          closeMenu();
-          void handle.open(path!, { at: row.start });
-        });
-        if (row.kind === 'heading') {
-          button.setAttribute('data-marxy-outline-level', String(row.level));
-          button.append(el('span', 'marxy-outline-text', row.text === '' ? '(untitled)' : row.text), el('span', 'marxy-outline-words', formatCount(row.words)));
-          button.setAttribute('aria-label', `${row.text === '' ? 'Untitled' : row.text}, level ${row.level}, ${wordsLabel(row.words)}`);
-          button.title = `${wordsLabel(row.words)} in this section, with its sub-sections`;
-          // The mouse's way to the menu; the keyboard's is the context-menu key, and ⌥↑ and ⌥↓ need no menu.
-          const more = el('span', 'marxy-outline-more', '⋯');
-          more.setAttribute('aria-hidden', 'true');
-          more.title = 'Move or change the level of this section';
-          more.addEventListener('click', (event) => {
-            event.stopPropagation();
-            if (openMenu?.start === row.start) closeMenu();
-            else showMenu(item, row, store, false);
-          });
-          button.append(more);
-          item.append(button);
-        } else {
-          button.classList.add('marxy-outline-table');
-          button.append(el('span', 'marxy-outline-text', row.label));
-          button.setAttribute('aria-label', row.label);
-          item.append(button);
-        }
-        list.append(item);
-        return item;
-      });
       parts.push(list);
+      startIndex = new Map(rows.map((row, i) => [row.start, i]));
+      winLo = 0;
+      winHi = 0;
     }
     body.replaceChildren(...parts);
+    if (list !== null) {
+      // Short outlines are drawn whole. A long one: the rows in view and a margin, found once the list is on the page and a row's
+      // height is known (every row is one line, so one measure serves them all).
+      renderRange(0, rows.length <= WINDOW_AT ? rows.length : Math.min(rows.length, MARGIN * 2 + 40));
+      if (rows.length > WINDOW_AT) {
+        const height = [...rendered.values()][0]?.getBoundingClientRect().height ?? 0;
+        if (height > 0) rowH = height;
+        bindWindowScroll();
+        const [lo, hi] = wanted();
+        renderRange(lo, hi);
+        padWindow();
+      }
+    }
     if (refocus !== null) focusRow(refocus);
     else if (keepAt !== null) focusRow(Number(keepAt));
     askMark();
   };
 
   const focusRow = (start: number): void => {
-    const row = body.querySelector<HTMLElement>(`[data-marxy-outline-row="heading"][data-marxy-outline-start="${start}"]`);
+    const index = startIndex.get(start);
+    refocus = null;
+    if (index === undefined) return;
+    ensureRow(index);
+    const row = rendered.get(index)?.querySelector<HTMLElement>('[data-marxy-outline-row]');
     if (row) {
       row.focus({ preventScroll: false });
       row.scrollIntoView?.({ block: 'nearest' });
     }
-    refocus = null;
   };
 
   const copyOutline = async (): Promise<void> => {
@@ -606,6 +777,29 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
   // ---- keys on a row: Enter (the button's own click) jumps; ⌥↑ and ⌥↓ move; the context-menu key opens the menu
   const onKeyDown = (event: KeyboardEvent): void => {
     const target = event.target as HTMLElement;
+    // A long outline draws only the rows near the view: the inspector's arrows move between the rows drawn, so the row a key
+    // would reach is drawn first, and Home and End go where they say.
+    const anyRow = target.closest<HTMLElement>('[data-marxy-outline-row]') ?? target.closest<HTMLElement>('.marxy-outline-copy');
+    if (anyRow && model !== null && model.rows.length > WINDOW_AT && !event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && openMenu === null) {
+      const at = anyRow.dataset.marxyOutlineStart === undefined ? undefined : startIndex.get(Number(anyRow.dataset.marxyOutlineStart));
+      const last = model.rows.length - 1;
+      if (at !== undefined && event.key === 'ArrowDown') ensureRow(Math.min(last, at + 1));
+      else if (at !== undefined && event.key === 'ArrowUp') ensureRow(Math.max(0, at - 1));
+      else if (event.key === 'End') {
+        event.preventDefault();
+        event.stopPropagation();
+        ensureRow(last);
+        const row = rendered.get(last)?.querySelector<HTMLElement>('[data-marxy-outline-row]');
+        row?.focus();
+        row?.scrollIntoView?.({ block: 'nearest' });
+        return;
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        event.stopPropagation();
+        body.querySelector<HTMLElement>('.marxy-outline-copy')?.focus();
+        return;
+      }
+    }
     const rowEl = target.closest<HTMLElement>('[data-marxy-outline-row="heading"]');
     if (!rowEl || openMenu?.item.contains(target) === true) return;
     const start = Number(rowEl.dataset.marxyOutlineStart);
@@ -677,6 +871,8 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
     scrolled?.off();
     document.removeEventListener('selectionchange', caret);
     document.removeEventListener('input', caret, true);
+    scroller?.removeEventListener('scroll', askWindow);
+    if (winFrame !== 0) cancelAnimationFrame(winFrame);
     unsubscribeStore?.();
     body.remove();
   };

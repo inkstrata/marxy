@@ -7,7 +7,7 @@ import type { Document, Heading, Node } from '../contracts/ast.ts';
 import type { Operation } from '../contracts/operation.ts';
 import { createBuffer, splice, textOf } from '../buffer/buffer.ts';
 import { parseMarkdown } from '../parse/parse.ts';
-import { blockShape, moveSectionDown, moveSectionUp, sectionSwapOf, swapSections, type MoveDirection } from './move-section.ts';
+import { blockKeys, keysAfterSwap, moveSectionDown, moveSectionUp, sectionSwapOf, swapSections, type MoveDirection } from './move-section.ts';
 import { OPERATIONS } from './index.ts';
 import { generate, reference, sectionIndexAfterDown, sectionIndexAfterUp } from './testing/sections.ts';
 import { corpusDocuments } from './testing/corpus.ts';
@@ -220,21 +220,50 @@ test('headings inside a code fence, front matter, a quote or a list item are nei
   }
 });
 
-test('a move that would merge a paragraph into a heading changes the shape, which is how a host knows to refuse it', () => {
-  // A move that keeps the structure: the shape is the sections' shapes in the new order.
+/** What the move should leave (`keysAfterSwap`) and what it leaves (`blockKeys` of the result), for the `at`-th heading. */
+function keysOf(source: string, at: number, direction: MoveDirection): { want: string[]; got: string[] } {
+  const bytes = enc.encode(source);
+  const doc = parse(bytes);
+  const swap = sectionSwapOf(doc, topHeadings(doc)[at]!, direction)!;
+  const after = enc.encode(moved(source, at, direction)!);
+  return { want: keysAfterSwap(doc, bytes, swap), got: blockKeys(parse(after), after) };
+}
+
+test('a move that would change what any block is leaves different keys, which is how a host knows to refuse it', () => {
+  // A move that keeps the structure: the keys are the sections\' blocks, byte for byte, in the new order.
   const clean = '# A\n\na\n\n# B\n\nb\n';
-  assert.deepEqual(blockShape(parse(moved(clean, 1, 'up')!)), blockShape(parse(clean)));
+  const { want, got } = keysOf(clean, 1, 'up');
+  assert.deepEqual(got, want);
   // The last section has no blank line after it; moved above a setext section whose line ending is single, its text line
   // runs into the setext text and the underline turns both into one heading.
   const joined = '# A\na\n\nB\n===\nb\n# C\nc';
-  const after = moved(joined, 2, 'up')!;
-  assert.equal(after, '# A\na\n\n# C\nc\nB\n===\nb');
-  assert.deepEqual(blockShape(parse(joined)), ['h1', 'paragraph', 'h1', 'paragraph', 'h1', 'paragraph']);
-  assert.notDeepEqual(blockShape(parse(after)), blockShape(parse(joined)));
+  assert.equal(moved(joined, 2, 'up'), '# A\na\n\n# C\nc\nB\n===\nb');
+  assert.notDeepEqual(keysOf(joined, 2, 'up').got, keysOf(joined, 2, 'up').want);
   // A setext section moved to just below a paragraph line takes that line into its heading.
-  const into = moved('p\n# A\na\n\nB\n===\nb\n', 1, 'up')!;
-  assert.equal(into, 'p\nB\n===\nb\n# A\na\n\n');
-  assert.notDeepEqual(blockShape(parse(into)), ['paragraph', 'h1', 'paragraph', 'h1', 'paragraph']);
+  const into = 'p\n# A\na\n\nB\n===\nb\n';
+  assert.equal(moved(into, 1, 'up'), 'p\nB\n===\nb\n# A\na\n\n');
+  assert.notDeepEqual(keysOf(into, 1, 'up').got, keysOf(into, 1, 'up').want);
+});
+
+test('a fence that changes parity: code becomes a heading and a heading becomes code, and the keys say so (commitment 4)', () => {
+  // The file ends in an unclosed fence. Moved up, B takes it with it, and A and `# H` trade what they are.
+  const source = '# A\n~~~\n# H\n~~~\n# B\n~~~\ny\n';
+  assert.equal(moved(source, 1, 'up'), '# B\n~~~\ny\n# A\n~~~\n# H\n~~~\n');
+  const { want, got } = keysOf(source, 1, 'up');
+  assert.notDeepEqual(got, want);
+  // The same with backticks, and with the unclosed fence in the section that moves down.
+  const ticks = '# A\n```\n# H\n```\n# B\n```\ny\n';
+  assert.notDeepEqual(keysOf(ticks, 1, 'up').got, keysOf(ticks, 1, 'up').want);
+  const down = '# A\n```\ny\n# B\n```\n# H\n```\n';
+  assert.notDeepEqual(keysOf(down, 0, 'down').got, keysOf(down, 0, 'down').want);
+});
+
+test('a link reference definition directly above a setext heading is pulled into the heading: the keys say so', () => {
+  // The definition belongs to the text above P. Once Title sits directly under it, the parse takes it into the heading.
+  const source = 'x\n\n[ref]: http://x.example\n# P\n\nTitle\n===\n';
+  assert.equal(moved(source, 1, 'up'), 'x\n\n[ref]: http://x.example\nTitle\n===\n# P\n\n');
+  const { want, got } = keysOf(source, 1, 'up');
+  assert.notDeepEqual(got, want);
 });
 
 // ---- the differential test --------------------------------------------------------------------------------------------
@@ -278,7 +307,7 @@ test('differential: every move over a thousand random documents is the reference
         // The section lands at the sibling's place; one move the other way puts everything back.
         // A move can run a last section that has no blank line after it into a setext heading below it; the host sees that in the
         // shape (see above) and refuses, so the opposite move is only tried where the headings are still the generator's.
-        if (blockShape(parse(got)).sort().join() !== blockShape(doc).sort().join()) {
+        if (blockKeys(parse(got), enc.encode(got)).sort().join() !== blockKeys(doc, bytes).sort().join()) {
           merged++;
           continue;
         }
@@ -291,7 +320,7 @@ test('differential: every move over a thousand random documents is the reference
   }
   assert.ok(moves > 1500, `${moves} moves were made`);
   assert.ok(joins > 100, `${joins} moves met a last section with no final line ending`);
-  assert.ok(restored > 1000 && restored > merged * 10, `${restored} moves were undone by the opposite move; ${merged} merged a paragraph into a heading and were left to the host`);
+  assert.ok(restored > 1000 && restored > merged * 5, `${restored} moves were undone by the opposite move; ${merged} merged a paragraph into a heading and were left to the host`);
 });
 
 test('the differential can fail: a plain swap with no join disagrees with the reference at the end of a file', () => {
