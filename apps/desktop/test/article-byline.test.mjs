@@ -35,6 +35,7 @@ const files = {
   '/r/userinfo.md': withSource('https://good.example@evil.example/x'),
   '/r/control.md': withSource('https://example.org/a\u0001b'),
   '/r/zwsp.md': withSource('https://example.org/a\u200Bb'),
+  '/r/long.md': withSource(`https://example.org/${'a'.repeat(5000)}`),
   '/r/bidi.md': withSource('https://example.org/a\u202Eb?q=\u202Ec'),
 };
 
@@ -320,3 +321,12 @@ for (const [name, url] of [['zwsp', 'https://example.org/a\u200Bb'], ['bidi', 'h
       assert.equal(await a.getAttribute('href'), url);
     }));
 }
+
+test('a source URL long enough to be given <wbr> breaks (F-79) links to the URL as written', () =>
+  withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/long.md'] });
+    await open(page, '/r/long.md');
+    const a = page.locator('#doc > dl dd[data-marxy-fm-key="source"] a');
+    assert.ok((await a.locator('wbr').count()) > 0, 'the run was broken');
+    assert.equal(await a.getAttribute('href'), `https://example.org/${'a'.repeat(5000)}`);
+  }));
