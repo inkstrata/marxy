@@ -32,6 +32,7 @@ import {
   caretOf,
   isButton,
   lineCountOfBytes,
+  countsAsMarkdown,
   createWordCounter,
   measureFor,
   sectionAt,
@@ -50,7 +51,7 @@ const SLICE_MS = 6;
 export const WORDS_QUIET_MS = 300;
 /** A first walk shows in the bar only once it has run this long, and then ends in a notice; a quick one, and every later walk, is neither. */
 export const PROGRESS_DELAY_MS = 600;
-const PIECE = 32 * 1024;
+const PIECE = 4 * 1024;
 
 /**
  * The one listener every Source editor gets while a bar is mounted: a caret or text change, however it was made (a key, a click,
@@ -154,9 +155,9 @@ export function mountStatusBar(region: HTMLElement, handle: AppHandle, signal: D
     timer = null;
   };
 
-  const countInSlices = (token: number, chunks: Iterable<string>, done: (n: number) => void): void => {
+  const countInSlices = (token: number, markdown: boolean, chunks: Iterable<string>, done: (n: number) => void): void => {
     const it = chunks[Symbol.iterator]();
-    const counter = createWordCounter();
+    const counter = createWordCounter({ markdown });
     const step = (): void => {
       if (token !== job || gone) return;
       const t0 = performance.now();
@@ -175,7 +176,7 @@ export function mountStatusBar(region: HTMLElement, handle: AppHandle, signal: D
   };
 
   /** The words of `key` (the text it names changes when it does): now when short, else after typing stops; the last count meanwhile. */
-  const wordsOf = (path: string, key: unknown, length: number, chunks: () => Iterable<string>): number | null => {
+  const wordsOf = (path: string, markdown: boolean, key: unknown, length: number, chunks: () => Iterable<string>): number | null => {
     if (words.path !== path) {
       stopCounting();
       words.path = path;
@@ -186,15 +187,27 @@ export function mountStatusBar(region: HTMLElement, handle: AppHandle, signal: D
     words.key = key;
     stopCounting();
     if (length <= SYNC_WORDS_CHARS) {
-      const counter = createWordCounter();
-      for (const piece of chunks()) counter.feed(piece);
-      words.count = counter.done();
+      // Short text is counted now, unless it is slow to count (a script the word breaker must cut): after one slice the rest
+      // goes on between frames, and the last count stands meanwhile.
+      const token = job;
+      const sync: { n: number | null } = { n: null };
+      let inline = true;
+      countInSlices(token, markdown, chunks(), (n) => {
+        if (token !== job || gone) return;
+        if (inline) sync.n = n;
+        else {
+          words.count = n;
+          schedule();
+        }
+      });
+      inline = false;
+      if (sync.n !== null) words.count = sync.n;
       return words.count;
     }
     const token = job;
     timer = setTimeout(() => {
       timer = null;
-      countInSlices(token, chunks(), (n) => {
+      countInSlices(token, markdown, chunks(), (n) => {
         if (token !== job || gone) return;
         words.count = n;
         schedule();
@@ -270,12 +283,12 @@ export function mountStatusBar(region: HTMLElement, handle: AppHandle, signal: D
       rows = state.doc.lines;
       lines = lineCountOf(state.doc);
       caret = caretOf(state.doc, state.selection.main.head);
-      if (prose) wordCount = wordsOf(path, state.doc, state.doc.length, () => state.doc.iter());
+      if (prose) wordCount = wordsOf(path, countsAsMarkdown(path), state.doc, state.doc.length, () => state.doc.iter());
     } else {
       lines = lineCountOfBytes(buffer.bytes, buffer.eol, buffer.bom);
       // A file with no line break has one row; any other has more than one, which is all the label asks.
       rows = buffer.eol === 'none' ? 1 : lines + 1;
-      if (prose) wordCount = wordsOf(path, buffer, buffer.text.length, () => piecesOf(buffer.text));
+      if (prose) wordCount = wordsOf(path, countsAsMarkdown(path), buffer, buffer.text.length, () => piecesOf(buffer.text));
       // The section under the reading line: only from a parse that already exists, never made for the bar.
       if (pane.view.mode === 'rendered' && store.parsed()) {
         const ast = snap.ast;

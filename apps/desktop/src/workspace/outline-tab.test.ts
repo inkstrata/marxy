@@ -9,7 +9,7 @@ import { blockKeys } from '@marxy/core/src/operations/move-section.ts';
 import { corpusDocuments } from '@marxy/core/src/operations/testing/corpus.ts';
 import { generate, reference, sectionIndexAfterDown, sectionIndexAfterUp } from '@marxy/core/src/operations/testing/sections.ts';
 import { openDocumentStore } from '../document/store.ts';
-import { countWords } from './status-facts.ts';
+import { countsAsMarkdown, countWords, createWordCounter, statusItems, wordsLabel } from './status-facts.ts';
 import {
   applyOutlineAction,
   availableActions,
@@ -106,14 +106,14 @@ test('words per section are the status bar\'s count over the section\'s bytes, f
     const rows = model.rows.filter((r): r is HeadingRow => r.kind === 'heading');
     for (const row of rows) {
       const section = dec.decode(bytes.subarray(row.start, row.end));
-      assert.equal(row.words, countWords(section), `${file}: ${row.text}`);
+      assert.equal(row.words, countWords(section, { markdown: countsAsMarkdown(file) }), `${file}: ${row.text}`);
       checked++;
     }
     // The sections that no other section holds, with the text before the first, are the whole text: no word is counted twice or dropped.
     if (rows.length > 0) {
       const outer = rows.filter((r) => !rows.some((o) => o !== r && o.start <= r.start && r.end <= o.end && (o.start < r.start || r.end < o.end)));
-      const before = countWords(dec.decode(bytes.subarray(0, outer[0]!.start)));
-      assert.equal(before + outer.reduce((n, r) => n + r.words, 0), countWords(buffer.text), `${file}: the sections tile the text`);
+      const before = countWords(dec.decode(bytes.subarray(0, outer[0]!.start)), { markdown: countsAsMarkdown(file) });
+      assert.equal(before + outer.reduce((n, r) => n + r.words, 0), countWords(buffer.text, { markdown: countsAsMarkdown(file) }), `${file}: the sections tile the text`);
     }
   }
   assert.ok(checked > 200, `${checked} sections checked`);
@@ -322,4 +322,28 @@ test('differential: over random Markdown the app\'s move is the reference splice
   }
   assert.ok(moves > 400, `${moves} moves were compared`);
   assert.ok(refused < moves / 5, `${refused} refusals against ${moves} moves`);
+});
+
+test('the Outline\'s sections add up to the status bar\'s total on a file with front matter, a fence, a comment and Chinese (F-86)', () => {
+  const fence = Array.from({ length: 10 }, (_, i) => `code${i}`).join(' ');
+  const md = `---\ntitle: Front matter words\ntags: a b c\n---\n\nIntro before any heading.\n\n# One\n\nAlpha beta gamma.\n\n\`\`\`js\n# not a heading\n${fence}\n\`\`\`\n\n## Two\n\n<!-- a note\nhidden words -->\n\n我们今天去公园 epsilon.\n\n    indented code here\n`;
+  const bytes = enc.encode(md);
+  const model = outlineModelOf(parseMarkdown(bytes, { file: 'o.md' }), createBuffer('o.md', bytes));
+  const rows = model.rows.filter((r): r is HeadingRow => r.kind === 'heading');
+  assert.equal(rows.length, 2);
+  // The bar: fed in small pieces as it does, then read through its own item.
+  const counter = createWordCounter({ markdown: countsAsMarkdown('o.md') });
+  for (let i = 0; i < md.length; i += 7) counter.feed(md.slice(i, i + 7));
+  const bar = counter.done();
+  const item = statusItems({
+    document: {
+      kind: 'article', path: 'o.md', words: bar, lines: 1, caret: null, heading: null, eol: 'lf', rows: 1,
+      encoding: { label: 'UTF-8', title: '' },
+    },
+    theme: 'Paper', textSize: 20, indexing: false,
+  }).find((i) => i.id === 'measure')!;
+  const before = countWords(dec.decode(bytes.subarray(0, rows[0]!.start)), { markdown: true });
+  const outer = rows.filter((r) => r.depth === 0);
+  assert.equal(item.text, wordsLabel(before + outer.reduce((n, r) => n + r.words, 0)));
+  assert.equal(rows[0]!.words, 1 + 3 + 1 + 4 + 1, 'One, Alpha beta gamma, Two, 我们今天去公园 as 4 words, epsilon');
 });

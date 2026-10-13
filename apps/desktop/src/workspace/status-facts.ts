@@ -5,6 +5,7 @@
 import { type Buffer, type OutlineEntry } from '@marxy/core';
 import type { Kind } from '@marxy/core/src/contracts/kinds.ts';
 import { fileTypeOf } from '@marxy/core/src/index-model/file-types.ts';
+import { countsAsMarkdown } from '@marxy/core/src/index-model/words.ts';
 import { type EncodingFact, formatCount, lineEndingFact, linesLabel } from '../source/frame-facts.ts';
 import type { BundledThemeName } from '../theme/bundled-themes.ts';
 
@@ -90,71 +91,8 @@ export function sectionAt(entries: readonly OutlineEntry[], byteOffset: number):
   return found < 0 ? null : entries[found]!.text;
 }
 
-const isSpace = (c: number): boolean =>
-  c <= 0x20 ? c === 0x20 || (c >= 0x09 && c <= 0x0d)
-  : c < 0x80 ? false
-  : c === 0xa0 || c === 0x1680 || (c >= 0x2000 && c <= 0x200a) || c === 0x2028 || c === 0x2029 || c === 0x202f || c === 0x205f || c === 0x3000 || c === 0xfeff;
-
-const TOKEN = /[\p{L}\p{N}]/u;
-
-/**
- * Words as the library's `words:` counts them (`measureText`): the whitespace-separated runs that hold a letter or a number.
- * Streaming, so a large text is counted a slice at a time without being joined or split into an array.
- */
-export interface WordCounter {
-  feed(chunk: string): void;
-  /** The count so far, with the run being read counted if it holds a token. */
-  done(): number;
-}
-
-export function createWordCounter(): WordCounter {
-  let words = 0;
-  let inRun = false;
-  let hit = false;
-  /** A high surrogate that ended the last chunk: its pair is the first unit of the next. */
-  let carry = '';
-  return {
-    feed(chunk) {
-      const text = carry === '' ? chunk : carry + chunk;
-      carry = '';
-      const n = text.length;
-      for (let i = 0; i < n; i++) {
-        const c = text.charCodeAt(i);
-        if (isSpace(c)) {
-          if (inRun && hit) words++;
-          inRun = false;
-          hit = false;
-          continue;
-        }
-        inRun = true;
-        if (hit) continue;
-        if (c < 0x80) {
-          hit = (c >= 0x30 && c <= 0x39) || (c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a);
-        } else if (c >= 0xd800 && c <= 0xdbff) {
-          if (i + 1 < n) {
-            const next = text.charCodeAt(i + 1);
-            if (next >= 0xdc00 && next <= 0xdfff) {
-              hit = TOKEN.test(text.slice(i, i + 2));
-              i++;
-            }
-          } else carry = text.charAt(i);
-        } else {
-          hit = TOKEN.test(text.charAt(i));
-        }
-      }
-    },
-    done() {
-      return inRun && hit ? words + 1 : words;
-    },
-  };
-}
-
-/** The words of a whole text. */
-export function countWords(text: string): number {
-  const counter = createWordCounter();
-  counter.feed(text);
-  return counter.done();
-}
+// The counter is the library's (`@marxy/core`'s words.ts): one function, so the bar, `words:` and the Outline's sections agree.
+export { countsAsMarkdown, countWords, createWordCounter, type WordCounter } from '@marxy/core/src/index-model/words.ts';
 
 /** The bar's items, left to right then (`end`) right to left of the spacer. */
 export type StatusItemId = 'kind' | 'measure' | 'where' | 'encoding' | 'progress' | 'theme' | 'size';
@@ -211,7 +149,7 @@ export function statusItems(input: StatusInput): readonly StatusItem[] {
         items.push({
           id: 'measure',
           text: doc.words === null ? 'Counting words…' : wordsLabel(doc.words),
-          title: 'Words: runs of text that hold a letter or a number',
+          title: countsAsMarkdown(doc.path) ? 'Words in the text, not counting code and front matter' : 'Words in the text',
           end: false,
         });
       } else {

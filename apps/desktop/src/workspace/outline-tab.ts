@@ -23,7 +23,7 @@ import { notify } from '../notices/index.ts';
 import { keyLabel } from '../palette/commands.ts';
 import { formatCount } from '../source/frame-facts.ts';
 import type { InspectorContext, InspectorTab } from './inspector.ts';
-import { createWordCounter, wordsLabel } from './status-facts.ts';
+import { countsAsMarkdown, createWordCounter, wordsLabel } from './status-facts.ts';
 
 // ---- the model ---------------------------------------------------------------------------------------------------------
 
@@ -121,14 +121,16 @@ export function outlineModelOf(ast: Document, buffer: Buffer): OutlineModel {
   // white space (a heading's `#` run follows its indent, a quote or list marker and a space; a section ends at a line start), so
   // no word is cut and a section's count is the difference of two readings.
   const points = [...new Set([...nodes.map((h) => h.src.start), ...ends])].sort((a, b) => a - b);
-  const counter = createWordCounter();
+  // The status bar's count, Markdown rules included: each reading is `count()`, which leaves the counter able to go on, so the
+  // sections add up to the bar's total.
+  const counter = createWordCounter({ markdown: countsAsMarkdown(buffer.path) });
   const reading = new Map<number, number>();
   let at = 0;
   for (const point of points) {
     const to = byteToUtf16(buffer, point);
     counter.feed(buffer.text.slice(at, to));
     at = to;
-    reading.set(point, counter.done());
+    reading.set(point, counter.count());
   }
 
   const shallowest = nodes.reduce<number>((least, h) => Math.min(least, h.level), 6);

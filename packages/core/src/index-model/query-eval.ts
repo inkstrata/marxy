@@ -13,6 +13,7 @@
 import type { IndexEntry } from '../contracts/index-entry.ts';
 import { isCaseSensitiveQuery, type ContentSearchHit } from './content-search.ts';
 import { basename, pathUnder } from './paths.ts';
+import { countWords } from './words.ts';
 import type { CompareOp, FieldTerm, FlaggedTerm, Query, Term, TextTerm } from './query.ts';
 
 /** What measuring a file's text found. */
@@ -29,7 +30,6 @@ export interface Measured extends Measure {
   readonly truncated?: true;
 }
 
-const TOKEN = /[\p{L}\p{N}]/u;
 const FENCE = /^ {0,3}(?:`{3,}|~{3,})/m;
 const TASK = /^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+\[ \]/gm;
 const URL = /\bhttps?:\/\/[^\s)>\]"'`]+/g;
@@ -82,13 +82,13 @@ export function hasLink(text: string): boolean {
 }
 
 /**
- * Counts what the content keys ask about. `words` is the whitespace-separated runs that hold a letter or a number
- * (code, front matter and link targets included: the count is of the file, not of its prose); `hasPaths` is a
+ * Counts what the content keys ask about. `words` is `countWords` (words.ts), the status bar's count: runs that hold a letter
+ * or a number, scripts without spaces cut by the system's word breaker, and for `markdown` front matter, code and HTML comments
+ * left out. `hasCode` and the rest read the whole text. `hasPaths` is a
  * heuristic (a word with a slash that ends in a file name), made after URLs are set aside. Pure and linear.
  */
-export function measureText(text: string): Measure {
-  let words = 0;
-  for (const run of text.split(/\s+/)) if (run !== '' && TOKEN.test(run)) words++;
+export function measureText(text: string, options: { readonly markdown?: boolean } = {}): Measure {
+  const words = countWords(text, options);
   const tasks = text.match(TASK);
   return {
     words,
