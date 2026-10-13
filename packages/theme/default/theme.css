@@ -234,10 +234,10 @@
   --marxy-line-box-code: round(calc(0.8 * var(--marxy-root-line-box-code)), 2px);
 }
 /* A terminal session (K-17), in a terminal file or a `console` fence alike, so these are not scoped to the kind. The prompt is
-   the punctuation colour, the command the strong colour at weight 600 (the platform's offset still applies), the output
+   the faint text colour (the mock's punctuation, which the code text colour would not distinguish), the command the strong colour at weight 600 (the platform's offset still applies), the output
    plain. A command after the block's first line opens with half a code line above it: a margin on the line, nothing
    inserted. Colour never says what output means, and an escape is shown as its picture (the invisible-character marker). */
-.marxy-term-prompt { color: var(--marxy-tok-punctuation); }
+.marxy-term-prompt { color: var(--marxy-color-text-faint); }
 .marxy-term-command {
   --marxy-wght: calc(600 + var(--marxy-weight-offset));
   font-weight: var(--marxy-wght);

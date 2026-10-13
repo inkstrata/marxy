@@ -1,4 +1,4 @@
-// A terminal session in Read (K-17): a `.session` opens as Read with a group for each command, the prompt in the punctuation
+// A terminal session in Read (K-17): a `.session` opens as Read with a group for each command, the prompt dimmed
 // colour, the command strong at weight 600, the output plain, half a line between groups, blank lines and ESC kept; Copy commands
 // and Copy output write what the card says, a selection copies the file's bytes, a `console` fence in Markdown reads the same,
 // and Source shows the file exactly. WebKit, over the shipped skeleton and the memory shell, as log.test.mjs runs.
@@ -17,7 +17,7 @@ after(() => closeHarness());
 
 const fixture = readFileSync(new URL('../../../fixtures/corpus/38-shell.session', import.meta.url), 'utf8');
 const fenced = `# Notes\n\nRun it:\n\n\`\`\`console\n$ ls\na b\n$ pwd\n/r\n$ echo done\ndone\n\`\`\`\n\nThen read on.\n`;
-const files = { '/r/shell.session': fixture, '/r/notes.md': fenced, '/r/plain.txt': '$ ls\na b\n$ pwd\n/r\n', '/r/a.term': '$ ls\na b\n' };
+const files = { '/r/shell.session': fixture, '/r/notes.md': fenced, '/r/plain.txt': '$ ls\na b\n$ pwd\n/r\n', '/r/a.term': '$ ls\na b\n', '/r/bare.term': 'just output\nmore output\n' };
 
 async function withPage(fn) {
   const browser = await launchWebkit();
@@ -75,7 +75,8 @@ test('a .session opens in Read as a terminal with a group for each command, the 
         starts: lines.flatMap((l, i) => (l.classList.contains('marxy-term-start') ? [i] : [])),
         text: lines.map((l) => { const c = l.cloneNode(true); for (const g of c.querySelectorAll('.marxy-invisible-glyph')) g.remove(); return c.textContent; }),
         promptColour: cs(prompt).color,
-        punctuation: probe('color', 'var(--marxy-tok-punctuation)'),
+        faint: probe('color', 'var(--marxy-color-text-faint)'),
+        bodyText: probe('color', 'var(--marxy-color-text)'),
         commandWeight: cs(command).fontWeight,
         commandColour: cs(command).color,
         strong: probe('color', 'var(--marxy-color-text-strong)'),
@@ -94,7 +95,8 @@ test('a .session opens in Read as a terminal with a group for each command, the 
     assert.equal(seen.kind, 'terminal');
     assert.equal(seen.prompts, 3, 'three commands, three prompts');
     assert.equal(seen.starts.length, 2, 'the half line is above the second and third, not the first');
-    assert.equal(seen.promptColour, seen.punctuation);
+    assert.equal(seen.promptColour, seen.faint, 'the prompt is the faint text colour');
+    assert.notEqual(seen.promptColour, seen.bodyText, 'and so is dimmer than the output');
     assert.equal(seen.commandWeight, '600');
     assert.equal(seen.commandColour, seen.strong);
     assert.notEqual(seen.outputWeight, '600');
@@ -224,4 +226,22 @@ test('the two tools are offered for a terminal, a .term as well, and not for a .
     const term = await offered();
     assert.deepEqual(term.tools, [true, true]);
     assert.equal(term.kind, 'terminal');
+  }));
+
+test('a terminal with no command to group has the two tools off, with the reason', () =>
+  withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/bare.term'] });
+    const seen = await page.evaluate(async () => {
+      const { buildAppContext } = await import('/src/selection/bind.ts');
+      const handle = window.__marxyHandle;
+      const ctx = buildAppContext(handle);
+      return ['terminal.copy-commands', 'terminal.copy-output'].map((id) => {
+        const c = handle.commands().find((x) => x.id === id);
+        return { when: c.when(ctx), why: c.unavailable?.(ctx) ?? null };
+      });
+    });
+    for (const t of seen) {
+      assert.equal(t.when, false);
+      assert.match(t.why, /No prompt line with a command/);
+    }
   }));

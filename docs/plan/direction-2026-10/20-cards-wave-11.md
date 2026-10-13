@@ -508,7 +508,7 @@ file's bytes. Source shows the file exactly.
 - Also edited, beyond the list: `packages/theme/src/config.ts` (the strip's known tool ids), `packages/theme/src/loader.test.ts` (the profile list),
   `highlight.test.ts` (the console fence test, whose `$`-as-punctuation reading this replaces), `fixtures/corpus/README.md`, and the goldens.
 - `38-shell.session` shares its number with `38-awkward.csv`.
-- The prompt's colour is `--marxy-tok-punctuation`, which the default theme sets equal to the code text colour, so a prompt differs from output by position only, not hue, unlike the mock's dimmer `--tk-punct`.
+- The prompt is the faint text colour (`--marxy-color-text-faint`): `--marxy-tok-punctuation` equals the code text colour in the default theme, so it would not read as dimmer, as it does in the mock.
 - The run styles are in `default/theme.css` (V-06 held `base.css`); they belong beside the log's in `base.css`.
 
 **Do not.**
