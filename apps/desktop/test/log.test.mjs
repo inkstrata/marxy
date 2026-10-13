@@ -605,12 +605,21 @@ test('a file that changes on disk while a level is being set: the notice when it
       const handle = window.__marxyHandle;
       await handle.commands().find((c) => c.id === 'log.filter-level').run(buildAppContext(handle));
     });
+    // The page's frame callbacks are held from before the click, so the level is chosen and none of its work has begun: the
+    // filter is busy for exactly as long as the test says, whatever the machine's speed.
+    await page.evaluate(() => {
+      const real = window.requestAnimationFrame.bind(window);
+      const held = [];
+      window.__gate = { open: false, release: () => { window.__gate.open = true; window.requestAnimationFrame = real; for (const cb of held.splice(0)) real(cb); } };
+      window.requestAnimationFrame = (cb) => (window.__gate.open ? real(cb) : (held.push(cb), held.length));
+    });
     await page.click('[data-row-key="log.level.warn"]');
     // Another program appends a thousand ERROR lines while the page is still being worked through.
     const grown = old + rows(1000, 'ERROR');
     const busy = await page.evaluate(async ([path, text]) => {
       const busy = document.querySelector('#doc').classList.contains('marxy-log-filter-busy');
       await window.__outside(path, text);
+      window.__gate.release();
       return busy;
     }, ['/r/grow.log', grown]);
     assert.equal(busy, true, 'the file changed while the level was being set');
