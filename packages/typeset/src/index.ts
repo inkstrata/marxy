@@ -15,7 +15,7 @@ export { insertSlashBreaks };
 import { collectTokens, type Token } from './runs.ts';
 import { idleScheduler, type Scheduler } from './scheduler.ts';
 
-export { snapToGrid } from './grid.ts';
+export { snapBlocks, snapInSlices, snapToGrid } from './grid.ts';
 export type { Scheduler } from './scheduler.ts';
 
 export interface TypesetOptions {

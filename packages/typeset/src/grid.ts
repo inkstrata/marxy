@@ -37,18 +37,28 @@ const themePadding = new WeakMap<HTMLElement, number>();
  * `from` a block first reads the islands above it that earlier passes measured (one more layout), and
  * starts from the first that has since changed height.
  */
-export function snapToGrid(article: HTMLElement, lineBox: number, opts?: { readonly from?: HTMLElement }): number {
+export function snapToGrid(
+  article: HTMLElement,
+  lineBox: number,
+  opts?: { readonly from?: HTMLElement; readonly through?: HTMLElement },
+): number {
   const unit = lineBox / 2;
   if (!(unit > 0)) return 0;
   const heights = measured.get(article) ?? new Map<HTMLElement, number>();
   measured.set(article, heights);
-  let tail = tailFrom(article, opts?.from);
-  let after = tail === null ? null : childrenFrom(tail[0]!);
+  // `through` bounds the pass (F-80): the block before `from`, `from` and the blocks to `through` are undone, padded and read,
+  // and the one block after `through` is read, and nothing below it.
+  // The article itself is pushable when the window starts at the first block.
+  const bounded = opts?.from !== undefined && opts.through !== undefined;
+  let tail = tailFrom(article, opts?.from, opts?.through);
+  const leading = bounded && tail !== null && tail[0] === firstBlock(article);
+  let after = tail === null ? null : childrenFrom(tail[0]!, bounded ? opts.through : undefined);
   // An island above `from` can change height after the pass that measured it, with nothing in its
   // style changing: WebKitGTK lays a wide table out again a layout later, and a layout forced by the
   // next chunk can be that one. Nothing would ask for it again before this pass reads the blocks
   // below it, so this pass starts from the first island that is no longer the height it was measured at.
-  if (after !== null) {
+  // A bounded pass leaves that to the pass that is not bounded: it must not read, let alone restart from, every island.
+  if (after !== null && !bounded) {
     const drifted = driftedAbove(article, after, heights);
     if (drifted !== null) {
       tail = drifted === article.firstElementChild ? null : tailFrom(article, drifted);
@@ -67,7 +77,7 @@ export function snapToGrid(article: HTMLElement, lineBox: number, opts?: { reado
       const block = blockOf(article, el);
       // Taken out of the article since: nothing to undo on the page, nothing to keep track of.
       if (block === null && el !== article) mine.delete(el);
-      if (block === null || !after.has(block)) continue;
+      if (block === null ? !(leading && el === article) : !after.has(block)) continue;
     }
     el.style.removeProperty(el === article ? 'padding-top' : 'padding-bottom');
     mine.delete(el);
@@ -102,7 +112,12 @@ export function snapToGrid(article: HTMLElement, lineBox: number, opts?: { reado
   // first round's prediction missed, and a third finds nothing to change. The fourth is headroom; a
   // round that plans nothing ends the pass. Every push ends up what pushing and re-reading one block
   // at a time would have made it.
-  const children = tail ?? [...article.children].filter((el): el is HTMLElement => el instanceof HTMLElement && isBlock(el));
+  // A bounded window also reads the block after `through`: the padding taken off `through` is put back only if that block's top
+  // says so, and it is not undone, padded or pushed itself.
+  const after1 = bounded && tail !== null ? nextBlock(opts.through!) : null;
+  const children = tail
+    ? after1 === null ? tail : [...tail, after1]
+    : [...article.children].filter((el): el is HTMLElement => el instanceof HTMLElement && isBlock(el));
   const pushed = new Map<HTMLElement, number>();
   let unpushed: readonly number[] | undefined;
   for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -111,8 +126,9 @@ export function snapToGrid(article: HTMLElement, lineBox: number, opts?: { reado
     const first = (unpushed ??= tops);
     const changes: Plan[] = [];
     let planned = 0;
-    // From `from`, the first child read is its predecessor, which only `from` may push: it starts at 1.
-    for (let i = tail === null ? 0 : 1; i < children.length; i++) {
+    // From `from`, the first child read is its predecessor, which only `from` may push: it starts at 1
+    // (at 0 when the window starts at the first block, where the article is what `from` pushes).
+    for (let i = tail === null || leading ? 0 : 1; i < children.length; i++) {
       const el = i === 0 ? article : children[i - 1]!;
       const moved = i === 0 ? 0 : tops[i - 1]! - first[i - 1]! + planned;
       const add = shortfall(first[i]! + moved, unit) - (pushed.get(el) ?? 0);
@@ -134,16 +150,38 @@ export function snapToGrid(article: HTMLElement, lineBox: number, opts?: { reado
  * above it are where an earlier pass left them, because appending below cannot move them. A `from`
  * that is not a child of the article, or has no block before it, means the whole article.
  */
-function tailFrom(article: HTMLElement, from: HTMLElement | undefined): HTMLElement[] | null {
+function tailFrom(article: HTMLElement, from: HTMLElement | undefined, through?: HTMLElement): HTMLElement[] | null {
   if (from === undefined || from.parentElement !== article) return null;
   let start: Element | null = from.previousElementSibling;
   while (start !== null && !(start instanceof HTMLElement && isBlock(start))) start = start.previousElementSibling;
-  if (start === null) return null;
+  if (start === null) {
+    // No block before it: the whole article, unless the window is bounded, where it starts at `from` and the article is pushable.
+    if (through === undefined) return null;
+    start = from;
+  }
   const tail: HTMLElement[] = [start as HTMLElement];
+  if (through !== undefined && start === through) return tail;
   for (let el = start.nextElementSibling; el !== null; el = el.nextElementSibling) {
     if (el instanceof HTMLElement && isBlock(el)) tail.push(el);
+    if (el === through) break;
   }
   return tail;
+}
+
+/** The block after `el` among its siblings, or null. */
+function nextBlock(el: Element): HTMLElement | null {
+  for (let next = el.nextElementSibling; next !== null; next = next.nextElementSibling) {
+    if (next instanceof HTMLElement && isBlock(next)) return next;
+  }
+  return null;
+}
+
+/** The article's first block child: where a window that starts there can push the article itself. */
+function firstBlock(article: HTMLElement): Element | null {
+  for (let el = article.firstElementChild; el !== null; el = el.nextElementSibling) {
+    if (el instanceof HTMLElement && isBlock(el)) return el;
+  }
+  return null;
 }
 
 /**
@@ -181,9 +219,12 @@ function driftedAbove(article: HTMLElement, after: ReadonlySet<Element>, heights
  * block above it once per element it asked about: quadratic per pass, cubic over a document mounted
  * in chunks.
  */
-function childrenFrom(first: Element): Set<Element> {
+function childrenFrom(first: Element, through?: Element): Set<Element> {
   const after = new Set<Element>();
-  for (let el: Element | null = first; el !== null; el = el.nextElementSibling) after.add(el);
+  for (let el: Element | null = first; el !== null; el = el.nextElementSibling) {
+    after.add(el);
+    if (el === through) break;
+  }
   return after;
 }
 
@@ -192,6 +233,76 @@ function blockOf(article: HTMLElement, el: Element): Element | null {
   let at: Element | null = el;
   while (at !== null && at.parentElement !== article) at = at.parentElement;
   return at;
+}
+
+/**
+ * Puts back on the grid the blocks that changed height, and only them (F-80): for each top-level block holding an
+ * element of `changed`, the pass `snapToGrid` makes over the block before it, it, and the block after it (blocks that follow one another make one window). A block that
+ * changes height is padded back to a whole number of units by this pass, and a whole number of units is all it
+ * moves what is below it by, so nothing below is read, let alone padded again. For a highlight batch on a page of
+ * thousands of code pieces this is the difference between the layout of a few and the layout of every one.
+ * Returns how many elements it padded.
+ */
+export function snapBlocks(article: HTMLElement, lineBox: number, changed: readonly Element[]): number {
+  const blocks = new Set<Element>();
+  for (const el of changed) {
+    const block = blockOf(article, el);
+    if (block !== null) blocks.add(block);
+  }
+  if (blocks.size === 0) return 0;
+  // In the article's order, by one walk of its children (compareDocumentPosition is quadratic in a long article), with
+  // blocks that follow one another made one window: a sweep that changed six hundred in a row is one pass, not six hundred.
+  const runs: HTMLElement[][] = [];
+  let run: HTMLElement[] | null = null;
+  let seen = 0;
+  for (let el = article.firstElementChild; el !== null && seen < blocks.size; el = el.nextElementSibling) {
+    if (!(el instanceof HTMLElement) || !isBlock(el)) continue;
+    if (!blocks.has(el)) {
+      run = null;
+      continue;
+    }
+    seen += 1;
+    if (run === null) runs.push((run = []));
+    run.push(el);
+  }
+  let padded = 0;
+  for (const window of runs) padded += snapToGrid(article, lineBox, { from: window[0]!, through: window[window.length - 1]! });
+  return padded;
+}
+
+/**
+ * The whole-article pass, in windows of `size` blocks with the event loop given back between them (F-80): the same
+ * result as `snapToGrid(article, lineBox)`, top to bottom, each window over the block before it and its own blocks, so
+ * no single task holds the page for the layout of the whole article. `aborted` is asked before each window; a pass that
+ * is abandoned leaves the windows it has made as they are, each of which is on the grid by itself.
+ */
+export async function snapInSlices(
+  article: HTMLElement,
+  lineBox: number,
+  opts: {
+    readonly size: number;
+    readonly yieldNow: () => Promise<void>;
+    readonly aborted?: () => boolean;
+    /** Runs each window's pass: a caller that must keep something (the scroll offset) across it wraps it here. */
+    readonly around?: (pass: () => void) => void;
+  },
+): Promise<void> {
+  const blocks = [...article.children].filter((el): el is HTMLElement => el instanceof HTMLElement && isBlock(el));
+  const run = opts.around ?? ((pass: () => void) => pass());
+  if (blocks.length <= opts.size) {
+    run(() => snapToGrid(article, lineBox));
+    return;
+  }
+  for (let at = 0; at < blocks.length; at += opts.size) {
+    if (at > 0) {
+      await opts.yieldNow();
+      if (opts.aborted?.() === true) return;
+    }
+    const from = blocks[at]!;
+    const through = blocks[Math.min(at + opts.size, blocks.length) - 1]!;
+    if (!from.isConnected || !through.isConnected) return;
+    run(() => snapToGrid(article, lineBox, { from, through }));
+  }
 }
 
 /** A push this close to the one already made is the same push: layout positions are 1/64 px apart. */

@@ -923,3 +923,125 @@ test('setting a whole document makes one Range, not one per paragraph or line (B
   assert.ok(r.made <= 1, `${r.made} Ranges made`);
   await page.close();
 });
+
+// ---- F-80: a grid pass over what changed, and a whole pass in windows --------------------------------------------------------------
+
+/** A page of `groups` paragraphs, each followed by a code block the theme pads oddly and a 13 px block no rule pads. */
+const groupsHtml = (groups) => {
+  const para = (i) => `<p data-marxy-s="${i}" data-marxy-e="${i + 1}">Paragraph ${i}, a line of plain words.</p>`;
+  const pre = (i) => `<pre data-marxy-s="${i}" data-marxy-e="${i + 1}"><code>one\ntwo</code></pre>`;
+  return Array.from({ length: groups }, (_, i) => [para(i * 3), pre(i * 3 + 1), '<div style="height: 13px"></div>'].join('')).join('');
+};
+const ODD_CSS = '#doc pre { padding: 12px; line-height: 17px; }';
+/** Adds lines to the code blocks at these positions among the page's code blocks, as splitting a piece into lines can. */
+const grow = (page, positions) =>
+  page.evaluate((positions) => {
+    const pres = [...document.querySelectorAll('#doc > pre')];
+    for (const at of positions) pres[at].firstElementChild.append('\nthree\nfour');
+  }, positions);
+/** Makes the 13 px block after the code block at `at` 20 px tall: a block that changes height and that no rule pads. */
+const taller = (page, at) => page.evaluate((at) => { document.querySelectorAll('#doc > pre')[at].nextElementSibling.style.height = '20px'; }, at);
+
+test('a pass over the blocks that changed height pads exactly what a whole pass pads, and writes nothing far from them (F-80)', async () => {
+  const html = groupsHtml(40);
+  const changed = [5, 6, 21];
+  const a = await harness.open(html, { extraCss: ODD_CSS });
+  await grow(a, changed);
+  await taller(a, 30);
+  const touched = await a.evaluate((changed) => {
+    const doc = document.getElementById('doc');
+    const pres = [...doc.querySelectorAll(':scope > pre')];
+    const kids = [...doc.children];
+    const written = new Set();
+    const observer = new MutationObserver((records) => { for (const r of records) written.add(kids.indexOf(r.target)); });
+    observer.observe(doc, { attributes: true, attributeFilter: ['style'], subtree: true });
+    window.typeset.snapBlocks(doc, window.lineBox, [...changed.map((at) => pres[at].firstElementChild), pres[30].nextElementSibling]);
+    for (const r of observer.takeRecords()) written.add(kids.indexOf(r.target));
+    observer.disconnect();
+    return { written: [...written].sort((x, y) => x - y), at: [...changed.map((c) => kids.indexOf(pres[c])), kids.indexOf(pres[30]) + 1] };
+  }, changed);
+  const partial = await paddings(a);
+  const b = await harness.open(html, { extraCss: ODD_CSS });
+  await grow(b, changed);
+  await taller(b, 30);
+  await b.evaluate(() => window.typeset.snapToGrid(document.getElementById('doc'), window.lineBox));
+  const whole = await paddings(b);
+  assert.equal(partial.length, whole.length);
+  const differ = partial.flatMap(([t, bt], i) => (Math.abs(t - whole[i][0]) > 0.5 || Math.abs(bt - whole[i][1]) > 0.5 ? [`#${i}: ${t}/${bt} vs ${whole[i]}`] : []));
+  assert.deepEqual(differ, [], 'the same padding as the whole pass');
+  assert.ok(touched.written.length > 0, 'the pass had work to do');
+  for (const k of touched.written) {
+    assert.ok(touched.at.some((c) => Math.abs(k - c) <= 2), `block ${k} was written, and no changed block is near it (${touched.at})`);
+  }
+  // And it is on the grid: every block starts on a whole unit.
+  const off = await a.evaluate(() => {
+    const doc = document.getElementById('doc');
+    const unit = window.lineBox / 2;
+    const origin = doc.getBoundingClientRect().top;
+    return [...doc.children].flatMap((el, i) => {
+      const r = (((el.getBoundingClientRect().top - origin) % unit) + unit) % unit;
+      return r > 0.6 && unit - r > 0.6 ? [i] : [];
+    });
+  });
+  assert.deepEqual(off, [], 'every block is on the grid');
+  await a.close();
+  await b.close();
+});
+
+test('blocks that follow one another are one window, and a pass over them lays out as few times as a chunk pass (F-80)', async () => {
+  const page = await harness.open(groupsHtml(40), { extraCss: ODD_CSS });
+  await grow(page, [10, 11, 12]);
+  const layouts = await page.evaluate(() => {
+    const doc = document.getElementById('doc');
+    const run = [...doc.children].slice(30, 40);
+    const read = Element.prototype.getBoundingClientRect;
+    const write = CSSStyleDeclaration.prototype.setProperty;
+    const remove = CSSStyleDeclaration.prototype.removeProperty;
+    let dirty = true;
+    let count = 0;
+    Element.prototype.getBoundingClientRect = function () { if (dirty) count++; dirty = false; return read.call(this); };
+    CSSStyleDeclaration.prototype.setProperty = function (...a) { dirty = true; return write.apply(this, a); };
+    CSSStyleDeclaration.prototype.removeProperty = function (...a) { dirty = true; return remove.apply(this, a); };
+    try {
+      window.typeset.snapBlocks(doc, window.lineBox, run);
+    } finally {
+      Element.prototype.getBoundingClientRect = read;
+      CSSStyleDeclaration.prototype.setProperty = write;
+      CSSStyleDeclaration.prototype.removeProperty = remove;
+    }
+    return count;
+  });
+  assert.ok(layouts >= 2 && layouts <= 6, `${layouts} layouts for ten blocks in a row`);
+  await page.close();
+});
+
+test('a whole pass in windows pads exactly what a whole pass pads, and gives the event loop back between them (F-80)', async () => {
+  const html = groupsHtml(40);
+  const positions = Array.from({ length: 40 }, (_, i) => i);
+  const a = await harness.open(html, { extraCss: ODD_CSS });
+  await grow(a, positions);
+  const windows = await a.evaluate(async () => {
+    let yields = 0;
+    await window.typeset.snapInSlices(document.getElementById('doc'), window.lineBox, { size: 7, yieldNow: async () => { yields++; await new Promise((r) => setTimeout(r, 0)); } });
+    return yields;
+  });
+  const sliced = await paddings(a);
+  const b = await harness.open(html, { extraCss: ODD_CSS });
+  await grow(b, positions);
+  await b.evaluate(() => window.typeset.snapToGrid(document.getElementById('doc'), window.lineBox));
+  const whole = await paddings(b);
+  assert.ok(windows >= 10, `${windows} windows`);
+  const differ = sliced.flatMap(([t, bt], i) => (Math.abs(t - whole[i][0]) > 0.5 || Math.abs(bt - whole[i][1]) > 0.5 ? [`#${i}: ${t}/${bt} vs ${whole[i]}`] : []));
+  assert.deepEqual(differ, []);
+  // A pass that is abandoned stops between windows.
+  const c = await harness.open(html, { extraCss: ODD_CSS });
+  const ran = await c.evaluate(async () => {
+    let asked = 0;
+    await window.typeset.snapInSlices(document.getElementById('doc'), window.lineBox, { size: 7, yieldNow: async () => { asked++; }, aborted: () => asked >= 2 });
+    return asked;
+  });
+  assert.equal(ran, 2);
+  await a.close();
+  await b.close();
+  await c.close();
+});
