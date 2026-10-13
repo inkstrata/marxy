@@ -117,6 +117,8 @@ export const shell: Pick<
   quit(code?: number): Promise<void>;
   /** A native menu click that stands for a key chord (`marxy:menu`); the payload is the menu item's id. */
   onMenuCommand(cb: (id: string) => void): void;
+  /** Enables or disables the native menu's registry-command items, by registry id (W-20, ADR-0073). */
+  setMenuEnabled(states: Record<string, boolean>): Promise<void>;
   /**
    * Reads without arming the stale-write guard. The live-reload watcher looks at disk to decide
    * whether to follow it; that look must not count as the app having seen (adopted) the change.
@@ -306,6 +308,7 @@ export const shell: Pick<
     assertAssetScope(path);
     return convertFileSrc(path);
   },
+  setMenuEnabled: (states) => invoke('set_menu_enabled', { states }),
   onMenuCommand: (cb) => {
     void listen<string>('marxy:menu', (event) => cb(event.payload));
   },

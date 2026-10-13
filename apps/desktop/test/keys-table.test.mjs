@@ -14,6 +14,7 @@ import { FOLD_KEYS } from '../src/source/depth-fold.ts';
 import { registryChord, canonicalCm } from '../src/source/structure.ts';
 import { PALETTE_CHORDS } from '../src/palette/chords.ts';
 import { setAppHandle } from '../src/commands/app-handle.ts';
+import { MENU_COMMAND_IDS } from '../src/menu/menu-commands.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MAC = true;
@@ -23,20 +24,34 @@ const PHYSICAL = { Backslash: '\\', ArrowLeft: 'arrowleft', ArrowRight: 'arrowri
 const physical = (code) => PHYSICAL[code] ?? code.replace(/^(Digit|Key)/, '').toLowerCase();
 const paneChord = (c, mac = MAC) => registryChord(['Mod', c.ctrl ? 'Ctrl' : null, c.alt ? 'Alt' : null, c.shift ? 'Shift' : null, physical(c.code)].filter(Boolean).join('+'), mac);
 
-/** Native menu accelerators, from main.rs; an item that replays a command's chord names that owner. */
-const MENU_OWNERS = {
-  'marxy-open-quickly': 'palette',
-  'marxy-toggle-source': 'view.toggle-mode',
-  'marxy-go-back': 'nav.back',
-  'marxy-go-forward': 'nav.forward',
-};
+/** The menu item that opens a palette door is the palette's owner of that chord, not a second one. */
+const MENU_OWNERS = { 'marxy-open-quickly': 'palette' };
 
-function menuAccelerators(mac = MAC) {
+/** The OS's own items and the key each answers (AppKit), with the registry command that owns the same chord, if any. */
+const NATIVE_ITEMS = [
+  { spec: 'Mod+H' }, { spec: 'Mod+Alt+H' }, { spec: 'Mod+X' }, { spec: 'Mod+C' }, { spec: 'Mod+A' }, { spec: 'Mod+M' },
+  { spec: 'Mod+Z', owner: 'document.undo' }, { spec: 'Mod+Shift+Z', owner: 'document.redo' }, { spec: 'Mod+V', owner: 'paste.rendered' },
+];
+
+/** macOS shortcuts that belong to the system, whatever the app is doing: a menu item on one would be shadowed or would shadow it. */
+const SYSTEM_WIDE = ['Mod+Space', 'Mod+Alt+Space', 'Ctrl+Space', 'Ctrl+Mod+Q', 'Mod+Tab', 'Mod+Shift+Tab', 'Mod+`', 'Mod+Alt+Escape', 'Mod+Shift+3', 'Mod+Shift+4', 'Mod+Shift+5', 'Mod+Shift+Q', 'Mod+Alt+D'];
+
+/** Rust accelerator text (`CmdOrCtrl+Shift+N`) as a registry spec (`Mod+Shift+N`). */
+const specOf = (accel) => accel.replace(/CmdOrCtrl|Cmd/g, 'Mod');
+
+/** Every `Own` and `Cmd` item of `MENU` in main.rs: its menu id, the registry command it runs (if one), and its accelerator spec ('' for none). */
+export function menuItems() {
   const rs = readFileSync(join(here, '..', 'src-tauri', 'src', 'main.rs'), 'utf8');
   const ids = Object.fromEntries([...rs.matchAll(/pub const ([A-Z_]+): &str = "(marxy-[a-z-]+)"/g)].map((m) => [m[1], m[2]]));
-  const items = [...rs.matchAll(/Own\(\s*([A-Z_]+),\s*"[^"]*",\s*"CmdOrCtrl\+([^"]+)"/g)].map((m) => ({ id: ids[m[1]], accel: m[2] }));
-  assert.ok(items.length >= 7, 'the menu table was found');
-  return items.map(({ id, accel }) => ({ id, chord: registryChord(`Mod+${accel}`, mac) }));
+  const items = [];
+  for (const m of rs.matchAll(/\bOwn\(\s*([A-Z_]+),\s*"[^"]*",\s*"((?:[^"\\]|\\.)*)"/g)) items.push({ id: ids[m[1]], command: null, spec: specOf(m[2].replace(/\\\\/g, '\\')) });
+  for (const m of rs.matchAll(/\bCmd\(\s*"([a-z][a-z.-]*)",\s*"[^"]*",\s*"((?:[^"\\]|\\.)*)"/g)) items.push({ id: `cmd:${m[1]}`, command: m[1], spec: specOf(m[2].replace(/\\\\/g, '\\')) });
+  assert.ok(items.length >= 35, 'the menu table was found');
+  return items;
+}
+
+function menuAccelerators(mac = MAC) {
+  return menuItems().filter((i) => i.spec !== '').map(({ id, command, spec }) => ({ id, command, chord: registryChord(spec, mac) }));
 }
 
 function table(mac = MAC) {
@@ -50,7 +65,8 @@ function table(mac = MAC) {
   for (const cmd of commands()) for (const spec of [cmd.key, ...(cmd.keys ?? [])].filter(Boolean)) claim(registryChord(spec, mac), cmd.id, 'command');
   for (const chord of PANE_CHORDS) claim(paneChord(chord, mac), chord.command, 'pane');
   for (const { spec } of PALETTE_CHORDS) claim(registryChord(spec, mac), 'palette', 'palette');
-  for (const item of menuAccelerators(mac)) claim(item.chord, MENU_OWNERS[item.id] ?? item.id, 'menu');
+  for (const item of menuAccelerators(mac)) claim(item.chord, item.command ?? MENU_OWNERS[item.id] ?? item.id, 'menu');
+  for (const n of NATIVE_ITEMS) claim(registryChord(n.spec, mac), n.owner ?? `native:${n.spec}`, 'native');
   // Source's own keymap: a binding's chord is its `mac` name on a Mac, else its `key`.
   for (const b of FOLD_KEYS) claim(canonicalCm((mac ? b.mac : b.key) ?? b.key, mac), `source:${b.key}`, 'source');
   return owners;
@@ -85,6 +101,60 @@ test('the rulings: Mod+K, Mod+Shift+P, Mod+/ are the palette; Mod+1..3 are Read,
   assert.equal(ownerOf('Mod+2'), 'view.mode-split');
   assert.equal(ownerOf('Mod+3'), 'view.mode-source');
   assert.equal(ownerOf('Mod+E'), 'view.toggle-mode');
+});
+
+/** Keyed commands the menu does not carry, and why (W-20: the menu is cut to the commands the card names; ADR-0073). */
+const NOT_IN_MENU = [
+  [/^selection\./, 'Rendered selection keys, a mode of the page'],
+  [/^source\.(select|expand|delete|join|toggle-(task|quote|comment))/, "Source's own selection and line chords (the mock's Select menu is another story)"],
+  [/^document\.(undo|redo)$/, "Undo and Redo are the OS's own Edit items"],
+  [/^paste\./, "Paste is the OS's own Edit item"],
+  [/^source\.paste-plain$/, 'a paste variant, in the palette'],
+  [/^view\.(text-|focus-|close-pane|open-beside|fold-workspace)/, 'text size, pane chords and Esc: not on the card'],
+  [/^(notices\.focus|edit\.block|document\.open-in-editor)$/, 'not on the card'],
+];
+
+test('every keyed registry command is in the menu with its own key, or is named as not there', () => {
+  const inMenu = new Map(menuItems().filter((i) => i.command).map((i) => [i.command, i.spec]));
+  const missing = [];
+  for (const cmd of commands()) {
+    if (cmd.key === undefined || inMenu.has(cmd.id)) continue;
+    if (NOT_IN_MENU.some(([re]) => re.test(cmd.id))) continue;
+    missing.push(`${cmd.id} (${cmd.key})`);
+  }
+  assert.deepEqual(missing, [], 'a command with a key is missing from the menu bar');
+});
+
+test('each menu item runs a registry command, shows that command\'s own key, and the shell is told the same ids', () => {
+  const byId = new Map(commands().map((c) => [c.id, c]));
+  for (const item of menuItems().filter((i) => i.command)) {
+    const cmd = byId.get(item.command);
+    assert.ok(cmd, `${item.command} is not a registry command`);
+    for (const mac of PLATFORMS) {
+      const want = cmd.key === undefined ? null : registryChord(cmd.key, mac);
+      const got = item.spec === '' ? null : registryChord(item.spec, mac);
+      assert.equal(got, want, `${mac ? 'mac' : 'other'}: ${item.command} shows ${item.spec || 'no key'} but the registry gives ${cmd.key ?? 'none'}`);
+    }
+  }
+  assert.deepEqual([...MENU_COMMAND_IDS].sort(), menuItems().filter((i) => i.command).map((i) => i.command).sort());
+});
+
+test('no menu item takes a system-wide macOS shortcut', () => {
+  const system = new Set(SYSTEM_WIDE.map((s) => registryChord(s, true)));
+  for (const item of menuItems().filter((i) => i.spec !== '')) {
+    assert.ok(!system.has(registryChord(item.spec, true)), `${item.id} takes ${item.spec}, which the system owns`);
+  }
+  for (const n of NATIVE_ITEMS) assert.ok(!system.has(registryChord(n.spec, true)), n.spec);
+});
+
+test('no two menu items share a key, and Close Window keeps Mod+W', () => {
+  const seen = new Map();
+  for (const item of menuItems().filter((i) => i.spec !== '')) {
+    const chord = registryChord(item.spec, true);
+    assert.ok(!seen.has(chord), `${item.id} and ${seen.get(chord)} share ${item.spec}`);
+    seen.set(chord, item.id);
+  }
+  assert.equal(menuItems().find((i) => i.id === 'marxy-close-window')?.spec, 'Mod+W');
 });
 
 test('pane focus moved off Mod+1/Mod+2 to Mod+Alt+Left/Right', () => {
