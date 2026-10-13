@@ -1,5 +1,9 @@
 // "Find in this pane" (`Mod+F`, D-13): Rendered find in the focused pane's article, or CodeMirror's own
 // search panel in that pane's editor when it shows Source. Nothing here searches both panes.
+//
+// "Replace" (`Mod+Alt+F`, V-03): Source only. The same panel, with its replace field focused. Replace changes the
+// current match; Replace all… opens a preview of every change and changes nothing until Apply
+// (`source/replace-sheet.ts`). Rendered has no replace: it has no caret, and a replacement would reshape the page.
 import { activeFind, findFor, type FindController } from '../find/view.ts';
 import { focusOrigin } from '../pane/focus.ts';
 import type { Pane, PaneContent, PaneSet } from '../pane/pane-set.ts';
@@ -49,8 +53,38 @@ async function sourceSearch(pane: Pane): Promise<void> {
   if (view) openSearchPanel(view);
 }
 
+/** The focused pane shows Source: Replace means its editor. */
+function focusedInSource(): boolean {
+  const panes = appHandle()?.panes();
+  return panes !== undefined && panes.focused.path() !== null && panes.focused.view.mode === 'source';
+}
+
+/** The find panel in the focused pane's editor, with the replace field focused. */
+async function sourceReplace(pane: Pane): Promise<void> {
+  const editor = pane.parts.source.querySelector<HTMLElement>('.cm-editor');
+  if (!editor) return;
+  const [{ EditorView }, { openReplacePanel }] = await Promise.all([import('@codemirror/view'), import('../source/replace-sheet.ts')]);
+  const view = EditorView.findFromDOM(editor);
+  if (view) await openReplacePanel(view);
+}
+
 export function findCommands(): readonly Command[] {
   return [
+    {
+      id: 'view.replace',
+      title: 'Replace',
+      key: 'Mod+Alt+F',
+      // From inside the editor and its find panel too: the key is the registry's, not CodeMirror's.
+      global: true,
+      group: 'view',
+      when: focusedInSource,
+      run: async () => {
+        const panes = appHandle()?.panes();
+        if (!panes || panes.focused.view.mode !== 'source') return;
+        activeFind()?.close();
+        await sourceReplace(panes.focused);
+      },
+    },
     {
       id: 'view.find',
       title: 'Find in this pane',

@@ -21,12 +21,16 @@
 // in rendered-view.ts: `draft`, `heldApart`), the real notice regions, the Tauri stale-write guard (the node
 // layer tests the store's own baseline alone, which is the stricter test).
 
-import { EditorSelection, EditorState } from '@codemirror/state';
+import { EditorSelection, EditorState, Transaction } from '@codemirror/state';
 import { TRANSFORMS, createBuffer, parseMarkdown } from '@marxy/core';
 import { astOf } from '../../src/document/store.ts';
 import { effectForOpenDocument } from '@marxy/core/src/position/watch-events.ts';
 import { cmDocText, lineSeparatorFor } from '../../src/source/buffer-commit.ts';
 import { runTableTool } from '../../src/source/structure.ts';
+import { applyReplacePlan, planFor } from '../../src/source/replace-sheet.ts';
+import { applyPlan } from '../../src/source/replace.ts';
+import { SearchQuery, search, setSearchQuery } from '@codemirror/search';
+import { history, undo as cmUndo, undoDepth } from '@codemirror/commands';
 import { addStep, applyToStore, createChain, eolOf, openedOf, output, replacesExactly } from '../../src/transform/chain.ts';
 import { conflictCopyPath, openDocumentStore } from '../../src/document/store.ts';
 import { createStoreRegistry } from '../../src/document/registry.ts';
@@ -1197,8 +1201,9 @@ export const OPS = {
       if (!tables.some(outside)) {
         world.fail('I6', `${at} changed bytes outside every table (tables: ${tables.map((t) => `${t.start}..${t.end}`).join(', ')}; ${before.length} bytes became ${after.length})`);
       }
+      // A file with no line ending yet takes LF from a replacement that holds one; any other file keeps the kinds it has.
       const had = endingKinds(before);
-      for (const kind of endingKinds(after)) if (!had.has(kind)) world.fail('I6', `${at} wrote a line ending (${JSON.stringify(kind)}) the file did not have`);
+      if (had.size > 0) for (const kind of endingKinds(after)) if (!had.has(kind)) world.fail('I6', `${at} wrote a line ending (${JSON.stringify(kind)}) the file did not have`);
       if (bomLength(before) !== bomLength(after)) world.fail('I6', `${at} changed the byte-order mark`);
       doc.past.push(before);
       doc.future = [];
@@ -1212,6 +1217,111 @@ export const OPS = {
         if (!same(copy(doc.store.snapshot().buffer.bytes), after)) world.fail('I6', `${at}: redo did not give the edited bytes back`);
       }
       return `tableTool ${at}: ${before.length} bytes became ${after.length}`;
+    },
+  },
+
+  /**
+   * V-03: Replace all in Source, through the preview's own two functions: `planFor` (what the preview shows) and
+   * `applyReplacePlan` (Apply: one CodeMirror transaction), over a real editor state in the file's own line separator,
+   * committed through the Source fold (`commitSource`). The query is a word of the file, a regular expression with a
+   * group, an empty match (`^`, `$`) or a run of spaces; the replacement may hold `$1`, `$&` or a line break. The oracle
+   * is the promise: the editor's undo history grew by exactly one step and one editor undo gives the old text back; the
+   * bytes before the first change and after the last are the ones that were there; the byte-order mark is kept and no
+   * kind of line ending appears that the file did not have; a file that is valid UTF-8 with one kind of ending holds
+   * exactly what JavaScript's own replace makes of its text; and one store undo gives the exact old bytes back.
+   */
+  replaceAll: {
+    name: 'replaceAll',
+    weight: 4,
+    applicable: (model) => slotsWith(model, (v) => viewsOf(model, v.doc).every((other) => !other.heldApart)).length > 0,
+    async run(world, model) {
+      const d = model.d;
+      const slot = d.pick(slotsWith(model, (v) => viewsOf(model, v.doc).every((other) => !other.heldApart)));
+      const { doc } = model.views[slot];
+      await world.foldAll(doc);
+      const before = doc.buf.slice();
+      const buffer = createBuffer(doc.path, before);
+      const sep = lineSeparatorFor(buffer);
+      let state = EditorState.create({ doc: cmDocText(buffer), extensions: [history(), search(), EditorState.lineSeparator.of(sep)] });
+      const target = { get state() { return state; }, dispatch: (tr) => { state = tr instanceof Transaction ? tr.state : state.update(tr).state; } };
+      const text = state.doc.toString();
+      const words = text.match(/\p{L}{2,}/gu) ?? ['e'];
+      const queries = [
+        { search: d.pick(words), regexp: false },
+        { search: `(${d.pick(words).slice(0, 2)})(\\p{L}*)`, regexp: true },
+        { search: '^', regexp: true },
+        { search: '$', regexp: true },
+        { search: ' +', regexp: true },
+        { search: 'e', regexp: false, wholeWord: true },
+        // Punctuation as a plain query (a hyphen, a pipe, a bracket): each must find itself.
+        { search: d.pick(['-', '|', '[', ']', '*', '`', '#', '/', '(', '.', ':', '\\', '- [ ]', '```']), regexp: false },
+      ];
+      const q = d.pick(queries);
+      const replace = q.regexp ? d.pick(['', 'X', '$1', '$&$&', '[$2]', 'é\\n', '$1\\n$2']) : d.pick(['', 'X', 'é😀', 'two\\nlines', q.search + q.search]);
+      const query = { search: q.search, replace, regexp: q.regexp, wholeWord: q.wholeWord === true, caseSensitive: d.chance(0.5) };
+      target.dispatch({ effects: setSearchQuery.of(new SearchQuery(query)) });
+      const plan = planFor(state);
+      const at = `${JSON.stringify(query)} over ${doc.path} in pane ${slot}`;
+      if ('error' in plan) world.fail('I6', `${at}: no plan (${plan.error})`);
+      if (plan.changes.length === 0) {
+        if (applyReplacePlan(target, state.doc, plan) !== 'unchanged') world.fail('I6', `${at}: an empty plan applied`);
+        return `replaceAll ${at}: nothing to change`;
+      }
+      // Tokens a change takes out were changed by the reader's own Replace all; one undo gives them back.
+      const willRead = applyPlan(text, plan, sep);
+      world.mayDrop(model, tokensIn(model, latin1(before)).filter((id) => !willRead.includes(model.tokens[id].text)), { always: true });
+      const docBefore = state.doc;
+      if (d.chance(0.15)) {
+        // The text changes under the open preview: Apply refuses and touches nothing.
+        target.dispatch({ changes: { from: 0, insert: 'x' } });
+        const changed = state.doc;
+        if (applyReplacePlan(target, docBefore, plan) !== 'stale' || state.doc !== changed) world.fail('I6', `${at}: Apply over a changed text did not refuse`);
+        return `replaceAll ${at}: the text changed under the preview, Apply refused`;
+      }
+      if (applyReplacePlan(target, docBefore, plan, d.chance(0.5) ? undefined : 0) !== 'applied') world.fail('I6', `${at}: Apply did not apply`);
+      if (undoDepth(state) !== 1) world.fail('I7', `${at}: Apply made ${undoDepth(state)} undo steps, not one`);
+      const applied = state;
+      cmUndo(target);
+      if (state.doc.toString() !== text) world.fail('I6', `${at}: one editor undo did not give the text back`);
+      state = applied;
+      const changed = await doc.store.commitSource(state.sliceDoc(0, state.doc.length));
+      if (!changed) world.fail('I6', `${at}: applied, and the Source fold changed nothing`);
+      const after = copy(doc.store.snapshot().buffer.bytes);
+      // Every byte before the first change and after the last is as it was.
+      const plain = (bytes) => latin1(bytes);
+      const lead = bomLength(before) + enc.encode(text.slice(0, plan.changes[0].from).replace(/\n/g, sep)).length;
+      if (!/[\udc80-\udcff]/.test(text) && !same(after.subarray(0, lead), before.subarray(0, lead))) world.fail('I6', `${at}: bytes before the first change moved`);
+      const tailText = text.slice(plan.changes[plan.changes.length - 1].to).replace(/\n/g, sep);
+      if (!/[\udc80-\udcff]/.test(tailText) && !plain(after).endsWith(plain(enc.encode(tailText)))) world.fail('I6', `${at}: bytes after the last change moved`);
+      if (bomLength(before) !== bomLength(after)) world.fail('I6', `${at} changed the byte-order mark`);
+      // A file with no line ending yet takes LF from a replacement that holds one; any other file keeps the kinds it has.
+      const had = endingKinds(before);
+      if (had.size > 0) for (const kind of endingKinds(after)) if (!had.has(kind)) world.fail('I6', `${at} wrote a line ending (${JSON.stringify(kind)}) the file did not have`);
+      // A file that is valid UTF-8 in one kind of ending: exactly JavaScript's own replace of its text.
+      const strict = (() => { try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(before); } catch { return null; } })();
+      if (strict !== null && had.size <= 1) {
+        const body = strict.slice(bomLength(before) === 3 ? 1 : 0).split(sep).join('\n');
+        const flags = `gmu${query.caseSensitive ? '' : 'i'}`;
+        const unq = (t) => t.replace(/\\([nrt\\])/g, (_, c) => (c === 'n' ? '\n' : c === 'r' ? '\r' : c === 't' ? '\t' : '\\'));
+        // Every character as a code point escape: independent of the set the code escapes.
+        const esc = (t) => [...t].map((c) => `\\u{${c.codePointAt(0).toString(16)}}`).join('');
+        const W = '[\\p{Alphabetic}\\p{Number}_]';
+        const re = query.regexp ? new RegExp(query.search, flags) : query.wholeWord ? new RegExp(`(?<!${W})${esc(unq(query.search))}(?!${W})`, flags) : new RegExp(esc(unq(query.search)), flags);
+        const out = query.regexp ? body.replace(re, unq(query.replace)) : body.replace(re, () => unq(query.replace));
+        const want = enc.encode((bomLength(before) === 3 ? '\ufeff' : '') + out.replace(/\r?\n/g, sep));
+        if (!same(after, want)) world.fail('I6', `${at}: the bytes are not JavaScript's replace of the text`);
+      }
+      doc.past.push(before);
+      doc.future = [];
+      doc.buf = after;
+      world.afterBytesChange(doc, null);
+      if (d.chance(0.5)) {
+        if (!(await doc.store.undo())) world.fail('I7', `${at}: undo returned false right after the fold`);
+        if (!same(copy(doc.store.snapshot().buffer.bytes), before)) world.fail('I6', `${at}: one undo did not restore the exact bytes`);
+        if (!(await doc.store.redo())) world.fail('I7', `${at}: redo returned false right after the undo`);
+        if (!same(copy(doc.store.snapshot().buffer.bytes), after)) world.fail('I6', `${at}: redo did not give the replaced bytes back`);
+      }
+      return `replaceAll ${at}: ${plan.changes.length} changes, ${before.length} bytes became ${after.length}`;
     },
   },
 

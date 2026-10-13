@@ -202,6 +202,31 @@ export const SURFACES = [
     },
   },
   {
+    // The replace preview (V-03) is Source's: it opens over the other pane's editor, and the reading column beside it
+    // does not move while it is up or when it goes. Split only, as above.
+    name: 'replace preview (Replace all… in Source in the other pane)',
+    splitOnly: true,
+    open: async (page, s) => {
+      await page.keyboard.press(`${s.mod}+Alt+ArrowRight`);
+      await page.waitForFunction(() => document.querySelector('.marxy-pane[data-marxy-pane="1"]')?.hasAttribute('data-marxy-focus'));
+      await page.keyboard.press(`${s.mod}+KeyE`);
+      await page.waitForSelector('.marxy-pane[data-marxy-pane="1"] .cm-content');
+      await page.keyboard.press(`${s.mod}+Alt+KeyF`);
+      const panel = '.marxy-pane[data-marxy-pane="1"] .cm-search';
+      await page.waitForSelector(`${panel} input[name=replace]`);
+      await page.fill(`${panel} input[name=search]`, 'the');
+      await page.fill(`${panel} input[name=replace]`, 'THE');
+      await page.click(`${panel} button[name=replaceAll]`);
+      await page.waitForSelector('#marxy-replace[open]');
+    },
+    close: async (page, s) => {
+      await escapeKey(page);
+      await page.waitForFunction(() => !document.getElementById('marxy-replace')?.open);
+      await page.keyboard.press(`${s.mod}+KeyE`);
+      await page.waitForFunction(() => document.querySelector('.marxy-pane[data-marxy-pane="1"]')?.dataset.marxyMode === 'rendered');
+    },
+  },
+  {
     name: 'notice (empty clipboard transform)',
     splitToo: true,
     open: async (page, s) => {

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App beside mock</title>
+<style>
+  :root { --bg: #f6f5f2; --fg: #1d1d1f; --muted: #5d5f63; --line: #d9d7d2; --card: #ffffff; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111214; --fg: #e3e5e8; --muted: #9a9ea4; --line: #2a2c30; --card: #17181a; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 -apple-system, system-ui, sans-serif; }
+  main { max-width: 1500px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 24px; font-size: 13px; }
+  nav a { color: inherit; }
+  section { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 28px; }
+  h2 { font-size: 17px; margin: 0; }
+  small { color: var(--muted); font-size: 12.5px; }
+  figure { margin: 12px 0 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+  figure > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  figure > div img { width: 100%; height: auto; display: block; border-radius: 4px; border: 1px solid var(--line); }
+  figcaption { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; font-size: 12px; color: var(--muted); padding-top: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Replace all, before and after</h1>
+  <p><small>V-03. The mock has no replace page (ADR-0070: no mock pair), so this is before and after over the fixture
+  <code>fixtures/corpus/01-long-technical.md</code> in Source, find &ldquo;electron&rdquo;, replace with &ldquo;Electron (Chromium)&rdquo;,
+  at 1440 &times; 900. Before is the state after Replace all as main had it (CodeMirror's own command: the 24 matches changed
+  at once, the panel stays); it is rendered from this branch, so the button already reads &ldquo;replace all&hellip;&rdquo;.
+  After is the preview that button now opens. Made by a capture script over the Vite harness (not committed): <code>scripts/mock-pair.mjs</code> has no screen for it.</small></p>
+  <nav><a href="#replace-all">replace-all</a></nav>
+  <section id="replace-all">
+    <h2>replace-all</h2>
+      <figure>
+        <div><a href="replace-all-night-before.png"><img src="replace-all-night-before.png" alt="Replace all, Night, before: every match changed at once" loading="lazy"></a><a href="replace-all-night-after.png"><img src="replace-all-night-after.png" alt="Replace all, Night, after: the preview of every change" loading="lazy"></a></div>
+        <figcaption><span>Before: Replace all changes every match at once, nothing shown first</span><span>After (V-03): the preview; nothing changes until Apply</span><b>Night</b></figcaption>
+      </figure>
+      <figure>
+        <div><a href="replace-all-paper-before.png"><img src="replace-all-paper-before.png" alt="Replace all, Paper, before: every match changed at once" loading="lazy"></a><a href="replace-all-paper-after.png"><img src="replace-all-paper-after.png" alt="Replace all, Paper, after: the preview of every change" loading="lazy"></a></div>
+        <figcaption><span>Before: Replace all changes every match at once, nothing shown first</span><span>After (V-03): the preview; nothing changes until Apply</span><b>Paper</b></figcaption>
+      </figure>
+  </section>
+</main>
+</body>
+</html>
