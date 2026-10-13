@@ -19,9 +19,12 @@ function gridOf(input: OperationInput): string[][] {
 
 const PLAIN_NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 
-/** Prefix `'` to a cell a spreadsheet would run: `=`, `@`, or `+`/`-` not forming a plain number. */
+/**
+ * Prefix `'` to a cell a spreadsheet would run: `=`, `@`, a tab or a carriage return first (OWASP's CSV-injection list; a
+ * spreadsheet skips them and reads what follows), or `+`/`-` not forming a plain number.
+ */
 export function guardFormula(cell: string): string {
-  if (/^[=@]/.test(cell) || (/^[+-]/.test(cell) && !PLAIN_NUMBER.test(cell))) return `'${cell}`;
+  if (/^[=@\t\r]/.test(cell) || (/^[+-]/.test(cell) && !PLAIN_NUMBER.test(cell))) return `'${cell}`;
   return cell;
 }
 
