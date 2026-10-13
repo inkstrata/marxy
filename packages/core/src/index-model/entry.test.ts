@@ -180,6 +180,8 @@ test('the log and data extensions are indexed, each with its ADR-0060 reader kin
   const expected: Record<string, string> = {
     'a.log': 'log',
     'a.out': 'log',
+    'f.diff': 'diff',
+    'g.patch': 'diff',
     'b.csv': 'data',
     'c.tsv': 'data',
     'd.jsonl': 'data',

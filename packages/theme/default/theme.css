@@ -227,6 +227,18 @@
   --marxy-size-code: round(calc(0.8333 * var(--marxy-root-size-code)), 1px);
   --marxy-line-box-code: round(calc(0.8 * var(--marxy-root-line-box-code)), 2px);
 }
+[data-marxy-kind="diff"] {
+  /* Mono, 16 on 26 (0.8889 and 0.8667 of 18 on 30), as authored: a diff is never reflowed, so only the size and the line
+     box are the profile's. A wrapped row hangs past the marker column (diffMarkerIndentCh, ADR-0036; K-09). */
+  --marxy-size-code: round(calc(0.8889 * var(--marxy-root-size-code)), 1px);
+  --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
+}
+@media (forced-colors: active) {
+  /* The tints are system colours there and vanish; added and removed rows keep a second channel, a border that differs
+     in style (base.css gives it under prefers-contrast: more; forced colours is not that query in every engine; K-09). */
+  .marxy-diff-add { border-inline-start: 3px solid currentColor; }
+  .marxy-diff-del { border-inline-start: 3px dashed currentColor; }
+}
 /* A speaker heading is a label, never a heading to the eye: small capitals, the heading's own text, no colour of
    its own (colour never carries the speaker). Exchanges are a root line box apart (30 px at the default size)
    and paragraphs within a turn half of that (K-11; Reader Artifacts 10-spec, "Speaker labels"). A heading that is

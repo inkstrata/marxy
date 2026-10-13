@@ -1,4 +1,4 @@
-document [0,4779)
+document [0,5264)
   htmlBlock [0,72) value="<!-- Inventory and provenance for the fixture corpus the gates walk. -->"
   heading [74,90) level=1
     text [76,90) value="Fixture corpus"
@@ -160,3 +160,23 @@ document [0,4779)
     text [4766,4770) value=" as "
     code [4770,4777) value="-text"
     text [4777,4778) value="."
+  heading [4780,4797) level=2
+    text [4783,4797) value="36-change.diff"
+  paragraph [4799,5263)
+    text [4799,4859) value="Original text written for K-09: a unified diff in the shape "
+    code [4859,4869) value="git diff"
+    text [4869,4911) value=" writes, two files and three hunks. It has"
+    softBreak [4911,4912)
+    text [4912,4949) value="added, removed and context lines, an "
+    code [4949,4956) value="index"
+    text [4956,5014) value=" line, hunk headers with a function name after the second "
+    code [5014,5018) value="@@"
+    text [5018,5034) value=", one added line"
+    softBreak [5034,5035)
+    text [5035,5110) value="long enough to wrap in the reader (the hang past the marker column), and a "
+    code [5110,5139) value="\\ No newline at end of file"
+    text [5139,5156) value=" note. Every name"
+    softBreak [5156,5157)
+    text [5157,5172) value="is invented. A "
+    code [5172,5179) value=".diff"
+    text [5179,5263) value=" opens in Read; the goldens move only if the code-file parse or the kind table does."

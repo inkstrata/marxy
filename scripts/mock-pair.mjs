@@ -43,6 +43,7 @@ export const SCREENS = {
   '03-code': 'A code file in the reader (mock 01-workspace, doc=indexer-rs)',
   '03-transcript': 'A Markdown transcript in the reader (mock 01-workspace, doc=indexer-chat)',
   '03-log': 'A log in the reader (mock 01-workspace, doc=build-log)',
+  '03-diff': 'A diff in the reader (the mock has no diff page: mock 01-workspace, doc=indexer-rs, shows the same chrome around code)',
   '04-palette': 'The palette, files (mock 04-palette)',
   '04-palette-commands': 'The palette, commands (mock 04-palette)',
   '05-library': 'The library (mock 05-collections)',
@@ -157,7 +158,12 @@ const ctx = { window: {} };
 vm.runInNewContext(readFileSync(join(MOCK, 'shared/corpus.js'), 'utf8'), ctx);
 const docs = ctx.window.Marxy.docs;
 const toPath = (p) => p.replace(/^~/, '/Users/reader');
-const files = Object.fromEntries(docs.filter((d) => d.src).map((d) => [toPath(d.path), d.src]));
+const DIFF = '/Users/reader/work/change.diff';
+// The corpus's own diff (K-09): the mock has no diff page, so the fixture stands in.
+const files = {
+  ...Object.fromEntries(docs.filter((d) => d.src).map((d) => [toPath(d.path), d.src])),
+  [DIFF]: readFileSync(join(ROOT, 'fixtures/corpus/36-change.diff'), 'utf8'),
+};
 const PLAN = toPath(docs.find((d) => d.id === 'pg16-plan').path);
 const HANDOFF = toPath(docs.find((d) => d.id === 'auth-handoff').path);
 const RS = toPath(docs.find((d) => d.id === 'indexer-rs').path);
@@ -249,6 +255,7 @@ const APP_STATES = {
   async '03-code'(page) { await openDoc(page, RS); await settle(page, 900); },
   async '03-transcript'(page) { await openDoc(page, CHAT); await settle(page, 900); },
   async '03-log'(page) { await openDoc(page, BUILD_LOG); await settle(page, 900); },
+  async '03-diff'(page) { await openDoc(page, DIFF); await settle(page, 900); },
   async '04-palette'(page) {
     await openDoc(page, HANDOFF); await settle(page, 200); await openDoc(page, RS); await settle(page, 200); await openDoc(page, PLAN); await settle(page, 500);
     await page.keyboard.press('Meta+KeyP');
@@ -332,6 +339,7 @@ const MOCK_STATES = {
   '03-code': { file: '01-workspace.html', hash: '#doc=indexer-rs', run: async () => {} },
   '03-transcript': { file: '01-workspace.html', hash: '#doc=indexer-chat', run: async () => {} },
   '03-log': { file: '01-workspace.html', hash: '#doc=build-log', run: async () => {} },
+  '03-diff': { file: '01-workspace.html', hash: '#doc=indexer-rs', run: async () => {} },
   '04-palette': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('')); await settle(page, 600); } },
   '04-palette-commands': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('>')); await settle(page, 600); } },
   '05-library': { file: '05-collections.html', run: async () => {} },

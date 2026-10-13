@@ -1,0 +1,33 @@
+diff --git a/src/greet.ts b/src/greet.ts
+index 3f1c2aa..9b7d0e4 100644
+--- a/src/greet.ts
++++ b/src/greet.ts
+@@ -1,9 +1,11 @@
+ // Greeting helpers for the lanternfish status page.
+-export function greet(name: string): string {
+-  return 'Hello, ' + name;
++export function greet(name: string, punctuation = '!'): string {
++  const who = name.trim() === '' ? 'friend' : name.trim();
++  return `Hello, ${who}${punctuation}`;
+ }
+ 
+ export function farewell(name: string): string {
+   return 'Goodbye, ' + name;
+ }
+@@ -24,6 +26,8 @@ export function shout(text: string): string {
+   return text.toUpperCase();
+ }
+ 
++// A whisper is a shout turned down; both keep the caller's spacing, so a long line that wraps in the reader must hang past the marker column and stay one change.
++export const whisper = (text: string): string => text.toLowerCase();
+ export const VERSION = '2.4.1';
+diff --git a/notes/TODO b/notes/TODO
+index 7e0a1b2..c4d5e6f 100644
+--- a/notes/TODO
++++ b/notes/TODO
+@@ -1,3 +1,3 @@
+ - write the release notes
+-- check the harbor host again
++- check the harbor host once more
+ - ship it
+\ No newline at end of file

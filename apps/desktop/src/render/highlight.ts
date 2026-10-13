@@ -3,6 +3,9 @@
 // wraps can mark its continuation rows (base.css, ADR-0033). The text nodes, and so `textContent`,
 // copy and find, are unchanged: the newlines stay between the spans.
 import {
+  DIFF_OUTSIDE,
+  type DiffState,
+  diffFileRead,
   diffMarkerIndentCh,
   highlight,
   lineMetaForHighlight,
@@ -83,13 +86,55 @@ function appendToken(parent: HTMLElement, tok: HighlightToken): void {
   parent.append(span);
 }
 
+/** A piece of a whole file (core's `parseCode`), not a Markdown fence. */
+const isFilePiece = (code: HTMLElement): boolean => code.parentElement?.classList.contains('marxy-run') === true;
+
+/** The hunk state at the start and the end of a piece of a diff file, remembered per piece (K-09). */
+const DIFF_STATES = new WeakMap<HTMLElement, { start: DiffState; end: DiffState }>();
+
+const pieceBefore = (code: HTMLElement): HTMLElement | null => {
+  const prev = code.parentElement?.previousElementSibling;
+  return prev?.matches('pre.marxy-run') === true ? (prev.firstElementChild as HTMLElement | null) : null;
+};
+
+/**
+ * Where a diff piece's hunk stands as the piece begins: what the pieces before it leave owing. A file is cut at the usual
+ * size, a hunk spanning the cuts, so a piece's lines are read with the state its predecessor ended in, and tinting is that
+ * of the whole file read at once. Iterative (a file has thousands of pieces) and remembered, so each piece is read once.
+ */
+function diffStateOf(code: HTMLElement): { start: DiffState; end: DiffState } {
+  const known = DIFF_STATES.get(code);
+  if (known) return known;
+  const chain: HTMLElement[] = [];
+  let at: HTMLElement | null = code;
+  while (at && !DIFF_STATES.has(at)) {
+    chain.push(at);
+    at = pieceBefore(at);
+  }
+  let start = at ? DIFF_STATES.get(at)!.end : DIFF_OUTSIDE;
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const lines = sourceTextFromCode(chain[i]!).split('\n');
+    if (lines.at(-1) === '') lines.pop();
+    const state = { start, end: diffFileRead(lines, start).end };
+    DIFF_STATES.set(chain[i]!, state);
+    start = state.end;
+  }
+  return DIFF_STATES.get(code)!;
+}
+
+/** The options for a code element's lines: its language, whether it is a file's piece, and a diff piece's start. */
+function pieceOptions(code: HTMLElement, lang: string | null): { lang: string | null; file: boolean; diffStart?: DiffState } {
+  const file = isFilePiece(code);
+  return file && lang === 'diff' ? { lang, file, diffStart: diffStateOf(code).start } : { lang, file };
+}
+
 /** Build trusted DOM from token lines; callers attach with `replaceChildren`, never `innerHTML`. */
 export function spansFromTokens(
   lines: readonly (readonly HighlightToken[])[],
-  opts?: { lang?: string | null },
+  opts?: { lang?: string | null; file?: boolean; diffStart?: DiffState },
 ): DocumentFragment {
   const lang = opts?.lang ?? null;
-  const meta = lang ? lineMetaForHighlight(lang, lines) : [];
+  const meta = lang ? lineMetaForHighlight(lang, lines, { file: opts?.file, diffStart: opts?.diffStart }) : [];
   const tab = currentTabWidth();
   const frag = document.createDocumentFragment();
   for (let li = 0; li < lines.length; li++) {
@@ -128,7 +173,7 @@ export function applyLinesToCode(code: HTMLElement): boolean {
   if (code.dataset.marxyDone !== undefined) return false;
   const lines = sourceTextFromCode(code).split('\n');
   const lang = languageFromCode(code);
-  code.replaceChildren(spansFromTokens(lines.map((t) => (t === '' ? [] : [{ text: t }])), { lang }));
+  code.replaceChildren(spansFromTokens(lines.map((t) => (t === '' ? [] : [{ text: t }])), pieceOptions(code, lang)));
   applyInvisibleMarkers(code);
   code.dataset.marxyDone = 'lines';
   return true;
@@ -204,7 +249,7 @@ export async function applyHighlightToCode(code: HTMLElement): Promise<boolean> 
   const lines = await tokenize(code, source, lang);
   // A block whose document closed while its colour was on the way is not painted.
   if (!lines || !code.isConnected) return false;
-  code.replaceChildren(spansFromTokens(lines, { lang }));
+  code.replaceChildren(spansFromTokens(lines, pieceOptions(code, lang)));
   applyInvisibleMarkers(code);
   code.dataset.marxyDone = 'highlight';
   return Boolean(lines);

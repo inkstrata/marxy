@@ -82,6 +82,9 @@ const BY_EXTENSION: Readonly<Record<string, FileType>> = {
   // (K-08); `.out` is often not a log, and `detectKind` falls back from its shape.
   log: readSrc('log'),
   out: readSrc('log'),
+  // A diff is read, as authored (K-09): `+`, `-` and space stay in column one, tinted as a fence's are.
+  diff: readSrc('diff'),
+  patch: readSrc('diff'),
   csv: src(),
   tsv: src(),
   jsonl: src(undefined, 'json'),

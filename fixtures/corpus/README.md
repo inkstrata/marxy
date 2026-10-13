@@ -79,3 +79,10 @@ level word inside a message that is not a level; a tab inside a line; and two AN
 (ESC, 0x1B, four of them on purpose). Every name, host and number is invented; the host is
 `harbor.example.invalid` (RFC 2606). Do not let an editor or formatter strip the ESC bytes:
 `.gitattributes` marks `fixtures/corpus/**` as `-text`.
+
+## 36-change.diff
+
+Original text written for K-09: a unified diff in the shape `git diff` writes, two files and three hunks. It has
+added, removed and context lines, an `index` line, hunk headers with a function name after the second `@@`, one added line
+long enough to wrap in the reader (the hang past the marker column), and a `\ No newline at end of file` note. Every name
+is invented. A `.diff` opens in Read; the goldens move only if the code-file parse or the kind table does.
