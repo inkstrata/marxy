@@ -9,6 +9,7 @@
 // another is, so a tab nobody looks at costs nothing. Folded there is no inspector element at all. Layout is base.css
 // (`.marxy-inspector`); state is ARIA and data attributes.
 import type { AppHandle } from '../app.ts';
+import { appHandle } from '../commands/app-handle.ts';
 import type { DocumentSignal } from './toolbar.ts';
 
 /** What a tab's builder is given: the app and the signal that follows the focused pane's document. */
@@ -50,7 +51,28 @@ export function inspectorTabs(): readonly InspectorTab[] {
   return [...tabs];
 }
 
+/** `cb` runs whenever a tab is registered or withdrawn; returns what stops it. The status bar asks it which doors have a tab behind them. */
+export function onInspectorTabsChange(cb: () => void): () => void {
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+}
+
 let selected: string | null = null;
+
+/**
+ * Docks the inspector and selects the tab `id` (W-11: a status-bar item that has a tab opens it). False, and nothing
+ * changed, when no tab has that id; the region is docked only while the window is unfolded (folded there is none).
+ */
+export function selectInspectorTab(id: string): boolean {
+  if (!tabs.some((t) => t.id === id)) return false;
+  selected = id;
+  appHandle()?.workspace().setPanel('inspector', true);
+  // Each mounted inspector draws again; its tab is the selected one.
+  for (const cb of [...listeners]) cb();
+  return true;
+}
 
 /** Fills the `inspector` region. Returns what takes the content out. */
 export function mountInspector(el: HTMLElement, handle: AppHandle, signal: DocumentSignal): () => void {

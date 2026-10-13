@@ -1013,6 +1013,26 @@ body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar
   height: var(--marxy-ws-status-h);
   border-block-start-width: 1px;
 }
+/* The status bar's content (W-11; mock-v2 01-workspace): one row on the chrome face, 11.5 at the default chrome size, quiet. The
+   file's facts run from the left, the theme and the text size from the right, with the spacer between. An item is text; one with
+   something behind it is a button, bare until hovered (the selection ground) or focused (the accent outline). Nothing here
+   changes the region's height, so the panes' height and the reading column are what they were without it. */
+.marxy-status-bar {
+  display: flex; align-items: center; gap: calc(var(--marxy-size-chrome) * 14 / 13); height: 100%; min-width: 0;
+  padding-inline: calc(var(--marxy-size-chrome) * 12 / 13); overflow: hidden; white-space: nowrap;
+  font-size: calc(var(--marxy-size-chrome) * 11.5 / 13); color: var(--marxy-color-text-secondary);
+  user-select: none; -webkit-user-select: none;
+}
+.marxy-status-item { flex: none; min-width: 0; }
+.marxy-status-item[data-marxy-status-item="where"] { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.marxy-status-grow { flex: 1 1 0; min-width: 0; }
+button.marxy-status-item {
+  appearance: none; -webkit-appearance: none; margin: 0; padding: 0 calc(var(--marxy-size-chrome) * 5 / 13); border: 0;
+  height: calc(var(--marxy-size-chrome) * 20 / 13); border-radius: calc(var(--marxy-size-chrome) * 4 / 13);
+  background: none; color: inherit; font: inherit; cursor: default;
+}
+button.marxy-status-item:hover { background: var(--marxy-color-selection); color: var(--marxy-color-text); }
+button.marxy-status-item:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
 /* The narrow window (U-08; Q18). Below 900 px (`NARROW_WINDOW` in workspace/state.ts, which leaves the sidebar undocked by
    default) the right reserve is zero: the panes take the window less the sidebar, when the reader docked it (the measure gives way, the page never runs off). The inspector
    no longer has a column; docked, it lies over the page's right edge, under the bands, and never over Source or Split, where

@@ -1,9 +1,9 @@
 // The facts the Source frame's bars show (V-05). Each one is read from the bytes and says only what they say: the
 // encoding is UTF-8 or it is not, the line endings are the ones in the file, the indentation is what the lines begin
-// with, a code point is the one at the caret. Nothing here interprets, scores or summarises. No DOM and no CodeMirror,
-// so a node test holds every rule.
+// with, a code point is the one at the caret. Nothing here interprets, scores or summarises. No DOM and no CodeMirror
+// (not even its types: the status bar imports this file, and the start-up chunk must not reach CodeMirror, MARXY-33), so a node
+// test holds every rule.
 
-import type { Text } from '@codemirror/state';
 import { type Buffer, sourceTextOf, strayByteOf } from '@marxy/core';
 import { basename, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { documentName, isUntitled } from '../document/untitled.ts';
@@ -28,7 +28,7 @@ export function linesLabel(n: number): string {
  * (that row is where the caret goes, not a line), and none at all for an empty file. The editor's own line separator
  * decides what a row is, so a lone CR in a Mixed file is a character inside a line, as Source shows it (F-24).
  */
-export function lineCountOf(doc: Pick<Text, 'lines' | 'line'>): number {
+export function lineCountOf(doc: { readonly lines: number; line(n: number): { readonly length: number } }): number {
   const rows = doc.lines;
   if (doc.line(rows).length !== 0) return rows;
   return rows - 1;

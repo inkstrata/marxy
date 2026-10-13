@@ -121,12 +121,12 @@ test('unfolding puts the six regions in the page, in order, and nothing else out
     });
     assert.equal(got.attribute, 'unfolded');
     assert.deepEqual(got.names, ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar']);
-    // The sidebar (W-07: its element, empty here, as no palette feeds it), the toolbar, the tab row (W-06: one tab for the one document) and the inspector (W-09: its strip of tabs, though undocked here) hold content; the strip (K-07) has a fill but nothing for an article.
-    assert.deepEqual(got.children.map((n, i) => (['sidebar', 'toolbar', 'tabs', 'inspector'].includes(got.names[i]) ? n > 0 : n === 0)), [true, true, true, true, true, true], `only the sidebar, the toolbar, the one tab and the inspector's strip hold content (${got.children})`);
+    // The sidebar (W-07: its element, empty here, as no palette feeds it), the toolbar, the tab row (W-06: one tab for the one document) and the inspector (W-09: its strip of tabs, though undocked here) and the status bar (W-11: the file's facts) hold content; the strip (K-07) has a fill but nothing for an article.
+    assert.deepEqual(got.children.map((n, i) => (['sidebar', 'toolbar', 'tabs', 'inspector', 'status-bar'].includes(got.names[i]) ? n > 0 : n === 0)), [true, true, true, true, true, true], `only the sidebar, the toolbar, the one tab, the inspector's strip and the status bar hold content (${got.children})`);
     assert.deepEqual(got.parents, ['BODY']);
     // The strip and the tabs are docked too (the arrangement says so). The strip holds nothing for an article, so its band is hidden (K-07);
     // one document is one tab, and the tab row shows from two (W-06).
-    assert.deepEqual(got.shown, [true, true, false, false, false, false], 'a 1280 px window docks everything but the inspector; an empty strip, a row of one tab and a status bar with no fill are hidden from what is on them');
+    assert.deepEqual(got.shown, [true, true, false, false, false, true], 'a 1280 px window docks everything but the inspector; an empty strip and a row of one tab are hidden from what is on them, and the status bar (W-11) has its facts to show');
     assert.deepEqual(got.docked, [true, true, true, true, false, true], 'and the arrangement still says docked');
     assert.deepEqual(got.visible, [], 'a stray element outside the regions is what the gate would fail');
     assert.deepEqual(got.order.slice(0, 6), ['sidebar', 'toolbar', 'tabs', 'strip', 'marxy-main', 'inspector']);
@@ -183,7 +183,10 @@ test('U-01: the bands reach the window edge, no region shows empty, and the colu
     const bar = await edges('toolbar');
     assert.equal(bar.right, 1440, 'the toolbar runs to the window edge (it ended at 1188)');
     assert.equal(bar.left, 252, 'and starts at the sidebar edge');
-    assert.equal((await edges('status-bar')).shown, false, 'a status bar with no fill is not drawn');
+    const status = await edges('status-bar');
+    assert.equal(status.shown, true, 'the status bar has content (W-11), so it is drawn');
+    assert.equal(status.left, 0, 'and runs the width of the window, under the sidebar');
+    assert.equal(status.right, 1440);
     same(await column(page), 'unfolded, sidebar docked');
     // The bands stop at the inspector's edge while it is docked.
     await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
@@ -629,8 +632,8 @@ test('fold, unfold, quit, relaunch: it opens folded, and unfolding brings back t
     const shown = await page.evaluate(() =>
       Object.fromEntries([...document.querySelectorAll('[data-marxy-workspace-region]')].map((r) => [r.getAttribute('data-marxy-workspace-region'), !r.hidden])),
     );
-    // The tab row is docked (the saved file says so) and hides itself below two tabs (W-06); the status bar has no fill, so it is not drawn (U-01).
-    assert.deepEqual(shown, { sidebar: false, toolbar: true, tabs: false, strip: false, inspector: true, 'status-bar': false });
+    // The tab row is docked (the saved file says so) and hides itself below two tabs (W-06); the status bar is docked and has its facts to show (W-11).
+    assert.deepEqual(shown, { sidebar: false, toolbar: true, tabs: false, strip: false, inspector: true, 'status-bar': true });
     assert.deepEqual(await page.evaluate(() => window.__marxyHandle.workspace().arrangement), { sidebar: false, toolbar: true, tabs: true, strip: false, inspector: true, 'status-bar': true });
   }, { '/data/workspace.json': kept });
 });
@@ -649,7 +652,7 @@ test('a corrupt workspace file is kept beside itself, the window opens folded, a
     assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().mode), 'folded');
     await unfold(page);
     const shown = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-workspace-region]')].map((r) => !r.hidden));
-    assert.deepEqual(shown, [true, true, false, false, false, false], 'the strip is docked and empty (K-07), the tab row holds one tab (W-06) and the status bar has no fill (U-01): each hidden from what is on it');
+    assert.deepEqual(shown, [true, true, false, false, false, true], 'the strip is docked and empty (K-07) and the tab row holds one tab (W-06): each hidden from what is on it; the status bar has its facts (W-11)');
     assert.deepEqual(await page.evaluate(() => Object.values(window.__marxyHandle.workspace().arrangement)), [true, true, true, true, false, true], 'the defaults dock all but the inspector');
     const kept = await page.evaluate(async () => {
       const shell = window.__marxyHandle.shell;
