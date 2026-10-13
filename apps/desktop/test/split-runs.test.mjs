@@ -76,9 +76,9 @@ async function withApp(fn, doc = DOC) {
       /** Every provenance pair on the page, in document order. */
       provenance: () => page.evaluate(() => [...document.querySelectorAll('#doc [data-marxy-s]')].map((e) => `${e.tagName} ${e.dataset.marxyS}-${e.dataset.marxyE}`)),
       /** A drag over characters `from` to `to` of the long paragraph, as the reader's selection leaves it. */
-      drag: async (from, to) => {
-        await page.evaluate(({ from, to }) => {
-          const p = document.querySelectorAll('#doc p')[1];
+      drag: async (from, to, which = 1) => {
+        await page.evaluate(({ from, to, which }) => {
+          const p = document.querySelectorAll('#doc p')[which];
           const at = (offset) => {
             const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
             let left = offset;
@@ -95,7 +95,7 @@ async function withApp(fn, doc = DOC) {
           sel.removeAllRanges();
           sel.addRange(range);
           document.dispatchEvent(new Event('selectionchange'));
-        }, { from, to });
+        }, { from, to, which });
         await page.waitForTimeout(80);
       },
       /** What the app made of the selection: its kind, text, and the bytes of the blocks a drag touches. */
@@ -329,7 +329,7 @@ test('prose with spaces is not cut: a long paragraph of words gets no break, a t
   }, doc);
 });
 
-test('guardLongRuns: a cut never lands inside a surrogate pair or a cluster, math is left alone, and a second pass adds nothing', async () => {
+test('guardLongRuns: a cut never lands inside a surrogate pair or a combining sequence (it moves back to the start of the cluster), math is left alone, and a second pass adds nothing', async () => {
   await withApp(async (page) => {
     const got = await page.evaluate(async () => {
       const { guardLongRuns, RUN_CHARS } = await import('/src/render/long-runs.ts');
@@ -376,12 +376,13 @@ test('guardLongRuns: a cut never lands inside a surrogate pair or a cluster, mat
     assert.equal(got.math, 0, 'math is not touched');
     assert.equal(got.short, 0, 'a run of exactly the limit is not cut');
     assert.equal(got.spaces, 0, 'prose is not cut, however long the paragraph');
-    // Pair: the cut falls after the whole emoji (4096 + 1), so the first piece ends with it and the second starts with a letter.
-    assert.equal(got.pair[0].last, 0x1f600);
-    assert.equal(got.pair[1].first, 'b'.codePointAt(0));
-    // Marks: the two combining marks stay with the letter they follow.
-    assert.equal(got.marks[0].length, got.RUN_CHARS + 2);
-    assert.equal(got.marks[1].first, 'd'.codePointAt(0));
+    // Pair: the cut at 4096 falls inside the emoji (units 4095 and 4096), so it moves back before it: the first piece
+    // is the letters, the second starts with the whole emoji.
+    assert.equal(got.pair[0].length, got.RUN_CHARS - 1);
+    assert.equal(got.pair[1].first, 0x1f600);
+    // Marks: the two combining marks stay with the letter they follow, so the cut moves back before that letter.
+    assert.equal(got.marks[0].length, got.RUN_CHARS - 1);
+    assert.equal(got.marks[1].first, 'c'.codePointAt(0));
   });
 });
 
@@ -409,3 +410,120 @@ test('guardLongRuns: two adjacent text nodes, as the HTML parser makes of a long
     assert.ok(got.worst <= 2 * got.RUN_CHARS, `and no unbroken stretch is longer than two: ${got.worst}`);
   });
 });
+
+/**
+ * Clusters that are one glyph and many code points, each put across the cut at 4096 characters at every alignment. The tag
+ * flag's tag characters are invisible characters, which the page marks wherever they are (so it has markers with or without
+ * a cut, and is checked against the same flag in a paragraph that is not cut).
+ */
+const CLUSTERS = {
+  'a flag (two regional indicators)': { cluster: '\u{1F1F3}\u{1F1F4}' },
+  'a family emoji (ZWJ sequence)': { cluster: '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}' },
+  'a skin-tone emoji': { cluster: '\u{1F44D}\u{1F3FD}' },
+  'a Hangul syllable built from three jamo': { cluster: '\u1112\u1161\u11AB' },
+  // Many clusters in a row: a cut may fall between syllables, and the engine shapes the two halves apart, so only the text and its cuts are checked.
+  'a run of Hangul syllables built from jamo': { cluster: '\u1112\u1161\u11AB\u1100\u1173\u11AF\u1112\u1161\u11AB\u1100\u1173\u11AF', run: true },
+  'a tag-sequence flag (England)': { cluster: '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', tagged: true },
+};
+
+for (const [name, { cluster, tagged = false, run = false }] of Object.entries(CLUSTERS)) {
+  test(`${name} that straddles a cut is not split by it: drawn as it is alone, no false marker, and a copy of it is the file's`, async () => {
+    // Every alignment of the cluster across 4096, so the cut would land between each pair of its code points in turn.
+    const units = cluster.length;
+    const runs = Array.from({ length: units - 1 }, (_, i) => `${'x'.repeat(4096 - 1 - i)}${cluster}${'y'.repeat(5000)}`);
+    const doc = `# Clusters\n\n${runs.join('\n\n')}\n\nalone ${cluster} alone\n`;
+    await withApp(async (page, s) => {
+      const got = await page.evaluate(({ cluster, count }) => {
+        const out = [];
+        const grapheme = new Intl.Segmenter('und', { granularity: 'grapheme' });
+        // The width of the cluster's characters wherever the page holds them, found by their place in the paragraph's own text.
+        const cleanText = (p) => {
+          const copy = p.cloneNode(true);
+          for (const glyph of copy.querySelectorAll('.marxy-invisible-glyph')) glyph.remove();
+          return copy.textContent;
+        };
+        const widthIn = (p) => {
+          const at = cleanText(p).indexOf(cluster);
+          if (at < 0) return null;
+          const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement.closest('.marxy-invisible-glyph') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
+          const place = (offset, atEnd) => {
+            let left = offset;
+            for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+              if (left < n.data.length || (atEnd && left === n.data.length)) return [n, left];
+              left -= n.data.length;
+            }
+            return null;
+          };
+          walker.currentNode = p;
+          const from = place(at, false);
+          walker.currentNode = p;
+          const to = place(at + cluster.length, true);
+          if (!from || !to) return null;
+          const range = document.createRange();
+          range.setStart(...from);
+          range.setEnd(...to);
+          return range.getBoundingClientRect().width;
+        };
+        const ps = [...document.querySelectorAll('#doc p')];
+        const alone = ps.at(-1);
+        const baseline = { markers: alone.querySelectorAll('.marxy-invisible, .marxy-invisible-glyph').length, width: widthIn(alone) };
+        for (let i = 0; i < count; i++) {
+          const p = ps[i];
+          const cuts = [...p.querySelectorAll('wbr')].map((w) => {
+            const before = w.previousSibling;
+            const after = w.nextSibling;
+            return {
+              endsWith: before?.nodeType === 3 ? before.data.at(-1) : '(element)',
+              starts: after?.nodeType === 3 ? after.data.codePointAt(0) : '(element)',
+              offset: (() => { const r = document.createRange(); r.setStart(p, 0); r.setEndBefore(w); return r.toString().length; })(),
+            };
+          });
+          const text = p.textContent;
+          const boundaries = new Set([...grapheme.segment(text)].map((x) => x.index).concat(text.length));
+          out.push({
+            cuts,
+            insideCluster: cuts.filter((c) => !boundaries.has(c.offset)).length,
+            markers: p.querySelectorAll('.marxy-invisible, .marxy-invisible-glyph').length,
+            width: widthIn(p),
+            text: cleanText(p),
+          });
+          // The same paragraph with the cuts taken out and the text nodes joined: the page before F-79.
+          for (const w of p.querySelectorAll('wbr')) w.remove();
+          p.normalize();
+          out.at(-1).widthUnsplit = widthIn(p);
+          out.at(-1).textUnsplit = cleanText(p);
+        }
+        return { out, baseline };
+      }, { cluster, count: runs.length });
+      assert.ok(got.baseline.width > 0, "the cluster alone has a width");
+      for (const [i, r] of got.out.entries()) {
+        assert.ok(r.cuts.length >= 1, `alignment ${i}: the run was cut`);
+        // A tag flag's markers and a run of syllables are drawn as the engine draws them with or without a cut; the others are one glyph.
+        if (!tagged && !run) assert.ok(r.width !== null && Math.abs(r.width - got.baseline.width) < 1.5, `alignment ${i}: drawn ${r.width}px, ${got.baseline.width}px alone`);
+        assert.equal(r.markers, got.baseline.markers, `alignment ${i}: as many invisible-character markers as the cluster has alone`);
+        if (!tagged) {
+          assert.equal(r.markers, 0, `alignment ${i}: and none for a cluster that is all visible`);
+          assert.equal(r.insideCluster, 0, `alignment ${i}: no cut inside a grapheme cluster: ${JSON.stringify(r.cuts)}`);
+        } else {
+          // The tag flag: the cut that fell inside it is before its first character, and the text before it is the letters.
+          const near = r.cuts.find((c) => c.endsWith === 'x');
+          assert.ok(near, `alignment ${i}: a cut ends the letters: ${JSON.stringify(r.cuts)}`);
+          assert.ok(near.starts === cluster.codePointAt(0) || near.starts === '(element)', `alignment ${i}: and the next piece opens with the flag`);
+        }
+        // The tag flag's last tag is drawn by the page's own marker pass, with or without a cut: it is compared with the page without.
+        assert.equal(r.text, tagged ? r.textUnsplit : runs[i], `alignment ${i}: the text is the file's`);
+      }
+      // A copy across the cluster at the first alignment is the file's slice.
+      const at = runs[0].indexOf(cluster);
+      await s.drag(at - 5, at + cluster.length + 5, 0);
+      const copied = await s.copy();
+      if (!tagged) assert.equal(copied.text, runs[0].slice(at - 5, at + cluster.length + 5));
+      else {
+        // The page's own markers for the tag characters shift where a drag's ends fall in the text; the copy is what it is without the cuts.
+        await s.unsplit();
+        await s.drag(at - 5, at + cluster.length + 5, 0);
+        assert.equal(copied.text, (await s.copy()).text);
+      }
+    }, doc);
+  });
+}

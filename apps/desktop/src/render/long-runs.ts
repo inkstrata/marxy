@@ -9,25 +9,43 @@
 // nodes until highlight.ts has split it into lines (it elides a long line then), and a 2 MB one-line log or minified
 // bundle took minutes to lay out in that time. The pass that splits the lines drops the breaks with the text it replaces.
 
-/** The longest run of non-space characters left unbroken, and the distance between the breaks put in a longer one. */
+/** The longest run of non-space characters left unbroken, and the distance between the breaks put in a longer one (a cut moves back to a cluster boundary, so a piece is at most this long). */
 export const RUN_CHARS = 4096;
 
 const LONG_RUN = new RegExp(`\\S{${RUN_CHARS + 1},}`, 'gu');
 const SKIPPED = '.katex, .marxy-math, .marxy-math-inline';
-/** A character that must stay with the one before it: a mark, a joiner, a variation selector. */
-const CLUSTERS_WITH_PREVIOUS = /^[\p{M}‍︎️]/u;
+/** How far either side of a cut the grapheme boundary is looked for: a cluster (a tag-sequence flag is the longest) is far shorter. */
+const WINDOW = 256;
+let segmenter: Intl.Segmenter | null | undefined;
 
-/** Where, inside `run`, to put the breaks: offsets about `RUN_CHARS` apart, never inside a surrogate pair or a cluster. */
+/** The start of the grapheme cluster `at` falls in, or `at` when it is on a boundary: a cut there splits no flag, emoji sequence, syllable or conjunct. */
+function boundaryAtOrBefore(run: string, at: number, floor: number): number {
+  segmenter ??= typeof Intl.Segmenter === 'function' ? new Intl.Segmenter('und', { granularity: 'grapheme' }) : null;
+  const from = Math.max(floor, at - WINDOW);
+  if (segmenter === null) {
+    // No segmenter: at least not between the halves of a surrogate pair.
+    const previous = run.charCodeAt(at - 1);
+    return previous >= 0xd800 && previous <= 0xdbff ? at + 1 : at;
+  }
+  let best = from;
+  for (const part of segmenter.segment(run.slice(from, Math.min(run.length, at + WINDOW)))) {
+    const start = from + part.index;
+    if (start > at) break;
+    best = start;
+  }
+  return best;
+}
+
+/** Where, inside `run`, to put the breaks: about `RUN_CHARS` apart, each moved back to the start of the grapheme cluster it falls in. */
 function cuts(run: string): number[] {
   const out: number[] = [];
+  let previous = 0;
   let at = RUN_CHARS;
   while (at < run.length) {
-    let cut = at;
-    const previous = run.charCodeAt(cut - 1);
-    if (previous >= 0xd800 && previous <= 0xdbff) cut += 1;
-    while (cut < run.length && CLUSTERS_WITH_PREVIOUS.test(run.slice(cut, cut + 2))) cut += 1;
+    const cut = boundaryAtOrBefore(run, at, previous + 1);
     if (cut >= run.length) break;
     out.push(cut);
+    previous = cut;
     at = cut + RUN_CHARS;
   }
   return out;
