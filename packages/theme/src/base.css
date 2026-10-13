@@ -564,10 +564,11 @@ pre {
 }
 /* The pieces of a code file read as code (V-10, 200 lines each) are one block to the eye: they meet with no gap,
    square at the join. */
-/* A log's pieces are laid out only when they are near the screen (K-08): a log of tens of megabytes is thousands of pieces, and
-   a change of one's height, which the level filter makes in all of them, would otherwise cost the layout of every one. The
-   room of one not yet laid out is a full piece (200 lines) until it has been, and then what it was. */
-pre.language-log.marxy-run {
+/* The pieces of a file are laid out only when they are near the screen (K-08, F-80): a file of tens of megabytes is thousands of
+   pieces, and a change of one's height (the level filter makes it in every piece of a log; a jump to the end splits and
+   colours the pieces it lands on) would otherwise cost the layout of every one, seconds at 10 MB. The room of one not yet laid
+   out is a full piece (200 lines) until it has been, and then what it was. */
+pre.marxy-run {
   content-visibility: auto;
   contain-intrinsic-size: auto calc(var(--marxy-line-box-code) * 200 + var(--marxy-half) * 2);
 }
@@ -1588,6 +1589,10 @@ th[aria-sort="ascending"] .marxy-table-lens-arrow, th[aria-sort="descending"] .m
 .marxy-table-lens-grid :is(.marxy-table-lens-unreadable, .marxy-table-lens-pending) code { font-family: var(--marxy-face-mono); font-size: calc(var(--marxy-size-chrome) * 12 / 13); }
 .marxy-table-lens-label { margin-inline-end: 1em; font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-secondary); }
 .marxy-table-lens-spacer td { padding: 0; border: 0; }
+/* The columns not drawn, stood for by one cell (F-89); and what an unreadable row says of the lines after it, and the delimiter hint. */
+.marxy-table-lens-grid .marxy-table-lens-hspacer { padding: 0; }
+.marxy-table-lens-swallowed { margin-inline-start: 1em; font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-secondary); }
+.marxy-table-lens-hint { color: var(--marxy-color-text-strong); }
 .marxy-table-lens-grid tfoot td, .marxy-table-lens-grid tfoot th {
   position: sticky;
   bottom: 0;

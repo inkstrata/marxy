@@ -31,7 +31,7 @@ export interface DerivedCell {
   readonly decoded: boolean;
 }
 
-/** One well-formed record. `src` is the record without its terminator; `terminator` is `\n` or `\r\n`, or null at the end of the file. */
+/** One well-formed record. `src` is the record without its terminator; `terminator` is `\n`, `\r\n` or a lone `\r`, or null at the end of the file. */
 export interface DerivedRow {
   readonly type: 'row';
   readonly src: Source;
@@ -49,6 +49,11 @@ export interface DerivedUnreadable {
   readonly reason: UnreadableReason;
   /** The byte the fault was found at (the unclosed quote, or the first byte after a closing quote). */
   readonly at: number;
+  /**
+   * How many lines after this one the quote reached into: those lines are read as rows of their own, but may have been
+   * part of this record (an unclosed quote reaches the end of the file; a late closing quote, the line it closes on).
+   */
+  readonly swallowed: number;
   readonly terminator: Source | null;
 }
 

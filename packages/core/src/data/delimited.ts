@@ -10,13 +10,17 @@
 //
 // The rules, in bytes (ADR-0071 items 1 to 3):
 // - the delimiter comes from the extension, never from the content: `.csv` is `,`, `.tsv` a tab;
-// - a record ends at `\n` or `\r\n` outside quotes; a lone `\r` is data;
+// - a record ends at a line break outside quotes: `\n`, `\r\n`, or a lone `\r` (an old Mac file's line ending; Source
+//   shows the bytes as they are, the table reads them as line breaks: F-89);
 // - a leading UTF-8 BOM is its own range, in no field;
 // - a line with no bytes before its terminator is a blank line: dropped from the rows and counted (`dropped`);
 // - CSV: a field whose first byte is `"` is quoted and runs to its closing `"` (a `""` inside is one `"`), and may hold
 //   delimiters and line breaks; any other field is verbatim. A record with an unclosed quote, or a byte after a closing
 //   quote that is not a delimiter or a terminator (`"a"b`), is **unreadable**: its first line becomes one unreadable row,
-//   shown raw, and reading resumes at the next line, so one bad quote reaches its own line and no further;
+//   shown raw, and reading resumes at the next line, so one bad quote reaches its own line and no further. The lines
+//   after it that its quote reached into are still read as rows of their own, so the row says how many (`swallowed`):
+//   the lines a quote that never closes runs through to the end of the file, or the lines up to the quote that closed
+//   late (F-89, commitment 4: a reader is told which rows may have been misread);
 // - TSV: no quoting at all. A field is the bytes between tabs, a `"` is data, and no record is ever unreadable;
 // - a record a file still being read has not finished (`final: false`) is the one `pending` record.
 // Every byte of the file is then in exactly one cell, delimiter, terminator, BOM, unreadable row, dropped blank line or
@@ -107,10 +111,12 @@ export interface TableScan {
   /** Where reading resumes; `bytes.length` once done. */
   pos: number;
   done: boolean;
-  /** Line terminators (`\n`) passed so far, for "Table from N lines". */
+  /** Line breaks passed so far, for "Table from N lines". */
   newlines: number;
   /** The widest record's field count so far. */
   widest: number;
+  /** Records and blank lines so far that end in a lone `\r` (not `\r\n`): an old Mac file's line ending. */
+  loneCr: number;
   readonly records: {
     readonly kind: GrowBytes;
     readonly start: Grow;
@@ -122,8 +128,8 @@ export interface TableScan {
     readonly firstField: Grow;
   };
   readonly fields: { readonly start: Grow; readonly end: Grow; readonly flags: GrowBytes };
-  /** Per unreadable record (by record index): why, and the byte the fault was found at. */
-  readonly faults: Map<number, { readonly reason: UnreadableReason; readonly at: number }>;
+  /** Per unreadable record (by record index): why, the byte the fault was found at, and how many lines after its own its quote reached into. */
+  readonly faults: Map<number, { readonly reason: UnreadableReason; readonly at: number; readonly swallowed: number }>;
   /** Each blank line's terminator range, as [start, end] pairs. */
   readonly blanks: Grow;
 }
@@ -140,6 +146,7 @@ export function createScan(bytes: Uint8Array, delimiter: ',' | '\t', opts: { rea
     done: false,
     newlines: 0,
     widest: 0,
+    loneCr: 0,
     records: { kind: new GrowBytes(), start: new Grow(), end: new Grow(), next: new Grow(), firstField: new Grow() },
     fields: { start: new Grow(4096), end: new Grow(4096), flags: new GrowBytes(4096) },
     faults: new Map(),
@@ -219,10 +226,27 @@ function contentFlags(bytes: Uint8Array, s: number, e: number, decoded: boolean,
   return flags;
 }
 
-/** The end of the line holding `at`: the index of its `\n`, or the end of the file. */
-function lineEnd(bytes: Uint8Array, at: number): number {
-  const i = bytes.indexOf(LF, at);
-  return i < 0 ? bytes.length : i;
+/**
+ * The line break at `i`: 1 for `\n` or a lone `\r`, 2 for `\r\n`, 0 where there is none. A `\r` last in a file still being
+ * read (`final: false`) may yet be the start of a `\r\n`: -1.
+ */
+function breakAt(bytes: Uint8Array, i: number, n: number, final: boolean): number {
+  const b = bytes[i];
+  if (b === LF) return 1;
+  if (b !== CR) return 0;
+  if (i + 1 < n) return bytes[i + 1] === LF ? 2 : 1;
+  return final ? 1 : -1;
+}
+
+/** The first line of the record at `at`: where its text ends, and where the next line starts. */
+function firstLine(bytes: Uint8Array, at: number): { readonly end: number; readonly next: number } {
+  const n = bytes.length;
+  for (let i = at; i < n; i++) {
+    const b = bytes[i];
+    if (b === LF) return { end: i, next: i + 1 };
+    if (b === CR) return { end: i, next: bytes[i + 1] === LF ? i + 2 : i + 1 };
+  }
+  return { end: n, next: n };
 }
 
 /**
@@ -243,14 +267,15 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
   while (p < n && made < limit) {
     if ((made & 255) === 255 && budget.until?.()) break;
     // A blank line: its terminator, dropped and counted.
-    if (bytes[p] === LF || (bytes[p] === CR && p + 1 < n && bytes[p + 1] === LF)) {
-      const len = bytes[p] === LF ? 1 : 2;
+    const blank = breakAt(bytes, p, n, final);
+    if (blank > 0) {
       scan.blanks.push(p);
-      scan.blanks.push(p + len);
-      p += len;
+      scan.blanks.push(p + blank);
+      if (blank === 1 && bytes[p] === CR) scan.loneCr++;
+      p += blank;
       continue;
     }
-    if (!final && bytes[p] === CR && p + 1 === n) {
+    if (blank < 0) {
       // A CR last in a file still being written may yet be a CRLF: the pending record.
       rec.kind.push(RECORD_PENDING);
       rec.start.push(p);
@@ -263,7 +288,7 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
     }
     const recStart = p;
     const firstField = fld.start.length;
-    let fault: { reason: UnreadableReason; at: number } | null = null;
+    let fault: { reason: UnreadableReason; at: number; swallowed: number } | null = null;
     let recEnd = -1;
     let next = -1;
     let unfinished = false;
@@ -277,6 +302,8 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
         let decoded = false;
         let broke = false;
         let close = -1;
+        // Line breaks the quote runs through that start another line before the end of the file: the lines it may swallow.
+        let lines = 0;
         while (q < n) {
           const b = bytes[q]!;
           if (b === QUOTE) {
@@ -289,7 +316,13 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
             close = q;
             break;
           }
-          if (b === LF || b === CR) broke = true;
+          if (b === LF || b === CR) {
+            broke = true;
+            const len = b === CR && q + 1 < n && bytes[q + 1] === LF ? 2 : 1;
+            if (q + len < n) lines++;
+            q += len;
+            continue;
+          }
           q++;
         }
         if (close < 0) {
@@ -297,26 +330,28 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
             unfinished = true;
             break;
           }
-          fault = { reason: 'unclosed-quote', at: fs };
+          fault = { reason: 'unclosed-quote', at: fs, swallowed: lines };
           break;
         }
         fe = close + 1;
         after = fe;
         flags = FIELD_QUOTED | contentFlags(bytes, fs + 1, close, decoded, broke);
-        if (after < n && bytes[after] !== delim && bytes[after] !== LF && !(bytes[after] === CR && after + 1 < n && bytes[after + 1] === LF)) {
-          if (bytes[after] === CR && after + 1 === n && !final) {
+        if (after < n && bytes[after] !== delim) {
+          const gap = breakAt(bytes, after, n, final);
+          if (gap < 0) {
             unfinished = true;
             break;
           }
-          fault = { reason: 'after-quote', at: after };
-          break;
+          if (gap === 0) {
+            fault = { reason: 'after-quote', at: after, swallowed: lines };
+            break;
+          }
         }
       } else {
         let q = p;
         while (q < n) {
           const b = bytes[q]!;
-          if (b === delim || b === LF) break;
-          if (b === CR && q + 1 < n && bytes[q + 1] === LF) break;
+          if (b === delim || b === LF || b === CR) break;
           q++;
         }
         fe = q;
@@ -350,8 +385,14 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
         }
         continue;
       }
+      const gap = breakAt(bytes, after, n, final);
+      if (gap < 0) {
+        unfinished = true;
+        break;
+      }
       recEnd = after;
-      next = b === LF ? after + 1 : after + 2;
+      next = after + gap;
+      if (gap === 1 && b === CR) scan.loneCr++;
       break;
     }
     if (unfinished) {
@@ -372,15 +413,14 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
       fld.start.length = firstField;
       fld.end.length = firstField;
       fld.flags.length = firstField;
-      const lf = lineEnd(bytes, recStart);
-      const end = lf < n && lf > recStart && bytes[lf - 1] === CR ? lf - 1 : lf;
+      const line = firstLine(bytes, recStart);
       scan.faults.set(rec.start.length, fault);
       rec.kind.push(RECORD_UNREADABLE);
       rec.start.push(recStart);
-      rec.end.push(end);
-      rec.next.push(lf < n ? lf + 1 : n);
+      rec.end.push(line.end);
+      rec.next.push(line.next);
       rec.firstField.push(firstField);
-      p = lf < n ? lf + 1 : n;
+      p = line.next;
       made++;
       continue;
     }
@@ -394,7 +434,7 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
     p = next;
     made++;
   }
-  for (let i = bytes.indexOf(LF, from); i >= 0 && i < p; i = bytes.indexOf(LF, i + 1)) scan.newlines++;
+  scan.newlines += breaksIn(bytes, from, p);
   scan.pos = p;
   scan.done = p >= n;
   return scan.done;
@@ -406,11 +446,56 @@ export function scanAll(scan: TableScan): TableScan {
   return scan;
 }
 
-/** Lines in the file: its `\n`s, and one more when it does not end in one. */
+/** Line breaks in `[from, to)`: each `\n`, each lone `\r`, and a `\r\n` once. */
+export function breaksIn(bytes: Uint8Array, from: number, to: number): number {
+  let count = 0;
+  for (let i = bytes.indexOf(LF, from); i >= 0 && i < to; i = bytes.indexOf(LF, i + 1)) count++;
+  for (let i = bytes.indexOf(CR, from); i >= 0 && i < to; i = bytes.indexOf(CR, i + 1)) if (bytes[i + 1] !== LF) count++;
+  return count;
+}
+
+/** The line (from 1) that byte `at` is on. */
+export function lineOfByte(bytes: Uint8Array, at: number): number {
+  return 1 + breaksIn(bytes, 0, Math.min(at, bytes.length));
+}
+
+/**
+ * A hint, never a re-parse (ADR-0071 rejects sniffing the delimiter): when the rows read so far are all one field and
+ * every one of the first 20 holds the same number of one other candidate (`;`, a tab, `|`, or `,` in a TSV), the file
+ * may use that between fields. The table stays as the extension reads it and the view says so.
+ */
+export function delimiterHint(scan: TableScan): ';' | '\t' | '|' | ',' | null {
+  const sample: number[] = [];
+  for (let r = 0; r < recordCount(scan) && sample.length < 20; r++) {
+    if (scan.records.kind.data[r] !== RECORD_ROW) continue;
+    const [first, end] = fieldsOf(scan, r);
+    if (end - first !== 1) return null;
+    sample.push(first);
+  }
+  if (sample.length === 0) return null;
+  const candidates = [0x3b, TAB, 0x7c, COMMA].filter((b) => b !== (scan.delimiter === ',' ? COMMA : TAB));
+  for (const cand of candidates) {
+    let each = -1;
+    for (const f of sample) {
+      let k = 0;
+      for (let i = scan.fields.start.data[f]!; i < scan.fields.end.data[f]!; i++) if (scan.bytes[i] === cand) k++;
+      if (k === 0 || (each >= 0 && k !== each)) {
+        each = -2;
+        break;
+      }
+      each = k;
+    }
+    if (each > 0) return String.fromCharCode(cand) as ';' | '\t' | '|' | ',';
+  }
+  return null;
+}
+
+/** Lines in the file: its line breaks, and one more when it does not end in one. */
 export function lineCount(scan: TableScan): number {
   const n = scan.bytes.length;
   if (n === 0 || (scan.bom && n === 3)) return 0;
-  return scan.newlines + (scan.done && scan.bytes[n - 1] !== LF ? 1 : 0);
+  const last = scan.bytes[n - 1];
+  return scan.newlines + (scan.done && last !== LF && last !== CR ? 1 : 0);
 }
 
 /** UTF-8 as the standard decoder reads it (U+FFFD for each invalid sequence), a byte-order mark kept as a character. */
@@ -491,7 +576,7 @@ export function tableOf(scan: TableScan, file: string): DerivedTable {
       children.push({ type: 'pending', src: at(s, e) });
     } else if (kind === RECORD_UNREADABLE) {
       const fault = scan.faults.get(r)!;
-      children.push({ type: 'unreadable', src: at(s, e), reason: fault.reason, at: fault.at, terminator });
+      children.push({ type: 'unreadable', src: at(s, e), reason: fault.reason, at: fault.at, swallowed: fault.swallowed, terminator });
     } else {
       const [first, end] = fieldsOf(scan, r);
       const cells: DerivedCell[] = [];
@@ -584,7 +669,7 @@ export function checkTableInvariants(tree: DerivedTable, bytes: Uint8Array): str
     }
     if (child.terminator) {
       const t = bytes.subarray(child.terminator.start, child.terminator.end);
-      const ok = (t.length === 1 && t[0] === LF) || (t.length === 2 && t[0] === CR && t[1] === LF);
+      const ok = (t.length === 1 && (t[0] === LF || t[0] === CR)) || (t.length === 2 && t[0] === CR && t[1] === LF);
       if (!ok || child.terminator.start !== end) problems.push(`the record at ${start} has no terminator where it ends`);
       pieces.push({ start: child.terminator.start, end: child.terminator.end, what: 'terminator' });
     } else if (end !== n) {

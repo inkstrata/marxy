@@ -3,7 +3,7 @@
 
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import type { Extension as MdastExtension, Options as FromMarkdownOptions } from 'mdast-util-from-markdown';
-import { gfm } from 'micromark-extension-gfm';
+import { boundedGfm } from './bounded-gfm.ts';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { frontmatter } from 'micromark-extension-frontmatter';
 import { frontmatterFromMarkdown } from 'mdast-util-frontmatter';
@@ -106,7 +106,7 @@ function syntax(options: ParseOptions): Syntax {
   if (cached) return cached;
   const built: Syntax = { extensions: [], mdastExtensions: [fencedCodeMarker] };
   if (options.gfm !== false) {
-    built.extensions.push(gfm());
+    built.extensions.push(boundedGfm());
     built.mdastExtensions.push(withoutTransforms(gfmFromMarkdown()));
   }
   if (options.frontmatter !== false) {

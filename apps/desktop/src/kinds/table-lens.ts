@@ -12,11 +12,14 @@
 //   that is not UTF-8 are each shown as a mark; an absent cell is told from an empty one.
 // - **First rows never wait for the whole file** (commitment 5). The first screen of records is read and drawn at once;
 //   the rest is read a few milliseconds a slice with the loop given back between slices, and a sort or the stats of a
-//   column are worked the same way (core's `data/table-view.ts`). The grid draws only the rows on screen.
+//   column are worked the same way (core's `data/table-view.ts`). The grid draws only the rows and the columns on screen
+//   (F-89): a file of thousands of columns costs the cells in view, not the cells in the file, and the stats are counted
+//   for the columns in view and for others as they scroll in.
 import {
   cellOf,
   createScan,
   delimiterFor,
+  delimiterHint,
   FIELD_BREAK,
   FIELD_DECODED,
   fieldsOf,
@@ -24,6 +27,7 @@ import {
   inferHeader,
   isValidUtf8,
   lineCount,
+  lineOfByte,
   rawText,
   RECORD_PENDING,
   RECORD_ROW,
@@ -65,6 +69,8 @@ const FIRST_RECORDS = 120;
 const SLICE_MS = 8;
 /** Rows drawn above and below the screen. */
 const OVERSCAN = 12;
+/** Pixels of columns drawn to the left and right of the screen. */
+const COL_MARGIN = 320;
 /** The scroll height is never more than this many pixels; a longer table is scrolled through a scale (WebKit's layout limit is ~33M). */
 const MAX_SCROLL_PX = 16_000_000;
 /** Rows read to choose the column widths. */
@@ -85,6 +91,13 @@ function yieldNow(): Promise<void> {
 }
 
 const plural = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
+
+/** What an unreadable row says of the lines its quote reached into (F-89): they are drawn as rows, and may belong to it. */
+const swallowedNote = (lines: number, reason: 'unclosed-quote' | 'after-quote'): string =>
+  `${reason === 'unclosed-quote' ? 'the quote runs on' : 'the quote closes later'} · the ${lines === 1 ? 'line' : `${lines.toLocaleString('en-US')} lines`} after it may have been part of it, read as ${lines === 1 ? 'a row' : 'rows'} of ${lines === 1 ? 'its' : 'their'} own`;
+
+/** The delimiter a hint names, in words the header line can say. */
+const delimiterWord = (d: string): string => (d === '\t' ? 'a tab' : `'${d}'`);
 
 /** What a test, the commands and the strip may ask of an open lens. */
 export interface TableLens {
@@ -192,7 +205,9 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
   let sort: { col: number; dir: 'asc' | 'desc' } | null = null;
   let order: Int32Array | null = null;
   let statsOn = false;
+  /** Per column, once counted: the columns in view are counted first and the rest as they scroll in. */
   let stats: (ColumnStats | null)[] | null = null;
+  let statsQueued = false;
   let selected: { pos: number; col: number } | null = null;
   let columns = 0;
   let widths: number[] = [];
@@ -202,7 +217,15 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
   let counted = 0;
   const fieldCounts = new Map<number, number>();
   let rowH = 0;
-  let drawn = { first: -1, last: -1, version: -1 };
+  /** The left edge of each data column in the table's own pixels (the row-number column first), and one past the last. */
+  let colX = new Float64Array(1);
+  /** Bumped whenever the widths are fitted again, so the cells in view are laid out again. */
+  let layout = 0;
+  /** The `layout` the columns of the table (its colgroup) were last drawn at. */
+  let headLayout = -1;
+  /** The columns drawn: `[first, last)`. Everything else is a spacer. */
+  let win = { first: 0, last: 0 };
+  let drawn = { first: -1, last: -1, version: -1, cfirst: -1, clast: -1, layout: -1 };
   let version = 0;
   let firstDraw: LensState['firstDraw'] = null;
   const slices = { read: 0, widestRead: 0, sort: 0, stats: 0 };
@@ -214,13 +237,36 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
   const base = (): number => (header && recordCount(scan) > 0 && scan.records.kind.data[0] === RECORD_ROW ? 1 : 0);
   const viewLength = (): number => (order ? order.length : Math.max(0, recordCount(scan) - base()));
   const recordAt = (pos: number): number => (order ? order[pos]! : base() + pos);
-  const types = (): ColumnType[] =>
-    Array.from({ length: columns }, (_, c) => {
-      const p = profiles[c];
-      const q = header ? undefined : profileRow0[c];
-      if (!q) return columnType(p);
-      return columnType({ numbers: (p?.numbers ?? 0) + q.numbers, idents: (p?.idents ?? 0) + q.idents, empty: (p?.empty ?? 0) + q.empty, other: (p?.other ?? 0) + q.other });
-    });
+  const typeOf = (c: number): ColumnType => {
+    const p = profiles[c];
+    const q = header ? undefined : profileRow0[c];
+    if (!q) return columnType(p);
+    return columnType({ numbers: (p?.numbers ?? 0) + q.numbers, idents: (p?.idents ?? 0) + q.idents, empty: (p?.empty ?? 0) + q.empty, other: (p?.other ?? 0) + q.other });
+  };
+  const types = (): ColumnType[] => Array.from({ length: columns }, (_, c) => typeOf(c));
+
+  /** The columns to draw: those in view and a margin either side (a binary search over the columns' edges). */
+  function colWindow(): { first: number; last: number } {
+    if (columns === 0) return { first: 0, last: 0 };
+    const left = scroller.scrollLeft - COL_MARGIN;
+    const right = scroller.scrollLeft + (scroller.clientWidth || 1000) + COL_MARGIN;
+    let lo = 0;
+    let hi = columns;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (colX[mid + 1]! > left) hi = mid;
+      else lo = mid + 1;
+    }
+    const first = Math.min(lo, columns - 1);
+    lo = first + 1;
+    hi = columns;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (colX[mid]! >= right) hi = mid;
+      else lo = mid + 1;
+    }
+    return { first, last: lo };
+  }
 
   // ---- reading -------------------------------------------------------------------------------------------------------
   /** What each newly read record adds to the counts the header line gives and the column types. */
@@ -300,7 +346,6 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
       }
     }
     widths = longest.map((n) => Math.max(4, Math.min(40, n)));
-    colgroup.replaceChildren(el('col'), ...widths.map(() => el('col')));
     fitWidths();
   }
 
@@ -321,15 +366,15 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     const room = scroller.clientWidth;
     fittedTo = room;
     const grow = room > sum && sum > rn ? (room - rn) / (sum - rn) : 1;
-    const cols = colgroup.querySelectorAll('col');
-    cols[0]!.style.width = `${rn}px`;
     let total = rn;
+    colX = new Float64Array(data.length + 1);
+    colX[0] = rn;
     data.forEach((w, i) => {
-      const px = Math.floor(w * grow);
-      total += px;
-      cols[i + 1]!.style.width = `${px}px`;
+      total += Math.floor(w * grow);
+      colX[i + 1] = total;
     });
     table.style.width = `${total}px`;
+    layout++;
   }
 
   const typeWords: Readonly<Record<ColumnType, string>> = { number: 'number', ident: 'id', text: 'text', empty: 'empty' };
@@ -342,18 +387,50 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     return `Column ${c + 1}`;
   }
 
+  /**
+   * A cell standing for the columns that are not drawn on one side: one cell, of the width they would have had together.
+   * The table has the row-number column, the columns in view and at most these two, however many columns the file has.
+   */
+  function hSpacer<K extends 'td' | 'th'>(tag: K): HTMLElementTagNameMap[K] {
+    const cell = el(tag, 'marxy-table-lens-hspacer');
+    cell.setAttribute('aria-hidden', 'true');
+    return cell;
+  }
+
+  /** The table's columns for the window `w`: the row numbers, a spacer, the columns in view, a spacer. */
+  const tableSpan = (w: { first: number; last: number }): number => w.last - w.first + (w.first > 0 ? 1 : 0) + (w.last < columns ? 1 : 0);
+
+  function fitColgroup(): void {
+    const cols: HTMLElement[] = [];
+    const col = (px: number): void => {
+      const c = el('col');
+      c.style.width = `${px}px`;
+      cols.push(c);
+    };
+    col(colX[0]!);
+    if (win.first > 0) col(colX[win.first]! - colX[0]!);
+    for (let c = win.first; c < win.last; c++) col(colX[c + 1]! - colX[c]!);
+    if (win.last < columns) col(colX[columns]! - colX[win.last]!);
+    colgroup.replaceChildren(...cols);
+    headLayout = layout;
+  }
+
   function drawHead(): void {
-    const ts = types();
+    win = colWindow();
+    fitColgroup();
     const tr = el('tr');
     tr.setAttribute('aria-rowindex', '1');
     const rn = el('th', 'marxy-table-lens-rn', '#');
     rn.scope = 'col';
+    rn.setAttribute('aria-colindex', '1');
     tr.append(rn);
-    for (let c = 0; c < columns; c++) {
+    if (win.first > 0) tr.append(hSpacer('th'));
+    for (let c = win.first; c < win.last; c++) {
       const th = el('th');
       th.scope = 'col';
       th.dataset.col = String(c);
-      if (ts[c] === 'number') th.classList.add('marxy-table-lens-num');
+      th.setAttribute('aria-colindex', String(c + 2));
+      if (typeOf(c) === 'number') th.classList.add('marxy-table-lens-num');
       th.setAttribute('aria-sort', sort?.col === c ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none');
       const button = el('button', 'marxy-table-lens-sort');
       button.type = 'button';
@@ -364,10 +441,11 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
       button.append(name, arrow);
       button.title = `Sort by this column · the view only, the file is unchanged`;
       button.addEventListener('click', () => void cycleSort(c));
-      const type = el('span', 'marxy-table-lens-type', typeWords[ts[c]!]);
+      const type = el('span', 'marxy-table-lens-type', typeWords[typeOf(c)]);
       th.append(button, type);
       tr.append(th);
     }
+    if (win.last < columns) tr.append(hSpacer('th'));
     thead.replaceChildren(tr);
     table.setAttribute('aria-colcount', String(columns + 1));
     drawFoot();
@@ -396,9 +474,10 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     }
   }
 
-  function cellNode(r: number, c: number, pos: number, ts: readonly ColumnType[]): HTMLTableCellElement {
+  function cellNode(r: number, c: number, pos: number): HTMLTableCellElement {
     const td = el('td');
     td.dataset.col = String(c);
+    td.setAttribute('aria-colindex', String(c + 2));
     td.id = `marxy-table-lens-${generation}-${pos}-${c}`;
     const [first, end] = fieldsOf(scan, r);
     if (first + c >= end) {
@@ -411,8 +490,9 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     const flags = scan.fields.flags.data[f]!;
     const s = scan.fields.start.data[f]!;
     const e = scan.fields.end.data[f]!;
-    if (ts[c] === 'number') td.classList.add('marxy-table-lens-num');
-    else if (ts[c] === 'ident') td.classList.add('marxy-table-lens-ident');
+    const type = typeOf(c);
+    if (type === 'number') td.classList.add('marxy-table-lens-num');
+    else if (type === 'ident') td.classList.add('marxy-table-lens-ident');
     if (flags & FIELD_BREAK) td.classList.add('marxy-table-lens-multiline');
     appendText(td, fieldValue(scan, f), !isValidUtf8(scan.bytes, s, e));
     if (flags & FIELD_DECODED) {
@@ -428,7 +508,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     return td;
   }
 
-  function rowNode(pos: number, ts: readonly ColumnType[]): HTMLTableRowElement {
+  function rowNode(pos: number, w: { first: number; last: number }): HTMLTableRowElement {
     const r = recordAt(pos);
     const tr = el('tr');
     tr.dataset.record = String(r);
@@ -441,7 +521,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
       // An unreadable record and the pending one show their own bytes, raw, in the code face, and say what they are.
       tr.className = kind === RECORD_UNREADABLE ? 'marxy-table-lens-unreadable' : 'marxy-table-lens-pending';
       const td = el('td');
-      td.colSpan = Math.max(1, columns);
+      td.colSpan = Math.max(1, tableSpan(w));
       const fault = scan.faults.get(r);
       const label = el(
         'span',
@@ -451,10 +531,18 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
       const code = el('code');
       appendText(code, rawText(scan, scan.records.start.data[r]!, scan.records.end.data[r]!));
       td.append(label, code);
+      // The lines after it that its quote reached into are drawn as rows of their own below, and may have been part of
+      // this record (commitment 4): the row says how many, so none of them reads as certain.
+      if (fault && fault.swallowed > 0) {
+        const note = el('span', 'marxy-table-lens-swallowed', swallowedNote(fault.swallowed, fault.reason));
+        td.append(note);
+      }
       tr.append(td);
       return tr;
     }
-    for (let c = 0; c < columns; c++) tr.append(cellNode(r, c, pos, ts));
+    if (w.first > 0) tr.append(hSpacer('td'));
+    for (let c = w.first; c < w.last; c++) tr.append(cellNode(r, c, pos));
+    if (w.last < columns) tr.append(hSpacer('td'));
     return tr;
   }
 
@@ -486,14 +574,19 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     const view = scroller.clientHeight || 600;
     const first = Math.max(0, Math.min(total, Math.floor(virtualTop / h) - OVERSCAN));
     const last = Math.min(total, Math.ceil((virtualTop + view) / h) + OVERSCAN);
-    if (!force && first === drawn.first && last === drawn.last && version === drawn.version) {
+    // The columns in view moved (a scroll across, a resize, a wider file): the header is drawn again with the cells.
+    const w = colWindow();
+    if (w.first !== win.first || w.last !== win.last || layout !== headLayout) {
+      drawHead();
+      if (statsOn) wantStats();
+    }
+    if (!force && first === drawn.first && last === drawn.last && version === drawn.version && w.first === drawn.cfirst && w.last === drawn.clast && layout === drawn.layout) {
       setSpacers(first, last, total, top, virtualTop, h);
       return;
     }
-    drawn = { first, last, version };
-    const ts = types();
+    drawn = { first, last, version, cfirst: w.first, clast: w.last, layout };
     const rows: HTMLTableRowElement[] = [];
-    for (let pos = first; pos < last; pos++) rows.push(rowNode(pos, ts));
+    for (let pos = first; pos < last; pos++) rows.push(rowNode(pos, w));
     tbody.replaceChildren(spacerTop, ...rows, spacerBottom);
     table.setAttribute('aria-rowcount', String(total + 1));
     if (!rowH && rows.length > 0) {
@@ -516,7 +609,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
   const spacerCell = (tr: HTMLTableRowElement): HTMLTableCellElement => {
     if (!tr.firstElementChild) tr.append(el('td'));
     const td = tr.firstElementChild as HTMLTableCellElement;
-    td.colSpan = Math.max(1, columns) + 1;
+    td.colSpan = tableSpan(win) + 1;
     return td;
   };
 
@@ -559,11 +652,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     return b;
   }
 
-  const lineOf = (byte: number): number => {
-    let n = 1;
-    for (let i = scan.bytes.indexOf(0x0a); i >= 0 && i < byte; i = scan.bytes.indexOf(0x0a, i + 1)) n++;
-    return n;
-  };
+  const lineOf = (byte: number): number => lineOfByte(scan.bytes, byte);
 
   function recordsWhere(test: (r: number) => boolean): { title: string; start: number; end: number }[] {
     const out: { title: string; start: number; end: number }[] = [];
@@ -586,6 +675,17 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     if (scan.bom) {
       sep();
       parts.push('starts with a byte-order mark');
+    }
+    if (scan.loneCr > 0) {
+      sep();
+      parts.push('lines end in CR alone');
+    }
+    // The delimiter is the extension's; a file that looks like another says so and is not read again (ADR-0071 rejects sniffing).
+    const hint = delimiterHint(scan);
+    if (hint !== null) {
+      sep();
+      const note = el('span', 'marxy-table-lens-hint', `This file may use ${delimiterWord(hint)} between fields`);
+      parts.push(note);
     }
     if (recordCount(scan) > 0 && scan.records.kind.data[0] === RECORD_ROW) {
       sep();
@@ -696,7 +796,8 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     rn.title = 'Column stats · from the decoded values; the file is unchanged';
     tr.append(rn);
     const fmt = (v: number | null): string => (v === null ? '—' : Number.isInteger(v) ? v.toLocaleString('en-US') : v.toLocaleString('en-US', { maximumFractionDigits: 3 }));
-    for (let c = 0; c < columns; c++) {
+    if (win.first > 0) tr.append(hSpacer('td'));
+    for (let c = win.first; c < win.last; c++) {
       const td = el('td');
       td.dataset.col = String(c);
       const s = stats?.[c] ?? null;
@@ -713,6 +814,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
       }
       tr.append(td);
     }
+    if (win.last < columns) tr.append(hSpacer('td'));
     tfoot.replaceChildren(tr);
   }
 
@@ -742,7 +844,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
       drawInfo();
       const rows = fileOrder();
       slices.sort = 0;
-      const keys = await sortKeysSliced(scan, rows, want.col, types()[want.col] === 'number', pace(mine, 'sort'));
+      const keys = await sortKeysSliced(scan, rows, want.col, typeOf(want.col) === 'number', pace(mine, 'sort'));
       const sorted = keys ? await sortSliced(rows, compareByKeys(keys, want.dir === 'desc'), pace(mine, 'sort')) : null;
       busy = null;
       table.removeAttribute('aria-busy');
@@ -756,27 +858,45 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     drawInfo();
   }
 
+  /**
+   * Counts the columns in view that are not yet counted, one column at a time and each in slices, and again for the
+   * columns a scroll brings in. A file of thousands of columns is never counted whole (F-89): the foot shows what is
+   * in view, and the rest is counted when it is.
+   */
   async function applyStats(): Promise<void> {
+    statsQueued = false;
     const mine = generation;
     if (!statsOn) {
       stats = null;
       drawFoot();
       return;
     }
-    stats = null;
-    drawFoot();
+    if (stats === null) {
+      stats = new Array<ColumnStats | null>(columns).fill(null);
+      drawFoot();
+    }
     await reading;
     if (closed || mine !== generation || !statsOn) return;
+    if (stats.length !== columns) stats = Array.from({ length: columns }, (_, c) => stats?.[c] ?? null);
     const rows = fileOrder();
-    const out: (ColumnStats | null)[] = [];
     slices.stats = 0;
-    for (let c = 0; c < columns; c++) {
+    for (;;) {
+      const here = colWindow();
+      let c = here.first;
+      while (c < here.last && stats[c] !== null) c++;
+      if (c >= here.last) break;
       const s = await columnStatsSliced(scan, rows, c, pace(mine, 'stats'));
-      if (s === null || !statsOn) return;
-      out.push(s);
+      if (s === null || !statsOn || closed || mine !== generation || stats === null) return;
+      stats[c] = s;
+      drawFoot();
     }
-    stats = out;
-    drawFoot();
+  }
+
+  /** Asks for the columns now in view to be counted, once, after any count under way. */
+  function wantStats(): void {
+    if (statsQueued || !statsOn) return;
+    statsQueued = true;
+    void queue(applyStats);
   }
 
   const queue = (fn: () => Promise<void>): Promise<void> => {
@@ -794,7 +914,10 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     const total = viewLength();
     if (total === 0) return;
     selected = { pos: Math.max(0, Math.min(total - 1, pos)), col: Math.max(0, Math.min(Math.max(0, columns - 1), col)) };
-    if (scroll) scrollToPos(selected.pos);
+    if (scroll) {
+      scrollToPos(selected.pos);
+      scrollToCol(selected.col);
+    }
     version++;
     drawBody(true);
   }
@@ -809,6 +932,18 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     const y = pos * h;
     if (y < virtualTop) scroller.scrollTop = y / k;
     else if (y + h > virtualTop + view) scroller.scrollTop = (y + h - view) / k;
+  }
+
+  /** Brings column `col` into view, under the row-number column that stays put on the left. */
+  function scrollToCol(col: number): void {
+    if (col < 0 || col >= columns) return;
+    const rn = colX[0]!;
+    const left = colX[col]!;
+    const right = colX[col + 1]!;
+    const x = scroller.scrollLeft;
+    const room = scroller.clientWidth;
+    if (left - rn < x) scroller.scrollLeft = Math.max(0, left - rn);
+    else if (right > x + room) scroller.scrollLeft = right - room;
   }
 
   /** The cell node of the selection: the raw field in bytes, or null for an absent cell or a row that is not one. */
@@ -1008,10 +1143,11 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     fieldCounts.clear();
     order = null;
     selected = null;
+    stats = null;
     read();
     scroller.scrollTop = top;
     if (sort) void queue(applySort);
-    if (statsOn) void queue(applyStats);
+    if (statsOn) wantStats();
   });
 
   async function teardown(): Promise<void> {
@@ -1045,6 +1181,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     },
     setStats(on) {
       statsOn = on ?? !statsOn;
+      statsQueued = true;
       return queue(applyStats);
     },
     sortBy(col, dir) {
@@ -1061,7 +1198,8 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
       drawBody(true);
       drawInfo();
       if (sort) void queue(applySort);
-      if (statsOn) void queue(applyStats);
+      stats = null;
+      if (statsOn) wantStats();
     },
     async settled() {
       for (;;) {

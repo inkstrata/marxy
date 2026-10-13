@@ -267,15 +267,19 @@ export async function applyAllHighlights(article: HTMLElement): Promise<void> {
 
 /**
  * Calls `onChange` once in the frame after any number of calls, so a batch of blocks coloured
- * together asks for one grid pass, not one each.
+ * together asks for one grid pass, not one each. It is given the blocks the calls were for (F-80).
  */
-function coalesced(onChange: () => void): () => void {
+function coalesced(onChange: (changed: readonly HTMLElement[]) => void): (code: HTMLElement) => void {
   let frame = 0;
-  return () => {
+  const codes = new Set<HTMLElement>();
+  return (code) => {
+    codes.add(code);
     if (frame !== 0) return;
     frame = requestAnimationFrame(() => {
       frame = 0;
-      onChange();
+      const changed = [...codes];
+      codes.clear();
+      onChange(changed);
     });
   };
 }
@@ -284,12 +288,12 @@ function coalesced(onChange: () => void): () => void {
  * Highlights one block and returns whether it was split into line spans just now, which happens
  * before the first await; `coloured` is called if the colour arrives later and changes it again.
  */
-function highlightAndReport(code: HTMLElement, coloured: (() => void) | undefined): boolean {
+function highlightAndReport(code: HTMLElement, coloured: ((code: HTMLElement) => void) | undefined): boolean {
   const before = code.dataset.marxyDone;
   const done = applyHighlightToCode(code);
   const split = code.dataset.marxyDone;
   void done.finally(() => {
-    if (code.dataset.marxyDone !== split) coloured?.();
+    if (code.dataset.marxyDone !== split) coloured?.(code);
   });
   return split !== before;
 }
@@ -302,8 +306,11 @@ function highlightAndReport(code: HTMLElement, coloured: (() => void) | undefine
  * at most once a frame after blocks were coloured. Both happen after the grid pass that followed this
  * call, and a split block can change height: a wrapped line hangs past its indent or diff marker, so
  * it can take another row (B-02.1). Without a new grid pass every block below it sits off the grid.
+ * It is given the code elements the batch changed (F-80): the grid pass is theirs alone, and not the
+ * article's, which on a page of thousands of pieces is seconds. Without an IntersectionObserver every
+ * block is split at once and it is given none, which is the whole article.
  */
-export function startCodeHighlight(article: HTMLElement, onLayoutChanged?: () => void): void {
+export function startCodeHighlight(article: HTMLElement, onLayoutChanged?: (changed?: readonly HTMLElement[]) => void): void {
   applyInvisibleMarkers(article);
   applyLinkDestinations(article);
   // A document with no fences sends no drop: the old jobs finish and are discarded by `isConnected`.
@@ -321,15 +328,15 @@ export function startCodeHighlight(article: HTMLElement, onLayoutChanged?: () =>
 
   const observer = new IntersectionObserver(
     (entries) => {
-      let split = false;
+      const changed: HTMLElement[] = [];
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
         const code = entry.target as HTMLElement;
         observer.unobserve(code);
-        split = highlightAndReport(code, coloured) || split;
+        if (highlightAndReport(code, coloured)) changed.push(code);
       }
       // In the same frame the blocks were split, so no frame is painted with the blocks below them off the grid.
-      if (split) onLayoutChanged?.();
+      if (changed.length > 0) onLayoutChanged?.(changed);
     },
     { root: null, rootMargin: '200% 0px' },
   );

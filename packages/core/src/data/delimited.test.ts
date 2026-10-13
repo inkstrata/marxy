@@ -9,6 +9,7 @@ import {
   checkTableInvariants,
   createScan,
   decodeCsvField,
+  delimiterHint,
   deriveTable,
   delimiterFor,
   fieldValue,
@@ -111,6 +112,42 @@ test('bytes after a closing quote make the record unreadable at its first line, 
   assert.equal(rows(t).at(-1)!.terminator, null, 'the last record has no terminator');
 });
 
+test('an unreadable row says how many lines after it its quote reached into: those are read as rows of their own and may have been part of it (F-89)', () => {
+  const unreadable = (t: DerivedTable) => t.children.filter((c) => c.type === 'unreadable').map((c) => (c.type === 'unreadable' ? [c.reason, c.swallowed] : []));
+  // A quote never closed runs through every line after it, to the end of the file.
+  assert.deepEqual(unreadable(derive('a,b\n2,"oops,x\nmid,2\nlast,3\n')), [['unclosed-quote', 2]]);
+  // The file ending without a final line break counts the same lines.
+  assert.deepEqual(unreadable(derive('a,b\n2,"oops,x\nmid,2\nlast,3')), [['unclosed-quote', 2]]);
+  // On its last line there is nothing after it to have swallowed.
+  assert.deepEqual(unreadable(derive('a,b\n2,"oops\n')), [['unclosed-quote', 0]]);
+  // A quote that closed late: the two lines it ran through (`mid,2` and the line it closes on) were read again as rows.
+  const bytes = bytesOf('a,b\n2,"oops,x\nmid,2\n"z",3\n');
+  const late = derive(bytes);
+  assert.deepEqual(unreadable(late), [['after-quote', 2]]);
+  assert.deepEqual(values(late), [['a', 'b'], ['mid', '2'], ['z', '3']]);
+  // Bytes after a quote that closed on its own line swallowed nothing; a lone-CR file counts its lines too.
+  assert.deepEqual(unreadable(derive('x,"ab"c,d\nok,1\n')), [['after-quote', 0]]);
+  assert.deepEqual(unreadable(derive('a,b\r2,"oops\rmid,2\rlast,3\r')), [['unclosed-quote', 2]]);
+  assert.deepEqual(unreadable(derive('a,b\r\n2,"oops\r\nmid,2\r\nlast,3\r\n')), [['unclosed-quote', 2]]);
+});
+
+test('delimiterHint: a one-field table whose every row holds the same count of another delimiter may use it; a real table or a mixed one gives no hint (F-89)', () => {
+  const hint = (text: string, path = '/r/t.csv'): string | null => {
+    const scan = createScan(bytesOf(text), delimiterFor(path)!);
+    scanSome(scan);
+    return delimiterHint(scan);
+  };
+  assert.equal(hint('name;age;city\nAda;36;Rome\nGil;41;Oslo\n'), ';');
+  assert.equal(hint('name;age;city\n'), ';', 'a header alone is enough');
+  assert.equal(hint('a|b\nc|d\n'), '|');
+  assert.equal(hint('a\tb\nc\td\n'), '\t', 'a tab-separated file named .csv');
+  assert.equal(hint('a,b\nc,d\n', '/r/t.tsv'), ',', 'a comma-separated file named .tsv');
+  assert.equal(hint('a;b\nc;d;e\n'), null, 'rows with different counts');
+  assert.equal(hint('a,b;c\nd,e;f\n'), null, 'already a table of two fields');
+  assert.equal(hint('just words\nand more\n'), null);
+  assert.equal(hint(''), null);
+});
+
 test('TSV is never decoded: a quote is data, a stray quote never makes a row unreadable, and no cell is marked', () => {
   const bytes = bytesOf('a\t"b""c"\t"open\n"x\ty\n');
   const t = derive(bytes, '/r/t.tsv');
@@ -119,13 +156,39 @@ test('TSV is never decoded: a quote is data, a stray quote never makes a row unr
   assert.ok(rows(t).every((r) => r.children.every((c) => !c.decoded && c.decoding === 'none')));
 });
 
-test('a BOM is its own range, CRLF and LF both end records, a lone CR is data, blank lines are dropped and counted', () => {
+test('a BOM is its own range, CRLF, LF and a lone CR all end records, blank lines are dropped and counted', () => {
   const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...bytesOf('a,b\r\n\r\n1,x\ry\n\n2,z')]);
   const t = derive(bytes);
   assert.deepEqual(t.bom, { file: '/r/t.csv', start: 0, end: 3 });
   assert.equal(rows(t)[0]!.children[0]!.src.start, 3, 'the first field starts after the mark');
-  assert.deepEqual(values(t), [['a', 'b'], ['1', 'x\ry'], ['2', 'z']]);
+  assert.deepEqual(values(t), [['a', 'b'], ['1', 'x'], ['y'], ['2', 'z']]);
   assert.deepEqual(t.dropped.map((d) => [d.src.start, d.src.end]), [[8, 10], [16, 17]]);
+});
+
+test('a file whose lines end in a lone CR reads as rows: the CR is a line break for the table, and a quoted CR is still data (F-89)', () => {
+  const text = 'name,age\rAda,36\r"Gil\rbert",41\r\rKit,29\r';
+  const bytes = bytesOf(text);
+  const t = derive(bytes);
+  assert.deepEqual(values(t), [['name', 'age'], ['Ada', '36'], ['Gil\rbert', '41'], ['Kit', '29']]);
+  assert.equal(t.dropped.length, 1, 'the blank line between rows');
+  assert.ok(rows(t).every((r) => r.terminator && raw(bytes, { src: r.terminator }) === '\r'));
+  const scan = createScan(bytes, ',');
+  scanSome(scan);
+  assert.equal(scan.loneCr, 5, 'four rows and a blank line end in a lone CR');
+  assert.equal(lineCount(scan), 6, 'the CRs are the line breaks; the file ends in one');
+  // The same file with CRLF reads the same, and counts no lone CR.
+  const crlf = createScan(bytesOf(text.replaceAll('\r', '\r\n')), ',');
+  scanSome(crlf);
+  assert.equal(crlf.loneCr, 0);
+  assert.equal(lineCount(crlf), 6);
+  // TSV the same.
+  assert.deepEqual(values(derive('a\tb\rc\td\r', '/r/t.tsv')), [['a', 'b'], ['c', 'd']]);
+});
+
+test('a file still being written that ends in a CR keeps it pending, for it may yet be a CRLF (F-89)', () => {
+  const t = derive('a,b\r\n1,2\r', '/r/t.csv', false);
+  assert.deepEqual(t.children.map((c) => c.type), ['row', 'pending']);
+  assert.deepEqual(derive('a,b\r\n1,2\r', '/r/t.csv', true).children.map((c) => c.type), ['row', 'row']);
 });
 
 test('a ragged row keeps its own field count: nothing is padded into the bytes or trimmed from them', () => {
@@ -194,7 +257,7 @@ function referenceCsv(text: string): string[][] | null {
   let i = text.startsWith('﻿') ? 1 : 0;
   const n = text.length;
   while (i < n) {
-    if (text[i] === '\n' || text.startsWith('\r\n', i)) return null; // a blank line: not a record in RFC 4180
+    if (text[i] === '\n' || text[i] === '\r') return null; // a blank line: not a record in RFC 4180
     const row: string[] = [];
     for (;;) {
       let value = '';
@@ -214,9 +277,9 @@ function referenceCsv(text: string): string[][] | null {
           value += text[i];
           i++;
         }
-        if (i < n && text[i] !== ',' && text[i] !== '\n' && !text.startsWith('\r\n', i)) return null;
+        if (i < n && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') return null;
       } else {
-        while (i < n && text[i] !== ',' && text[i] !== '\n' && !text.startsWith('\r\n', i)) value += text[i++];
+        while (i < n && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') value += text[i++];
       }
       row.push(value);
       if (i >= n) break;
@@ -228,7 +291,7 @@ function referenceCsv(text: string): string[][] | null {
         }
         continue;
       }
-      i += text[i] === '\n' ? 1 : 2;
+      i += text.startsWith('\r\n', i) ? 2 : 1; // a lone CR ends the record too (F-89)
       break;
     }
     out.push(row);

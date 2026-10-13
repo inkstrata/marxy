@@ -36,7 +36,7 @@ export interface DeferredStartupContext {
    * Called when a post-pass changed the page's geometry (image boxes, invisible-character markers),
    * so the grid pass can run again: blocks below the change sit off the baseline grid until it does.
    */
-  readonly onLayoutChanged?: () => void;
+  readonly onLayoutChanged?: (changed?: readonly HTMLElement[]) => void;
 }
 
 /**
@@ -48,8 +48,8 @@ export async function runDeferredStartup(ctx: DeferredStartupContext): Promise<v
   const highlightStart = Date.now();
   // Every step is a post-pass over a page that is already readable: one that fails (a refused asset
   // scope, a lazy chunk that did not load) must not take the rendered page or the open document with it.
-  const regrid = () => {
-    if (!doc.hidden) ctx.onLayoutChanged?.();
+  const regrid = (changed?: readonly HTMLElement[]) => {
+    if (!doc.hidden) ctx.onLayoutChanged?.(changed);
   };
   await guarded('images', async () => {
     try {
