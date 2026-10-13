@@ -428,7 +428,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     }
     if (!endPinned || top >= pinnedTop - 1) return;
     const now = performance.now();
-    if (now - lastReaderInputAt < PIN_INPUT_MS || now - pinnedAt > PIN_SETTLE_MS) {
+    // The reader's wheel is not listened for (a wheel listener makes WebKit repaint the whole page after every layout, B-02.8):
+    // a wheel or a key moves the page a little, and what the engine did moved it by more than three screens.
+    if (now - lastReaderInputAt < PIN_INPUT_MS || now - pinnedAt > PIN_SETTLE_MS || pinnedTop - top < scroller.clientHeight * 3) {
       endPinned = false;
       return;
     }
@@ -442,7 +444,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     }
     if (isOwnInput(event)) lastReaderInputAt = performance.now();
   };
-  const PIN_INPUT_TYPES = ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'mousedown', 'keydown'] as const;
+  const PIN_INPUT_TYPES = ['touchstart', 'pointerdown', 'mousedown', 'keydown'] as const;
   for (const type of PIN_INPUT_TYPES) window.addEventListener(type, onPinInput, { capture: true, passive: true });
   /** WebKit fires the viewport's scroll at the Document, not at documentElement. */
   const scrollTarget = (el: HTMLElement): EventTarget => (el === document.documentElement ? document : el);

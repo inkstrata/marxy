@@ -196,7 +196,10 @@ test('a jump to the end and the reader scrolling up: the end is not held against
     await page.evaluate(() => window.__quiet());
     const before = await page.evaluate(() => document.documentElement.scrollTop);
     await page.mouse.move(600, 400);
-    await page.mouse.wheel(0, -2400);
+    for (let i = 0; i < 10; i++) {
+      await page.mouse.wheel(0, -240);
+      await page.waitForTimeout(40);
+    }
     await page.waitForTimeout(1500);
     await page.evaluate(() => window.__quiet());
     const after = await page.evaluate(() => ({ top: document.documentElement.scrollTop, distance: window.__ends().distance }));
