@@ -24,7 +24,7 @@ import { currentTextSize, currentVariant } from '../theme/reader-config.ts';
 import { currentThemeName } from '../theme/user-theme.ts';
 import { inspectorTabs, onInspectorTabsChange, selectInspectorTab } from './inspector.ts';
 import {
-  BUTTON_NAMES,
+  BUTTON_LABELS,
   type StatusInput,
   type StatusItem,
   type StatusItemId,
@@ -48,7 +48,7 @@ export const SYNC_WORDS_CHARS = 64 * 1024;
 const SLICE_MS = 6;
 /** Typing in a large prose file: the count is made again this long after the last keystroke. */
 export const WORDS_QUIET_MS = 300;
-/** A walk shows in the bar only once it has run this long, and then ends in a notice; a quick rescan is neither. */
+/** A first walk shows in the bar only once it has run this long, and then ends in a notice; a quick one, and every later walk, is neither. */
 export const PROGRESS_DELAY_MS = 600;
 const PIECE = 32 * 1024;
 
@@ -126,9 +126,9 @@ export function mountStatusBar(region: HTMLElement, handle: AppHandle, signal: D
       if (!node) continue;
       if (node.textContent !== item.text) node.textContent = item.text;
       if (node.title !== item.title) node.title = item.title;
-      const name = BUTTON_NAMES[item.id];
+      const name = BUTTON_LABELS[item.id];
       if (node instanceof HTMLButtonElement && name !== undefined) {
-        const label = `${name}: ${item.text}`;
+        const label = name(item.text);
         if (node.getAttribute('aria-label') !== label) node.setAttribute('aria-label', label);
       }
     }
@@ -347,6 +347,8 @@ export function mountStatusBar(region: HTMLElement, handle: AppHandle, signal: D
         walkTimer = setTimeout(() => {
           walkTimer = null;
           if (gone || !index.indexing()) return;
+          // Only a root's first walk is news: a rescan, a re-walk or a revalidate of a root Marxy has indexed before is silent.
+          if (!index.roots().some((root) => index.baselineMs(root) === undefined)) return;
           walking = true;
           schedule();
         }, PROGRESS_DELAY_MS);

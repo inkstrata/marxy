@@ -213,6 +213,8 @@ test('an item is a button only where something is behind it: where you are opens
     assert.equal(bar.where.tag, 'span', 'no Outline tab is registered: the section is plain text');
     for (const id of ['kind', 'measure', 'encoding', 'size']) assert.equal(bar[id].tag, 'span', `${id} has no tab behind it`);
     assert.equal(bar.theme.tag, 'button');
+    assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-status-item="theme"]').getAttribute('aria-label')), 'Theme: Night — choose a theme');
+    assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-status-item="where"]').getAttribute('aria-label')), null, 'plain text has no button name');
     // Clicking the plain text does nothing: the inspector stays undocked.
     await page.click('[data-marxy-status-item="where"]');
     assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().arrangement.inspector), false);
@@ -222,6 +224,7 @@ test('an item is a button only where something is behind it: where you are opens
       window.__off = registerInspectorTab({ id: 'outline', title: 'Outline', mount: (el) => { el.textContent = 'outline panel'; return () => {}; } });
     });
     await page.waitForFunction(() => document.querySelector('[data-marxy-status-item="where"]')?.tagName === 'BUTTON');
+    assert.match(await page.evaluate(() => document.querySelector('[data-marxy-status-item="where"]').getAttribute('aria-label')), /^Section: Plan — open the outline$/);
     await page.click('[data-marxy-status-item="where"]');
     assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().arrangement.inspector), true, 'docked');
     await page.waitForFunction(() => document.querySelector('[data-marxy-inspector-tab-active]')?.getAttribute('data-marxy-inspector-tab') === 'outline');
@@ -266,10 +269,25 @@ test('slow work shows in the bar and not as a pill, and ends in the one notice; 
     h.index.indexing = () => busy;
     h.index.onStatusChange = (cb) => { callbacks.add(cb); return () => callbacks.delete(cb); };
     window.__walk = (value) => { busy = value; for (const cb of [...callbacks]) cb(); };
+    // Only `indexing()` is faked (the memory shell's walks are instant). `roots()` and `baselineMs()` are the service's own:
+    // a root Marxy has indexed before is not a first walk. `__firstWalk(true)` makes one root never indexed.
+    const baseline = h.index.baselineMs.bind(h.index);
+    let fresh = false;
+    h.index.baselineMs = (root) => (fresh ? undefined : baseline(root));
+    window.__firstWalk = (value) => { fresh = value; };
   };
   const pills = (page) => page.evaluate(() => document.querySelectorAll('.marxy-notice').length);
   await withPage(1280, async (page) => {
+    assert.ok(await page.evaluate(() => window.__marxyHandle.index.roots().length > 0 && window.__marxyHandle.index.roots().every((r) => window.__marxyHandle.index.baselineMs(r) !== undefined)), 'the launch walk has indexed the root: its baseline is the service\'s own');
+    // A second walk of that root, however long, is silent: no bar item and no notice.
     await page.evaluate(() => window.__walk(true));
+    await page.waitForTimeout(900);
+    assert.equal((await barOf(page)).progress, undefined, 'a re-walk of an indexed root is not shown');
+    await page.evaluate(() => window.__walk(false));
+    await frames(page, 3);
+    assert.equal(await pills(page), 0, 'and ends in no notice');
+    // A root's first walk is news.
+    await page.evaluate(() => { window.__firstWalk(true); window.__walk(true); });
     assert.equal((await barOf(page)).progress, undefined, 'a walk that is quick is not shown');
     await page.waitForFunction(() => document.querySelector('[data-marxy-status-item="progress"]')?.textContent === 'Indexing…');
     assert.equal(await pills(page), 0, 'no pill while it runs');

@@ -168,8 +168,8 @@ focused pane's document, in Source the editor's text. An item is a `<button>` on
 the Outline tab once it is registered (`selectInspectorTab('outline')` docks the inspector and selects it; until then, and in a narrow
 window over Source where the inspector cannot show, it is plain text), and the theme opens the palette on `>Theme`; every other item is
 a `<span>`. A click leaves focus where it was. The bar is not a live region and announces nothing; it writes nothing and keeps no
-state. While the first walk of a declared folder runs longer than 600 ms the bar shows "Indexing…" (and no pill), and when it ends the
-one notice says "Indexed N documents. Your files are unchanged."; a walk that ends sooner says nothing, and folded there is no bar and
+state. While the first walk of a root Marxy has never indexed (`baselineMs` undefined) runs longer than 600 ms the bar shows "Indexing…" (and no pill), and when it ends the
+one notice says "Indexed N documents. Your files are unchanged."; a walk that ends sooner, and every later walk of an indexed root, says nothing, and folded there is no bar and
 no pill. Cost: a keystroke in Source reaches the bar through one `updateListener` and one redraw a frame (an O(log n) caret lookup);
 the word count of a prose file is cached against the text, made at once under 64 KB and otherwise 300 ms after typing stops, in
 6 ms slices. Read scrolling compares one number against the headings, listed once per parse. The bar adds no static import of

@@ -244,8 +244,11 @@ export function statusItems(input: StatusInput): readonly StatusItem[] {
   return items;
 }
 
-/** What each button says to a screen reader, before its value; the plain items are read as their text. */
-export const BUTTON_NAMES: Readonly<Partial<Record<StatusItemId, string>>> = { where: 'Where you are', theme: 'Theme' };
+/** What each button is called to a screen reader: its value, then what activating it does. The plain items are read as their text. */
+export const BUTTON_LABELS: Readonly<Partial<Record<StatusItemId, (text: string) => string>>> = {
+  where: (text) => `${text.startsWith('Ln ') ? 'Position' : 'Section'}: ${text} — open the outline`,
+  theme: (text) => `Theme: ${text} — choose a theme`,
+};
 
 /**
  * Whether the item is a button now: only where something is behind it. A tab is behind it when it is registered and the
