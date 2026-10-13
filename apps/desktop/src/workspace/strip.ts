@@ -33,7 +33,8 @@ export const STRIP_TOOLS: Readonly<Record<Kind, readonly StripTool[]>> = {
   docs: [OUTLINE, tool('examples-only', 'Examples only'), tool('search-docs', 'Search docs set'), tool('prev-next', 'Prev / next')],
   code: [tool('line-numbers', 'Line numbers', 'view.toggle-line-numbers'), tool('wrap', 'Wrap'), tool('symbols', 'Symbols'), tool('go-to-line', 'Go to line')],
   transcript: [tool('collapse-tools', 'Collapse tools'), tool('only-you', 'Only you'), tool('only-assistant', 'Only assistant')],
-  data: [tool('column-stats', 'Column stats'), tool('filter', 'Filter'), tool('transpose', 'Transpose'), tool('chart', 'Chart')],
+  // Table takes the first slot and Chart drops off until it has a story (K-10b, ADR-0071 ruling 3).
+  data: [tool('table', 'Table', 'data.table-lens'), tool('column-stats', 'Column stats', 'data.column-stats'), tool('filter', 'Filter'), tool('transpose', 'Transpose')],
   notes: [tool('backlinks', 'Backlinks'), tool('append-clipboard', 'Append clipboard'), tool('daily', 'Daily')],
   changelog: [tool('versions', 'Versions'), CHANGES],
   log: [tool('filter-by-level', 'Filter by level', 'log.filter-level'), tool('wrap', 'Wrap'), tool('jump-to-first-error', 'Jump to first error', 'log.first-error'), tool('follow-tail', 'Follow tail')],

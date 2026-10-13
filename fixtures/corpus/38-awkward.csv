@@ -1,0 +1,14 @@
+﻿id,name,note,amount,formula
+1,"Ada, Countess","said ""hello""",12.50,=SUM(A1:A3)
+2,Brook,"two
+lines",-3,+cmd
+3,Cole,,7,@risk
+4,"Dee",plain,,
+5,short
+6,Finn,ok,8,-5
+7,"Gil"x,bad after quote,9,y
+
+8,Hal,"right‮left and zero​width",10,z
+9,Ivy, "spaced",11,w,extra
+10,Kit,"never closed,12,v
+11,Lee,last,13,u

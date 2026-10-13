@@ -1,0 +1,9 @@
+corpus,files,size_mb,cold_ms,warm_ms,peak_mb,host
+notes,932,18.4,41800,1600,212,m2-air
+plans,214,9.7,9900,410,148,m2-air
+tidemark,86,2.1,2300,190,96,m2-air
+rust-book,112,6.3,7700,350,131,m2-air
+mdn-sample,2400,61.0,118400,5200,488,m2-air
+kernel-docs,3311,44.8,96100,4100,402,m2-air
+handbook,640,12.9,15200,880,174,m2-air
+changelogs,58,0.9,1100,95,71,m2-air

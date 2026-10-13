@@ -79,3 +79,15 @@ text byte, in both, and a move of that section changes the file’s last byte on
 <p data-marxy-s="6522" data-marxy-e="6942">The two files have no number on purpose: the numbered <code data-marxy-s="6576" data-marxy-e="6581">.md</code> files are the reading corpus, and each owes the aesthetics gate a screenshot baseline for
 each engine (<code data-marxy-s="6685" data-marxy-e="6701">packages/theme</code> tests, <code data-marxy-s="6709" data-marxy-e="6730">gate-aesthetics.mjs</code>, <code data-marxy-s="6732" data-marxy-e="6750">probe-layout.mjs</code>). These are text for operations and the save path to be tried on, not pages to be
 judged, so the goldens, the fidelity gate and the operation tests read them and the aesthetics gate does not.</p>
+<h2 data-marxy-s="6943" data-marxy-e="6960">37-results.csv</h2>
+<p data-marxy-s="6962" data-marxy-e="7349">Original data written for K-10b: a benchmark table in the shape of the mock’s <code data-marxy-s="7040" data-marxy-e="7051">bench-csv</code> (a corpus name, five numbers and
+a host), eight rows under a header row of distinct words, so the table lens uses row 1 as its header. <code data-marxy-s="7187" data-marxy-e="7196">cold_ms</code> holds
+numbers whose text order is not their numeric order (<code data-marxy-s="7256" data-marxy-e="7262">9900</code> after <code data-marxy-s="7269" data-marxy-e="7277">118400</code> as text), which the sort test reads. Every name
+and number is invented.</p>
+<h2 data-marxy-s="7351" data-marxy-e="7368">38-awkward.csv</h2>
+<p data-marxy-s="7370" data-marxy-e="8061">Original data written for K-10b: every case the table lens must show honestly, in one CRLF file that starts with a UTF-8
+byte-order mark. A quoted field holding a comma; a doubled quote (<code data-marxy-s="7557" data-marxy-e="7575">"said ""hello"""</code>, a decoded cell); a quoted CRLF inside
+a field; empty fields; a short row and a long one (ragged); a byte after a closing quote (<code data-marxy-s="7705" data-marxy-e="7713">"Gil"x</code>, an unreadable row); a
+blank line; a bidi control (U+202E) and a zero-width space inside a quoted field; a space before a quote (<code data-marxy-s="7843" data-marxy-e="7854"> "spaced"</code>,
+verbatim); an unclosed quote on a line of its own, with a well-formed row after it; and cells a spreadsheet would run
+(<code data-marxy-s="7975" data-marxy-e="7986">=SUM(…)</code>, <code data-marxy-s="7988" data-marxy-e="7994">+cmd</code>, <code data-marxy-s="7996" data-marxy-e="8003">@risk</code>) next to a plain <code data-marxy-s="8021" data-marxy-e="8025">-5</code>. Every name and number is invented.</p>
