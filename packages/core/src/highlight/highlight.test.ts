@@ -73,8 +73,8 @@ test('every allow-listed language id produces highlight tokens for a one-line sa
     assert.ok(sample, `missing sample for ${id}`);
     const tokens = await highlight(sample, id);
     assert.ok(tokens && tokens.length > 0, `${id} returned no tokens`);
-    // A log has no grammar (K-08): its runs are classes (the level word, the timestamp), never a token scope.
-    assert.ok(tokens.some((line) => line.some((t) => t.scope || (id === 'log' && t.className))), `${id} returned no scoped tokens`);
+    // A log (K-08) and a shell session (K-17) have no grammar: their runs are classes (the level word, the timestamp, the prompt and the command), never a token scope.
+    assert.ok(tokens.some((line) => line.some((t) => t.scope || ((id === 'log' || id === 'shellsession') && t.className))), `${id} returned no scoped tokens`);
   }
 });
 
@@ -149,12 +149,10 @@ test('MARXY-235: diff lines carry marxy-diff-add and marxy-diff-del; headers and
   assert.equal(text(3), '-removed');
 });
 
-test('MARXY-235: console fence classes $ as punctuation and leaves output unclassed', async () => {
+test('MARXY-235, K-17: a console fence is a session: the prompt and the command are classed runs, no token hue, and output is unclassed', async () => {
   const lines = await highlight('$ ls\nhello\n', 'console');
   assert.ok(lines);
-  const prompt = lines[0]!;
-  assert.equal(prompt.find((t) => t.text === '$')?.scope, 'punctuation');
-  assert.ok(prompt.every((t) => t.text === '$' || !t.scope));
+  assert.deepEqual(lines[0], [{ text: '$ ', className: 'marxy-term-prompt' }, { text: 'ls', className: 'marxy-term-command' }]);
   assert.ok(lines[1]!.every((t) => !t.scope && !t.className));
 });
 

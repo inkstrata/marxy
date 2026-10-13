@@ -47,6 +47,7 @@ export const STRIP_TOOL_IDS: readonly string[] = [
   'backlinks', 'append-clipboard', 'daily',
   'versions',
   'filter-by-level', 'jump-to-first-error', 'follow-tail',
+  'copy-commands', 'copy-output',
 ];
 
 /** What a config.toml created by the first appended rule starts with. */

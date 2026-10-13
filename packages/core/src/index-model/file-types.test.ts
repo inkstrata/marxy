@@ -11,7 +11,7 @@ const OLD_MARKDOWN = ['md', 'mdx', 'markdown', 'mdown', 'mkd'];
 const OLD_TEXT = ['txt', 'text'];
 const OLD_SOURCE = 'ts tsx js jsx mjs cjs mts cts rs py go java kt kts c h cc cpp cxx hpp hh rb php swift sh bash zsh json toml yaml yml html htm xml sql graphql lua r ex exs hs vue svelte css scss log csv tsv jsonl'.split(' ');
 // K-08: a log is read, not edited; its kind stays `source`, so the index and the Tauri associations are as they were.
-const READ_FIRST = ['log', 'out', 'diff', 'patch'];
+const READ_FIRST = ['log', 'out', 'diff', 'patch', 'term', 'session'];
 // BY_EXT in apps/desktop/src/source/language.ts before V-09: extension -> CodeMirror id.
 const OLD_CM: Record<string, string> = {
   md: 'markdown', markdown: 'markdown', mdx: 'markdown', txt: 'markdown', ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
@@ -29,7 +29,7 @@ test('every old allow-list extension keeps its kind and mode', () => {
       assert.equal(classify(`/r/file.${ext}`), kind, ext);
     }
   }
-  assert.equal(tableExtensions().length, OLD_MARKDOWN.length + OLD_TEXT.length + OLD_SOURCE.length + 3, '`.out` (K-08), `.diff` and `.patch` (K-09) are the extensions added since');
+  assert.equal(tableExtensions().length, OLD_MARKDOWN.length + OLD_TEXT.length + OLD_SOURCE.length + 5, '`.out` (K-08), `.diff` and `.patch` (K-09), `.term` and `.session` (K-17) are the extensions added since');
 });
 
 test('a .log and an .out open in Read, as logs (K-08); no other source file does', () => {
@@ -51,6 +51,16 @@ test('a .diff and a .patch open in Read, as diffs (K-09); on main neither was in
     assert.equal(t?.shiki, 'diff', name);
     assert.equal(t?.indexed, true, name);
     assert.equal(classify(`/r/${name}`), 'source', name);
+  }
+});
+
+test('a .term and a .session open in Read, as terminal sessions (K-17); on main neither was in the table', () => {
+  for (const name of ['a.term', 'x.session', 'A.SESSION', '/r/dir.d/release-session.term']) {
+    const t = fileTypeOf(`/r/${name}`);
+    assert.equal(t?.mode, 'rendered', name);
+    assert.equal(t?.kind, 'source', name);
+    assert.equal(t?.shiki, 'terminal', name);
+    assert.equal(t?.indexed, true, name);
   }
 });
 

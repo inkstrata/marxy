@@ -359,12 +359,12 @@ test('the avg-char check never rewrites the theme: loadTheme leaves the declared
 test('the default theme gives article, readme, report and transcript a profile, written as the loader would compile it (K-05b)', () => {
   const css = readFileSync(fileURLToPath(new URL('../default/theme.css', import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   const scopes = new Map([...css.matchAll(/\[data-marxy-kind="([a-z]+)"\]\s*\{([^}]*)\}/g)].map((m) => [m[1]!, m[2]!]));
-  assert.deepEqual([...scopes.keys()].sort(), ['article', 'diff', 'log', 'readme', 'report', 'transcript']);
+  assert.deepEqual([...scopes.keys()].sort(), ['article', 'diff', 'log', 'readme', 'report', 'terminal', 'transcript']);
   const globalOnly = ['--marxy-color-surface', '--marxy-shadow-surface', '--marxy-face-chrome', '--marxy-size-chrome', '--marxy-typeset'];
   const roots = ['--marxy-root-size-body', '--marxy-root-size-code', '--marxy-root-size-caption', '--marxy-root-line-box', '--marxy-root-line-box-code', '--marxy-root-lh-h1', '--marxy-root-lh-h2'];
   for (const [kind, body] of scopes) {
-    // A log (K-08) is code-like text as authored: it has a size and a line box, and no measure or text face of its own (a diff, K-09, likewise).
-    if (kind === 'log' || kind === 'diff') assert.ok(!/--marxy-(measure|font-text|avg-char)/.test(body), `${kind}: only the size and the line box`);
+    // A log (K-08) is code-like text as authored: it has a size and a line box, and no measure or text face of its own (a diff, K-09, and a terminal session, K-17, likewise).
+    if (kind === 'log' || kind === 'diff' || kind === 'terminal') assert.ok(!/--marxy-(measure|font-text|avg-char)/.test(body), `${kind}: only the size and the line box`);
     else {
       const chars = Number(/--marxy-measure-chars:\s*([\d.]+)/.exec(body)?.[1]);
       assert.ok(chars >= 45 && chars <= 80, `${kind}: ${chars} characters is outside the 45-80 clamp`);

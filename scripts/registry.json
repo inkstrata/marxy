@@ -249,7 +249,10 @@
     "marxy-outline-menu-item",
     "marxy-outline-menu-name",
     "marxy-outline-menu-key",
-    "marxy-outline-title"
+    "marxy-outline-title",
+    "marxy-term-prompt",
+    "marxy-term-command",
+    "marxy-term-start"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

@@ -1,0 +1,2 @@
+document [0,613)
+  codeBlock [0,613) lang=terminal run content=[0,613) value="ian@eris ~/Code/tidemark % git status --short\n M Cargo.toml\n M src/harmonics/tables/loader.rs\n?? logs/build-2026-10-09.l…"
