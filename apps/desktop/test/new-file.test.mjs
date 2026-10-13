@@ -251,16 +251,36 @@ test('a symlink at the name is a file that is there: the fork goes to the next n
     assert.deepEqual(await diskBytes(page, '/r/b.md'), target);
   }, { links: { '/r/a (fork).md': '/r/b.md' } }));
 
+test('text typed in Source and not yet folded into the document is in the fork, and not in the original on disk', () =>
+  withPage(async (page) => {
+    const key = await mod(page);
+    await page.evaluate(() => window.__marxyHandle.toggleMode());
+    await page.waitForSelector('.cm-content');
+    await page.locator('.cm-content').click();
+    await page.keyboard.press(`${key}+ArrowDown`);
+    await page.keyboard.type('TYPED-IN-SOURCE ');
+    // The precondition that makes this test mean something: the typing is in the editor and not yet in the store.
+    assert.equal(await page.evaluate(() => window.__marxyHandle.hasUnfoldedSource()), true, 'typed, not yet folded');
+    assert.equal(await bufferText(page), A_TEXT, 'the store does not have it yet');
+    await page.keyboard.press(`${key}+Shift+KeyN`);
+    await page.waitForFunction(() => document.body.textContent.includes('Forked a.md as a (fork).md'));
+    const writes = await docWrites(page);
+    assert.deepEqual(writes.map(([p]) => p), ['/r/a (fork).md']);
+    assert.match(Buffer.from(writes[0][1]).toString('utf8'), /TYPED-IN-SOURCE/, 'the typed text is in the fork');
+    assert.equal(Buffer.from(await diskBytes(page, '/r/a.md')).toString('utf8'), A_TEXT, 'the original on disk is untouched');
+  }));
+
 test('a failed write says so, writes and opens nothing, and the original is as it was', () =>
   withPage(async (page) => {
     const key = await mod(page);
     const original = await diskBytes(page, '/r/a.md');
     await page.evaluate(() => window.__marxyHandle.shell.rejectNextWrite('io'));
     await page.keyboard.press(`${key}+Shift+KeyN`);
-    await page.waitForFunction(() => document.body.textContent.includes('Could not write the fork of a.md'));
-    const said = (await noticeTexts(page)).find((n) => /Could not write the fork/.test(n.text));
+    await page.waitForFunction(() => document.body.textContent.includes('Not forked: a (fork).md could not be written'));
+    const said = (await noticeTexts(page)).find((n) => /Not forked/.test(n.text));
     assert.equal(said.kind, 'error');
-    assert.match(said.text, /nothing was written and a\.md is unchanged/);
+    assert.match(said.text, /because the write was refused · nothing was written and a\.md is unchanged · Check the folder, then try again\.$/);
+    assert.doesNotMatch(said.text, /marxy-tmp|os error/);
     assert.equal(await page.evaluate(() => window.__marxyHandle.shell.hasFile('/r/a (fork).md')), false, 'no file at the name');
     assert.equal(await focusedPath(page), '/r/a.md', 'nothing opened');
     assert.deepEqual(await diskBytes(page, '/r/a.md'), original);

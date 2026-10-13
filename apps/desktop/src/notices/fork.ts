@@ -5,10 +5,20 @@
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { said, type Said } from './config-copy.ts';
 
-const reason = (e: unknown): string => {
+/**
+ * Why a write failed, in the reader's words. The shell's own text is not shown: it names a hidden temporary file beside the
+ * target and an operating-system number, which say nothing the reader can use.
+ */
+export function whyForkFailed(e: unknown): string {
+  const code = e && typeof e === 'object' && 'code' in e ? String((e as { code: unknown }).code) : '';
   const text = e && typeof e === 'object' && 'message' in e ? String((e as { message: unknown }).message) : String(e);
-  return text.replace(/\.$/, '');
-};
+  if (code === 'exhausted') return 'every fork name beside it is taken';
+  if (/name too long|os error 63|ENAMETOOLONG/i.test(text)) return 'the name is too long for this folder';
+  if (code === 'permission' || /permission denied|read-only|os error (1|13|30)\b/i.test(text)) return "the folder can't be written to";
+  if (/no space left|disk full|quota|file too large|os error (28|27|69)\b/i.test(text)) return 'the disk is full';
+  if (code === 'not-found') return 'the folder is no longer there';
+  return 'the write was refused';
+}
 
 export const FORK_SAYS = {
   /** The fork is written. `taken` is the names before it that already existed and were left exactly as they were. */
@@ -21,12 +31,13 @@ export const FORK_SAYS = {
         : `${basename(original)} is unchanged, and ${taken.map(basename).join(', ')} ${taken.length === 1 ? 'was' : 'were'} already there and left as ${taken.length === 1 ? 'it was' : 'they were'}`,
     ),
   }),
-  failed: (original: string, e: unknown): Said => ({
+  /** `target` is the file that was to be written, when a name had been chosen. */
+  failed: (original: string, e: unknown, target?: string): Said => ({
     kind: 'error',
     text: said(
-      `Could not write the fork of ${basename(original)}: ${reason(e)}`,
+      `Not forked: ${target === undefined ? `a fork of ${basename(original)}` : basename(target)} could not be written, because ${whyForkFailed(e)}`,
       `nothing was written and ${basename(original)} is unchanged`,
-      'Check that the folder can be written to, then try again.',
+      'Check the folder, then try again.',
     ),
   }),
 } as const;

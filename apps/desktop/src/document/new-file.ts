@@ -56,7 +56,7 @@ export async function forkOpenDocument(ctx: AppContext): Promise<void> {
   if (snap.path !== original) return;
   const outcome = await writeFork(app.shell, original, snap.buffer.bytes);
   if (outcome.result === 'failed') {
-    const failed = FORK_SAYS.failed(original, outcome.error);
+    const failed = FORK_SAYS.failed(original, outcome.error, outcome.path);
     ctx.showNotice(failed.text, { kind: failed.kind });
     return;
   }

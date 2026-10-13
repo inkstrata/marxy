@@ -353,16 +353,16 @@ itself is not a row). A row whose command cannot run now is not drawn, so the me
   The file is not named from its first heading: the reader names it.
 - **Fork this file** (`Mod+Shift+N`, `document.fork`) writes the buffer, as on disk plus any unsaved edits (Source text is folded in
   first; text held apart from another pane's is refused), to the first free name beside the file: `name (fork).md`, then `(fork 2)`
-  and up to 999 (a dotfile or a name with no extension takes the tag last). It opens the fork in the focused pane (over unsaved edits
+  and up to 999 (a dotfile or a name with no extension takes the tag last; a name so long that the tag would pass 255 bytes has its stem cut a whole grapheme at a time to fit). It opens the fork in the focused pane (over unsaved edits
   that asks, as any open does; the fork is already written and the notice says so) and says where it went. The original is never
   written or read again, and there is no undo: the shell has no delete, and the fork is an ordinary file the reader can remove.
   *Reveal in Finder* is not offered: the shell cannot reveal a file, and that is a privileged capability of its own.
 
 What Fork never does (the rules `document/fork.ts` and its tests hold): it never writes over a file, a folder, or a symlink (which
-`stat` cannot see, so `realPath` is asked too), and a name that differs only in case from an existing one counts as taken where the
+`stat` cannot see, so `realPath` is asked too, and a link that leads nowhere is taken as well: a head read tells it from a missing name, so Fork skips it), and a name that differs only in case from an existing one counts as taken where the
 filesystem folds case. Names are looked for one at a time as the write is made, never from a listing made earlier. The bytes are the
 buffer's, so a BOM, CRLF and bytes that are not text are kept. A failed write says so (an `error` notice: what failed, that nothing was
-written and the original is unchanged, what to do), opens nothing and leaves no file, because the shell publishes a whole file or none.
+written and the original is unchanged, what to do; it names the file that was to be written and says why in words, never the shell's text with its hidden temporary file or an OS number), opens nothing and leaves no file, because the shell publishes a whole file or none.
 Nothing leaves the machine. **The one limit:** the shell has no create-only write (`writeFileAtomic` renames over what is there), so
 "check, then write" is two steps, and a file another program makes at that name between the last check and the rename is replaced.
 That window is the shell's own time to stage, flush and rename the bytes; nothing else is awaited between the check and the write. Closing

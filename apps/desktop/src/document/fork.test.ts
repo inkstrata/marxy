@@ -5,7 +5,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { drawers, prng } from '../../test/support/prng.mjs';
-import { MAX_FORKS, forkPath, nameIsTaken, writeFork, type ForkIo } from './fork.ts';
+import { FORK_SAYS, whyForkFailed } from '../notices/fork.ts';
+import { MAX_FORKS, MAX_NAME_BYTES, forkPath, nameIsTaken, writeFork, type ForkIo } from './fork.ts';
 import { openDocumentStore } from './store.ts';
 
 const enc = new TextEncoder();
@@ -60,6 +61,14 @@ class Fs implements ForkIo {
     const dir = this.foundDir(path);
     if (dir !== undefined) return dir;
     throw Object.assign(new Error(`${path}: not found`), { code: 'not-found' });
+  }
+  async readHead(path: string, _max: number): Promise<Uint8Array> {
+    this.enter(`readHead:${path}`);
+    // As the shell does: a link (leading anywhere or nowhere) and a folder are 'not a regular file'; a missing path is not found.
+    if (this.links.has(path) || this.foundDir(path) !== undefined) throw Object.assign(new Error(`${path}: not a regular file`), { code: 'invalid' });
+    const file = this.found(path);
+    if (file === undefined) throw Object.assign(new Error(`${path}: no such file`), { code: 'not-found' });
+    return new Uint8Array(0);
   }
   async writeFileAtomic(path: string, data: Uint8Array): Promise<void> {
     this.enter(`write:${path}`);
@@ -204,13 +213,13 @@ test('ADVERSARIAL: a folder, a symlink that resolves, and a name differing only 
   assert.equal(dec.decode(fs.files.get('/d/Notes (Fork 3).md')), 'cased');
 });
 
-test('a symlink that leads nowhere is not a file to replace: the write is refused by the shell, and the fork fails with nothing written', async () => {
+test('a symlink that leads nowhere is taken, so Fork skips it and writes the next name (it does not fail, run after run)', async () => {
   const fs = withOriginal();
   fs.links.set('/d/notes (fork).md', '/d/missing.md');
-  const before = fs.snapshot();
   const out = await writeFork(fs, ORIGINAL, BODY);
-  assert.equal(out.result, 'failed');
-  assert.deepEqual([...fs.snapshot().keys()], [...before.keys()]);
+  assert.deepEqual(out, { result: 'written', path: '/d/notes (fork 2).md', n: 2 });
+  assert.deepEqual(fs.writes(), ['/d/notes (fork 2).md'], 'the link is never written to');
+  assert.equal(fs.links.get('/d/notes (fork).md'), '/d/missing.md', 'and is still there');
 });
 
 test('every one of the 999 names taken: no write at all, a failure that says why', async () => {
@@ -246,7 +255,7 @@ test('RACE: the look at the name is the last call before the write; nothing else
   const fs = withOriginal({ '/d/notes (fork).md': enc.encode('x') });
   await writeFork(fs, ORIGINAL, BODY);
   const at = fs.log.indexOf('write:/d/notes (fork 2).md');
-  assert.deepEqual(fs.log.slice(at - 2, at), ['stat:/d/notes (fork 2).md', 'realPath:/d/notes (fork 2).md'], 'the name\'s own checks come last');
+  assert.deepEqual(fs.log.slice(at - 3, at), ['stat:/d/notes (fork 2).md', 'realPath:/d/notes (fork 2).md', 'readHead:/d/notes (fork 2).md'], 'the name\'s own checks come last');
   assert.equal(fs.log.slice(at + 1).length, 0, 'and nothing follows the write');
 });
 
@@ -275,6 +284,7 @@ test('nameIsTaken: a missing name is free, and only a folder\'s real path decide
       if (p === '/tmp/x.md') throw Object.assign(new Error('nf'), { code: 'not-found' });
       return p;
     },
+    readHead: async () => { throw Object.assign(new Error('nf'), { code: 'not-found' }); },
     writeFileAtomic: async () => {},
   };
   assert.equal(await nameIsTaken(mac, '/tmp/x.md'), false);
@@ -307,10 +317,9 @@ async function oneWalk(seed: number): Promise<void> {
   const originalBytes = randomBytes(int(40));
   fs.files.set(original, originalBytes.slice());
   // The model: the names present (folded when the filesystem folds), the bytes every regular file must still hold, and the names
-  // that are links leading nowhere. It never reads the fake to decide what should happen.
+  // It never reads the fake to decide what should happen.
   const present = new Set<string>([fold(original)]);
   const expected = new Map<string, Uint8Array>([[original, originalBytes.slice()]]);
-  const dangling = new Set<string>();
   const trace: string[] = [];
   const keep = (path: string, data: Uint8Array): void => {
     fs.files.set(path, data.slice());
@@ -331,8 +340,9 @@ async function oneWalk(seed: number): Promise<void> {
       present.add(fold(name));
     } else if (kind === 'cased') keep(name.replace(/fork/, 'Fork'), enc.encode('cased')); // taken only where case is folded
     else if (kind === 'dangling') {
+      // A link that leads nowhere is a name that is taken: it is skipped, and never written to.
       fs.links.set(name, `/d/missing-${n}`);
-      dangling.add(fold(name));
+      present.add(fold(name));
     }
   }
   const rounds = 1 + int(4);
@@ -345,13 +355,6 @@ async function oneWalk(seed: number): Promise<void> {
     const writesBefore = fs.writes().length;
     const where = `seed ${seed} (case ${fs.caseInsensitive ? 'folded' : 'kept'}), round ${r}: fork ${from} -> ${wantPath}; ${trace.join('; ')}`;
     const out = await writeFork(fs, from, data);
-    if (dangling.has(fold(wantPath))) {
-      // The first name not taken is a link that leads nowhere: the shell refuses to write to it, so the fork fails and changes nothing.
-      assert.equal(out.result, 'failed', where);
-      assert.equal(fs.writes().length, writesBefore + 1, `${where}: the refused write is the only one`);
-      for (const [path, bytesOf] of expected) assert.ok(same(fs.files.get(path), bytesOf), `${where}: ${path} keeps its bytes`);
-      return;
-    }
     assert.equal(out.result, 'written', where);
     assert.equal((out as { path: string }).path, wantPath, `${where}: the first free name`);
     assert.equal(fs.writes().length, writesBefore + 1, `${where}: exactly one write`);
@@ -370,4 +373,77 @@ async function oneWalk(seed: number): Promise<void> {
 
 test('WALK: over random folders of files, folders, links and cased names, a fork takes the first free name and touches nothing that was there', async () => {
   for (const seed of SEEDS) await oneWalk(seed);
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// Long names, and what the reader is told when a write fails.
+
+const bytesOf = (t: string): number => enc.encode(t).length;
+const nameOf = (p: string): string => p.slice(p.lastIndexOf('/') + 1);
+
+test('a name near the 255-byte limit is shortened a whole grapheme at a time so the fork fits; a short name is not touched', () => {
+  assert.equal(forkPath('/d/notes.md', 1), '/d/notes (fork).md');
+  for (const stem of ['a'.repeat(248), 'é'.repeat(124), '日本語'.repeat(41), '👨\u200d👩\u200d👧'.repeat(11), 'e\u0301'.repeat(120)]) {
+    for (const ext of ['.md', '', '.markdown']) {
+      for (const n of [1, 2, 99, 999]) {
+        const out = nameOf(forkPath(`/d/${stem}${ext}`, n));
+        assert.ok(bytesOf(out) <= MAX_NAME_BYTES, `${bytesOf(out)} bytes for ${stem.slice(0, 6)}… n=${n}`);
+        assert.ok(out.endsWith(`${n === 1 ? ' (fork)' : ` (fork ${n})`}${ext}`), 'the tag and the extension are kept whole');
+        // Cut on a grapheme boundary of the original stem: no half of a character, no combining mark or joiner left behind.
+        const kept = out.slice(0, out.length - (n === 1 ? ' (fork)' : ` (fork ${n})`).length - ext.length);
+        const cuts = new Set([0, stem.length]);
+        for (const { index } of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(stem)) cuts.add(index);
+        assert.ok(stem.startsWith(kept) && cuts.has(kept.length), `cut at ${kept.length} is a grapheme boundary`);
+      }
+    }
+  }
+  assert.ok(nameOf(forkPath(`/d/${'a'.repeat(255)}`, 1)).length <= MAX_NAME_BYTES, 'a name already at the limit');
+});
+
+test('forking a 250-byte name writes a name that fits, and a second fork of it takes (fork 2) of the same cut', async () => {
+  const long = `/d/${'x'.repeat(247)}.md`;
+  const fs = new Fs();
+  fs.files.set(long, BODY.slice());
+  const first = await writeFork(fs, long, BODY);
+  const second = await writeFork(fs, long, BODY);
+  assert.equal(first.result, 'written');
+  assert.equal(second.result, 'written');
+  for (const out of [first, second]) assert.ok(bytesOf(nameOf((out as { path: string }).path)) <= MAX_NAME_BYTES);
+  assert.notEqual((first as { path: string }).path, (second as { path: string }).path);
+  assert.ok(same(fs.files.get(long), BODY));
+});
+
+test('the failure notice names the file that was to be written and says why in words, never the temporary file or an OS number', () => {
+  const tmp = '/d/.notes (fork).md.marxy-tmp-123-0-456';
+  const cases: [unknown, RegExp][] = [
+    [Object.assign(new Error(`${tmp}: cannot stage a save beside the destination: Permission denied (os error 13)`), { code: 'io' }), /the folder can't be written to/],
+    [Object.assign(new Error('x'), { code: 'permission' }), /the folder can't be written to/],
+    [Object.assign(new Error(`${tmp}: cannot stage a save beside the destination: File name too long (os error 63)`), { code: 'io' }), /the name is too long for this folder/],
+    [Object.assign(new Error(`${tmp}: cannot be written: No space left on device (os error 28)`), { code: 'io' }), /the disk is full/],
+    [Object.assign(new Error('all 999 fork names beside this file are taken'), { code: 'exhausted' }), /every fork name beside it is taken/],
+    [new Error('something nobody expected (os error 99)'), /the write was refused/],
+  ];
+  for (const [error, why] of cases) {
+    const said = FORK_SAYS.failed('/d/notes.md', error, '/d/notes (fork).md');
+    assert.equal(said.kind, 'error');
+    assert.match(said.text, why);
+    assert.match(said.text, /^Not forked: notes \(fork\)\.md could not be written, because /);
+    assert.match(said.text, / · nothing was written and notes\.md is unchanged · Check the folder, then try again\.$/);
+    assert.doesNotMatch(said.text, /marxy-tmp|os error|\/d\/|\.notes/, said.text);
+  }
+  assert.match(FORK_SAYS.failed('/d/notes.md', new Error('x')).text, /^Not forked: a fork of notes\.md could not be written/, 'with no name chosen yet, the original is named');
+  assert.equal(whyForkFailed('plain string'), 'the write was refused');
+});
+
+test('a failed write reports the name it was writing, and a failure before any name does not', async () => {
+  const fs = withOriginal();
+  fs.failWrite = Object.assign(new Error('x'), { code: 'permission' });
+  assert.deepEqual(await writeFork(fs, ORIGINAL, BODY), { result: 'failed', error: fs.failWrite, path: '/d/notes (fork).md' });
+  const gone = withOriginal();
+  gone.before = (call) => {
+    if (call.startsWith('realPath:')) throw Object.assign(new Error('nf'), { code: 'not-found' });
+  };
+  const out = await writeFork(gone, ORIGINAL, BODY);
+  assert.equal(out.result, 'failed');
+  assert.equal('path' in out, false);
 });
