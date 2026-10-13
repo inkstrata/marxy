@@ -103,6 +103,18 @@ async function settled(page, id) {
   });
 }
 
+/**
+ * Types `query` into the open find field and waits for the match run of the whole query: find matches on the frame after
+ * a keystroke, so a slow machine can paint the count of a prefix ("s") between two keys, and a count showing is not the
+ * count of the query. The field holds the query once every key has landed, and two frames later the last run has been.
+ */
+async function typeQuery(page, query) {
+  await page.keyboard.type(query);
+  await page.waitForFunction((q) => document.querySelector('.marxy-find-input')?.value === q, query);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.waitForFunction(() => /\d+ of \d+/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''));
+}
+
 /** The text of the last copy the page made. */
 const copied = (page) =>
   page.evaluate(() => {
@@ -493,8 +505,7 @@ test('find with a filter on searches the lines shown, never the words of a hidde
     assert.ok(inShown > 0 && inHidden > 0, `the fixture has both (${inShown} shown, ${inHidden} hidden)`);
     const key = await modifier(page);
     await page.keyboard.press(`${key}+KeyF`);
-    await page.keyboard.type('sync');
-    await page.waitForFunction(() => /\d+ of \d+/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''));
+    await typeQuery(page, 'sync');
     const seen = await page.evaluate(() => ({
       count: document.querySelector('.marxy-find-count').textContent,
       ranges: [...(CSS.highlights.get('marxy-find') ?? [])].map((r) => ({ hidden: r.startContainer.parentElement.closest('.marxy-log-hidden-text, .marxy-log-hidden-piece, .marxy-log-hidden-run') !== null })),
@@ -506,8 +517,7 @@ test('find with a filter on searches the lines shown, never the words of a hidde
     assert.ok(seen.current.every((n) => n > 0), 'the current match is on screen');
     // The words the filter leaves are not text of the log.
     await page.keyboard.press(`${key}+KeyA`);
-    await page.keyboard.type('below');
-    await page.waitForFunction(() => document.querySelector('.marxy-find-count')?.textContent?.startsWith('0 of 0'));
+    await typeQuery(page, 'below');
     assert.equal(await page.evaluate(() => document.querySelector('.marxy-find-count').textContent), '0 of 0', 'no match in "N lines below Warn"');
   }));
 
