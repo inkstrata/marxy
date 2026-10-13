@@ -114,6 +114,17 @@ test('plain numbers are untouched; @handle and +text are guarded', () => {
   assert.equal(tsv('| a |\n|---|\n| -x |\n').text, "a\n'-x");
 });
 
+test('a cell that starts with a tab or a carriage return is guarded in the CSV, as OWASP lists them (F-89)', () => {
+  // The CSV keeps tabs and CRs in a cell, so a spreadsheet that skips them would run what follows.
+  assert.equal(guardFormula('\t=1+1'), "'\t=1+1");
+  assert.equal(guardFormula('\r=1+1'), "'\r=1+1");
+  assert.equal(guardFormula('x\t=1'), 'x\t=1', 'only a leading tab or CR');
+  assert.equal(csvOf([['\t=2', '\r=3', 'ok']]), "'\t=2,\"'\r=3\",ok");
+  // The TSV and its HTML flatten a tab or CR to a space first, so no leading one reaches a spreadsheet.
+  const flatTsv = tsvOf([['\t=2', '\r=3']]);
+  assert.ok(!/^[\t\r]/.test(flatTsv.split('\t')[0]!) && !flatTsv.includes('\r'), JSON.stringify(flatTsv));
+});
+
 test('TSV: a cell beginning with a double quote is quoted, quotes doubled', () => {
   assert.equal(tsv('| a |\n|---|\n| "hi" there |\n').text, 'a\n' + '"'.repeat(3) + 'hi' + '"'.repeat(2) + ' there"');
 });
