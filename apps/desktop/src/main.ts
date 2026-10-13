@@ -4,7 +4,7 @@ import { startApp, type AppHandle, type AppShell } from './app.ts';
 import { startCollection, type CollectionHandle } from './collection/load.ts';
 import { keepFresh, type TreeWatchHandle } from './collection/watch.ts';
 import { mountPaletteFromHandle, type PaletteController } from './palette/view.ts';
-import { runMenuCommand } from './menu/menu-commands.ts';
+import { mountNativeMenu } from './menu/menu-boot.ts';
 import { shell } from './shell/tauri.ts';
 
 export type BootHandle = AppHandle & { readonly palette: PaletteController; readonly collection: CollectionHandle; readonly trees: TreeWatchHandle };
@@ -18,7 +18,7 @@ export async function bootApplication(appShell: AppShell, opts?: { argv?: readon
   // startApp resolves after first_text: the declared folders and recent roots join the scope now (C-10).
   const collection = startCollection({ ...handle, feed: palette.feed, recentRoots: () => palette.session.recentRoots });
   // Only the real Tauri shell has a native menu to hear from; a test's stub shell does not.
-  if (appShell === shell) shell.onMenuCommand((id) => { runMenuCommand(id); });
+  if (appShell === shell) mountNativeMenu(handle, shell);
   if (typeof window !== 'undefined') (window as Window & { __marxyPalette?: PaletteController }).__marxyPalette = palette;
   return Object.assign(handle, { palette, collection, trees });
 }

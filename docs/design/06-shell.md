@@ -133,10 +133,28 @@ the webview's IPC calls into Rust, and the webview never calls into the menu. "O
 `tauri-plugin-dialog`'s native picker the same way, from the menu's own event handler
 (`app.dialog().file().pick_file(...)`) — again no webview call, so no `dialog:*` capability is
 needed either; the `dialog:allow-open` line above stays reserved for MARXY-49's webview-facing
-`openDialog` command, a separate thing. Its View and Go items (MARXY-342) reach the webview by the `marxy:menu` event, which
-the existing `core:event:allow-listen` already covers, so they add no capability either. The menu is macOS-only (`#[cfg(target_os = "macos")]`): a
+`openDialog` command, a separate thing. Its registry-command items (MARXY-342, W-20) reach the webview by the `marxy:menu` event, which
+the existing `core:event:allow-listen` already covers, and the webview tells the menu which of them can run through the app command `set_menu_enabled`, which needs no entry (above), so they add no capability either. The menu is macOS-only (`#[cfg(target_os = "macos")]`): a
 visible menu bar on Linux/Windows is in-window chrome, which "chrome at rest is zero" forbids: see
 the follow-up task drafted for Linux/Windows `openDialog` menu coverage.
+
+## The native menu (W-20, ADR-0073)
+
+macOS only; Linux and Windows keep no menu bar. `MENU` in `main.rs` is the whole menu as data: Marxy, File, Edit, Format,
+View, Go, Window, Help. An item is the OS's own (About, Hide, Undo, Cut, Copy, Paste, Select All, Minimize, Zoom), one of
+the shell's (Quit, Open File…, Close Window, and the two palette doors Open Quickly… and Keyboard Shortcuts), or a
+**registry command** (`Cmd(id, label, accelerator)`). A command item shows the key the registry gives that command, and a
+click runs it in the webview through the registry with the focused pane's context (`menu/menu-commands.ts`), as its key
+or its palette row would. It is never a replayed chord, which a Source editor would not hear; only the two palette doors,
+which are not registry commands, replay the palette's chord.
+
+- **Disabled, never hidden.** The webview sends each command item's `when` to the shell (`set_menu_enabled`) when focus,
+  the mode, the selection or a document changes, and only when the answer changed (`menu/menu-state.ts`). Format is
+  offered in Source on Markdown, so it is disabled elsewhere.
+- **Never a list of documents, tabs or windows**, no Open Recent, Export, Share. Close Window stays `Mod+W`.
+- **Checks.** The Rust test holds that every item's id resolves to an action and no two share an accelerator.
+  `test/keys-table.test.mjs` holds that each command item's accelerator equals its command's key, that none is a
+  system-wide shortcut, that no chord has two owners, and that a keyed command not in the menu is named as such.
 
 ## Single instance and second launches
 

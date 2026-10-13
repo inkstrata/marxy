@@ -853,10 +853,12 @@ fn paint_deadline_selftest() -> i32 {
 #[cfg(target_os = "macos")]
 const DOCUMENT_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx", "txt"];
 
-/// The native menu: the smallest set a Mac reader already expects (App/File/Edit/Window), with no
-/// document-specific command (ADR-0011 — the palette is the tab manager, not this menu). `MENU` is
-/// the whole menu as data: `build_app_menu` builds exactly what it lists and `action_for` is the
-/// only way a click turns into work, so the test below checks the menu a reader gets, not a copy.
+/// The native menu (W-20, ADR-0073): the menus a Mac reader expects, cut to the commands Marxy has. An item is
+/// either one of the shell's own (Quit, Open File…, Close Window, the two palette doors) or a registry command
+/// (`Cmd`), which shows the key the registry gives it and runs through the registry in the webview, as its key or
+/// its palette row would. The menu never lists documents, tabs or windows (ADR-0011, ADR-0073). `MENU` is the
+/// whole menu as data: `build_app_menu` builds exactly what it lists and `action_for` is the only way a click
+/// turns into work, so the tests below check the menu a reader gets, not a copy.
 #[cfg(target_os = "macos")]
 mod app_menu {
     /// An item the OS implements itself (AppKit responder selectors), so it carries no marxy id.
@@ -879,10 +881,31 @@ mod app_menu {
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Entry {
-        /// One of marxy's own items: id, label, accelerator.
+        /// One of the shell's own items: id, label, accelerator (empty for none).
         Own(&'static str, &'static str, &'static str),
+        /// A registry command: its id in `apps/desktop/src/commands`, label, accelerator (the registry's own key
+        /// on a Mac, or empty where the command has none). The menu id is `cmd:` and the registry id.
+        Cmd(&'static str, &'static str, &'static str),
         Native(Native),
         Separator,
+    }
+
+    impl Entry {
+        /// The id a click on this item carries, or None for the OS's own items and separators.
+        pub fn menu_id(&self) -> Option<String> {
+            match self {
+                Entry::Own(id, _, _) => Some((*id).to_string()),
+                Entry::Cmd(id, _, _) => Some(format!("{COMMAND_PREFIX}{id}")),
+                _ => None,
+            }
+        }
+
+        pub fn accelerator(&self) -> Option<&'static str> {
+            match self {
+                Entry::Own(_, _, a) | Entry::Cmd(_, _, a) if !a.is_empty() => Some(a),
+                _ => None,
+            }
+        }
     }
 
     /// What a click on one of marxy's own items does.
@@ -891,8 +914,8 @@ mod app_menu {
         Quit,
         CloseWindow,
         OpenFile,
-        /// A reader-facing command the webview already implements for its key chord; the click
-        /// only carries the menu id to it (`marxy:menu`), so the key and the menu cannot disagree.
+        /// A command the webview implements; the click only carries the menu id to it (`marxy:menu`), so the key
+        /// and the menu cannot disagree.
         ToWebview,
     }
 
@@ -904,15 +927,14 @@ mod app_menu {
         }
     }
 
+    pub const COMMAND_PREFIX: &str = "cmd:";
     pub const QUIT: &str = "marxy-quit";
     pub const OPEN_FILE: &str = "marxy-open-file";
     pub const CLOSE_WINDOW: &str = "marxy-close-window";
     pub const OPEN_QUICKLY: &str = "marxy-open-quickly";
-    pub const TOGGLE_SOURCE: &str = "marxy-toggle-source";
-    pub const GO_BACK: &str = "marxy-go-back";
-    pub const GO_FORWARD: &str = "marxy-go-forward";
+    pub const KEYBOARD_SHORTCUTS: &str = "marxy-keyboard-shortcuts";
 
-    use Entry::{Native as N, Own, Separator};
+    use Entry::{Cmd, Native as N, Own, Separator};
     use Native::*;
 
     pub const MENU: &[(&str, &[Entry])] = &[
@@ -933,10 +955,22 @@ mod app_menu {
         (
             "File",
             &[
+                Cmd("document.new", "New File", "CmdOrCtrl+N"),
+                Cmd("document.fork", "Fork This File", "CmdOrCtrl+Shift+N"),
+                Separator,
                 Own(OPEN_FILE, "Open File…", "CmdOrCtrl+O"),
+                Cmd(
+                    "collection.add-folder",
+                    "Add This Folder to the Collection",
+                    "",
+                ),
+                Separator,
+                Cmd("document.save", "Save", "CmdOrCtrl+S"),
+                Cmd("document.save-as", "Save As…", "CmdOrCtrl+Shift+S"),
                 Separator,
                 // Not the predefined close_window: Marxy is single-window, so closing the one
                 // window leaves nothing to open into and is the same as quitting (see `quit_now`).
+                // Cmd+W stays Close Window until tabs have their own close (ADR-0073).
                 Own(CLOSE_WINDOW, "Close Window", "CmdOrCtrl+W"),
             ],
         ),
@@ -950,35 +984,86 @@ mod app_menu {
                 N(Copy),
                 N(Paste),
                 N(SelectAll),
+                Separator,
+                Cmd("view.find", "Find…", "CmdOrCtrl+F"),
+                Cmd("view.replace", "Replace…", "CmdOrCtrl+Alt+F"),
+                Separator,
+                Cmd("copy-as.menu", "Copy As…", "CmdOrCtrl+Shift+C"),
+                Cmd("transform.open", "Transform…", ""),
+            ],
+        ),
+        (
+            "Format",
+            &[
+                Cmd("source.format-bold", "Bold", "CmdOrCtrl+B"),
+                Cmd("source.format-italic", "Italic", "CmdOrCtrl+I"),
+                Cmd("source.format-code", "Inline Code", "Ctrl+`"),
+                Cmd("source.format-strike", "Strikethrough", ""),
+                Cmd("source.format-link", "Link", ""),
+                Separator,
+                Cmd("source.insert-table", "Insert Table", ""),
+                Cmd("source.insert-fence", "Insert Code Block", ""),
+                Cmd("source.insert-rule", "Insert Horizontal Rule", ""),
+                Cmd("source.insert-details", "Insert Details Block", ""),
+                Cmd("source.insert-footnote", "Insert Footnote", ""),
             ],
         ),
         (
             "View",
-            &[Own(
-                TOGGLE_SOURCE,
-                "Toggle Rendered / Source",
-                "CmdOrCtrl+E",
-            )],
+            &[
+                Cmd("view.mode-read", "Read", "CmdOrCtrl+1"),
+                Cmd("view.mode-split", "Split", "CmdOrCtrl+2"),
+                Cmd("view.mode-source", "Source", "CmdOrCtrl+3"),
+                Cmd(
+                    "view.toggle-mode",
+                    "Toggle Rendered / Source",
+                    "CmdOrCtrl+E",
+                ),
+                Separator,
+                Cmd("view.toggle-sidebar", "Sidebar", "Ctrl+CmdOrCtrl+S"),
+                Cmd("view.toggle-inspector", "Inspector", "CmdOrCtrl+Alt+I"),
+                Cmd("view.outline", "Outline", "CmdOrCtrl+Shift+O"),
+                Cmd(
+                    "view.toggle-workspace",
+                    "Fold or Unfold the Workspace",
+                    "CmdOrCtrl+\\",
+                ),
+                Separator,
+                Cmd("view.toggle-show-whitespace", "Show Whitespace", ""),
+                Cmd("view.toggle-line-numbers", "Line Numbers", ""),
+                Cmd("view.toggle-column-guide", "Column Guide", ""),
+            ],
         ),
         (
             "Go",
             &[
-                Own(GO_BACK, "Back", "CmdOrCtrl+["),
-                Own(GO_FORWARD, "Forward", "CmdOrCtrl+]"),
+                Cmd("nav.back", "Back", "CmdOrCtrl+["),
+                Cmd("nav.forward", "Forward", "CmdOrCtrl+]"),
                 Separator,
                 Own(OPEN_QUICKLY, "Open Quickly…", "CmdOrCtrl+P"),
             ],
         ),
         ("Window", &[N(Minimize), N(Zoom)]),
+        ("Help", &[Own(KEYBOARD_SHORTCUTS, "Keyboard Shortcuts", "")]),
     ];
+
+    /// Every item of marxy's own, in menu order.
+    pub fn items() -> impl Iterator<Item = &'static Entry> {
+        MENU.iter()
+            .flat_map(|(_, entries)| entries.iter())
+            .filter(|entry| entry.menu_id().is_some())
+    }
 
     pub fn action_for(id: &str) -> Option<Action> {
         match id {
             QUIT => Some(Action::Quit),
             CLOSE_WINDOW => Some(Action::CloseWindow),
             OPEN_FILE => Some(Action::OpenFile),
-            OPEN_QUICKLY | TOGGLE_SOURCE | GO_BACK | GO_FORWARD => Some(Action::ToWebview),
-            _ => None,
+            OPEN_QUICKLY | KEYBOARD_SHORTCUTS => Some(Action::ToWebview),
+            _ => {
+                let known = items().any(|entry| entry.menu_id().as_deref() == Some(id));
+                (known && id.starts_with(COMMAND_PREFIX)).then_some(Action::ToWebview)
+            }
         }
     }
 }
@@ -994,8 +1079,19 @@ fn build_app_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tau
         let submenu = Submenu::new(app, *title, true)?;
         for entry in *entries {
             match *entry {
-                Entry::Own(id, label, accelerator) => {
-                    submenu.append(&MenuItem::with_id(app, id, label, true, Some(accelerator))?)?
+                Entry::Own(..) | Entry::Cmd(..) => {
+                    let (Some(id), Entry::Own(_, label, _) | Entry::Cmd(_, label, _)) =
+                        (entry.menu_id(), entry)
+                    else {
+                        continue;
+                    };
+                    submenu.append(&MenuItem::with_id(
+                        app,
+                        id,
+                        label,
+                        true,
+                        entry.accelerator(),
+                    )?)?
                 }
                 Entry::Separator => submenu.append(&PredefinedMenuItem::separator(app)?)?,
                 Entry::Native(native) => submenu.append(&match native {
@@ -1015,9 +1111,56 @@ fn build_app_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tau
                 })?,
             }
         }
+        match *title {
+            "Window" => submenu.set_as_windows_menu_for_nsapp()?,
+            "Help" => submenu.set_as_help_menu_for_nsapp()?,
+            _ => {}
+        }
         menu.append(&submenu)?;
     }
     Ok(menu)
+}
+
+/// Enables or disables the menu's registry-command items: `states` maps a registry command id to whether it can run
+/// now (W-20, ADR-0073: disabled, never hidden). An id the menu does not carry is ignored. Off a Mac there is no menu.
+#[tauri::command]
+fn set_menu_enabled(
+    app: tauri::AppHandle,
+    states: std::collections::HashMap<String, bool>,
+) -> Result<(), ShellError> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::menu::MenuItemKind;
+        let Some(menu) = app.menu() else {
+            return Ok(());
+        };
+        let items = menu
+            .items()
+            .map_err(|e| ShellError::io("", e.to_string()))?;
+        for top in items {
+            let MenuItemKind::Submenu(submenu) = top else {
+                continue;
+            };
+            let children = submenu
+                .items()
+                .map_err(|e| ShellError::io("", e.to_string()))?;
+            for child in children {
+                let MenuItemKind::MenuItem(item) = child else {
+                    continue;
+                };
+                let Some(rid) = item.id().as_ref().strip_prefix(app_menu::COMMAND_PREFIX) else {
+                    continue;
+                };
+                if let Some(enabled) = states.get(rid) {
+                    item.set_enabled(*enabled)
+                        .map_err(|e| ShellError::io("", e.to_string()))?;
+                }
+            }
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, states);
+    Ok(())
 }
 
 /// "Open File…": the native picker, filtered to the documents `marxy` opens. Non-blocking
@@ -1139,6 +1282,7 @@ fn main() {
             read_file,
             write_file_atomic,
             set_title,
+            set_menu_enabled,
             save_dialog,
             close_confirmed,
             mark_from_webview,
@@ -1719,62 +1863,95 @@ mod tests {
         );
     }
 
-    /// A real `Menu` needs a running app on the main thread, so this walks `app_menu::MENU`, the
-    /// table `build_app_menu` builds from item for item (MARXY-184 criterion 4). It fails if an item
-    /// of marxy's own is added — Save, a view mode, an operation — or if one has no action, and if
-    /// Edit stops being the OS's own items.
+    /// A real `Menu` needs a running app on the main thread, so this walks `app_menu::MENU`, the table
+    /// `build_app_menu` builds from item for item (MARXY-184 criterion 4, W-20). Every item of ours resolves to an
+    /// action, ids and accelerators are unique, and the menu lists no document, tab or window (ADR-0073).
     #[cfg(target_os = "macos")]
     #[test]
-    fn the_native_menu_carries_only_the_expected_items() {
+    fn every_menu_item_resolves_to_an_action_and_no_two_share_a_key() {
         use super::app_menu::{
-            action_for, Action, Entry, CLOSE_WINDOW, GO_BACK, GO_FORWARD, MENU, OPEN_FILE,
-            OPEN_QUICKLY, QUIT, TOGGLE_SOURCE,
+            action_for, items, Action, Entry, CLOSE_WINDOW, COMMAND_PREFIX, MENU, OPEN_FILE,
+            OPEN_QUICKLY, QUIT,
         };
+        use std::collections::HashSet;
 
         let titles: Vec<&str> = MENU.iter().map(|(title, _)| *title).collect();
-        assert_eq!(titles, ["Marxy", "File", "Edit", "View", "Go", "Window"]);
-
-        let own: Vec<(&str, &str)> = MENU
-            .iter()
-            .flat_map(|(_, entries)| entries.iter())
-            .filter_map(|entry| match entry {
-                Entry::Own(id, _, accelerator) => Some((*id, *accelerator)),
-                _ => None,
-            })
-            .collect();
         assert_eq!(
-            own,
-            [
-                (QUIT, "CmdOrCtrl+Q"),
-                (OPEN_FILE, "CmdOrCtrl+O"),
-                (CLOSE_WINDOW, "CmdOrCtrl+W"),
-                (TOGGLE_SOURCE, "CmdOrCtrl+E"),
-                (GO_BACK, "CmdOrCtrl+["),
-                (GO_FORWARD, "CmdOrCtrl+]"),
-                (OPEN_QUICKLY, "CmdOrCtrl+P"),
-            ],
-            "the menu's own items are the app and window items, the view toggle, history and the \
-             palette, and no document operation (ADR-0011)"
+            titles,
+            ["Marxy", "File", "Edit", "Format", "View", "Go", "Window", "Help"]
         );
-        for id in [TOGGLE_SOURCE, GO_BACK, GO_FORWARD, OPEN_QUICKLY] {
-            assert_eq!(action_for(id), Some(Action::ToWebview));
-            assert!(!Action::ToWebview.asks_the_webview_first());
+
+        let mut ids = HashSet::new();
+        let mut accelerators = HashSet::new();
+        let mut count = 0;
+        for entry in items() {
+            count += 1;
+            let id = entry.menu_id().unwrap();
+            assert!(ids.insert(id.clone()), "two items share the id {id}");
+            assert!(action_for(&id).is_some(), "{id} resolves to no action");
+            if let Some(accelerator) = entry.accelerator() {
+                assert!(
+                    accelerators.insert(accelerator),
+                    "two items share the accelerator {accelerator}"
+                );
+            }
+            if let Entry::Cmd(rid, _, _) = entry {
+                assert!(id.starts_with(COMMAND_PREFIX) && id.ends_with(rid));
+                assert_eq!(action_for(&id), Some(Action::ToWebview));
+            }
         }
+        assert!(
+            count >= 35,
+            "the menu carries the registry's commands, not seven items"
+        );
+        assert_eq!(action_for("marxy-save"), None);
+        assert_eq!(action_for("cmd:no.such-command"), None);
         assert_eq!(action_for(QUIT), Some(Action::Quit));
         assert_eq!(action_for(CLOSE_WINDOW), Some(Action::CloseWindow));
+        assert_eq!(action_for(OPEN_FILE), Some(Action::OpenFile));
+        assert_eq!(action_for(OPEN_QUICKLY), Some(Action::ToWebview));
         assert!(
             action_for(QUIT).unwrap().asks_the_webview_first()
                 && action_for(CLOSE_WINDOW).unwrap().asks_the_webview_first(),
             "Cmd+Q and Cmd+W go through the close guard, never straight to exit"
         );
-        assert!(!Action::OpenFile.asks_the_webview_first());
-        assert_eq!(action_for(OPEN_FILE), Some(Action::OpenFile));
-        assert_eq!(action_for("marxy-save"), None);
-
-        let (_, edit) = MENU.iter().find(|(title, _)| *title == "Edit").unwrap();
-        assert!(
-            edit.iter().all(|entry| !matches!(entry, Entry::Own(..))),
-            "Edit is the OS's own items, never hand-built ones"
+        assert!(!Action::ToWebview.asks_the_webview_first());
+        assert_eq!(
+            MENU.iter()
+                .flat_map(|(_, e)| e.iter())
+                .find_map(|e| match e {
+                    Entry::Own(id, _, a) if *id == CLOSE_WINDOW => Some(*a),
+                    _ => None,
+                }),
+            Some("CmdOrCtrl+W"),
+            "Close Window keeps Cmd+W (ADR-0073)"
         );
+    }
+
+    /// The menu never carries a list of documents, tabs or windows, and no Open Recent, Export or Share (ADR-0073).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_menu_lists_no_documents_tabs_or_windows() {
+        use super::app_menu::{Entry, MENU};
+        for (_, entries) in MENU {
+            for entry in *entries {
+                if let Entry::Own(_, label, _) | Entry::Cmd(_, label, _) = entry {
+                    let label = label.to_lowercase();
+                    for word in label.split_whitespace() {
+                        assert!(
+                            !["recent", "export", "share", "tab", "tabs", "windows"]
+                                .contains(&word),
+                            "{label} is not a menu item (ADR-0073)"
+                        );
+                    }
+                }
+                if let Entry::Cmd(rid, _, _) = entry {
+                    assert!(
+                        !rid.starts_with("tab.") && !rid.starts_with("library."),
+                        "{rid} lists documents or tabs"
+                    );
+                }
+            }
+        }
     }
 }

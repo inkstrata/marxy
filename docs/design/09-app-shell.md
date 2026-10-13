@@ -342,6 +342,16 @@ chrome.
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
 
+**The menu column (W-20, ADR-0073).** On macOS every key above whose command is in the registry also sits in the native
+menu bar, with the key the registry gives it, and nothing else does: a menu item adds no key. File has New File,
+Fork This File, Open File…, Add This Folder to the Collection, Save, Save As… and Close Window (`Mod+W`); Edit has the
+OS's items, Find…, Replace…, Copy As… and Transform…; Format has Bold, Italic, Inline Code, Strikethrough, Link and the
+inserts (Source on Markdown); View has Read, Split, Source, Toggle Rendered / Source, Sidebar, Inspector, Outline, Fold
+or Unfold the Workspace, Show Whitespace, Line Numbers and Column Guide; Go has Back, Forward and Open Quickly…; Help has
+Keyboard Shortcuts, which opens the palette on commands. An item whose command cannot run now is disabled. The keys that
+stay out of the menu (Source's line and selection chords, pane chords, `Esc`, text size) are named, with a reason, in
+`test/keys-table.test.mjs`. §The native menu in `06-shell.md` says how.
+
 **New file, New file here and Fork this file (W-14).** Three ways to start a file, from the toolbar's **+** (`document.new-menu`, drawn
 once the command exists), the tab row's **+** (drawn with it, the row's last child and not a tab) and the palette (one row each; the menu
 itself is not a row). A row whose command cannot run now is not drawn, so the menu never offers a shut door.
