@@ -57,7 +57,7 @@ test('math is set as its source until KaTeX loads on first use (MARXY-28)', () =
 
 test('frontmatter is a quiet head above the body', () => {
   const out = html('---\ntitle: x\n---\n\nBody\n');
-  assert.match(out, /<dl>\s*<dt>title<\/dt>/);
+  assert.match(out, /<dl>\s*<dt data-marxy-fm-key="title">title<\/dt>/);
   assert.match(out, /<p>Body<\/p>/);
 });
 

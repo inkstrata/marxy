@@ -120,8 +120,11 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, opt
     const rule: ElementRule | undefined = policy.elements[name];
 
     if (rule !== undefined) {
-      const built = attributes(name, rule, tag, policy, removed, options);
+      const ownRemoved: Removal[] = [];
+      const built = attributes(name, rule, tag, policy, ownRemoved, options);
       const missing = (rule.requires ?? []).filter((required) => !built.kept.has(required));
+      const unwrapped = missing.length > 0 && transparent.has(name);
+      if (!unwrapped) removed.push(...ownRemoved);
       if (missing.length === 0) {
         // The solidus is honoured for a void element and nowhere else: a parser ignores it on an
         // HTML element, so `<a href="…" />` opens an anchor, and an anchor left open swallows the
@@ -130,9 +133,13 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, opt
         index = tag.end;
         continue;
       }
-      removed.push({ what: 'element', name, reason: `${name} lost ${missing.join(', ')}, without which it is not the element it claimed to be` });
-      index = removeFrom(input, tag, name, removed);
-      continue;
+      // An element the policy also unwraps (a document's own `span`, which only the renderer's carries a required
+      // marker on; K-20) falls through to that, so the renderer's rule changes nothing a document could write.
+      if (!unwrapped) {
+        removed.push({ what: 'element', name, reason: `${name} lost ${missing.join(', ')}, without which it is not the element it claimed to be` });
+        index = removeFrom(input, tag, name, removed);
+        continue;
+      }
     }
 
     if (transparent.has(name)) {

@@ -1,28 +1,28 @@
 <dl data-marxy-s="0" data-marxy-e="1299">
-<dt>name</dt>
-<dd>corpus-skill</dd>
-<dt>description</dt>
-<dd>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</dd>
-<dt>license</dt>
-<dd>MIT</dd>
-<dt>compatibility</dt>
-<dd>agents</dd>
-<dt>metadata</dt>
-<dd>  author: marxy</dd>
-<dt>globs</dt>
-<dd>"**/*.md"</dd>
-<dt>version</dt>
-<dd>1</dd>
-<dt>tags</dt>
-<dd>[skill, fixture]</dd>
-<dt>alwaysApply</dt>
-<dd>false</dd>
-<dt>priority</dt>
-<dd>10</dd>
-<dt>category</dt>
-<dd>research</dd>
-<dt>icon</dt>
-<dd>book</dd>
+<dt data-marxy-fm-key="name">name</dt>
+<dd data-marxy-fm-key="name">corpus-skill</dd>
+<dt data-marxy-fm-key="description">description</dt>
+<dd data-marxy-fm-key="description">aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</dd>
+<dt data-marxy-fm-key="license">license</dt>
+<dd data-marxy-fm-key="license">MIT</dd>
+<dt data-marxy-fm-key="compatibility">compatibility</dt>
+<dd data-marxy-fm-key="compatibility">agents</dd>
+<dt data-marxy-fm-key="metadata">metadata</dt>
+<dd data-marxy-fm-key="metadata">  author: marxy</dd>
+<dt data-marxy-fm-key="globs">globs</dt>
+<dd data-marxy-fm-key="globs">"**/*.md"</dd>
+<dt data-marxy-fm-key="version">version</dt>
+<dd data-marxy-fm-key="version">1</dd>
+<dt data-marxy-fm-key="tags">tags</dt>
+<dd data-marxy-fm-key="tags">[skill, fixture]</dd>
+<dt data-marxy-fm-key="alwaysApply">alwaysApply</dt>
+<dd data-marxy-fm-key="alwaysApply">false</dd>
+<dt data-marxy-fm-key="priority">priority</dt>
+<dd data-marxy-fm-key="priority">10</dd>
+<dt data-marxy-fm-key="category">category</dt>
+<dd data-marxy-fm-key="category">research</dd>
+<dt data-marxy-fm-key="icon">icon</dt>
+<dd data-marxy-fm-key="icon">book</dd>
 <dt>…</dt>
 <dd>3 more</dd>
 </dl>

@@ -1,0 +1,23 @@
+<dl data-marxy-s="0" data-marxy-e="253">
+<dt data-marxy-fm-key="title">title</dt>
+<dd data-marxy-fm-key="title">Leading, measured</dd>
+<dt data-marxy-fm-key="description" data-marxy-fm-part="dek">description</dt>
+<dd data-marxy-fm-key="description" data-marxy-fm-part="dek">Why the space between lines is the one setting a reader feels before reading a word.</dd>
+<dt data-marxy-fm-key="tags">tags</dt>
+<dd data-marxy-fm-key="tags">[typography, reading]</dd>
+<dt data-marxy-fm-key="author" data-marxy-fm-part="byline">author</dt>
+<dd data-marxy-fm-key="author" data-marxy-fm-part="byline"><span data-marxy-fm-part="quote">"</span>M. Ellery<span data-marxy-fm-part="quote">"</span></dd>
+<dt data-marxy-fm-key="published" data-marxy-fm-part="byline">published</dt>
+<dd data-marxy-fm-key="published" data-marxy-fm-part="byline">2026-09-12</dd>
+<dt data-marxy-fm-key="source" data-marxy-fm-part="byline">source</dt>
+<dd data-marxy-fm-key="source" data-marxy-fm-part="byline"><span data-marxy-fm-part="url"><span data-marxy-fm-part="scheme">https://</span>example.org<span data-marxy-fm-part="path">/essays/leading?from=feed</span></span></dd>
+</dl>
+<h1 id="leading-measured" data-marxy-s="255" data-marxy-e="274">Leading, measured</h1>
+<p data-marxy-emphasis="whole" data-marxy-s="276" data-marxy-e="408"><em data-marxy-s="276" data-marxy-e="408">An opening paragraph wholly in italics sits where a dek would, but this file’s front matter names a description, and the key wins.</em></p>
+<p data-marxy-s="410" data-marxy-e="712">Most readers could not name the distance between two lines of text, yet every one of them notices when it is wrong. Set it too tight and the eye slips down to the next line on its way back from the end of this one; set it too loose and the lines stop reading as a paragraph and start reading as a list.</p>
+<p data-marxy-s="714" data-marxy-e="1047">The usual advice is a ratio: one and a half times the size of the type. It is a good start and a poor rule. A face with a tall x-height looks cramped at that ratio, because its lowercase letters fill more of the line; a face with long ascenders and descenders looks airy at the same number, because the letters themselves leave room.</p>
+<blockquote data-marxy-s="1049" data-marxy-e="1140">
+<p data-marxy-s="1051" data-marxy-e="1140">Leading is not a number to be chosen once. It follows the face, the size and the measure.</p>
+</blockquote>
+<p data-marxy-s="1142" data-marxy-e="1424">Measure matters as much as the face. A long line needs more space between lines, so that the return sweep of the eye lands on the right one; a short line can stand closer. A reader who widens the window has changed the leading they need, whether or not anything on the page says so.</p>
+<p data-marxy-s="1426" data-marxy-e="1644">None of this is new. Compositors adjusted leading by eye for centuries, a strip of lead at a time. What is new is that a reader can change the size and the width of the page at will, and the setting has to follow them.</p>

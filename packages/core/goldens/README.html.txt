@@ -64,3 +64,9 @@ level word inside a message that is not a level; a tab inside a line; and two AN
 added, removed and context lines, an <code data-marxy-s="4949" data-marxy-e="4956">index</code> line, hunk headers with a function name after the second <code data-marxy-s="5014" data-marxy-e="5018">@@</code>, one added line
 long enough to wrap in the reader (the hang past the marker column), and a <code data-marxy-s="5110" data-marxy-e="5139">\ No newline at end of file</code> note. Every name
 is invented. A <code data-marxy-s="5172" data-marxy-e="5179">.diff</code> opens in Read; the goldens move only if the code-file parse or the kind table does.</p>
+<h2 data-marxy-s="5265" data-marxy-e="5288">33-article-byline.md</h2>
+<p data-marxy-s="5290" data-marxy-e="5817">Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair
+of outer quotes the byline drops), a date and a web source with a path and a query, after a title, a description and a
+list of tags, so the byline’s rows move ahead of rows the bytes put first. Its opening paragraph is wholly in emphasis
+directly after the title; the description is the dek, so that paragraph stays a paragraph (the key wins). Every name is
+invented; the source is <code data-marxy-s="5792" data-marxy-e="5805">example.org</code> (RFC 2606).</p>

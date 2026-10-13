@@ -44,6 +44,7 @@ export const SCREENS = {
   '03-transcript': 'A Markdown transcript in the reader (mock 01-workspace, doc=indexer-chat)',
   '03-log': 'A log in the reader (mock 01-workspace, doc=build-log)',
   '03-diff': 'A diff in the reader (the mock has no diff page: mock 01-workspace, doc=indexer-rs, shows the same chrome around code)',
+  '03-article': 'An article with a byline and a dek in the reader (mock 01-workspace, doc=ragged-right)',
   '04-palette': 'The palette, files (mock 04-palette)',
   '04-palette-commands': 'The palette, commands (mock 04-palette)',
   '05-library': 'The library (mock 05-collections)',
@@ -256,6 +257,7 @@ const APP_STATES = {
   async '03-transcript'(page) { await openDoc(page, CHAT); await settle(page, 900); },
   async '03-log'(page) { await openDoc(page, BUILD_LOG); await settle(page, 900); },
   async '03-diff'(page) { await openDoc(page, DIFF); await settle(page, 900); },
+  async '03-article'(page) { await openDoc(page, ARTICLE); await settle(page, 900); },
   async '04-palette'(page) {
     await openDoc(page, HANDOFF); await settle(page, 200); await openDoc(page, RS); await settle(page, 200); await openDoc(page, PLAN); await settle(page, 500);
     await page.keyboard.press('Meta+KeyP');
@@ -340,6 +342,7 @@ const MOCK_STATES = {
   '03-transcript': { file: '01-workspace.html', hash: '#doc=indexer-chat', run: async () => {} },
   '03-log': { file: '01-workspace.html', hash: '#doc=build-log', run: async () => {} },
   '03-diff': { file: '01-workspace.html', hash: '#doc=indexer-rs', run: async () => {} },
+  '03-article': { file: '01-workspace.html', hash: '#doc=ragged-right', run: async () => {} },
   '04-palette': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('')); await settle(page, 600); } },
   '04-palette-commands': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('>')); await settle(page, 600); } },
   '05-library': { file: '05-collections.html', run: async () => {} },

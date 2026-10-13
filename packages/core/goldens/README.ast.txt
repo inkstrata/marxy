@@ -1,4 +1,4 @@
-document [0,5264)
+document [0,5818)
   htmlBlock [0,72) value="<!-- Inventory and provenance for the fixture corpus the gates walk. -->"
   heading [74,90) level=1
     text [76,90) value="Fixture corpus"
@@ -180,3 +180,17 @@ document [0,5264)
     text [5157,5172) value="is invented. A "
     code [5172,5179) value=".diff"
     text [5179,5263) value=" opens in Read; the goldens move only if the code-file parse or the kind table does."
+  heading [5265,5288) level=2
+    text [5268,5288) value="33-article-byline.md"
+  paragraph [5290,5817)
+    text [5290,5409) value="Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair"
+    softBreak [5409,5410)
+    text [5410,5528) value="of outer quotes the byline drops), a date and a web source with a path and a query, after a title, a description and a"
+    softBreak [5528,5529)
+    text [5529,5647) value="list of tags, so the byline's rows move ahead of rows the bytes put first. Its opening paragraph is wholly in emphasis"
+    softBreak [5647,5648)
+    text [5648,5767) value="directly after the title; the description is the dek, so that paragraph stays a paragraph (the key wins). Every name is"
+    softBreak [5767,5768)
+    text [5768,5792) value="invented; the source is "
+    code [5792,5805) value="example.org"
+    text [5805,5817) value=" (RFC 2606)."

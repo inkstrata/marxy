@@ -6,9 +6,22 @@
 // sanitiser that does nothing is worse than no suite at all.
 
 import {
-  BLOCK_ELEMENTS, DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, SPEAKER_ATTR, VOID_ELEMENTS, type Policy,
+  BLOCK_ELEMENTS, DEFAULT_POLICY, WIDE_POLICY, EMPHASIS_ATTR, FM_KEY_ATTR, FM_PART_ATTR, PROVENANCE_ATTRIBUTES, SPEAKER_ATTR, VOID_ELEMENTS, type Policy,
 } from '../policy.ts';
 import { decodeReferences } from '../escape.ts';
+
+/** The renderer's own markers (K-11, K-20): written under secret names in a pipeline pass, published under these. */
+const RENDERER_MARKERS: readonly string[] = [SPEAKER_ATTR, FM_KEY_ATTR, FM_PART_ATTR, EMPHASIS_ATTR];
+
+const admits = (policy: Policy, name: string): boolean =>
+  policy.globalAttributes[name] !== undefined || Object.values(policy.elements).some((rule) => rule.attributes?.[name] !== undefined);
+
+/**
+ * A renderer marker in the output is the renderer's only when the policy the output is held to admits it and no
+ * policy a document is sanitised with does: a base policy that admitted the public name would let a document write it.
+ */
+const rendererOwnsMarker = (policy: Policy, name: string): boolean =>
+  RENDERER_MARKERS.includes(name) && admits(policy, name) && !admits(DEFAULT_POLICY, name) && !admits(WIDE_POLICY, name);
 
 export interface Attribute {
   /** Lowercased element name the attribute was found on. */
@@ -515,14 +528,18 @@ export const VECTORS: readonly Vector[] = [
       '',
       `inline <kbd DATA-MARXY-S="0" data-marxy-e='${FORGED_END}'>forged</kbd> and <b data-marxy-x="1">stray</b>`,
       '',
+      '<dl><dt data-marxy-fm-key="author" data-marxy-fm-part="byline">a</dt><dd data-marxy-fm-part="dek">b</dd></dl>',
+      '',
+      '<p data-marxy-emphasis="whole"><em>e</em></p>',
+      '',
     ].join('\n'),
-    check: (html) => {
+    check: (html, policy = DEFAULT_POLICY) => {
       const forged = attributesOf(html).filter(
         (attribute) => attribute.name.startsWith('data-marxy-') &&
           attribute.name !== 'data-marxy-remote' &&
-          // The renderer's own marker on a heading that names a speaker (K-11); a document's is refused by the
-          // allow-list, which render/contract.test.ts holds.
-          attribute.name !== SPEAKER_ATTR &&
+          // The renderer's own markers (a speaker heading, K-11; the front-matter head and a paragraph wholly in
+          // emphasis, K-20), only under a policy that admits them and only while no document's policy does.
+          !rendererOwnsMarker(policy, attribute.name) &&
           (attribute.decoded === FORGED_END || !PROVENANCE_NAMES.includes(attribute.name)),
       );
       if (forged.length > 0) {
