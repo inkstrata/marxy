@@ -20,7 +20,9 @@ const afterPaint = (): Promise<void> => new Promise((resolve) => requestAnimatio
  * The page half and the line splitter are loaded when a log tool is first used: the splitter is `render/highlight.ts`,
  * which reaches the highlighter, and nothing on the way to first text may import that statically (MARXY-33, `gate:bundle`).
  */
-const pageHalf = () => import('../kinds/log-view.ts');
+type PageHalf = typeof import('../kinds/log-view.ts');
+let loaded: PageHalf | null = null;
+const pageHalf = async (): Promise<PageHalf> => (loaded ??= await import('../kinds/log-view.ts'));
 const splitter = () => import('../render/highlight.ts');
 
 /** The focused pane when it is a log in Read, with pieces on the page to filter. */
@@ -88,7 +90,9 @@ async function setLevel(level: Level): Promise<void> {
   const buffer = store.snapshot().buffer;
   const article = pane.article;
   const current = (): boolean => pane.view.store() === store && article.isConnected;
-  const { filterFor, filterOf, FILTERING } = await pageHalf();
+  // Already loaded when the menu was opened (`run` awaits it): nothing before the classes below waits, so they are on the page
+  // in the task of the click, before any frame.
+  const { filterFor, filterOf, FILTERING, FILTER_BUSY } = loaded ?? (await pageHalf());
   const held = filterOf(article, store);
   if (level.min === 0 && held === undefined) {
     notify({ kind: 'done', text: 'All lines shown · the file is unchanged' });
@@ -119,6 +123,8 @@ async function setLevel(level: Level): Promise<void> {
   // The one thing the click does to the page: a piece not yet filtered is not drawn (a neutral "Filtering…" stands for it), so
   // no frame between the click and the work shows a line the level hides. A class on the article; no piece is read or touched.
   if (level.min !== 0) article.classList.add(FILTERING);
+  // Busy from the click: a copy or a find in the frames before the work begins is told to wait, as it is while the work runs.
+  article.classList.add(FILTER_BUSY);
   const waiting = afterPaint();
   let begun!: () => void;
   filter.hold(new Promise<void>((resolve) => (begun = resolve)));
@@ -160,6 +166,8 @@ async function setLevel(level: Level): Promise<void> {
   });
   await waiting;
   if (mine !== latest || !current()) {
+    // A later choice owns the page now; a document that went takes its own classes with it.
+    if (mine === latest) article.classList.remove(FILTERING, FILTER_BUSY);
     leave();
     begun();
     return;

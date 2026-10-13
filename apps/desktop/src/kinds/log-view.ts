@@ -399,6 +399,9 @@ function createLogFilter(article: HTMLElement, current: () => boolean, forget: (
   // Pieces the mount adds and lines the highlight pass rebuilds are filtered in this task, before the frame is drawn.
   const observer = new MutationObserver((records) => {
     if (disposed) return;
+    // A change of level is chosen and not yet begun, and the filter has no level of its own: a piece the page rebuilds now must
+    // not be marked presented at "all" (it would be drawn); every piece is read when the change begins.
+    if (holds > 0 && phase === 'idle' && level.min === 0) return;
     // Another document in this pane: the filter was for the one that went.
     if (!current()) {
       teardown();
