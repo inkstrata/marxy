@@ -15,7 +15,7 @@ import { keptWhen, showSinceRead, showVersionChanges, sinceReadOf, sinceWhen } f
 import type { DocumentStore } from '../document/store.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { notify } from '../notices/index.ts';
-import { versionRecorder, type SinceRead, type VersionFailure } from '../versions/recorder.ts';
+import { versionRecorder, whatHappened, type SinceRead, type VersionFailure } from '../versions/recorder.ts';
 import { hourMinute, restoreToCopy } from '../versions/restore.ts';
 import { VERSIONS_MAX_AGE_MS, VERSIONS_PER_FILE, VERSIONS_TOTAL_BYTES, type ListedVersion, type Listing, type NotKept } from '../versions/store.ts';
 import type { InspectorContext, InspectorTab } from './inspector.ts';
@@ -70,7 +70,7 @@ export const messageOf = (error: unknown): string => String((error as { message?
 
 /** What a failed keep says: which copy, and why. The file itself is never touched by a keep. */
 export function failureWords(failure: VersionFailure): string {
-  return `The last copy (${failure.reason}) could not be kept: ${messageOf(failure.error)}. The file itself is untouched.`;
+  return `The last copy (${failure.reason}) could not be kept: ${messageOf(failure.error)}. ${whatHappened(failure.reason)}`;
 }
 
 const REASON_WORDS: Record<ListedVersion['reason'], string> = { read: 'read', 'before save': 'before save', 'before reload': 'before reload' };

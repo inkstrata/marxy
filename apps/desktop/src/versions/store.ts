@@ -2,7 +2,7 @@
 // manifest that names them. Pure over an injected read and write: nothing here knows the shell, the DOM or a document store.
 //
 // THE LAYOUT. One file's versions are `versions-<sha1(path)>.json` (the manifest: the path, and for each version its slot, the
-// time it was kept, its size and its reason) and up to 20 slots, `versions-<sha1(path)>-01` to `-20`, each holding one version's
+// time it was kept, its size, its SHA-256 and its reason) and up to 20 slots, `versions-<sha1(path)>-01` to `-20`, each holding one version's
 // bytes exactly. They sit flat in the data folder, beside `index-<sha1>.json`, because `writeFileAtomic` creates no folders (the
 // index snapshot's precedent, `index/service.ts`); ADR-0072's `versions/<hash>/` folder is this, amended.
 //
@@ -12,6 +12,7 @@
 // - At most 20 versions per file, none older than 30 days, 200 MB in all; the oldest is dropped first.
 // - There is no delete (no new `shell-api` capability): a dropped version leaves the manifest first, and then its slot is
 //   overwritten with zero bytes, so no dropped or cleared version's bytes stay readable through the store.
+// - A slot is the version only while it hashes to the manifest's SHA-256 (ADR-0072 amendment 4): a same-size hand edit reads as changed.
 // - A manifest this store cannot read as its own (not JSON, a wrong shape, another file's) is reported, never replaced by
 //   keeping: the file's versions stop until the reader clears them. A newer Marxy's manifest is read and never written.
 // - Every write is atomic (`writeFileAtomic`), and every path written is in the data folder: never beside a reader's file.
@@ -44,10 +45,12 @@ export interface VersionEntry {
   /** When it was kept, epoch ms (written as an ISO time). */
   readonly time: number;
   readonly size: number;
+  /** SHA-256 of the bytes, in hex: a slot is the version only while it hashes to this (a same-size hand edit is not). */
+  readonly hash: string;
   readonly reason: VersionReason;
 }
 
-/** A listed version, with what the store found of its bytes: there, gone, or not the size the manifest says. */
+/** A listed version, with what the store found of its bytes: there, gone, or not the bytes the manifest says (another size or another hash). */
 export interface ListedVersion extends VersionEntry {
   readonly bytes: 'ok' | 'missing' | 'changed';
 }
@@ -84,7 +87,7 @@ export type ReadResult =
   | { readonly kind: 'gone' }
   /** The manifest names it and its slot file is not there: removed from the data folder by something else. */
   | { readonly kind: 'missing'; readonly entry: VersionEntry }
-  /** The slot holds other bytes than the version's (a different size): changed outside Marxy. */
+  /** The slot holds other bytes than the version's (a different size, or the same size and another hash): changed outside Marxy. Never restorable. */
   | { readonly kind: 'changed'; readonly entry: VersionEntry }
   | { readonly kind: 'unreadable'; readonly error: unknown };
 
@@ -181,6 +184,12 @@ const EMPTY = new Uint8Array(0);
 const codeOf = (error: unknown): unknown => (typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined);
 const isNotFound = (error: unknown): boolean => codeOf(error) === 'not-found';
 
+/** SHA-256 of `bytes` in hex: each version's, kept in the manifest and checked whenever its slot is read. */
+export async function hashBytes(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 export function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a === b) return true;
   if (a.length !== b.length) return false;
@@ -249,16 +258,17 @@ export function parseManifest(bytes: Uint8Array, limits: VersionLimits = VERSION
     if (!isCount(v.slot) || v.slot < 1 || v.slot > limits.perFile) return { kind: 'damaged', reason: `${where} names no slot` };
     if (!Number.isFinite(time)) return { kind: 'damaged', reason: `${where} has no time` };
     if (!isCount(v.size)) return { kind: 'damaged', reason: `${where} has no size` };
+    if (typeof v.hash !== 'string' || !/^[0-9a-f]{64}$/.test(v.hash)) return { kind: 'damaged', reason: `${where} has no hash` };
     if (typeof v.reason !== 'string' || !REASONS.includes(v.reason as VersionReason)) return { kind: 'damaged', reason: `${where} has no reason Marxy knows` };
     ids.add(v.id);
-    versions.push({ id: v.id, slot: v.slot, time, size: v.size, reason: v.reason as VersionReason });
+    versions.push({ id: v.id, slot: v.slot, time, size: v.size, hash: v.hash, reason: v.reason as VersionReason });
   }
-  // Two entries on one slot must be the same bytes, so the same size.
-  const sizes = new Map<number, number>();
+  // Two entries on one slot must be the same bytes, so the same size and the same hash.
+  const held = new Map<number, VersionEntry>();
   for (const v of versions) {
-    const seen = sizes.get(v.slot);
-    if (seen !== undefined && seen !== v.size) return { kind: 'damaged', reason: `two versions of different sizes share slot ${v.slot}` };
-    sizes.set(v.slot, v.size);
+    const seen = held.get(v.slot);
+    if (seen !== undefined && (seen.size !== v.size || seen.hash !== v.hash)) return { kind: 'damaged', reason: `two different versions share slot ${v.slot}` };
+    held.set(v.slot, v);
   }
   versions.sort((a, b) => a.id - b.id);
   let saved: number | null = null;
@@ -276,7 +286,7 @@ export function formatManifest(m: Manifest): Uint8Array {
     path: m.path,
     next: m.next,
     saved: m.saved === null ? null : new Date(m.saved).toISOString(),
-    versions: m.versions.map((v) => ({ id: v.id, slot: v.slot, time: new Date(v.time).toISOString(), size: v.size, reason: v.reason })),
+    versions: m.versions.map((v) => ({ id: v.id, slot: v.slot, time: new Date(v.time).toISOString(), size: v.size, hash: v.hash, reason: v.reason })),
   };
   return encoder.encode(`${JSON.stringify(body, null, 2)}\n`);
 }
@@ -343,7 +353,7 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
     } catch (error) {
       return isNotFound(error) ? { kind: 'missing', entry } : { kind: 'unreadable', error };
     }
-    if (bytes.length !== entry.size) return { kind: 'changed', entry };
+    if (bytes.length !== entry.size || (await hashBytes(bytes)) !== entry.hash) return { kind: 'changed', entry };
     return { kind: 'bytes', bytes, entry };
   }
 
@@ -443,20 +453,31 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
       const m = parsed.manifest;
       if (m.versions.length === 0) return { kind: 'none' };
       if (m.path !== path) return { kind: 'damaged', reason: `it belongs to another file (${m.path})` };
-      // One listing of the data folder says which slots are there and their sizes; no version's bytes are read to list them.
+      // Every version's slot is read and hashed (a slot is the version only while its bytes are the ones the manifest hashed), once
+      // per slot however many versions share it; a listing of the data folder first tells a slot that is not there.
       let slots: Map<number, number> | null = null;
       try {
         slots = (await ownFiles(data)).get(key)?.slots ?? new Map();
       } catch {
-        slots = null; // cannot tell: list them as the manifest says
+        slots = null; // cannot tell: each slot is read below
       }
-      const versions = [...m.versions]
-        .reverse()
-        .map((v): ListedVersion => {
-          const size = slots?.get(v.slot);
-          const bytes = slots === null ? 'ok' : size === undefined ? 'missing' : size !== v.size ? 'changed' : 'ok';
-          return { ...v, bytes };
-        });
+      const checked = new Map<string, ListedVersion['bytes']>();
+      const versions: ListedVersion[] = [];
+      for (const v of [...m.versions].reverse()) {
+        const size = slots?.get(v.slot);
+        const cache = `${v.slot}:${v.hash}`;
+        let bytes = checked.get(cache);
+        if (bytes === undefined) {
+          if (slots !== null && size === undefined) bytes = 'missing';
+          else if (slots !== null && size !== v.size) bytes = 'changed';
+          else {
+            const r = await readSlot(data, key, v);
+            bytes = r.kind === 'bytes' ? 'ok' : r.kind === 'changed' ? 'changed' : 'missing';
+          }
+          checked.set(cache, bytes);
+        }
+        versions.push({ ...v, bytes });
+      }
       return { kind: 'ok', versions, saved: m.saved };
     },
 
@@ -488,12 +509,13 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
           before = { ...before, path };
         }
         const now = io.now();
+        const hash = await hashBytes(bytes);
         // Before a save: the manifest says when, so the next open knows the reader wrote what it finds (a time, no bytes).
         const saved = reason === 'before save' ? now : before.saved;
         try {
           // Identical to the newest version: nothing new to keep (the time of a save is still noted).
           const newest = before.versions.at(-1);
-          if (newest && newest.size === bytes.length && now - newest.time <= limits.maxAgeMs) {
+          if (newest && newest.hash === hash && now - newest.time <= limits.maxAgeMs) {
             const held = await readSlot(data, key, newest);
             if (held.kind === 'bytes' && sameBytes(held.bytes, bytes)) {
               if (saved !== before.saved) await io.writeFileAtomic(manifestPath(data, key), formatManifest({ ...before, saved }));
@@ -504,7 +526,7 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
           // Identical to an older version still kept: share its slot, so the bytes are on disk once.
           let shared: number | null = null;
           for (const v of [...kept].reverse()) {
-            if (v.size !== bytes.length) continue;
+            if (v.hash !== hash) continue;
             const held = await readSlot(data, key, v);
             if (held.kind === 'bytes' && sameBytes(held.bytes, bytes)) {
               shared = v.slot;
@@ -522,7 +544,7 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
             }
           }
           if (slot === null) throw new Error('no free slot'); // unreachable: `kept` leaves one entry's room
-          const entry: VersionEntry = { id: before.next, slot, time: now, size: bytes.length, reason };
+          const entry: VersionEntry = { id: before.next, slot, time: now, size: bytes.length, hash, reason };
           const pruned: Manifest = { path, next: before.next, saved: before.saved, versions: kept };
           // A dropped version's slot taken for the new bytes: the manifest stops naming it before it is written again.
           if (shared === null && slotsOf(before.versions).has(slot)) {

@@ -93,7 +93,7 @@ The author approved V-06's recommended answers to all four questions:
 
 ## Amendment (V-06, 2026-10-13): what the build found
 
-The build kept every ruling and changed three details; each is held by a test in V-06's pull request.
+The build kept every ruling and changed three details, and the adversarial review added three rules (items 4 to 6); each is held by a test in V-06's pull request.
 
 1. **Flat in the data folder, not a `versions/` folder.** `writeFileAtomic` stages beside its destination and creates no
    folders, and `shell-api` has no way to make one; a folder would be a new privileged capability. The index snapshot met the
@@ -112,11 +112,24 @@ The build kept every ruling and changed three details; each is held by a test in
    `read`, as ruling 4 says. A save of the reader's own clears it: the file then holds what they wrote. Read literally,
    "compare with the latest read" would hide every change at the moment it arrived, since the arrival is itself recorded as a
    read.
+4. **A version is the bytes its hash names.** Each manifest entry carries a SHA-256 of the version's bytes (`"hash"`), and a slot
+   is read as that version only while it hashes to it. A slot edited by hand, at the same size or another, or a manifest edited to
+   name a sibling's slot, is listed as changed outside Marxy and is never read, diffed or restored; the tab says so. A manifest
+   without a hash is damaged (no version has been released without one).
+5. **A save keeps what it replaces, before it writes.** The *before save* copy is made by the document store's own save, awaited
+   just before the write (`StoreIo.beforeOverwrite`), not queued after it: a quit or a close right after the save cannot lose it.
+   If the copy cannot be made the save still goes through (a full data folder must not stop the reader saving) and Marxy says,
+   as it happened, that the save replaced those bytes and the copy was not kept. Closing waits (a moment at most) for the copies
+   still queued, and stopping the recorder lets them finish.
+6. **Save As onto a file that is there keeps that file's bytes first.** The same hook reads the one file the reader named as the
+   target (nothing else is read) and keeps its current bytes as that file's *before save* version, then writes. A name that is
+   free keeps nothing: there is nothing to replace. The operating system's replace prompt remains the reader's own check;
+   this is the way back from it.
 
 Also recorded: dedupe compares with the newest version (the same bytes again add nothing) and, failing that, with every
 version kept (the same bytes as an older one share its slot: one copy on disk, two entries). A manifest Marxy cannot read is
 reported in the tab and never written over by keeping; that file's versions stop until the reader clears them. A failed keep
-(a full disk, an unwritable folder) is said once a session as a notice and in the tab, and never touches the file.
+(a full disk, an unwritable folder) is said once a session as a notice and in the tab, in words that say what the file went through (item 5).
 
 ## Rejected
 

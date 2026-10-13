@@ -34,6 +34,13 @@ export interface SinceRead {
   readonly savedSince: boolean;
 }
 
+/** What a failed keep left, said as it was: a save that went through did overwrite the bytes that were not kept. */
+export function whatHappened(reason: VersionReason): string {
+  if (reason === 'before save') return 'The save went through and replaced those bytes, and the copy of what it replaced was not kept.';
+  if (reason === 'before reload') return 'Another program\'s change is on screen, and the copy of what it replaced was not kept.';
+  return 'The file itself is untouched.';
+}
+
 export interface VersionFailure {
   readonly path: string;
   readonly reason: VersionReason;
@@ -81,12 +88,33 @@ export interface VersionRecorder {
   clearAll(): ReturnType<VersionStore['clearAll']>;
   /** Called after each keep, failure and clear. */
   onChange(cb: () => void): () => void;
+  /**
+   * Keeps `bytes`, which a save is about to replace at `path`, as a *before save* version, and resolves once it is kept (or has failed
+   * and been said). The document store awaits it just before it writes (`StoreIo.beforeOverwrite`), so the copy is made before the
+   * bytes go and a quit or a close right after the save cannot lose it.
+   */
+  keepBeforeSave(path: string, bytes: Uint8Array): Promise<void>;
   /** Resolves when every job queued so far has run. */
   settled(): Promise<void>;
-  stop(): void;
+  /** Stops following; every job already queued still runs (a copy is never skipped), and the promise resolves when they have. */
+  stop(): Promise<void>;
 }
 
 let current: VersionRecorder | null = null;
+
+/** The hook `StoreIo.beforeOverwrite` calls: the running recorder's `keepBeforeSave`, or nothing when none runs. */
+export function keepBeforeOverwrite(path: string, bytes: Uint8Array): Promise<void> {
+  return current ? current.keepBeforeSave(path, bytes) : Promise.resolve();
+}
+
+/** Waits for the queued copies, but at most `ms`: a close or a quit is never held by a slow disk. Never rejects. */
+export async function flushVersions(ms = 1500): Promise<void> {
+  const recorder = current;
+  if (!recorder) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([recorder.settled().catch(() => undefined), new Promise<void>((resolve) => (timer = setTimeout(resolve, ms)))]);
+  clearTimeout(timer);
+}
 
 /** The running app's recorder, or null (none installed, or the shell keeps no data folder). */
 export function versionRecorder(): VersionRecorder | null {
@@ -101,7 +129,7 @@ interface Tracked {
 }
 
 export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | null {
-  current?.stop();
+  void current?.stop();
   current = null;
   const { shell } = deps;
   // A shell without a data folder (ADR-0026) keeps no state, and so no versions.
@@ -156,6 +184,15 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
   let swept = false;
   let toldFailure = false;
   let queue: Promise<void> = Promise.resolve();
+  let isReady = false;
+  void Promise.resolve(deps.ready).then(() => (isReady = true), () => undefined);
+  /** One keep at a time, whether it comes from the queue (after first text) or from a save (at once): a manifest is read and rewritten whole. */
+  let lock: Promise<unknown> = Promise.resolve();
+  const locked = <T>(job: () => Promise<T>): Promise<T> => {
+    const run = lock.then(job, job);
+    lock = run.catch(() => undefined);
+    return run;
+  };
 
   const changed = (): void => {
     for (const cb of [...listeners]) {
@@ -172,9 +209,7 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
     queue = queue
       .then(() => deps.ready)
       .then(nextTask)
-      .then(async () => {
-        if (!stopped) await job();
-      })
+      .then(() => locked(job))
       .catch((e: unknown) => console.warn(`marxy: versions: ${String(e)}`));
   };
 
@@ -187,7 +222,7 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
         toldFailure = true;
         const name = path.slice(path.lastIndexOf('/') + 1);
         (deps.notify ?? ((text: string) => void notify({ kind: 'refused', text })))(
-          `Marxy could not keep a version of ${name} · the file itself is untouched · the Versions tab says why`,
+          `Marxy could not keep a version of ${name} · ${whatHappened(reason).replace(/\.$/, '').replace(/^./, (c) => c.toLowerCase())} · the Versions tab says why`,
         );
       }
     } else if (outcome.result === 'kept' || outcome.result === 'same') {
@@ -248,13 +283,8 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
     if (change.kind === 'save') {
       // The reader's own bytes are on disk now: the baseline is what they wrote.
       sinceOf.set(doc, snap.disk === null ? null : { bytes: snap.disk, time: now(), how: 'saved', savedSince: false });
-      // A Save As wrote another file: the one the bytes came from was not saved over.
-      if (change.renamedFrom !== undefined || prev.disk === null || isUntitled(prev.path)) return changed();
-      const before = prev.disk;
-      const path = snap.path;
-      if (snap.disk !== null && sameBytes(before, snap.disk)) return;
-      enqueue(() => keep(path, before, 'before save'));
-      return;
+      // What the save replaced was kept before it was written (`keepBeforeSave`, awaited by the store): nothing is queued after it.
+      return changed();
     }
     if (change.kind === 'reload') {
       const before = prev.disk;
@@ -322,15 +352,26 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
         listeners.delete(cb);
       };
     },
-    settled: () => queue,
+    keepBeforeSave: (path, bytes) =>
+      // After the jobs already queued (an open's read, an outside change's pair), so the versions stay in the order things happened;
+      // before first text nothing waits on the queue, which is held for the launch.
+      (isReady ? queue : Promise.resolve())
+        .then(() =>
+          locked(async () => {
+            await keep(path, bytes, 'before save');
+          }),
+        )
+        .catch((e: unknown) => console.warn(`marxy: versions: ${String(e)}`)),
+    settled: () => Promise.all([queue, lock]).then(() => undefined),
     stop() {
-      if (stopped) return;
+      if (stopped) return queue.then(() => lock).then(() => undefined);
       stopped = true;
       for (const off of unsubscribes.splice(0)) off();
       for (const t of tracked.values()) t.off();
       tracked.clear();
       listeners.clear();
       if (current === recorder) current = null;
+      return recorder.settled();
     },
   };
   current = recorder;

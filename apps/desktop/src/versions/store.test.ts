@@ -101,7 +101,7 @@ test('the manifest is plain, readable JSON naming the path, the times, the sizes
   const json = JSON.parse(text);
   assert.equal(json.version, 1);
   assert.equal(json.path, '/r/notes.md');
-  assert.deepEqual(json.versions, [{ id: 1, slot: 1, time: '2026-10-13T14:32:00.000Z', size: 6, reason: 'read' }]);
+  assert.deepEqual(json.versions, [{ id: 1, slot: 1, time: '2026-10-13T14:32:00.000Z', size: 6, hash: '5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03', reason: 'read' }]);
   assert.equal(json.saved, null);
   io.clock += 60_000;
   await store.keep('/r/notes.md', enc('hello\n'), 'before save');
@@ -346,9 +346,10 @@ test('a damaged manifest is reported with how, never written over by keeping; Cl
   for (const [bad, reason] of [
     ['{ not json', /not valid JSON/],
     ['[]', /not a JSON object/],
-    ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":99,"time":"2026-10-13T00:00:00Z","size":1,"reason":"read"}]}', /names no slot/],
-    ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":1,"time":"yesterday","size":1,"reason":"read"}]}', /no time/],
-    ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":1,"time":"2026-10-13T00:00:00Z","size":1,"reason":"opened"}]}', /no reason/],
+    ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":99,"time":"2026-10-13T00:00:00Z","size":1,"hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reason":"read"}]}', /names no slot/],
+    ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":1,"time":"yesterday","size":1,"hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reason":"read"}]}', /no time/],
+    ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":1,"time":"2026-10-13T00:00:00Z","size":1,"hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reason":"opened"}]}', /no reason/],
+    ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":1,"time":"2026-10-13T00:00:00Z","size":1,"reason":"read"}]}', /no hash/],
   ] as const) {
     const io = fakeIo({ [manifestPath(DATA, key)]: enc(bad), [slotPath(DATA, key, 1)]: enc('x') });
     const store = createVersionStore(io);
@@ -383,11 +384,14 @@ test('a newer Marxy\'s manifest is listed as newer and never written; another fi
 });
 
 test('parseManifest round-trips what formatManifest writes, and refuses two sizes on one slot', () => {
-  const m = { path: '/r/x.md', next: 3, saved: Date.UTC(2026, 0, 2, 9), versions: [{ id: 1, slot: 1, time: Date.UTC(2026, 0, 1), size: 3, reason: 'read' as const }, { id: 2, slot: 1, time: Date.UTC(2026, 0, 2), size: 3, reason: 'before save' as const }] };
+  const hash = 'b'.repeat(64);
+  const m = { path: '/r/x.md', next: 3, saved: Date.UTC(2026, 0, 2, 9), versions: [{ id: 1, slot: 1, time: Date.UTC(2026, 0, 1), size: 3, hash, reason: 'read' as const }, { id: 2, slot: 1, time: Date.UTC(2026, 0, 2), size: 3, hash, reason: 'before save' as const }] };
   const back = parseManifest(formatManifest(m));
   assert.deepEqual(back, { kind: 'ok', manifest: m });
   const bad = { ...m, versions: [m.versions[0]!, { ...m.versions[1]!, size: 4 }] };
   assert.equal(parseManifest(formatManifest(bad)).kind, 'damaged');
+  const other = { ...m, versions: [m.versions[0]!, { ...m.versions[1]!, hash: 'c'.repeat(64) }] };
+  assert.equal(parseManifest(formatManifest(other)).kind, 'damaged', 'two different hashes on one slot');
 });
 
 test('over the whole fixture corpus, a kept version reads back byte for byte (BOM, CRLF, bytes that are not text and all)', async () => {
@@ -409,4 +413,43 @@ test('over the whole fixture corpus, a kept version reads back byte for byte (BO
     n++;
   }
   assert.ok(n >= 30, `${n} files`);
+});
+
+test('a slot edited by hand at the same size is a changed copy: listed so, never read as the version, never restorable (hash)', async () => {
+  const io = fakeIo();
+  const store = createVersionStore(io);
+  await store.keep('/r/x.md', enc('AAAA\n'), 'read');
+  await store.keep('/r/x.md', enc('CCCC\n'), 'before save');
+  const key = await versionsKey('/r/x.md');
+  io.files.set(slotPath(DATA, key, 1), enc('BBBB\n'));
+  const l = await store.list('/r/x.md');
+  assert.ok(l.kind === 'ok');
+  if (l.kind !== 'ok') return;
+  assert.deepEqual(l.versions.map((v) => v.bytes), ['ok', 'changed'], 'the untouched slot is whole, the edited one is changed');
+  const edited = l.versions.find((v) => v.bytes === 'changed')!;
+  assert.equal((await store.read('/r/x.md', edited.id)).kind, 'changed');
+  const fine = l.versions.find((v) => v.bytes === 'ok')!;
+  const r = await store.read('/r/x.md', fine.id);
+  assert.equal(r.kind === 'bytes' ? dec(r.bytes) : r.kind, 'CCCC\n');
+  // A manifest edited to point at a same-size sibling's slot fails the same way, and keeping 'AAAA' again does not share the edited slot.
+  const again = await store.keep('/r/x.md', enc('AAAA\n'), 'read');
+  assert.equal(again.result, 'kept');
+  const l2 = await store.list('/r/x.md');
+  assert.ok(l2.kind === 'ok' && l2.versions[0]!.bytes === 'ok');
+  if (l2.kind === 'ok') assert.notEqual(l2.versions[0]!.slot, edited.slot, 'new bytes take a slot of their own, not the edited one');
+});
+
+test('a manifest edited so that a version names a same-size sibling\'s slot reads as changed, not as the sibling\'s bytes', async () => {
+  const io = fakeIo();
+  const store = createVersionStore(io);
+  await store.keep('/r/x.md', enc('AAAA\n'), 'read');
+  await store.keep('/r/x.md', enc('BBBB\n'), 'before save');
+  const key = await versionsKey('/r/x.md');
+  const mp = manifestPath(DATA, key);
+  const json = JSON.parse(dec(io.files.get(mp)!));
+  json.versions[0].slot = json.versions[1].slot;
+  io.files.set(mp, enc(JSON.stringify(json)));
+  const l = await store.list('/r/x.md');
+  assert.ok(l.kind === 'damaged' || (l.kind === 'ok' && l.versions.some((v) => v.bytes === 'changed')), 'never listed as whole');
+  if (l.kind === 'ok') for (const v of l.versions) if (v.bytes === 'ok') assert.equal(dec((await store.read('/r/x.md', v.id) as { bytes: Uint8Array }).bytes), v.reason === 'read' ? 'AAAA\n' : 'BBBB\n');
 });

@@ -181,7 +181,7 @@ export function createPanes(deps: PanesDeps): AppPanes {
   });
   return Object.assign(panes, {
     destroy() {
-      versions?.stop();
+      void versions?.stop();
       destroyPanes();
     },
     openScratch(bytes: Uint8Array, opts?: { readonly label?: string; readonly saveIn?: string; readonly onLanded?: () => void }) {

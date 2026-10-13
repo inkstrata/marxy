@@ -76,7 +76,15 @@ function harness(files: Record<string, string> = {}, hold = false) {
     for (const cb of listeners2) cb();
     return store;
   };
-  const io = { writeFileAtomic: (p: string, b: Uint8Array) => shell.writeFileAtomic(p, b), peekFile: async (p: string) => disk.get(p)!.slice() };
+  const io = {
+    writeFileAtomic: (p: string, b: Uint8Array) => shell.writeFileAtomic(p, b),
+    peekFile: async (p: string) => {
+      const b = disk.get(p);
+      if (!b) throw notFound(p);
+      return b.slice();
+    },
+    beforeOverwrite: (p: string, b: Uint8Array) => recorder.keepBeforeSave(p, b),
+  };
   const open = (path: string): DocumentStore => {
     const store = openDocumentStore(io, path, disk.get(path)!.slice());
     shown = store;
@@ -300,4 +308,138 @@ test('a data folder that fails during a save keeps nothing and the reader\'s own
   h.fail(null);
   const l = await h.recorder.store.list('/r/x.md');
   assert.ok(l.kind === 'ok' && l.versions.every((v) => v.bytes === 'ok'), 'what is listed is whole');
+});
+
+test('a save keeps what it replaces before it writes: the copy is in the data folder first, and a stop right after the save loses nothing', async () => {
+  const h = harness({ '/r/x.md': 'one\n' });
+  const s = h.open('/r/x.md');
+  await h.recorder.settled();
+  await s.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'two', label: 'e' });
+  assert.equal((await s.save()).result, 'saved');
+  await s.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'six', label: 'e' });
+  const mark = h.writes.length;
+  assert.equal((await s.save()).result, 'saved');
+  // No settled(), no wait: the app quits here.
+  void h.recorder.stop();
+  const during = h.writes.slice(mark);
+  assert.ok(during.findIndex((p) => p.startsWith('/data/versions-')) !== -1 && during.findIndex((p) => p.startsWith('/data/versions-')) < during.indexOf('/r/x.md'), 'the copy of "two" is written before x.md is');
+  const l = await h.recorder.store.list('/r/x.md');
+  assert.ok(l.kind === 'ok');
+  if (l.kind !== 'ok') return;
+  const texts: string[] = [];
+  for (const v of l.versions) {
+    const r = await h.recorder.store.read('/r/x.md', v.id);
+    texts.push(`${v.reason}:${r.kind === 'bytes' ? dec(r.bytes).trim() : r.kind}`);
+  }
+  assert.deepEqual(texts, ['before save:two', 'read:one']);
+});
+
+test('stop() drains: a copy queued behind the launch still runs after it, and is kept', async () => {
+  const h = harness({ '/r/x.md': 'mine\n' }, true);
+  h.open('/r/x.md');
+  const stopped = h.recorder.stop();
+  h.release();
+  await stopped;
+  const l = await h.recorder.store.list('/r/x.md');
+  assert.ok(l.kind === 'ok' && l.versions.length === 1 && l.versions[0]!.reason === 'read', 'the read queued before the stop is kept');
+});
+
+test('Save As over a file that is there keeps that file\'s bytes first; a name that is free keeps nothing; the original is not saved over', async () => {
+  const h = harness({ '/r/x.md': 'mine\n', '/r/other.md': 'PRECIOUS\n' });
+  const s = h.open('/r/x.md');
+  await h.recorder.settled();
+  await s.apply({ range: { file: '/r/x.md', start: 0, end: 4 }, replacement: 'new!', label: 'e' });
+  const mark = h.writes.length;
+  assert.equal((await s.save({ to: '/r/other.md' })).result, 'saved');
+  await h.recorder.settled();
+  const during = h.writes.slice(mark);
+  assert.ok(during.findIndex((p) => p.startsWith('/data/versions-')) < during.indexOf('/r/other.md'), 'kept before the target is written');
+  assert.equal(dec(h.disk.get('/r/other.md')!), 'new!\n');
+  assert.equal(dec(h.disk.get('/r/x.md')!), 'mine\n', 'the file Save As came from is untouched');
+  const l = await h.recorder.store.list('/r/other.md');
+  assert.ok(l.kind === 'ok');
+  if (l.kind !== 'ok') return;
+  const r = await h.recorder.store.read('/r/other.md', l.versions[0]!.id);
+  assert.equal(l.versions[0]!.reason, 'before save');
+  assert.equal(r.kind === 'bytes' ? dec(r.bytes) : r.kind, 'PRECIOUS\n');
+  // A Save As to a name nobody has: nothing to replace, nothing kept.
+  const t = h.open('/r/x.md');
+  await t.apply({ range: { file: '/r/x.md', start: 0, end: 4 }, replacement: 'else', label: 'e' });
+  assert.equal((await t.save({ to: '/r/fresh.md' })).result, 'saved');
+  await h.recorder.settled();
+  assert.equal((await h.recorder.store.list('/r/fresh.md')).kind, 'none');
+});
+
+test('a before-save copy that cannot be made says what happened: the save replaced the bytes and they were not kept', async () => {
+  const h = harness({ '/r/x.md': 'one\n' });
+  const s = h.open('/r/x.md');
+  await h.recorder.settled();
+  h.fail(Object.assign(new Error('No space left on device'), { code: 'io' }));
+  await s.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'two', label: 'e' });
+  assert.equal((await s.save()).result, 'saved', 'the save goes through');
+  assert.equal(dec(h.disk.get('/r/x.md')!), 'two\n');
+  assert.equal(h.told.length, 1);
+  assert.match(h.told[0]!, /the save went through and replaced those bytes/);
+  assert.doesNotMatch(h.told[0]!, /untouched/);
+});
+
+test('30 distinct saves in a row keep the 20 newest in order, and the slots of the dropped hold zero bytes', async () => {
+  const h = harness({ '/r/x.md': 'v00\n' });
+  const s = h.open('/r/x.md');
+  for (let i = 1; i <= 30; i++) {
+    await s.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: `v${String(i).padStart(2, '0')}`, label: 'e' });
+    assert.equal((await s.save()).result, 'saved');
+  }
+  await h.recorder.settled();
+  const l = await h.recorder.store.list('/r/x.md');
+  assert.ok(l.kind === 'ok');
+  if (l.kind !== 'ok') return;
+  const texts: string[] = [];
+  for (const v of l.versions) {
+    const r = await h.recorder.store.read('/r/x.md', v.id);
+    texts.push(r.kind === 'bytes' ? dec(r.bytes).trim() : r.kind);
+  }
+  assert.equal(l.versions.length, 20);
+  assert.deepEqual(texts, Array.from({ length: 20 }, (_, i) => `v${String(29 - i).padStart(2, '0')}`));
+  const nonzero = [...h.disk.entries()].filter(([p, b]) => /^\/data\/versions-[0-9a-f]{40}-\d\d$/.test(p) && b.length > 0).length;
+  assert.equal(nonzero, 20);
+});
+
+test('bytes that are not text (BOM, CRLF, 0xFF 0xFE 0x00) and an empty file are kept and read back exactly', async () => {
+  const raw = new Uint8Array([0xef, 0xbb, 0xbf, 0x61, 0x0d, 0x0a, 0xff, 0xfe, 0x00, 0x62]);
+  const h = harness({});
+  h.disk.set('/r/b.md', raw.slice());
+  h.disk.set('/r/e.md', new Uint8Array(0));
+  h.open('/r/b.md');
+  await h.recorder.settled();
+  h.open('/r/e.md');
+  await h.recorder.settled();
+  for (const [p, want] of [['/r/b.md', raw], ['/r/e.md', new Uint8Array(0)]] as const) {
+    const l = await h.recorder.store.list(p);
+    assert.ok(l.kind === 'ok');
+    if (l.kind !== 'ok') return;
+    const r = await h.recorder.store.read(p, l.versions[0]!.id);
+    assert.equal(r.kind, 'bytes');
+    if (r.kind === 'bytes') assert.deepEqual([...r.bytes], [...want]);
+  }
+});
+
+test('outside changes A, B, C while the launch holds the jobs: all three are kept, in order', async () => {
+  const h = harness({ '/r/x.md': 'A\n' }, true);
+  const s = h.open('/r/x.md');
+  h.disk.set('/r/x.md', enc('B\n'));
+  await s.reload(enc('B\n'));
+  h.disk.set('/r/x.md', enc('C\n'));
+  await s.reload(enc('C\n'));
+  h.release();
+  await h.recorder.settled();
+  const l = await h.recorder.store.list('/r/x.md');
+  assert.ok(l.kind === 'ok');
+  if (l.kind !== 'ok') return;
+  const texts: string[] = [];
+  for (const v of l.versions) {
+    const r = await h.recorder.store.read('/r/x.md', v.id);
+    texts.push(r.kind === 'bytes' ? dec(r.bytes).trim() : r.kind);
+  }
+  assert.deepEqual([...new Set(texts)].reverse(), ['A', 'B', 'C']);
 });
