@@ -546,9 +546,6 @@ test('a file that changes on disk while a level is being set: the notice when it
     assert.deepEqual(notices, [`Warn and above · 30,000 lines of ${total.toLocaleString('en-US')} hidden · the file is unchanged`], 'the numbers are the new file\'s');
   }));
 
-/** The longest the main thread may be held while a level is set on a log of tens of megabytes: generous, for a loaded machine (measured at about 60 ms). */
-const LONGEST_BLOCK_MS = 250;
-
 // ---- commitment 5: a log of tens of megabytes -------------------------------------------------------------------------------
 
 /** A log of about `mb` megabytes made in the page (a base64 argument that size would be the test's own cost). */
@@ -637,6 +634,13 @@ test(`a log of ${process.env.MARXY_LOG_MB ?? 20} MB: first text does not wait fo
       window.__blocks = [];
       const beat = setInterval(() => { const t = performance.now(); if (t - lastBeat > 60) window.__blocks.push([Math.round(lastBeat - began), Math.round(t - lastBeat)]); worst = Math.max(worst, t - lastBeat); lastBeat = t; }, 4);
       document.querySelector('[data-row-key="log.level.warn"]').click();
+      // What proves the filter is sliced, whatever the machine: how much of the file each slice (one frame's task) presented.
+      // The work is time-budgeted, so a slow machine only makes more, smaller slices; one task doing it all is the failure.
+      const steps = [];
+      let seenFraction = 0;
+      let live = filterOf(pane.article, pane.view.store());
+      while (live === undefined) { await new Promise((r) => setTimeout(r, 0)); live = filterOf(pane.article, pane.view.store()); }
+      const stop = live.subscribe((state) => { steps.push(state.fraction - seenFraction); seenFraction = state.fraction; });
       while (document.querySelector('.marxy-log-hidden-run') === null) await new Promise((r) => setTimeout(r, 2));
       const firstScreen = performance.now() - began;
       const pill = document.querySelector('.marxy-notice-text')?.textContent ?? '';
@@ -644,11 +648,15 @@ test(`a log of ${process.env.MARXY_LOG_MB ?? 20} MB: first text does not wait fo
       const applied = performance.now() - began;
       await new Promise((r) => setTimeout(r, 300));
       clearInterval(beat);
-      return { blocks: window.__blocks, firstScreen, applied, worst, pill, runs: document.querySelectorAll('.marxy-log-hidden-run').length };
+      stop();
+      return { slices: steps.length, widest: Math.max(0, ...steps), blocks: window.__blocks, firstScreen, applied, worst, pill, runs: document.querySelectorAll('.marxy-log-hidden-run').length };
     });
-    console.log(`# log ${mb} MB filtered to Warn: first filtered screen ${timing.firstScreen.toFixed(0)} ms, every piece of the file ${timing.applied.toFixed(0)} ms, longest main-thread block ${timing.worst.toFixed(0)} ms ${JSON.stringify(timing.blocks)}`);
+    console.log(`# log ${mb} MB filtered to Warn: first filtered screen ${timing.firstScreen.toFixed(0)} ms, every piece of the file ${timing.applied.toFixed(0)} ms, in ${timing.slices} slices, the widest ${(timing.widest * 100).toFixed(1)}% of the file, longest main-thread block ${timing.worst.toFixed(0)} ms ${JSON.stringify(timing.blocks)}`);
     assert.ok(timing.runs > 0);
-    assert.ok(timing.worst < LONGEST_BLOCK_MS, `the main thread was held for ${timing.worst.toFixed(0)} ms at most; the bound is ${LONGEST_BLOCK_MS} ms`);
+    // Slicing is asserted structurally, not by the clock (ADR-0032: a slow machine must not fail a check). The wall-clock hold
+    // (`longest main-thread block`, printed above) is a record for the nightly run to read, never a bound.
+    assert.ok(timing.slices >= 5, `the filter ran in ${timing.slices} slices; a file this size is worked through in many`);
+    assert.ok(timing.widest < 0.5, `one slice presented ${(timing.widest * 100).toFixed(0)}% of the file; each is a bounded share`);
     await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent.startsWith('Warn and above')), null, { timeout: 120_000 });
 
     // The model, over the whole file: what Warn hides, and what it keeps.

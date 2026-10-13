@@ -336,24 +336,28 @@ test('markers written above the reading line inside the paragraph under it leave
     await new Promise((res) => setTimeout(res, 600));
     const since = note();
     // What the invisible-character pass writes, before the breaks of forty lines above the reading line:
-    // five characters each (a four-letter label and the byte), all before the noted one.
+    // five characters each (a four-letter label and the byte), all before the noted one. Two per break,
+    // so that the lines overflow whatever slack the default theme's face leaves at the end of a line
+    // (the case needs the paragraph to reflow by lines, and it asserts so).
     const above = [...p.querySelectorAll('.marxy-lb')].filter((lb) => lb.getBoundingClientRect().bottom < -50).slice(-40);
     for (const lb of above) {
-      const mark = document.createElement('code');
-      mark.className = 'marxy-invisible marxy-invisible-bidi';
-      const glyph = document.createElement('code');
-      glyph.className = 'marxy-invisible-glyph';
-      glyph.textContent = '202E';
-      const byte = document.createElement('code');
-      byte.className = 'marxy-invisible-byte marxy-invisible-bidi';
-      byte.textContent = '‮';
-      mark.append(glyph, byte);
-      lb.before(mark);
+      for (let k = 0; k < 2; k++) {
+        const mark = document.createElement('code');
+        mark.className = 'marxy-invisible marxy-invisible-bidi';
+        const glyph = document.createElement('code');
+        glyph.className = 'marxy-invisible-glyph';
+        glyph.textContent = '202E';
+        const byte = document.createElement('code');
+        byte.className = 'marxy-invisible-byte marxy-invisible-bidi';
+        byte.textContent = '‮';
+        mark.append(glyph, byte);
+        lb.before(mark);
+      }
     }
     // The typesetter's change watcher runs as a microtask: revert, re-set, compensate.
     await Promise.resolve();
     await new Promise((res) => setTimeout(res, 300));
-    return { n: above.length, ...since(above.length * 5) };
+    return { n: above.length, ...since(above.length * 10) };
   });
   assert.equal(r.n, 40, 'forty markers above the reading line');
   withinOneLine(r, 'the re-set after the markers');

@@ -64,10 +64,10 @@ async function waitHighlight(page, selector = 'pre > code') {
   );
 }
 
-test('MARXY-235: ESC renders as a visible marker and copy text keeps byte 0x1B', async () => {
+test('MARXY-235: ESC renders as the control picture, any other control keeps its hex label, and copy text keeps the bytes', async () => {
   const esc = '\u001b';
   const docPath = '/ansi.md';
-  const body = `\`\`\`text\n${esc}[31mFAIL${esc}[0m\n\`\`\`\n`;
+  const body = `\`\`\`text\n${esc}[31mFAIL${esc}[0m\u0007\n\`\`\`\n`;
   const files = { [docPath]: Buffer.from(body, 'utf8').toString('base64') };
   const browser = await launchWebkit();
   try {
@@ -76,14 +76,19 @@ test('MARXY-235: ESC renders as a visible marker and copy text keeps byte 0x1B',
     await waitHighlight(page);
     const r = await page.evaluate(() => {
       const code = document.querySelector('code.language-text');
-      const ctrl = code?.querySelector('.marxy-invisible');
+      const marks = [...(code?.querySelectorAll('.marxy-invisible') ?? [])];
+      const ctrl = marks[0];
       const visible = ctrl?.querySelector('.marxy-invisible-glyph')?.textContent ?? '';
+      const labels = marks.map((m) => m.querySelector('.marxy-invisible-glyph')?.textContent ?? '');
       const bytes = [...(code?.textContent ?? '')].map((c) => c.codePointAt(0));
-      return { visible, bytes, hasCtrl: Boolean(ctrl) };
+      return { visible, labels, bytes, hasCtrl: Boolean(ctrl) };
     });
     assert.ok(r.hasCtrl);
-    assert.equal(r.visible, '001B');
+    // K-08 (#690): ESC is drawn as the control picture; every other control keeps its hex label.
+    assert.equal(r.visible, '\u241b');
+    assert.deepEqual(r.labels, ['\u241b', '\u241b', '0007']);
     assert.ok(r.bytes.includes(0x1b));
+    assert.ok(r.bytes.includes(0x07));
   } finally {
     await browser.close();
   }
