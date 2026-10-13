@@ -77,8 +77,10 @@ export interface LogFilter {
   busy(): boolean;
   /** Shows `level` and above in the page from now on, and everything again for the first level (the filter is then gone). */
   setLevel(level: Level): void;
-  /** Resolves once every piece now in the page has been handled. */
+  /** Resolves once every piece now in the page has been handled, and no change of level is waiting to begin (`hold`). */
   settled(): Promise<void>;
+  /** A change of level is on its way (the click has been answered, its work starts after the frame): `settled` waits for `until`. */
+  hold(until: Promise<void>): void;
   /** The lines the page hides now. */
   hiddenLines(): number;
   /** Takes the filter out of the page: every line shown again, nothing watched. */
@@ -131,6 +133,7 @@ function createLogFilter(article: HTMLElement, current: () => boolean, forget: (
   let frame = 0;
   const subscribers = new Set<(state: FilterState) => void>();
   let waiters: (() => void)[] = [];
+  let holds = 0;
 
   const fresh = (code: HTMLElement): boolean => {
     const a = analysed.get(code);
@@ -516,8 +519,15 @@ function createLogFilter(article: HTMLElement, current: () => boolean, forget: (
       }
     },
     settled() {
-      if (disposed || phase === 'idle') return Promise.resolve();
+      if (disposed || (phase === 'idle' && holds === 0)) return Promise.resolve();
       return new Promise<void>((resolve) => waiters.push(resolve));
+    },
+    hold(until) {
+      holds++;
+      void until.then(() => {
+        holds--;
+        if (holds === 0 && phase === 'idle') release();
+      });
     },
     hiddenLines: () => hidden,
     dispose: teardown,

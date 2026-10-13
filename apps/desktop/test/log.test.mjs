@@ -267,6 +267,81 @@ test('Filter by level: Warn leaves the WARN and ERROR lines with their frames, a
     assert.equal(await page.evaluate(() => window.__marxyHandle.document().snapshot().buffer.text), fixture);
   }));
 
+test('the click on a level answers at once: the menu is closed and the choice marked in the frame it was made in, and no slice of the work has run (K-08.1)', () =>
+  withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/build.log'] });
+    await coloured(page);
+    await page.evaluate(PAGE_HELPERS);
+    await page.evaluate(async () => {
+      const { buildAppContext } = await import('/src/selection/bind.ts');
+      const { filterOf } = await import('/src/kinds/log-view.ts');
+      const handle = window.__marxyHandle;
+      await handle.commands().find((c) => c.id === 'log.filter-level').run(buildAppContext(handle));
+      window.__probe = null;
+      // Registered while the click is still being dispatched, so it runs in the first frame after the click, ahead of any
+      // frame callback the click's own handler asks for. What it reads is what the reader's first frame has.
+      document.addEventListener('click', () => {
+        const clicked = performance.now();
+        requestAnimationFrame(() => {
+          const pane = handle.panes().focused;
+          const filter = filterOf(pane.article, pane.view.store());
+          window.__probe = {
+            menuOpen: document.querySelector('[data-row-key="log.level.warn"]') !== null,
+            pill: [...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent).find((t) => t.startsWith('Filtering to Warn')) ?? null,
+            // Work begun: a filter exists and is being worked through, or the page already holds a run of words or a hidden line.
+            filterBusy: filter?.busy() ?? false,
+            filtering: pane.article.classList.contains('marxy-log-filtering'),
+            runs: document.querySelectorAll('.marxy-log-hidden-run').length,
+            ms: performance.now() - clicked,
+          };
+        });
+      }, { capture: true, once: true });
+    });
+    await page.click('[data-row-key="log.level.warn"]');
+    await page.waitForFunction(() => window.__probe !== null, null, { timeout: 5000 });
+    const first = await page.evaluate(() => window.__probe);
+    console.log(`# filter click: the first frame after it came ${first.ms.toFixed(1)} ms later, with the menu ${first.menuOpen ? 'open' : 'closed'} and the pill "${first.pill}"`);
+    assert.equal(first.menuOpen, false, 'the menu is closed in the first frame after the click');
+    assert.ok(first.pill !== null, 'the choice is marked in that frame: the pill is up');
+    assert.equal(first.filterBusy, false, 'no slice of the filter has run by that frame');
+    assert.equal(first.filtering, true, 'the pieces not yet filtered are already not drawn in that frame: one class on the article, no piece touched');
+    assert.equal(first.runs, 0, 'and no line is hidden yet');
+    await settled(page, 'warn');
+    assert.deepEqual(await page.evaluate(() => window.__shownLines()), keptLines(fixtureLines, 2).map((i) => fixtureLines[i]), 'the work still happens, and ends as it did');
+  }));
+
+test('a line over the highlighter cap shows its own text once, in order, and the next line shows its timestamp once; a copy of the filtered log is the file\'s lines (K-08.1)', () =>
+  withPage(async (page) => {
+    const stampOf = (i) => `2026-10-12T09:00:${String(i).padStart(2, '0')}.000Z`;
+    const long = `${stampOf(1)} INFO  long ${'a1b2'.repeat(375)} end`;
+    const rows = [`${stampOf(0)} WARN  before`, long, `${stampOf(2)} WARN  after`, `${stampOf(3)} INFO  last`];
+    assert.ok(long.length > 1500);
+    const body = `${rows.join('\n')}\n`;
+    await bootTwoPanes(page, { files: { '/r/long.log': body }, open: ['/r/long.log'] });
+    await coloured(page);
+    await page.evaluate(PAGE_HELPERS);
+    const read = () => page.evaluate(() => {
+      const note = new Set(['marxy-elided', 'marxy-log-hidden-run']);
+      const text = (n) => (n.nodeType === 3 ? n.data : n.nodeType === 1 && ![...n.classList].some((c) => note.has(c)) ? [...n.childNodes].map(text).join('') : '');
+      const code = document.querySelector('#doc pre.language-log > code');
+      return { text: text(code), notes: code.querySelectorAll('.marxy-elided').length };
+    });
+    const plain = await read();
+    assert.equal(plain.text, body, 'the page holds the file\'s bytes, the note aside');
+    assert.equal(plain.notes, 1, 'one note, for the one long line');
+    assert.equal(plain.text.split(stampOf(2)).length - 1, 1, 'the timestamp of the line after the long one is on the page once');
+    await chooseLevel(page, 'warn');
+    const filtered = await read();
+    assert.deepEqual(await page.evaluate(() => window.__shownLines()), [rows[0], rows[2]], 'the lines shown are the file\'s, each once');
+    assert.equal(filtered.text, body, 'the filtered page still holds every byte');
+    const key = await modifier(page);
+    await page.locator('#doc .marxy-line', { hasText: 'after' }).click();
+    await page.keyboard.press(`${key}+KeyA`);
+    await page.keyboard.press(`${key}+KeyC`);
+    await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'clipboardWriteItem'), null, { timeout: 10_000 });
+    assert.equal(await copied(page), `${rows[0]}\n${rows[2]}\n`);
+  }));
+
 test('a click on a run of words shows its lines, and nothing else; the filter is not remembered when another file opens', () =>
   withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/build.log'] });
