@@ -85,6 +85,7 @@ ADR-0063 (capture) and ADR-0065 (clipboard) are accepted.
 | [17-design-pass-chrome.md](17-design-pass-chrome.md) | X-21: the app beside mock v2, screen by screen; the ranked gaps, the direction, the questions for the author (X-19's folded in) and cards U-00 to U-10 and V-05 |
 | [18-cards-wave-9.md](18-cards-wave-9.md) | Cards for wave 9: H-05 (themes), K-20, K-11, K-08, K-09, K-10a and K-10b (kinds read as their kind), W-08 (the sidebar's trees), Q-07 (smart collections), and the dispatch order |
 | [19-cards-wave-10.md](19-cards-wave-10.md) | Cards for wave 10: W-11 (the status bar), W-10 (the Outline tab), V-06 (the Versions tab), V-08, V-03 and V-04 (Source's formatting, replace and notes), Q-06 (broken paths and near-duplicates), W-14 (new files and forks), W-20 (the menu bar), and the dispatch order |
+| [20-cards-wave-11.md](20-cards-wave-11.md) | Cards for wave 11: W-22 (contrast), W-12 (Settings and Privacy), W-13 (the palette's preview, `@` headings), W-17 (metadata on demand), K-17, K-22 and K-12 (terminal, docs, notes, changelogs, JSONL transcripts), F-85 (a create-only write), the follow-ups F-86, W-10.2, K-08.1 and K-09.1, and the dispatch order |
 | [studio/](studio/README.md) | The clipboard studio designed to build (J-D1): every mock surface with a verdict; history, the workbench, the rules; collect and the ring for the author |
 | [galley/](galley/README.md) | Reference copies of Galley's tokens, typography spec and contrast audit |
 | `mock-v2/` | The mockup: Galley's prototype adapted to this direction |
