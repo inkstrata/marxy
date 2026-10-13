@@ -188,7 +188,7 @@ test('Cmd-click on a source file opens it beside in Source; a binary file says i
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].host.getAttribute('data-marxy-mode')), 'source');
     assert.equal(await focusedSlot(page), 0);
     await cmdClick(page, 0, './logo.png');
-    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent === 'That file is not text.'));
+    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent === 'That file is not text · nothing was opened.'));
     assert.deepEqual(await paths(page), ['/r/plan.md', '/r/src/lib.rs'], 'the neighbour keeps what it had');
   });
 });
