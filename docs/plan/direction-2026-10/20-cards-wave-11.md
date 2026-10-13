@@ -206,11 +206,14 @@ changes for a short outline.
 - Read: `apps/desktop/src/workspace/links-tab.ts` (the roving pattern), `apps/desktop/src/workspace/inspector.ts`.
 
 **Acceptance.**
-- `outline-tab.test.ts`: over a 5,000-heading model, the panel holds at most 200 row elements at any scroll position, and
-  the row under the reading line is among them. Fails on W-10's merge: every heading is a row.
-- In WebKit, over `fixtures/corpus/32-long-reference.md` multiplied to 5,000 headings: `⌥↓` on a row near the end moves
-  its section and one `Mod+Z` restores the bytes; Home and End rove to the first and last heading.
-- The record of the tab's first draw for that document is printed for the nightly run (no ceiling, ADR-0032).
+- `outline-tab.test.mjs` (WebKit; `outline-tab.test.ts` runs in Node and has no DOM): over `fixtures/corpus/32-long-reference.md`
+  repeated to 5,000 headings, the panel holds at most 200 row elements at the top, at a quarter, half, three quarters and the end
+  of the list, and the row under the reading line is drawn, marked, where the outline is scrolled to it. *(W-10's merge already windows the rows — `WINDOW_AT` 300,
+  `MARGIN` 25 — so this does not fail on it; the card's "every heading is a row" did not reproduce. The test is the guard.)*
+- In WebKit, over the same document: `⌥↓` on a row near the end moves its section and one `Mod+Z` restores the bytes; Home
+  and End rove to the first stop (the Copy button) and the last heading.
+- The record of the tab's first draw for that document, beside one of fifty headings, is printed for the nightly run (no
+  ceiling, ADR-0032).
 
 **Do not.**
 - Change W-10's rows, counts or moves.

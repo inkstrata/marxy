@@ -4,7 +4,7 @@
 // back; the menu offers the four actions and says why one is unavailable; the list follows the document live; "where you are" in
 // the status bar opens the tab. The rules are outline-tab.test.ts; the bytes of a move are core's move-section.test.ts.
 import { strict as assert } from 'node:assert';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
@@ -15,6 +15,11 @@ const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_T
   : false;
 const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
 after(() => closeHarness());
+
+// fixtures/corpus/32-long-reference.md, repeated until it holds 5,000 headings (a heading outside a fence), and a short one of fifty.
+const reference = readFileSync(new URL('../../../fixtures/corpus/32-long-reference.md', import.meta.url), 'utf8');
+const headingsIn = (text) => { let fence = false, n = 0; for (const line of text.split('\n')) { if (/^ {0,3}(```|~~~)/.test(line)) fence = !fence; else if (!fence && /^#{1,6}\s/.test(line)) n++; } return n; };
+const repeatedTo = (headings) => { const per = headingsIn(reference); return Array.from({ length: Math.ceil(headings / per) }, () => reference).join('\n\n'); };
 
 const para = (i) => `Paragraph ${i} runs long enough to be a paragraph of the reading column and no more than that.`;
 const filler = (n, from = 0) => Array.from({ length: n }, (_, i) => para(from + i)).join('\n\n');
@@ -37,6 +42,8 @@ const files = {
   '/r/crlf.md': '# A\r\n\r\na\r\n\r\n# B\r\n\r\nb',
   '/r/main.rs': 'fn main() {}\n',
   '/r/Front.md': '---\ntitle: Front title\n---\n\nIntro words in the preamble.\n\n## Section\n\ntext here\n',
+  '/r/Ref5k.md': repeatedTo(5000),
+  '/r/Ref50.md': repeatedTo(50).split('\n').slice(0, 400).join('\n'),
   '/r/Many.md': Array.from({ length: 2000 }, (_, i) => `${i % 4 === 0 ? '#' : '##'} Heading ${i}\n\nword ${i}\n`).join('\n'),
 };
 
@@ -349,4 +356,63 @@ test('a long outline draws only the rows near the view, and scrolling, End and t
     await page.keyboard.press('Alt+ArrowUp');
     await page.waitForFunction(() => document.querySelector('[data-marxy-outline-row]:focus')?.querySelector('.marxy-outline-text').textContent === 'Heading 1939');
   }, { open: ['/r/Many.md'] });
+});
+
+test('over the long reference at 5,000 headings the tab holds at most 200 rows, marks the row under the reading line, moves a section near the end and undoes it in one step', async () => {
+  await withPage(async (page) => {
+    const drawn = () => page.evaluate(() => document.querySelectorAll('[data-marxy-outline-row]').length);
+    const total = await page.evaluate(() => Number(document.querySelector('.marxy-outline-count').textContent.replace(/[^0-9]/g, '')));
+    assert.ok(total >= 5000, `${total} headings`);
+    assert.ok((await drawn()) <= 200, `${await drawn()} rows at the top`);
+    const scrollOutline = (to) => page.evaluate((where) => { let n = document.querySelector('.marxy-outline'); while (n && !['auto', 'scroll'].includes(getComputedStyle(n).overflowY)) n = n.parentElement; n.scrollTop = where === 'end' ? n.scrollHeight : Math.floor(n.scrollHeight * where); }, to);
+    for (const where of [0.25, 0.5, 0.75, 'end']) {
+      await scrollOutline(where);
+      await frames(page, 3);
+      assert.ok((await drawn()) <= 200, `${await drawn()} rows at ${where}`);
+    }
+    // The row under the reading line: the reader is scrolled to the middle; the outline is walked a screen at a time, never holding
+    // more than 200 rows, and the mark is on a drawn row where it is reached (it stays on its heading, not on the first rows).
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight / 2));
+    await frames(page, 4);
+    let seen = null;
+    for (let at = 0, step = 1; seen === null && step < 400; step++) {
+      await page.evaluate((top) => { let n = document.querySelector('.marxy-outline'); while (n && !['auto', 'scroll'].includes(getComputedStyle(n).overflowY)) n = n.parentElement; n.scrollTop = top; }, at);
+      await frames(page, 2);
+      assert.ok((await drawn()) <= 200);
+      seen = await page.evaluate(() => document.querySelector('.marxy-outline-list [aria-current="location"] .marxy-outline-text')?.textContent ?? null);
+      at += 700;
+    }
+    assert.ok(seen !== null && seen !== 'Heading 0', `the row under the reading line was found among the drawn rows: ${seen}`);
+    // Home and End rove to the ends; ⌥↓ on a row near the end moves its section and one Mod+Z restores the bytes.
+    const original = await bytesOf(page);
+    await page.evaluate(() => document.querySelector('[data-marxy-outline-row]').focus());
+    await page.keyboard.press('End');
+    for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Alt+ArrowDown');
+    await page.waitForFunction((o) => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes) !== o, original);
+    await page.keyboard.press(`${await modOf(page)}+z`);
+    await page.waitForFunction((o) => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes) === o, original);
+    assert.ok((await drawn()) <= 200);
+  }, { open: ['/r/Ref5k.md'] });
+});
+
+test('the first draw of the tab for a document of 5,000 headings is recorded beside one of fifty (recorded, ADR-0032)', async () => {
+  const record = {};
+  for (const [name, path] of [['50', '/r/Ref50.md'], ['5,000', '/r/Ref5k.md']]) {
+    await withPage(async (page) => {
+      // Leave the tab and ask for it again: the first draw of this document's outline, from the tab being asked for to its rows being on the page.
+      record[name] = await page.evaluate(async () => {
+        const { selectInspectorTab } = await import('/src/workspace/inspector.ts');
+        selectInspectorTab('links');
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const t0 = performance.now();
+        selectInspectorTab('outline');
+        while (!document.querySelector('.marxy-outline-list [data-marxy-outline-row]')) await new Promise((r) => requestAnimationFrame(r));
+        const t1 = performance.now();
+        return { ms: Math.round(t1 - t0), rows: document.querySelectorAll('[data-marxy-outline-row]').length };
+      });
+    }, { open: [path] });
+  }
+  console.log(`Outline tab first draw: ${JSON.stringify(record)} (recorded, ADR-0032)`);
+  assert.ok(record['5,000'].rows <= 200 && record['50'].rows > 0, 'the measurement happened');
 });
