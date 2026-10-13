@@ -11,6 +11,7 @@ import {
   logRanks,
 } from './line-classes.ts';
 import { marxyScopeForTokenColor, type MarxyTokenScope } from './scopes.ts';
+import { diffFileLineClasses } from './diff-lines.ts';
 import { LANGUAGE_TO_GRAMMAR } from './languages.generated.ts';
 
 export type { MarxyTokenScope } from './scopes.ts';
@@ -107,8 +108,13 @@ export async function highlight(code: string, lang: string): Promise<HighlightTo
 export function lineMetaForHighlight(
   lang: string,
   tokenLines: readonly (readonly HighlightToken[])[],
+  /** `file`: the lines are pieces of a whole diff file (K-09), read hunk by hunk, not a fence's snippet. */
+  opts?: { readonly file?: boolean },
 ): readonly HighlightLineMeta[] {
   const normalized = lang.trim().toLowerCase();
+  if (opts?.file === true && normalized === 'diff') {
+    return diffFileLineClasses(tokenLines.map((line) => line.map((t) => t.text).join(''))).map((lineClass) => (lineClass ? { lineClass } : {}));
+  }
   if (normalized === 'log') {
     // A line at ERROR or above, and the lines that continue it, carry the rule (K-08).
     const ranks = logRanks(tokenLines.map((line) => line.map((t) => t.text).join('')));

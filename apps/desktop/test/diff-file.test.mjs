@@ -297,3 +297,25 @@ test(`a diff of ${process.env.MARXY_DIFF_MB ?? 10} MB: first text does not wait 
     const tinted = await page.evaluate(() => document.querySelectorAll('#doc .marxy-diff-add').length);
     assert.ok(tinted > 0 || first.at > 0);
   }));
+
+test('a hunk is read by its counts: removed `---` and `-- sql`, added `++x`, a signature untinted, across a piece boundary (K-09 round 1)', () =>
+  withPage(async (page) => {
+    const filler = Array.from({ length: 300 }, (_, i) => ` context ${i}`).join('\n');
+    const text = `From abc Mon Sep 17 00:00:00 2001\nSubject: [PATCH] x\n---\n a | 2 +-\n\ndiff --git a/a.md b/a.md\n--- a/a.md\n+++ b/a.md\n@@ -1,303 +1,303 @@\n${filler}\n----\n--- a rule\n-- sql comment\n+++x\n++y\n+z\n-- \n2.44.0\n`;
+    // Old: 300 context and three removed; new: 300 context and three added.
+    await bootTwoPanes(page, { files: { '/r/p.patch': text }, open: ['/r/p.patch'] });
+    await ready(page);
+    await page.evaluate(PAGE_LINES);
+    const lines = await page.evaluate(() => window.__lines());
+    const tint = (t) => lines.find((l) => l.text === t)?.cls.find((c) => c.startsWith('marxy-diff-'));
+    assert.equal(tint('----'), 'marxy-diff-del');
+    assert.equal(tint('--- a rule'), 'marxy-diff-del');
+    assert.equal(tint('-- sql comment'), 'marxy-diff-del');
+    assert.equal(tint('+++x'), 'marxy-diff-add');
+    assert.equal(tint('++y'), 'marxy-diff-add');
+    assert.equal(tint('+z'), 'marxy-diff-add');
+    assert.equal(tint('-- '), undefined, 'the format-patch signature is not a removal');
+    assert.equal(tint('--- a/a.md'), undefined);
+    assert.equal(tint('---'), undefined, 'the separator of the email is plain');
+    assert.equal(lines.filter((l) => l.text === ' context 299').length, 1);
+  }));

@@ -83,13 +83,16 @@ function appendToken(parent: HTMLElement, tok: HighlightToken): void {
   parent.append(span);
 }
 
+/** A piece of a whole file (core's `parseCode`), not a Markdown fence. */
+const isFilePiece = (code: HTMLElement): boolean => code.parentElement?.classList.contains('marxy-run') === true;
+
 /** Build trusted DOM from token lines; callers attach with `replaceChildren`, never `innerHTML`. */
 export function spansFromTokens(
   lines: readonly (readonly HighlightToken[])[],
-  opts?: { lang?: string | null },
+  opts?: { lang?: string | null; file?: boolean },
 ): DocumentFragment {
   const lang = opts?.lang ?? null;
-  const meta = lang ? lineMetaForHighlight(lang, lines) : [];
+  const meta = lang ? lineMetaForHighlight(lang, lines, { file: opts?.file }) : [];
   const tab = currentTabWidth();
   const frag = document.createDocumentFragment();
   for (let li = 0; li < lines.length; li++) {
@@ -128,7 +131,7 @@ export function applyLinesToCode(code: HTMLElement): boolean {
   if (code.dataset.marxyDone !== undefined) return false;
   const lines = sourceTextFromCode(code).split('\n');
   const lang = languageFromCode(code);
-  code.replaceChildren(spansFromTokens(lines.map((t) => (t === '' ? [] : [{ text: t }])), { lang }));
+  code.replaceChildren(spansFromTokens(lines.map((t) => (t === '' ? [] : [{ text: t }])), { lang, file: isFilePiece(code) }));
   applyInvisibleMarkers(code);
   code.dataset.marxyDone = 'lines';
   return true;
@@ -204,7 +207,7 @@ export async function applyHighlightToCode(code: HTMLElement): Promise<boolean> 
   const lines = await tokenize(code, source, lang);
   // A block whose document closed while its colour was on the way is not painted.
   if (!lines || !code.isConnected) return false;
-  code.replaceChildren(spansFromTokens(lines, { lang }));
+  code.replaceChildren(spansFromTokens(lines, { lang, file: isFilePiece(code) }));
   applyInvisibleMarkers(code);
   code.dataset.marxyDone = 'highlight';
   return Boolean(lines);
