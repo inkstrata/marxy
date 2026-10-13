@@ -1146,6 +1146,12 @@ button.marxy-status-item:focus-visible { outline: 2px solid var(--marxy-color-ac
 /* The active tab is the page's own ground, continuous with it, and heavier; no outline and no accent line. */
 .marxy-tab[data-marxy-tab-active] { background: var(--marxy-color-bg); font-weight: 600; box-shadow: none; }
 .marxy-tab[data-marxy-tab-active] > button:hover { background: none; }
+/* The row's + (W-14): a quiet mark at the end of the tabs, with the New menu under it. It is not a tab (no `.marxy-tab`), so a
+   count of tabs does not include it; it carries the row's end margin. */
+.marxy-tab-new { display: flex; align-items: stretch; flex: none; margin-inline-end: 0.9em; border-radius: calc(var(--marxy-size-chrome) * 6 / 13) calc(var(--marxy-size-chrome) * 6 / 13) 0 0; }
+.marxy-tab-new > button { appearance: none; -webkit-appearance: none; margin: 0; padding: 0 0.7em; border: 0; border-radius: inherit; background: none; color: var(--marxy-color-text-secondary); font: inherit; line-height: 1; cursor: default; }
+.marxy-tab-new > button:hover { background: var(--marxy-color-selection); }
+.marxy-tab-new > button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
 
 /* The inspector's content (W-09): a strip of tabs and the selected panel, in the `inspector` region's column. Layout only; W-04 owns the look.
    Nothing here changes the region's width, so the reading column does not move. A link's destination is text, never an anchor. */
@@ -1164,6 +1170,30 @@ button.marxy-link-row:hover { background: var(--marxy-color-selection); }
 .marxy-inspector .marxy-link-dest, .marxy-inspector .marxy-link-status { color: var(--marxy-color-text-secondary); }
 .marxy-inspector .marxy-link-mismatch { color: var(--marxy-color-text); font-weight: 600; }
 .marxy-inspector .marxy-link-mismatch::before { content: "\26A0\FE0E  "; }
+/* The Outline tab (W-10; mock-v2 01-workspace `.outline-row`): the headings, indented by level, each with the quiet count of its section's
+   words; the section under the reading line or the caret is washed; a row's menu (its mouse door is the three dots, shown on hover and
+   focus) lists the moves and the level changes. Rows are buttons in the inspector's one tab stop (the shell roves them). */
+.marxy-outline-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6em; margin: 0.5em 0 0.3em; color: var(--marxy-color-text-secondary); }
+.marxy-outline-copy { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.15em 0.55em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: inherit; font: inherit; cursor: default; }
+.marxy-outline-copy:hover { background: var(--marxy-color-selection); color: var(--marxy-color-text); }
+.marxy-outline-copy:focus-visible, .marxy-outline-row:focus-visible, .marxy-outline-menu-item:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-outline-list { list-style: none; margin: 0; padding: 0; }
+.marxy-outline-empty { margin: 0.2em 0; color: var(--marxy-color-text-secondary); }
+.marxy-outline-row { appearance: none; -webkit-appearance: none; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 0.5em; box-sizing: border-box; width: 100%; margin: 0; padding-block: 0.3em; padding-inline-end: 0.4em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: inherit; font: inherit; text-align: start; cursor: default; }
+.marxy-outline-row:hover { background: var(--marxy-color-selection); }
+.marxy-outline-row[aria-current="location"] { background: var(--marxy-color-accent-wash); color: var(--marxy-color-text); }
+.marxy-outline-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marxy-outline-row[data-marxy-outline-level="1"] .marxy-outline-text, .marxy-outline-title .marxy-outline-text { font-weight: 600; }
+.marxy-outline-words { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; font-size: 0.92em; }
+.marxy-outline-table .marxy-outline-text { color: var(--marxy-color-text-secondary); font-size: 0.92em; }
+.marxy-outline-more { width: 1.1em; text-align: center; color: var(--marxy-color-text-secondary); visibility: hidden; }
+.marxy-outline-item:hover .marxy-outline-more, .marxy-outline-row:focus-visible .marxy-outline-more, .marxy-outline-item[data-marxy-outline-open] .marxy-outline-more { visibility: visible; }
+.marxy-outline-more:hover { color: var(--marxy-color-text); }
+.marxy-outline-menu { display: flex; flex-direction: column; margin: 0.15em 0 0.35em 1.2em; padding: 0.25em; border: 1px solid var(--marxy-color-rule); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: var(--marxy-color-surface); }
+.marxy-outline-menu-item { appearance: none; -webkit-appearance: none; display: flex; justify-content: space-between; gap: 1em; margin: 0; padding: 0.3em 0.5em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: inherit; font: inherit; text-align: start; cursor: default; }
+.marxy-outline-menu-item:hover { background: var(--marxy-color-selection); }
+.marxy-outline-menu-item[aria-disabled="true"] { color: var(--marxy-color-text-secondary); }
+.marxy-outline-menu-key { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
 /* The sidebar (W-07 layout; W-04 owns the look). One column in the `sidebar` region, 252 px (`--marxy-ws-sidebar-w`; the
    panel scrolls, the page does not): an optional Library row, then two sections, each a header button (the title, and a
    quiet count once folded) over a list of rows. A row is the kind's glyph, the title and a quiet age; the title shrinks
@@ -1381,14 +1411,17 @@ body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-ro
       linear-gradient(to right, GrayText, Canvas) left center / var(--marxy-tabs-fade) 100% no-repeat scroll,
       linear-gradient(to left, GrayText, Canvas) right center / var(--marxy-tabs-fade) 100% no-repeat scroll;
   }
-  .marxy-tab > button { color: CanvasText; }
+  .marxy-tab > button, .marxy-tab-new > button { color: CanvasText; }
   .marxy-tab > button:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
   .marxy-tab > button:focus-visible { outline: 2px solid Highlight; }
   .marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 GrayText; }
   .marxy-tab[data-marxy-tab-active] { background: Highlight; color: HighlightText; box-shadow: none; }
   .marxy-tab[data-marxy-tab-active] > button { color: HighlightText; }
   .marxy-inspector-tab[data-marxy-inspector-tab-active] { background: Highlight; color: HighlightText; }
-  .marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible { outline-color: Highlight; }
+  .marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible, .marxy-outline-row:focus-visible, .marxy-outline-copy:focus-visible, .marxy-outline-menu-item:focus-visible { outline-color: Highlight; }
+  .marxy-outline-row[aria-current="location"] { outline: 2px solid Highlight; outline-offset: -2px; background: none; }
+  .marxy-outline-words, .marxy-outline-more, .marxy-outline-menu-key, .marxy-outline-table .marxy-outline-text { color: GrayText; }
+  .marxy-outline-menu { border-color: CanvasText; background: Canvas; }
   .marxy-library-scope[aria-current="true"], .marxy-library-row[aria-selected="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; box-shadow: none; }
   .marxy-library-row[aria-selected="true"] * { color: HighlightText; }
   .marxy-library-field, .marxy-library-save-name, .marxy-library-save, .marxy-library-suggest, .marxy-query-chip { border-color: CanvasText; }
@@ -1443,3 +1476,127 @@ body[data-marxy-peek] > [data-marxy-workspace-region="inspector"] { top: 0; bott
   pre.language-log .marxy-line { border-inline-start-color: Canvas; }
   pre.language-log .marxy-log-error { border-inline-start-color: CanvasText; }
 }
+
+/* The table lens (K-10b, ADR-0071): a CSV or TSV as a grid in place of its Source, in the Source mount, as mock-v2's data view
+   draws it. The Source frame stays mounted under it and keeps its place, hidden. A line of what the grid is and reshaped
+   sits over it; the grid scrolls in its own box under a sticky header row and a sticky row-number column, in the sans
+   face at the chrome's size, numbers right-aligned in tabular figures, identifiers in the code face. A decoded cell (a
+   collapsed "") carries a bar at its start edge, a shape and not a colour alone; an absent cell (a short row) is hatched,
+   apart from an empty one; an unreadable row is its own line in the code face under a label. */
+.marxy-source-mount[data-marxy-lens] { display: flex; justify-content: center; box-sizing: border-box; }
+.marxy-source-mount[data-marxy-lens] > .marxy-source-frame { display: none; }
+.marxy-table-lens {
+  /* The pane's width and the grid's height, never taller than the pane: the grid scrolls inside it. */
+  flex: 1 1 0;
+  align-self: flex-start;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--marxy-color-bg);
+  border: 1px solid var(--marxy-color-rule);
+  border-radius: calc(var(--marxy-size-chrome) * 13 / 13);
+  font-family: var(--marxy-face-sans);
+  font-size: var(--marxy-size-chrome);
+  color: var(--marxy-color-text);
+}
+.marxy-table-lens-info {
+  flex: none;
+  margin: 0;
+  padding: 0.55em 1em;
+  border-block-end: 1px solid var(--marxy-color-rule);
+  font-family: var(--marxy-face-chrome);
+  font-size: calc(var(--marxy-size-chrome) * 11.5 / 13);
+  line-height: 1.5;
+  color: var(--marxy-color-text-secondary);
+}
+.marxy-table-lens-sep { color: var(--marxy-color-text-faint); }
+.marxy-table-lens-count {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline dotted var(--marxy-color-text-faint);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+.marxy-table-lens-count:hover { color: var(--marxy-color-text-strong); }
+.marxy-table-lens-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
+/* Focus is shown by the rule under the header line turning to the accent, and by the selected cell's own outline. */
+.marxy-table-lens-grid:focus-visible { outline: none; }
+.marxy-table-lens:focus-within .marxy-table-lens-info { border-block-end-color: var(--marxy-color-accent); }
+.marxy-table-lens-grid {
+  /* The article's table rules (a block that scrolls, the body's size, inset rules) are not the grid's. */
+  display: table;
+  max-width: none;
+  overflow: visible;
+  font-size: inherit;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.45;
+}
+.marxy-table-lens-grid :is(th, td) {
+  padding: 0.45em 0.75em;
+  border-block-end: 1px solid var(--marxy-color-rule);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: none;
+}
+.marxy-table-lens-grid :is(th, td):last-child { padding-inline-end: 0.75em; }
+.marxy-table-lens-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  vertical-align: bottom;
+  background: var(--marxy-color-surface);
+  border-block-end-color: var(--marxy-color-rule-strong);
+  font-weight: 600;
+  color: var(--marxy-color-text-strong);
+}
+.marxy-table-lens-sort { display: inline-flex; align-items: center; gap: 0.3em; max-width: 100%; border: 0; padding: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+.marxy-table-lens-name { overflow: hidden; text-overflow: ellipsis; }
+.marxy-table-lens-arrow { color: var(--marxy-color-text-faint); font-weight: 400; }
+th[aria-sort="ascending"] .marxy-table-lens-arrow, th[aria-sort="descending"] .marxy-table-lens-arrow { color: var(--marxy-color-accent); }
+.marxy-table-lens-type { display: block; font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 10.5 / 13); font-weight: 500; color: var(--marxy-color-text-faint); }
+.marxy-table-lens-grid .marxy-table-lens-rn {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--marxy-color-bg);
+  text-align: right;
+  font-weight: 400;
+  font-size: calc(var(--marxy-size-chrome) * 11.5 / 13);
+  color: var(--marxy-color-text-faint);
+}
+.marxy-table-lens-grid thead .marxy-table-lens-rn { z-index: 3; background: var(--marxy-color-surface); }
+.marxy-table-lens-grid .marxy-table-lens-num { text-align: right; }
+.marxy-table-lens-grid td.marxy-table-lens-ident { font-family: var(--marxy-face-mono); font-size: calc(var(--marxy-size-chrome) * 12.5 / 13); }
+.marxy-table-lens-grid td[data-marxy-decoded] { box-shadow: inset 2px 0 0 var(--marxy-color-text-faint); }
+.marxy-table-lens-grid td.marxy-table-lens-selected { background: var(--marxy-color-selection); outline: 1px solid var(--marxy-color-accent); outline-offset: -1px; }
+.marxy-table-lens-absent { background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--marxy-color-rule) 4px 5px); }
+.marxy-table-lens-break, .marxy-table-lens-replaced { color: var(--marxy-color-text-faint); padding-inline: 0.1em; }
+.marxy-table-lens-replaced { text-decoration: underline wavy var(--marxy-color-status-warn); }
+.marxy-table-lens-grid :is(.marxy-table-lens-unreadable, .marxy-table-lens-pending) td { white-space: pre; box-shadow: inset 2px 0 0 var(--marxy-color-status-warn); }
+.marxy-table-lens-grid :is(.marxy-table-lens-unreadable, .marxy-table-lens-pending) code { font-family: var(--marxy-face-mono); font-size: calc(var(--marxy-size-chrome) * 12 / 13); }
+.marxy-table-lens-label { margin-inline-end: 1em; font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-secondary); }
+.marxy-table-lens-spacer td { padding: 0; border: 0; }
+.marxy-table-lens-grid tfoot td, .marxy-table-lens-grid tfoot th {
+  position: sticky;
+  bottom: 0;
+  background: var(--marxy-color-surface);
+  border-block-start: 1px solid var(--marxy-color-rule-strong);
+  font-size: calc(var(--marxy-size-chrome) * 11.5 / 13);
+  line-height: 1.5;
+  vertical-align: top;
+}
+.marxy-table-lens-grid tfoot .marxy-table-lens-rn { z-index: 3; background: var(--marxy-color-surface); }
+.marxy-table-lens-stat { color: var(--marxy-color-text-faint); }

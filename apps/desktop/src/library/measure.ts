@@ -6,6 +6,7 @@
 // held to `CONTENT_SEARCH_LIMITS.maxTotalBytes`; past that the files not reached are counted, not guessed at.
 import type { IndexEntry } from '@marxy/core';
 import { CONTENT_SEARCH_LIMITS } from '@marxy/core/src/index-model/content-search.ts';
+import { countsAsMarkdown } from '@marxy/core/src/index-model/words.ts';
 import { measureText, type Measured } from '@marxy/core/src/index-model/query-eval.ts';
 
 /** The most one read returns (the shell caps `readHead` here, and so does the memory shell). */
@@ -61,10 +62,10 @@ export interface MeasureOptions {
 }
 
 /** A measure of text read from the start of a file `size` bytes long: a floor when the read stopped short of it. */
-export function measureBytes(bytes: Uint8Array, size: number): Measured {
+export function measureBytes(bytes: Uint8Array, size: number, markdown = false): Measured {
   // A NUL early on marks a binary file: it has no words, and its bytes are not text to count.
   if (bytes.subarray(0, CONTENT_SEARCH_LIMITS.binarySniffBytes).includes(0)) return { words: 0, hasCode: false, hasPaths: false, hasLinks: false, openTasks: 0 };
-  const measure = measureText(new TextDecoder('utf-8').decode(bytes));
+  const measure = measureText(new TextDecoder('utf-8').decode(bytes), { markdown });
   return bytes.length < size ? { ...measure, truncated: true } : measure;
 }
 
@@ -102,7 +103,7 @@ export async function measureFiles(
       }
       if (aborted()) return;
       cache.bytesRead += bytes?.length ?? 0;
-      cache.set(entry, bytes === null ? { words: 0, hasCode: false, hasPaths: false, hasLinks: false, openTasks: 0 } : measureBytes(bytes, entry.size));
+      cache.set(entry, bytes === null ? { words: 0, hasCode: false, hasPaths: false, hasLinks: false, openTasks: 0 } : measureBytes(bytes, entry.size, countsAsMarkdown(entry.path)));
       measured++;
       opts.onProgress?.(measured, entries.length);
     }

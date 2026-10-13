@@ -20,6 +20,7 @@ import type { ScrollerGeometry } from '../position/position.ts';
 import { renderRecord, spliceRendered, type RenderRecord } from '../render/incremental.ts';
 import { resolveImageRoot, stripNonLocalImages } from '../render/images.ts';
 import { buildBlocks, nodeFor, type BlockList, type NodeMap } from '../render/post.ts';
+import { guardLongRuns } from '../render/long-runs.ts';
 import { DEFAULT_THRESHOLD, mountProgressively, parseInertInSlices, type ProgressiveMount } from '../render/progressive.ts';
 import { yieldToEventLoop } from '../startup/yield.ts';
 import type { RenderedSelection } from '../selection/view.ts';
@@ -1541,7 +1542,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       record,
       snapshot.ast,
       { live: doc, pending: mount.pending() },
-      { policy: trust.policyFor(file), prepare: (parsed) => stripNonLocalImages(parsed, file) },
+      { policy: trust.policyFor(file), prepare: (parsed) => prepareParsed(parsed, file) },
     );
     if (!result.spliced) return result.reason;
     const { record: next, added, from, removed } = result.value;
@@ -1882,6 +1883,12 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * threshold, else the first screens (from `landing` down, when given) now and the rest in idle chunks
    * once `start` settles. Replaces, and cancels, the mount of whatever was shown before.
    */
+  /** What a parsed page gets before it is mounted: remote images stripped, and a break put in any run of text too long to lay out (F-79). */
+  function prepareParsed(parsed: HTMLElement, file: string): void {
+    guardLongRuns(parsed);
+    stripNonLocalImages(parsed, file);
+  }
+
   function mountDocument(html: string, file: string, landing?: number, start?: Promise<unknown>, parsed?: HTMLElement): ProgressiveMount {
     mount?.cancel();
     cancelScheduledSnap();
@@ -1894,7 +1901,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       landing,
       start,
       parsed,
-      prepare: (parsed) => stripNonLocalImages(parsed, file),
+      prepare: (parsed) => prepareParsed(parsed, file),
       onChunk: (added) => {
         if (mount !== current) return;
         chunks += 1;
@@ -2018,7 +2025,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (store !== next) throw new Error('the document was replaced while it was rendered');
     let inert =
       slices !== null && slices.html.length >= DEFAULT_THRESHOLD
-        ? await parseInertInSlices(slices.pieces, (holder) => stripNonLocalImages(holder, file), yieldToEventLoop, undefined, abandoned)
+        ? await parseInertInSlices(slices.pieces, (holder) => prepareParsed(holder, file), yieldToEventLoop, undefined, abandoned)
         : undefined;
     // A pane opening beside another gives the frame back between the stages that each take most of one.
     if (opts?.sliced) await yieldToEventLoop();

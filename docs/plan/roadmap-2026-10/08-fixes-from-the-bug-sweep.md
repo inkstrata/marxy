@@ -755,3 +755,36 @@ holds the old version's pair, whose text no longer matches what the step reads, 
   UTF-8, and a selection parses as on main (the count shows it) and gives the same bytes.
 - **Byte-identical**: the transform and Copy as tests and the desktop lite suite unchanged; `pnpm gate:fidelity`
   unchanged.
+
+## The hunt, second pass (2026-10-13)
+
+Two more findings from the hunt, re-run by the lead on `c100407a` (current main, headless, `parseMarkdown`
+in core). One boarded, one parked again.
+
+| Finding | What a reader sees | Verdict at `c100407a` | Story |
+| --- | --- | --- | --- |
+| H-0021-0001 | A long paragraph after an unclosed `[` takes seconds to open as Markdown | confirmed, and steeper than filed: after a `[`, 40,000 / 80,000 / 160,000 characters parse in 299 / 1,091 / 6,845 ms; the same words with no bracket take 22 / 41 / 60 ms. The hunt's own 40k repro exits 0 on main (267 ms against its 400 ms floor), so the card's test uses 80k. The time is `previousUnbalanced` in `micromark-extension-gfm-autolink-literal` (turned on where `parse.ts` adds `gfm()`) | F-90 |
+| H-0010-0001 | A line of thousands of unclosed `[a](` takes seconds to open | confirmed again, still **parked**: 16,000 → 32,000 links took 218 → 5,067 ms (ratio 23.2) and 1,240 → 7,476 ms (ratio 6.0) on two runs. The time is micromark's `resolveAllText`, upstream; no ordinary file has this shape. Revisit if a real file does | — |
+
+### F-90 — A long paragraph after an unclosed `[` opens in time in proportion to its length
+
+**Model:** sonnet (medium) · **Size:** S · *From H-0021-0001.* · **Paths:**
+`packages/core/src/parse/parse.ts` and its tests, `changelog.d/F-90.md`; if the fix is a guard, the file that
+owns the guard's constant.
+
+What the reader sees: a Markdown file with one unclosed `[` ahead of a long paragraph waits seconds for its
+first text (about 1.1 s at 80,000 characters, 6.8 s at 160,000). Without the bracket the same words parse in
+tens of milliseconds, and a closed link or a bracket after the text costs nothing. With the `gfm()` extension
+off, the bracket text parses in about 20 ms, so the cost is GFM's autolink literal: on each alphanumeric
+`previousUnbalanced` walks the events back to the unbalanced `labelLink`, and records no shortcut when it
+finds none. Not H-0010 (unclosed `[a](` links, micromark's `resolveAllText`, parked above).
+
+Likely directions, not chosen here; the implementor decides after measuring: patch or limit the autolink-literal
+scan (a wrapped extension that short-circuits the walk), a pre-parse guard (skip the autolink literal for a
+paragraph past a length once an unclosed `[` is open, with a test that no ordinary link is lost), or an
+upstream fix with a local workaround until it lands. Whatever is chosen must leave every golden and every
+autolink-literal case (`www.`, `http://`, e-mail) byte-identical on ordinary files.
+
+**Acceptance:** a bounded-time core test: `'[' + 80,000 characters of ordinary words` parses within a fixed
+multiple of the same words without the bracket (the hunt's floor: under 4x and under 400 ms; red on main at
+about 1,100 ms); the autolink-literal cases and every golden unchanged.

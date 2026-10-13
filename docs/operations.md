@@ -47,6 +47,7 @@ and held by the byte-fidelity property over every corpus file and by its own tab
 | --- | --- | --- | --- |
 | Unwrap markdown fence | `unwrap-markdown-fence` | a `markdown`-fenced block | E-06 |
 | Promote heading, Demote heading | `promote-heading`, `demote-heading` | a heading and its section | E-07 |
+| Move section up, Move section down | `move-section-up`, `move-section-down` | a heading; the range is it and its sibling section together; offered from the inspector's Outline tab (`⌥↑`, `⌥↓`) and by the commands of the same names, never from a selection's verb menu | W-10 |
 | Renumber list, List to numbers, List to bullets, Bullets from glyphs | `renumber-list`, `list-to-numbers`, `list-to-bullets`, `bullets-from-glyphs` | a list, or a paragraph of glyph bullets | E-08, E-08.1 |
 | Sort list items | `sort-list-items` | a list | E-09 |
 | Pretty-print JSON, Re-indent YAML | `format-json`, `format-yaml` | a fenced `json` or `yaml` block | E-10 |

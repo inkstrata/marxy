@@ -1,5 +1,5 @@
 <h1 id="brindle-reference-version-42" data-marxy-s="0" data-marxy-e="32">Brindle Reference, version 4.2</h1>
-<p data-marxy-s="34" data-marxy-e="240"><em data-marxy-s="34" data-marxy-e="240">A configuration and API reference for the Brindle job scheduler. Brindle is an invented product; every name, address and value in this document was generated for a test fixture and refers to nothing real.</em></p>
+<p data-marxy-emphasis="whole" data-marxy-s="34" data-marxy-e="240"><em data-marxy-s="34" data-marxy-e="240">A configuration and API reference for the Brindle job scheduler. Brindle is an invented product; every name, address and value in this document was generated for a test fixture and refers to nothing real.</em></p>
 <h2 id="contents" data-marxy-s="242" data-marxy-e="253">Contents</h2>
 <ul data-marxy-s="255" data-marxy-e="1020">
 <li data-marxy-s="255" data-marxy-e="291"><a href="#1-introduction" data-marxy-s="257" data-marxy-e="291">1. Introduction</a></li>

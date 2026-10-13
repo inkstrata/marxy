@@ -116,12 +116,12 @@ test('a fill is made on unfold, disposed on fold and made again on the next unfo
 
 // --- what is drawn ------------------------------------------------------------------------------------------------
 
-test('unfolded with a document open: back, forward, title, Read/Split/Source, the kind chip, Copy, Transform (W-21) and Find, in that order, the sidebar toggle before them (W-07) and the inspector\'s door after them (W-09 filled its region), and nothing else', async () => {
+test('unfolded with a document open: back, forward, title, New (W-14), Read/Split/Source, the kind chip, Copy, Transform (W-21) and Find, in that order, the sidebar toggle before them (W-07) and the inspector\'s door after them (W-09 filled its region), and nothing else', async () => {
   await withPage(1280, async (page) => {
     await unfold(page);
-    assert.deepEqual(await items(page), ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
+    assert.deepEqual(await items(page), ['sidebar', 'back', 'forward', 'title', 'new', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
     const buttons = await page.evaluate(() => [...document.querySelectorAll('.marxy-toolbar button')].filter((b) => !b.closest('[hidden]')).map((b) => b.getAttribute('aria-label')));
-    assert.deepEqual(buttons, ['Show or hide the sidebar', 'Back', 'Forward', 'Read', 'Split: Read and Source side by side', 'Source', 'Kind: article. How this file is read', 'Copy as Markdown', 'Copy as…', 'Transform', 'Find in this pane', 'Show or hide the inspector']);
+    assert.deepEqual(buttons, ['Show or hide the sidebar', 'Back', 'Forward', 'New…', 'Read', 'Split: Read and Source side by side', 'Source', 'Kind: article. How this file is read', 'Copy as Markdown', 'Copy as…', 'Transform', 'Find in this pane', 'Show or hide the inspector']);
     assert.deepEqual(await radios(page), { Read: 'true', Split: 'false', Source: 'false' });
     const wording = await page.evaluate(() => document.querySelector('[data-marxy-workspace-region="toolbar"]').textContent);
     assert.doesNotMatch(wording, /extract|theme/i);
@@ -147,9 +147,9 @@ test('the door: a registered command draws its control, the next mount draws it 
       await remount();
       return { added, ran, removed: read() };
     });
-    assert.deepEqual(got.added, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'export', 'transform', 'find', 'inspector']);
+    assert.deepEqual(got.added, ['sidebar', 'back', 'forward', 'title', 'new', 'mode', 'kind', 'copy', 'export', 'transform', 'find', 'inspector']);
     assert.deepEqual(got.ran, ['transform.open'], 'the control runs its command');
-    assert.deepEqual(got.removed, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
+    assert.deepEqual(got.removed, ['sidebar', 'back', 'forward', 'title', 'new', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
   });
 });
 
@@ -177,8 +177,8 @@ test('a panel toggle waits for content in its region: a stub command alone draws
       await new Promise((r) => setTimeout(r, 50));
       return { without, withFill, docked, undocked: pressed() };
     });
-    assert.deepEqual(got.without, ['back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
-    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
+    assert.deepEqual(got.without, ['back', 'forward', 'title', 'new', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
+    assert.deepEqual(got.withFill, ['sidebar', 'back', 'forward', 'title', 'new', 'mode', 'kind', 'copy', 'transform', 'find', 'inspector']);
     assert.deepEqual([got.docked, got.undocked], ['true', 'false']);
   });
 });
@@ -427,7 +427,7 @@ const registerEveryDoor = (page) =>
     const handle = window.__marxyHandle;
     const real = handle.commands.bind(handle);
     const stub = (id, title) => ({ id, title, group: 'view', when: () => true, async run() { window.__ran = [...(window.__ran ?? []), id]; } });
-    handle.commands = () => [...real(), stub('transform.open', 'Transform'), stub('export.menu', 'Export'), stub('document.new-menu', 'New')];
+    handle.commands = () => [...real(), stub('transform.open', 'Transform'), stub('export.menu', 'Export')];
   });
 
 test('with every door registered the real row still fits at 929 px and at chrome_size 26 in a wide window; what does not fit is in More, and runs', async () => {

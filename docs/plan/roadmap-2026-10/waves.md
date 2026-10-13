@@ -9,7 +9,7 @@ stale). The ledger was brought level with GitHub on 2026-10-12 (X-26).
 1. **Done:** waves 1 to 3 (foundations, the new Night and Paper look, editing verbs) and waves 4 to 7 (the unfolded workspace, Copy as, kinds, keys, paste, toolbar, Transform, code opens in Source).
 2. **Current:** wave 8, filling the unfolded window. Tabs, sidebar and library view are merged; only the inspector's Links tab (W-09, #607) is in review.
 3. **Next:** the design pass (X-21, Opus, running): an aesthetics and usability pass on the chrome and Source view, moving toward the mock-v2 mockup, with the notifications pass (X-19) folded in. New UI surfaces wait for the author's ruling on its direction (see Design pass).
-4. **Carded:** wave 9 (themes, five kinds, the sidebar's trees); see its section. Its author questions proceed on their defaults, except K-20's placement and K-10b's ADR question. Wave 10 is carded too (the inspector, Source's editing tools, new files, the menu bar); its V-06 and W-20 wait for ADR rulings.
+4. **Carded:** wave 9 (themes, five kinds, the sidebar's trees); see its section. Its author questions proceed on their defaults, except K-20's placement and K-10b's ADR question. Wave 10 is carded and mostly merged (the inspector, Source's editing tools, new files, the menu bar); W-10, V-06 and V-04 remain. Wave 11 is carded (settings, more kinds, the palette's preview, metadata, create-only writes); F-85 and W-12 wait for ADR rulings.
 5. **Not blocked:** every author ruling and open ADR was settled on 2026-10-11 (X-18); a few small questions wait with defaults (below).
 6. **Ledger lag:** 18 states below come from GitHub, not from progress.md; the lead's ledger PR will catch up.
 
@@ -180,10 +180,10 @@ folders and saved queries from the sidebar. Cards and the dispatch order are in
 | Feature | How to reach it | Story | State | PR |
 | --- | --- | --- | --- | --- |
 | Choose Ink, Dusk and Sepia, Fjord or a high-contrast theme; the choice is remembered | Palette: "Theme: …"; folded or unfolded | [H-05](../direction-2026-10/18-cards-wave-9.md#h-05--more-themes-ink-made-reachable-dusk-and-sepia-fjord-hc-dark-and-hc-light) | merged | [#673](https://github.com/inkstrata/marxy/pull/673) |
-| An article shows its byline and dek from its front matter | Automatic for an article, in Read | [K-20](../direction-2026-10/18-cards-wave-9.md#k-20--read-an-article-the-byline-and-the-dek-from-its-front-matter) | ready | — |
+| An article shows its byline and dek from its front matter | Automatic for an article, in Read | [K-20](../direction-2026-10/18-cards-wave-9.md#k-20--read-an-article-the-byline-and-the-dek-from-its-front-matter) | in review | [#700](https://github.com/inkstrata/marxy/pull/700) |
 | A Markdown transcript sets each speaker as an outdented label | Automatic for a transcript, in Read | [K-11](../direction-2026-10/18-cards-wave-9.md#k-11--read-a-markdown-transcript-speakers-outdented-turns-spaced) | merged | [#675](https://github.com/inkstrata/marxy/pull/675) |
-| A log opens in Read with level words, timestamps and escapes shown; filter by level, jump to the first error | Automatic at open; the strip's tools (unfolded) or the palette | [K-08](../direction-2026-10/18-cards-wave-9.md#k-08--read-a-log-read-by-default-level-words-timestamps-escapes-shown-and-a-level-filter) | ready | — |
-| A diff or patch opens in Read, unified as written, with its lines tinted | Automatic at open | [K-09](../direction-2026-10/18-cards-wave-9.md#k-09--read-a-diff-read-by-default-unified-as-authored-tinted) | ready | — |
+| A log opens in Read with level words, timestamps and escapes shown; filter by level, jump to the first error | Automatic at open; the strip's tools (unfolded) or the palette | [K-08](../direction-2026-10/18-cards-wave-9.md#k-08--read-a-log-read-by-default-level-words-timestamps-escapes-shown-and-a-level-filter) | merged | [#690](https://github.com/inkstrata/marxy/pull/690) |
+| A diff or patch opens in Read, unified as written, with its lines tinted | Automatic at open | [K-09](../direction-2026-10/18-cards-wave-9.md#k-09--read-a-diff-read-by-default-unified-as-authored-tinted) | merged | [#696](https://github.com/inkstrata/marxy/pull/696) |
 | Fold a JSON or YAML file to a depth, each fold saying how many lines it hides | Source; palette "Fold to depth 1…4" | [K-10a](../direction-2026-10/18-cards-wave-9.md#k-10a--read-data-the-depth-lens-in-source) | merged | [#683](https://github.com/inkstrata/marxy/pull/683) |
 | See a CSV or TSV as a table with sticky headers, sorting and column stats | The strip's Table tool (unfolded) or the palette | [K-10b](../direction-2026-10/18-cards-wave-9.md#k-10b--read-data-the-table-lens-for-csv-and-tsv) | ready | — |
 | Browse repositories and folders as trees in the sidebar | Unfolded window; `⌃⌘S` | [W-08](../direction-2026-10/18-cards-wave-9.md#w-08--the-sidebar-ii-repositories-and-folders-as-lazy-trees) | merged | [#672](https://github.com/inkstrata/marxy/pull/672) |
@@ -194,20 +194,48 @@ folders and saved queries from the sidebar. Cards and the dispatch order are in
 See where you are in the status bar, move sections from the inspector's outline, go back to an earlier version of a file,
 format and replace in Source with a preview, be told quietly what is wrong with a file, find broken paths and near copies
 in the library, start or fork a file, and find every command in the menu bar. Cards and the dispatch order (three lanes,
-five steps) are in [`19-cards-wave-10.md`](../direction-2026-10/19-cards-wave-10.md). V-06 waits for the ruling on
-ADR-0072 (local versions), and W-20 for the ruling on ADR-0011's menu note.
+five steps) are in [`19-cards-wave-10.md`](../direction-2026-10/19-cards-wave-10.md). Both rulings it waited on were
+made on 2026-10-12: ADR-0072 (local versions) and ADR-0073 (the menu lists commands) are accepted.
 
 | Feature | How to reach it | Story | State | PR |
 | --- | --- | --- | --- | --- |
-| See the file's kind, a measure, where you are, its encoding, the theme and the text size at the window's foot; click an item to open its inspector tab | Unfolded window, the status bar | [W-11](../direction-2026-10/19-cards-wave-10.md#w-11--the-status-bar-what-the-file-is-and-where-you-are-one-click-from-its-inspector-tab) | ready | — |
-| List a document's headings with words per section in the inspector; jump to one, move a whole section up or down, promote or demote it | Inspector › Outline (`⌥⌘I`); `⌥↑` `⌥↓` on a row | [W-10](../direction-2026-10/19-cards-wave-10.md#w-10--the-inspectors-outline-tab-jump-words-per-section-move-a-section) | ready | — |
+| See the file's kind, a measure, where you are, its encoding, the theme and the text size at the window's foot; click an item to open its inspector tab | Unfolded window, the status bar | [W-11](../direction-2026-10/19-cards-wave-10.md#w-11--the-status-bar-what-the-file-is-and-where-you-are-one-click-from-its-inspector-tab) | merged | [#697](https://github.com/inkstrata/marxy/pull/697) |
+| List a document's headings with words per section in the inspector; jump to one, move a whole section up or down, promote or demote it | Inspector › Outline (`⌥⌘I`); `⌥↑` `⌥↓` on a row | [W-10](../direction-2026-10/19-cards-wave-10.md#w-10--the-inspectors-outline-tab-jump-words-per-section-move-a-section) | in review | [#703](https://github.com/inkstrata/marxy/pull/703) |
 | Go back to an earlier version of a file, see what changed since you read it, and restore a version as a copy beside the original | Inspector › Versions; palette "Show changes since you read" | [V-06](../direction-2026-10/19-cards-wave-10.md#v-06--the-inspectors-versions-tab-what-changed-earlier-copies-restore-beside-the-original) | ready | — |
-| Bold, italic, inline code, strikethrough and link in Source, and insert a table, fence, rule, details block or footnote; show whitespace and a column guide | Source: `⌘B`, `⌘I`, ``⌃` ``; palette `>Insert`, "Show whitespace", "Column guide" | [V-08](../direction-2026-10/19-cards-wave-10.md#v-08--formatting-commands-and-inserts-in-source-show-whitespace-and-the-column-guide) | ready | — |
-| Replace across a file in Source after a preview of every change, applied as one undo step | Source: `⌥⌘F`, then Replace all… | [V-03](../direction-2026-10/19-cards-wave-10.md#v-03--find-and-replace-in-source-with-a-preview-of-every-change) | ready | — |
+| Bold, italic, inline code, strikethrough and link in Source, and insert a table, fence, rule, details block or footnote; show whitespace and a column guide | Source: `⌘B`, `⌘I`, ``⌃` ``; palette `>Insert`, "Show whitespace", "Column guide" | [V-08](../direction-2026-10/19-cards-wave-10.md#v-08--formatting-commands-and-inserts-in-source-show-whitespace-and-the-column-guide) | merged | [#691](https://github.com/inkstrata/marxy/pull/691) |
+| Replace across a file in Source after a preview of every change, applied as one undo step | Source: `⌥⌘F`, then Replace all… | [V-03](../direction-2026-10/19-cards-wave-10.md#v-03--find-and-replace-in-source-with-a-preview-of-every-change) | merged | [#698](https://github.com/inkstrata/marxy/pull/698) |
 | See where a Markdown file has an unclosed fence, a skipped heading level or a missing path, as quiet marks at Source's right edge; go to the next one | Source's right edge and bottom bar; palette "Go to next note" | [V-04](../direction-2026-10/19-cards-wave-10.md#v-04--notes-about-a-file-quiet-marks-at-the-edge-a-count-and-go-to-next-note) | ready | — |
-| Find files that mention paths that do not exist, and files that are near copies of each other | Library: `is:broken`, `is:dup`; the sidebar's built-in smart collections | [Q-06](../direction-2026-10/19-cards-wave-10.md#q-06--broken-paths-and-near-duplicates-in-the-library) | ready | — |
-| Start a new file, a new file in a folder, or a fork of the open file written beside it | `⌘N`, `⇧⌘N`; the toolbar's and tab bar's +; a sidebar folder's menu; the palette | [W-14](../direction-2026-10/19-cards-wave-10.md#w-14--new-file-new-file-here-fork-this-file) | ready | — |
-| Find every command in the macOS menu bar, with its shortcut | The menu bar (macOS) | [W-20](../direction-2026-10/19-cards-wave-10.md#w-20--the-native-menu-bar-every-command-findable-every-shortcut-checked) | ready | — |
+| Find files that mention paths that do not exist, and files that are near copies of each other | Library: `is:broken`, `is:dup`; the sidebar's built-in smart collections | [Q-06](../direction-2026-10/19-cards-wave-10.md#q-06--broken-paths-and-near-duplicates-in-the-library) | merged | [#692](https://github.com/inkstrata/marxy/pull/692) |
+| Start a new file, a new file in a folder, or a fork of the open file written beside it | `⌘N`, `⇧⌘N`; the toolbar's and tab bar's +; a sidebar folder's menu; the palette | [W-14](../direction-2026-10/19-cards-wave-10.md#w-14--new-file-new-file-here-fork-this-file) | merged | [#701](https://github.com/inkstrata/marxy/pull/701) |
+| Find every command in the macOS menu bar, with its shortcut | The menu bar (macOS) | [W-20](../direction-2026-10/19-cards-wave-10.md#w-20--the-native-menu-bar-every-command-findable-every-shortcut-checked) | merged | [#704](https://github.com/inkstrata/marxy/pull/704) |
+
+## Wave 11 (carded): settings, kinds read as they are, the palette's preview, metadata on demand
+
+Open Settings as a page with a Privacy page, follow the system's contrast, read terminal sessions, docs, notes,
+changelogs and agent JSONL sessions as what they are, preview files in the palette, show and edit front matter on
+demand, and never have a fork or a copy replace a file. Cards and the dispatch order (four lanes, five steps) are in
+[`20-cards-wave-11.md`](../direction-2026-10/20-cards-wave-11.md). F-85 waits for the ruling on ADR-0074 (a create-only
+write), and W-12 for the ruling on ADR-0075 (a settings page in v1, amending ADR-0019).
+
+| Feature | How to reach it | Story | State | PR |
+| --- | --- | --- | --- | --- |
+| Open Settings as a page: find any setting by typing, see and reset what you changed, and read everything Marxy keeps and everything that can leave the machine | `⌘,`, the Marxy menu, or the palette (unfolds the window) | [W-12](../direction-2026-10/20-cards-wave-11.md#w-12--settings-as-a-page-find-any-setting-see-what-you-changed-read-what-marxy-keeps) | ready | — |
+| Marxy follows the system's Increase contrast; or ask for more contrast, or solid fills, in `config.toml` | Automatic; `contrast` and `reduce_transparency` keys (W-12's Accessibility page) | [W-22](../direction-2026-10/20-cards-wave-11.md#w-22--follow-the-systems-increase-contrast-contrast-and-transparency-in-configtoml) | ready | — |
+| See a file's first lines, a section or a transform's result before opening it; search every document's headings | The palette's preview column; `@` in the palette | [W-13](../direction-2026-10/20-cards-wave-11.md#w-13--the-palette-shows-what-you-are-about-to-open-and--finds-any-heading) | ready | — |
+| Show a file's front matter and facts beside the text, and change a front-matter value without Source | `⌃⌘I`; Inspector › Metadata | [W-17](../direction-2026-10/20-cards-wave-11.md#w-17--metadata-on-demand-i-a-quiet-margin-preview-and-the-metadata-tab) | ready | — |
+| Read a terminal session as commands and their output; copy only the commands, or only the output | Automatic for `.term` and `.session`, and `console` fences; the strip's tools | [K-17](../direction-2026-10/20-cards-wave-11.md#k-17--read-a-terminal-session-commands-and-their-output-grouped) | ready | — |
+| Read docs pages, notes and changelogs each in their own setting; copy a release's notes in one action | Automatic by kind; the strip's *Copy release notes* | [K-22](../direction-2026-10/20-cards-wave-11.md#k-22--read-docs-notes-and-changelogs-each-in-its-own-setting) | ready | — |
+| Read an agent's JSONL session as a conversation, with the raw lines one key away | A `[[kind]]` rule or *Show as Transcript*, then Read; `⌘E` for the lines | [K-12](../direction-2026-10/20-cards-wave-11.md#k-12--read-an-agents-jsonl-session-as-a-conversation) | ready | — |
+
+**Fixes and follow-ups.**
+
+| Fix or follow-up | Story | State | PR |
+| --- | --- | --- | --- |
+| Fork, keep-mine copies and restored versions can never replace a file, however unlucky the timing | [F-85](../direction-2026-10/20-cards-wave-11.md#f-85--a-write-that-can-never-replace-a-file) | ready | — |
+| The word count counts words in every script, and skips code and front matter | [F-86](../direction-2026-10/20-cards-wave-11.md#f-86--the-status-bars-word-count-words-in-every-script-and-only-the-readers-words) | ready | — |
+| A long outline stays quick in the inspector | [W-10.2](../direction-2026-10/20-cards-wave-11.md#w-102--the-outline-tab-stays-quick-on-a-document-with-thousands-of-headings) | ready | — |
+| A log's level filter answers its click at once; very long log lines show their text once | [K-08.1](../direction-2026-10/20-cards-wave-11.md#k-081--a-logs-level-filter-answers-its-click-at-once-a-very-long-line-shows-its-text-exactly-once) | ready | — |
+| A combined diff from a merge is tinted | [K-09.1](../direction-2026-10/20-cards-wave-11.md#k-091--a-combined-diff-is-tinted-like-any-other) | ready | — |
 
 ## Waiting on the author
 

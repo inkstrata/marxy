@@ -7,6 +7,7 @@ import type { AppHandle } from '../app.ts';
 import { mountKindChip, mountStrip } from './kind-chip.ts';
 import { mountInspector, registerInspectorTab } from './inspector.ts';
 import { LINKS_TAB } from './links-tab.ts';
+import { OUTLINE_TAB } from './outline-tab.ts';
 import { installPeek } from './peek.ts';
 import { mountSidebar } from './sidebar-view.ts';
 import { mountTabs } from './tabs-view.ts';
@@ -26,8 +27,9 @@ export function installWorkspaceFills(handle: AppHandle): void {
   workspace.fill('sidebar', (el) => mountSidebar(el, handle, signal));
   // The documents opened since the window unfolded, one click apart; the band hides itself below two (W-06). Folded there are no tabs.
   workspace.fill('tabs', (el) => mountTabs(el, handle, signal));
-  // The inspector: a strip of the tabs registered (Links is the only one; Outline, Metadata and Versions register theirs, W-10, W-17, V-06) and the selected panel. Folded there is none.
+  // The inspector: a strip of the tabs registered (Links, then Outline: the headings with the words of each section, where a row jumps or moves its section, W-10; Metadata and Versions register theirs, W-17, V-06) and the selected panel. Folded there is none.
   registerInspectorTab(LINKS_TAB);
+  registerInspectorTab(OUTLINE_TAB);
   workspace.fill('inspector', (el) => mountInspector(el, handle, signal));
   // The status bar: the file's kind, one measure, where you are and its encoding on the left, the theme and text size on the right; an item with a tab behind it opens that tab (W-11). Folded there is none.
   workspace.fill('status-bar', (el) => mountStatusBar(el, handle, signal));

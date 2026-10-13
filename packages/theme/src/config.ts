@@ -43,7 +43,7 @@ export const STRIP_TOOL_IDS: readonly string[] = [
   'examples-only', 'search-docs', 'prev-next',
   'line-numbers', 'wrap', 'symbols', 'go-to-line',
   'collapse-tools', 'only-you', 'only-assistant',
-  'column-stats', 'filter', 'transpose', 'chart',
+  'table', 'column-stats', 'filter', 'transpose',
   'backlinks', 'append-clipboard', 'daily',
   'versions',
   'filter-by-level', 'jump-to-first-error', 'follow-tail',

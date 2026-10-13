@@ -64,3 +64,30 @@ level word inside a message that is not a level; a tab inside a line; and two AN
 added, removed and context lines, an <code data-marxy-s="4949" data-marxy-e="4956">index</code> line, hunk headers with a function name after the second <code data-marxy-s="5014" data-marxy-e="5018">@@</code>, one added line
 long enough to wrap in the reader (the hang past the marker column), and a <code data-marxy-s="5110" data-marxy-e="5139">\ No newline at end of file</code> note. Every name
 is invented. A <code data-marxy-s="5172" data-marxy-e="5179">.diff</code> opens in Read; the goldens move only if the code-file parse or the kind table does.</p>
+<h2 data-marxy-s="5265" data-marxy-e="5288">33-article-byline.md</h2>
+<p data-marxy-s="5290" data-marxy-e="5817">Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair
+of outer quotes the byline drops), a date and a web source with a path and a query, after a title, a description and a
+list of tags, so the byline’s rows move ahead of rows the bytes put first. Its opening paragraph is wholly in emphasis
+directly after the title; the description is the dek, so that paragraph stays a paragraph (the key wins). Every name is
+invented; the source is <code data-marxy-s="5792" data-marxy-e="5805">example.org</code> (RFC 2606).</p>
+<h2 id="sectionsmd-and-sections-crlfmd" data-marxy-s="5819" data-marxy-e="5854">sections.md and sections-crlf.md</h2>
+<p data-marxy-s="5856" data-marxy-e="6520">Original text written for W-10: the document the Outline tab’s moves are tried on, twice, the second with every line ending CRLF.
+It has front matter holding a <code data-marxy-s="6016" data-marxy-e="6019">#</code> line, an introduction before the first heading, two ATX sibling sections with a section of their
+own below one of them, a fence, a quote and a list item that each hold a <code data-marxy-s="6190" data-marxy-e="6193">#</code> line that is not a heading, a table, two setext
+headings (<code data-marxy-s="6252" data-marxy-e="6257">===</code> and <code data-marxy-s="6262" data-marxy-e="6267">---</code>), a heading indented by three spaces, and a last section with no final line ending and no full stop (so the file ends on a
+text byte, in both, and a move of that section changes the file’s last byte on purpose). The goldens move only if the parse does.</p>
+<p data-marxy-s="6522" data-marxy-e="6942">The two files have no number on purpose: the numbered <code data-marxy-s="6576" data-marxy-e="6581">.md</code> files are the reading corpus, and each owes the aesthetics gate a screenshot baseline for
+each engine (<code data-marxy-s="6685" data-marxy-e="6701">packages/theme</code> tests, <code data-marxy-s="6709" data-marxy-e="6730">gate-aesthetics.mjs</code>, <code data-marxy-s="6732" data-marxy-e="6750">probe-layout.mjs</code>). These are text for operations and the save path to be tried on, not pages to be
+judged, so the goldens, the fidelity gate and the operation tests read them and the aesthetics gate does not.</p>
+<h2 data-marxy-s="6943" data-marxy-e="6960">37-results.csv</h2>
+<p data-marxy-s="6962" data-marxy-e="7349">Original data written for K-10b: a benchmark table in the shape of the mock’s <code data-marxy-s="7040" data-marxy-e="7051">bench-csv</code> (a corpus name, five numbers and
+a host), eight rows under a header row of distinct words, so the table lens uses row 1 as its header. <code data-marxy-s="7187" data-marxy-e="7196">cold_ms</code> holds
+numbers whose text order is not their numeric order (<code data-marxy-s="7256" data-marxy-e="7262">9900</code> after <code data-marxy-s="7269" data-marxy-e="7277">118400</code> as text), which the sort test reads. Every name
+and number is invented.</p>
+<h2 data-marxy-s="7351" data-marxy-e="7368">38-awkward.csv</h2>
+<p data-marxy-s="7370" data-marxy-e="8061">Original data written for K-10b: every case the table lens must show honestly, in one CRLF file that starts with a UTF-8
+byte-order mark. A quoted field holding a comma; a doubled quote (<code data-marxy-s="7557" data-marxy-e="7575">"said ""hello"""</code>, a decoded cell); a quoted CRLF inside
+a field; empty fields; a short row and a long one (ragged); a byte after a closing quote (<code data-marxy-s="7705" data-marxy-e="7713">"Gil"x</code>, an unreadable row); a
+blank line; a bidi control (U+202E) and a zero-width space inside a quoted field; a space before a quote (<code data-marxy-s="7843" data-marxy-e="7854"> "spaced"</code>,
+verbatim); an unclosed quote on a line of its own, with a well-formed row after it; and cells a spreadsheet would run
+(<code data-marxy-s="7975" data-marxy-e="7986">=SUM(…)</code>, <code data-marxy-s="7988" data-marxy-e="7994">+cmd</code>, <code data-marxy-s="7996" data-marxy-e="8003">@risk</code>) next to a plain <code data-marxy-s="8021" data-marxy-e="8025">-5</code>. Every name and number is invented.</p>

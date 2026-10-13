@@ -7,17 +7,22 @@ import type { AppPane } from '../pane/index.ts';
 import type { Pane } from '../pane/pane-set.ts';
 import { dismiss, notify } from '../notices/index.ts';
 import { openVerbMenu, type MenuAnchor, type VerbMenuRow } from '../selection/verb-menu.ts';
-import { countHidden, firstErrorOffset, hasLevelWords, LEVELS, levelOf, NO_LEVEL_WORDS, type Level } from '../kinds/log-filter.ts';
+import { countHidden, type HiddenCount, firstErrorOffset, hasLevelWords, LEVELS, levelOf, NO_LEVEL_WORDS, type Level } from '../kinds/log-filter.ts';
 import { appHandle } from './app-handle.ts';
 import type { AppContext, Command } from './registry.ts';
 
 const yieldNow = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
+/** Resolves once the frame that follows has been drawn: a task queued from inside a frame's callback runs after its paint. */
+const afterPaint = (): Promise<void> => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+
 /**
  * The page half and the line splitter are loaded when a log tool is first used: the splitter is `render/highlight.ts`,
  * which reaches the highlighter, and nothing on the way to first text may import that statically (MARXY-33, `gate:bundle`).
  */
-const pageHalf = () => import('../kinds/log-view.ts');
+type PageHalf = typeof import('../kinds/log-view.ts');
+let loaded: PageHalf | null = null;
+const pageHalf = async (): Promise<PageHalf> => (loaded ??= await import('../kinds/log-view.ts'));
 const splitter = () => import('../render/highlight.ts');
 
 /** The focused pane when it is a log in Read, with pieces on the page to filter. */
@@ -85,7 +90,9 @@ async function setLevel(level: Level): Promise<void> {
   const buffer = store.snapshot().buffer;
   const article = pane.article;
   const current = (): boolean => pane.view.store() === store && article.isConnected;
-  const { filterFor, filterOf } = await pageHalf();
+  // Already loaded when the menu was opened (`run` awaits it): nothing before the classes below waits, so they are on the page
+  // in the task of the click, before any frame.
+  const { filterFor, filterOf, FILTERING, FILTER_BUSY } = loaded ?? (await pageHalf());
   const held = filterOf(article, store);
   if (level.min === 0 && held === undefined) {
     notify({ kind: 'done', text: 'All lines shown · the file is unchanged' });
@@ -93,7 +100,6 @@ async function setLevel(level: Level): Promise<void> {
   }
   const mine = ++latest;
   const filter = held ?? filterFor(article, store, current);
-  const counting = level.min === 0 ? null : countHidden(buffer.text, level.min, yieldNow, { aborted: () => !current() || mine !== latest });
   const words = (fraction: number): string =>
     `${level.min === 0 ? 'Showing all lines' : `Filtering to ${level.label}`} · ${Math.round(fraction * 100)}% · the file is unchanged · Esc stops`;
   const pill = notify({
@@ -112,6 +118,17 @@ async function setLevel(level: Level): Promise<void> {
     void setLevel(levelOf('all'));
   };
   document.addEventListener('keydown', onEscape, true);
+  // The click is answered first: the menu has closed and the pill is up, and the frame that shows them is drawn before the
+  // first slice of the count or of the page's work runs (K-08.1). A later choice, or the document going, ends this one.
+  // The one thing the click does to the page: a piece not yet filtered is not drawn (a neutral "Filtering…" stands for it), so
+  // no frame between the click and the work shows a line the level hides. A class on the article; no piece is read or touched.
+  if (level.min !== 0) article.classList.add(FILTERING);
+  // Busy from the click: a copy or a find in the frames before the work begins is told to wait, as it is while the work runs.
+  article.classList.add(FILTER_BUSY);
+  const waiting = afterPaint();
+  let begun!: () => void;
+  filter.hold(new Promise<void>((resolve) => (begun = resolve)));
+  let counting: Promise<HiddenCount | null> | null = null;
   const leave = (): void => {
     stop();
     document.removeEventListener('keydown', onEscape, true);
@@ -147,7 +164,17 @@ async function setLevel(level: Level): Promise<void> {
       });
     })();
   });
+  await waiting;
+  if (mine !== latest || !current()) {
+    // A later choice owns the page now; a document that went takes its own classes with it.
+    if (mine === latest) article.classList.remove(FILTERING, FILTER_BUSY);
+    leave();
+    begun();
+    return;
+  }
+  if (level.min !== 0) counting = countHidden(buffer.text, level.min, yieldNow, { aborted: () => !current() || mine !== latest });
   filter.setLevel(level);
+  begun();
 }
 
 /** The line holding the first ERROR or worse, brought to the middle of the pane. */

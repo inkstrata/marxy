@@ -1,0 +1,61 @@
+document [0,903)
+  frontmatter [0,66) value="title: Sections\n# a comment in front matter, not a heading"
+  paragraph [68,132)
+    text [68,132) value="A few words before the first heading. They belong to no section."
+  heading [134,147) level=1
+    text [136,147) value="Field notes"
+  paragraph [149,218)
+    text [149,218) value="Two sibling sections follow, and the second has a section of its own."
+  heading [220,229) level=2
+    text [223,229) value="Method"
+  paragraph [231,295)
+    text [231,295) value="How the notes were taken, in a paragraph of a dozen or so words."
+  codeBlock [297,337) lang=md info="md" content=[303,334) value="# a heading in a fence is text"
+  heading [339,349) level=2
+    text [342,349) value="Results"
+  table [351,411) align=-,-
+    tableRow [351,368) header=true
+      tableCell [351,359)
+        text [353,358) value="Place"
+      tableCell [359,368)
+        text [361,366) value="Count"
+    tableRow [383,397) header=false
+      tableCell [383,391)
+        text [385,390) value="North"
+      tableCell [391,397)
+        text [393,395) value="12"
+    tableRow [398,411) header=false
+      tableCell [398,406)
+        text [400,405) value="South"
+      tableCell [406,411)
+        text [408,409) value="7"
+  heading [413,425) level=3
+    text [417,425) value="Odd ones"
+  blockquote [427,500)
+    heading [429,473) level=6
+      text [436,473) value="a heading in a quote is not a section"
+    paragraph [476,500)
+      text [476,500) value="It is part of the quote."
+  list [502,555) ordered=false tight=true
+    listItem [502,536)
+      heading [504,536) level=6
+        text [511,536) value="nor is one in a list item"
+    listItem [537,555)
+      paragraph [539,555)
+        text [539,555) value="the item goes on"
+  heading [557,588) level=1
+    text [557,572) value="Setext headings"
+  paragraph [590,660)
+    text [590,660) value="A setext heading is a section like any other, and moves with its text."
+  heading [662,703) level=2
+    text [662,682) value="Second level, setext"
+  paragraph [705,753)
+    text [705,753) value="Its own few words, and then an indented heading."
+  heading [758,778) level=2
+    text [761,778) value="Indented by three"
+  paragraph [780,844)
+    text [780,844) value="The indent belongs to the heading's line, so it travels with it."
+  heading [846,860) level=1
+    text [848,860) value="Last section"
+  paragraph [862,903)
+    text [862,903) value="The last section has no final line ending"

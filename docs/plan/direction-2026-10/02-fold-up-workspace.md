@@ -176,7 +176,8 @@ copy* or *take theirs*, whoever wrote it.
 - **New file** (`⌘N`): an untitled scratch document that writes nothing until Save As (E-13).
 - **New file here**: from a folder's context menu in the sidebar, named on first save.
 - **Fork this file** (`⇧⌘N`): a copy written *beside* the original as `name (fork).md`, never over
-  it, opened in a new tab, with undo in the confirmation.
+  it, opened in a new tab. The notice names the file where it was written; there is no undo, because undoing a written file means
+  deleting it and the shell has no delete (W-14, question 2).
 
 All three are in the toolbar's **+** menu, the tab bar's **+**, and the palette, and work folded.
 

@@ -20,7 +20,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
@@ -249,7 +249,73 @@ function roundTrip(binary, names, label) {
  * from a JavaScript string is not the byte offset and the naive version would cut the document apart
  * in the wrong place.
  */
-function checkEditedDocumentIsSpliced(binary) {
+/**
+ * Saves `original` with `[start, end)` replaced by `replacement` through the real save path and checks that the range took the
+ * replacement and no other byte, line ending or last byte moved. Returns whether it held.
+ */
+function saveSpliced(binary, dir, file, original, start, end, replacement, label, { lastByte = 'same' } = {}) {
+  const spliced = Buffer.concat([original.subarray(0, start), replacement, original.subarray(end)]);
+  const source = join(dir, `${file}.spliced`);
+  const destination = join(dir, file);
+  writeFileSync(source, spliced);
+  writeFileSync(destination, original);
+  const error = save(binary, source, destination);
+  if (error) {
+    fail(`edit: saving ${label} was refused: ${error}`);
+    return false;
+  }
+  const saved = readFileSync(destination);
+  let held = true;
+  const bad = (message) => {
+    fail(`edit: saving ${label} ${message}`);
+    held = false;
+  };
+  if (!saved.subarray(0, start).equals(original.subarray(0, start))) bad('changed bytes before the edited range');
+  if (!saved.subarray(start, start + replacement.length).equals(replacement)) bad('did not put the edit in its range');
+  if (!saved.subarray(start + replacement.length).equals(original.subarray(end))) bad('changed bytes after the edited range');
+  // An edit leaves the last byte as it was. A move of the last section puts another section's text last, so there the file keeps
+  // what matters: it ends with a line ending if it did, and on text if it did.
+  const isBreak = (byte) => byte === 0x0a || byte === 0x0d;
+  if (lastByte === 'same' ? saved.at(-1) !== original.at(-1) : isBreak(saved.at(-1)) !== isBreak(original.at(-1))) bad("changed the document's last byte");
+  const crlfCount = (bytes) => bytes.toString('latin1').split('\r\n').length - 1;
+  if (crlfCount(saved) !== crlfCount(original)) bad('changed its line endings');
+  return held;
+}
+
+/**
+ * The section moves (W-10) as edits: for each corpus file that is a sections fixture, each top-level heading moved up and moved down
+ * by the real operations (`move-section-up`, `move-section-down`), as the range they cover and the replacement they give. The gate
+ * saves each through the real save path, so a move that touched a byte outside its two sections, lost the final line ending of a file
+ * that had none, or changed a CRLF turns it red. Empty when the fixtures are not in the corpus (`checkCorpusPreconditions` says so).
+ */
+async function sectionMoveEdits() {
+  const names = corpus.filter((name) => /^sections(-crlf)?\.md$/.test(name));
+  if (names.length === 0) return [];
+  const load = (path) => import(pathToFileURL(join(repoRoot, 'packages', 'core', 'src', path)).href);
+  const [{ parseMarkdown }, { sectionSwapOf, moveSectionUp, moveSectionDown }] = await Promise.all([load('parse/parse.ts'), load('operations/move-section.ts')]);
+  const out = [];
+  for (const file of names) {
+    const original = bytesOf(file);
+    const doc = parseMarkdown(new Uint8Array(original), { file });
+    const headings = doc.children.filter((block) => block.type === 'heading');
+    for (const [direction, op] of [['up', moveSectionUp], ['down', moveSectionDown]]) {
+      for (const heading of headings) {
+        const swap = sectionSwapOf(doc, heading, direction);
+        if (swap === null) continue;
+        const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(original.subarray(swap.range.start, swap.range.end));
+        const input = { document: doc, node: heading, range: swap.range, text };
+        if (!op.canApply(input)) {
+          fail(`edit: ${op.id} refuses the section at byte ${heading.src.start} of ${file}, which has a sibling`);
+          continue;
+        }
+        out.push({ file, label: `${file} (${op.id} at byte ${heading.src.start})`, start: swap.range.start, end: swap.range.end, replacement: Buffer.from(op.run(input).replacement, 'utf-8') });
+      }
+    }
+  }
+  return out;
+}
+
+function checkEditedDocumentIsSpliced(binary, moves) {
   const dir = join(work, 'edited');
   mkdirSync(dir, { recursive: true });
 
@@ -270,42 +336,21 @@ function checkEditedDocumentIsSpliced(binary) {
     }
     const start = byteOffsetAt(text, at);
     const end = byteOffsetAt(text, at + find.length);
-    const replacement = Buffer.from(replaceWith, 'utf-8');
-    const spliced = Buffer.concat([original.subarray(0, start), replacement, original.subarray(end)]);
-
-    const source = join(dir, `${file}.spliced`);
-    const destination = join(dir, file);
-    writeFileSync(source, spliced);
-    writeFileSync(destination, original);
-    const error = save(binary, source, destination);
-    if (error) {
-      fail(`edit: saving an edited ${file} was refused: ${error}`);
-      continue;
-    }
-
-    const saved = readFileSync(destination);
-    if (!saved.subarray(0, start).equals(original.subarray(0, start))) {
-      fail(`edit: saving ${file} changed bytes before the edited range`);
-    }
-    if (!saved.subarray(start, start + replacement.length).equals(replacement)) {
-      fail(`edit: saving ${file} did not put the edit in its range`);
-    }
-    if (!saved.subarray(start + replacement.length).equals(original.subarray(end))) {
-      fail(`edit: saving ${file} changed bytes after the edited range`);
-    }
-    if (saved.at(-1) !== original.at(-1)) {
-      fail(`edit: saving ${file} changed the document's last byte`);
-    }
-    const crlfCount = (bytes) => bytes.toString('latin1').split('\r\n').length - 1;
-    if (crlfCount(saved) !== crlfCount(original)) {
-      fail(`edit: saving ${file} changed its line endings`);
-    }
-    edited++;
+    if (saveSpliced(binary, dir, file, original, start, end, Buffer.from(replaceWith, 'utf-8'), `an edited ${file}`)) edited++;
   }
   if (edited > 0) {
     console.log(
       `fidelity: save-after-operation — an edited document saves its spliced range and nothing else (${edited} documents, byte offsets over UTF-16 ones; MARXY-49)`,
     );
+  }
+
+  let movedOk = 0;
+  for (const { file, label, start, end, replacement } of moves) {
+    if (saveSpliced(binary, dir, file, bytesOf(file), start, end, replacement, label, { lastByte: 'ending' })) movedOk++;
+  }
+  if (moves.length === 0) fail('edit: no section move was made over the sections fixtures, so the move-section operations are not under the gate');
+  else if (movedOk === moves.length) {
+    console.log(`fidelity: save-after-move — ${movedOk} section moves (move-section-up, move-section-down) over ${new Set(moves.map((m) => m.file)).size} fixtures save their two sections and nothing else, and keep the last byte and the line endings (W-10)`);
   }
 
   // The CRLF-and-BOM fixture must genuinely punish an offset taken from the decoded string, or the
@@ -649,7 +694,7 @@ if (savePath) {
   if (changed.length === 0) {
     console.log(`fidelity: ${corpus.length} corpus files survive open → save byte-identically, including ${HARD_FIXTURES.join(' and ')}`);
   }
-  checkEditedDocumentIsSpliced(savePath);
+  checkEditedDocumentIsSpliced(savePath, await sectionMoveEdits());
   checkTheGateWouldCatchANormalisingSave();
 }
 

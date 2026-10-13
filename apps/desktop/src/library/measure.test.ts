@@ -72,6 +72,17 @@ test('a 300 KB file is measured on its first 256 KB and its reason reads "≥"',
   assert.ok(reason.kind === 'field' && reason.detail!.startsWith('≥'), 'the row says "at least"');
 });
 
+test('a Markdown file is measured without its code and front matter, a text file as it stands (F-86)', async () => {
+  const body = '---\nt: a b c\n---\nTwo words\n\n```\none two three\n```\n';
+  const r = reader({ '/r/a.md': body, '/r/a.txt': body });
+  const cache = new MeasureCache();
+  const a = entry('/r/a.md', body.length);
+  const b = entry('/r/a.txt', body.length);
+  await measureFiles([a, b], r.read, cache);
+  assert.equal(cache.get(a)!.words, 2);
+  assert.equal(cache.get(b)!.words, 9);
+});
+
 test('a changed file is measured again; an unchanged one is not', async () => {
   const r = reader({ '/r/a.md': words(10) });
   const cache = new MeasureCache();

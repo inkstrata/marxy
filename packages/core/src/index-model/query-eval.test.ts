@@ -348,6 +348,20 @@ test('hasLink finds exactly what the old link pattern found, on every short stri
     assert.equal(hasLink(text), LINK_REFERENCE.test(text), text);
 });
 
+test('words: counts as the status bar does: a Japanese paragraph is many words, and a Markdown file\'s code and front matter are not words', () => {
+  const japanese = '今日は公園に行きました。明日は雨が降るでしょう。天気予報を見ました。';
+  assert.equal(japanese.split(/\s+/).length, 1, 'the old rule saw one run');
+  const m = new Map<string, Measured>([
+    ['/r/plans/cache.md', measureText(japanese, { markdown: true })],
+    ['/r/plans/archive/old-cache.md', measureText('---\na: b c d e f\n---\nTwo words\n\n```\none two three four five six\n```\n', { markdown: true })],
+  ]);
+  assert.deepEqual(run('kind:report words:>3', { measures: m }), ['/r/plans/cache.md']);
+  assert.equal(m.get('/r/plans/archive/old-cache.md')!.words, 2);
+  assert.equal(measureText('one two\n```\nthree four\n```\n').words, 4, 'a file read as text counts every line, fences included');
+  assert.equal(measureText('---\nx: y\n---\nbody', { markdown: true }).hasCode, false);
+  assert.equal(measureText('a\n```\nb\n```\n', { markdown: true }).hasCode, true, 'has:code still reads the whole text');
+});
+
 test('measureText is linear in a long line: 256 KB of one repeated link opener is measured in well under a second', () => {
   // Each of these is quadratic under the old pattern (64 KB of `[[` took 40 s, a 256 KB file did not finish in two
   // minutes). The fastest of several runs, because a load spike only ever makes a run slower and a quadratic scan is

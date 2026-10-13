@@ -1,0 +1,47 @@
+<dl data-marxy-s="0" data-marxy-e="66">
+<dt data-marxy-fm-key="title">title</dt>
+<dd data-marxy-fm-key="title">Sections</dd>
+</dl>
+<p data-marxy-s="68" data-marxy-e="132">A few words before the first heading. They belong to no section.</p>
+<h1 id="field-notes" data-marxy-s="134" data-marxy-e="147">Field notes</h1>
+<p data-marxy-s="149" data-marxy-e="218">Two sibling sections follow, and the second has a section of its own.</p>
+<h2 id="method" data-marxy-s="220" data-marxy-e="229">Method</h2>
+<p data-marxy-s="231" data-marxy-e="295">How the notes were taken, in a paragraph of a dozen or so words.</p>
+<pre class="language-md" data-marxy-s="297" data-marxy-e="337"><code class="language-md" data-marxy-s="303" data-marxy-e="334"># a heading in a fence is text
+</code></pre>
+<h2 id="results" data-marxy-s="339" data-marxy-e="349">Results</h2>
+<table data-marxy-s="351" data-marxy-e="411">
+<thead>
+<tr data-marxy-s="351" data-marxy-e="368">
+<th data-marxy-s="351" data-marxy-e="359">Place</th>
+<th data-marxy-s="359" data-marxy-e="368">Count</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="383" data-marxy-e="397">
+<td data-marxy-s="383" data-marxy-e="391">North</td>
+<td data-marxy-s="391" data-marxy-e="397">12</td>
+</tr>
+<tr data-marxy-s="398" data-marxy-e="411">
+<td data-marxy-s="398" data-marxy-e="406">South</td>
+<td data-marxy-s="406" data-marxy-e="411">7</td>
+</tr>
+</tbody>
+</table>
+<h3 id="odd-ones" data-marxy-s="413" data-marxy-e="425">Odd ones</h3>
+<blockquote data-marxy-s="427" data-marxy-e="500">
+<h6 id="a-heading-in-a-quote-is-not-a-section" data-marxy-s="429" data-marxy-e="473">a heading in a quote is not a section</h6>
+<p data-marxy-s="476" data-marxy-e="500">It is part of the quote.</p>
+</blockquote>
+<ul data-marxy-s="502" data-marxy-e="555">
+<li data-marxy-s="502" data-marxy-e="536"><h6 id="nor-is-one-in-a-list-item" data-marxy-s="504" data-marxy-e="536">nor is one in a list item</h6></li>
+<li data-marxy-s="537" data-marxy-e="555">the item goes on</li>
+</ul>
+<h1 id="setext-headings" data-marxy-s="557" data-marxy-e="588">Setext headings</h1>
+<p data-marxy-s="590" data-marxy-e="660">A setext heading is a section like any other, and moves with its text.</p>
+<h2 id="second-level-setext" data-marxy-s="662" data-marxy-e="703">Second level, setext</h2>
+<p data-marxy-s="705" data-marxy-e="753">Its own few words, and then an indented heading.</p>
+<h2 id="indented-by-three" data-marxy-s="758" data-marxy-e="778">Indented by three</h2>
+<p data-marxy-s="780" data-marxy-e="844">The indent belongs to the heading’s line, so it travels with it.</p>
+<h1 id="last-section" data-marxy-s="846" data-marxy-e="860">Last section</h1>
+<p data-marxy-s="862" data-marxy-e="903">The last section has no final line ending</p>

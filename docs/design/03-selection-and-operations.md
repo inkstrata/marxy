@@ -173,6 +173,7 @@ property and by `assertMinimalDiff` against the bytes each means to change (`ope
 | --- | --- | --- |
 | `unwrap-markdown-fence` | a `markdown` or `md` fenced block | the two fence lines go; every content byte stays |
 | `promote-heading`, `demote-heading` | a heading (its section is the range) | the `#` run of the heading and of each sub-heading, one level |
+| `move-section-up`, `move-section-down` | a heading, with both sections it trades as the range (`sectionSwapOf`) | nothing is rewritten: the two sections change places, each with its own bytes; if the second ends with no line ending (the last section of a file with none) the first one's line endings come between them, so the file ends as it did (W-10) |
 | `renumber-list`, `list-to-numbers`, `list-to-bullets`, `bullets-from-glyphs` | a list; a paragraph of glyph bullets | the marker bytes, and the continuation lines' indent where a marker's width moved |
 | `sort-list-items` | a list | the order of the top-level items, A to Z, each carrying its own bytes |
 | `format-json`, `format-yaml` | a fenced `json` or `yaml` block | the whitespace of the block's content, two spaces per level |
@@ -209,6 +210,12 @@ lens selects it.
   The stats and the sort read; the sort orders the view, never the file. Transform may run on the value with its result
   to the sheet or the clipboard, never Apply. No operation, no edit of a cell, no Source for one block.
 - A drag inside the grid is `derived-text` and copies what it covers as displayed.
+- **Copy as on a cell** (`⇧⌘C`, K-10b): *Value (plain text)*, *Source field (CSV)* (a CSV only), *Table as TSV* and *Table
+  as CSV*. The two table targets copy the grid as shown (row 1 when it is the header, then the rows in the view's order; an
+  unreadable row is its raw line in one cell; an absent cell is empty) and guard every formula as the table copies below do.
+- **Where it is built:** `packages/core/src/data/delimited.ts` (the deriver, `decodeCsvField`, `checkTableInvariants`),
+  `packages/core/src/data/table-view.ts` (the sliced sort and stats), `apps/desktop/src/kinds/table-lens.ts` (the grid, the
+  selection, its copies and menus) and `apps/desktop/src/commands/data.ts` (*Table view*, *Column stats*).
 
 **Widening.** A click on a table cell offers the table's verbs, and a click on a task item's text
 offers "Toggle task". The node's own operation input is tried first, then the enclosing `table` or

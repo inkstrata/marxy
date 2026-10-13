@@ -372,7 +372,7 @@ test('catalogue: OPERATIONS is the clipboard operations then the mutating ones, 
   assert.deepEqual(ids(MUTATING_OPERATIONS), sorted(ids(MUTATING_OPERATIONS)), 'MUTATING_OPERATIONS is sorted by id');
   assert.deepEqual(OPERATIONS, [...CLIPBOARD_OPERATIONS, ...MUTATING_OPERATIONS]);
   // The set is main's: no operation added or dropped by the reordering.
-  assert.deepEqual(sorted(ids(OPERATIONS)), sorted(['copy-code-clean', 'copy-section', 'copy-source', 'copy-plain', 'copy-rich', 'copy-table-tsv', 'copy-table-csv', 'copy-table-json', 'copy-command', 'extract-code-blocks', 'extract-tasks', 'extract-links', 'toggle-task', 'align-table-pipes', 'promote-heading', 'demote-heading', 'unwrap-markdown-fence', 'sort-list-items', 'dedupe-lines', 'renumber-list', 'list-to-numbers', 'list-to-bullets', 'bullets-from-glyphs', 'format-json', 'format-yaml']));
+  assert.deepEqual(sorted(ids(OPERATIONS)), sorted(['copy-code-clean', 'copy-section', 'copy-source', 'copy-plain', 'copy-rich', 'copy-table-tsv', 'copy-table-csv', 'copy-table-json', 'copy-command', 'extract-code-blocks', 'extract-tasks', 'extract-links', 'toggle-task', 'align-table-pipes', 'promote-heading', 'demote-heading', 'unwrap-markdown-fence', 'sort-list-items', 'dedupe-lines', 'renumber-list', 'list-to-numbers', 'list-to-bullets', 'bullets-from-glyphs', 'format-json', 'format-yaml', 'move-section-down', 'move-section-up']));
 });
 
 test('catalogue: the transform registry\'s NOT_YET list is sorted by id (F-32)', () => {

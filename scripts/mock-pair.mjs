@@ -44,6 +44,8 @@ export const SCREENS = {
   '03-transcript': 'A Markdown transcript in the reader (mock 01-workspace, doc=indexer-chat)',
   '03-log': 'A log in the reader (mock 01-workspace, doc=build-log)',
   '03-diff': 'A diff in the reader (the mock has no diff page: mock 01-workspace, doc=indexer-rs, shows the same chrome around code)',
+  '03-article': 'An article with a byline and a dek in the reader (mock 01-workspace, doc=ragged-right)',
+  '03-data': 'A CSV in the table lens (mock 01-workspace, doc=bench-csv)',
   '04-palette': 'The palette, files (mock 04-palette)',
   '04-palette-commands': 'The palette, commands (mock 04-palette)',
   '05-library': 'The library (mock 05-collections)',
@@ -51,6 +53,7 @@ export const SCREENS = {
   '07-notice': 'A notice, unfolded (mock toast)',
   '07-notice-folded': 'A notice, folded (mock toast)',
   '08-narrow': 'The narrow window, 760 px (mock 01-workspace)',
+  '09-inspector-outline': 'The inspector docked on its Outline tab: headings with the words of each section (mock 01-workspace)',
 };
 
 /** The file names one screen produces: <screen>-<theme>-{app,mock}.png. */
@@ -170,6 +173,7 @@ const RS = toPath(docs.find((d) => d.id === 'indexer-rs').path);
 const CHAT = toPath(docs.find((d) => d.id === 'indexer-chat').path);
 const BUILD_LOG = toPath(docs.find((d) => d.id === 'build-log').path);
 const ARTICLE = toPath(docs.find((d) => d.id === 'ragged-right').path);
+const CSV = toPath(docs.find((d) => d.id === 'bench-csv').path);
 const entries = docs.filter((d) => d.src).map((d, i) => ({
   path: toPath(d.path),
   root: toPath(d.path).split('/').slice(0, 4).join('/'),
@@ -256,6 +260,8 @@ const APP_STATES = {
   async '03-transcript'(page) { await openDoc(page, CHAT); await settle(page, 900); },
   async '03-log'(page) { await openDoc(page, BUILD_LOG); await settle(page, 900); },
   async '03-diff'(page) { await openDoc(page, DIFF); await settle(page, 900); },
+  async '03-article'(page) { await openDoc(page, ARTICLE); await settle(page, 900); },
+  async '03-data'(page) { await openDoc(page, CSV); await settle(page, 600); await page.evaluate(() => window.__cmd('data.table-lens')); await settle(page, 900); },
   async '04-palette'(page) {
     await openDoc(page, HANDOFF); await settle(page, 200); await openDoc(page, RS); await settle(page, 200); await openDoc(page, PLAN); await settle(page, 500);
     await page.keyboard.press('Meta+KeyP');
@@ -303,6 +309,21 @@ const APP_STATES = {
     await settle(page, 400);
   },
   async '08-narrow'(page) { await unfoldedWithTabs(page); },
+  async '09-inspector-outline'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
+    await page.locator('[data-marxy-inspector-tab="outline"]').click();
+    await page.waitForSelector('.marxy-outline [data-marxy-outline-row]');
+    // Landed in a section, so the row that marks the reading line is drawn.
+    await page.evaluate(async ({ plan }) => {
+      const store = window.__marxyHandle.document();
+      const text = new TextDecoder().decode(store.snapshot().buffer.bytes);
+      const at = new TextEncoder().encode(text.slice(0, text.indexOf('## Phases') + 20)).length;
+      await window.__marxyHandle.open(plan, { at });
+    }, { plan: PLAN });
+    await page.waitForSelector('.marxy-outline [aria-current="location"]');
+    await settle(page, 600);
+  },
 };
 const APP_OPTS = { '08-narrow': { width: NARROW }, '03-code': {}, '03-transcript': {} };
 
@@ -340,6 +361,8 @@ const MOCK_STATES = {
   '03-transcript': { file: '01-workspace.html', hash: '#doc=indexer-chat', run: async () => {} },
   '03-log': { file: '01-workspace.html', hash: '#doc=build-log', run: async () => {} },
   '03-diff': { file: '01-workspace.html', hash: '#doc=indexer-rs', run: async () => {} },
+  '03-article': { file: '01-workspace.html', hash: '#doc=ragged-right', run: async () => {} },
+  '03-data': { file: '01-workspace.html', hash: '#doc=bench-csv', run: async () => {} },
   '04-palette': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('')); await settle(page, 600); } },
   '04-palette-commands': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('>')); await settle(page, 600); } },
   '05-library': { file: '05-collections.html', run: async () => {} },
@@ -364,6 +387,7 @@ const MOCK_STATES = {
   '07-notice': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await settle(page, 300); await page.evaluate(() => window.Marxy.toast('Copied as Markdown · 3.1 KB', { icon: 'copy', ms: 60000 })); await settle(page, 500); } },
   '07-notice-folded': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.toast('Copied as Markdown · 3.1 KB', { icon: 'copy', ms: 60000 })); await settle(page, 500); } },
   '08-narrow': { file: '01-workspace.html', width: NARROW, run: async (page) => { await mockUnfold(page); await settle(page, 500); } },
+  '09-inspector-outline': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
 };
 
 const browser = await launchWebkit();

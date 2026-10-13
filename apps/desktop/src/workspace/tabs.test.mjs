@@ -449,7 +449,7 @@ test('the toolbar still fits at 929 px with a full tab row below it, and the tab
   });
 });
 
-test('the tabs\' look (U-07): up to 220 px; the active tab shares the page ground and is heavier; the close shows on hover, focus and the active tab; no + without a New command', async () => {
+test('the tabs\' look (U-07): up to 220 px; the active tab shares the page ground and is heavier; the close shows on hover, focus and the active tab; the + is the last child, is not a tab, and is drawn only with the New command', async () => {
   await withPage(1280, async (page) => {
     await unfold(page);
     await openFile(page, '/r/B.md');
@@ -474,6 +474,19 @@ test('the tabs\' look (U-07): up to 220 px; the active tab shares the page groun
     await page.focus('[data-marxy-tab="/r/B.md"] .marxy-tab-open');
     assert.equal((await look('/r/B.md')).closeOpacity, '1', 'focus inside the tab shows it');
     assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-tab="/r/B.md"] .marxy-tab-close').getAttribute('aria-label')), 'Close B.md');
-    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-tabs .marxy-tab-new').length), 0, 'no + while no New command is registered');
+    // W-14 registered the New command, so the + is drawn: the row's last child, not a tab, and not counted among them.
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-tabs .marxy-tab-new').length), 1, 'the + is drawn once the New command is registered');
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-tabs').lastElementChild.classList.contains('marxy-tab-new')), true, 'and is the last child');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-tab').length), 3, 'it is not a tab');
+    // Without the command, no +: a door shows only what is behind it.
+    await fold(page);
+    await page.evaluate(() => {
+      const handle = window.__marxyHandle;
+      const real = handle.commands.bind(handle);
+      handle.commands = () => real().filter((c) => c.id !== 'document.new-menu');
+    });
+    await unfold(page);
+    await openFile(page, '/r/B.md');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-tabs').length > 0 && document.querySelectorAll('.marxy-tabs .marxy-tab-new').length), 0, 'no + while no New command is registered');
   });
 });

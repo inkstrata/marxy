@@ -15,9 +15,12 @@
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
 import type { Kind } from '@marxy/core/src/contracts/kinds.ts';
 import type { AppHandle } from '../app.ts';
+import type { Command } from '../commands/registry.ts';
+import { openNewMenu } from '../commands/document.ts';
 import { setTabsController } from '../commands/tabs.ts';
 import { documentName } from '../document/untitled.ts';
 import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
+import { buildAppContext } from '../selection/bind.ts';
 import { uncoverPanes } from './pane-cover.ts';
 import { TabList, isTransient } from './tabs.ts';
 import type { DocumentSignal } from './toolbar.ts';
@@ -62,6 +65,30 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
   root.setAttribute('role', 'tablist');
   root.setAttribute('aria-label', 'Open documents');
   el.append(root);
+
+  // The row's + (W-14), drawn only once the New command is registered (as the toolbar's door is): the New menu at its corner. It is the row's
+  // last child, so a tab is always inserted before it. A press does not take focus or the selection from the page, and it is not a tab stop:
+  // ⌘N and the palette are the keyboard's way to the same menu.
+  if ((handle.commands() as readonly Command[]).some((c) => c.id === 'document.new-menu')) {
+    const plus = document.createElement('div');
+    plus.className = 'marxy-tab-new';
+    plus.setAttribute('role', 'presentation');
+    const plusButton = document.createElement('button');
+    plusButton.type = 'button';
+    plusButton.tabIndex = -1;
+    plusButton.setAttribute('data-marxy-tab-new', '');
+    plusButton.setAttribute('aria-label', 'New file, or fork this one');
+    plusButton.setAttribute('aria-haspopup', 'menu');
+    plusButton.title = 'New file…';
+    plusButton.textContent = '+';
+    plusButton.addEventListener('mousedown', (event) => event.preventDefault());
+    plusButton.addEventListener('click', () => {
+      const box = plusButton.getBoundingClientRect();
+      openNewMenu(buildAppContext(handle), { x: Math.round(box.left), y: Math.round(box.bottom), top: Math.round(box.top) });
+    });
+    plus.append(plusButton);
+    root.append(plus);
+  }
 
   const panesOf = (): readonly Pane[] => handle.panes().panes;
   const shownPaths = (): Set<string> => new Set(panesOf().flatMap((p) => (p.path() === null ? [] : [p.path()!])));

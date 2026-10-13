@@ -40,7 +40,23 @@ export function cloneRangeInert(range: Range): DocumentFragment {
 
 /** Text for the clipboard from a range; invisible marker labels are omitted. */
 export function textFromRange(range: Range): string {
-  return textFromFragment(cloneRangeInert(range));
+  return textFromFragment(cloneRangeInert(range), inArticleKind(range));
+}
+
+/** True when the range lies in a pane whose document is an `article`, whose profile sets the head's byline (K-20). */
+function inArticleKind(range: Range): boolean {
+  const node = range.commonAncestorContainer;
+  const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+  return el?.closest('[data-marxy-kind]')?.getAttribute('data-marxy-kind') === 'article';
+}
+
+/**
+ * What an article's head does not show and so does not copy (K-20): the key of a byline or dek row (with the newline
+ * after it) and a byline value's one pair of outer quotes. A web source's scheme and path are hidden too but copied,
+ * so a copied source is the whole URL as the bytes hold it.
+ */
+function hiddenInArticle(el: Element): boolean {
+  return (el.localName === 'dt' && el.hasAttribute('data-marxy-fm-part')) || el.getAttribute('data-marxy-fm-part') === 'quote';
 }
 
 /** Text for the clipboard from a DOM selection; invisible marker labels are omitted. */
@@ -49,13 +65,21 @@ export function textFromDomSelection(sel: Selection): string {
   return textFromRange(sel.getRangeAt(0));
 }
 
-function textFromFragment(root: DocumentFragment | Node): string {
+function textFromFragment(root: DocumentFragment | Node, article = false): string {
   const parts: string[] = [];
+  let afterLabel = false;
   const walk = (node: Node): void => {
+    const skipNewline = afterLabel;
+    afterLabel = false;
     if (node.nodeType === Node.ELEMENT_NODE) {
       for (const cls of (node as Element).classList) if (SKIP.has(cls)) return;
+      if (article && hiddenInArticle(node as Element)) {
+        afterLabel = (node as Element).localName === 'dt';
+        return;
+      }
     }
     if (node.nodeType === Node.TEXT_NODE) {
+      if (skipNewline && (node.textContent ?? '').trim() === '') return;
       parts.push(node.textContent ?? '');
       return;
     }

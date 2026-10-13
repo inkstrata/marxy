@@ -5,6 +5,7 @@
 
 import { KINDS, type Kind } from '@marxy/core/src/contracts/kinds.ts';
 import { ensureNoticesRegion } from '../notices/index.ts';
+import { applyLinkDestinations } from '../render/link-dest.ts';
 
 export type Slot = 0 | 1;
 
@@ -45,6 +46,9 @@ export function setPaneKind(host: Element | null, kind: Kind | null): void {
   if (host.getAttribute(KIND_ATTRIBUTE) === kind) return;
   if (kind === null) host.removeAttribute(KIND_ATTRIBUTE);
   else host.setAttribute(KIND_ATTRIBUTE, kind);
+  // A byline's source is a link in an article only (K-20): a kind decided again after the render makes or undoes it.
+  const article = host.querySelector('.marxy-article');
+  if (article !== null) applyLinkDestinations(article);
 }
 
 /** The kind a pane root carries, or null when it carries none (nothing open) or a name outside the set. */

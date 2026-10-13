@@ -97,6 +97,12 @@ const UNSETTABLE = 'img, input:not([type="checkbox"]), br, .marxy-math-inline, .
  * (reader-typography chapter 7, Poetry). No justification, no hyphens, no breaks chosen here.
  */
 const VERSE = '.marxy-verse';
+/**
+ * The most text a paragraph may hold and still be set. Measuring is one Range read per word and per space, in a task that
+ * runs before first text: a paragraph of a megabyte (a log or a minified file on one line) froze the page for tens of seconds
+ * (F-79). Past this the engine's own wrapping stands. A paragraph of prose is a few thousand characters.
+ */
+export const MAX_SET_CHARS = 16_384;
 const CJK = /[\u3000-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]/g;
 
 /** A paragraph that can be set, read before anything was written. */
@@ -462,6 +468,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     if (cs.whiteSpace.startsWith('pre') || cs.whiteSpace === 'break-spaces') return (fallback('white-space'), null);
     if (cs.direction === 'rtl') return (fallback('right-to-left'), null);
     const text = p.textContent ?? '';
+    if (text.length > MAX_SET_CHARS) return (fallback('long paragraph'), null);
     if ((text.match(CJK)?.length ?? 0) > text.length * 0.2) return (fallback('CJK'), null);
     let tokens = collectTokens(p);
     const lang = p.closest('[lang]')?.getAttribute('lang') ?? p.ownerDocument.documentElement.getAttribute('lang') ?? '';

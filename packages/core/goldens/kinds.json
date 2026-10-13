@@ -418,6 +418,25 @@
       }
     ]
   },
+  "33-article-byline.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 5,
+        "signal": "byline: author with published or source",
+        "kind": "article",
+        "at": "front matter",
+        "decisive": true
+      },
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "33-article-byline.md",
+        "decisive": false
+      }
+    ]
+  },
   "34-chat-transcript.md": {
     "kind": "transcript",
     "reasons": [
@@ -464,6 +483,30 @@
         "signal": "extension .diff",
         "kind": "diff",
         "at": "36-change.diff",
+        "decisive": true
+      }
+    ]
+  },
+  "37-results.csv": {
+    "kind": "data",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .csv",
+        "kind": "data",
+        "at": "37-results.csv",
+        "decisive": true
+      }
+    ]
+  },
+  "38-awkward.csv": {
+    "kind": "data",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .csv",
+        "kind": "data",
+        "at": "38-awkward.csv",
         "decisive": true
       }
     ]
@@ -519,6 +562,30 @@
         "signal": "extension .png",
         "kind": "code",
         "at": "image.png",
+        "decisive": true
+      }
+    ]
+  },
+  "sections-crlf.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "sections-crlf.md",
+        "decisive": true
+      }
+    ]
+  },
+  "sections.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "sections.md",
         "decisive": true
       }
     ]

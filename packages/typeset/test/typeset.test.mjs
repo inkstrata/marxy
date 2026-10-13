@@ -44,6 +44,21 @@ test('attach then destroy leaves the article exactly as it was', async () => {
   await page.close();
 });
 
+test('a paragraph longer than MAX_SET_CHARS is left to the engine, one just under it is set (F-79)', async () => {
+  const words = (n) => Array.from({ length: n }, (_, i) => `word${i}`).join(' ').slice(0, n * 8);
+  const text = (chars) => words(Math.ceil(chars / 6)).slice(0, chars);
+  const page = await harness.open(`<p data-marxy-s="0" data-marxy-e="1">${text(16_384)}</p><p data-marxy-s="2" data-marxy-e="3">${text(16_385)}</p>`);
+  const limit = await page.evaluate(() => window.typeset.MAX_SET_CHARS);
+  assert.equal(limit, 16_384);
+  const stats = await attach(page);
+  const set = await page.evaluate(() => [...document.querySelectorAll('#doc p')].map((p) => p.classList.contains('marxy-set')));
+  assert.deepEqual(set, [true, false], 'the one at the limit is set, the one past it is not');
+  assert.equal(stats.reasons['long paragraph'], 1, JSON.stringify(stats));
+  const left = await page.evaluate(() => document.querySelectorAll('#doc p')[1].querySelector('.marxy-lb, wbr'));
+  assert.equal(left, null, 'and nothing was put in it');
+  await page.close();
+});
+
 test('a relayout sets the same breaks again: no state accumulates', async () => {
   const page = await harness.open(renderCorpus('01-long-technical.md'));
   await attach(page);

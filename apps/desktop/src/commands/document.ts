@@ -14,6 +14,8 @@ import type { ShellError } from '@marxy/shell-api';
 import { CONFLICT_COPY_FAILED, CONFLICT_DISCARDED, conflictCopySaved } from '../notices/config-copy.ts';
 import { clearDiskChangedChooseNotices } from '../notices/disk.ts';
 import { SOURCE_HELD_APART } from '../notices/index.ts';
+import { forkOpenDocument, newFile, newFileHere, openFilePath } from '../document/new-file.ts';
+import { openVerbMenu, type MenuAnchor, type VerbMenuRow } from '../selection/verb-menu.ts';
 
 export { attachDocumentEdits } from './edits.ts';
 
@@ -107,6 +109,34 @@ async function resolveDiskConflict(ctx: AppContext, choice: 'mine' | 'theirs'): 
   ctx.showNotice(done.text, { kind: done.kind });
 }
 
+/**
+ * The rows of the New menu (W-14), in the order of the card: *New file*, *New file here*, *Fork this file*. A row whose command cannot
+ * run now is not drawn, so the menu never offers a door that is shut. (*Open File…* is not here: it is the native menu's, and the
+ * shell has no file picker for the page to call.)
+ */
+export function newMenuRows(ctx: AppContext, commands: readonly Command[]): VerbMenuRow[] {
+  return commands.flatMap((command) => (command.when(ctx) ? [{ command, title: command.title, chord: command.key }] : []));
+}
+
+/** Where the New menu opens when nothing pointed at it: under the toolbar's + or the tab bar's, else the window's top left. */
+function newMenuAnchor(): MenuAnchor {
+  const door = document.querySelector<HTMLElement>('[data-marxy-toolbar-item="new"] button') ?? document.querySelector<HTMLElement>('[data-marxy-tab-new]');
+  const box = door?.getBoundingClientRect();
+  if (!box || box.width === 0) return { x: 16, y: 56 };
+  return { x: Math.round(box.left), y: Math.round(box.bottom), top: Math.round(box.top) };
+}
+
+/** Opens the New menu at `at` (the tab bar's + passes its own corner), or under the + the page has. False when no row could run. */
+export function openNewMenu(ctx: AppContext, at: MenuAnchor = newMenuAnchor()): boolean {
+  const rows = newMenuRows(ctx, newFileCommands());
+  return openVerbMenu(at, ctx, { registered: [], allActions: () => {}, rows, label: 'New' });
+}
+
+/** The three ways to start a file, as commands. `document.new-menu` lists these, so it is built from them. */
+function newFileCommands(): readonly Command[] {
+  return documentCommands().filter((c) => c.id === 'document.new' || c.id === 'document.new-here' || c.id === 'document.fork');
+}
+
 export function documentCommands(): readonly Command[] {
   return [
     {
@@ -145,6 +175,51 @@ export function documentCommands(): readonly Command[] {
       group: 'document',
       when: hasDiskConflict,
       run: (ctx) => resolveDiskConflict(ctx, 'theirs'),
+    },
+    {
+      id: 'document.new',
+      title: 'New file',
+      key: 'Mod+N',
+      // Runs from Source's editor too. An empty scratch document: nothing is written until the reader's Save As (E-13).
+      global: true,
+      group: 'document',
+      when: () => true,
+      run: async () => {
+        await newFile();
+      },
+    },
+    {
+      id: 'document.new-here',
+      title: 'New file here',
+      group: 'document',
+      // A new file whose Save As opens in the open file's folder: it needs an open file to have a folder.
+      when: (ctx) => openFilePath(ctx) !== null,
+      unavailable: (ctx) => (openFilePath(ctx) === null ? 'Open a file first: a new file here starts in its folder' : null),
+      run: async (ctx) => {
+        await newFileHere(ctx);
+      },
+    },
+    {
+      id: 'document.fork',
+      title: 'Fork this file',
+      key: 'Mod+Shift+N',
+      global: true,
+      group: 'document',
+      // Writes a copy beside the open file, so it needs a file on disk; a scratch document or one of Marxy's pages has none.
+      when: (ctx) => openFilePath(ctx) !== null,
+      unavailable: (ctx) => (openFilePath(ctx) === null ? 'Open a file first: a fork is written beside it' : null),
+      run: (ctx) => forkOpenDocument(ctx),
+    },
+    {
+      id: 'document.new-menu',
+      title: 'New…',
+      group: 'document',
+      // The toolbar's + door (W-05 draws it once this exists). Its three rows have rows of their own in the palette.
+      listed: false,
+      when: () => true,
+      run: async (ctx) => {
+        openNewMenu(ctx);
+      },
     },
     {
       id: 'document.undo',

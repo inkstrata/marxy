@@ -4,6 +4,7 @@ import { appearanceCommands } from './appearance.ts';
 import { blockEditCommands } from './block-edit.ts';
 import { collectionCommands } from './collection.ts';
 import { compareCommands } from './compare.ts';
+import { dataCommands } from './data.ts';
 import { kindCommands } from './kind.ts';
 import { libraryCommands } from './library.ts';
 import { logCommands } from './log.ts';
@@ -60,6 +61,7 @@ export function commands(): readonly Command[] {
     ...collectionCommands(),
     ...kindCommands(),
     ...logCommands(),
+    ...dataCommands(),
     ...tabCommands(),
     ...libraryCommands(),
     ...copyTextCommands(),

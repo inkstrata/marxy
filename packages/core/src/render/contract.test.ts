@@ -15,7 +15,7 @@ const files = readdirSync(corpus).filter((file) => file.endsWith('.md')).sort();
 
 /**
  * Node types the §02 table renders to an element of their own. `text`, `softBreak`, `html`,
- * `htmlBlock` makes none; `frontmatter` makes a `<dl>`; a tight list item's paragraph makes none (its item's
+ * `htmlBlock` makes none; `frontmatter` makes a `<dl>` (its rows and spans carry `data-marxy-fm-*` and no range, K-20); a tight list item's paragraph makes none (its item's
  * `<li>` is the element); a reference to an undefined footnote is set as text.
  */
 const ELEMENT_TYPES: ReadonlySet<string> = new Set([
@@ -126,5 +126,36 @@ test('a document cannot write data-marxy-speaker: raw HTML, and a forged role, l
   for (const policy of [undefined, policyFor({ html: true })]) {
     const result = renderSafeHtml(src, { file: 't.md', policy });
     assert.equal((result.html.match(/data-marxy-speaker/g) ?? []).length, 0, result.html);
+  }
+});
+
+// K-20: the front-matter head names each row's key and marks an article's byline and dek; a paragraph wholly in emphasis
+// says so. Every kind gets the attributes (only the article profile styles them); a document cannot write one itself.
+test('the head carries data-marxy-fm-key on every row and data-marxy-fm-part on the byline, its spans and the dek', () => {
+  const src = '---\ntitle: T\nsummary: s\nauthor: "A"\nsource: https://example.org/a\n---\n\n# T\n\n*whole*\n\n*part* not\n';
+  const html = renderSafeHtml(src, { file: 't.md' }).html;
+  assert.equal((html.match(/<dt data-marxy-fm-key="/g) ?? []).length, 4);
+  assert.equal((html.match(/<dd data-marxy-fm-key="/g) ?? []).length, 4);
+  assert.match(html, /<dl data-marxy-s="0" data-marxy-e="[0-9]+">\n<dt data-marxy-fm-key="title">/);
+  assert.match(html, /<dt data-marxy-fm-key="author" data-marxy-fm-part="byline">/);
+  assert.match(html, /<span data-marxy-fm-part="quote">"<\/span>A<span data-marxy-fm-part="quote">"<\/span>/);
+  assert.match(html, /<span data-marxy-fm-part="url"><span data-marxy-fm-part="scheme">https:\/\/<\/span>example.org<span data-marxy-fm-part="path">\/a<\/span><\/span>/);
+  assert.doesNotMatch(html, /<a /);
+  assert.match(html, /<p data-marxy-emphasis="whole" data-marxy-s="[0-9]+" data-marxy-e="[0-9]+"><em /);
+  assert.equal((html.match(/data-marxy-emphasis/g) ?? []).length, 1, 'only the paragraph wholly in emphasis');
+});
+
+test('a document cannot write data-marxy-fm-key, data-marxy-fm-part or data-marxy-emphasis, and its spans unwrap as before', () => {
+  const src = '<dl><dt data-marxy-fm-key="author" data-marxy-fm-part="byline">a</dt><dd data-marxy-fm-part="dek">b</dd></dl>\n\n' +
+    '<p data-marxy-emphasis="whole"><em>x</em></p>\n\nx <span data-marxy-fm-part="quote" class="c">"</span> y <span>z</span>\n';
+  for (const policy of [undefined, policyFor({ html: true })]) {
+    const result = renderSafeHtml(src, { file: 't.md', policy });
+    assert.doesNotMatch(result.html, /data-marxy-(?:fm-key|fm-part|emphasis)/, result.html);
+    assert.doesNotMatch(result.html, /<span/, 'a document\'s span is unwrapped, as it was');
+    assert.match(result.html, /x ["“] y z/);
+    const spans = result.removed.filter((r) => r.name === 'span');
+    assert.equal(spans.length, 2, 'one removal per span, as before');
+    assert.ok(spans.every((r) => r.what === 'element' && /contents were kept/.test(r.reason)), JSON.stringify(spans));
+    assert.ok(!result.removed.some((r) => r.what === 'attribute' && r.on === 'span'), 'no attribute removals for an unwrapped span');
   }
 });

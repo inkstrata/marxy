@@ -16,6 +16,8 @@ export interface SaveDeps {
   foldSource(): Promise<void>;
   /** Source text this pane's fold could not take (held apart from another pane's, D-11): a save would not write it. */
   holdsUnfoldedSource?(): boolean;
+  /** The folder a scratch document's Save As opens in (*New file here*, W-14); none opens it where the system chooses. */
+  saveIn?(): string | undefined;
   /** The pane that shows the document (`section.marxy-pane`): its notices are said there; the focused pane's when unset. */
   readonly pane?: HTMLElement;
   /** The save went to a new path and the store now answers to it: scope, watch and title follow. `from` is the path it had. */
@@ -90,7 +92,8 @@ export async function save(
 
   let path = snap.path;
   if (scratch || opts?.as) {
-    const picked = await deps.shell.saveDialog({ defaultPath: scratch ? 'Untitled.md' : basename(path) });
+    const folder = scratch ? deps.saveIn?.() : undefined;
+    const picked = await deps.shell.saveDialog({ defaultPath: scratch ? (folder ? `${folder.replace(/\/+$/, '')}/Untitled.md` : 'Untitled.md') : basename(path) });
     if (!picked) return 'cancelled';
     path = picked;
   }

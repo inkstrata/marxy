@@ -39,11 +39,47 @@ test('the no-newline note is plain and does not end a hunk; a stripped blank con
   assert.deepEqual(read('@@ -1,3 +1,2 @@\n-a\n\\ No newline at end of file\n\n+b'), [U, D, U, U, A]);
 });
 
-test('combined diffs are left plain and do not break', () => {
-  assert.deepEqual(read('diff --cc f\n@@@ -1,2 -1,2 +1,3 @@@\n  x\n+ y'), [U, U, U, U]);
+test('a combined hunk: a + in any marker column adds, a - in any removes, the rest is plain (K-09.1)', () => {
+  const text = [
+    'diff --cc f', 'index 1,2..3', '--- a/f', '+++ b/f', '@@@ -1,6 -1,6 +1,7 @@@ fn',
+    '  ctx', '++both', '+ first', ' +second', '--gone', '- one', ' -two', '  tail', '\\ No newline at end of file',
+  ].join('\n');
+  assert.deepEqual(read(text), [U, U, U, U, U, U, A, A, A, D, D, D, U, U]);
+});
+
+test('a combined hunk header without counts means one line each; a three-parent hunk has three columns', () => {
+  assert.deepEqual(read('@@@ -3 -3 +3 @@@\n++x\n--y\n-- z'), [U, A, D, U]);
+  assert.deepEqual(read('@@@@ -1,3 -1,2 -1,2 +1,3 @@@@\n+  a\n + b\n  +c\n-  d\n  x'), [U, A, A, A, D, U]);
+});
+
+test('a combined hunk ends when every parent and the result are used up; markers are not reordered', () => {
+  const lines = ['@@@ -1,3 -1,1 +1,2 @@@', '  a', ' +b', '- c', '++not in hunk'];
+  assert.deepEqual(diffFileLineClasses(lines), [U, U, A, D, U]);
 });
 
 // A file is cut into pieces and each is read with the state its predecessor ended in: that must equal reading it whole.
+function randomCombined(rnd: (n: number) => number): string[] {
+  const out: string[] = ['diff --cc c', 'index 1,2..3'];
+  const parents = 2 + rnd(2);
+  for (let h = 0, hunks = 1 + rnd(2); h < hunks; h++) {
+    // Each body line: a context line, an added line (a + in some column) or a line removed from one parent.
+    const body: string[] = [];
+    const counts = Array(parents).fill(0) as number[];
+    let result = 0;
+    for (let i = 0, n = 1 + rnd(30); i < n; i++) {
+      const kind = rnd(3);
+      const cols = Array(parents).fill(' ') as string[];
+      if (kind === 1) { const k = rnd(parents); for (let j = 0; j < parents; j++) cols[j] = j === k || rnd(2) === 0 ? '+' : ' '; }
+      if (kind === 2) cols[rnd(parents)] = '-';
+      if (kind !== 2) result++;
+      cols.forEach((c, j) => { if (c !== '+') counts[j]!++; });
+      body.push(cols.join('') + (['', '--', 'x'][rnd(3)] ?? ''));
+    }
+    out.push(`${'@'.repeat(parents + 1)} ${counts.map((c) => `-1,${c}`).join(' ')} +1,${result} ${'@'.repeat(parents + 1)}`, ...body);
+  }
+  return out;
+}
+
 function randomDiff(seed: number): string[] {
   let x = seed;
   const rnd = (n: number) => ((x = (x * 1103515245 + 12345) & 0x7fffffff), x % n);
@@ -59,6 +95,7 @@ function randomDiff(seed: number): string[] {
       for (const m of body) out.push(m + (['', '--', '++', '-- x', 'text'][rnd(5)] ?? ''));
       if (rnd(3) === 0) out.push('\\ No newline at end of file');
     }
+    if (rnd(2) === 0) out.push(...randomCombined(rnd));
   }
   if (rnd(2) === 0) out.push('-- ', '2.44.0');
   return out;

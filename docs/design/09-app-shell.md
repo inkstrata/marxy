@@ -214,7 +214,9 @@ is part of the sidebar's one tab stop: arrows move, → opens a closed folder or
 or steps out to its parent (on a section header, ← folds and → opens). A folder shows at most 500 children and says how
 many it does not draw. Which folders are open is held while the window lives; a launch starts closed. `readDir` leaves out
 symlinks and deny-listed names without a count, so the tree can show fewer names than the disk holds; a count needs a
-`shell-api` field and is its own story. *New file here* is not drawn (W-14 registers it).
+`shell-api` field and is its own story. A folder or repository row has a menu (right-click, the context-menu key or Shift+F10)
+with one action, *New file here* (W-14): it opens a new document whose Save As starts in that folder, and writes nothing (see
+*New file, New file here and Fork this file*, below).
 
 **Smart collections (Q-07).** After Folders, a **Smart collections** section (`smart` in `SIDEBAR_SECTION_IDS`; `workspace.json`
 keeps its fold) lists the `[[query]]` tables of `collection.toml` by name, in file order (`CollectionHandle.queries()`, the
@@ -318,6 +320,8 @@ chrome.
 | `Mod+Alt+N` | go to the newest notice | U-02: a pane chord, by physical key, so it works from Source; `Tab` and the arrows move among the notice's buttons, `Esc` dismisses it and gives focus back (§Notices) |
 | `Mod+[` / `Mod+]` | back / forward | history stack (§07) |
 | `Mod+S` | save | byte-faithful, atomic |
+| `Mod+N` | new file | W-14: an untitled document that opens in Source, in the pane the window's rule names; nothing is written until Save As (E-13). Runs from a Source editor too |
+| `Mod+Shift+N` | fork this file | W-14: writes the open file's bytes (with any unsaved edits) beside it as `name (fork).md`, never over a file, and opens it; offered only on a file on disk. Marxy is one window, so this is not *New Window* (the mock's menu bar) |
 | `Mod+Z` / `Mod+Shift+Z` | undo / redo | in Rendered mode: the operation history (§01); in Source: CodeMirror's |
 | `Cmd+Alt+[` / `Cmd+Alt+]` (`Ctrl+Shift+[` / `Ctrl+Shift+]` elsewhere) | fold / unfold the folds on the caret's line | K-10a: CodeMirror's own keys, in Source only; a placeholder is clickable but not a tab stop, so Tab leaves the editor however many folds there are |
 | `Mod+Shift+E` | open in external editor | at the current block's line |
@@ -337,6 +341,42 @@ chrome.
 | `Shift+click` | grow a block selection into a run | with a block or a run selected, the run reaches the clicked sibling (E-05); `dedupe-lines` and the copy verbs then act on the run (§03) |
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
+
+**The menu column (W-20, ADR-0073).** On macOS every key above whose command is in the registry also sits in the native
+menu bar, with the key the registry gives it, and nothing else does: a menu item adds no key. File has New File,
+Fork This File, Open File…, Add This Folder to the Collection, Save, Save As… and Close Window (`Mod+W`); Edit has the
+OS's items, Find…, Replace…, Copy As… and Transform…; Format has Bold, Italic, Inline Code, Strikethrough, Link and the
+inserts (Source on Markdown); View has Read, Split, Source, Toggle Rendered / Source, Sidebar, Inspector, Outline, Fold
+or Unfold the Workspace, Show Whitespace, Line Numbers and Column Guide; Go has Back, Forward and Open Quickly…; Help has
+Keyboard Shortcuts, which opens the palette on commands. An item whose command cannot run now is disabled. The keys that
+stay out of the menu (Source's line and selection chords, pane chords, `Esc`, text size) are named, with a reason, in
+`test/keys-table.test.mjs`. §The native menu in `06-shell.md` says how.
+
+**New file, New file here and Fork this file (W-14).** Three ways to start a file, from the toolbar's **+** (`document.new-menu`, drawn
+once the command exists), the tab row's **+** (drawn with it, the row's last child and not a tab) and the palette (one row each; the menu
+itself is not a row). A row whose command cannot run now is not drawn, so the menu never offers a shut door.
+
+- **New file** (`Mod+N`, `document.new`) opens an empty scratch document in Source, where the reader can type. It writes nothing; closing
+  it untouched writes and asks nothing. The first write is the reader's Save As.
+- **New file here** (`document.new-here`; from a sidebar folder row's menu it takes that folder) is the same, and its Save As dialog
+  starts in the folder (`saveDialog({ defaultPath: '<folder>/Untitled.md' })`; the shell opens the dialog in the folder when it exists).
+  The file is not named from its first heading: the reader names it.
+- **Fork this file** (`Mod+Shift+N`, `document.fork`) writes the buffer, as on disk plus any unsaved edits (Source text is folded in
+  first; text held apart from another pane's is refused), to the first free name beside the file: `name (fork).md`, then `(fork 2)`
+  and up to 999 (a dotfile or a name with no extension takes the tag last; a name so long that the tag would pass 255 bytes has its stem cut a whole grapheme at a time to fit). It opens the fork in the focused pane (over unsaved edits
+  that asks, as any open does; the fork is already written and the notice says so) and says where it went. The original is never
+  written or read again, and there is no undo: the shell has no delete, and the fork is an ordinary file the reader can remove.
+  *Reveal in Finder* is not offered: the shell cannot reveal a file, and that is a privileged capability of its own.
+
+What Fork never does (the rules `document/fork.ts` and its tests hold): it never writes over a file, a folder, or a symlink (which
+`stat` cannot see, so `realPath` is asked too, and a link that leads nowhere is taken as well: a head read tells it from a missing name, so Fork skips it), and a name that differs only in case from an existing one counts as taken where the
+filesystem folds case. Names are looked for one at a time as the write is made, never from a listing made earlier. The bytes are the
+buffer's, so a BOM, CRLF and bytes that are not text are kept. A failed write says so (an `error` notice: what failed, that nothing was
+written and the original is unchanged, what to do; it names the file that was to be written and says why in words, never the shell's text with its hidden temporary file or an OS number), opens nothing and leaves no file, because the shell publishes a whole file or none.
+Nothing leaves the machine. **The one limit:** the shell has no create-only write (`writeFileAtomic` renames over what is there), so
+"check, then write" is two steps, and a file another program makes at that name between the last check and the rename is replaced.
+That window is the shell's own time to stage, flush and rename the bytes; nothing else is awaited between the check and the write. Closing
+it needs a create-only write in the shell, which is a new privileged capability and so an ADR (ADR-0045).
 
 **Source editing keys (V-01).** In a pane that shows Source, and only there (Rendered does nothing with them),
 the registry binds these from `apps/desktop/src/commands/source-edit.ts`; each is also a palette command. They
@@ -421,7 +461,7 @@ them (Quit; Edit's predefined copy/paste/select-all; Edit's predefined undo/redo
 menu item's key equivalent from menu-item validation, not from `keys.ts` alone, so a reader
 outside a text field who presses one of these keys is relying on the menu, not this table, to
 reach the responder chain — the two are expected to agree, and a change to either should keep
-them in sync. `Mod+O` (Open File…) is native-menu-only in v1: the palette does not yet list it.
+them in sync. `Mod+O` (Open File…) is native-menu-only in v1: the palette and the **+** menus do not list it (the shell has no file picker the page can call).
 A menu item may also stand for a chord this table binds (MARXY-342): View's Toggle Rendered / Source
 (`Mod+E`) and Go's Back, Forward (`Mod+[`, `Mod+]`) and Open Quickly… (`Mod+P`). AppKit takes the key
 equivalent for the menu, so the webview never sees the keystroke; the click emits `marxy:menu` with

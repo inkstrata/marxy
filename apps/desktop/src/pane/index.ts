@@ -54,7 +54,7 @@ export type AppPanes = PaneSet<AppPane> & {
    * focused one. Asks first over unsaved edits there, as any open does: the pane then comes back before the reader has
    * answered, and `onLanded` runs only if the answer opens the scratch. The pane, or null when refused.
    */
-  openScratch(bytes: Uint8Array, opts?: { readonly label?: string; readonly onLanded?: () => void }): Promise<Pane<AppPane> | null>;
+  openScratch(bytes: Uint8Array, opts?: { readonly label?: string; readonly saveIn?: string; readonly onLanded?: () => void }): Promise<Pane<AppPane> | null>;
 };
 
 export function createPanes(deps: PanesDeps): AppPanes {
@@ -175,9 +175,9 @@ export function createPanes(deps: PanesDeps): AppPanes {
     void panes.focused.content.refreshTitle();
   });
   return Object.assign(panes, {
-    openScratch(bytes: Uint8Array, opts?: { readonly label?: string; readonly onLanded?: () => void }) {
+    openScratch(bytes: Uint8Array, opts?: { readonly label?: string; readonly saveIn?: string; readonly onLanded?: () => void }) {
       return panes.openIn(panes.panes.length > 1 ? 'other' : 'focused', untitled.next(), {
-        scratch: { bytes, label: opts?.label },
+        scratch: { bytes, label: opts?.label, saveIn: opts?.saveIn },
         onLanded: opts?.onLanded,
       });
     },

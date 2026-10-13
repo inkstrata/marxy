@@ -86,3 +86,38 @@ Original text written for K-09: a unified diff in the shape `git diff` writes, t
 added, removed and context lines, an `index` line, hunk headers with a function name after the second `@@`, one added line
 long enough to wrap in the reader (the hang past the marker column), and a `\ No newline at end of file` note. Every name
 is invented. A `.diff` opens in Read; the goldens move only if the code-file parse or the kind table does.
+
+## 33-article-byline.md
+
+Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair
+of outer quotes the byline drops), a date and a web source with a path and a query, after a title, a description and a
+list of tags, so the byline's rows move ahead of rows the bytes put first. Its opening paragraph is wholly in emphasis
+directly after the title; the description is the dek, so that paragraph stays a paragraph (the key wins). Every name is
+invented; the source is `example.org` (RFC 2606).
+
+## sections.md and sections-crlf.md
+
+Original text written for W-10: the document the Outline tab's moves are tried on, twice, the second with every line ending CRLF.
+It has front matter holding a `#` line, an introduction before the first heading, two ATX sibling sections with a section of their
+own below one of them, a fence, a quote and a list item that each hold a `#` line that is not a heading, a table, two setext
+headings (`===` and `---`), a heading indented by three spaces, and a last section with no final line ending and no full stop (so the file ends on a
+text byte, in both, and a move of that section changes the file's last byte on purpose). The goldens move only if the parse does.
+
+The two files have no number on purpose: the numbered `.md` files are the reading corpus, and each owes the aesthetics gate a screenshot baseline for
+each engine (`packages/theme` tests, `gate-aesthetics.mjs`, `probe-layout.mjs`). These are text for operations and the save path to be tried on, not pages to be
+judged, so the goldens, the fidelity gate and the operation tests read them and the aesthetics gate does not.
+## 37-results.csv
+
+Original data written for K-10b: a benchmark table in the shape of the mock's `bench-csv` (a corpus name, five numbers and
+a host), eight rows under a header row of distinct words, so the table lens uses row 1 as its header. `cold_ms` holds
+numbers whose text order is not their numeric order (`9900` after `118400` as text), which the sort test reads. Every name
+and number is invented.
+
+## 38-awkward.csv
+
+Original data written for K-10b: every case the table lens must show honestly, in one CRLF file that starts with a UTF-8
+byte-order mark. A quoted field holding a comma; a doubled quote (`"said ""hello"""`, a decoded cell); a quoted CRLF inside
+a field; empty fields; a short row and a long one (ragged); a byte after a closing quote (`"Gil"x`, an unreadable row); a
+blank line; a bidi control (U+202E) and a zero-width space inside a quoted field; a space before a quote (` "spaced"`,
+verbatim); an unclosed quote on a line of its own, with a well-formed row after it; and cells a spreadsheet would run
+(`=SUM(…)`, `+cmd`, `@risk`) next to a plain `-5`. Every name and number is invented.
