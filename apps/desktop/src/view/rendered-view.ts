@@ -8,7 +8,7 @@ import { byteToUtf16, contentHash, isCodeFile, utf16ToByte, type Buffer, type Do
 import { offsetThroughEdit } from '@marxy/core/src/position/restore.ts';
 import { blockedImagesFrom, renderDocumentSafeHtml, renderDocumentSafeHtmlInSlices } from '@marxy/core/src/render/index.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
-import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
+import { attach, snapBlocks, snapInSlices, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { AppShell } from '../app.ts';
 import type { AppContext } from '../commands/registry.ts';
 import type { PieceSource } from '../frontispiece/pieces.ts';
@@ -257,6 +257,11 @@ const READER_INPUT = ['wheel', 'touchstart', 'mousedown', 'keydown'] as const;
  * SNAP_INTERVAL_MS, with a trailing one so the last batch is always on the grid. Per view.
  */
 const SNAP_INTERVAL_MS = 250;
+/** Blocks in a window of the whole-article grid pass made when a long document is wholly in (F-80). */
+const SLICE_BLOCKS = 128;
+/** How long after the reader's own input a scroll up is theirs (F-80), and how long after landing at the end the engine may move the page. */
+const PIN_INPUT_MS = 600;
+const PIN_SETTLE_MS = 3000;
 
 const ISLANDS = 'pre, table, img, .marxy-math-block, .marxy-math';
 
@@ -404,8 +409,44 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // after a pane opened was reset to the top).
     if (scroller !== document.documentElement && scroller.scrollTop !== seen.scrollTop) releaseAnchor();
     noteScroll();
+    notePinned();
     for (const cb of [...scrollListeners]) cb();
   };
+  const distanceToEnd = (): number => scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+  /**
+   * Whether this scroll is the reader at the end of the whole page, or away from it (F-80). A scroll up the reader did not
+   * make, soon after they landed at the end, is the engine's (laying out a piece that has just come near the screen can
+   * move the offset with the height unchanged): the end is put back. A scroll up after the reader's own input, or
+   * after the settling time, is theirs and ends the pin.
+   */
+  const notePinned = (): void => {
+    const top = scroller.scrollTop;
+    if (top > 0 && distanceToEnd() <= 2 && viewMode === 'rendered' && (mount === null || mount.isComplete())) {
+      endPinned = true;
+      pinnedTop = top;
+      pinnedAt = performance.now();
+      return;
+    }
+    if (!endPinned || top >= pinnedTop - 1) return;
+    const now = performance.now();
+    // The reader's wheel is not listened for (a wheel listener makes WebKit repaint the whole page after every layout, B-02.8):
+    // a wheel or a key moves the page a little, and what the engine did moved it by more than three screens.
+    if (now - lastReaderInputAt < PIN_INPUT_MS || now - pinnedAt > PIN_SETTLE_MS || pinnedTop - top < scroller.clientHeight * 3) {
+      endPinned = false;
+      return;
+    }
+    scroller.scrollTop = scroller.scrollHeight;
+  };
+  /** Input that is the reader's, except the ones that take them to the end (those are what pins it). */
+  const onPinInput = (event: Event): void => {
+    if (event.type === 'keydown') {
+      const key = event as KeyboardEvent;
+      if (key.key === 'End' || (key.key === 'ArrowDown' && (key.metaKey || key.ctrlKey))) return;
+    }
+    if (isOwnInput(event)) lastReaderInputAt = performance.now();
+  };
+  const PIN_INPUT_TYPES = ['touchstart', 'pointerdown', 'mousedown', 'keydown'] as const;
+  for (const type of PIN_INPUT_TYPES) window.addEventListener(type, onPinInput, { capture: true, passive: true });
   /** WebKit fires the viewport's scroll at the Document, not at documentElement. */
   const scrollTarget = (el: HTMLElement): EventTarget => (el === document.documentElement ? document : el);
   scrollTarget(scroller).addEventListener('scroll', onScrollerScroll, { passive: true });
@@ -501,8 +542,24 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   const resizeReleased = new WeakMap<ReadingPosition, boolean>();
 
   let lastSnapAt = 0;
+  /** Bumped by every whole-article pass; a sliced one asks whether it is still the latest between windows (F-80). */
+  let wholeGeneration = 0;
+  /** The whole-article pass made when the mount completed: `contentComplete` waits for it, so the page is on the grid when it resolves. */
+  let completePass: Promise<void> = Promise.resolve();
+  /**
+   * True from a scroll that lands at the very end of a wholly mounted page until the reader scrolls up (F-80): the
+   * end then follows the page as pieces change height under it (they are split into lines and, being laid out only
+   * when near, take their real height as they arrive), so a jump to the end stays at the end.
+   */
+  let endPinned = false;
+  let pinnedTop = 0;
+  let pinnedAt = 0;
+  let lastReaderInputAt = Number.NEGATIVE_INFINITY;
+  let endObserver: ResizeObserver | null = null;
   let snapTimer = 0;
   let snapFrame = 0;
+  /** The blocks whose own height changed since the last pass, for the next (F-80). */
+  let changedBlocks: Set<HTMLElement> | null = null;
   /**
    * What the pending snap covers: undefined for none asked, null for the whole article, or the first
    * block appended since the last snap (A-02), when only appends asked for it.
@@ -881,7 +938,11 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       doc,
       rootFor: (path) => deps.rootFor(path),
       imageCtx: { shell, scopedRoots: deps.assetRoots },
-      onLayoutChanged: () => snap(doc),
+      onLayoutChanged: (changed) => {
+        if (changed && changed.length > 0) snapChanged(doc, changed);
+        else if (doc.childElementCount > SLICE_BLOCKS && mount !== null) void snapWhole(mount, doc);
+        else snap(doc);
+      },
     };
   }
 
@@ -959,8 +1020,49 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   function snap(article: HTMLElement, from?: HTMLElement): void {
     cancelScheduledSnap();
+    if (from === undefined) {
+      wholeGeneration += 1;
+      changedBlocks = null;
+    }
     lastSnapAt = performance.now();
     snapToGrid(article, parseFloat(getComputedStyle(article).lineHeight), from ? { from } : undefined);
+    if (shown) shown.blocks = buildBlocks(article, shown.nodeMap);
+    holdAnchor();
+  }
+
+  /**
+   * The grid pass for blocks that changed height by themselves, a highlight batch's (F-80): the blocks alone, and the
+   * block list rebuilt, not the layout of every block of the article.
+   */
+  function snapChanged(article: HTMLElement, changed: readonly HTMLElement[]): void {
+    holdingScroll(() => snapBlocks(article, parseFloat(getComputedStyle(article).lineHeight), changed));
+    if (shown) shown.blocks = buildBlocks(article, shown.nodeMap);
+    holdAnchor();
+  }
+
+  /**
+   * Runs a grid pass without moving the reader (F-80). The pass takes padding off blocks and puts it back, and reads the
+   * layout between: for that moment the page is shorter, the engine clamps the scroll offset to the shorter page, and the
+   * offset is not given back when the page grows again. A reader who had jumped to the end was left a screen or more above it.
+   */
+  function holdingScroll(pass: () => void): void {
+    const top = scroller.scrollTop;
+    pass();
+    if (scroller.scrollTop < top) scroller.scrollTop = top;
+  }
+
+  /** The whole-article pass for a document that has just become whole, in windows when it is long (F-80). */
+  async function snapWhole(current: ProgressiveMount, article: HTMLElement): Promise<void> {
+    cancelScheduledSnap();
+    const generation = (wholeGeneration += 1);
+    lastSnapAt = performance.now();
+    await snapInSlices(article, parseFloat(getComputedStyle(article).lineHeight), {
+      size: SLICE_BLOCKS,
+      around: holdingScroll,
+      yieldNow: yieldToEventLoop,
+      aborted: () => generation !== wholeGeneration || mount !== current,
+    });
+    if (generation !== wholeGeneration || mount !== current) return;
     if (shown) shown.blocks = buildBlocks(article, shown.nodeMap);
     holdAnchor();
   }
@@ -1088,13 +1190,36 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   /** Runs the pending snap now, over what it would have covered. */
   function snapPending(article: HTMLElement): void {
+    const changed = changedBlocks;
+    // Only blocks that changed height are asked for: the pass is over them (F-80). Anything else asked for is the pass it was.
+    if (snapFrom === undefined && changed !== null && changed.size > 0) {
+      cancelScheduledSnap();
+      changedBlocks = null;
+      lastSnapAt = performance.now();
+      snapChanged(article, [...changed].filter((block) => block.isConnected));
+      return;
+    }
     snap(article, snapFrom ?? undefined);
+    if (changed !== null && changedBlocks !== null) {
+      changedBlocks = null;
+      snapChanged(article, [...changed].filter((block) => block.isConnected));
+    }
   }
 
   /** `from` asks only for the blocks from it on (the earliest asked wins); without it, the whole article. */
   function scheduleSnap(article: HTMLElement, from?: HTMLElement): void {
     if (from === undefined || snapFrom === null) snapFrom = null;
     else if (snapFrom === undefined || from.compareDocumentPosition(snapFrom) & Node.DOCUMENT_POSITION_FOLLOWING) snapFrom = from;
+    armSnap(article);
+  }
+
+  /** `block` changed height by itself (an island's observer): the pass is over it, and not over the article from it on (F-80). */
+  function scheduleChanged(article: HTMLElement, block: HTMLElement): void {
+    (changedBlocks ??= new Set()).add(block);
+    armSnap(article);
+  }
+
+  function armSnap(article: HTMLElement): void {
     if (snapTimer !== 0 || snapFrame !== 0) return;
     const wait = Math.max(0, lastSnapAt + SNAP_INTERVAL_MS - performance.now());
     snapTimer = window.setTimeout(() => {
@@ -1122,7 +1247,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
           if (was === undefined || Math.abs(was - contentRect.height) < 0.1) continue;
           let block = target as HTMLElement;
           while (block.parentElement && block.parentElement !== article) block = block.parentElement;
-          if (block.parentElement === article) scheduleSnap(article, block);
+          if (block.parentElement === article) scheduleChanged(article, block);
         }
       });
     }
@@ -1140,6 +1265,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     fontsLoaded = null;
     islandObserver?.disconnect();
     islandObserver = null;
+    endObserver?.disconnect();
+    endObserver = null;
   }
 
   function keepOnGrid(article: HTMLElement): void {
@@ -1195,6 +1322,12 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       }, 100);
     });
     resizeObserver.observe(article);
+    // The page changes height under a reader who jumped to the end: the end stays where they put it (F-80).
+    endObserver = new ResizeObserver(() => {
+      if (!endPinned || article.hidden || viewMode !== 'rendered') return;
+      if (distanceToEnd() > 2) scroller.scrollTop = scroller.scrollHeight;
+    });
+    endObserver.observe(article);
   }
 
   /**
@@ -1759,6 +1892,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   function mountDocument(html: string, file: string, landing?: number, start?: Promise<unknown>, parsed?: HTMLElement): ProgressiveMount {
     mount?.cancel();
     cancelScheduledSnap();
+    endPinned = false;
     // The repository root the images and links resolve against (F-14): asked once, never waited on.
     void resolveImageRoot(file, (path) => deps.rootFor(path));
     const t0 = performance.now();
@@ -1780,7 +1914,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     void current.complete.then(() => {
       if (mount !== current || !current.isComplete() || chunks === 0) return;
       // The last chunk's blocks are on the grid before anything reads the whole document.
-      snap(doc);
+      completePass = snapWhole(current, doc);
       void shell.mark('content_complete', Date.now(), `ms=${(performance.now() - t0).toFixed(1)} chunks=${chunks}`);
     });
     return current;
@@ -2003,7 +2137,10 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     },
     landOn,
     mountThrough,
-    contentComplete: () => mount?.complete ?? Promise.resolve(),
+    contentComplete: async () => {
+      await mount?.complete;
+      await completePass;
+    },
     get mode() {
       return viewMode;
     },
@@ -2091,6 +2228,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       unwire();
       scrollListeners.clear();
       scrollTarget(scroller).removeEventListener('scroll', onScrollerScroll);
+      for (const type of PIN_INPUT_TYPES) window.removeEventListener(type, onPinInput, { capture: true });
     },
   };
   return view;
