@@ -1,6 +1,6 @@
 # ADR-0071 — Decoded table cells: a second deriver for CSV and TSV, and a `cell` selection that copies what it shows
 
-- **Status:** accepted (author, 2026-10-12, K-10b question 1: the table shows a quoted field's decoded value)
+- **Status:** accepted (author, 2026-10-12, K-10b question 1: the table shows a quoted field's decoded value); amended 2026-10-13 (F-89)
 - **Date:** 2026-10-12
 - **Amends:** ADR-0061 (derived views): item 1 admits a second deriver, `delimited-table`; item 3 gains the `cell` node
   and the `csv-field` decoding; item 4.2 allows an empty range for an empty field; item 5 gains the `cell` selection;
@@ -140,6 +140,31 @@ quotes its fields.
    first records (commitment 5). A quoted field may span lines, so a record ends at the first terminator outside quotes;
    the unclosed-quote rule of item 3 bounds how far one bad quote can reach (its own line).
 
+## Amendments
+
+**2026-10-13 (F-89, follow-ups from the review of K-10b).** Four readings made exact; the rulings above stand.
+
+1. **A lone `\r` ends a record**, as `\n` and `\r\n` do (item 1's terminators, item 2's record end). It is the line ending of
+   an old Mac file; a file with only these read as one record of ␍-marked fields. Inside a quoted field a `\r` is still
+   data. Source shows the bytes as they are, and the header line says *lines end in CR alone*. The accounting rule is
+   unchanged: a lone `\r` is a record terminator, or a dropped blank line.
+2. **An unreadable row says how far its quote reached (commitment 4).** The row stays its own first line (item 3), and the
+   lines after it are still read as rows of their own, so an unclosed quote cannot swallow the file. Those rows may have
+   been part of the broken record, and the row says so: it carries `swallowed`, the number of lines after its own that
+   start inside the quote (for a quote never closed, every line to the end of the file; for one that closed late, the lines
+   up to the one it closes on), and the grid prints it (*the quote runs on · the 2 lines after it may have been part of it,
+   read as rows of their own*). The rule is a count on the marked row, not a mark on each later row: a bad quote near the
+   top of a long file would otherwise mark the rest of it.
+3. **The delimiter is still the extension's; a file that looks like another gets a hint.** *Sniff the delimiter* stays
+   rejected: the table is never read again with a guess. When every row read so far is one field, and each of the first 20
+   holds the same number of one other candidate (`;`, a tab, `|`, or `,` in a TSV), the header line says *This file may use
+   ';' between fields*. A real table, or rows whose counts differ, gets no hint.
+4. **The grid draws the columns in view, as it draws the rows in view.** A file of thousands of columns costs the cells on
+   screen: the table holds the row numbers, the columns in view with a margin, and at most one spacer a side of the width
+   the others would have had. Column stats are counted for the columns in view and for others as they scroll in; the sort
+   is slices over one column. Nothing in the bytes, the selection or a copy changes: a copy of the whole table still
+   reads every column.
+
 ## Consequences
 
 - K-10b builds it: the `delimited-table` deriver and `decodeCsvField` in `packages/core/src/data/delimited.ts`, the `cell`
@@ -158,7 +183,7 @@ quotes its fields.
   field stays one choice away as a Copy as target.
 - **Mark every quoted cell.** Many exports quote every field; a mark on every cell is no mark. The mark is for a value the
   bytes spell differently, not for the format's own delimiters.
-- **Sniff the delimiter from the content.** A guess that changes with the first lines is a surprise; the extension says.
+- **Sniff the delimiter from the content.** A guess that changes with the first lines is a surprise; the extension says. (A hint that names another delimiter, and reads nothing again, is not this: amendment 3.)
 - **Trim spaces around fields or quotes.** That would show text the file does not hold.
 
 ## How we would know this was wrong

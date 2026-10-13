@@ -1588,6 +1588,10 @@ th[aria-sort="ascending"] .marxy-table-lens-arrow, th[aria-sort="descending"] .m
 .marxy-table-lens-grid :is(.marxy-table-lens-unreadable, .marxy-table-lens-pending) code { font-family: var(--marxy-face-mono); font-size: calc(var(--marxy-size-chrome) * 12 / 13); }
 .marxy-table-lens-label { margin-inline-end: 1em; font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-secondary); }
 .marxy-table-lens-spacer td { padding: 0; border: 0; }
+/* The columns not drawn, stood for by one cell (F-89); and what an unreadable row says of the lines after it, and the delimiter hint. */
+.marxy-table-lens-grid .marxy-table-lens-hspacer { padding: 0; }
+.marxy-table-lens-swallowed { margin-inline-start: 1em; font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-secondary); }
+.marxy-table-lens-hint { color: var(--marxy-color-text-strong); }
 .marxy-table-lens-grid tfoot td, .marxy-table-lens-grid tfoot th {
   position: sticky;
   bottom: 0;

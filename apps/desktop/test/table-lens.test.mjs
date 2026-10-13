@@ -23,7 +23,18 @@ const RESULTS = fixture('37-results.csv');
 const AWKWARD = fixture('38-awkward.csv');
 /** A table tall enough to scroll: a header and 300 rows. */
 const TALL = `n,label,value\n${Array.from({ length: 300 }, (_, i) => `${i + 1},row-${i + 1},${(i * 37) % 101}`).join('\n')}\n`;
+/** 3,000 columns by 40 rows: 1.5 million cells in the file, a few dozen in view (F-89). */
+const WIDE_COLS = 3000;
+const wideCell = (r, c) => (r * 31 + c * 7) % 1000;
+const WIDE = `${Array.from({ length: WIDE_COLS }, (_, c) => `c${c}`).join(',')}\n${Array.from({ length: 40 }, (_, r) => Array.from({ length: WIDE_COLS }, (_, c) => wideCell(r, c)).join(',')).join('\n')}\n`;
 const files = {
+  '/r/wide.csv': WIDE,
+  // A quote never closed runs through every line after it; a quote that closes late ran through the lines up to it.
+  '/r/unclosed.csv': 'id,note\n1,fine\n2,"oops,x\nmid,2\nlast,3\n',
+  '/r/late.csv': 'id,note\n2,"oops,x\nmid,2\n"z",3\nend,4\n',
+  // A semicolon file with a .csv name; a file whose lines end in a lone CR.
+  '/r/semi.csv': 'name;age;city\nAda;36;Rome\nGil;41;Oslo\n',
+  '/r/mac.csv': 'name,age\rAda,36\rGil,41\r',
   '/r/results.csv': RESULTS,
   '/r/awkward.csv': AWKWARD,
   '/r/tall.csv': TALL,
@@ -71,6 +82,13 @@ const shownRows = (page) => page.evaluate(() => [...document.querySelectorAll('.
     return copy.textContent;
   })));
 const bytesNow = (page) => page.evaluate(() => [...window.__marxyHandle.panes().focused.view.store().snapshot().buffer.bytes]);
+/** The buffer's length and a hash of its bytes: the same question as `bytesNow`, for a file too big to send across whole. */
+const fingerprint = (page) => page.evaluate(() => {
+  const bytes = window.__marxyHandle.panes().focused.view.store().snapshot().buffer.bytes;
+  let h = 2166136261;
+  for (let i = 0; i < bytes.length; i++) h = Math.imul(h ^ bytes[i], 16777619) >>> 0;
+  return { length: bytes.length, hash: h };
+});
 /** Writes that reached a document of the test's (`/r/…`); the app's own state files are not the reader's documents. */
 const writes = (page) => page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => /^write/.test(c.method) && String(c.args[0]).startsWith('/r/')).length);
 const copied = (page) => page.evaluate(() => {
@@ -328,6 +346,156 @@ test('the stats of a column are recomputed after an external change reloads the 
     assert.equal((await cold()).count, 9);
     assert.match(await page.$eval('tfoot td[data-col="3"]', (td) => td.textContent), /max 500,000/);
     assert.equal(await page.$$eval('.marxy-table-lens-grid tbody tr[data-record]', (t) => t.length), 9);
+  }));
+
+// ---- F-89: follow-ups from the review of K-10b -----------------------------------------------------------------------------
+
+test('a file of 3,000 columns draws the columns in view, not all of them: sort, stats, selection and scrolling across work on the cells that exist, and nothing is written', () =>
+  withPage(async (page) => {
+    await boot(page, '/r/wide.csv');
+    const before = await fingerprint(page);
+    await run(page, 'data.table-lens');
+    await page.waitForSelector('.marxy-table-lens-grid tbody tr[data-record]');
+    await settled(page);
+    // The cells in the DOM are bounded by the screen, not by the file: 40 rows of 3,000 columns would be 120,000.
+    const drawn = () => page.evaluate(() => ({
+      head: document.querySelectorAll('.marxy-table-lens-grid thead th[data-col]').length,
+      body: document.querySelectorAll('.marxy-table-lens-grid tbody td[data-col]').length,
+      all: document.querySelectorAll('.marxy-table-lens-grid td, .marxy-table-lens-grid th').length,
+      cols: document.querySelectorAll('.marxy-table-lens-grid col').length,
+      names: [...document.querySelectorAll('.marxy-table-lens-grid thead th[data-col] .marxy-table-lens-name')].map((n) => n.textContent),
+    }));
+    let d = await drawn();
+    assert.ok(d.head > 5 && d.head < 60, `${d.head} header cells`);
+    assert.ok(d.body < 60 * 45 && d.body > 0, `${d.body} body cells`);
+    assert.ok(d.all < 3000, `${d.all} cells in all, of 120,000 in the file`);
+    assert.ok(d.cols < 70, `${d.cols} columns in the table, of ${WIDE_COLS}`);
+    assert.equal(d.names[0], 'c0');
+    assert.equal((await lensState(page)).columns, WIDE_COLS);
+    assert.match(await page.textContent('.marxy-table-lens-info'), /Table from 41 lines of CSV · Row 1 used as header/);
+
+    // Sort by a column in view: the order is the whole file's, and still only the cells in view are drawn.
+    await page.click('.marxy-table-lens-grid thead th[data-col="1"] button');
+    await settled(page);
+    const col1 = (await shownRows(page)).map((r) => Number(r[1]));
+    assert.deepEqual(col1, [...col1].sort((a, b) => a - b));
+    assert.equal(col1[0], Math.min(...Array.from({ length: 40 }, (_, r) => wideCell(r, 1))));
+    assert.ok((await drawn()).all < 3000);
+
+    // Stats are counted for the columns in view; the rest wait until they scroll in.
+    await page.evaluate(async () => {
+      const { lensOf } = await import('/src/kinds/table-lens.ts');
+      await lensOf(window.__marxyHandle.panes().focused).setStats(true);
+    });
+    await settled(page);
+    let stats = (await lensState(page)).stats;
+    assert.equal(stats.length, WIDE_COLS);
+    assert.ok(stats[1] !== null && stats[1].count === 40, 'a column in view is counted');
+    assert.ok(stats.filter(Boolean).length < 80, `${stats.filter(Boolean).length} columns counted, of ${WIDE_COLS}`);
+    assert.equal(stats[WIDE_COLS - 1], null, 'a column far off is not counted yet');
+
+    // Scrolling across draws the columns that come into view, drops the others, and counts the new ones.
+    await page.$eval('.marxy-table-lens-scroll', (s) => { s.scrollLeft = s.scrollWidth; });
+    await page.waitForSelector(`.marxy-table-lens-grid thead th[data-col="${WIDE_COLS - 1}"]`);
+    d = await drawn();
+    assert.ok(d.all < 3000 && d.cols < 70, `${d.all} cells after the scroll`);
+    assert.equal(d.names.at(-1), `c${WIDE_COLS - 1}`);
+    assert.ok(!d.names.includes('c0'), 'the first columns are no longer drawn');
+    assert.equal(await page.$eval(`tbody tr[data-record="1"] td[data-col="${WIDE_COLS - 1}"]`, (td) => td.textContent) !== '', true);
+    await page.waitForFunction(async (last) => {
+      const { lensOf } = await import('/src/kinds/table-lens.ts');
+      return lensOf(window.__marxyHandle.panes().focused)?.state().stats?.[last] != null;
+    }, WIDE_COLS - 1, { timeout: 15_000 });
+    await settled(page);
+    assert.match(await page.$eval(`tfoot td[data-col="${WIDE_COLS - 1}"]`, (td) => td.textContent), /count 40/);
+
+    // The keyboard reaches a cell that was never drawn: Home, then End, and the selected cell is there, named by the grid.
+    await page.$eval('.marxy-table-lens-scroll', (s) => { s.scrollLeft = 0; });
+    await page.waitForSelector('.marxy-table-lens-grid thead th[data-col="0"]');
+    await page.click('tbody tr[data-record="1"] td[data-col="1"]');
+    await page.keyboard.press('End');
+    await page.waitForSelector(`td[aria-selected="true"][data-col="${WIDE_COLS - 1}"]`);
+    const sel = await lensState(page);
+    assert.equal(sel.selected.col, WIDE_COLS - 1);
+    assert.equal(await page.$eval('td[aria-selected="true"]', (td) => Number(td.textContent) >= 0), true);
+    assert.equal(await page.evaluate(() => {
+      const t = document.querySelector('.marxy-table-lens-grid');
+      return document.getElementById(t.getAttribute('aria-activedescendant'))?.getAttribute('aria-selected');
+    }), 'true');
+    await page.keyboard.press('Home');
+    await page.waitForSelector('td[aria-selected="true"][data-col="0"]');
+    assert.ok((await drawn()).all < 3000);
+
+    // Nothing was written.
+    assert.deepEqual(await fingerprint(page), before);
+    assert.equal(await writes(page), 0);
+  }));
+
+test('an unreadable row says how many lines after it its quote reached into, which are read as rows of their own', () =>
+  withPage(async (page) => {
+    await boot(page, '/r/unclosed.csv');
+    await run(page, 'data.table-lens');
+    await settled(page);
+    const note = () => page.$$eval('tr.marxy-table-lens-unreadable', (trs) => trs.map((tr) => ({
+      label: tr.querySelector('.marxy-table-lens-label').textContent,
+      raw: tr.querySelector('code').textContent,
+      note: tr.querySelector('.marxy-table-lens-swallowed')?.textContent ?? null,
+    })));
+    assert.deepEqual(await note(), [{
+      label: 'Unreadable · a quote is never closed',
+      raw: '2,"oops,x',
+      note: 'the quote runs on · the 2 lines after it may have been part of it, read as rows of their own',
+    }]);
+    // The two lines are still shown, as rows of their own; the note on the row above is what keeps them from reading as certain.
+    assert.deepEqual((await shownRows(page)).slice(-2), [['mid', '2'], ['last', '3']]);
+
+    await open(page, '/r/late.csv');
+    await run(page, 'data.table-lens');
+    await settled(page);
+    assert.deepEqual(await note(), [{
+      label: 'Unreadable · bytes after a closing quote',
+      raw: '2,"oops,x',
+      note: 'the quote closes later · the 2 lines after it may have been part of it, read as rows of their own',
+    }]);
+    // The fixture's bad rows each carry the note when a quote ran on, and a row whose quote closed on its own line has none.
+    await run(page, 'data.table-lens');
+    await open(page, '/r/awkward.csv');
+    await run(page, 'data.table-lens');
+    await settled(page);
+    const awkward = await note();
+    assert.equal(awkward[0].note, null, 'bytes after a quote closed on the same line swallowed nothing');
+    assert.match(awkward[1].note, /^the quote runs on · the (line|\d+ lines) after it may have been part of it/);
+  }));
+
+test('a semicolon file named .csv gets a hint, not a re-parse; a file whose lines end in a lone CR reads as rows', () =>
+  withPage(async (page) => {
+    await boot(page, '/r/semi.csv');
+    const before = await bytesNow(page);
+    await run(page, 'data.table-lens');
+    await settled(page);
+    assert.match(await page.textContent('.marxy-table-lens-info'), /This file may use ';' between fields/);
+    assert.equal((await lensState(page)).columns, 1, 'the extension says the delimiter: the table is not re-read');
+    assert.deepEqual(await shownRows(page), [['Ada;36;Rome'], ['Gil;41;Oslo']]);
+    assert.deepEqual(await bytesNow(page), before);
+    await run(page, 'data.table-lens');
+    await open(page, '/r/results.csv');
+    await run(page, 'data.table-lens');
+    await settled(page);
+    assert.equal(await page.$$eval('.marxy-table-lens-hint', (h) => h.length), 0, 'a real table has no hint');
+
+    await run(page, 'data.table-lens');
+    await open(page, '/r/mac.csv');
+    const macBytes = await bytesNow(page);
+    await run(page, 'data.table-lens');
+    await settled(page);
+    const info = await page.textContent('.marxy-table-lens-info');
+    assert.match(info, /Table from 3 lines of CSV/);
+    assert.match(info, /lines end in CR alone/);
+    assert.match(info, /Row 1 used as header/);
+    assert.deepEqual(await shownRows(page), [['Ada', '36'], ['Gil', '41']]);
+    assert.equal(await page.$$eval('.marxy-table-lens-break', (b) => b.length), 0, 'the CRs are line breaks, not marks in a cell');
+    assert.deepEqual(await bytesNow(page), macBytes, 'Source keeps the bytes as they are');
+    assert.equal(await writes(page), 0);
   }));
 
 // ---- commitment 5: a CSV of 50 MB ---------------------------------------------------------------------------------------
