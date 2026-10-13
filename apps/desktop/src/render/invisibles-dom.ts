@@ -14,6 +14,8 @@ const PLAIN_ASCII = /^[\t\n\r\x20-\x7e]*$/;
 const GLYPH = 'marxy-invisible-glyph';
 const MARKER = 'marxy-invisible';
 const HIDDEN_RUN = 'marxy-log-hidden-run';
+/** The note after a line cut short ("… 1,340 more characters"): the page's words, not the file's. */
+export const ELIDED_NOTE = 'marxy-elided';
 
 function contextForText(node: Text): InvisibleContext {
   const el = node.parentElement?.closest('[data-marxy-s]');
@@ -97,14 +99,18 @@ export function appendInvisibleSegments(parent: Element, segments: readonly Invi
 }
 
 /**
- * Source bytes of a code element, omitting display-only text: the glyph labels of the markers, and the words that stand for
- * a run of lines the log filter hides (K-08), which are not in the file.
+ * Source bytes of a code element, omitting display-only text: the glyph labels of the markers, the words that stand for
+ * a run of lines the log filter hides (K-08), and the note that says how much of a long line is not shown (F-84). None of
+ * them is in the file; a note read back as source made the line 24 characters longer on the page than in the bytes, and
+ * every copy offset after it was late by as much.
  */
 export function sourceTextFromCode(code: HTMLElement): string {
-  if (code.querySelector(`.${GLYPH}, .${HIDDEN_RUN}`) === null) return code.textContent ?? '';
+  const display = (node: Element): boolean =>
+    node.classList.contains(GLYPH) || node.classList.contains(HIDDEN_RUN) || node.classList.contains(ELIDED_NOTE);
+  if (code.querySelector(`.${GLYPH}, .${HIDDEN_RUN}, .${ELIDED_NOTE}`) === null) return code.textContent ?? '';
   const parts: string[] = [];
   const walk = (node: Node): void => {
-    if (node instanceof Element && (node.classList.contains(GLYPH) || node.classList.contains(HIDDEN_RUN))) return;
+    if (node instanceof Element && display(node)) return;
     if (node.nodeType === Node.TEXT_NODE) {
       parts.push(node.textContent ?? '');
       return;
