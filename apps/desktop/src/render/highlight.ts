@@ -12,14 +12,14 @@ import {
   type HighlightToken,
 } from '@marxy/core/src/highlight/index.ts';
 import { closedJobIds } from './highlight-queue.ts';
-import { applyInvisibleMarkers, sourceTextFromCode } from './invisibles-dom.ts';
+import { applyInvisibleMarkers, ELIDED_NOTE, sourceTextFromCode } from './invisibles-dom.ts';
 import { applyLinkDestinations } from './link-dest.ts';
 
 const LANGUAGE_PREFIX = 'language-';
 const LINE = 'marxy-line';
 const LONG_LINE_THRESHOLD = 1000;
 const LONG_LINE_HEAD = 200;
-const ELIDED_CLASS = 'marxy-elided';
+const ELIDED_CLASS = ELIDED_NOTE;
 const OMITTED_CLASS = 'marxy-line-omitted';
 const DEFAULT_TAB = 4;
 /** The custom property the app sets (source/tab-width.ts) and base.css's `tab-size` reads. */
