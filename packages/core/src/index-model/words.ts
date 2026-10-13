@@ -13,14 +13,17 @@
 // and gives the same number over a whole file and over the sections that tile it. Link targets, URLs and markup characters
 // are counted as they stand (`[the doc](a.md)` is two words), and a fence inside a block quote is counted.
 //
-// Streaming: `feed` takes the text in any pieces and the count is the same however it was cut. Call `done` once, at the end.
+// Streaming: `feed` takes the text in any pieces and the count is the same however it was cut. `done` ends it (call it once, at the end); `count` reads the same number
+// part-way without ending it.
 // No DOM, no Node built-ins.
 import { fileTypeOf } from './file-types.ts';
 
 export interface WordCounter {
   feed(chunk: string): void;
-  /** The count, with the run and the line being read counted. Call once, after the last `feed`. */
+  /** The count, with the run and the line being read counted. Ends the counter: call once, after the last `feed`. */
   done(): number;
+  /** The same number, read without ending the counter: more can be fed after. Costs the line being read, not the text so far. */
+  count(): number;
 }
 
 export interface WordSegmenter {
@@ -173,20 +176,6 @@ export function createWordCounter(options: WordCountOptions = {}): WordCounter {
     inRun = false;
   };
 
-  if (!markdown) {
-    return {
-      feed: text,
-      done() {
-        if (carry !== '') {
-          text(' ');
-        }
-        endRun();
-        flushBatch();
-        return words;
-      },
-    };
-  }
-
   // ---- Markdown: lines, and the modes they put the counter in
   let mode: Mode = 'prose';
   let first = true;
@@ -200,6 +189,29 @@ export function createWordCounter(options: WordCountOptions = {}): WordCounter {
   let inCode = false;
   let inList = false;
   let pending = '';
+
+  const save = () => ({
+    words, inRun, hit, needsBreaker, runText, batch, carry, mode, first, continued, skipping, frontMark, wordsBeforeFront,
+    fenceChar, fenceLen, prevBlank, inCode, inList, pending,
+  });
+  const restore = (s: ReturnType<typeof save>): void => {
+    ({ words, inRun, hit, needsBreaker, runText, batch, carry, mode, first, continued, skipping, frontMark, wordsBeforeFront } = s);
+    ({ fenceChar, fenceLen, prevBlank, inCode, inList, pending } = s);
+  };
+  /** `finish` ends the text where it stands, which changes the counter; `count` reads the same number and leaves it as it was. */
+  let finish = (): number => {  // the plain text's; Markdown replaces it below
+    endRun();
+    flushBatch();
+    return words;
+  };
+  const count = (): number => {
+    const saved = save();
+    const n = finish();
+    restore(saved);
+    return n;
+  };
+
+  if (!markdown) return { feed: text, done: finish, count };
 
   /** Text outside code, with HTML comments left out; a comment may run over lines. */
   const prose = (line: string): void => {
@@ -303,6 +315,14 @@ export function createWordCounter(options: WordCountOptions = {}): WordCounter {
     } else continued = true;
   };
 
+  finish = (): number => {
+    if (pending !== '') classify(pending, true);
+    pending = '';
+    endRun();
+    flushBatch();
+    return words;
+  };
+
   return {
     feed(chunk) {
       const buf = pending === '' ? chunk : pending + chunk;
@@ -324,14 +344,8 @@ export function createWordCounter(options: WordCountOptions = {}): WordCounter {
         pending = pending.slice(LINE_PIECE);
       }
     },
-    done() {
-      if (pending !== '') classify(pending, true);
-      pending = '';
-      if (carry !== '') text(' ');
-      endRun();
-      flushBatch();
-      return words;
-    },
+    done: () => finish(),
+    count,
   };
 }
 

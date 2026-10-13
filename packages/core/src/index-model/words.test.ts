@@ -155,3 +155,23 @@ test('countsAsMarkdown: by the file type table', () => {
   assert.equal(countsAsMarkdown('/r/a.ts'), false);
   assert.equal(countsAsMarkdown('/r/noext'), false);
 });
+
+test('count() reads the number part-way without ending the counter: feeding on gives the same total, whatever is read between', () => {
+  const text = '---\nt: a b\n---\nIntro 我们今天 words\n\n```\ncode more\n```\n\n> # Quoted head\n> more <!-- hid\nden --> text\n\n    code\n\nlast line no break';
+  for (const markdown of [false, true]) {
+    const whole = countWords(text, { markdown });
+    for (const size of [1, 2, 5, 11]) {
+      const counter = createWordCounter({ markdown });
+      let last = 0;
+      for (let i = 0; i < text.length; i += size) {
+        counter.feed(text.slice(i, i + size));
+        const now = counter.count();
+        assert.equal(counter.count(), now, 'reading twice gives the same');
+        assert.equal(countWords(text.slice(0, i + size), { markdown }), now, `the count so far equals counting the text so far (${size}, ${i})`);
+        last = now;
+      }
+      assert.equal(counter.done(), whole);
+      assert.equal(last, whole);
+    }
+  }
+});
