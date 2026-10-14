@@ -41,11 +41,22 @@ export function whatHappened(reason: VersionReason): string {
   return 'The file itself is untouched.';
 }
 
+/**
+ * How long a save waits for its *before save* copy (V-06.1, ADR-0072 amendment 7). A local data folder answers in milliseconds, and a
+ * wake from sleep or a spun-down disk in one or two seconds, so three covers a slow but working folder; past it the folder is hung (a
+ * stalled network volume) and the reader's file must not wait on it any longer.
+ */
+export const KEEP_BEFORE_SAVE_TIMEOUT_MS = 3000;
+
 export interface VersionFailure {
   readonly path: string;
   readonly reason: VersionReason;
   readonly error: unknown;
+  /** The latest failed keep. */
   readonly time: number;
+  /** How many keeps of this file have failed in a row (a keep that works starts the count again), and when the first of them did. */
+  readonly count: number;
+  readonly since: number;
 }
 
 /** What the recorder needs of the shell: Marxy's own files only. */
@@ -71,8 +82,10 @@ export interface RecorderDeps {
   /** Resolves once the launch's first text is up; nothing is kept before it. */
   readonly ready: Promise<unknown>;
   readonly now?: () => number;
-  /** Says a failed keep once a session; the notices by default. */
+  /** Says a failed keep (every failed *before save*, the other kinds once until a keep works); the notices by default. */
   readonly notify?: (text: string) => void;
+  /** How long a save waits for its copy before it goes on without one; `KEEP_BEFORE_SAVE_TIMEOUT_MS` by default. */
+  readonly keepTimeoutMs?: number;
 }
 
 export interface VersionRecorder {
@@ -91,7 +104,8 @@ export interface VersionRecorder {
   /**
    * Keeps `bytes`, which a save is about to replace at `path`, as a *before save* version, and resolves once it is kept (or has failed
    * and been said). The document store awaits it just before it writes (`StoreIo.beforeOverwrite`), so the copy is made before the
-   * bytes go and a quit or a close right after the save cannot lose it.
+   * bytes go and a quit or a close right after the save cannot lose it. It waits at most `keepTimeoutMs`: past that the copy is
+   * abandoned (nothing it has not yet written is written, so it never lands late), the failure is said, and the save goes on.
    */
   keepBeforeSave(path: string, bytes: Uint8Array): Promise<void>;
   /** Resolves when every job queued so far has run. */
@@ -107,13 +121,28 @@ export function keepBeforeOverwrite(path: string, bytes: Uint8Array): Promise<vo
   return current ? current.keepBeforeSave(path, bytes) : Promise.resolve();
 }
 
-/** Waits for the queued copies, but at most `ms`: a close or a quit is never held by a slow disk. Never rejects. */
-export async function flushVersions(ms = 1500): Promise<void> {
+/**
+ * Waits for the queued copies, but at most `ms`: a close or a quit is never held by a slow disk. Never rejects. When the wait runs
+ * out it says so (a notice, and the console) and resolves false; true means every copy finished.
+ */
+export async function flushVersions(ms = 1500, say: (text: string) => void = (text) => void notify({ kind: 'refused', text })): Promise<boolean> {
   const recorder = current;
-  if (!recorder) return;
+  if (!recorder) return true;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  await Promise.race([recorder.settled().catch(() => undefined), new Promise<void>((resolve) => (timer = setTimeout(resolve, ms)))]);
+  const done = await Promise.race([
+    recorder.settled().then(() => true, () => true),
+    new Promise<boolean>((resolve) => (timer = setTimeout(() => resolve(false), ms))),
+  ]);
   clearTimeout(timer);
+  if (!done) {
+    console.warn(`marxy: versions: copies still being kept after ${ms} ms; closing without them`);
+    try {
+      say('Marxy closed before it finished keeping earlier versions · some copies of what was saved may be missing · the Versions tab shows what was kept');
+    } catch {
+      // Saying it must not hold the close.
+    }
+  }
+  return done;
 }
 
 /** The running app's recorder, or null (none installed, or the shell keeps no data folder). */
@@ -182,7 +211,8 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
   const unsubscribes: (() => void)[] = [];
   let stopped = false;
   let swept = false;
-  let toldFailure = false;
+  /** A failed keep that is not a save was said, and no keep has worked since. */
+  let toldStreak = false;
   let queue: Promise<void> = Promise.resolve();
   let isReady = false;
   void Promise.resolve(deps.ready).then(() => (isReady = true), () => undefined);
@@ -213,20 +243,35 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
       .catch((e: unknown) => console.warn(`marxy: versions: ${String(e)}`));
   };
 
-  async function keep(path: string, bytes: Uint8Array, reason: VersionReason): Promise<void> {
-    const outcome = await store.keep(path, bytes, reason);
+  /**
+   * A keep failed. Every failed *before save* is said: the reader just saved over bytes that are gone, and each save is their own act,
+   * so the notices are as many as their saves. The other kinds (a read, an outside change) are said once until a keep works again.
+   * The Versions tab holds the running count in any case.
+   */
+  function failed(path: string, reason: VersionReason, error: unknown): void {
+    const before = failures.get(path);
+    const count = (before?.count ?? 0) + 1;
+    const time = now();
+    failures.set(path, { path, reason, error, time, count, since: before?.since ?? time });
+    console.warn(`marxy: no ${reason} version of ${path} was kept: ${String((error as { message?: unknown })?.message ?? error)}`);
+    if (reason !== 'before save') {
+      if (toldStreak) return;
+      toldStreak = true;
+    }
+    const name = path.slice(path.lastIndexOf('/') + 1);
+    const what = whatHappened(reason).replace(/\.$/, '').replace(/^./, (c) => c.toLowerCase());
+    const times = reason === 'before save' && count > 1 ? ` · ${count} copies of ${name} not kept in a row` : '';
+    (deps.notify ?? ((text: string) => void notify({ kind: 'refused', text })))(`Marxy could not keep a version of ${name} · ${what}${times} · the Versions tab says why`);
+  }
+
+  async function keep(path: string, bytes: Uint8Array, reason: VersionReason, cancelled?: () => boolean): Promise<void> {
+    const outcome = await store.keep(path, bytes, reason, cancelled);
     if (outcome.result === 'failed') {
-      failures.set(path, { path, reason, error: outcome.error, time: now() });
-      console.warn(`marxy: no ${reason} version of ${path} was kept: ${String((outcome.error as { message?: unknown })?.message ?? outcome.error)}`);
-      if (!toldFailure) {
-        toldFailure = true;
-        const name = path.slice(path.lastIndexOf('/') + 1);
-        (deps.notify ?? ((text: string) => void notify({ kind: 'refused', text })))(
-          `Marxy could not keep a version of ${name} · ${whatHappened(reason).replace(/\.$/, '').replace(/^./, (c) => c.toLowerCase())} · the Versions tab says why`,
-        );
-      }
+      // An abandoned keep was already said when its wait ran out.
+      if (!cancelled?.()) failed(path, reason, outcome.error);
     } else if (outcome.result === 'kept' || outcome.result === 'same') {
       failures.delete(path);
+      toldStreak = false;
     }
     if (outcome.result === 'kept' && !swept) {
       // Once a session: versions over 30 days old (of any file, opened again or not) and the 200 MB total.
@@ -352,16 +397,29 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
         listeners.delete(cb);
       };
     },
-    keepBeforeSave: (path, bytes) =>
+    keepBeforeSave(path, bytes) {
       // After the jobs already queued (an open's read, an outside change's pair), so the versions stay in the order things happened;
       // before first text nothing waits on the queue, which is held for the launch.
-      (isReady ? queue : Promise.resolve())
+      let abandoned = false;
+      const job = (isReady ? queue : Promise.resolve())
         .then(() =>
           locked(async () => {
-            await keep(path, bytes, 'before save');
+            await keep(path, bytes, 'before save', () => abandoned);
           }),
         )
-        .catch((e: unknown) => console.warn(`marxy: versions: ${String(e)}`)),
+        .catch((e: unknown) => console.warn(`marxy: versions: ${String(e)}`));
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<'timeout'>((resolve) => (timer = setTimeout(() => resolve('timeout'), deps.keepTimeoutMs ?? KEEP_BEFORE_SAVE_TIMEOUT_MS)));
+      return Promise.race([job.then(() => 'done' as const), timeout]).then((how) => {
+        clearTimeout(timer);
+        if (how === 'timeout') {
+          // The copy holds the bytes this save replaces; it is dropped rather than written late, when the folder may have moved on.
+          abandoned = true;
+          failed(path, 'before save', new Error('the data folder did not answer in time'));
+          changed();
+        }
+      });
+    },
     settled: () => Promise.all([queue, lock]).then(() => undefined),
     stop() {
       if (stopped) return queue.then(() => lock).then(() => undefined);

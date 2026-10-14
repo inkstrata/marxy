@@ -6,16 +6,18 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { openDocumentStore, type DocumentStore } from '../document/store.ts';
 import { LARGE_FILE_BYTES } from '../source/language.ts';
-import { installVersionRecorder, VERSIONS_LARGE_FILE_BYTES, type RecorderShell } from './recorder.ts';
+import { flushVersions, installVersionRecorder, VERSIONS_LARGE_FILE_BYTES, type RecorderShell } from './recorder.ts';
 
 const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
 const dec = (b: Uint8Array): string => new TextDecoder().decode(b);
 
-function harness(files: Record<string, string> = {}, hold = false) {
+function harness(files: Record<string, string> = {}, hold = false, keepTimeoutMs = 3000) {
   const disk = new Map<string, Uint8Array>(Object.entries(files).map(([p, t]) => [p, enc(t)]));
   const writes: string[] = [];
   const reads: string[] = [];
   let failing: Error | null = null;
+  /** While set, a write into the data folder waits for it (a stalled network volume), then goes through. */
+  let hung: Promise<void> | null = null;
   const notFound = (p: string) => Object.assign(new Error(`not found: ${p}`), { code: 'not-found' });
   const shell: RecorderShell & { writeFileAtomic(p: string, b: Uint8Array): Promise<void> } = {
     async readHead(p, max) {
@@ -32,6 +34,7 @@ function harness(files: Record<string, string> = {}, hold = false) {
     },
     async writeFileAtomic(p, b) {
       writes.push(p);
+      if (hung && p.startsWith('/data/')) await hung;
       if (failing && p.startsWith('/data/')) throw failing;
       disk.set(p, b.slice());
     },
@@ -58,6 +61,7 @@ function harness(files: Record<string, string> = {}, hold = false) {
     panes: { panes: paneList, onSplit: (cb) => splitCallbacks.push(cb) },
     ready: hold ? ready : Promise.resolve(),
     notify: (t) => told.push(t),
+    keepTimeoutMs,
   })!;
   const split = (): (() => void) => {
     paneList.push(pane2);
@@ -99,7 +103,17 @@ function harness(files: Record<string, string> = {}, hold = false) {
     const l = await recorder.store.list(path);
     return l.kind === 'ok' ? l.versions.map((v) => v.reason) : l.kind;
   };
-  return { disk, writes, reads, shell, recorder, open, openSecond, split, release: () => release(), reasons, told, fail: (e: Error | null) => (failing = e) };
+  return { disk, writes, reads, shell, recorder, open, openSecond, split, release: () => release(), reasons, told, fail: (e: Error | null) => (failing = e),
+    /** Hangs data-folder writes until the returned function is called. */
+    hang: (): (() => void) => {
+      let go: () => void = () => {};
+      hung = new Promise<void>((resolve) => (go = resolve));
+      return () => {
+        hung = null;
+        go();
+      };
+    },
+  };
 }
 
 test('the large-file limit here is the editor\'s', () => {
@@ -238,7 +252,8 @@ test('a keep that fails (disk full) is reported once as a notice and held for th
   assert.equal((await store.save()).result, 'saved', 'the save itself went through');
   assert.equal(dec(h.disk.get('/r/x.md')!), 'two\n');
   await h.recorder.settled();
-  assert.equal(h.told.length, 1, 'said once a session');
+  assert.equal(h.told.length, 2, 'the failed read was said once; the failed save is said as its own');
+  assert.match(h.told[1]!, /the save went through and replaced those bytes/);
   h.fail(null);
   await store.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'six', label: 'edit' });
   await store.save();
@@ -442,4 +457,83 @@ test('outside changes A, B, C while the launch holds the jobs: all three are kep
     texts.push(r.kind === 'bytes' ? dec(r.bytes).trim() : r.kind);
   }
   assert.deepEqual([...new Set(texts)].reverse(), ['A', 'B', 'C']);
+});
+
+test('a save whose copy hangs goes on after the bound, says the copy was not kept, and the late copy is never written', async () => {
+  const h = harness({ '/r/x.md': 'one\n' }, false, 40);
+  const store = h.open('/r/x.md');
+  await h.recorder.settled();
+  const unhang = h.hang();
+  await store.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'two', label: 'edit' });
+  const started = Date.now();
+  assert.equal((await store.save()).result, 'saved', 'the reader\'s save is not held by the folder');
+  assert.ok(Date.now() - started < 1000);
+  assert.equal(dec(h.disk.get('/r/x.md')!), 'two\n');
+  assert.match(h.told.at(-1)!, /could not keep a version of x\.md · the save went through and replaced those bytes/);
+  assert.match(String((h.recorder.failure('/r/x.md')?.error as Error).message), /did not answer in time/);
+  const writesBefore = h.writes.length;
+  unhang();
+  await h.recorder.settled();
+  // The hung write itself may land (it was already under way); nothing after it does, and no version is added.
+  assert.ok(h.writes.length - writesBefore <= 1, 'nothing more is written once the keep was abandoned');
+  assert.deepEqual(await h.reasons('/r/x.md'), ['read'], 'no late "before save" version appears');
+});
+
+test('a copy that is slow but inside the bound is kept, with no notice', async () => {
+  const h = harness({ '/r/x.md': 'one\n' }, false, 2000);
+  const store = h.open('/r/x.md');
+  await h.recorder.settled();
+  await store.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'two', label: 'edit' });
+  await store.save();
+  await store.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'six', label: 'edit' });
+  const unhang = h.hang();
+  const saving = store.save();
+  setTimeout(unhang, 30);
+  assert.equal((await saving).result, 'saved');
+  assert.deepEqual(await h.reasons('/r/x.md'), ['before save', 'read']);
+  assert.equal(h.told.length, 0);
+});
+
+test('every failed save is said, the other kinds once until a keep works, and the tab\'s count runs on', async () => {
+  const h = harness({ '/r/x.md': 'one\n' });
+  h.fail(Object.assign(new Error('No space left on device'), { code: 'io' }));
+  const store = h.open('/r/x.md');
+  await h.recorder.settled();
+  assert.equal(h.told.length, 1, 'the failed read');
+  for (const text of ['two', 'six', 'ten']) {
+    await store.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: text, label: 'edit' });
+    await store.save();
+  }
+  assert.equal(h.told.length, 4, 'a notice for each of the three saves');
+  assert.match(h.told[3]!, /4 copies of x\.md not kept in a row/);
+  const f = h.recorder.failure('/r/x.md')!;
+  assert.equal(f.count, 4);
+  assert.ok(f.since <= f.time);
+  h.fail(null);
+  await store.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'ace', label: 'edit' });
+  await store.save();
+  assert.equal(h.recorder.failure('/r/x.md'), null, 'a keep that works ends the run');
+  h.fail(Object.assign(new Error('No space left on device'), { code: 'io' }));
+  await store.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'bee', label: 'edit' });
+  await store.save();
+  assert.equal(h.told.length, 5);
+  assert.doesNotMatch(h.told[4]!, /in a row/, 'a new run starts at one');
+});
+
+test('closing waits for queued copies at most the bound, and says so when it runs out', async () => {
+  const h = harness({ '/r/x.md': 'one\n' }, false, 40);
+  h.open('/r/x.md');
+  await h.recorder.settled();
+  const said: string[] = [];
+  assert.equal(await flushVersions(20, (t) => said.push(t)), true, 'nothing pending: no notice');
+  assert.equal(said.length, 0);
+  const unhang = h.hang();
+  h.disk.set('/r/x.md', enc('from outside\n'));
+  const store = h.open('/r/x.md');
+  await store.reload(h.disk.get('/r/x.md')!);
+  assert.equal(await flushVersions(20, (t) => said.push(t)), false);
+  assert.equal(said.length, 1);
+  assert.match(said[0]!, /closed before it finished keeping earlier versions/);
+  unhang();
+  await h.recorder.settled();
 });

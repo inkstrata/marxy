@@ -164,8 +164,12 @@ export function notKept(path: string, size: number, inputs: PolicyInputs): NotKe
 
 export interface VersionStore {
   list(path: string): Promise<Listing>;
-  /** Keeps `bytes` as a version of `path` for `reason`, within the limits. Never throws: a failure is a result. */
-  keep(path: string, bytes: Uint8Array, reason: VersionReason): Promise<KeepResult>;
+  /**
+   * Keeps `bytes` as a version of `path` for `reason`, within the limits. Never throws: a failure is a result. `cancelled` is asked
+   * before each write: once it says yes (the caller gave up waiting) nothing more is written, so a keep that finishes late leaves no
+   * version behind (V-06.1).
+   */
+  keep(path: string, bytes: Uint8Array, reason: VersionReason, cancelled?: () => boolean): Promise<KeepResult>;
   read(path: string, id: number): Promise<ReadResult>;
   /** Every version of `path` dropped: the manifest emptied, then every slot of the file overwritten with zero bytes. */
   clear(path: string): Promise<{ readonly cleared: number; readonly error?: unknown }>;
@@ -481,8 +485,14 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
       return { kind: 'ok', versions, saved: m.saved };
     },
 
-    keep(path, bytes, reason) {
+    keep(path, bytes, reason, cancelled) {
       return serially(async (): Promise<KeepResult> => {
+        if (cancelled?.()) return { result: 'failed', error: new Error('the keep was abandoned') };
+        // Every write of this keep goes through here, so an abandoned keep stops at its next one.
+        const put = async (file: string, content: Uint8Array): Promise<void> => {
+          if (cancelled?.()) throw new Error('the keep was abandoned');
+          await io.writeFileAtomic(file, content);
+        };
         try {
           const no = (await opts.policy?.(path, bytes)) ?? null;
           if (no !== null) return { result: 'refused', why: no.kind, notKept: no };
@@ -518,7 +528,7 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
           if (newest && newest.hash === hash && now - newest.time <= limits.maxAgeMs) {
             const held = await readSlot(data, key, newest);
             if (held.kind === 'bytes' && sameBytes(held.bytes, bytes)) {
-              if (saved !== before.saved) await io.writeFileAtomic(manifestPath(data, key), formatManifest({ ...before, saved }));
+              if (saved !== before.saved) await put(manifestPath(data, key), formatManifest({ ...before, saved }));
               return { result: 'same', entry: newest };
             }
           }
@@ -548,12 +558,12 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
           const pruned: Manifest = { path, next: before.next, saved: before.saved, versions: kept };
           // A dropped version's slot taken for the new bytes: the manifest stops naming it before it is written again.
           if (shared === null && slotsOf(before.versions).has(slot)) {
-            await io.writeFileAtomic(manifestPath(data, key), formatManifest(pruned));
+            await put(manifestPath(data, key), formatManifest(pruned));
           }
-          if (shared === null) await io.writeFileAtomic(slotPath(data, key, slot), bytes);
+          if (shared === null) await put(slotPath(data, key, slot), bytes);
           const next: Manifest = { path, next: before.next + 1, saved, versions: [...kept, entry] };
           try {
-            await io.writeFileAtomic(manifestPath(data, key), formatManifest(next));
+            await put(manifestPath(data, key), formatManifest(next));
           } catch (error) {
             // The new bytes are in a slot no entry names: emptied, if the disk lets it be.
             if (shared === null) await io.writeFileAtomic(slotPath(data, key, slot), EMPTY).catch(() => undefined);
@@ -561,7 +571,7 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
           }
           // Slots that only dropped versions named are emptied, once the manifest no longer names them.
           const still = slotsOf(next.versions);
-          for (const s of slotsOf(before.versions)) if (!still.has(s)) await io.writeFileAtomic(slotPath(data, key, s), EMPTY);
+          for (const s of slotsOf(before.versions)) if (!still.has(s)) await put(slotPath(data, key, s), EMPTY);
           return { result: 'kept', entry };
         } catch (error) {
           return { result: 'failed', error };

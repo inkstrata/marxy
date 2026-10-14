@@ -70,7 +70,8 @@ export const messageOf = (error: unknown): string => String((error as { message?
 
 /** What a failed keep says: which copy, and why. The file itself is never touched by a keep. */
 export function failureWords(failure: VersionFailure): string {
-  return `The last copy (${failure.reason}) could not be kept: ${messageOf(failure.error)}. ${whatHappened(failure.reason)}`;
+  const run = failure.count > 1 ? ` ${failure.count} copies of this file have not been kept since ${keptWhen(failure.since, Date.now())}.` : '';
+  return `The last copy (${failure.reason}) could not be kept: ${messageOf(failure.error)}. ${whatHappened(failure.reason)}${run}`;
 }
 
 const REASON_WORDS: Record<ListedVersion['reason'], string> = { read: 'read', 'before save': 'before save', 'before reload': 'before reload' };
