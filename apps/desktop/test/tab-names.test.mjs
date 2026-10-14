@@ -98,3 +98,27 @@ test('a name that fits is drawn whole, in the box an unsplit name would have (0 
     assert.deepEqual(await visibleLabels(page), ['Alpha.md', 'Bravo Tango.md', '2026-10-01.md']);
   });
 });
+
+test('graphemes are never torn, and a right-to-left name stays one run in reading order', async () => {
+  const family = '\u{1F468}‍\u{1F469}‍\u{1F467}‍\u{1F466}';
+  const list = [`/e/family-${family}${family}${family}-notes.md`, '/e/שלום-עולם-מסמך-ארוך-מאוד-לבדיקה.md', '/e/Café-menu-of-the-day-final.md'];
+  await withRow(list, async (page) => {
+    const r = await page.evaluate(() => {
+      const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+      const count = (t) => [...seg.segment(t)].length;
+      return [...document.querySelectorAll('.marxy-tab-name')].map((n) => {
+        const head = n.querySelector('.marxy-tab-name-head')?.textContent ?? null;
+        const tail = n.querySelector('.marxy-tab-name-tail')?.textContent ?? null;
+        return { full: n.getAttribute('data-marxy-text'), text: n.querySelector('.marxy-tab-name-text').textContent, head, tail, parts: head === null ? 1 : count(head) + count(tail), whole: count(n.getAttribute('data-marxy-text')) };
+      });
+    });
+    const [emoji, hebrew, accent] = r;
+    for (const x of r) assert.equal(x.text, x.full, 'the name is whole in the text');
+    assert.notEqual(emoji.tail, null);
+    assert.equal(emoji.parts, emoji.whole, 'no grapheme is split between head and tail');
+    assert.ok(!emoji.tail.startsWith('‍') && !emoji.head.endsWith('‍'), 'no ZWJ sequence is torn');
+    assert.equal(accent.parts, accent.whole);
+    assert.ok(!accent.tail.startsWith('́'), 'a combining mark stays with its letter');
+    assert.equal(hebrew.head, null, 'a right-to-left name is one run (end ellipsis), so its words keep their order');
+  });
+});
