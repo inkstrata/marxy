@@ -63,6 +63,7 @@ export const SCREENS = {
   '10-kind-chip-menu': 'The kind chip\'s menu open, unfolded: why the file is read as it is, then the Show as choices (mock 01-workspace)',
   '10-empty-window': 'The empty window with a text beside its translation, opened at 800 px and widened to 1,000 (mock 01-workspace, folded; the mock has no empty window)',
   '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
+  '08-settings-1000': 'Settings on Content types in a 1,000 px unfolded window: the page takes the window less the sidebar (F-102; mock 08-settings, types)',
 };
 
 /** The file names one screen produces: <screen>-<theme>-{app,mock}.png. */
@@ -386,6 +387,10 @@ const APP_STATES = {
     await unfoldedWithTabs(page);
     await page.evaluate(() => window.__cmd('kind.chip'));
     await page.waitForSelector('.marxy-verb-menu');
+  async '08-settings-1000'(page) {
+    await page.evaluate(() => window.__cmd('view.settings'));
+    await page.waitForSelector('[data-marxy-settings]');
+    await page.click('[data-marxy-category="types"]');
     await settle(page, 400);
   },
   async '09-inspector-versions'(page) {
@@ -414,7 +419,7 @@ const APP_STATES = {
     await settle(page, 600);
   },
 };
-const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 } };
+const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 }, '08-settings-1000': { width: 1000 } };
 
 // ---------- the mock ----------
 async function openMock(browser, theme, file, { width = W, height = H, hash = '' } = {}) {
@@ -495,6 +500,7 @@ const MOCK_STATES = {
   '10-kind-chip-menu': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await settle(page, 300); await page.click('#kindchip'); await settle(page, 500); } },
   '10-empty-window': { file: '01-workspace.html', width: 1000, run: async () => {} },
   '08-settings': { file: '08-settings.html', hash: '#reading', run: async (page) => { await settle(page, 400); } },
+  '08-settings-1000': { file: '08-settings.html', hash: '#types', width: 1000, run: async (page) => { await settle(page, 400); } },
 };
 
 const browser = await launchWebkit();
