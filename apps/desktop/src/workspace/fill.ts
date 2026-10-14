@@ -6,7 +6,9 @@
 import type { AppHandle } from '../app.ts';
 import { mountKindChip, mountStrip } from './kind-chip.ts';
 import { mountInspector, registerInspectorTab } from './inspector.ts';
+import { installMetadataMargin } from '../render/metadata-margin.ts';
 import { LINKS_TAB } from './links-tab.ts';
+import { METADATA_TAB } from './metadata-tab.ts';
 import { OUTLINE_TAB } from './outline-tab.ts';
 import { VERSIONS_TAB } from './versions-tab.ts';
 import { installPeek } from './peek.ts';
@@ -28,12 +30,16 @@ export function installWorkspaceFills(handle: AppHandle): void {
   workspace.fill('sidebar', (el) => mountSidebar(el, handle, signal));
   // The documents opened since the window unfolded, one click apart; the band hides itself below two (W-06). Folded there are no tabs.
   workspace.fill('tabs', (el) => mountTabs(el, handle, signal));
-  // The inspector: a strip of the tabs registered (Links, then Outline: the headings with the words of each section, where a row jumps or moves its section, W-10; Metadata and Versions register theirs, W-17, V-06) and the selected panel. Folded there is none.
+  // The inspector: a strip of the tabs registered (Links, then Outline: the headings with the words of each section, where a row jumps or moves its section, W-10; Metadata, W-17, and Versions, V-06, follow) and the selected panel. Folded there is none.
   registerInspectorTab(LINKS_TAB);
   registerInspectorTab(OUTLINE_TAB);
+  // Metadata (W-17): the file, its front matter (a value edited in place), how it was read, what is hidden in it and what Read reshaped.
+  registerInspectorTab(METADATA_TAB);
   // Versions (V-06, ADR-0072): Changed since you read, the file's earlier versions, a diff from each, Restore to a copy beside it.
   registerInspectorTab(VERSIONS_TAB);
   workspace.fill('inspector', (el) => mountInspector(el, handle, signal));
+  // `⌃⌘I`: a quiet preview of the file's metadata in Read's left margin, folded or unfolded; where there is no margin the tab opens instead (W-17).
+  installMetadataMargin(handle, signal);
   // The status bar: the file's kind, one measure, where you are and its encoding on the left, the theme and text size on the right; an item with a tab behind it opens that tab (W-11). Folded there is none.
   workspace.fill('status-bar', (el) => mountStatusBar(el, handle, signal));
   // Folded, the pointer resting at an edge shows that edge's panel (W-03); the listeners exist only while folded.
