@@ -16,7 +16,7 @@ import { b64, closeHarness, harnessBase, shippedSkeleton } from './support/two-p
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
-const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
+const test = (name, fn) => nodeTest(name, { skip, timeout: 60_000 }, fn);
 after(() => closeHarness());
 
 const READ_CAP = 256 * 1024;
@@ -67,6 +67,8 @@ async function withPage(fn, { width = 1440 } = {}) {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
+    // A wait that cannot be met fails in seconds, not at the suite's cap.
+    page.setDefaultTimeout(15_000);
     await fn(page);
   } finally {
     await browser.close();
@@ -112,7 +114,7 @@ const aside = (page) => page.evaluate(() => document.querySelector('#marxy-palet
 const waitAside = (page, text) =>
   page.waitForFunction((t) => (document.querySelector('#marxy-palette .marxy-palette-aside')?.textContent ?? '').includes(t), text, { timeout: 8000 });
 const openPalette = async (page, query = '') => {
-  await page.keyboard.press('Meta+KeyP');
+  await page.keyboard.press('ControlOrMeta+KeyP');
   await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
   if (query !== '') await page.locator('#marxy-palette .marxy-palette-query').fill(query);
 };
@@ -294,7 +296,7 @@ test('a command shows its group and key; a transform shows its result on the fir
     await waitAside(page, 'Find in this pane');
     const cmd = await aside(page);
     assert.ok(cmd.includes('Find in this pane') && cmd.includes('Enter runs it.'), cmd);
-    assert.match(cmd, /Key\s*⌘F/);
+    assert.match(cmd, /Key\s*(⌘F|Ctrl\+F)/);
     await page.locator('#marxy-palette .marxy-palette-query').fill('>Transform: Remove horizontal rules');
     // The first row is the clipboard's twin of the transform; the second is the transform on the document.
     await page.waitForFunction(() => [...document.querySelectorAll('#marxy-palette .marxy-palette-title')].some((e) => e.textContent === 'Transform: Remove horizontal rules'));

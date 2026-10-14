@@ -352,6 +352,8 @@ function drawBody(doc: Document, host: HTMLElement, body: PreviewBody): void {
   const text = el(doc, 'div', body.as === 'markdown' ? 'marxy-palette-prev-text marxy-palette-prev-prose' : 'marxy-palette-prev-text marxy-palette-prev-code');
   if (body.as === 'markdown') {
     // Parsed and allow-listed as Read does it; the file's own folder is not given, so no image path is resolved.
+    // The reading face, as the document sets it: on the element, since the palette's sheet carries no face but the chrome's.
+    text.style.fontFamily = 'var(--marxy-font-text)';
     text.innerHTML = renderSafeHtml(body.text, { file: body.path }).html;
     neutralise(text);
     applyInvisibleMarkers(text);

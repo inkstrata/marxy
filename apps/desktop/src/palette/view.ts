@@ -414,7 +414,7 @@ function injectPaletteStyles(doc: Document): void {
     #marxy-palette .marxy-palette-prev-chip {
       padding: 0 calc(var(--marxy-size-chrome) * 8 / 13);
       border: 1px solid var(--marxy-color-rule-strong);
-      border-radius: 999px;
+      border-radius: calc(var(--marxy-size-chrome) * 12 / 13);
       color: var(--marxy-color-text-secondary);
       font-size: 0.92em;
       line-height: 1.7;
@@ -427,8 +427,8 @@ function injectPaletteStyles(doc: Document): void {
     #marxy-palette .marxy-palette-prev-note { margin: 0 0 calc(var(--marxy-size-chrome) * 8 / 13); color: var(--marxy-color-text-secondary); }
     #marxy-palette .marxy-palette-prev-more { margin: 0; color: var(--marxy-color-text-secondary); }
     #marxy-palette .marxy-palette-prev-image { color: var(--marxy-color-text-secondary); font-style: italic; }
-    #marxy-palette .marxy-palette-prev-result { margin: 0 0 calc(var(--marxy-size-chrome) * 8 / 13); white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--marxy-font-mono); font-size: 0.92em; line-height: 1.5; }
-    /* A section or a file's own text, set small and off the baseline grid: the reading face for prose, the page's own code rules for code. Links
+    #marxy-palette .marxy-palette-prev-result { margin: 0 0 calc(var(--marxy-size-chrome) * 8 / 13); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.92em; line-height: 1.5; }
+    /* A section or a file's own text (the reading face is set on the element by palette-preview.ts: the chrome's rules carry no face but the chrome's), set small and off the baseline grid: the reading face for prose, the page's own code rules for code. Links
        and images are inert here (palette-preview.ts). The article's custom properties are given what they stand for. */
     #marxy-palette .marxy-palette-prev-text {
       --lb: var(--marxy-line-box);
@@ -438,7 +438,7 @@ function injectPaletteStyles(doc: Document): void {
       user-select: none;
       overflow-wrap: anywhere;
     }
-    #marxy-palette .marxy-palette-prev-prose { font-family: var(--marxy-font-text); line-height: 1.5; font-weight: var(--marxy-weight-body, 400); }
+    #marxy-palette .marxy-palette-prev-prose { line-height: 1.5; font-weight: var(--marxy-weight-body, 400); }
     #marxy-palette .marxy-palette-prev-prose :is(h1, h2, h3, h4, h5, h6) { margin: 1em 0 0.35em; padding: 0; letter-spacing: normal; line-height: 1.25; text-wrap: balance; }
     #marxy-palette .marxy-palette-prev-prose > :first-child { margin-top: 0; }
     #marxy-palette .marxy-palette-prev-prose h1 { font-size: 1.65em; }
