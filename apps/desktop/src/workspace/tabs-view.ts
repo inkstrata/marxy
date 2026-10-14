@@ -95,14 +95,27 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
   const tip = document.createElement('div');
   tip.className = 'marxy-tab-tip';
   tip.setAttribute('data-marxy-tab-tip', '');
-  tip.setAttribute('role', 'presentation');
+  tip.setAttribute('role', 'tooltip');
+  tip.id = 'marxy-tab-tip';
   tip.hidden = true;
   document.body.append(tip);
   let tipTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The tab the tip describes: its path is the tab's accessible description whether or not the label is drawn yet. */
+  let described: Element | null = null;
   const hideTip = (): void => {
     clearTimeout(tipTimer);
     tip.hidden = true;
+    described?.removeAttribute('aria-describedby');
+    described = null;
   };
+  // Esc dismisses an open tip and nothing else (WCAG 1.4.13): the key is taken only while the tip is showing.
+  const dismissOnEscape = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape' || tip.hidden) return;
+    event.preventDefault();
+    event.stopPropagation();
+    hideTip();
+  };
+  document.addEventListener('keydown', dismissOnEscape, true);
   const showTip = (wrap: HTMLElement): void => {
     const path = wrap.getAttribute('data-marxy-tab-path');
     if (path === null || el.hidden) return;
@@ -122,7 +135,13 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
   const armTip = (event: Event): void => {
     const wrap = (event.target as Element | null)?.closest<HTMLElement>('.marxy-tab');
     hideTip();
-    if (wrap && root.contains(wrap)) tipTimer = setTimeout(() => showTip(wrap), 700);
+    const path = wrap?.getAttribute('data-marxy-tab-path');
+    if (wrap && path && root.contains(wrap)) {
+      tip.textContent = path;
+      described = wrap.querySelector('.marxy-tab-open');
+      described?.setAttribute('aria-describedby', tip.id);
+      tipTimer = setTimeout(() => showTip(wrap), 700);
+    }
   };
   root.addEventListener('pointerover', (event) => {
     const from = (event as PointerEvent).relatedTarget as Element | null;
@@ -263,6 +282,7 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
     const active = rows.find((r) => r.active)?.path ?? null;
     if (active !== drawnActive) {
       drawnActive = active;
+      hideTip();
       if (active !== null) bringIntoView(nodes.get(active)!.wrap);
     }
   };
@@ -372,6 +392,7 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
   return () => {
     withdraw();
     hideTip();
+    document.removeEventListener('keydown', dismissOnEscape, true);
     tip.remove();
     off();
     kindWatch.disconnect();

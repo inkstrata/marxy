@@ -182,3 +182,47 @@ test('activating a tab whose name is short and whole moves no other tab either (
     }
   }, { only: short, store });
 });
+
+const tipShown = (page) => page.evaluate(() => !document.querySelector('[data-marxy-tab-tip]').hidden);
+
+test('the full path reaches assistive tech: the hovered or focused tab is described by the tip', async () => {
+  await withRow(async (page) => {
+    await hover(page, paths[2]);
+    const d = await page.evaluate((p) => {
+      const open = document.querySelector(`[data-marxy-tab="${p}"] .marxy-tab-open`);
+      const id = open.getAttribute('aria-describedby');
+      const el = id && document.getElementById(id);
+      return { id, text: el?.textContent, role: el?.getAttribute('role') };
+    }, paths[2]);
+    assert.ok(d.id, 'aria-describedby is set');
+    assert.equal(d.text, paths[2]);
+    assert.equal(d.role, 'tooltip');
+    await page.mouse.move(5, 400);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-tab-open[aria-describedby]').length), 0, 'gone with the pointer');
+    await page.focus(`[data-marxy-tab="${paths[4]}"] .marxy-tab-open`);
+    assert.equal(await page.evaluate((p) => document.querySelector(`[data-marxy-tab="${p}"] .marxy-tab-open`).hasAttribute('aria-describedby'), paths[4]), true, 'keyboard focus too');
+  });
+});
+
+test('Esc dismisses an open tip without folding the workspace', async () => {
+  await withRow(async (page) => {
+    await hover(page, paths[2]);
+    await page.waitForSelector('[data-marxy-tab-tip]:not([hidden])', { timeout: 3000 });
+    await page.keyboard.press('Escape');
+    assert.equal(await tipShown(page), false, 'dismissed');
+    assert.equal(await page.evaluate(() => document.body.getAttribute('data-marxy-workspace')), 'unfolded', 'the workspace did not fold');
+    // With no tip showing the row's listener does not take the key (the app's own Esc handling is what it was).
+    await page.mouse.move(5, 400);
+    assert.equal(await tipShown(page), false);
+  });
+});
+
+test('any active-tab change hides the tip', async () => {
+  await withRow(async (page) => {
+    await hover(page, paths[2]);
+    await page.waitForSelector('[data-marxy-tab-tip]:not([hidden])', { timeout: 3000 });
+    await page.evaluate((p) => window.__marxyHandle.open(p), paths[6]);
+    await page.waitForTimeout(150);
+    assert.equal(await tipShown(page), false);
+  });
+});
