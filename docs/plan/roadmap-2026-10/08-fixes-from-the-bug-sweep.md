@@ -812,3 +812,54 @@ The cause is probably the gutter elements losing their flex row in `.cm-editor` 
 - **Gutter column:** the text's left inset is gutter width plus padding; widths follow the number of digits (1 to 10, 100 and 1000 lines); the focus ring, if shown, encloses the gutter and the text, and the status bar's line, column and byte agree with the caret.
 - **Both toggles:** line numbers on or off, folding on or off (including a large file with folding off) each lay out correctly, in Night and Paper, with wrap on and off.
 - **Pair:** a `mock-pair.mjs` state for Source with line numbers, app against mock-v2, in the PR (ADR-0070).
+
+### F-99 — The tab strip keeps every tab on one grid: close buttons, hover and the tooltip
+
+**Model:** sonnet (medium) · **Size:** S · *From the author's screenshot, 2026-10-14 (`docs/taste-review/2026-10-14-tab-strip/tab-strip-misaligned.webp`).* · **Paths:** the tab strip's view and stylesheet (find it with `grep -rn "marxy-tab" apps/desktop/src`), `apps/desktop/test/` (a tab-strip layout test), `scripts/mock-pair.mjs` (one state), `changelog.d/F-99.md`.
+
+What the author saw, with about a dozen tabs open in unfolded mode:
+
+| # | What is wrong |
+| --- | --- |
+| 1 | The close `×` of a hovered or active tab is drawn at the tab's right edge, touching the next tab's icon (`08-feature-t…×` runs into `12-recomme…`; `07-featur…×` into `04-tests…`). Tabs with no `×` have no matching reserved space, so titles and icons shift as the pointer moves. |
+| 2 | Tabs have uneven widths and gaps, and the active tab's box (black) is wider on one side than the hovered tab's box (blue-grey), so the row reads as misaligned. |
+| 3 | The tooltip (the full path) opens over the document's first lines, covering text it should not. |
+| 4 | The strip's text sits close to the top edge of the strip and the hairline above the document, so the row is not centred between its rules. |
+
+**Acceptance:**
+- **Reproduced first:** a Playwright test with twelve tabs of long names that fails on main: no tab's close button box intersects its neighbour's box; every tab's close slot has the same width whether or not it shows.
+- **Stable on hover:** hovering a tab or activating it moves no other tab's left edge (0 px).
+- **One grid:** tab heights equal; label, icon and close slot share a vertical centre within 1 px; gaps between tabs are equal.
+- **Tooltip:** opens below the strip with a delay and never over the first line of the document at the default window height (or is dropped for the title's own full-name reveal; say which in the PR).
+- **Pair:** a `mock-pair.mjs` state with twelve tabs, one hovered, app against mock-v2.
+
+### F-100 — Source fills the window in folded view, with its gutter at the window's edge
+
+**Model:** sonnet (high) · **Size:** M · *From the author's note, 2026-10-14: "gutters in collapsed view are also wrong for source; in general we want to fill the window with our editor".* · **Paths:** the Source stylesheet and pane layout (`grep -rn "cm-gutters\|marxy-source\|max-width" apps/desktop/src`), `apps/desktop/src/source/editor.ts` only if the editor is wrapped, `apps/desktop/test/source-gutter.test.mjs`, `scripts/mock-pair.mjs`, `changelog.d/F-100.md`. **Depends on:** F-98 (the gutter and the text are one aligned editor first).
+
+The reader's text is a centred measure with margins; Source is a code surface, so in the folded window it should use the whole pane: the gutter at the pane's left edge, text running to the right edge (or wrapping at it), the editor as tall as the pane. The author sees the reader's measure or inset applied to Source, so the gutter floats away from the edge.
+
+**Acceptance:**
+- **Reproduced first:** at a 1,000 px window in folded Source, a test measures the gutter's left edge and the editor's right edge against the pane's: today both are inset (record the numbers); after, within the pane's own padding token (at most 16 px).
+- **Fills the height:** the editor's bottom is the pane's bottom (above the status row) for a document shorter than the window; clicking below the last line puts the caret on the last line.
+- **Wrap:** wrapping on breaks at the pane's right edge; off scrolls horizontally with the gutter fixed.
+- **Reader unchanged:** Rendered keeps its measure; split, unfolded and folded each place Source's gutter at its own pane's edge.
+- **Pair:** folded Source, short and long documents, Night and Paper, app against mock-v2.
+
+### X-32 — Investigate floating text and improper formatting across the app
+
+**Model:** opus (medium) · **Size:** M · **Kind:** investigation, no product code · *From the author, 2026-10-14: "generally investigate floating text in the app and improper formatting".* · **Paths:** writes `docs/taste-review/2026-10-14-layout-audit/` (screenshots, `findings.md`) and boards findings as cards.
+
+"Floating text" is any text that is not inside a box that owns it: overflow past a container, a label drawn over another element, a tooltip over content, a baseline or inset that differs from its siblings, a truncation with no reveal, and text outside the pane it belongs to. The known cases are the palette footer (F-97), Source's gutter (F-98), and the tab strip (F-99).
+
+**Method:** drive the app (built, WebKit, both themes) through every surface: folded and unfolded, each of Read, Split and Source, the tab strip, sidebar, inspector, status row, palette, settings, menus, notices, popups, and an empty window, at 800, 1,000, 1,400 and 1,920 px wide and 600 and 900 px tall; read the page text and boxes, not only screenshots. A small script (`scripts/layout-audit.mjs`) should flag, for every text node, boxes that overflow their nearest overflow-hidden ancestor, overlap a sibling's text box, or sit outside the viewport; keep it if it is cheap to rerun, as a candidate gate.
+
+**Done when:** `findings.md` lists each defect with a screenshot, the window size, the selector, a severity and a proposed story; every Sev-1 and Sev-2 finding is boarded as an F card; the script (if kept) runs in under a minute and its current output is checked in; a count of defects per surface is in the report. Reports end with whether the script should become a gate.
+
+### X-33 — Investigate Source's layout across modes, sizes and kinds
+
+**Model:** opus (medium) · **Size:** S · **Kind:** investigation, no product code · *From the author's 2026-10-14 screenshots of Source (F-98, F-100).* · **Paths:** writes `docs/taste-review/2026-10-14-source-layout/findings.md`.
+
+Source has one editor with many configurations (line numbers on or off, folding on or off, wrap, large-file mode, special-characters view, whitespace and column guide from V-08, per-kind metrics from V-12, untitled and saved documents, code files that open in Source, folded and unfolded, one pane or two). The bug in F-98 may be one configuration. Build the matrix, take a screenshot of each cell with a 20-line document that includes a blank line and a long line, and record which cells are wrong and how, with the measured box offsets (gutter top and left, first line top and left, number of numbered rows against the line count).
+
+**Done when:** the matrix and its screenshots are checked in; each wrong cell maps to F-98, F-100 or a new F card; the report says which configuration F-98's cause lives in, so the F-98 agent starts there. Run this before F-98 starts if F-98 is still ready.
