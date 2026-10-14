@@ -13,12 +13,26 @@ import {
 import { marxyScopeForTokenColor, type MarxyTokenScope } from './scopes.ts';
 import { diffFileLineClasses, type DiffState } from './diff-lines.ts';
 import { LANGUAGE_TO_GRAMMAR } from './languages.generated.ts';
+import { TERM_COMMAND_CLASS, TERM_PROMPT_CLASS, TERM_START_CLASS, isTerminalLang, terminalLines } from './terminal-lines.ts';
 
 export type { MarxyTokenScope } from './scopes.ts';
 export { marxyScopeForTextMateScope, marxyScopeForTokenColor } from './scopes.ts';
 export { LANGUAGE_TO_GRAMMAR } from './languages.generated.ts';
 export { lineCapFor } from './highlighter.ts';
 export { DIFF_OUTSIDE, diffFileRead, type DiffState } from './diff-lines.ts';
+export {
+  TERM_COMMAND_CLASS,
+  TERM_PROMPT_CLASS,
+  TERM_START_CLASS,
+  copyCommands,
+  copyOutput,
+  isTerminalLang,
+  terminalGroups,
+  terminalLines,
+  textLines,
+  type TerminalGroup,
+  type TerminalLine,
+} from './terminal-lines.ts';
 export {
   DIFF_LINE_ADD,
   DIFF_LINE_DEL,
@@ -84,6 +98,23 @@ function logTokens(line: string): HighlightToken[] {
 }
 
 /**
+ * A terminal session's runs (K-17): a prompt, its command, and the output as it is. No grammar: a word in output is not a
+ * command, an escape is not interpreted (it is shown as ESC's picture by the page), and the runs are whole lines, so the text
+ * is the text.
+ */
+function terminalTokens(lines: readonly string[]): HighlightToken[][] {
+  const read = terminalLines(lines);
+  return lines.map((line, i) => {
+    const r = read[i]!;
+    if (line === '' || r.role === 'output') return line === '' ? [] : [{ text: line }];
+    const runs: HighlightToken[] = [];
+    if (r.commandAt > 0) runs.push({ text: line.slice(0, r.commandAt), className: TERM_PROMPT_CLASS });
+    if (r.commandAt < line.length) runs.push({ text: line.slice(r.commandAt), className: TERM_COMMAND_CLASS });
+    return runs;
+  });
+}
+
+/**
  * Tokenize `code` for a markdown fence language id. Unknown ids and `plaintext` return `null`
  * so the caller leaves the DOM untouched (docs/design/02-render.md).
  */
@@ -91,6 +122,7 @@ export async function highlight(code: string, lang: string): Promise<HighlightTo
   const normalized = lang.trim().toLowerCase();
   if (!normalized || normalized === 'plaintext' || normalized === 'text' || normalized === 'txt') return null;
   if (normalized === 'log') return code.split(/\r\n|\r|\n/).map(logTokens);
+  if (isTerminalLang(normalized)) return terminalTokens(code.split(/\r\n|\r|\n/));
   if (!LANGUAGE_TO_GRAMMAR[normalized]) return null;
   const rawLines = code.split(/\r\n|\r|\n/);
   if (code.length > MAX_HIGHLIGHT_BLOCK_CHARS) return rawLines.map((line) => (line === '' ? [] : [{ text: line }]));
@@ -120,6 +152,11 @@ export function lineMetaForHighlight(
     // A line at ERROR or above, and the lines that continue it, carry the rule (K-08).
     const ranks = logRanks(tokenLines.map((line) => line.map((t) => t.text).join('')));
     return tokenLines.map((_, i) => (ranks[i] === 3 ? { lineClass: LOG_ERROR_LINE_CLASS } : {}));
+  }
+  if (isTerminalLang(normalized)) {
+    // A command after the first line of the block opens with half a line above it (K-17).
+    const read = terminalLines(tokenLines.map((line) => line.map((t) => t.text).join('')));
+    return tokenLines.map((_, i) => (i > 0 && read[i]!.start ? { lineClass: TERM_START_CLASS } : {}));
   }
   return tokenLines.map((line) => {
     const text = line.map((t) => t.text).join('');

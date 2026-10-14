@@ -150,10 +150,108 @@ export function paletteResults(
   query: string,
   entries: readonly IndexEntry[],
   session: PaletteSession,
-  options?: { limit?: number; prepared?: PreparedIndex; rootRank?: RootRank; fold?: FoldCopies },
+  options?: {
+    limit?: number;
+    prepared?: PreparedIndex;
+    rootRank?: RootRank;
+    fold?: FoldCopies;
+    /** The open document's path: what `#` lists the headings of. */
+    currentPath?: string | null;
+  },
 ): readonly IndexHit[] {
   const prepared = options?.prepared ?? prepareIndex(entries);
+  // `@` and `#` ask for headings, not documents: their own pass, never the fuzzy scorer's (W-13).
+  const sections = sectionQuery(query);
+  if (sections !== null) {
+    return sectionResults(sections, prepared, session, {
+      limit: options?.limit ?? SECTION_LIMIT,
+      currentPath: options?.currentPath ?? null,
+      rootRank: options?.rootRank,
+      fold: options?.fold,
+    });
+  }
   return searchPrepared(query, prepared, session, options?.limit ?? DEFAULT_LIMIT, options?.rootRank, options?.fold);
+}
+
+/** Headings listed for an `@` or `#` query. */
+export const SECTION_LIMIT = 50;
+
+/** `@words`: every heading of every document in the collection. `#words`: the headings of the open document. */
+export type SectionScope = 'everywhere' | 'here';
+
+/** What follows a leading `@` or `#`, and which of the two it was; null when the query is neither (a `/` or `>` query is not one). */
+export function sectionQuery(raw: string): { scope: SectionScope; text: string } | null {
+  const trimmed = raw.trim();
+  const first = trimmed.charCodeAt(0);
+  if (first !== 64 && first !== 35) return null;
+  return { scope: first === 64 ? 'everywhere' : 'here', text: trimmed.slice(1).trim() };
+}
+
+/**
+ * The headings an `@` or `#` query finds, best first: each is a hit on its document with `heading` set, so the
+ * row names the document and Enter opens it at that heading (`jumpForHit`). Matching is the palette's own
+ * (`matchScore` over the NFC-lowercased heading text, weighted as a heading hit is), only over headings, never
+ * body text (that is `/`). With nothing after the mark, `#` lists the open document's headings in order and `@`
+ * those of the documents read most recently. Copies of one document in other checkouts fold to one, by heading.
+ */
+export function sectionResults(
+  query: { scope: SectionScope; text: string },
+  prepared: PreparedIndex,
+  session: PaletteSession,
+  options: { limit: number; currentPath: string | null; rootRank?: RootRank; fold?: FoldCopies },
+): readonly IndexHit[] {
+  const needle = query.text.normalize('NFC').toLowerCase();
+  const { limit, currentPath, fold } = options;
+  if (query.scope === 'here' && currentPath === null) return [];
+  const recent = new Map<string, number>();
+  for (let i = 0; i < session.recentRoots.length; i++) recent.set(session.recentRoots[i]!, i);
+  const rankOf: RootRank =
+    options.rootRank ?? ((root) => (root === session.currentRoot ? 0 : (recent.get(root) ?? 1_000) + 1));
+  const byPath = new Map<string, number>();
+  for (let i = 0; i < session.mru.length; i++) byPath.set(session.mru[i]!, i);
+  const now = Date.now();
+  const compare = (a: IndexHit, b: IndexHit): number => {
+    // No needle: the document's own order (or the read order of the documents), not a score.
+    if (needle === '') return a.score !== b.score ? b.score - a.score : (a.heading ?? 0) - (b.heading ?? 0);
+    const ar = rankOf(a.entry.root);
+    const br = rankOf(b.entry.root);
+    if (ar !== br) return ar - br;
+    const c = compareHits(a, b);
+    return c !== 0 ? c : (a.heading ?? 0) - (b.heading ?? 0);
+  };
+  // A fold takes headroom, as for files: one document in every worktree is several places before it is one.
+  const wanted = fold === undefined ? limit : limit * FOLD_HEADROOM;
+  const top = topKHits(wanted, compare);
+  let rows: readonly PreparedRow[] = prepared.rows;
+  let orderOf: ((row: PreparedRow) => number) | undefined;
+  if (query.scope === 'here') {
+    rows = rows.filter((row) => row.entry.path === currentPath);
+  } else if (needle === '') {
+    const order = emptyQueryPaths(session);
+    const at = new Map(order.map((path, i) => [path, i] as const));
+    rows = rows.filter((row) => at.has(row.entry.path));
+    orderOf = (row) => at.get(row.entry.path)!;
+  }
+  for (const row of rows) {
+    for (let i = 0; i < row.headings.length; i++) {
+      let score: number;
+      if (needle === '') {
+        // Listed in order: earlier documents (the MRU) and earlier headings first.
+        score = orderOf === undefined ? 0 : -orderOf(row);
+      } else {
+        const raw = matchScore(row.headings[i]!, needle);
+        if (raw === NO_MATCH || raw <= 0) continue;
+        score = raw * HEADING_WEIGHT + frecencyBonus(row.entry, byPath, now);
+      }
+      top.push({ entry: row.entry, heading: i, score });
+    }
+  }
+  const found = top.values();
+  if (fold === undefined) return found.slice(0, limit);
+  const { hits, dropped } = foldHitsCounted(found, fold.keyOf, fold.currentCheckout, new Set(), true);
+  const shown = hits.slice(0, limit);
+  fold.folded?.(dropped.slice(0, limit).reduce((sum, n) => sum + n, 0));
+  return shown;
 }
 
 /** Search a prepared index. This is the keystroke path the 16 ms budget measures. */

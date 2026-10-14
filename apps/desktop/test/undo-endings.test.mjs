@@ -55,7 +55,8 @@ async function withApp(bytes, fn) {
       buf: () => page.evaluate(() => [...window.__marxyHandle.panes().panes[0].content.store().snapshot().buffer.bytes]),
       /** The bytes on disk (the memory shell). */
       disk: () => page.evaluate(async (p) => [...(await window.__marxyHandle.shell.readFile(p))], PATH),
-      writes: () => page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic').length),
+      // Local versions (V-06) are Marxy's own state under /data, written after a save: not the save itself.
+      writes: () => page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !String(c.args[0]).startsWith('/data/versions-')).length),
       /** What the Source editor's text names. */
       doc: async () =>
         named(await t.cm(`return ed.view.state.sliceDoc(0, ed.view.state.doc.length)`)),
@@ -79,7 +80,7 @@ async function withApp(bytes, fn) {
       save: async () => {
         const before = await t.writes();
         await page.keyboard.press(`${mod}+s`);
-        await page.waitForFunction((n) => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic').length > n, before);
+        await page.waitForFunction((n) => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !String(c.args[0]).startsWith('/data/versions-')).length > n, before);
       },
       /** The writes to `path` (the index and the layout are written too). */
       writesTo: (path) =>

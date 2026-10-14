@@ -27,6 +27,13 @@ export interface StoreIo {
   peekFile?(path: string): Promise<Uint8Array>;
   /** Whether anything (a file, a folder, a link) is at `path`: a copy is never written over one (V-07). */
   exists?(path: string): Promise<boolean>;
+  /**
+   * Local versions (V-06, ADR-0072): asked, and awaited, just before `save` writes over a file that holds `replacing`: the store's
+   * own `disk` for a save in place, the bytes read from the target for a Save As onto a file that is there. A copy of those bytes
+   * is made before they are replaced, so a quit right after the save cannot lose it. It does not reject, and the save does not
+   * wait on its success: a copy that could not be made is the hook's to say.
+   */
+  beforeOverwrite?(path: string, replacing: Uint8Array): Promise<void>;
 }
 
 /** How a changed-on-disk conflict ended (V-07). 'none': there was nothing pending; nothing was done. */
@@ -582,6 +589,26 @@ export function openDocumentStore(
           }
           if (onDisk !== null && !sameBytes(onDisk, state.disk)) {
             return { result: 'failed' as const, error: new Error(`${target}: changed on disk since it was opened; refusing to overwrite`) };
+          }
+        }
+        // What this write replaces, kept before it goes (local versions): the file's own `disk` in place, or whatever a Save As finds
+        // at the name the reader chose. The hook is the recorder's, awaited here so that closing right after the save finds it done.
+        if (io.beforeOverwrite) {
+          let replacing: Uint8Array | null = null;
+          if (target === from) replacing = state.disk;
+          else if (io.peekFile) {
+            try {
+              replacing = await io.peekFile(target);
+            } catch {
+              // Nothing there to replace, or unreadable: the write itself will say why.
+            }
+          }
+          if (replacing !== null && !sameBytes(replacing, bytes)) {
+            try {
+              await io.beforeOverwrite(target, replacing);
+            } catch (error) {
+              console.warn('marxy: the copy before a save was not made', error);
+            }
           }
         }
         // Parse under the new name before writing, so nothing after a successful write can throw.

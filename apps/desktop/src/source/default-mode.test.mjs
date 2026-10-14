@@ -41,9 +41,9 @@ for (const path of ['/repo/LICENSE', '/repo/AUTHORS', '/repo/Makefile', '/repo/R
 }
 
 // No other file's opening mode changes: every file in the corpus opens as the rule that was here before K-05a said.
-test('every corpus file opens in the mode it did before K-05a, but a log (K-08) and a diff (K-09)', () => {
-  // K-08: a log is read, so `.log` opens Rendered; nothing else in the corpus changed.
-  const before = (path) => (['.md', '.markdown', '.mdx', '.txt', '.log', '.diff', '.patch'].includes(extensionOf(path)) ? 'rendered' : 'source');
+test('every corpus file opens in the mode it did before K-05a, but a log (K-08), a diff (K-09) and a terminal session (K-17)', () => {
+  // K-08: a log is read, so `.log` opens Rendered; nothing else in the corpus changed. K-17: a `.session` (and `.term`) is read as a terminal.
+  const before = (path) => (['.md', '.markdown', '.mdx', '.txt', '.log', '.diff', '.patch', '.session'].includes(extensionOf(path)) ? 'rendered' : 'source');
   const dir = fileURLToPath(new URL('../../../../fixtures/corpus/', import.meta.url));
   const names = readdirSync(dir);
   assert.ok(names.length > 20);

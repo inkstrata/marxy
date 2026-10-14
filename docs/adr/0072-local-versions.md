@@ -1,6 +1,8 @@
 # ADR-0072 — Local versions: copies of the reader's documents, kept as plain files in Marxy's data folder
 
-- **Status:** accepted (author, 2026-10-12, V-06 questions 1 to 4: "recommended approved")
+- **Status:** accepted (author, 2026-10-12, V-06 questions 1 to 4: "recommended approved"); amended by V-06 (2026-10-13,
+  below): the files sit flat in the data folder, a manifest notes when Marxy last saved, and *Changed since you read* is said
+  exactly
 - **Date:** 2026-10-12
 - **Amends:** `docs/design/11-config-and-storage.md` §What is never stored ("Document contents" are no longer never
   stored: versions are the one exception, under the rules below); the reader-artifacts spec line *Changed since last
@@ -88,6 +90,46 @@ The author approved V-06's recommended answers to all four questions:
   never stored (this pull request); V-06 adds `versions` to the `config.toml` block when it reads the key.
 - The research spec line *Changed since last read* carries a note pointing here (this pull request).
 - W-12's Privacy page gains the line in item 6.
+
+## Amendment (V-06, 2026-10-13): what the build found
+
+The build kept every ruling and changed three details, and the adversarial review added three rules (items 4 to 6); each is held by a test in V-06's pull request.
+
+1. **Flat in the data folder, not a `versions/` folder.** `writeFileAtomic` stages beside its destination and creates no
+   folders, and `shell-api` has no way to make one; a folder would be a new privileged capability. The index snapshot met the
+   same wall and sits flat (`index-<sha1(root)>.json`, `apps/desktop/src/index/service.ts`). So a file's versions are
+   `<data>/versions-<sha1(path)>.json` (the manifest) and `<data>/versions-<sha1(path)>-01` to `-20` (the slots), in the data
+   folder itself. Everything else in item 1 stands: plain files, a readable manifest that starts with `"version": 1` and names
+   the path, and for each version its slot, time, size and reason; nothing beside the reader's files. Deleting every
+   `versions-*` file in the data folder clears them by hand (item 6's "deleting the `versions/` folder").
+2. **The manifest notes when Marxy last saved over the file** (`"saved"`: a time, never bytes). Identical bytes are kept once
+   (item 2), so a save over bytes that are already the newest version keeps nothing, and without the time the next open could
+   not tell that the reader wrote what it finds. With it, *Changed since you read* says "you saved it since" rather than passing
+   the reader's own edits off as someone else's.
+3. **"The copy made at the last read" (ruling 4), said exactly.** At an open, it is the newest `read` version kept *before*
+   that open (so a file regenerated while Marxy was closed, the defining case, shows what changed); after an outside change
+   while the file is open, it is what the file held just before (the `before reload` version), and the new bytes are kept as
+   `read`, as ruling 4 says. A save of the reader's own clears it: the file then holds what they wrote. Read literally,
+   "compare with the latest read" would hide every change at the moment it arrived, since the arrival is itself recorded as a
+   read.
+4. **A version is the bytes its hash names.** Each manifest entry carries a SHA-256 of the version's bytes (`"hash"`), and a slot
+   is read as that version only while it hashes to it. A slot edited by hand, at the same size or another, or a manifest edited to
+   name a sibling's slot, is listed as changed outside Marxy and is never read, diffed or restored; the tab says so. A manifest
+   without a hash is damaged (no version has been released without one).
+5. **A save keeps what it replaces, before it writes.** The *before save* copy is made by the document store's own save, awaited
+   just before the write (`StoreIo.beforeOverwrite`), not queued after it: a quit or a close right after the save cannot lose it.
+   If the copy cannot be made the save still goes through (a full data folder must not stop the reader saving) and Marxy says,
+   as it happened, that the save replaced those bytes and the copy was not kept. Closing waits (a moment at most) for the copies
+   still queued, and stopping the recorder lets them finish.
+6. **Save As onto a file that is there keeps that file's bytes first.** The same hook reads the one file the reader named as the
+   target (nothing else is read) and keeps its current bytes as that file's *before save* version, then writes. A name that is
+   free keeps nothing: there is nothing to replace. The operating system's replace prompt remains the reader's own check;
+   this is the way back from it.
+
+Also recorded: dedupe compares with the newest version (the same bytes again add nothing) and, failing that, with every
+version kept (the same bytes as an older one share its slot: one copy on disk, two entries). A manifest Marxy cannot read is
+reported in the tab and never written over by keeping; that file's versions stop until the reader clears them. A failed keep
+(a full disk, an unwritable folder) is said once a session as a notice and in the tab, in words that say what the file went through (item 5).
 
 ## Rejected
 

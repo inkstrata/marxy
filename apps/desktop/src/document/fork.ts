@@ -21,14 +21,23 @@ export const MAX_FORKS = 999;
  * tag last. The folder is the path's own. A backslash separates only in a Windows path: on macOS and Linux it is a character in a name.
  */
 export function forkPath(path: string, n: number): string {
+  return taggedPath(path, n <= 1 ? 'fork' : `fork ${n}`);
+}
+
+/**
+ * `path` with ` (tag)` before its extension (`notes.md`, `version 14.32` → `notes (version 14.32).md`), in the path's own folder; a
+ * name with no extension, or a dotfile, takes the tag last. The stem is cut to fit a file name. Restore to a copy (V-06) names its
+ * copies with it.
+ */
+export function taggedPath(path: string, tag: string): string {
   const separators = isWindowsPath(path) ? ['/', '\\'] : ['/'];
   const slash = Math.max(...separators.map((s) => path.lastIndexOf(s)));
   const dir = path.slice(0, slash + 1);
   const name = path.slice(slash + 1);
   const dot = name.lastIndexOf('.');
   const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
-  const tag = ` (${n <= 1 ? 'fork' : `fork ${n}`})`;
-  return `${dir}${fitStem(stem, bytesOf(tag) + bytesOf(ext))}${tag}${ext}`;
+  const bracketed = ` (${tag})`;
+  return `${dir}${fitStem(stem, bytesOf(bracketed) + bytesOf(ext))}${bracketed}${ext}`;
 }
 
 /** The longest name a file may have, in UTF-8 bytes (APFS, ext4). */
@@ -106,18 +115,32 @@ export async function nameIsTaken(io: Pick<ForkIo, 'stat' | 'realPath' | 'readHe
  * temporary file and renames it, so it publishes the whole file or none), and the original is not touched, read or named
  * in any call but the folder it is in.
  */
-export async function writeFork(io: ForkIo, from: string, bytes: Uint8Array): Promise<ForkOutcome> {
+export function writeFork(io: ForkIo, from: string, bytes: Uint8Array): Promise<ForkOutcome> {
+  return writeBeside(io, (n) => forkPath(from, n), bytes, { max: MAX_FORKS, what: 'fork names' });
+}
+
+/**
+ * Writes `bytes` at the first free name of `nameFor(1)`, `nameFor(2)`, ... `nameFor(max)`, each looked for at the moment of
+ * writing: the rule of `writeFork`, for any copy written beside a reader's file (a fork, a restored version). `what` names the
+ * names in the refusal when none is free.
+ */
+export async function writeBeside(
+  io: ForkIo,
+  nameFor: (n: number) => string,
+  bytes: Uint8Array,
+  opts: { readonly max: number; readonly what: string },
+): Promise<ForkOutcome> {
   let writing: string | undefined;
   try {
-    for (let n = 1; n <= MAX_FORKS; n++) {
-      const candidate = forkPath(from, n);
+    for (let n = 1; n <= opts.max; n++) {
+      const candidate = nameFor(n);
       if (await nameIsTaken(io, candidate)) continue;
       // The last look is the line above and nothing is awaited between it and the write: see the note at the top.
       writing = candidate;
       await io.writeFileAtomic(candidate, bytes);
       return { result: 'written', path: candidate, n };
     }
-    return { result: 'failed', error: Object.assign(new Error(`all ${MAX_FORKS} fork names beside this file are taken`), { code: 'exhausted' }) };
+    return { result: 'failed', error: Object.assign(new Error(`all ${opts.max} ${opts.what} beside this file are taken`), { code: 'exhausted' }) };
   } catch (error) {
     return { result: 'failed', error, ...(writing === undefined ? {} : { path: writing }) };
   }

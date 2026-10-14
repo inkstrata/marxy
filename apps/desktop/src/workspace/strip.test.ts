@@ -47,7 +47,9 @@ test('today the strip holds only what exists: Changes for report and changelog, 
   // K-10b: Table first, then Column stats; Filter and Transpose have no command yet, and Chart is off the row.
   assert.deepEqual(drawn('data'), ['Table', 'Column stats']);
   assert.ok(!STRIP_TOOLS.data.some((t) => t.id === 'chart'));
-  for (const kind of ['article', 'book', 'transcript', 'notes', 'terminal', 'diff', 'html'] as const) {
+  // K-17: Copy commands and Copy output; Wrap has no command yet.
+  assert.deepEqual(drawn('terminal'), ['Copy commands', 'Copy output']);
+  for (const kind of ['article', 'book', 'transcript', 'notes', 'diff', 'html'] as const) {
     assert.deepEqual(drawn(kind), [], kind);
   }
 });

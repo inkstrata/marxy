@@ -453,6 +453,22 @@ document named under each. Enter opens the document at that heading. `#` stays h
 2. What does a file preview show for a file over the large-file limit? *Recommended:* its kind, size and "Too large to
    preview", read from the index, with no read of the file.
 
+**Amendments from the build (2026-10-13, against `origin/main` at `a142436e`).** Both questions went to their
+recommended answers. What did not reproduce, and what the build did about it:
+- **`#` was not a prefix.** The card says it "stays"; on main the palette has no `#` (nor `@`): `Tab` switches the list to
+  *Headings*, which is every heading of every document. W-13 adds both marks in `search.ts` (`sectionQuery`,
+  `sectionResults`), so `#install` is this document's headings and `@install` the collection's.
+- **Paths.** `mock-v2/04-palette.md` is `docs/plan/direction-2026-10/mock-v2/04-palette.md`. `PREVIEW_LIMIT` in
+  `transform/sheet.ts` is 20,000 characters (the result sheet's), not the preview's 1,400, which is the mock's rule and is now
+  `TRANSFORM_INPUT_CHARS`. `readHead` is `packages/shell-api`'s (256 KB), and "the large-file limit" is `LARGE_FILE_BYTES`
+  (2 MB, `source/language.ts`), restated and pinned in `palette-preview.ts`. `palette/content.ts` is the `/` search: it has
+  no file preview text to read. `palette/session.ts` needed no edit.
+- **Commands carry no description** in the registry; the column's line is by family (`describeCommand`).
+- **Beyond the listed paths**, each small: `palette/fold.ts` (`byHeading`, so two headings of one file do not fold to one),
+  `library/checks.ts` (`latestDup()`, so the chip reads Q-06's last run and never starts one), `commands/transform.ts`
+  (`transformPreviewInput`, a read-only twin of the sheet's input), `docs/ci-contract.md` and `apps/desktop/package.json`
+  (`palette-preview.test.mjs` joins `test:lite`: it holds "a preview fetches nothing").
+
 ---
 
 ### K-17 — Read a terminal session: commands and their output, grouped
@@ -500,6 +516,16 @@ file's bytes. Source shows the file exactly.
 - `file-types.test.ts` and the Rust tree test pass with `term` and `session` in all three lists.
 - `pnpm gate:golden` over the new fixture.
 - **Pair:** `03-terminal`, Night and Paper.
+
+**Amended at build (K-17).**
+- `detect.ts` reads only `$ ` and `user@host path %`, not the five patterns the card lists; `terminal-lines.ts` reads those two as detection does
+  (`PROMPT` is now exported and a test holds the two together) and adds `%`, `PS …>`, `[user@host dir]$`, and `#` / `>` only in a session with no other prompt.
+- `apps/desktop/src/commands/kind-tools.ts` did not exist on main (K-08's log tools are in `commands/log.ts`); it is new here, as listed.
+- Also edited, beyond the list: `packages/theme/src/config.ts` (the strip's known tool ids), `packages/theme/src/loader.test.ts` (the profile list),
+  `highlight.test.ts` (the console fence test, whose `$`-as-punctuation reading this replaces), `fixtures/corpus/README.md`, and the goldens.
+- `38-shell.session` shares its number with `38-awkward.csv`.
+- The prompt is the faint text colour (`--marxy-color-text-faint`): `--marxy-tok-punctuation` equals the code text colour in the default theme, so it would not read as dimmer, as it does in the mock.
+- The run styles are in `default/theme.css` (V-06 held `base.css`); they belong beside the log's in `base.css`.
 
 **Do not.**
 - Interpret an escape, or colour output by what it says.

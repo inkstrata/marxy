@@ -85,6 +85,9 @@ const BY_EXTENSION: Readonly<Record<string, FileType>> = {
   // A diff is read, as authored (K-09): `+`, `-` and space stay in column one, tinted as a fence's are.
   diff: readSrc('diff'),
   patch: readSrc('diff'),
+  // A shell session is read as one, grouped by command (K-17); the extensions are the ones detection names.
+  term: readSrc('terminal'),
+  session: readSrc('terminal'),
   csv: src(),
   tsv: src(),
   jsonl: src(undefined, 'json'),

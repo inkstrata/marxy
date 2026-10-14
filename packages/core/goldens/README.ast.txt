@@ -1,4 +1,4 @@
-document [0,8062)
+document [0,8565)
   htmlBlock [0,72) value="<!-- Inventory and provenance for the fixture corpus the gates walk. -->"
   heading [74,90) level=1
     text [76,90) value="Fixture corpus"
@@ -180,97 +180,115 @@ document [0,8062)
     text [5157,5172) value="is invented. A "
     code [5172,5179) value=".diff"
     text [5179,5263) value=" opens in Read; the goldens move only if the code-file parse or the kind table does."
-  heading [5265,5288) level=2
-    text [5268,5288) value="33-article-byline.md"
-  paragraph [5290,5817)
-    text [5290,5409) value="Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair"
-    softBreak [5409,5410)
-    text [5410,5528) value="of outer quotes the byline drops), a date and a web source with a path and a query, after a title, a description and a"
-    softBreak [5528,5529)
-    text [5529,5647) value="list of tags, so the byline's rows move ahead of rows the bytes put first. Its opening paragraph is wholly in emphasis"
-    softBreak [5647,5648)
-    text [5648,5767) value="directly after the title; the description is the dek, so that paragraph stays a paragraph (the key wins). Every name is"
-    softBreak [5767,5768)
-    text [5768,5792) value="invented; the source is "
-    code [5792,5805) value="example.org"
-    text [5805,5817) value=" (RFC 2606)."
-  heading [5819,5854) level=2
-    text [5822,5854) value="sections.md and sections-crlf.md"
-  paragraph [5856,6520)
-    text [5856,5985) value="Original text written for W-10: the document the Outline tab's moves are tried on, twice, the second with every line end…"
-    softBreak [5985,5986)
-    text [5986,6016) value="It has front matter holding a "
-    code [6016,6019) value="#"
-    text [6019,6116) value=" line, an introduction before the first heading, two ATX sibling sections with a section of their"
-    softBreak [6116,6117)
-    text [6117,6190) value="own below one of them, a fence, a quote and a list item that each hold a "
-    code [6190,6193) value="#"
-    text [6193,6241) value=" line that is not a heading, a table, two setext"
-    softBreak [6241,6242)
-    text [6242,6252) value="headings ("
-    code [6252,6257) value="==="
-    text [6257,6262) value=" and "
-    code [6262,6267) value="---"
-    text [6267,6390) value="), a heading indented by three spaces, and a last section with no final line ending and no full stop (so the file ends o…"
-    softBreak [6390,6391)
-    text [6391,6520) value="text byte, in both, and a move of that section changes the file's last byte on purpose). The goldens move only if the pa…"
-  paragraph [6522,6942)
-    text [6522,6576) value="The two files have no number on purpose: the numbered "
-    code [6576,6581) value=".md"
-    text [6581,6671) value=" files are the reading corpus, and each owes the aesthetics gate a screenshot baseline for"
-    softBreak [6671,6672)
-    text [6672,6685) value="each engine ("
-    code [6685,6701) value="packages/theme"
-    text [6701,6709) value=" tests, "
-    code [6709,6730) value="gate-aesthetics.mjs"
-    text [6730,6732) value=", "
-    code [6732,6750) value="probe-layout.mjs"
-    text [6750,6832) value="). These are text for operations and the save path to be tried on, not pages to be"
-    softBreak [6832,6833)
-    text [6833,6942) value="judged, so the goldens, the fidelity gate and the operation tests read them and the aesthetics gate does not."
-  heading [6943,6960) level=2
-    text [6946,6960) value="37-results.csv"
-  paragraph [6962,7349)
-    text [6962,7040) value="Original data written for K-10b: a benchmark table in the shape of the mock's "
-    code [7040,7051) value="bench-csv"
-    text [7051,7084) value=" (a corpus name, five numbers and"
-    softBreak [7084,7085)
-    text [7085,7187) value="a host), eight rows under a header row of distinct words, so the table lens uses row 1 as its header. "
-    code [7187,7196) value="cold_ms"
-    text [7196,7202) value=" holds"
-    softBreak [7202,7203)
-    text [7203,7256) value="numbers whose text order is not their numeric order ("
-    code [7256,7262) value="9900"
-    text [7262,7269) value=" after "
-    code [7269,7277) value="118400"
-    text [7277,7325) value=" as text), which the sort test reads. Every name"
-    softBreak [7325,7326)
-    text [7326,7349) value="and number is invented."
-  heading [7351,7368) level=2
-    text [7354,7368) value="38-awkward.csv"
-  paragraph [7370,8061)
-    text [7370,7490) value="Original data written for K-10b: every case the table lens must show honestly, in one CRLF file that starts with a UTF-8"
-    softBreak [7490,7491)
-    text [7491,7557) value="byte-order mark. A quoted field holding a comma; a doubled quote ("
-    code [7557,7575) value="\"said \"\"hello\"\"\""
-    text [7575,7614) value=", a decoded cell); a quoted CRLF inside"
-    softBreak [7614,7615)
-    text [7615,7705) value="a field; empty fields; a short row and a long one (ragged); a byte after a closing quote ("
-    code [7705,7713) value="\"Gil\"x"
-    text [7713,7736) value=", an unreadable row); a"
-    softBreak [7736,7737)
-    text [7737,7843) value="blank line; a bidi control (U+202E) and a zero-width space inside a quoted field; a space before a quote ("
-    code [7843,7854) value=" \"spaced\""
-    text [7854,7855) value=","
-    softBreak [7855,7856)
-    text [7856,7973) value="verbatim); an unclosed quote on a line of its own, with a well-formed row after it; and cells a spreadsheet would run"
-    softBreak [7973,7974)
-    text [7974,7975) value="("
-    code [7975,7986) value="=SUM(…)"
-    text [7986,7988) value=", "
-    code [7988,7994) value="+cmd"
-    text [7994,7996) value=", "
-    code [7996,8003) value="@risk"
-    text [8003,8021) value=") next to a plain "
-    code [8021,8025) value="-5"
-    text [8025,8061) value=". Every name and number is invented."
+  heading [5265,5284) level=2
+    text [5268,5284) value="38-shell.session"
+  paragraph [5286,5766)
+    text [5286,5337) value="Original text written for K-17: a shell session in "
+    code [5337,5354) value="user@host dir %"
+    text [5354,5410) value=" prompts, three commands. The second is continued with a"
+    softBreak [5410,5411)
+    text [5411,5532) value="backslash (one command on two lines); its output holds blank lines that stay in it; the third prints one ANSI escape pai…"
+    softBreak [5532,5533)
+    text [5533,5563) value="(ESC, 0x1B, on purpose) and a "
+    code [5563,5566) value="$"
+    text [5566,5658) value=" inside a line of output, which is output and not a prompt. Every name and path is invented."
+    softBreak [5658,5659)
+    text [5659,5661) value="A "
+    code [5661,5671) value=".session"
+    text [5671,5713) value=" opens in Read. The number is shared with "
+    code [5713,5729) value="38-awkward.csv"
+    text [5729,5766) value=", which is a table and not a session."
+  heading [5768,5791) level=2
+    text [5771,5791) value="33-article-byline.md"
+  paragraph [5793,6320)
+    text [5793,5912) value="Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair"
+    softBreak [5912,5913)
+    text [5913,6031) value="of outer quotes the byline drops), a date and a web source with a path and a query, after a title, a description and a"
+    softBreak [6031,6032)
+    text [6032,6150) value="list of tags, so the byline's rows move ahead of rows the bytes put first. Its opening paragraph is wholly in emphasis"
+    softBreak [6150,6151)
+    text [6151,6270) value="directly after the title; the description is the dek, so that paragraph stays a paragraph (the key wins). Every name is"
+    softBreak [6270,6271)
+    text [6271,6295) value="invented; the source is "
+    code [6295,6308) value="example.org"
+    text [6308,6320) value=" (RFC 2606)."
+  heading [6322,6357) level=2
+    text [6325,6357) value="sections.md and sections-crlf.md"
+  paragraph [6359,7023)
+    text [6359,6488) value="Original text written for W-10: the document the Outline tab's moves are tried on, twice, the second with every line end…"
+    softBreak [6488,6489)
+    text [6489,6519) value="It has front matter holding a "
+    code [6519,6522) value="#"
+    text [6522,6619) value=" line, an introduction before the first heading, two ATX sibling sections with a section of their"
+    softBreak [6619,6620)
+    text [6620,6693) value="own below one of them, a fence, a quote and a list item that each hold a "
+    code [6693,6696) value="#"
+    text [6696,6744) value=" line that is not a heading, a table, two setext"
+    softBreak [6744,6745)
+    text [6745,6755) value="headings ("
+    code [6755,6760) value="==="
+    text [6760,6765) value=" and "
+    code [6765,6770) value="---"
+    text [6770,6893) value="), a heading indented by three spaces, and a last section with no final line ending and no full stop (so the file ends o…"
+    softBreak [6893,6894)
+    text [6894,7023) value="text byte, in both, and a move of that section changes the file's last byte on purpose). The goldens move only if the pa…"
+  paragraph [7025,7445)
+    text [7025,7079) value="The two files have no number on purpose: the numbered "
+    code [7079,7084) value=".md"
+    text [7084,7174) value=" files are the reading corpus, and each owes the aesthetics gate a screenshot baseline for"
+    softBreak [7174,7175)
+    text [7175,7188) value="each engine ("
+    code [7188,7204) value="packages/theme"
+    text [7204,7212) value=" tests, "
+    code [7212,7233) value="gate-aesthetics.mjs"
+    text [7233,7235) value=", "
+    code [7235,7253) value="probe-layout.mjs"
+    text [7253,7335) value="). These are text for operations and the save path to be tried on, not pages to be"
+    softBreak [7335,7336)
+    text [7336,7445) value="judged, so the goldens, the fidelity gate and the operation tests read them and the aesthetics gate does not."
+  heading [7446,7463) level=2
+    text [7449,7463) value="37-results.csv"
+  paragraph [7465,7852)
+    text [7465,7543) value="Original data written for K-10b: a benchmark table in the shape of the mock's "
+    code [7543,7554) value="bench-csv"
+    text [7554,7587) value=" (a corpus name, five numbers and"
+    softBreak [7587,7588)
+    text [7588,7690) value="a host), eight rows under a header row of distinct words, so the table lens uses row 1 as its header. "
+    code [7690,7699) value="cold_ms"
+    text [7699,7705) value=" holds"
+    softBreak [7705,7706)
+    text [7706,7759) value="numbers whose text order is not their numeric order ("
+    code [7759,7765) value="9900"
+    text [7765,7772) value=" after "
+    code [7772,7780) value="118400"
+    text [7780,7828) value=" as text), which the sort test reads. Every name"
+    softBreak [7828,7829)
+    text [7829,7852) value="and number is invented."
+  heading [7854,7871) level=2
+    text [7857,7871) value="38-awkward.csv"
+  paragraph [7873,8564)
+    text [7873,7993) value="Original data written for K-10b: every case the table lens must show honestly, in one CRLF file that starts with a UTF-8"
+    softBreak [7993,7994)
+    text [7994,8060) value="byte-order mark. A quoted field holding a comma; a doubled quote ("
+    code [8060,8078) value="\"said \"\"hello\"\"\""
+    text [8078,8117) value=", a decoded cell); a quoted CRLF inside"
+    softBreak [8117,8118)
+    text [8118,8208) value="a field; empty fields; a short row and a long one (ragged); a byte after a closing quote ("
+    code [8208,8216) value="\"Gil\"x"
+    text [8216,8239) value=", an unreadable row); a"
+    softBreak [8239,8240)
+    text [8240,8346) value="blank line; a bidi control (U+202E) and a zero-width space inside a quoted field; a space before a quote ("
+    code [8346,8357) value=" \"spaced\""
+    text [8357,8358) value=","
+    softBreak [8358,8359)
+    text [8359,8476) value="verbatim); an unclosed quote on a line of its own, with a well-formed row after it; and cells a spreadsheet would run"
+    softBreak [8476,8477)
+    text [8477,8478) value="("
+    code [8478,8489) value="=SUM(…)"
+    text [8489,8491) value=", "
+    code [8491,8497) value="+cmd"
+    text [8497,8499) value=", "
+    code [8499,8506) value="@risk"
+    text [8506,8524) value=") next to a plain "
+    code [8524,8528) value="-5"
+    text [8528,8564) value=". Every name and number is invented."

@@ -3,6 +3,7 @@
 // `boot`, a launch's first open (or its frontispiece). The open store is a field of the object
 // `createOpenPath` returns, never module state, so a second app instance in one page starts clean
 // (ADR-0037). Every edit, save and fold of the open document goes through its store here.
+import { keepBeforeOverwrite } from '../versions/recorder.ts';
 import { KIND_HEAD_BYTES, lastChunkedParse, parseMarkdownChunked, type Buffer, type DetectResult, type KindRule } from '@marxy/core';
 import { detectFileKind, emptyKindsEnvelope, type KindsEnvelope } from '@marxy/core/src/kind/show-as.ts';
 import { parseConfig } from '@marxy/theme';
@@ -459,6 +460,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         recordRead: shell.recordRead ? (path: string, read: Uint8Array) => shell.recordRead?.(path, read) : undefined,
         peekFile: shell.peekFile ? (path: string) => shell.peekFile!(path) : undefined,
         exists: async (path: string) => (await shell.stat(path)) !== null,
+        beforeOverwrite: (path: string, replacing: Uint8Array) => keepBeforeOverwrite(path, replacing),
       };
       return untitled ? openUntitledStore(io, file, bytes) : openDocumentStore(io, file, bytes, preparsed, { lazy: opensInSource });
     };

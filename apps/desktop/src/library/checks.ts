@@ -200,6 +200,11 @@ export class LibraryChecks {
     return this.lastDup?.entries === entries ? this.lastDup : null;
   }
 
+  /** The last near-duplicate run over whatever entries, or null when none has run: the palette's preview chip (W-13) reads it and never starts one. */
+  latestDup(): DupRun | null {
+    return this.lastDup;
+  }
+
   /** The last broken-path run, if it was over exactly these entries. */
   brokenFor(entries: readonly IndexEntry[]): BrokenRun | null {
     return this.lastBroken?.entries === entries ? this.lastBroken : null;

@@ -104,7 +104,7 @@ const rowsOf = (page) =>
       marks: [...r.querySelectorAll('.marxy-library-mark')].map((m) => m.textContent),
     })),
   );
-const calls = (page, ...names) => page.evaluate((n) => window.__marxyHandle.shell.calls.filter((c) => n.includes(c.method)).map((c) => ({ method: c.method, path: c.args[0] })), names);
+const calls = (page, ...names) => page.evaluate((n) => window.__marxyHandle.shell.calls.filter((c) => n.includes(c.method) && !String(c.args[0]).includes('/data/versions-')).map((c) => ({ method: c.method, path: c.args[0] })), names);
 const paths = (page) => page.evaluate(() => window.__marxyHandle.panes().panes.map((p) => p.path()));
 
 test('folded, the command is not offered and there is no library element; unfolded, it shows the view and hides the panes', async () => {
@@ -907,7 +907,7 @@ const BROKEN = '# Broken plan\n\nIt builds `src/app.ts` and `src/gone.ts`, and `
 const unfoldBare = (page) => page.evaluate(() => window.__marxyHandle.workspace().unfold({ sidebar: false }));
 const callMark = (page) => page.evaluate(() => window.__marxyHandle.shell.calls.length);
 const callsAfter = (page, from, ...names) =>
-  page.evaluate(({ from, names }) => window.__marxyHandle.shell.calls.slice(from).filter((c) => names.includes(c.method)).map((c) => ({ method: c.method, path: c.args[0] })), { from, names });
+  page.evaluate(({ from, names }) => window.__marxyHandle.shell.calls.slice(from).filter((c) => names.includes(c.method) && !String(c.args[0]).includes('/data/versions-')).map((c) => ({ method: c.method, path: c.args[0] })), { from, names });
 const checksDone = (page) => page.waitForFunction(() => {
   const s = document.querySelector('.marxy-library-status')?.textContent ?? '';
   return !/Checking|Comparing|Looking for/.test(s) && document.querySelector('.marxy-library-results')?.getAttribute('aria-busy') === 'false';

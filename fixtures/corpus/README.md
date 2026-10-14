@@ -87,6 +87,13 @@ added, removed and context lines, an `index` line, hunk headers with a function 
 long enough to wrap in the reader (the hang past the marker column), and a `\ No newline at end of file` note. Every name
 is invented. A `.diff` opens in Read; the goldens move only if the code-file parse or the kind table does.
 
+## 38-shell.session
+
+Original text written for K-17: a shell session in `user@host dir %` prompts, three commands. The second is continued with a
+backslash (one command on two lines); its output holds blank lines that stay in it; the third prints one ANSI escape pair
+(ESC, 0x1B, on purpose) and a `$` inside a line of output, which is output and not a prompt. Every name and path is invented.
+A `.session` opens in Read. The number is shared with `38-awkward.csv`, which is a table and not a session.
+
 ## 33-article-byline.md
 
 Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair
