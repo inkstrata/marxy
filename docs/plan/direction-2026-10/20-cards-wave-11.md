@@ -408,10 +408,10 @@ question 2 taken as recommended):
 - *New file* and *New file here* do not write anything beside a reader's file: they open a scratch document, and the only write
   is the reader's own Save As through the native dialog, which has its own replace confirmation and stays `writeFileAtomic`.
   The callers on `main` are *Fork this file* (`writeFork`) and *Keep mine as a copy* (`writeCopy`, now `writeBeside`).
-  *Restore to a copy* is V-06 (#717), not merged: it writes through `writeBeside` (`versions/restore.ts` `restoreToCopy`), which F-85
-  moves onto `writeFileNew`; V-06 adds its own race test when it rebases (`write-new.test.ts` holds the shared rule).
+  *Restore to a copy* is V-06 (#717, merged before F-85): it writes through `writeBeside` (`versions/restore.ts` `restoreToCopy`),
+  which F-85 moves onto `writeFileNew`; its tests are updated and a racing-creator case is added (`versions-tab.test.ts`).
 - `ForkIo` is now `{ writeFileNew }` alone: with a create-only write there is no look, so `nameIsTaken` and its `stat`, `realPath`
-  and `readHead` are deleted, not kept as a first check. `writeBeside` (the shared walk) moves into `fork.ts` with F-85, not V-06.
+  and `readHead` are deleted, not kept as a first check. `writeBeside` (the shared walk, V-06's) is kept and rewritten around `writeFileNew`.
 - Also edited: `apps/desktop/src-tauri/src/error.rs` (the `exists` code), `apps/desktop/src/app-types.ts`,
   `apps/desktop/src/notices/fork.ts` (the refusal in words), `apps/desktop/test/new-file.test.mjs` and the Tauri stub, and
   `docs/design/09-app-shell.md` (Fork's "one limit" paragraph is gone). `capabilities/` is untouched (the custom command needed no entry).
