@@ -58,6 +58,7 @@ export const SCREENS = {
   '09-inspector-outline': 'The inspector docked on its Outline tab: headings with the words of each section (mock 01-workspace)',
   '03-terminal': 'A shell session in the reader (mock 01-workspace, doc=shell-session)',
   '09-inspector-versions': 'The inspector docked on its Versions tab: Changed since you read and the earlier versions (mock 01-workspace)',
+  '10-tabs-hover': 'Twelve tabs in the unfolded window, one hovered (F-99; mock 01-workspace)',
   '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
 };
 
@@ -251,7 +252,17 @@ async function unfoldedWithTabs(page) {
   await settle(page, 700);
 }
 
+// Twelve documents of the corpus, in the corpus's order: the tab row's long-names case (F-99). The first stays the one on show.
+const TWELVE = docs.slice(0, 12);
 const APP_STATES = {
+  async '10-tabs-hover'(page) {
+    await unfold(page);
+    for (const d of TWELVE.slice(1)) { await openDoc(page, toPath(d.path)); await settle(page, 150); }
+    await openDoc(page, toPath(TWELVE[0].path));
+    await settle(page, 500);
+    await page.locator(`[data-marxy-tab="${toPath(TWELVE[3].path)}"] .marxy-tab-open`).hover();
+    await settle(page, 300);
+  },
   async '01-folded'(page) {},
   async '01-unfolded'(page) {
     await unfoldedWithTabs(page);
@@ -409,6 +420,16 @@ const SHEET_TEMPLATE = (() => {
   return m[1];
 })();
 const MOCK_STATES = {
+  '10-tabs-hover': {
+    file: '01-workspace.html',
+    run: async (page) => {
+      await mockUnfold(page);
+      await page.evaluate((ids) => { for (const id of ids) window.Marxy.openDoc(id); window.Marxy.openDoc(ids[0]); }, TWELVE.map((d) => d.id));
+      await settle(page, 600);
+      await page.locator(`.tabs .tab[data-id="${TWELVE[3].id}"]`).hover();
+      await settle(page, 300);
+    },
+  },
   '01-folded': { file: '01-workspace.html', run: async () => {} },
   '01-unfolded': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.keyboard.press('Meta+Digit1'); await settle(page, 600); } },
   '02-source': { file: '02-source.html', run: async () => {} },
