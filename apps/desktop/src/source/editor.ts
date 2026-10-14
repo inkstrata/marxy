@@ -34,6 +34,8 @@ export interface SourceEditor {
   scrollToByte(byteOffset: number): void;
   docText(): string;
   setLineNumbers(on: boolean): void;
+  /** The notes about the file (V-04), in order; empty for an editor with no frame. */
+  notes(): readonly { readonly from: number; readonly words: string }[];
 }
 
 const lineNumbersCompartment = new Compartment();

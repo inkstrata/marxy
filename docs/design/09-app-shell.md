@@ -771,13 +771,26 @@ Every bar shows only what the bytes say, and says nothing else (no score, no sum
 | --- | --- |
 | Top bar (24 px) | the path as quiet segments, the file's name last; the encoding (`UTF-8`, `UTF-8 with BOM`, or `Not valid UTF-8 · n bytes`); line endings as they are (`LF`, `CRLF`, `CR`, `Mixed`; none for a file with no break); indentation as the lines begin (`n spaces`, `Tabs, width n` from EditorConfig and V-16, `Mixed indentation`; nothing when no line is indented); size in bytes; line count (a last empty row after a final break is not a line) |
 | Column ruler (17 px) | a tick every fifth column on the text's character grid (`ch` of the text's own face and size, so tick N is under character N), taller every tenth, numbers every tenth, the caret's column as a notch, a selection on one line as a bar. Scrolls with the text. Not built for a file that wraps (Markdown, the text family), and hidden below 520 px |
-| Right strip (8 px) | marks at the height of their bytes: invisible and bidi characters (the rule of `shouldFlagInvisible`) and, while the find panel is open, its matches. Hover names the place (`U+200B ZERO WIDTH SPACE at 23:14`); a click selects it. Pointer-only and `aria-hidden`: Find and the bottom bar say the same in words |
-| Bottom bar (24 px) | `Ln, Col · byte` (column in characters, a tab is one; the byte offset from the start of the file, counted from the text once it has been edited); a selection's length in characters and bytes; the character after the caret by code point, named where it cannot be seen (`U+200B ZERO WIDTH SPACE`), `Byte FF, not UTF-8`, `U+000D U+000A CRLF` at the end of a CRLF line, `End of file` |
+| Right strip (8 px) | marks at the height of their bytes: invisible and bidi characters (the rule of `shouldFlagInvisible`), notes (below) and, while the find panel is open, its matches. Hover names the place (`U+200B ZERO WIDTH SPACE at 23:14`); a click selects it (a note's click puts the caret there). Pointer-only and `aria-hidden`: Find and the bottom bar say the same in words |
+| Bottom bar (24 px) | `Ln, Col · byte` (column in characters, a tab is one; the byte offset from the start of the file, counted from the text once it has been edited); a selection's length in characters and bytes; the character after the caret by code point, named where it cannot be seen (`U+200B ZERO WIDTH SPACE`), `Byte FF, not UTF-8`, `U+000D U+000A CRLF` at the end of a CRLF line, `End of file`; then, only when there are any, `2 notes` |
+
+**Notes (V-04).** Source says what it notices about a file without touching the text, as faint rings (not bars, so shape and not
+colour tells them from the other marks) in the right strip and a count in the bottom bar. Three are noticed: a fenced block
+that is never closed (everything after it is code; Markdown), a heading that skips a level (an `h2` followed by an `h4`;
+Markdown), and a backticked path that is not there, by `resolveMentioned`'s rule, so a path Marxy cannot check (a folder
+that was not listed, a link, a path that leaves the repository, `~/` with no home) is never called missing (every text
+kind). Hover names the note ("Fence opened at 41:1 is never closed"). *Go to next note* and *Go to previous note*
+(palette, `source.next-note` and `source.previous-note`) move the caret from note to note and wrap; they write nothing.
+Nothing is underlined, squiggled or highlighted and nothing goes in the gutter or on a line (the line DOM is CodeMirror's
+own); Read draws nothing. Notes are found after the text is up (a parse and one step per path, each after a yield), again
+700 ms after the text stops changing, at most 200, and not at all in a file over 4 million characters. The pure part is
+`packages/core/src/notes/notes.ts`; the running of it is `source/notes.ts`. The list of notes arrives with the inspector's
+Metadata tab (W-17); missing paths are already listed in Links.
 
 The bars cost rows: in an 800 px folded window about 33 rows of Markdown and 32 of code are in view, where ADR-0067 counted about 37 with the text alone.
 
 Line numbers for Markdown stay off (L-06.1, ruling Q14); `Ln, Col` is in the bottom bar. The measures (words, tokens: W-16), the
-language, the notes marks (V-04) and the line-ending and indentation menus (V-08) are not built. The bars are not focus stops and the
+language, the line-ending and indentation menus (V-08) are not built. The bars are not focus stops and the
 caret readout is plain text, not a live region, so a screen reader reads it when asked and does not announce every key. Source's
 scroll position, which the window used to hold, is the editor's own now: `scrollSourceToByte` takes the scroller's offset from the
 window's top off the reading line's margin, so a place round-trips through Rendered unchanged.
