@@ -50,12 +50,17 @@ export function currentEntry(entries: readonly OutlineEntry[], position: number)
 function injectStyles(doc: Document): void {
   adoptRuntimeSheet(doc, 'marxy-outline-style', `
     #marxy-outline {
+      /* An overlay between the toolbar, tab row and strip above and the status bar below (the workspace's own
+         heights; each is 0 when its region is hidden, and all are unset, so 0, in a folded window). z-index 5 puts
+         it over the docked inspector (the regions are 4). It places itself and moves nothing (F-45). */
       position: fixed;
-      inset: 0 0 0 auto;
+      inset: calc(var(--marxy-ws-toolbar-h, 0px) + var(--marxy-ws-tabs-h, 0px) + var(--marxy-ws-strip-h, 0px)) 0 var(--marxy-ws-status-h, 0px) auto;
+      z-index: 5;
+      font: var(--marxy-size-chrome) var(--marxy-face-chrome);
       margin: 0;
       padding: 0;
       width: min(320px, 40vw);
-      height: 100vh;
+      height: calc(100vh - calc(var(--marxy-ws-toolbar-h, 0px) + var(--marxy-ws-tabs-h, 0px) + var(--marxy-ws-strip-h, 0px)) - var(--marxy-ws-status-h, 0px));
       max-height: none;
       box-sizing: border-box;
       border-width: 0;
