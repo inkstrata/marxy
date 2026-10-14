@@ -56,6 +56,7 @@ export const SCREENS = {
   '09-inspector-outline': 'The inspector docked on its Outline tab: headings with the words of each section (mock 01-workspace)',
   '03-terminal': 'A shell session in the reader (mock 01-workspace, doc=shell-session)',
   '09-inspector-versions': 'The inspector docked on its Versions tab: Changed since you read and the earlier versions (mock 01-workspace)',
+  '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
 };
 
 /** The file names one screen produces: <screen>-<theme>-{app,mock}.png. */
@@ -328,6 +329,15 @@ const APP_STATES = {
     await settle(page, 600);
   },
   async '03-terminal'(page) { await openDoc(page, SHELL_SESSION); await settle(page, 900); },
+  async '08-settings'(page) {
+    // A reader who has made their text larger and shortened the line: two dots, the third row at its default.
+    await page.evaluate(() => window.__marxyHandle.shell.plant('/config', new TextEncoder().encode('size = 22\nmeasure = 58\n')));
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__cmd('view.settings'));
+    await page.waitForSelector('[data-marxy-settings]');
+    await page.click('[data-marxy-category="reading"]');
+    await settle(page, 400);
+  },
   async '09-inspector-versions'(page) {
     await unfoldedWithTabs(page);
     // The card's scenario on the plan: read at open, an edit saved, then another program rewrites a line.
@@ -419,6 +429,7 @@ const MOCK_STATES = {
   '09-inspector-outline': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
   '03-terminal': { file: '01-workspace.html', hash: '#doc=shell-session', run: async () => {} },
   '09-inspector-versions': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="versions"]'); await settle(page, 600); } },
+  '08-settings': { file: '08-settings.html', hash: '#reading', run: async (page) => { await settle(page, 400); } },
 };
 
 const browser = await launchWebkit();

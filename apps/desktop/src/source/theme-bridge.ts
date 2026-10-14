@@ -31,10 +31,10 @@ const GUTTER = `calc(${DIGITS}ch + 2 * ${LINE})`;
 
 /**
  * The text column. Markdown in Source is as wide as Rendered's measure, in pixels
- * (`--marxy-measure-chars` clamped to 45..80, times the average advance, times the body size); a code file's is
+ * (`--marxy-measure-user` when the reader set a measure, else `--marxy-measure-chars`, clamped to 45..80, times the average advance, times the body size); a code file's is
  * 100 characters of the mono face at Source's size (ADR-0067).
  */
-const PROSE_COLUMN = 'calc(clamp(45, var(--marxy-measure-chars, 66), 80) * var(--marxy-avg-char, 0.463) * var(--marxy-size-body, 20px))';
+const PROSE_COLUMN = 'calc(clamp(45, var(--marxy-measure-user, var(--marxy-measure-chars, 66)), 80) * var(--marxy-avg-char, 0.463) * var(--marxy-size-body, 20px))';
 const CODE_COLUMN = '100ch';
 
 /** The rules every look shares: caret, selection, find matches and the search panel, read from tokens. */

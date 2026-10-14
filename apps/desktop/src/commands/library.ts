@@ -3,6 +3,7 @@
 // and W-07's Library row are the doors. Folded there is no library, so the command is not offered, and the view's
 // module is not loaded until it is first run (it stays off the start-up path).
 import { appHandle, palette } from './app-handle.ts';
+import { uncoverPanes } from '../workspace/pane-cover.ts';
 import type { Command } from './registry.ts';
 
 export function libraryCommands(): readonly Command[] {
@@ -20,7 +21,10 @@ export function libraryCommands(): readonly Command[] {
         const handle = appHandle();
         if (!handle) return;
         const { libraryFor } = await import('../library/view.ts');
-        await libraryFor(handle).open();
+        const library = libraryFor(handle);
+        // One page at a time: Settings (ADR-0075), if it is up, lets go of the panes first; the library already up keeps its state.
+        if (!library.isOpen) uncoverPanes();
+        await library.open();
       },
     },
   ];

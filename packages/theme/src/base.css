@@ -23,7 +23,8 @@
    tokens.css, so a per-kind --marxy-measure-chars would change nothing below it: the same computation is
    repeated where the kind's values apply. :root keeps its declaration, so a v1 theme renders as before. */
 [data-marxy-kind] {
-  --marxy-measure: calc(var(--marxy-measure-chars) * var(--marxy-avg-char) * 1em);
+  /* A measure the reader wrote (`--marxy-measure-user`, set on the root by the app, W-12) beats the kind's own; unset, the kind's stands. */
+  --marxy-measure: calc(var(--marxy-measure-user, var(--marxy-measure-chars)) * var(--marxy-avg-char) * 1em);
   /* The heading sizes are derived from the body size and the ratio, which a kind may set: derived again here, as
      the measure is, or a README's headings would be sized from the reader's 20 px body (K-05b). */
   --marxy-size-h1: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 3)), 1px);
@@ -1400,12 +1401,135 @@ body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-ro
 .marxy-library-preview-actions button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
 @media (max-width: 760px) { .marxy-library-body { grid-template-columns: minmax(0, 1fr); } .marxy-library-preview { display: none; } }
 
+/* The Settings page (W-12; ADR-0075, mock-v2/08-settings.md): a page in the unfolded workspace, placed exactly as the library is and
+   covering the panes the same way (the view sets `hidden` and `inert` on them; they come back as they were). On the left a column as
+   System Settings has it: the title, the search, the categories, and the file with how much of it is changed; on the right the rows of
+   one category (or of the search) in cards: the label and what it does on the left of a row, its control on the right or, for a slider
+   or a few choices, under the words, and before the label the dot of a changed value, which is a button. Nothing is drawn from a colour
+   alone: the dot has a name, a changed row says "Changed", a switch is read by where its knob is, and a disabled control says why
+   under it. No transition runs, so Reduce motion has nothing to turn off. The selectors that style a control name the page first:
+   the document's own `input[type="checkbox"]` rule (the task-list box) is more specific than a class. */
+html:has(> body > .marxy-settings) { overflow: hidden; }
+.marxy-settings {
+  box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; flex-direction: column;
+  color: var(--marxy-color-text); font: var(--marxy-size-chrome) var(--marxy-face-chrome);
+}
+body[data-marxy-workspace="unfolded"] > .marxy-settings { grid-column: 2; grid-row: 4; position: sticky; top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h)); align-self: start; z-index: 3; height: var(--marxy-ws-panes-h); }
+.marxy-settings-body { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(11em, 16em) minmax(0, 1fr); }
+.marxy-settings-side { display: flex; flex-direction: column; gap: 0.5em; min-height: 0; padding: 0.9em 0.7em 0.5em; border-inline-end: 1px solid var(--marxy-color-rule); }
+.marxy-settings-title { margin: 0 0.3em; font: inherit; font-size: 1.25em; font-weight: var(--marxy-weight-strong); }
+.marxy-settings .marxy-settings-field { box-sizing: border-box; width: 100%; padding: 0.4em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 8 / 13); background: none; color: inherit; font: inherit; }
+.marxy-settings .marxy-settings-field:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
+.marxy-settings-nav { flex: 1 1 0; display: flex; flex-direction: column; gap: 0.1em; min-height: 0; overflow-y: auto; }
+.marxy-settings-nav-item { appearance: none; -webkit-appearance: none; display: flex; justify-content: space-between; align-items: center; gap: 0.6em; margin: 0; padding: 0.45em 0.7em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 8 / 13); background: none; color: inherit; font: inherit; text-align: start; cursor: default; }
+.marxy-settings-nav-item:hover { background: var(--marxy-color-selection); }
+.marxy-settings-nav-item:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-settings-nav-item[aria-current="true"] { background: var(--marxy-color-accent-wash); font-weight: var(--marxy-weight-strong); }
+.marxy-settings-nav-item[data-marxy-empty="true"] { color: var(--marxy-color-text-secondary); }
+.marxy-settings-nav-count { color: var(--marxy-color-text-secondary); font-size: 0.92em; }
+.marxy-settings-nav-dot { flex: none; width: 0.5em; height: 0.5em; border-radius: 50%; background: var(--marxy-color-accent); }
+.marxy-settings-foot { padding: 0.4em 0.4em 0; border-block-start: 1px solid var(--marxy-color-rule); }
+.marxy-settings-count { margin: 0; color: var(--marxy-color-text-secondary); font-size: 0.92em; overflow-wrap: anywhere; }
+.marxy-settings-pane { min-width: 0; min-height: 0; overflow-y: auto; padding: 0.9em 1.4em 4em; }
+.marxy-settings-pane:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-settings-pane-head { padding-block-end: 0.5em; }
+.marxy-settings-pane-title { margin: 0; font: inherit; font-size: 1.25em; font-weight: var(--marxy-weight-strong); }
+.marxy-settings-pane-blurb, .marxy-settings-lede { margin: 0.2em 0 0.6em; color: var(--marxy-color-text-secondary); max-width: 48em; }
+.marxy-settings-group { margin-block: 0.4em 1em; max-width: 52em; }
+.marxy-settings-group-title { margin: 0.6em 0.2em 0.4em; font: inherit; font-weight: var(--marxy-weight-strong); color: var(--marxy-color-text-secondary); }
+.marxy-settings-empty, .marxy-settings-warning { margin: 1em 0; max-width: 48em; color: var(--marxy-color-text-secondary); }
+.marxy-settings-warning { color: var(--marxy-color-status-warn); }
+.marxy-settings-warnings { margin: 0 0 0.6em; padding-inline-start: 1.2em; color: var(--marxy-color-text-secondary); }
+/* A group of rows is a card: one hairline round it, and one between rows. */
+.marxy-settings-group:has(> .marxy-setting) { border: 1px solid var(--marxy-color-rule); border-radius: calc(var(--marxy-size-chrome) * 10 / 13); background: var(--marxy-color-surface); }
+.marxy-settings-group:has(> .marxy-setting) > .marxy-settings-group-title { margin: 0; padding: 0.7em 0.9em 0.1em; }
+.marxy-setting { display: grid; grid-template-columns: 1.4em minmax(0, 1fr) auto; column-gap: 0.4em; align-items: start; padding: 0.8em 0.9em; }
+.marxy-setting + .marxy-setting { border-block-start: 1px solid var(--marxy-color-rule); }
+.marxy-setting[data-marxy-wide="true"] { grid-template-columns: 1.4em minmax(0, 1fr); }
+.marxy-setting[data-marxy-wide="true"] > .marxy-setting-control { grid-column: 2; justify-content: flex-start; padding-block-start: 0.55em; }
+.marxy-setting-dot-cell { padding-block-start: 0.1em; }
+.marxy-setting-dot { appearance: none; -webkit-appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 1.4em; height: 1.4em; margin: 0; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--marxy-color-accent); cursor: default; }
+.marxy-setting-dot-mark { width: 0.55em; height: 0.55em; border-radius: 50%; background: currentColor; }
+.marxy-setting-dot:hover { background: var(--marxy-color-selection); }
+.marxy-setting-dot:hover .marxy-setting-dot-mark { background: none; box-shadow: inset 0 0 0 2px currentColor; }
+.marxy-setting-dot:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
+.marxy-setting-text { min-width: 0; }
+.marxy-setting-label { display: block; font-weight: var(--marxy-weight-strong); }
+.marxy-setting-desc, .marxy-setting-meta, .marxy-setting-note, .marxy-setting-why { margin: 0.2em 0 0; max-width: 46em; color: var(--marxy-color-text-secondary); }
+.marxy-setting-meta { font-size: 0.92em; }
+.marxy-setting-key, .marxy-settings-stored-name { font-family: var(--marxy-face-mono, ui-monospace, monospace); font-size: 0.95em; }
+.marxy-setting[data-marxy-changed="true"] .marxy-setting-meta { color: var(--marxy-color-text); }
+.marxy-setting-why { color: var(--marxy-color-text); }
+.marxy-setting[data-marxy-disabled="true"] .marxy-setting-label { color: var(--marxy-color-text-secondary); }
+.marxy-setting-control { display: flex; justify-content: flex-end; align-items: center; min-height: 1.9em; min-width: 0; }
+.marxy-settings input.marxy-settings-switch { appearance: none; -webkit-appearance: none; position: relative; flex: none; box-sizing: border-box; width: 2.7em; height: 1.55em; margin: 0; border: 1px solid var(--marxy-color-edge); border-radius: 999px; background: none; box-shadow: none; pointer-events: auto; vertical-align: baseline; cursor: default; }
+.marxy-settings input.marxy-settings-switch::after { content: ""; position: absolute; top: 0.18em; inset-inline-start: 0.2em; width: 1em; height: 1em; border-radius: 50%; background: var(--marxy-color-text-secondary); }
+.marxy-settings input.marxy-settings-switch:checked { background: var(--marxy-color-accent); border-color: var(--marxy-color-accent); box-shadow: none; }
+.marxy-settings input.marxy-settings-switch:checked::after { inset-inline-start: calc(100% - 1.2em); background: var(--marxy-color-accent-fg); }
+.marxy-settings input.marxy-settings-switch:disabled, .marxy-settings-slider:disabled, .marxy-settings-select:disabled, .marxy-settings-text:disabled { opacity: 0.5; }
+.marxy-settings input.marxy-settings-switch:focus-visible, .marxy-settings-slider:focus-visible, .marxy-settings-select:focus-visible, .marxy-settings-text:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 2px; }
+.marxy-settings-segmented { display: inline-flex; max-width: 100%; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 8 / 13); overflow: hidden; }
+.marxy-settings-segment { position: relative; display: flex; }
+.marxy-settings-segment + .marxy-settings-segment { border-inline-start: 1px solid var(--marxy-color-rule); }
+.marxy-settings .marxy-settings-segment input { appearance: none; -webkit-appearance: none; position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; opacity: 0; pointer-events: auto; cursor: default; }
+.marxy-settings-segment-label { padding: 0.3em 0.9em; white-space: nowrap; }
+.marxy-settings-segment:hover { background: var(--marxy-color-selection); }
+.marxy-settings-segment:has(input:checked) { background: var(--marxy-color-accent-wash); }
+.marxy-settings-segment:has(input:checked) .marxy-settings-segment-label { font-weight: var(--marxy-weight-strong); }
+.marxy-settings-segment:has(input:focus-visible) { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-settings-segment:has(input:disabled) { opacity: 0.5; }
+.marxy-settings-select, .marxy-settings-text { box-sizing: border-box; padding: 0.3em 0.6em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: var(--marxy-color-text); font: inherit; }
+.marxy-settings-select { min-width: 11em; }
+.marxy-settings-text { width: min(32em, 100%); font-family: var(--marxy-face-mono, ui-monospace, monospace); }
+.marxy-settings-range { display: flex; align-items: center; gap: 0.8em; }
+.marxy-settings-slider { width: 14em; margin: 0; accent-color: var(--marxy-color-accent); }
+.marxy-settings-range-value { min-width: 6.5em; font-variant-numeric: tabular-nums; color: var(--marxy-color-text-secondary); }
+.marxy-settings-table-control { display: flex; align-items: center; justify-content: flex-end; gap: 0.8em; flex-wrap: wrap; }
+.marxy-settings-table-summary { color: var(--marxy-color-text-secondary); }
+.marxy-settings-button { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.8em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; cursor: default; }
+.marxy-settings-button:hover:not(:disabled) { background: var(--marxy-color-selection); }
+.marxy-settings-button:disabled { opacity: 0.5; }
+.marxy-settings-button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
+.marxy-settings-button-danger { border-color: var(--marxy-color-status-err); color: var(--marxy-color-status-err); }
+.marxy-settings-stored, .marxy-settings-leaves { margin: 0; padding: 0; list-style: none; border: 1px solid var(--marxy-color-rule); border-radius: calc(var(--marxy-size-chrome) * 10 / 13); background: var(--marxy-color-surface); }
+.marxy-settings-stored-item, .marxy-settings-leave { padding: 0.7em 0.9em; }
+.marxy-settings-stored-item + .marxy-settings-stored-item, .marxy-settings-leave + .marxy-settings-leave { border-block-start: 1px solid var(--marxy-color-rule); }
+.marxy-settings-stored-head { display: flex; justify-content: space-between; gap: 1em; align-items: baseline; }
+.marxy-settings-stored-size { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.marxy-settings-stored-holds { margin: 0.15em 0 0; }
+.marxy-settings-stored-path { margin: 0.15em 0 0; color: var(--marxy-color-text-secondary); font-family: var(--marxy-face-mono, ui-monospace, monospace); font-size: 0.9em; overflow-wrap: anywhere; }
+.marxy-settings-clear { margin-block-start: 0.5em; }
+.marxy-settings-clear-ask { margin: 0 0 0.5em; }
+.marxy-settings-clear-actions { display: flex; gap: 0.5em; }
+.marxy-settings-leave-status { margin-inline-start: 0.8em; padding: 0.05em 0.6em; border: 1px dashed var(--marxy-color-edge); border-radius: 999px; color: var(--marxy-color-text-secondary); font-size: 0.92em; }
+.marxy-settings-leave-facts { display: grid; grid-template-columns: 4em minmax(0, 1fr); gap: 0.15em 0.8em; margin: 0.2em 0 0; }
+.marxy-settings-leave-facts dt { color: var(--marxy-color-text-secondary); }
+.marxy-settings-leave-facts dd { margin: 0; }
+.marxy-settings-nothing-else { margin: 0.8em 0.2em 0; font-weight: var(--marxy-weight-strong); }
+.marxy-settings-advanced .marxy-settings-button { margin-block: 0.2em 0.8em; }
+.marxy-settings-advanced { padding-inline: 0.2em; }
+.marxy-settings-notices { position: absolute; inset-inline: 0; bottom: calc(var(--marxy-size-chrome) * 36 / 13); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: calc(var(--marxy-size-chrome) * 6 / 13); padding-inline: calc(var(--marxy-size-chrome) * 16 / 13); pointer-events: none; }
+.marxy-settings-notices:empty { display: none; }
+.marxy-settings-notices > * { pointer-events: auto; }
+.marxy-settings-notices > [data-notice-held] { display: none; }
+@media (max-width: 760px) {
+  .marxy-settings-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .marxy-settings-side { border-inline-end: 0; border-block-end: 1px solid var(--marxy-color-rule); }
+  .marxy-settings-nav { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  .marxy-settings-foot { display: none; }
+  .marxy-setting { grid-template-columns: 1.4em minmax(0, 1fr); }
+  .marxy-setting > .marxy-setting-control { grid-column: 2; justify-content: flex-start; padding-block-start: 0.4em; }
+}
+
 /* Accessibility media queries (Reader Artifacts ch.9, MARXY-241). */
 @media (forced-colors: active) {
   .marxy-source-frame, .marxy-source-top, .marxy-source-ruler, .marxy-source-bottom { border-color: CanvasText; }
   .marxy-source-ruler-tick, .marxy-source-ruler-caret, .marxy-source-ruler-span, .marxy-source-mark { forced-color-adjust: none; background: CanvasText; }
   .marxy-source-mark-find { background: Highlight; }
   a { text-decoration: underline; forced-color-adjust: none; }
+  .marxy-settings .marxy-setting-dot-mark, .marxy-settings input.marxy-settings-switch::after { forced-color-adjust: none; background: CanvasText; }
+  .marxy-settings input.marxy-settings-switch, .marxy-settings .marxy-settings-segmented, .marxy-settings .marxy-settings-select, .marxy-settings .marxy-settings-text, .marxy-settings .marxy-settings-button, .marxy-settings .marxy-settings-field { border-color: CanvasText; }
+  .marxy-settings .marxy-settings-segment:has(input:checked), .marxy-settings .marxy-settings-nav-item[aria-current="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   del, s { text-decoration: line-through; }
   :is(pre, table):focus-visible { outline: 2px solid ButtonText; outline-offset: 2px; }
   .marxy-surface, .marxy-verb-menu, .marxy-find { border-color: CanvasText; background: Canvas; color: CanvasText; box-shadow: none; }
