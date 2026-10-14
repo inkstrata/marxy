@@ -12,7 +12,7 @@ import vm from 'node:vm';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MOCK = join(ROOT, 'docs/plan/direction-2026-10/mock-v2');
 
-const W = 1440, H = 900, NARROW = 760, SHORT = 400;
+const W = 1440, H = 900, NARROW = 760, SHORT = 400, WIDE = 1920;
 // `app` is the `theme` line the app's config gets (H-05): none for Night and Paper, a bundled name for the rest.
 export const THEMES = [
   { id: 'night', scheme: 'dark', mock: 'night', label: 'Night' },
@@ -59,6 +59,7 @@ export const SCREENS = {
   '03-terminal': 'A shell session in the reader (mock 01-workspace, doc=shell-session)',
   '09-inspector-versions': 'The inspector docked on its Versions tab: Changed since you read and the earlier versions (mock 01-workspace)',
   '10-tabs-hover': 'Twelve tabs in the unfolded window, one hovered (F-99; mock 01-workspace)',
+  '10-outline-popup': 'The outline popup (Shift+Cmd+O) at 1,920 x 900 with the inspector docked, over it and under the bands (the mock has no popup: its Outline tab is the reference for the type and the row)',
   '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
 };
 
@@ -357,6 +358,14 @@ const APP_STATES = {
     await page.waitForSelector('.marxy-outline [aria-current="location"]');
     await settle(page, 600);
   },
+  async '10-outline-popup'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
+    await settle(page, 300);
+    await page.evaluate(() => window.__cmd('view.outline'));
+    await page.waitForSelector('#marxy-outline[open] .marxy-outline-row');
+    await settle(page, 500);
+  },
   async '03-terminal'(page) { await openDoc(page, SHELL_SESSION); await settle(page, 900); },
   async '08-settings'(page) {
     // A reader who has made their text larger and shortened the line: two dots, the third row at its default.
@@ -393,7 +402,7 @@ const APP_STATES = {
     await settle(page, 600);
   },
 };
-const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {} };
+const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE } };
 
 // ---------- the mock ----------
 async function openMock(browser, theme, file, { width = W, height = H, hash = '' } = {}) {
@@ -470,6 +479,7 @@ const MOCK_STATES = {
   '09-inspector-outline': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
   '03-terminal': { file: '01-workspace.html', hash: '#doc=shell-session', run: async () => {} },
   '09-inspector-versions': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="versions"]'); await settle(page, 600); } },
+  '10-outline-popup': { file: '01-workspace.html', width: WIDE, run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
   '08-settings': { file: '08-settings.html', hash: '#reading', run: async (page) => { await settle(page, 400); } },
 };
 
