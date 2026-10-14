@@ -863,3 +863,116 @@ The reader's text is a centred measure with margins; Source is a code surface, s
 Source has one editor with many configurations (line numbers on or off, folding on or off, wrap, large-file mode, special-characters view, whitespace and column guide from V-08, per-kind metrics from V-12, untitled and saved documents, code files that open in Source, folded and unfolded, one pane or two). The bug in F-98 may be one configuration. Build the matrix, take a screenshot of each cell with a 20-line document that includes a blank line and a long line, and record which cells are wrong and how, with the measured box offsets (gutter top and left, first line top and left, number of numbered rows against the line count).
 
 **Done when:** the matrix and its screenshots are checked in; each wrong cell maps to F-98, F-100 or a new F card; the report says which configuration F-98's cause lives in, so the F-98 agent starts there. Run this before F-98 starts if F-98 is still ready.
+
+### F-101 — The outline popup shows every row: above the inspector, below the toolbar
+
+**Model:** sonnet (medium) · **Size:** S · *From X-32 (`docs/taste-review/2026-10-14-layout-audit/`: its findings, screenshots and `audit-output.md`; finding 1, Sev-1).* · **Paths:** `apps/desktop/src/outline/view.ts` (the popup's stylesheet), `apps/desktop/test/` (an outline-popup layout test), `scripts/mock-pair.mjs` (one state), `changelog.d/F-101.md`.
+
+What the reader sees, with `view.outline` (Shift+Cmd+O) open in an unfolded window (`shots/01-…`, `shots/02-…`):
+
+| # | What is wrong |
+| --- | --- |
+| 1 | At 1,600 px and wider, where the inspector docks by default, the popup is drawn **behind** the inspector: no row of it is visible, and the shortcut seems to do nothing. At 1,920 x 900 all 11 rows are covered by the inspector's Links list. |
+| 2 | Below 1,600 px, where nothing covers its right edge, the popup starts at the top of the window (`position: fixed; inset: 0 0 0 auto; height: 100vh`), so its first four rows (the title, `TL;DR`, `Context`, `Phases`) sit under the toolbar, the tab row and the strip. The first row the reader can read is `1. Preparation`. Same at 800, 1,000 and 1,400 px. |
+
+The cause is the popup's own box: it is full height and sits under the chrome's `z-index: 4` and the docked regions. It is an overlay, so it must not move the document (F-45): the fix places the overlay, and does not reflow the page.
+
+**Acceptance:**
+- **Reproduced first:** a Playwright test that opens the popup in an unfolded window at 1,400 and 1,920 px wide and 600 and 900 px tall, with the inspector docked at 1,920, and fails on main: the first row's box is inside the window, is the topmost element at its centre (`elementFromPoint`), and does not intersect the toolbar, the tab row, the strip or the inspector.
+- **Every row reachable:** with 11 headings at 600 px tall, the list scrolls inside the popup and the last row can be reached; none of its text is under another element.
+- **The document does not move:** the article's left edge is unchanged by opening and closing the popup (0 px).
+- **Re-run:** `node scripts/layout-audit.mjs --only popup-outline` reports no `covered` row.
+- **Pair:** a `mock-pair.mjs` state for the popup at 1,920 x 900 with the inspector docked; the mock has no popup, so the pair is app against mock-v2's Outline tab for the type and the row, and the PR says so.
+
+### F-102 — The Settings page keeps a readable column in a 900 to 1,150 px window
+
+**Model:** sonnet (high) · **Size:** M · *From X-32 (finding 2; Sev-1).* · **Paths:** the workspace grid in `packages/theme/src/base.css` (`body[data-marxy-workspace="unfolded"]`, the `#marxy-main` track) and `.marxy-settings*` rules, `apps/desktop/src/settings/page.ts` only if the markup needs a wrapper, `apps/desktop/test/` (a settings layout test), `scripts/mock-pair.mjs` (one state), `changelog.d/F-102.md`. **Depends on:** nothing, but read X-33's note on "the column stays on the window's axis" (V-12, L-07) first: the reading page is centred on the window on purpose; Settings is not a reading page.
+
+What the reader sees, unfolded, at 1,000 px wide (`shots/03-…`): the sidebar is docked, and the Settings card is 250 px wide in a 748 px pane.
+
+| # | What is wrong |
+| --- | --- |
+| 1 | The page's column is 496 px: the body grid is `252px 496px 252px`, so the pane gives up a right-hand track the closed inspector holds. Settings and the Library draw inside that middle track, so a quarter of the window on the right is empty. |
+| 2 | Inside it the card is 250 px, and every description wraps to one word per line (`Rules / that / read / the / files …`, 30 lines tall). |
+| 3 | On Content types and Advanced the row's label is **drawn over** its value (`How folders are read` under `0 rules`; `Linux font weight offset` under `Not set`). |
+| 4 | On Appearance the segmented control's third segment is cut in half (`Follow the sy`). |
+| 5 | The same page at 800 px (sidebar closed by default) and at 1,200 px and wider is fine, so the range is about 900 to 1,150 px. |
+
+**Acceptance:**
+- **Reproduced first:** a Playwright test that opens Settings unfolded at 1,000 px wide, on Content types, Advanced and Appearance, and fails on main: the card is at least 480 px wide (the pane less 2 x 16 px) and no `marxy-setting-label` box intersects its control's box.
+- **Whole range:** the same holds at 900, 1,000, 1,100, 1,150 and 1,200 px, both themes.
+- **No clipped control:** the segmented control's three labels are whole at every width in the range.
+- **The reading page is not touched:** the article's left edge in Read is unchanged at 1,000 and 1,400 px (0 px).
+- **Re-run:** `node scripts/layout-audit.mjs --only Settings` reports no row.
+- **Pair:** a `mock-pair.mjs` state for Settings at 1,000 px, app against mock-v2's `08-settings`.
+
+### F-103 — The kind chip's menu shows why in whole words
+
+**Model:** sonnet (medium) · **Size:** S · *From X-32 (finding 3; Sev-1).* · **Paths:** `apps/desktop/src/commands/kind-chip.ts`, `apps/desktop/src/selection/verb-menu.ts` (the row layout) and `.marxy-verb-menu*` in `packages/theme/src/base.css`, `apps/desktop/test/` (a kind-chip menu layout test), `scripts/mock-pair.mjs` (one state), `changelog.d/F-103.md`.
+
+What the reader sees when they press the kind chip (`shots/04-…`): the menu's first rows are the reasons the file is read as it is, the one thing the menu exists to say. Two of the three are cut to nothing: `admonitions or Para…` and `n…` (the text is `nothing else fired`; the box is 21 px of 105). The cause is that the title is `flex: 1 1 auto` with `white-space: nowrap; text-overflow: ellipsis`, and the right-hand hint (`article · default · pg16-upgrade-plan.md`, the file's own name) takes the room first. It is the same at 800, 1,000, 1,400 and 1,920 px, both themes, and the rows have no `title`.
+
+**Acceptance:**
+- **Reproduced first:** a Playwright test that opens the chip's menu on a report with the "nothing else fired" reason and fails on main: each reason row's title box is wide enough for its whole text (`scrollWidth <= clientWidth`) at 800 and 1,400 px.
+- **Reasons win:** when a row has a long title and a long hint, the title wraps (the reason is the message) and the hint truncates with its full text in `title`, or moves to a second line; say which in the PR.
+- **Choices unchanged:** the `Show as …` rows keep their one-line layout and keys.
+- **Re-run:** `node scripts/layout-audit.mjs --only menu-kind-chip` reports no `truncated` row.
+- **Pair:** a `mock-pair.mjs` state with the chip's menu open, app against mock-v2.
+
+### F-104 — The empty window's two-column pieces keep their columns apart
+
+**Model:** sonnet (medium) · **Size:** S · *From X-32 (finding 4; Sev-1).* · **Paths:** `apps/desktop/src/frontispiece/frontispiece.css` (`.marxy-frontispiece-parallel` and its `@container` rule), `apps/desktop/test/` (a frontispiece layout test over every parallel piece), `scripts/mock-pair.mjs` (one state), `changelog.d/F-104.md`.
+
+What the reader sees on a launch with no document, when the piece drawn is a text beside its translation (17 of the 38 carry two languages; the scan at 1,000 px broke 10 of them: both Hegels, Kant, Leibniz, both Marxes, Pascal, Schiller, Spinoza and Zhuangzi). Hegel's `Ich, das Wir` is piece 6: pin it with `Math.random = () => 6.5 / 38`.
+
+| # | What is wrong |
+| --- | --- |
+| 1 | Open the window at 800 px (the columns stack) and widen it to 1,000 px: the German and English columns are drawn **on top of each other**, and the English runs off the right edge of the window (`shots/05-…`). Resizing does not lay the page out again. |
+| 2 | Unfolded at 1,400 px (the sidebar docked): the right column's text is 556 px wide in a 394 px column, so the two columns are unequal and the English reaches the window's edge (`shots/06-…`). |
+
+The page is `width: fit-content` and switches to two columns by `@container (min-width: 40em)`. The width the page takes depends on the columns, and the columns depend on the width, so a change of width does not settle; measure before choosing a fix.
+
+**Acceptance:**
+- **Reproduced first:** a Playwright test that pins each of the 17 two-language pieces and fails on main: after opening at 800 px and widening to 1,000, 1,400 and 1,920 px, and when opened unfolded at 1,400 px, no text box of the left column intersects one of the right, and every text box is inside the window.
+- **Same either way:** the layout after widening equals the layout of a window opened at that width (column boxes within 1 px).
+- **Prose pieces unchanged:** the 21 one-language pieces' boxes are unchanged (0 px).
+- **Re-run:** `node scripts/layout-audit.mjs --only "Empty window"` reports no row (it pins piece 6; `--pieces` runs all 38 at 800 px and widens).
+- **Pair:** a `mock-pair.mjs` state for the empty window with a parallel piece at 1,000 px after widening.
+
+### F-105 — The Library keeps its columns whole in a 900 to 1,150 px window
+
+**Model:** sonnet (medium) · **Size:** S · *From X-32 (finding 5; Sev-2).* · **Paths:** `.marxy-library*` in `packages/theme/src/base.css`, `apps/desktop/src/library/view.ts` (a `title` on a clipped name), `apps/desktop/test/` (a library layout test), `scripts/mock-pair.mjs` (one state), `changelog.d/F-105.md`. **Depends on:** F-102 (the same 252 px right-hand track gives the Library 496 of 748 px; fix it once there).
+
+What the reader sees at 1,000 px, unfolded, with the Library open (`shots/07-…`): the list is 496 px wide, the preview takes half of it, the Name column is about 100 px (`Postgres 14 → …`), the Path column shows one word (`plans`) with no ellipsis, and at 1,100 px the Modified column is 16 px wide so `5h` is cut. Wider, at 1,920 px (`shots/10-…`), every long name and path is ellipsised and has no `title`; only the selected row's full name is in the preview.
+
+**Acceptance:**
+- **Reproduced first:** a Playwright test with the Library open at 900, 1,000 and 1,100 px that fails on main: no cell's text box is cut mid-glyph by its row (`clipped`), and the Modified column is wide enough for `23h`.
+- **A reveal:** a name or path that is ellipsised has its full text in `title`.
+- **Re-run:** `node scripts/layout-audit.mjs --only popup-library` reports no `clipped` row and no `truncated` row without a title.
+- **Pair:** a `mock-pair.mjs` state for the Library at 1,000 px, app against mock-v2's `05-collections`.
+
+### F-106 — A split narrowed below two columns gives one back
+
+**Model:** sonnet (medium) · **Size:** S · *From X-32 (finding 6; Sev-2).* · **Paths:** `apps/desktop/src/pane/fit.ts` (`splitRefusal`) and the pane set's resize handling (`apps/desktop/src/pane/`), `apps/desktop/test/` (a split-resize test), `scripts/mock-pair.mjs` (one state), `changelog.d/F-106.md`.
+
+What the reader sees: Split is refused when the window cannot hold two columns at the typography floor (a window of 800 px with the sidebar open refuses it), but a split made in a wide window and then narrowed to 800 x 600 keeps both panes at about 250 px (`shots/09-…`): the Read pane breaks `Postgres 14 → / 16 upgrade plan` and `2026-10-/08T09:14:00Z` onto short lines, the Source pane holds four or five words a line, and its header `UTF-8 · LF · 2 spaces · 3,116 bytes · 89 lines` is cut (`3,116 byt…`, no `title`).
+
+**Acceptance:**
+- **Reproduced first:** a Playwright test that makes a split at 1,920 px and narrows the window to 800 px and fails on main: each pane's article is at least the typography floor wide, or the split has closed to one pane (say which in the PR).
+- **One rule:** the same `splitRefusal` that refuses a split at open decides the narrowed case; no second constant.
+- **Nothing lost:** the second pane's document stays open (a tab, or the pane it returns to), and the reading place of both is kept.
+- **Re-run:** `node scripts/layout-audit.mjs --only unfolded-split-resized` reports no row.
+- **Pair:** a `mock-pair.mjs` state for the narrowed split, app against mock-v2.
+
+### F-107 — Tabs whose names share a prefix stay distinguishable
+
+**Model:** sonnet (medium) · **Size:** S · *From X-32 (finding 7; Sev-2).* · **Paths:** the tab strip's view and stylesheet (`apps/desktop/src/workspace/tabs-view.ts`, `.marxy-tab*`), `apps/desktop/test/` (a tab-names test), `scripts/mock-pair.mjs` (one state), `changelog.d/F-107.md`. **Depends on:** F-99 (it holds the same rules; do this after it merges, and re-run the audit first: F-99's 110 px minimum width may be enough).
+
+What the reader sees with a dozen dated files open (`2026-10-01-quarterly-…-draft-1.md` to `…-12.md`, `shots/08-…`): every tab but the first and the last reads `2026-…`, because the name is cut at the end and the part that differs is the part cut. The full name is in the tooltip only, and F-99 notes the tooltip's own trouble.
+
+**Acceptance:**
+- **Reproduced first:** a Playwright test with twelve tabs of names that share their first 20 characters and fails on main: no two tabs' visible labels are the same string.
+- **The distinguishing part shows:** a long name is cut in the middle (`2026-10-01…draft-1.md`), or at the end after a longer minimum width and a scrolling strip; say which in the PR.
+- **Short names unchanged:** a name that fits is drawn whole, at the same box as before (0 px).
+- **Re-run:** `node scripts/layout-audit.mjs --only tab-strip-twelve` and look at the shot.
+- **Pair:** a `mock-pair.mjs` state with twelve dated tabs, app against mock-v2.
