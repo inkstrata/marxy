@@ -56,6 +56,8 @@ const WRITE_NEW_RUST_CASES = [
   'a_failed_write_new_leaves_no_staging_file',
   'concurrent_creators_at_one_name_have_exactly_one_winner',
   'the_exclusive_rename_refuses_a_file_a_folder_a_link_and_a_dangling_link',
+  'the_real_not_supported_errnos_take_the_fallback_and_the_volume_refusal',
+  'an_exfat_volume_refuses_with_the_volume_message_and_writes_nothing',
 ];
 
 /** Rust tests MARXY-14 shipped. The live list must stay equal or grow (criterion 2). */

@@ -157,6 +157,21 @@ fn stage_new(tmp: &Path, bytes: &[u8]) -> Result<(), WriteError> {
         .map_err(|e| WriteError::io(format!("{}: cannot be flushed to disk: {e}", tmp.display())))
 }
 
+/// The errnos that mean "this kernel or volume does not do that": ENOTSUP / EOPNOTSUPP, ENOSYS and EINVAL (a filesystem that
+/// lacks the exclusive-rename flag). Rust maps only some of them to `ErrorKind::Unsupported` (macOS ENOTSUP, 45, is
+/// `Uncategorized`), so the raw number decides, as well as the kind.
+#[cfg(target_os = "macos")]
+const NOT_SUPPORTED_ERRNOS: [i32; 3] = [45, 78, 22];
+#[cfg(not(target_os = "macos"))]
+const NOT_SUPPORTED_ERRNOS: [i32; 3] = [95, 38, 22];
+
+fn is_not_supported(e: &std::io::Error) -> bool {
+    use std::io::ErrorKind;
+    matches!(e.kind(), ErrorKind::Unsupported | ErrorKind::InvalidInput)
+        || e.raw_os_error()
+            .is_some_and(|n| NOT_SUPPORTED_ERRNOS.contains(&n))
+}
+
 /// The refusal when neither exclusive way of publishing a file is available.
 const VOLUME_CANNOT: &str = "this volume cannot create a file without risk of replacing one";
 
@@ -175,9 +190,9 @@ fn commit_new(
         Err(e) if e.kind() == ErrorKind::AlreadyExists => {
             return Err(taken(target, "file or folder"))
         }
-        // Unsupported (macOS ENOTSUP, ENOSYS) and InvalidInput (Linux EINVAL for a flag the filesystem lacks):
-        // the exclusive rename is not available here, so the other exclusive way is used.
-        Err(e) if matches!(e.kind(), ErrorKind::Unsupported | ErrorKind::InvalidInput) => {
+        // Not supported here (ENOTSUP / EOPNOTSUPP, ENOSYS, or EINVAL for a flag the filesystem lacks): the exclusive
+        // rename is not available, so the other exclusive way is used.
+        Err(e) if is_not_supported(&e) => {
             match link(tmp, target) {
                 Ok(()) => {
                     // The file now has two names; the staging one is dropped so it has one. If that drop fails
@@ -187,12 +202,7 @@ fn commit_new(
                 Err(e) if e.kind() == ErrorKind::AlreadyExists => {
                     return Err(taken(target, "file or folder"))
                 }
-                Err(e)
-                    if matches!(
-                        e.kind(),
-                        ErrorKind::Unsupported | ErrorKind::PermissionDenied
-                    ) =>
-                {
+                Err(e) if is_not_supported(&e) || e.kind() == ErrorKind::PermissionDenied => {
                     return Err(WriteError::io(format!(
                         "{}: {VOLUME_CANNOT} ({e})",
                         target.display()
@@ -1251,6 +1261,137 @@ mod write_new_tests {
             names(&dir),
             vec!["InvalidInput.md".to_string(), "Unsupported.md".to_string()]
         );
+    }
+
+    /// The errnos the kernel really returns, not `ErrorKind::Unsupported` made up: macOS ENOTSUP (45) is `Uncategorized` in Rust.
+    #[test]
+    fn the_real_not_supported_errnos_take_the_fallback_and_the_volume_refusal() {
+        let dir = scratch("real-errno");
+        let errnos = NOT_SUPPORTED_ERRNOS;
+        for errno in errnos {
+            let refuse = move |_: &Path, _: &Path| Err(std::io::Error::from_raw_os_error(errno));
+            // Exclusive rename refuses with the errno, link works: the file is created.
+            let target = dir.join(format!("served-{errno}.md"));
+            let tmp = temp_path_for(&target);
+            stage_new(&tmp, b"mine").expect("stage");
+            commit_new(&tmp, &target, &dir, &refuse, &|a, b| fs::hard_link(a, b))
+                .expect("link fallback");
+            assert_eq!(
+                fs::read(&target).expect("read back"),
+                b"mine",
+                "errno {errno}"
+            );
+            assert!(!tmp.exists());
+            // Both refuse with the errno: the volume message, nothing written.
+            let target = dir.join(format!("refused-{errno}.md"));
+            let tmp = temp_path_for(&target);
+            stage_new(&tmp, b"mine").expect("stage");
+            let err = commit_new(&tmp, &target, &dir, &refuse, &refuse).expect_err("must fail");
+            assert!(
+                err.message
+                    .contains("this volume cannot create a file without risk of replacing one"),
+                "errno {errno}: {}",
+                err.message
+            );
+            assert!(!target.exists());
+            let _ = fs::remove_file(&tmp);
+            // The fallback stays no-replace: with a creator at the name, link says exists.
+            let target = dir.join(format!("taken-{errno}.md"));
+            fs::write(&target, b"theirs").expect("creator");
+            let tmp = temp_path_for(&target);
+            stage_new(&tmp, b"mine").expect("stage");
+            let err = commit_new(&tmp, &target, &dir, &refuse, &|a, b| fs::hard_link(a, b))
+                .expect_err("must fail");
+            assert_eq!(err.kind, WriteErrorKind::Exists, "errno {errno}");
+            assert_eq!(fs::read(&target).expect("read back"), b"theirs");
+            let _ = fs::remove_file(&tmp);
+        }
+    }
+
+    /// A volume that really lacks the exclusive rename and hard links (exFAT): a disk image, attached headless and detached after.
+    /// Skipped, loudly, off macOS or where `hdiutil` cannot make one.
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn an_exfat_volume_refuses_with_the_volume_message_and_writes_nothing() {
+        use std::process::Command;
+        let dir = scratch("exfat");
+        let image = dir.join("v.dmg");
+        let made = Command::new("hdiutil")
+            .args([
+                "create", "-size", "4m", "-fs", "ExFAT", "-volname", "MARXYNEW", "-ov",
+            ])
+            .arg(&image)
+            .output();
+        if !matches!(&made, Ok(o) if o.status.success()) {
+            println!("exfat: skipped: hdiutil could not create an ExFAT image");
+            return;
+        }
+        let attach = Command::new("hdiutil")
+            .args([
+                "attach",
+                "-nobrowse",
+                "-noverify",
+                "-noautoopen",
+                "-mountrandom",
+            ])
+            .arg(dir.join("mnt-parent"))
+            .arg(&image)
+            .output();
+        // `-mountrandom` needs an existing parent; fall back to a plain attach if the first form is refused.
+        let _ = fs::create_dir_all(dir.join("mnt-parent"));
+        let attach = match attach {
+            Ok(o) if o.status.success() => o,
+            _ => match Command::new("hdiutil")
+                .args(["attach", "-nobrowse", "-noverify", "-noautoopen"])
+                .arg(&image)
+                .output()
+            {
+                Ok(o) if o.status.success() => o,
+                _ => {
+                    println!("exfat: skipped: hdiutil could not attach the image");
+                    return;
+                }
+            },
+        };
+        let out = String::from_utf8_lossy(&attach.stdout).into_owned();
+        let mount = out
+            .lines()
+            .filter_map(|l| l.split('\t').next_back())
+            .map(str::trim)
+            .find(|p| p.starts_with("/Volumes/") || p.contains("mnt-parent"))
+            .map(PathBuf::from);
+        let Some(mount) = mount else {
+            println!("exfat: skipped: could not find the mount point in {out:?}");
+            return;
+        };
+        let result = std::panic::catch_unwind(|| {
+            let target = mount.join("a.md");
+            let err =
+                write_new(&target, b"new").expect_err("exFAT has no exclusive rename or hard link");
+            assert_eq!(err.kind, WriteErrorKind::Io);
+            assert!(
+                err.message
+                    .contains("this volume cannot create a file without risk of replacing one"),
+                "{}",
+                err.message
+            );
+            assert!(!target.exists(), "the name was created");
+            let left: Vec<String> = fs::read_dir(&mount)
+                .expect("listing")
+                .map(|e| e.expect("entry").file_name().to_string_lossy().into_owned())
+                .filter(|n| n.contains("marxy-tmp"))
+                .collect();
+            assert!(left.is_empty(), "staging files remain: {left:?}");
+        });
+        let _ = Command::new("hdiutil")
+            .args(["detach", "-force"])
+            .arg(&mount)
+            .output();
+        let _ = fs::remove_file(&image);
+        if let Err(panic) = result {
+            std::panic::resume_unwind(panic);
+        }
+        println!("exfat: the volume refused as the ADR says");
     }
 
     #[test]
