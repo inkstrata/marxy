@@ -54,6 +54,7 @@ export const SCREENS = {
   '07-notice-folded': 'A notice, folded (mock toast)',
   '08-narrow': 'The narrow window, 760 px (mock 01-workspace)',
   '09-inspector-outline': 'The inspector docked on its Outline tab: headings with the words of each section (mock 01-workspace)',
+  '03-terminal': 'A shell session in the reader (mock 01-workspace, doc=shell-session)',
 };
 
 /** The file names one screen produces: <screen>-<theme>-{app,mock}.png. */
@@ -172,6 +173,7 @@ const HANDOFF = toPath(docs.find((d) => d.id === 'auth-handoff').path);
 const RS = toPath(docs.find((d) => d.id === 'indexer-rs').path);
 const CHAT = toPath(docs.find((d) => d.id === 'indexer-chat').path);
 const BUILD_LOG = toPath(docs.find((d) => d.id === 'build-log').path);
+const SHELL_SESSION = toPath(docs.find((d) => d.id === 'shell-session').path);
 const ARTICLE = toPath(docs.find((d) => d.id === 'ragged-right').path);
 const CSV = toPath(docs.find((d) => d.id === 'bench-csv').path);
 const entries = docs.filter((d) => d.src).map((d, i) => ({
@@ -324,6 +326,7 @@ const APP_STATES = {
     await page.waitForSelector('.marxy-outline [aria-current="location"]');
     await settle(page, 600);
   },
+  async '03-terminal'(page) { await openDoc(page, SHELL_SESSION); await settle(page, 900); },
 };
 const APP_OPTS = { '08-narrow': { width: NARROW }, '03-code': {}, '03-transcript': {} };
 
@@ -388,6 +391,7 @@ const MOCK_STATES = {
   '07-notice-folded': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.toast('Copied as Markdown · 3.1 KB', { icon: 'copy', ms: 60000 })); await settle(page, 500); } },
   '08-narrow': { file: '01-workspace.html', width: NARROW, run: async (page) => { await mockUnfold(page); await settle(page, 500); } },
   '09-inspector-outline': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
+  '03-terminal': { file: '01-workspace.html', hash: '#doc=shell-session', run: async () => {} },
 };
 
 const browser = await launchWebkit();

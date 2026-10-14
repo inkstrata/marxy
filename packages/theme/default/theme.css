@@ -227,6 +227,23 @@
   --marxy-size-code: round(calc(0.8333 * var(--marxy-root-size-code)), 1px);
   --marxy-line-box-code: round(calc(0.8 * var(--marxy-root-line-box-code)), 2px);
 }
+[data-marxy-kind="terminal"] {
+  /* Mono, 15 on 24, as a log is (03-kinds-and-the-look.md, the profile row): a session is never reflowed, so only the size
+     and the line box are the profile's (K-17). */
+  --marxy-size-code: round(calc(0.8333 * var(--marxy-root-size-code)), 1px);
+  --marxy-line-box-code: round(calc(0.8 * var(--marxy-root-line-box-code)), 2px);
+}
+/* A terminal session (K-17), in a terminal file or a `console` fence alike, so these are not scoped to the kind. The prompt is
+   the faint text colour (the mock's punctuation, which the code text colour would not distinguish), the command the strong colour at weight 600 (the platform's offset still applies), the output
+   plain. A command after the block's first line opens with half a code line above it: a margin on the line, nothing
+   inserted. Colour never says what output means, and an escape is shown as its picture (the invisible-character marker). */
+.marxy-term-prompt { color: var(--marxy-color-text-faint); }
+.marxy-term-command {
+  --marxy-wght: calc(600 + var(--marxy-weight-offset));
+  font-weight: var(--marxy-wght);
+  color: var(--marxy-color-text-strong);
+}
+.marxy-term-start { margin-top: calc(var(--marxy-line-box-code) / 2); }
 [data-marxy-kind="diff"] {
   /* Mono, 16 on 26 (0.8889 and 0.8667 of 18 on 30), as authored: a diff is never reflowed, so only the size and the line
      box are the profile's. A wrapped row hangs past the marker column (diffMarkerIndentCh, ADR-0036; K-09). */

@@ -38,7 +38,7 @@ export const STRIP_TOOLS: Readonly<Record<Kind, readonly StripTool[]>> = {
   notes: [tool('backlinks', 'Backlinks'), tool('append-clipboard', 'Append clipboard'), tool('daily', 'Daily')],
   changelog: [tool('versions', 'Versions'), CHANGES],
   log: [tool('filter-by-level', 'Filter by level', 'log.filter-level'), tool('wrap', 'Wrap'), tool('jump-to-first-error', 'Jump to first error', 'log.first-error'), tool('follow-tail', 'Follow tail')],
-  terminal: [tool('wrap', 'Wrap')],
+  terminal: [tool('copy-commands', 'Copy commands', 'terminal.copy-commands'), tool('copy-output', 'Copy output', 'terminal.copy-output'), tool('wrap', 'Wrap')],
   diff: [],
   html: [],
 };

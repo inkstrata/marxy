@@ -511,6 +511,25 @@
       }
     ]
   },
+  "38-shell.session": {
+    "kind": "terminal",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .session",
+        "kind": "terminal",
+        "at": "38-shell.session",
+        "decisive": true
+      },
+      {
+        "tier": 4,
+        "signal": "prompt lines each followed by output",
+        "kind": "terminal",
+        "at": "line 1",
+        "decisive": false
+      }
+    ]
+  },
   "README.md": {
     "kind": "readme",
     "reasons": [

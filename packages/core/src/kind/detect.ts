@@ -230,7 +230,8 @@ const singular = (word: string): string => word.toLowerCase().replace(/s$/, '');
  * (`highlight/line-classes.ts`) and the level filter read the groups, so one pattern says what a log line is.
  */
 export const TIMESTAMP = /^(\[?)(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?|\d{2}:\d{2}:\d{2}(?:[.,]\d+)?)(\]?[\s|\-[]*(?:\[[^\]\r\n]{1,64}\][\s|\-]*|[A-Za-z][\w-]{0,31}\.)*)(TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|ERR|FATAL|CRITICAL|CRIT|SEVERE|ALERT|EMERG|EMERGENCY)\b/i;
-const PROMPT = /^(?:\$ \S.*|[\w.-]+@[\w.-]+[ :].*?[ ][%$#](?: .*)?)$/;
+/** One shell-prompt line, as detection reads it (a `$ ` line or `user@host path %`); K-17 reads the others from it. */
+export const PROMPT = /^(?:\$ \S.*|[\w.-]+@[\w.-]+[ :].*?[ ][%$#](?: .*)?)$/;
 
 interface Shape { kind: Kind; signal: string; at: string; strength: number }
 

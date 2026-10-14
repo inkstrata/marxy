@@ -501,6 +501,16 @@ file's bytes. Source shows the file exactly.
 - `pnpm gate:golden` over the new fixture.
 - **Pair:** `03-terminal`, Night and Paper.
 
+**Amended at build (K-17).**
+- `detect.ts` reads only `$ ` and `user@host path %`, not the five patterns the card lists; `terminal-lines.ts` reads those two as detection does
+  (`PROMPT` is now exported and a test holds the two together) and adds `%`, `PS …>`, `[user@host dir]$`, and `#` / `>` only in a session with no other prompt.
+- `apps/desktop/src/commands/kind-tools.ts` did not exist on main (K-08's log tools are in `commands/log.ts`); it is new here, as listed.
+- Also edited, beyond the list: `packages/theme/src/config.ts` (the strip's known tool ids), `packages/theme/src/loader.test.ts` (the profile list),
+  `highlight.test.ts` (the console fence test, whose `$`-as-punctuation reading this replaces), `fixtures/corpus/README.md`, and the goldens.
+- `38-shell.session` shares its number with `38-awkward.csv`.
+- The prompt is the faint text colour (`--marxy-color-text-faint`): `--marxy-tok-punctuation` equals the code text colour in the default theme, so it would not read as dimmer, as it does in the mock.
+- The run styles are in `default/theme.css` (V-06 held `base.css`); they belong beside the log's in `base.css`.
+
 **Do not.**
 - Interpret an escape, or colour output by what it says.
 - Run anything: Copy is the only action.
