@@ -317,6 +317,12 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
 .marxy-verb-menu-item { outline: none; }
 .marxy-verb-menu-item:focus { background: var(--marxy-color-selection); }
 .marxy-verb-menu-title { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A row that only tells (K-07's reasons, F-103): the reason is the message, so it wraps in whole words and its hint
+   (the tier and where the signal was seen, or the file's own name) sits under it on a line of its own, wrapping too,
+   never truncated. The choices (rows that run something) keep one line. */
+.marxy-verb-menu-item[aria-disabled="true"] { flex-wrap: wrap; align-items: baseline; row-gap: 0; padding-block: calc(var(--marxy-size-chrome) * 6 / 13); }
+.marxy-verb-menu-item[aria-disabled="true"] .marxy-verb-menu-title { flex: 1 1 100%; min-width: 0; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.marxy-verb-menu-item[aria-disabled="true"] .marxy-verb-menu-key { flex: 1 1 100%; min-width: 0; margin-inline-start: 0; padding-inline-start: 0; white-space: normal; overflow-wrap: anywhere; font-size: 0.92em; }
 
 .marxy-article {
   --lb: var(--marxy-line-box);

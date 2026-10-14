@@ -60,6 +60,7 @@ export const SCREENS = {
   '09-inspector-versions': 'The inspector docked on its Versions tab: Changed since you read and the earlier versions (mock 01-workspace)',
   '10-tabs-hover': 'Twelve tabs in the unfolded window, one hovered (F-99; mock 01-workspace)',
   '10-outline-popup': 'The outline popup (Shift+Cmd+O) at 1,920 x 900 with the inspector docked, over it and under the bands (the mock has no popup: its Outline tab is the reference for the type and the row)',
+  '10-kind-chip-menu': 'The kind chip\'s menu open, unfolded: why the file is read as it is, then the Show as choices (mock 01-workspace)',
   '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
 };
 
@@ -376,6 +377,12 @@ const APP_STATES = {
     await page.click('[data-marxy-category="reading"]');
     await settle(page, 400);
   },
+  async '10-kind-chip-menu'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__cmd('kind.chip'));
+    await page.waitForSelector('.marxy-verb-menu');
+    await settle(page, 400);
+  },
   async '09-inspector-versions'(page) {
     await unfoldedWithTabs(page);
     // The card's scenario on the plan: read at open, an edit saved, then another program rewrites a line.
@@ -480,6 +487,7 @@ const MOCK_STATES = {
   '03-terminal': { file: '01-workspace.html', hash: '#doc=shell-session', run: async () => {} },
   '09-inspector-versions': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="versions"]'); await settle(page, 600); } },
   '10-outline-popup': { file: '01-workspace.html', width: WIDE, run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
+  '10-kind-chip-menu': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await settle(page, 300); await page.click('#kindchip'); await settle(page, 500); } },
   '08-settings': { file: '08-settings.html', hash: '#reading', run: async (page) => { await settle(page, 400); } },
 };
 
