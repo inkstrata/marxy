@@ -788,3 +788,27 @@ autolink-literal case (`www.`, `http://`, e-mail) byte-identical on ordinary fil
 **Acceptance:** a bounded-time core test: `'[' + 80,000 characters of ordinary words` parses within a fixed
 multiple of the same words without the bracket (the hunt's floor: under 4x and under 400 ms; red on main at
 about 1,100 ms); the autolink-literal cases and every golden unchanged.
+
+### F-98 — Source with line numbers draws the gutter and the text as one aligned editor
+
+**Model:** sonnet (high) · **Size:** M · *From the author's screenshot, 2026-10-14 (`docs/taste-review/2026-10-14-source-gutter/source-gutter-broken.png`).* · **Paths:** `apps/desktop/src/source/editor.ts` (`gutterExtensions`, the fold marker), the Source stylesheet (find it with `grep -rn "cm-gutters\|cm-lineNumbers\|marxy-source"`), `apps/desktop/test/source-gutter.test.mjs`, `scripts/mock-pair.mjs` (one new state), `changelog.d/F-98.md`.
+
+What the author saw: an Untitled document in Source with line numbers on (59 bytes, "19 lines", caret at Ln 20, Col 1):
+
+| # | What is wrong |
+| --- | --- |
+| 1 | The gutter and the text are not side by side. Numbers `1` to `20` are stacked down the left edge, and the text (`dcdcdc`, `dc`, `cddc` …) starts a full gutter-height below them, in its own box. |
+| 2 | A tall empty block sits above the numbers with only a fold chevron at its top, and another chevron sits just above `1`. The fold gutter has rows of its own, not the text's rows. |
+| 3 | Numbers and lines do not agree: 20 numbers for 19 counted lines, a blank line between `cd` and `cd` that has no number of its own, and the last number `20` overlaps the top of the focus box. |
+| 4 | The focus ring is drawn around the text block only, so it also does not enclose the numbers. |
+| 5 | The text starts at the same left inset as the numbers, so there is no gutter column at all. |
+
+The cause is probably the gutter elements losing their flex row in `.cm-editor` (a `display` or `position` rule from a recent Source-metrics or fence change, V-12 or W-12), or the fold gutter and the line numbers sharing a container the stylesheet now stacks; but reproduce first. Check whether it needs both fold and numbers (the chevrons suggest so; V-12 allows "maybe just line numbers") and whether a short document with no fold marks is already right.
+
+**Acceptance:**
+- **Reproduced first:** a Playwright WebKit test that types about 20 short lines (one blank) into an Untitled Source pane with line numbers on and fails on main: each `.cm-lineNumbers` element's top equals the matching `.cm-line`'s top (within 1 px) and the gutter's left edge is at or left of the content's left edge.
+- **One row per line:** the number of numbered rows equals the document's line count (including the trailing empty line, and the status bar's count agrees); a blank line keeps its number.
+- **No stray block:** no empty element above the first line; the first number and first line share a top; fold chevrons sit on their line's row, only on lines that fold.
+- **Gutter column:** the text's left inset is gutter width plus padding; widths follow the number of digits (1 to 10, 100 and 1000 lines); the focus ring, if shown, encloses the gutter and the text, and the status bar's line, column and byte agree with the caret.
+- **Both toggles:** line numbers on or off, folding on or off (including a large file with folding off) each lay out correctly, in Night and Paper, with wrap on and off.
+- **Pair:** a `mock-pair.mjs` state for Source with line numbers, app against mock-v2, in the PR (ADR-0070).
