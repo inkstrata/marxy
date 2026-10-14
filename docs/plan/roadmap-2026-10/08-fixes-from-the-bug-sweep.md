@@ -789,6 +789,49 @@ autolink-literal case (`www.`, `http://`, e-mail) byte-identical on ordinary fil
 multiple of the same words without the bracket (the hunt's floor: under 4x and under 400 ms; red on main at
 about 1,100 ms); the autolink-literal cases and every golden unchanged.
 
+## The palette's layout, from the author's screenshot (2026-10-14)
+
+A screenshot of the open palette (`docs/taste-review/2026-10-14-palette-layout/palette-footer-overlap.png`, the
+panel's bottom 260 px at 2×) shows the chrome drawn over itself. The lead has not reproduced it: the first step of
+F-97 is to find the window size and state that gives it. Seen in the image:
+
+| # | What the reader sees | Where |
+| --- | --- | --- |
+| 1 | The key-hint footer (`↑↓ move`, `↩ open`, `⌘↩ open beside`, `⌘. pin`, `⇥ headings`, `@ sections`, `⇧⌘P commands`, `⌘/ transforms`) is drawn on top of the results and the preview, not in a row of its own. | `marxy-palette-foot` |
+| 2 | The **Recent** group label is struck through by the `↑↓` keycaps. Only the label shows: no row of the Recent list is visible, so the results list has collapsed to nothing. | `marxy-palette-section`, `marxy-palette-results` |
+| 3 | The preview pane's meta chips (`Article`, `6,965 words`, `55 KB`) are cut in half by the footer and the panel's bottom edge, and `@ sections` is crossed by them. | `marxy-palette-aside` |
+| 4 | The preview pane's vertical divider (at about x = 947) runs down through the footer's hint row instead of stopping above it. | `marxy-palette-body`, `marxy-palette-foot` |
+| 5 | The field's focus ring is a bright blue outline drawn outside the field's own border, so it reads as two frames; the placeholder's `S` touches the left edge with no inner padding. | `marxy-palette-field`, `marxy-palette-query` |
+| 6 | The panel is short for its parts: field, chips, results, preview and footer need a floor height, and when the window is shorter than that the results and preview should scroll, not the footer overlap. | the panel's height rules |
+
+### F-97 — The palette's footer, results and preview keep to their own rows
+
+**Model:** sonnet (medium) · **Size:** S · *From the author's screenshot, 2026-10-14.* · **Paths:** the palette's
+stylesheet (find it with `grep -rn marxy-palette-foot`), `apps/desktop/src/palette/view.ts` only if the structure
+needs a wrapper, `scripts/mock-pair.mjs` (one new state), `changelog.d/F-97.md`.
+
+What the reader sees: the issues 1 to 6 above. The cause is probably one rule (the body or panel has no flex column
+with `min-height: 0` and `overflow: auto` on the results and the aside, and the footer is positioned or overlaps),
+but measure first.
+
+Likely directions, not chosen here: make the panel a column (field, chips, body, footer) with the body `flex: 1;
+min-height: 0` and each of the results and the aside scrolling inside it; give the footer its own row with a top rule
+the divider stops at; a panel `min-height` that keeps three result rows visible; replace the focus outline with the
+contract's focus-ring role on the field's own border (check `gate:contrast`); inner padding on the query.
+
+**Acceptance:**
+- **Reproduced first:** a Playwright test at a short window (the failing height recorded in the PR) that fails on
+  main: the footer's box does not intersect the results list's box, the preview's box, or any `marxy-palette-section`.
+- **Footer on its own row:** at 600, 720 and 900 px tall, with Recent shown, a search with results, and a `>` search,
+  the footer's top is at or below the body's bottom; the divider's bottom is at or above the footer's top.
+- **Results never collapse:** at the shortest supported window at least three rows are visible; below that the body
+  scrolls and the footer stays.
+- **Preview meta whole:** the `Article`, words and size chips are fully inside the aside at every height above.
+- **One focus frame:** the focused field shows a single ring; the query has a non-zero left inset; both themes pass
+  `gate:contrast`.
+- **Pair:** a `mock-pair.mjs` state for the palette at the short height, app against mock-v2, in the PR (author
+  taste: the footer's height and the keycap size follow the mock).
+
 ### F-98 — Source with line numbers draws the gutter and the text as one aligned editor
 
 **Model:** sonnet (high) · **Size:** M · *From the author's screenshot, 2026-10-14 (`docs/taste-review/2026-10-14-source-gutter/source-gutter-broken.png`).* · **Paths:** `apps/desktop/src/source/editor.ts` (`gutterExtensions`, the fold marker), the Source stylesheet (find it with `grep -rn "cm-gutters\|cm-lineNumbers\|marxy-source"`), `apps/desktop/test/source-gutter.test.mjs`, `scripts/mock-pair.mjs` (one new state), `changelog.d/F-98.md`.

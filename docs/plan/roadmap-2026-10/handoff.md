@@ -16,6 +16,16 @@ block lists what merged; the dashboard artifact "Marxy Lead Cycle" shows it for 
 
 ## Next, in order
 
+**Visual stories first (the author, 2026-10-14: "move up our latest visual changes stories").** Cards in
+`08-fixes-from-the-bug-sweep.md`; each fix attaches app-vs-mock-v2 pairs.
+
+- **Now, in parallel:** X-33 (Source's layout matrix), F-97 (the palette's rows), F-99 (the tab strip's grid), X-32
+  (floating text across the app; boards F cards).
+- **Then:** F-98 after X-33 (it starts in the configuration X-33 names), F-100 after F-98, then the F cards X-32 boards.
+- F-94's review may run beside them (it touches Source's mount, not its layout); F-98 rebases on it if it merges first.
+
+The rest, after the visual stories:
+
 1. The three above. K-22 then unblocks **K-12** (JSONL agent transcripts, Sonnet high, adversarial review), the last wave-11 card.
 2. **F-96** after W-17 merges (both hold `base.css`): Rendered restyles long paragraph runs quadratically because of
    `p:has(+ pre…)`; replace it with a class set at render and measure 27k paragraphs.
