@@ -677,7 +677,15 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const { createSourceEditor, activeSourceEditor } = await import('../source/editor.ts');
     activeSourceEditorIn = activeSourceEditor;
     ({ sourceReadingPosition: sourceReadingPositionIn } = await import('../source/mode-switch.ts'));
-    sourceEditor = await createSourceEditor({ parent: sourceHost, buffer });
+    sourceEditor = await createSourceEditor({
+      parent: sourceHost,
+      buffer,
+      // The editor's style sheet restyles the whole page, and Source is about to cover it: hide it first, in the very
+      // task that makes the editor and shows it (nothing paints between), so that the restyle skips the article (F-94).
+      beforeMount: () => {
+        doc.hidden = true;
+      },
+    });
     return sourceEditor;
   }
 
@@ -725,6 +733,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     console.warn(`marxy: Source could not be mounted: ${reason}`);
     setModeChrome('rendered');
     dropRetiredSource();
+    // The page may have been hidden while the editor was being made, and its grid passes skipped for it.
+    if (shown) scheduleSnap(doc);
     // No page was ever made for this file (it opens in Source): the reader still gets its text, as it is.
     const bare = mount === null;
     if (bare) showPlainText();
@@ -1018,8 +1028,23 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     restoreTo(blocks, { ...pos, path: openPath, mode: 'rendered' }, offset);
   }
 
+  /**
+   * Whether the page is behind Source. A hidden element keeps no computed style, so a grid pass over a hidden article
+   * resolves the style of every block it reads from nothing: on a 2 MB page, seconds of the main thread in one task (F-94).
+   * Nothing is lost by waiting: `showRendered` sets the page on the grid when it shows (and the typesetter and the
+   * mount, `hold`, go on then).
+   */
+  function pageHidden(): boolean {
+    return doc.hidden;
+  }
+
   function snap(article: HTMLElement, from?: HTMLElement): void {
     cancelScheduledSnap();
+    if (pageHidden()) {
+      changedBlocks = null;
+      wholeGeneration += 1;
+      return;
+    }
     if (from === undefined) {
       wholeGeneration += 1;
       changedBlocks = null;
@@ -1035,6 +1060,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * block list rebuilt, not the layout of every block of the article.
    */
   function snapChanged(article: HTMLElement, changed: readonly HTMLElement[]): void {
+    if (pageHidden()) return;
     holdingScroll(() => snapBlocks(article, parseFloat(getComputedStyle(article).lineHeight), changed));
     if (shown) shown.blocks = buildBlocks(article, shown.nodeMap);
     holdAnchor();
@@ -1054,15 +1080,16 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   /** The whole-article pass for a document that has just become whole, in windows when it is long (F-80). */
   async function snapWhole(current: ProgressiveMount, article: HTMLElement): Promise<void> {
     cancelScheduledSnap();
+    if (pageHidden()) return;
     const generation = (wholeGeneration += 1);
     lastSnapAt = performance.now();
     await snapInSlices(article, parseFloat(getComputedStyle(article).lineHeight), {
       size: SLICE_BLOCKS,
       around: holdingScroll,
       yieldNow: yieldToEventLoop,
-      aborted: () => generation !== wholeGeneration || mount !== current,
+      aborted: () => generation !== wholeGeneration || mount !== current || pageHidden(),
     });
-    if (generation !== wholeGeneration || mount !== current) return;
+    if (generation !== wholeGeneration || mount !== current || pageHidden()) return;
     if (shown) shown.blocks = buildBlocks(article, shown.nodeMap);
     holdAnchor();
   }
@@ -1190,6 +1217,11 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   /** Runs the pending snap now, over what it would have covered. */
   function snapPending(article: HTMLElement): void {
+    if (pageHidden()) {
+      cancelScheduledSnap();
+      changedBlocks = null;
+      return;
+    }
     const changed = changedBlocks;
     // Only blocks that changed height are asked for: the pass is over them (F-80). Anything else asked for is the pass it was.
     if (snapFrom === undefined && changed !== null && changed.size > 0) {
@@ -1220,7 +1252,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   }
 
   function armSnap(article: HTMLElement): void {
-    if (snapTimer !== 0 || snapFrame !== 0) return;
+    if (snapTimer !== 0 || snapFrame !== 0 || pageHidden()) return;
     const wait = Math.max(0, lastSnapAt + SNAP_INTERVAL_MS - performance.now());
     snapTimer = window.setTimeout(() => {
       snapTimer = 0;
@@ -1799,6 +1831,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       // The scroller the typesetter holds the reader's place on: read at each pass, so a rebind (one pane
       // to two and back) is followed without a new typesetter (B-26).
       scroller: () => scroller,
+      hold: pageHidden,
       onPass: (kind) => (kind === 'background' ? scheduleSnap(article) : snap(article)),
     });
     liveTypesetters.add(typeset);
@@ -1902,6 +1935,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       start,
       parsed,
       prepare: (parsed) => prepareParsed(parsed, file),
+      hold: pageHidden,
       onChunk: (added) => {
         if (mount !== current) return;
         chunks += 1;

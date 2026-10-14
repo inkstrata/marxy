@@ -25,6 +25,12 @@ export interface SourceEditorOptions {
   /** Legacy app passes `false` to mean handbook default; only `true` forces on. */
   readonly lineNumbers?: boolean;
   readonly readingLinePx?: number;
+  /**
+   * Called synchronously, just before the editor's first DOM is made and its style sheet joins the page. The
+   * caller that is about to hide a long page behind the editor hides it here: a new style sheet restyles every
+   * element that is not hidden, and a long page of paragraphs costs seconds to restyle (F-94).
+   */
+  readonly beforeMount?: () => void;
 }
 
 export interface SourceEditor {

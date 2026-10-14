@@ -59,6 +59,13 @@ export interface ProgressiveOptions {
    * when the caller built it a slice at a time. `html` then only says how large the document is.
    */
   readonly parsed?: HTMLElement;
+  /**
+   * True while the article is not on screen. The idle chunks wait while it is and go on when it is not: what is
+   * appended to a hidden article is typeset and put on the grid by passes that resolve every paragraph's style from
+   * nothing (a hidden element keeps none), which on a long page is most of a minute of the main thread. A caller
+   * that asks for blocks (`ensureThrough`) is served as ever. Polled.
+   */
+  readonly hold?: () => boolean;
 }
 
 export const DEFAULT_THRESHOLD = 65_536;
@@ -67,6 +74,8 @@ const DEFAULT_SCREENS = 2;
 const FILL_BATCH = 16;
 /** Each idle chunk's budget, its moves and the layout they cost together (A-02). */
 const CHUNK_MS = 8;
+/** How often a held mount (`ProgressiveOptions.hold`) looks again. */
+const HOLD_POLL_MS = 250;
 
 export function mountProgressively(article: HTMLElement, html: string, opts: ProgressiveOptions = {}): ProgressiveMount {
   const threshold = opts.thresholdBytes ?? DEFAULT_THRESHOLD;
@@ -151,6 +160,10 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
   let perChunk = 32;
   const step = (): void => {
     if (cancelled || done) return;
+    if (opts.hold?.() === true) {
+      setTimeout(step, HOLD_POLL_MS);
+      return;
+    }
     const t0 = performance.now();
     const added: HTMLElement[] = [];
     for (let i = 0; i < perChunk && parsed.firstChild !== null; i++) {
