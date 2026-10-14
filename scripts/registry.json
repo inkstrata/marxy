@@ -60,6 +60,8 @@
     "data-marxy-typeset",
     "data-marxy-mode",
     "data-marxy-variant",
+    "data-marxy-contrast",
+    "data-marxy-transparency",
     "data-marxy-doc",
     "data-marxy-remote",
     "data-marxy-src",

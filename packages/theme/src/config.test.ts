@@ -227,6 +227,46 @@ test('chrome_size is written with setTopLevelKey like the other reader keys (H-0
   assert.equal(out, 'size = 20 # body\nchrome_size = 16\n');
 });
 
+test('contrast: system by default; more and normal are kept; anything else falls back to system with one notice (W-22)', () => {
+  const read = (toml: string) => parseConfig(new TextEncoder().encode(toml));
+  assert.equal(read('size = 20\n').config.contrast, 'system');
+  assert.deepEqual(read('size = 20\n').warnings, []);
+  for (const v of ['system', 'more', 'normal'] as const) {
+    const r = read(`contrast = "${v}"\n`);
+    assert.equal(r.config.contrast, v);
+    assert.deepEqual(r.warnings, []);
+    assert.deepEqual(r.unknownKeys, []);
+  }
+  for (const toml of ['contrast = "loud"', 'contrast = true', 'contrast = 7']) {
+    const r = read(`${toml}\n`);
+    assert.equal(r.config.contrast, 'system', toml);
+    assert.equal(r.warnings.length, 1, toml);
+    assert.match(r.warnings[0]!, /contrast was invalid; using system/);
+  }
+});
+
+test('reduce_transparency: false by default; a boolean is kept; anything else is refused with one notice (W-22)', () => {
+  const read = (toml: string) => parseConfig(new TextEncoder().encode(toml));
+  assert.equal(read('size = 20\n').config.reduceTransparency, false);
+  assert.equal(read('reduce_transparency = true\n').config.reduceTransparency, true);
+  assert.deepEqual(read('reduce_transparency = true\n').unknownKeys, []);
+  const bad = read('reduce_transparency = "yes"\n');
+  assert.equal(bad.config.reduceTransparency, false);
+  assert.equal(bad.warnings.length, 1);
+  assert.match(bad.warnings[0]!, /reduce_transparency was invalid/);
+});
+
+test('contrast and reduce_transparency are written one line at a time, every other byte kept (W-22)', () => {
+  const enc = (t: string) => new TextEncoder().encode(t);
+  const dec = new TextDecoder();
+  const before = '# mine\r\nsize = 22 # body\r\ncontrast = "system" # follow\r\nreduce_transparency = false\r\n\r\n[linux]\r\nweight_offset = 75\r\n';
+  const one = dec.decode(setTopLevelKey(enc(before), 'contrast', '"more"'));
+  assert.equal(one, before.replace('"system"', '"more"'));
+  const two = dec.decode(setTopLevelKey(enc(before), 'reduce_transparency', 'true'));
+  assert.equal(two, before.replace('= false', '= true'));
+  assert.equal(dec.decode(setTopLevelKey(enc('size = 20 # body\n'), 'contrast', '"normal"')), 'size = 20 # body\ncontrast = "normal"\n');
+});
+
 // ---- [[kind]] rules (K-04, ADR-0060 item 9) ----
 
 import { readFileSync } from 'node:fs';

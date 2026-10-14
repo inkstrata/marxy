@@ -36,6 +36,24 @@ export const FLOORS = [
 // ground it meets), 4.5:1 where it says 3 (edges). Rows at 7 stay at 7.
 export const HIGH_CONTRAST_THEMES = ['high-contrast'];
 export const HIGH_CONTRAST_FLOORS = FLOORS.map(row => ({ ...row, floor: row.floor === 4.5 ? 7 : row.floor === 3 ? 4.5 : row.floor }));
+// W-22: the "more" pass. base.css points secondary and faint text at the body text and the rules at the edge role under
+// Increase contrast (the first `html:root[data-marxy-contrast="more"]` rule, read here so the stylesheet is the one source);
+// the pass audits every theme and variant with those declarations laid over it. Secondary text holds 7:1 on the grounds it
+// sits on at rest (bg, surface, code-bg); rules, dividers and hairlines hold 3:1 (4.5 in the high-contrast theme, like edges).
+export const MORE_CSS = join(ROOT, 'packages/theme/src/base.css');
+export function moreOverrides(css = readFileSync(MORE_CSS, 'utf8')) {
+  const m = /html:root\[data-marxy-contrast="more"\]\s*\{([^}]*)\}/.exec(stripComments(css));
+  const decls = {};
+  if (m) for (const d of m[1].matchAll(/(--marxy-[\w-]+)\s*:\s*([^;]+)/g)) decls[d[1]] = d[2].trim();
+  return decls;
+}
+const MORE_GROUNDS = ['bg', 'surface', 'code-bg'];
+export const MORE_FLOORS = [
+  ...FLOORS.map(row => (row.fg.includes('text-secondary') ? { ...row, floor: 4.5 } : row)),
+  { fg: ['text-secondary', 'text-faint'], floor: 7, grounds: MORE_GROUNDS },
+  { fg: ['rule', 'rule-strong', 'divider', 'quote-rule'], floor: 3, grounds: MORE_GROUNDS },
+];
+export const MORE_HIGH_CONTRAST_FLOORS = MORE_FLOORS.map(row => ({ ...row, floor: row.floor === 4.5 ? 7 : row.floor === 3 ? 4.5 : row.floor }));
 // Roles contract v2 adds that a v1 theme lacks; reported when absent even though no row names them as a
 // token wildcard match.
 const V2_TOKENS = ['tok-marker', 'tok-heading', 'tok-link', 'tok-builtin', 'tok-property', 'tok-decorator', 'tok-self', 'tok-escape', 'tok-mark'];
@@ -163,12 +181,13 @@ export function parseRules(css) {
 }
 
 /** The token map a (variant, kind) scope sees: base, then the variant, then the kind, then both. */
-export function scopeTokens(rules, variant, kind) {
+export function scopeTokens(rules, variant, kind, more = null) {
   const layers = [r => !r.variant && !r.kind, r => r.variant === variant && !r.kind, r => !r.variant && r.kind === kind, r => r.variant === variant && r.kind === kind && kind];
   const out = {};
   for (const [i, pick] of layers.entries()) {
     if (i >= 2 && !kind) break;
     for (const r of rules) if (pick(r)) Object.assign(out, r.decls);
+    if (i === 1 && more) Object.assign(out, more);   // the root-level "more" rule outranks the theme's root and variant rules, and a kind scope outranks it
   }
   return out;
 }
@@ -179,15 +198,17 @@ export function scopeTokens(rules, variant, kind) {
  * Returns { checks: [{variant, scope, fg, ground, floor, ratio}], failures: [...strings],
  * undeclared: [{variant, roles}] }.
  */
-export function auditTheme(themeName, css, variants) {
+export function auditTheme(themeName, css, variants, opts = {}) {
+  const mode = opts.mode ?? 'normal';
+  const more = mode === 'more' ? (opts.overrides ?? moreOverrides()) : null;
   const rules = parseRules(css);
   const kinds = [...new Set(rules.map(r => r.kind).filter(Boolean))].sort();
   const checks = [], failures = [], undeclared = [];
   for (const variant of variants) {
     for (const kind of [null, ...kinds]) {
       const scope = kind ? `kind=${kind}` : 'root';
-      const where = `${themeName} · ${variant} · ${scope}`;
-      const tokens = scopeTokens(rules, variant, kind);
+      const where = `${themeName} · ${variant} · ${scope}${mode === 'more' ? ' · more contrast' : ''}`;
+      const tokens = scopeTokens(rules, variant, kind, more);
       const cache = new Map(), busy = new Set(), bad = new Set();
       const colour = token => {
         if (cache.has(token)) return cache.get(token);
@@ -223,7 +244,8 @@ export function auditTheme(themeName, css, variants) {
       const missing = new Set();
       const declared = r => name(r) in tokens;
       const roleMissing = r => { if (!declared(r) || (r === 'surface-glass' && !declared('surface'))) missing.add(r); };
-      for (const row of HIGH_CONTRAST_THEMES.includes(themeName) ? HIGH_CONTRAST_FLOORS : FLOORS) {
+      const high = HIGH_CONTRAST_THEMES.includes(themeName);
+      for (const row of mode === 'more' ? (high ? MORE_HIGH_CONTRAST_FLOORS : MORE_FLOORS) : (high ? HIGH_CONTRAST_FLOORS : FLOORS)) {
         const fgs = row.fg.flatMap(f => (f === 'tok-*' ? [...new Set([...Object.keys(tokens).filter(t => t.startsWith('--marxy-tok-')).map(t => t.slice(8)), ...V2_TOKENS])] : [f]));
         const grounds = row.grounds.flatMap(g => (g === 'surface' ? ['surface', 'surface-glass'] : [g]));
         for (const fg of fgs) {
@@ -238,7 +260,7 @@ export function auditTheme(themeName, css, variants) {
             try { fgc = colour(name(fg)); gc = groundOk(g); } catch { continue; }
             if (!gc) continue;
             const r = ratio(over(fgc, gc), gc);
-            checks.push({ variant, scope, fg, ground: g, floor: row.floor, ratio: r });
+            checks.push({ mode, variant, scope, fg, ground: g, floor: row.floor, ratio: r });
             if (r < row.floor) failures.push(`${where}: ${fg} on ${g} = ${(Math.floor(r * 100) / 100).toFixed(2)} < ${row.floor}`);
           }
         }
@@ -261,14 +283,16 @@ export function findThemes(dir = THEMES_DIR) {
     });
 }
 
-export function auditAll(themes = findThemes()) {
-  const all = { checks: [], failures: [], undeclared: [], byTheme: {} };
+export function auditAll(themes = findThemes(), overrides = moreOverrides()) {
+  const all = { checks: [], failures: [], undeclared: [], byTheme: {}, byThemeMore: {} };
   for (const t of themes) {
     const r = auditTheme(t.name, t.css, t.variants);
-    all.checks.push(...r.checks.map(c => ({ theme: t.name, ...c })));
-    all.failures.push(...r.failures);
+    const more = auditTheme(t.name, t.css, t.variants, { mode: 'more', overrides });
+    all.checks.push(...r.checks.map(c => ({ theme: t.name, ...c })), ...more.checks.map(c => ({ theme: t.name, ...c })));
+    all.failures.push(...r.failures, ...more.failures);
     all.undeclared.push(...r.undeclared.map(u => ({ theme: t.name, ...u })));
     all.byTheme[t.name] = r;
+    all.byThemeMore[t.name] = more;
   }
   return all;
 }
