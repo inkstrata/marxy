@@ -1,8 +1,16 @@
 // X-32: the layout audit's argument handling, its report, and its detectors on small pages (WebKit, no Vite, no app).
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import test from 'node:test';
+import { webkit } from 'playwright';
 import { ALLOW, auditInPage, fold, markdown, parseArgs } from './layout-audit.mjs';
 import { launchWebkit } from './playwright-webkit.mjs';
+
+// The fast job has no WebKit; browser tests skip there unless they are required (as in probe-layout.test.mjs).
+const skip =
+  !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
+    ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
+    : false;
 
 test('arguments: the full matrix is the default, --quick is one variant at two widths and one height', () => {
   const full = parseArgs([]);
@@ -44,7 +52,7 @@ async function audit(browser, html, allow = []) {
   }
 }
 
-test('the detectors flag what floats and leave what is by design', async () => {
+test('the detectors flag what floats and leave what is by design', { skip }, async () => {
   const browser = await launchWebkit();
   try {
     // Flagged
