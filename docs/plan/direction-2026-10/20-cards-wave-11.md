@@ -321,6 +321,16 @@ W-12 shows both on its Accessibility page.
 - Read: `docs/research/reader-typography/09-color-access.md`, `packages/theme/high-contrast/theme.css`,
   `mock-v2/08-settings.md` §Accessibility.
 
+**Amended in the PR (checked against `main` b74ce22f).**
+- `app-config.ts` needs no edit: `applyAppConfig` hands the whole parsed `Config` to `applyReaderConfig`, which now sets
+  `data-marxy-contrast` and `data-marxy-transparency`. `registry.json` gets two names, `data-marxy-contrast` and
+  `data-marxy-transparency` (the second is the attribute `reduce_transparency` sets).
+- The "more" block does not raise a role; it points the chosen theme's `text-secondary` and `text-faint` at its `text`, and its
+  `rule`, `rule-strong`, `divider` and `quote-rule` at its `edge`, on `html:root` so it outranks a theme's variant block.
+  `gate-contrast.mjs` reads that rule from `base.css` as the "more" pass.
+- The only translucent find fill is the fallback's `.marxy-find-rect` (the `::highlight` fill is already opaque); it is drawn
+  over the text, so its solid fill blends (lighten on dark, darken on light) and the words stay.
+
 **Acceptance.**
 - `gate-contrast.test.mjs`: the "more" pass fails on `main` (there is no such pass; the PR records which themes' secondary text was under 7:1) and passes with the
   block, for every bundled theme and variant.

@@ -1,6 +1,6 @@
 // The reader's own settings from config.toml: light variant and text size, applied before first
 // text and changed by command (A-14), and the Source line-number choice (L-06.1). Only `variant`, `size`,
-// `chrome_size`, `line_numbers`, `show_whitespace`, `column_guide` (V-08) and `theme` (H-05) are read or written here.
+// `chrome_size`, `line_numbers`, `show_whitespace`, `column_guide` (V-08), `theme` (H-05), `contrast` and `reduce_transparency` (W-22) are read or written here.
 import { applyVariant, parseConfig, resolveVariantPreference, setTopLevelKey } from '@marxy/theme';
 import type { Config } from '@marxy/theme';
 import type { AppShell } from '../app.ts';
@@ -128,6 +128,37 @@ export function sizeProperties(sizePx: number): Record<string, string> {
   };
 }
 
+/** The root attributes more contrast and solid fills set (W-22); the stylesheet's `base.css` keys on them. */
+export const CONTRAST_ATTRIBUTE = 'data-marxy-contrast';
+export const TRANSPARENCY_ATTRIBUTE = 'data-marxy-transparency';
+
+let stopContrast: (() => void) | null = null;
+
+/**
+ * Sets `data-marxy-contrast` to `more` or `normal` on `root` and `data-marxy-transparency="reduced"` when asked.
+ * `system` follows the system's Increase contrast live, until the next call; `more` and `normal` ignore it. The
+ * attribute is always resolved, so the stylesheet's media-query rule yields to `normal`.
+ */
+export function applyContrast(root: HTMLElement, mode: Config['contrast'], reduceTransparency: boolean): void {
+  stopContrast?.();
+  stopContrast = null;
+  if (mode === 'system') {
+    const query = root.ownerDocument.defaultView?.matchMedia('(prefers-contrast: more)');
+    if (query === undefined) {
+      root.setAttribute(CONTRAST_ATTRIBUTE, 'normal');
+    } else {
+      const follow = (): void => root.setAttribute(CONTRAST_ATTRIBUTE, query.matches ? 'more' : 'normal');
+      follow();
+      query.addEventListener('change', follow);
+      stopContrast = () => query.removeEventListener('change', follow);
+    }
+  } else {
+    root.setAttribute(CONTRAST_ATTRIBUTE, mode);
+  }
+  if (reduceTransparency) root.setAttribute(TRANSPARENCY_ATTRIBUTE, 'reduced');
+  else root.removeAttribute(TRANSPARENCY_ATTRIBUTE);
+}
+
 let currentSize = DEFAULT_SIZE;
 let stopAuto: (() => void) | null = null;
 
@@ -145,7 +176,7 @@ export function currentVariant(root: HTMLElement = document.documentElement): 'l
  * Applies variant and size to `root`. `auto` follows the system until the next call; the returned
  * function stops that following.
  */
-export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, 'variant' | 'size' | 'lineNumbers' | 'chromeSize' | 'showWhitespace' | 'columnGuide'>>): () => void {
+export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, 'variant' | 'size' | 'lineNumbers' | 'chromeSize' | 'showWhitespace' | 'columnGuide' | 'contrast' | 'reduceTransparency'>>): () => void {
   stopAuto?.();
   stopAuto = null;
   const variant = cfg.variant ?? DEFAULTS.variant;
@@ -155,6 +186,8 @@ export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, '
   // The same for the two Source aids (V-08): absent, whitespace is off and the guide follows the kind of file.
   if (cfg.showWhitespace !== undefined) setShowWhitespaceChoice(cfg.showWhitespace);
   if (cfg.columnGuide !== undefined) setColumnGuideChoice(cfg.columnGuide);
+  // Contrast and transparency are the config's alone: a call that names neither (the palette's variant and size commands) leaves them as they are.
+  if (cfg.contrast !== undefined || cfg.reduceTransparency !== undefined) applyContrast(root, cfg.contrast ?? 'system', cfg.reduceTransparency ?? false);
   const doc = root.ownerDocument;
   let stop = (): void => {};
   if (variant === 'auto') {
@@ -185,7 +218,7 @@ let writes: Promise<void> = Promise.resolve();
  * created; a file that exists but cannot be read is left alone. Writes run one after another, so
  * three quick presses are three read-modify-writes in order, not three that overwrite each other.
  */
-export function writeReaderKey(shell: WriteShell, key: 'variant' | 'size' | 'line_numbers' | 'show_whitespace' | 'column_guide' | 'chrome_size' | 'theme', tomlValue: string): Promise<void> {
+export function writeReaderKey(shell: WriteShell, key: 'variant' | 'size' | 'line_numbers' | 'show_whitespace' | 'column_guide' | 'chrome_size' | 'theme' | 'contrast' | 'reduce_transparency', tomlValue: string): Promise<void> {
   const run = async (): Promise<void> => {
     if (shell.configPaths === undefined) return;
     const { config } = await shell.configPaths();

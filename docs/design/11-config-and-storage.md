@@ -17,6 +17,8 @@ theme = "~/themes/quiet"        # a directory with theme.toml; absent → the de
 variant = "dark"                # dark (default, ADR-0024) | light | auto (follows the OS)
 size = 20                       # body px, 15–50 (75–250 % of the default, ADR-0033)
 chrome_size = 13                # control text px, 11–26; unset, the theme's value stands (ADR-0059 item 6)
+contrast = "system"             # system (follow the system's Increase contrast, live) | more | normal; invalid → system (W-22)
+reduce_transparency = false     # true draws the find fills and the toolbar and tab fades solid; Marxy does not read the system's setting (W-22)
 measure = 66                    # average characters per line, 45–80 (never ch, ADR-0033)
 typeset = true                  # the Knuth–Plass path; false = engine wrapping, grid pass only
 line_numbers = false            # Source mode; absent: on for code files, off for prose

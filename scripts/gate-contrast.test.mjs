@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { FLOORS, HIGH_CONTRAST_FLOORS, auditAll, auditTheme, findThemes, over, parseColour, ratio } from './gate-contrast.mjs';
+import { FLOORS, HIGH_CONTRAST_FLOORS, MORE_FLOORS, moreOverrides, auditAll, auditTheme, findThemes, over, parseColour, ratio } from './gate-contrast.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const hex = ([r, g, b]) => `#${[r, g, b].map(c => c.toString(16).padStart(2, '0')).join('')}`;
@@ -206,4 +206,38 @@ test('H-05: high contrast holds 7:1 where the others hold 4.5, and 4.5:1 for edg
   const edge = css({ ...BASE, 'color-edge': '#8a8a8a' });
   assert.equal(audit(edge).failures.filter(f => /edge on bg/.test(f)).length, 0);
   assert.equal(auditTheme('high-contrast', edge, ['dark']).failures.filter(f => /edge on bg/.test(f)).length, 1);
+});
+
+// ---- W-22: the "more" pass --------------------------------------------------------------------------------------
+test('W-22: base.css carries the more-contrast declarations the gate reads, under the attribute and the media query', () => {
+  const overrides = moreOverrides();
+  assert.deepEqual(Object.keys(overrides).sort(), [
+    '--marxy-color-divider', '--marxy-color-quote-rule', '--marxy-color-rule', '--marxy-color-rule-strong',
+    '--marxy-color-text-faint', '--marxy-color-text-secondary',
+  ]);
+  const base = readFileSync(`${ROOT}packages/theme/src/base.css`, 'utf8');
+  assert.match(base, /@media \(prefers-contrast: more\) \{\s*html:root:not\(\[data-marxy-contrast="normal"\]\) \{\s*--marxy-color-text-secondary: var\(--marxy-color-text\)/);
+});
+
+test('W-22: without the block, secondary text is under 7:1 in some bundled themes and rules are under 3:1 in all; with it, every theme and variant passes', () => {
+  const without = auditAll(findThemes(), {}).failures.filter(f => / more contrast: /.test(f));
+  assert.ok(without.some(f => /^ink · dark · root · more contrast: text-secondary on bg = 6\.90 < 7$/.test(f)), 'ink dark secondary text is 6.90 today');
+  assert.ok(without.some(f => /^default · light · root · more contrast: rule on bg = 1\.\d\d < 3$/.test(f)));
+  const withBlock = auditAll();
+  assert.deepEqual(withBlock.failures, []);
+  const more = withBlock.checks.filter(c => c.mode === 'more');
+  assert.ok(more.length > 1000);
+  for (const t of ['default', 'fjord', 'high-contrast', 'ink', 'warm']) assert.ok(more.some(c => c.theme === t && c.variant === 'dark'), t);
+  assert.ok(more.some(c => c.theme === 'default' && c.variant === 'light' && c.fg === 'text-faint' && c.ground === 'code-bg' && c.floor === 7));
+});
+
+test('W-22: the more pass is unrounded, and a kind scope that sets its own secondary text keeps it', () => {
+  assert.ok(MORE_FLOORS.some(r => r.fg.includes('text-secondary') && r.floor === 7 && r.grounds.join() === 'bg,surface,code-bg'));
+  const sheet = css({ ...BASE, 'color-surface': '#ffffff', 'color-edge': '#767676', 'color-rule': '#eeeeee', 'color-text-secondary': '#999999' },
+    '[data-marxy-kind="log"] { --marxy-color-text-secondary: #888888; --marxy-color-text-faint: #888888; }');
+  const overrides = { '--marxy-color-text-secondary': 'var(--marxy-color-text)', '--marxy-color-text-faint': 'var(--marxy-color-text)', '--marxy-color-rule': 'var(--marxy-color-edge)' };
+  const r = auditTheme('fx', sheet, ['dark'], { mode: 'more', overrides });
+  assert.ok(r.failures.some(f => /kind=log · more contrast: text-secondary on bg = 3\.\d\d < 7/.test(f)), r.failures.join('\n'));
+  assert.ok(!r.failures.some(f => /root · more contrast: text-secondary/.test(f)), 'the root takes the text colour');
+  assert.ok(!r.failures.some(f => /root · more contrast: rule on bg/.test(f)), 'the rule takes the edge: 4.54:1 on white');
 });

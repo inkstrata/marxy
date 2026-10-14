@@ -1470,6 +1470,74 @@ body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-ro
   .marxy-diff-add { border-inline-start: 3px solid currentColor; }
   .marxy-diff-del { border-inline-start: 3px dashed currentColor; }
 }
+/* More contrast (W-22): the system's Increase contrast, or `contrast = "more"` in config.toml, which the app resolves into
+   `data-marxy-contrast` ("more" or "normal"); the media query covers the moment before it does and yields to "normal".
+   No role is raised and no token is added: the chosen theme's own roles are pointed at its stronger ones. Secondary and faint
+   text take the body text's colour (7:1 on the ground), rules, hairlines and dividers the edge role (3:1 or more); focus
+   rings are already the accent or the find edge, and the reader's text is not recoloured. scripts/gate-contrast.mjs reads the
+   first rule below as its "more" pass, so it holds those declarations and nothing else. `html:root` outranks a theme's
+   `:root[data-marxy-variant]` whatever the load order. */
+html:root[data-marxy-contrast="more"] {
+  --marxy-color-text-secondary: var(--marxy-color-text);
+  --marxy-color-text-faint: var(--marxy-color-text);
+  --marxy-color-rule: var(--marxy-color-edge);
+  --marxy-color-rule-strong: var(--marxy-color-edge);
+  --marxy-color-divider: var(--marxy-color-edge);
+  --marxy-color-quote-rule: var(--marxy-color-edge);
+}
+@media (prefers-contrast: more) {
+  html:root:not([data-marxy-contrast="normal"]) {
+    --marxy-color-text-secondary: var(--marxy-color-text);
+    --marxy-color-text-faint: var(--marxy-color-text);
+    --marxy-color-rule: var(--marxy-color-edge);
+    --marxy-color-rule-strong: var(--marxy-color-edge);
+    --marxy-color-divider: var(--marxy-color-edge);
+    --marxy-color-quote-rule: var(--marxy-color-edge);
+  }
+}
+/* Solid fills (W-22): the find rectangles of the fallback and the scroll fades of the toolbar and the tabs lose their
+   transparency under more contrast, and on their own under `reduce_transparency = true` (`data-marxy-transparency="reduced"`).
+   A find rectangle is drawn over the text, so its solid fill blends (lighten on dark, darken on light) and the words stay. A
+   fade becomes an edge-to-surface ramp. Marxy does not read the system's Reduce transparency: WebKit reports no query for it.
+   Forced colours keep their own redraw above. */
+@media (forced-colors: none) {
+  html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"]) .marxy-find-rect { background-color: var(--marxy-color-find); mix-blend-mode: lighten; }
+  html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"]) .marxy-find-rect-current { background-color: var(--marxy-color-find-current); mix-blend-mode: lighten; }
+  html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"])[data-marxy-variant="light"] .marxy-find-rect, html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"])[data-marxy-variant="light"] .marxy-find-rect-current { mix-blend-mode: darken; }
+  html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"]) .marxy-toolbar {
+    background:
+      linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-toolbar-fade) 100% no-repeat local,
+      linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-toolbar-fade) 100% no-repeat local,
+      linear-gradient(to right, var(--marxy-color-edge), var(--marxy-color-surface)) left center / var(--marxy-toolbar-fade) 100% no-repeat scroll,
+      linear-gradient(to left, var(--marxy-color-edge), var(--marxy-color-surface)) right center / var(--marxy-toolbar-fade) 100% no-repeat scroll;
+  }
+  html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"]) .marxy-tabs {
+    background:
+      linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-tabs-fade) 100% no-repeat local,
+      linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-tabs-fade) 100% no-repeat local,
+      linear-gradient(to right, var(--marxy-color-edge), var(--marxy-color-surface)) left center / var(--marxy-tabs-fade) 100% no-repeat scroll,
+      linear-gradient(to left, var(--marxy-color-edge), var(--marxy-color-surface)) right center / var(--marxy-tabs-fade) 100% no-repeat scroll;
+  }
+}
+@media (prefers-contrast: more) and (forced-colors: none) {
+  html:root:not([data-marxy-contrast="normal"]) .marxy-find-rect { background-color: var(--marxy-color-find); mix-blend-mode: lighten; }
+  html:root:not([data-marxy-contrast="normal"]) .marxy-find-rect-current { background-color: var(--marxy-color-find-current); mix-blend-mode: lighten; }
+  html:root:not([data-marxy-contrast="normal"])[data-marxy-variant="light"] .marxy-find-rect, html:root:not([data-marxy-contrast="normal"])[data-marxy-variant="light"] .marxy-find-rect-current { mix-blend-mode: darken; }
+  html:root:not([data-marxy-contrast="normal"]) .marxy-toolbar {
+    background:
+      linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-toolbar-fade) 100% no-repeat local,
+      linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-toolbar-fade) 100% no-repeat local,
+      linear-gradient(to right, var(--marxy-color-edge), var(--marxy-color-surface)) left center / var(--marxy-toolbar-fade) 100% no-repeat scroll,
+      linear-gradient(to left, var(--marxy-color-edge), var(--marxy-color-surface)) right center / var(--marxy-toolbar-fade) 100% no-repeat scroll;
+  }
+  html:root:not([data-marxy-contrast="normal"]) .marxy-tabs {
+    background:
+      linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-tabs-fade) 100% no-repeat local,
+      linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-tabs-fade) 100% no-repeat local,
+      linear-gradient(to right, var(--marxy-color-edge), var(--marxy-color-surface)) left center / var(--marxy-tabs-fade) 100% no-repeat scroll,
+      linear-gradient(to left, var(--marxy-color-edge), var(--marxy-color-surface)) right center / var(--marxy-tabs-fade) 100% no-repeat scroll;
+  }
+}
 /* Peeking (ADR-0058 item 5; W-03). Folded, the pointer resting at an edge shows that edge's panel for as long as it stays:
    one region, made on `<body>` with `data-marxy-peek` naming it, fixed over the window, so the panes and the reading
    column do not move. Without the attribute there is no rule at all. The shadow is the theme's; the fade is a

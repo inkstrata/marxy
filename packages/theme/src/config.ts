@@ -59,6 +59,10 @@ export interface Config {
   readonly size: number;
   /** The reader's chrome size in px (ADR-0059 item 6), 11–26; `null` when unset or refused: the theme's value stands. */
   readonly chromeSize: number | null;
+  /** More contrast (W-22): `system` follows the system's Increase contrast, `more` and `normal` set it whatever the system says. */
+  readonly contrast: 'system' | 'more' | 'normal';
+  /** `true` draws the little translucency there is (find fills, the toolbar and tab fades) solid, on its own (W-22). */
+  readonly reduceTransparency: boolean;
   readonly measure: number;
   readonly typeset: boolean;
   /** `undefined` when the key is absent or invalid: the per-path default stands (numbers on for code files). */
@@ -91,6 +95,8 @@ const DEFAULTS: Config = {
   variant: 'dark',
   size: 20,
   chromeSize: null,
+  contrast: 'system',
+  reduceTransparency: false,
   measure: 66,
   typeset: true,
   lineNumbers: undefined,
@@ -110,6 +116,8 @@ const KNOWN = new Set([
   'variant',
   'size',
   'chrome_size',
+  'contrast',
+  'reduce_transparency',
   'measure',
   'typeset',
   'line_numbers',
@@ -173,6 +181,14 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
     warnings.push(`chrome_size ${String(raw.chrome_size)} was invalid; using the theme's chrome size`);
   }
 
+  let contrast = DEFAULTS.contrast;
+  if (raw.contrast === 'system' || raw.contrast === 'more' || raw.contrast === 'normal') contrast = raw.contrast;
+  else if (raw.contrast !== undefined) warnings.push('contrast was invalid; using system');
+
+  let reduceTransparency = DEFAULTS.reduceTransparency;
+  if (typeof raw.reduce_transparency === 'boolean') reduceTransparency = raw.reduce_transparency;
+  else if (raw.reduce_transparency !== undefined) warnings.push('reduce_transparency was invalid; using false');
+
   let measure = DEFAULTS.measure;
   if (typeof raw.measure === 'number' && Number.isFinite(raw.measure)) measure = clamp(Math.round(raw.measure), 45, 80);
   else if (raw.measure !== undefined) warnings.push('measure was invalid; using 66');
@@ -225,6 +241,8 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
       variant,
       size,
       chromeSize,
+      contrast,
+      reduceTransparency,
       measure,
       typeset,
       lineNumbers,
