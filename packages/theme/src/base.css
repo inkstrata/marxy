@@ -151,6 +151,10 @@ body[data-marxy-workspace="unfolded"] .marxy-source-frame { max-width: none; }
 .marxy-source-mark::before { content: ""; position: absolute; inset: -3px 0; }
 .marxy-source-mark-invisible { background: var(--marxy-color-accent); }
 .marxy-source-mark-find { background: var(--marxy-color-find-edge); }
+/* A note (V-04) is a faint ring where the other marks are bars, so its shape says what colour cannot; it is quieter than they are. */
+.marxy-source-mark-note { box-sizing: border-box; height: 6px; margin-top: -3px; background: transparent; border: 1.5px solid var(--marxy-color-text-faint); border-radius: 50%; }
+.marxy-source-notes { color: var(--marxy-color-text-faint); }
+html:root[data-marxy-contrast="more"] .marxy-source-mark-note { border-color: var(--marxy-color-text); border-width: 2px; }
 /* A narrow frame (a split pane) keeps the file's name and drops the folders and the ruler. */
 @container (max-width: 519px) {
   .marxy-source-ruler { display: none; }
@@ -1526,6 +1530,7 @@ body[data-marxy-workspace="unfolded"] > .marxy-settings { grid-column: 2; grid-r
   .marxy-source-frame, .marxy-source-top, .marxy-source-ruler, .marxy-source-bottom { border-color: CanvasText; }
   .marxy-source-ruler-tick, .marxy-source-ruler-caret, .marxy-source-ruler-span, .marxy-source-mark { forced-color-adjust: none; background: CanvasText; }
   .marxy-source-mark-find { background: Highlight; }
+  .marxy-source-mark-note { background: transparent; border: 1.5px solid CanvasText; }
   a { text-decoration: underline; forced-color-adjust: none; }
   .marxy-settings .marxy-setting-dot-mark, .marxy-settings input.marxy-settings-switch::after { forced-color-adjust: none; background: CanvasText; }
   .marxy-settings input.marxy-settings-switch, .marxy-settings .marxy-settings-segmented, .marxy-settings .marxy-settings-select, .marxy-settings .marxy-settings-text, .marxy-settings .marxy-settings-button, .marxy-settings .marxy-settings-field { border-color: CanvasText; }

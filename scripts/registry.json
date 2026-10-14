@@ -373,7 +373,9 @@
     "marxy-settings-text",
     "marxy-settings-title",
     "marxy-settings-warning",
-    "marxy-settings-warnings"
+    "marxy-settings-warnings",
+    "marxy-source-mark-note",
+    "marxy-source-notes"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

@@ -136,9 +136,39 @@ function viewAidCommands(): readonly Command[] {
   ];
 }
 
+/**
+ * *Go to next note* and *Go to previous note* (V-04): the caret moves from one note to the next in the Source editor,
+ * and wraps from the last to the first. Nothing is written; a file with no notes says so.
+ */
+function noteCommands(): readonly Command[] {
+  const go = async (ctx: AppContext, direction: 1 | -1): Promise<void> => {
+    const { activeSourceEditor } = await import('../source/editor.ts');
+    const editor = activeSourceEditor();
+    const notes = editor?.notes() ?? [];
+    if (!editor || notes.length === 0) {
+      ctx.showNotice('No notes about this file · nothing changed', { kind: 'info', fades: true });
+      return;
+    }
+    const { EditorView } = await import('@codemirror/view');
+    const { view } = editor;
+    const head = view.state.selection.main.head;
+    const sorted = [...notes].sort((a, b) => a.from - b.from);
+    const target =
+      direction === 1 ? (sorted.find((n) => n.from > head) ?? sorted[0]!) : ([...sorted].reverse().find((n) => n.from < head) ?? sorted[sorted.length - 1]!);
+    view.dispatch({ selection: { anchor: Math.min(target.from, view.state.doc.length) }, effects: EditorView.scrollIntoView(target.from, { y: 'center' }), userEvent: 'select' });
+    view.focus();
+  };
+  const inSource = (): boolean => document.body.dataset.marxyMode === 'source';
+  return [
+    { id: 'source.next-note', title: 'Go to next note', group: 'view', when: inSource, run: (ctx) => go(ctx, 1) },
+    { id: 'source.previous-note', title: 'Go to previous note', group: 'view', when: inSource, run: (ctx) => go(ctx, -1) },
+  ];
+}
+
 export function sourceViewCommands(): readonly Command[] {
   return [
     ...depthLensCommands(),
+    ...noteCommands(),
     ...viewAidCommands(),
     {
       id: 'view.toggle-line-numbers',

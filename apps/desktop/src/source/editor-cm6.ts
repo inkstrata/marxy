@@ -63,6 +63,9 @@ export async function createSourceEditor(
     docText() {
       return textNow();
     },
+    notes() {
+      return frame?.notes() ?? [];
+    },
     setLineNumbers(on: boolean) {
       toggleLineNumbersInView(view, on, compartments.lineNumbersCompartment);
     },
