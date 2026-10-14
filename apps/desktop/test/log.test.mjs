@@ -884,20 +884,38 @@ test('while a level is being set the page stays live: a pill says how far, nothi
       // The first frame looked at is the first after the click that chooses the level.
       document.addEventListener('click', () => requestAnimationFrame(sample), { capture: true, once: true });
     });
+    // The filter is held after a few slices, until the page is released below: the steps that follow ask what a page says
+    // *while* a level is being set, and a fast machine finishes ten megabytes of filtering between two of them. When it did,
+    // the page was a few thousand pixels shorter under the click's scroll, which in WebKit left the page at its foot and the
+    // click's point off screen (F-91.1).
+    await page.evaluate(() => {
+      const raf = window.requestAnimationFrame.bind(window);
+      const held = [];
+      let free = 5;
+      window.__release = () => { window.requestAnimationFrame = raf; for (const cb of held.splice(0)) raf(cb); };
+      window.requestAnimationFrame = (cb) => {
+        if (cb.name !== 'slice' || free-- > 0) return raf(cb);
+        held.push(cb);
+        return 0;
+      };
+    });
     await page.click('[data-row-key="log.level.warn"]');
     const pill = await page.evaluate(() => [...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent));
     assert.ok(pill.some((t) => /^Filtering to Warn · \d+% · the file is unchanged · Esc stops$/.test(t)), JSON.stringify(pill));
     assert.equal(await page.evaluate(() => document.querySelector('#doc').classList.contains('marxy-log-filter-busy')), true, 'the page knows it is busy');
     // A copy now says it must wait, and puts nothing on the pasteboard.
     const key = await modifier(page);
-    await page.locator('#doc').click({ position: { x: 3, y: 3 } });
-    await page.keyboard.press(`${key}+KeyA`);
+    // The selection is made in the page: select-all follows the focus, and while the pill is up a click near the top of a
+    // log that is millions of pixels tall can leave it on the pill's words, and Playwright's own scroll to that click can
+    // leave its point off screen (F-91.1). What is asked here is what a copy of the log's text says.
+    await page.evaluate(() => getSelection().selectAllChildren(document.querySelector('#doc')));
     await page.keyboard.press(`${key}+KeyC`);
     await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent.startsWith('Still filtering this log · nothing was copied')), null, { timeout: 10_000 });
     assert.equal(await page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').length), 0);
     // Esc stops it and shows every line (from here a line below Warn is allowed on the page).
     const violations = await page.evaluate(() => { window.__sampling = false; return window.__violations; });
     await page.keyboard.press('Escape');
+    await page.evaluate(() => window.__release());
     await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent === 'All lines shown · the file is unchanged'), null, { timeout: 60_000 });
     const after = await page.evaluate(() => ({
       wrappers: document.querySelectorAll('.marxy-log-hidden-text, .marxy-log-hidden-run, .marxy-log-hidden-piece').length,
