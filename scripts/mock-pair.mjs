@@ -12,7 +12,7 @@ import vm from 'node:vm';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MOCK = join(ROOT, 'docs/plan/direction-2026-10/mock-v2');
 
-const W = 1440, H = 900, NARROW = 760;
+const W = 1440, H = 900, NARROW = 760, SHORT = 400;
 // `app` is the `theme` line the app's config gets (H-05): none for Night and Paper, a bundled name for the rest.
 export const THEMES = [
   { id: 'night', scheme: 'dark', mock: 'night', label: 'Night' },
@@ -49,6 +49,7 @@ export const SCREENS = {
   '03-data': 'A CSV in the table lens (mock 01-workspace, doc=bench-csv)',
   '04-palette': 'The palette, files (mock 04-palette)',
   '04-palette-commands': 'The palette, commands (mock 04-palette)',
+  '04-palette-short': 'The palette, search with a preview, in the shortest supported window, 400 px tall (mock 04-palette)',
   '05-library': 'The library (mock 05-collections)',
   '06-transform-sheet': 'The transform result sheet (mock 01-workspace)',
   '07-notice': 'A notice, unfolded (mock toast)',
@@ -286,6 +287,14 @@ const APP_STATES = {
     await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
     await settle(page, 500);
   },
+  async '04-palette-short'(page) {
+    await openDoc(page, HANDOFF); await settle(page, 200); await openDoc(page, RS); await settle(page, 200); await openDoc(page, PLAN); await settle(page, 500);
+    await page.keyboard.press('Meta+KeyP');
+    await page.waitForSelector('#marxy-palette[open]');
+    await page.locator('#marxy-palette .marxy-palette-query').fill('a');
+    await page.waitForSelector('#marxy-palette .marxy-palette-row');
+    await settle(page, 600);
+  },
   async '05-library'(page) {
     await unfoldedWithTabs(page);
     await page.evaluate((e) => window.__marxyHandle.palette.setIndexEntries(e), entries);
@@ -373,7 +382,7 @@ const APP_STATES = {
     await settle(page, 600);
   },
 };
-const APP_OPTS = { '08-narrow': { width: NARROW }, '03-code': {}, '03-transcript': {} };
+const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {} };
 
 // ---------- the mock ----------
 async function openMock(browser, theme, file, { width = W, height = H, hash = '' } = {}) {
@@ -414,6 +423,7 @@ const MOCK_STATES = {
   '03-data': { file: '01-workspace.html', hash: '#doc=bench-csv', run: async () => {} },
   '04-palette': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('')); await settle(page, 600); } },
   '04-palette-commands': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('>')); await settle(page, 600); } },
+  '04-palette-short': { file: '01-workspace.html', height: SHORT, run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('a')); await settle(page, 600); } },
   '05-library': { file: '05-collections.html', run: async () => {} },
   '06-transform-sheet': {
     file: '01-workspace.html',
@@ -462,7 +472,7 @@ try {
       }
       if (opts.sides.includes('mock')) {
         const m = MOCK_STATES[screen];
-        const { context, page } = await openMock(browser, theme, m.file, { width: m.width ?? W, hash: m.hash ?? '' });
+        const { context, page } = await openMock(browser, theme, m.file, { width: m.width ?? W, height: m.height ?? H, hash: m.hash ?? '' });
         try {
           await m.run(page);
         } catch (e) {
