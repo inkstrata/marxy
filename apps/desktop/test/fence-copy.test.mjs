@@ -70,7 +70,11 @@ async function open(text = DOC, path = '/repo/f.md') {
     await page.keyboard.press(`${await modifier(page)}+KeyE`);
     await drained(page);
   }
-  await page.waitForFunction(() => document.querySelectorAll('#doc pre > code').length >= 1);
+  // A code file's Rendered is its pieces (`pre.marxy-run`), drawn plain and then swapped for their highlighted lines, which
+  // replaces the code's children and drops a selection made before it (`data-marxy-done`). Wait for the swap: under load it
+  // lands after a test has selected, and the copy is then of an empty selection (V-10).
+  const code = path.endsWith('.py') ? '#doc pre.marxy-run > code[data-marxy-done]' : '#doc pre > code';
+  await page.waitForFunction((sel) => document.querySelectorAll(sel).length >= 1, code);
   await page.evaluate(() => {
     window.__copies = [];
     document.addEventListener('copy', (e) => window.__copies.push({ prevented: e.defaultPrevented, data: e.clipboardData.getData('text/plain') }));
