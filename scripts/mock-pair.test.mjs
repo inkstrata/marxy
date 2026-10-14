@@ -9,7 +9,7 @@ import { DEFAULT_THEMES, SCREENS, THEMES, configFor, indexHtml, pairFiles, parse
 const MOCK = fileURLToPath(new URL('../docs/plan/direction-2026-10/mock-v2/', import.meta.url));
 
 test('the screen table holds X-21\'s fifteen states and what stories added since', () => {
-  assert.equal(Object.keys(SCREENS).length, 28);
+  assert.equal(Object.keys(SCREENS).length, 29);
   assert.deepEqual(THEMES.map((t) => t.id), ['night', 'paper', 'ink', 'dusk', 'sepia', 'fjord', 'hc-dark', 'hc-light']);
   assert.deepEqual(DEFAULT_THEMES, ['night', 'paper']);
   assert.deepEqual(parseArgs(['01-folded', '--out', 'x']).themes, ['night', 'paper']);
@@ -31,7 +31,7 @@ test('file names are <screen>-<theme>-{app,mock}.png', () => {
 
 test('arguments: screens, all, theme, side, out', () => {
   assert.deepEqual(parseArgs(['01-unfolded', '03-split', '--out', 'x']).screens, ['01-unfolded', '03-split']);
-  assert.equal(parseArgs(['all', '--out', 'x']).screens.length, 28);
+  assert.equal(parseArgs(['all', '--out', 'x']).screens.length, 29);
   const o = parseArgs(['02-source', '--out', 'x', '--theme', 'paper', '--side', 'app']);
   assert.deepEqual([o.themes, o.sides], [['paper'], ['app']]);
 });

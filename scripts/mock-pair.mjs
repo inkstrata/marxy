@@ -387,6 +387,8 @@ const APP_STATES = {
     await unfoldedWithTabs(page);
     await page.evaluate(() => window.__cmd('kind.chip'));
     await page.waitForSelector('.marxy-verb-menu');
+    await settle(page, 400);
+  },
   async '08-settings-1000'(page) {
     await page.evaluate(() => window.__cmd('view.settings'));
     await page.waitForSelector('[data-marxy-settings]');
