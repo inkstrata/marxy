@@ -235,6 +235,9 @@ test('V-05 the ruler marks the caret column and a selection on one line, and the
     const nums = await page.evaluate(() => [...document.querySelectorAll('.marxy-source-ruler-num:not([hidden])')].map((n) => n.textContent).slice(0, 4));
     assert.deepEqual(nums, ['10', '20', '30', '40']);
     await select(page, 9);
+    // The notch is already showing (at the start of the file) when the caret moves, and the ruler redraws in the editor's
+    // next measure, so "not hidden" says nothing about where it is: wait for that measure (two frames) before reading it.
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
     await page.waitForFunction(() => !document.querySelector('.marxy-source-ruler-caret').hidden);
     const at = await page.evaluate(async () => {
       const { activeSourceEditor } = await import('/src/source/editor.ts');
