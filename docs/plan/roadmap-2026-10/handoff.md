@@ -1,3 +1,54 @@
+# Lead handoff: 2026-10-14 early (X-31), waves 9 and 10 closed, wave 11 nearly done
+
+What each wave lets the reader do, in plain words: [`waves.md`](waves.md). The ledger's "2026-10-13 evening to 2026-10-14"
+block lists what merged; the dashboard artifact "Marxy Lead Cycle" shows it for the author.
+
+**Before dispatching, check you are the only lead:** `gh pr list --state all --limit 20`, and read this page and `progress.md` on
+`origin/main` (a second lead ran in parallel on 2026-10-12).
+
+## Open at the stop — resume each (read the PR and `git status` in its worktree; never `git stash`)
+
+| Story | PR / branch | State | Next |
+| --- | --- | --- | --- |
+| K-22 | #725, `../marxy-wt/K-22` | review said merge at d7f3466e; the rebase (92fe9a54) **dropped V-06's `09-inspector-versions` APP_STATE** in `scripts/mock-pair.mjs`; lead hold posted | restore it by union with main; add a test that every SCREENS key has an APP_STATES and a MOCK_STATES entry; re-verify; lead verdict for the rebase |
+| F-94 | #730, `../marxy-wt/F-94` (fix/f-94-source-stall) | 2 MB Source stall 6.3–8.8 s → 28–38 ms by hiding and pausing the Rendered page while Source mounts; review stopped at the session end | a fresh review (Sonnet high): Rendered resumes right after Source edits, live reload, two panes, a quick toggle; confirm the `:has` cause |
+| W-17 | branch `feat/w-17-metadata` at 7e559a4a, `../marxy-wt/W-17`, no PR | core front-matter scalar edit (fuzzed, under gate:fidelity), Metadata tab, ⌃⌘I preview, pairs done | run gate:aesthetics --mechanical and the CSS regrid re-check, open the PR, adversarial review (data safety) |
+
+## Next, in order
+
+1. The three above. K-22 then unblocks **K-12** (JSONL agent transcripts, Sonnet high, adversarial review), the last wave-11 card.
+2. **F-96** after W-17 merges (both hold `base.css`): Rendered restyles long paragraph runs quadratically because of
+   `p:has(+ pre…)`; replace it with a class set at render and measure 27k paragraphs.
+3. Follow-ups boarded this session (rows in `progress.md`): V-06.2, V-04.1, W-13.1, W-10.3, F-89.1, F-92.
+4. **Linux baselines:** the nightly fails `28-artifact-fences` 960 dark/light last (stale since K-08; F-93 retook the macOS
+   ones). Dispatch the nightly with `update_baselines=true` and check the images.
+5. Cards for the next wave: wave 11 is the last carded wave. An X- plan story writes wave 12's cards (the ahead list in
+   `waves.md`: export, typography panel, per-kind layouts, books, library bulk actions…), with the shape of `20-cards-wave-11.md`.
+
+## For the author
+
+- **Write commands are not path-scoped** (found in F-85's review, pre-existing): the app has no command ACL, so the webview can
+  ask `write_file_atomic` and `write_file_new` to write any path. Decide whether to scope writes to the opened folders and the
+  data folder (a capabilities change, code-owned).
+- **Behaviour change shipped in W-12:** an explicit `measure` in `config.toml` now applies to every kind (it was read and ignored);
+  `measure = 66` narrows a README from 581 to 479 px. Unset, nothing changes.
+- Taste pairs to glance at: `docs/taste-review/2026-10-13-*` and `2026-10-14-*` (K-17, V-06, W-13, W-22, W-12, V-04).
+
+## Lessons
+
+- **A rebase can pass CI and still drop a list entry.** K-22's resolution kept SCREENS but lost an APP_STATES function; the test
+  only counted screens. Read `git range-diff old-base..old-head new-base..new-head` before a rebase verdict: a `+-` line is
+  something the new patch removes.
+- **Waiters keyed on `pgrep -f name` deadlock** when each waiter's own command line contains the name. Chain on a task's output
+  (`until grep -q "exited with code" OUT`) instead.
+- **zsh expands `=word`:** `[ "$B" = "0" ]` fails in a `zsh -c` one-liner; use `[[ $B == 0 ]]`.
+- **A rerun replays the old event:** commitlint checks the PR title from the original event, so after a title edit a rerun still
+  fails; push (or update from main) to get a fresh run.
+- **Agents with background test runs report early and repeatedly.** Brief them to report once and leave nothing running, and stop
+  them (TaskStop) after their PR is merged.
+- **Most CI flakes this session were test races, not the product** (F-91, F-91.1, F-93, F-95): a count read after the first
+  keystroke, a filter finishing too fast, a selection dropped by a swap, a ruler read before its redraw.
+
 # Lead handoff: 2026-10-11 night (X-17), S-13 curated, four PRs merged
 
 What each wave lets the reader do, in plain words: [`waves.md`](waves.md).
