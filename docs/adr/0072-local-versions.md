@@ -126,10 +126,30 @@ The build kept every ruling and changed three details, and the adversarial revie
    free keeps nothing: there is nothing to replace. The operating system's replace prompt remains the reader's own check;
    this is the way back from it.
 
+## Amendment (V-06.1, 2026-10-13): the keep is bounded, and every lost copy is said
+
+The review of V-06 found two gaps in items 5's "if the copy cannot be made, say so".
+
+7. **A save waits three seconds for its copy, no more.** `beforeOverwrite` waits at most 3 s (`KEEP_BEFORE_SAVE_TIMEOUT_MS`). A
+   local data folder answers in milliseconds and a wake from sleep or a spun-down disk in one or two seconds; three covers a slow but
+   working folder and stops short of a stalled network volume holding the reader's Save for good. Past it the save goes on (fail
+   open for the version, never for the file), and the reader is told, as in item 5, that the save replaced those bytes and the copy
+   was not kept. The copy is then abandoned, not left running: the store checks before each write whether it was given up on, so a
+   keep that finishes late writes nothing more and never adds a version. (A write already under way when the bound passed may still
+   land; a manifest names a version only after its slot is complete, so at worst an unnamed slot is left, as after a crash.) The
+   bytes it held were the ones the save replaced, so even a late version would not have been false; they are dropped because the
+   folder may have moved on (cleared, swept) in the meantime.
+8. **Every failed *before save* is said.** The notice is not once a session: each save is the reader's own act and each one that
+   replaced bytes with no copy gets its notice, which floats at the pane's top and never moves the document (the X-21 rulings), naming
+   the run ("4 copies of x.md not kept in a row") once there are several. A failed *read* or *before reload* copy, which the reader
+   did not just do, is said once until a keep works again. The Versions tab keeps the running count ("N copies of this file have not
+   been kept since 14.32") until a keep works. Save-and-close waits 1.5 s for the queued copies and, if that runs out, says so
+   (a notice and the console) before it goes on.
+
 Also recorded: dedupe compares with the newest version (the same bytes again add nothing) and, failing that, with every
 version kept (the same bytes as an older one share its slot: one copy on disk, two entries). A manifest Marxy cannot read is
 reported in the tab and never written over by keeping; that file's versions stop until the reader clears them. A failed keep
-(a full disk, an unwritable folder) is said once a session as a notice and in the tab, in words that say what the file went through (item 5).
+(a full disk, an unwritable folder, a folder that does not answer) is said as a notice and in the tab, in words that say what the file went through (items 5, 7 and 8).
 
 ## Rejected
 

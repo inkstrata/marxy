@@ -31,7 +31,7 @@ test('a listing that is not a list says what it is, never nothing', () => {
   assert.match(damaged, /no new ones are kept; Clear versions of this file starts it again/);
   assert.match(listingNote({ kind: 'newer' })!, /A newer Marxy/);
   assert.match(listingNote({ kind: 'unreadable', error: new Error('permission denied') })!, /permission denied/);
-  assert.match(failureWords({ path: '/r/x.md', reason: 'before save', error: new Error('No space left on device'), time: 0 }), /could not be kept: No space left on device\. The save went through and replaced those bytes/);
+  assert.match(failureWords({ path: '/r/x.md', reason: 'before save', error: new Error('No space left on device'), time: 0, count: 1, since: 0 }), /could not be kept: No space left on device\. The save went through and replaced those bytes/);
 });
 
 test('each row says when, why and how large, and what is wrong with its copy', () => {
