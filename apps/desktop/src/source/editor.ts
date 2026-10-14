@@ -4,6 +4,7 @@ import type { Buffer } from '@marxy/core';
 import type { EditorView } from '@codemirror/view';
 import { Compartment, type Extension } from '@codemirror/state';
 import { cmDocText, lineSeparatorFor } from './buffer-commit.ts';
+import { pageStyleNonce } from './csp-nonce.ts';
 import { LARGE_FILE_BYTES } from './language.ts';
 import { setLineNumbersChoice } from './line-numbers.ts';
 import { marxyHighlighting } from './highlight-style.ts';
@@ -203,6 +204,8 @@ export async function baseExtensions(
   const wraps = sourceWraps(buffer.path) && !isLargeSourceFile(buffer);
   const look: SourceLook = island ? 'island' : wraps ? 'prose' : 'code';
   const exts: Extension[] = [
+    // CodeMirror styles itself with runtime <style> elements; the release CSP refuses any without its nonce (F-98).
+    EditorView.cspNonce.of(pageStyleNonce()),
     // The read-back of a save joins the edit before it (stray-bytes.ts `readBack`); every other join is the default's.
     historyCompartment.of(history({ joinToEvent: (tr, adjacent) => adjacent || tr.annotation(readBack) === true })),
     // Several selections: next and all occurrences (V-01) add ranges, which a single-selection state drops.

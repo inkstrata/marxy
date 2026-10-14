@@ -164,6 +164,10 @@ function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, stri
       color: secondary,
       border: 'none',
       marginInlineStart: gutterStart,
+      // The gutter is as wide as its columns by content, but WebKit's first layout takes the number column's width from
+      // its digits and leaves out the column's `min-width` (a calc() it does not count when sizing the container), so the
+      // numbers hang over the text until a later layout. The flex algorithm does honour a container's own `min-width`.
+      minWidth: GUTTER,
     },
     '.cm-gutters .cm-gutter': { lineHeight: LINE },
     // CodeMirror's `.cm-lineNumbers .cm-gutterElement` (padding 0 3px 0 5px) is as specific as a single theme

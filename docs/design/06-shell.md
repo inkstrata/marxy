@@ -111,6 +111,11 @@ A release build injects a per-load style nonce, and a nonce makes WebKit ignore
 KaTeX's sheet) move to `adoptedStyleSheets`, which apply under `style-src 'self'`. Markup
 `style` attributes, which KaTeX uses for layout, need `style-src-attr 'unsafe-inline'`.
 `style-src` itself does not carry `'unsafe-inline'` once the nonce is present (MARXY-250).
+CodeMirror is the one runtime source that must create `<style>` elements (style-mod; it adopts a sheet only
+inside a ShadowRoot), so it carries the nonce instead: Tauri marks every `<style>` of the served page and
+swaps the mark for a fresh nonce on each load, `source/csp-nonce.ts` reads it back (`.nonce`) and
+`baseExtensions` hands it to `EditorView.cspNonce` (F-98). Without it no CodeMirror rule applies. A style
+refusal logged in a test run is not always the app's: Playwright's own screenshot injects a `<style>`.
 `scripts/check-csp.mjs` fails a planted `document.createElement('style')`. Scripts are never
 inline. `data:` for images covers a markdown `![](data:…)` that the
 sanitiser's subresource rule admits only when the allow-list is widened (MARXY-44); by default
