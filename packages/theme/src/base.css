@@ -1320,7 +1320,7 @@ html:has(> body > .marxy-library) { overflow: hidden; }
   box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; flex-direction: column;
   color: var(--marxy-color-text); font: var(--marxy-size-chrome) var(--marxy-face-chrome);
 }
-body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2; grid-row: 4; position: sticky; top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h)); align-self: start; z-index: 3; height: var(--marxy-ws-panes-h); }
+body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2 / var(--marxy-ws-band-to); grid-row: 4; position: sticky; top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h)); align-self: start; z-index: 3; height: var(--marxy-ws-panes-h); }
 .marxy-library-probe { position: absolute; visibility: hidden; pointer-events: none; width: 0; }
 .marxy-library-probe-line { height: var(--marxy-library-line); }
 .marxy-library-probe-pad { height: var(--marxy-library-pad); }
@@ -1434,7 +1434,9 @@ html:has(> body > .marxy-settings) { overflow: hidden; }
   box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; flex-direction: column;
   color: var(--marxy-color-text); font: var(--marxy-size-chrome) var(--marxy-face-chrome);
 }
-body[data-marxy-workspace="unfolded"] > .marxy-settings { grid-column: 2; grid-row: 4; position: sticky; top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h)); align-self: start; z-index: 3; height: var(--marxy-ws-panes-h); }
+/* A page that is not the reader (F-102): it has no inspector, so it takes the right-hand track the reader keeps empty to stay on
+   the window's axis, as far as the inspector's edge when one is docked (`--marxy-ws-band-to`, the bands' own end line). */
+body[data-marxy-workspace="unfolded"] > .marxy-settings { grid-column: 2 / var(--marxy-ws-band-to); grid-row: 4; position: sticky; top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h)); align-self: start; z-index: 3; height: var(--marxy-ws-panes-h); }
 .marxy-settings-body { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(11em, 16em) minmax(0, 1fr); }
 .marxy-settings-side { display: flex; flex-direction: column; gap: 0.5em; min-height: 0; padding: 0.9em 0.7em 0.5em; border-inline-end: 1px solid var(--marxy-color-rule); }
 .marxy-settings-title { margin: 0 0.3em; font: inherit; font-size: 1.25em; font-weight: var(--marxy-weight-strong); }
