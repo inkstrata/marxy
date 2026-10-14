@@ -1,3 +1,42 @@
+# Lead handoff: 2026-10-14 day (X-35), the visual stories merged
+
+**Before dispatching, check you are the only lead** (`gh pr list --state all --limit 20`; read this page and `progress.md` on
+`origin/main`). The ledger's "2026-10-14 day" block lists what merged (13 PRs: F-94, F-97..F-104, F-107, X-32, X-33, and the order).
+
+## Open at the stop
+
+| Story | PR | State | Next |
+| --- | --- | --- | --- |
+| F-105 | #746 | review running (Sonnet medium) | merge on a merge verdict; rebase unions `scripts/mock-pair.mjs` |
+| F-106 | #747 | adversarial review running (two panes) | merge on a merge verdict; same rebase |
+
+## Next, in order
+
+1. F-105 and F-106 above. Then the follow-ups boarded today: F-98.2 (prove the nonce in the packaged app), F-98.1, F-99.1,
+   F-107.1, F-108, and X-36 (make the layout audit a gate once its baseline is only Sev-3 rows).
+2. The older order below ("Next, in order" of the 2026-10-14 early handoff): K-22, F-94 is done, W-17, K-12, F-96, the Linux
+   baselines, wave 12's cards.
+
+## For the author
+
+- **F-100 departs from X-21 ruling Q13 and ADR-0067 item 6** on your note ("in general we want to fill the window with our editor");
+  recorded as an amendment. mock-v2 still draws the folded Source frame at 960 px: update the mock, or say the app should keep a cap.
+- **Source's gutter is five digits wide** (ADR-0067), so a short file's numbers start about 70 px in. Narrowing it lets text move as
+  the digit count grows. Keep, or board a story?
+- **F-98's nonce is proven from Tauri's source and the harness, not the packaged app** (F-98.2): opening Untitled in Source with line
+  numbers on in a fresh build confirms it.
+
+## Lessons
+
+- **A dev harness without the release CSP hides a class of bugs.** F-98 shipped because no test mounted an editor under the release
+  policy; `apps/desktop/test/source-csp.test.mjs` now does, and `check-csp` refuses an EditorView without the nonce.
+- **git can auto-merge adjacent entries of one object literal into broken code.** F-102's rebase silently cut F-103's
+  `APP_STATES` entry; the file stopped parsing. After any rebase that touches `scripts/mock-pair.mjs`, load it (`node -e
+  "import('./scripts/mock-pair.mjs')"`) and compare SCREENS keys with main before pushing.
+- **Subagents cannot write report-like `.md` files** (a harness rule); the lead adds them from the PR body.
+- **Many parallel WebKit suites pushed the load average to 200–290**; agents ran browser files one at a time and full
+  `precheck --browser` timed out. Four implementors plus one reviewer was the practical ceiling.
+
 # Lead handoff: 2026-10-14 early (X-31), waves 9 and 10 closed, wave 11 nearly done
 
 What each wave lets the reader do, in plain words: [`waves.md`](waves.md). The ledger's "2026-10-13 evening to 2026-10-14"
