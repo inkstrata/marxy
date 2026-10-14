@@ -223,8 +223,10 @@ function islandRules(): Record<string, Record<string, string>> {
 
 /** Theme extension reading marxy tokens from the document root. */
 export function marxyCodeMirrorTheme(look: SourceLook = 'code'): Extension {
-  const rules = look === 'island' ? islandRules() : sourceRules(look);
-  return EditorView.theme(rules, { dark: !isLightVariant() });
+  if (look === 'island') return EditorView.theme(islandRules(), { dark: !isLightVariant() });
+  // A caret scrolled into view is kept 16 px from the edge (the marks strip is 8 px at the default chrome size, F-100), where
+  // CodeMirror's own 5 px would leave it and the last glyph of the widest line under the strip.
+  return [EditorView.theme(sourceRules(look), { dark: !isLightVariant() }), EditorView.scrollMargins.of(() => ({ right: 16 }))];
 }
 
 /**

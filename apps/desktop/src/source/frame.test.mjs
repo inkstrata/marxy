@@ -1,5 +1,5 @@
 // The Source frame (V-05, WebKit): the bars say only what the bytes say, the ruler sits on the text's character grid, the bars
-// never cover text and do not move when it scrolls, the column keeps ADR-0067's measure inside the frame, the marks sit at
+// never cover text and do not move when it scrolls, the editor fills the frame (F-100), the marks sit at
 // exact bytes, and none of it is a focus stop or a live region. The real app over the memory shell, with the shipped
 // skeleton's own CSS (index.html), so the frame is laid out by the rules the app ships.
 import { strict as assert } from 'node:assert';

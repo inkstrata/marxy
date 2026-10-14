@@ -274,6 +274,28 @@ for (const mode of MODES) {
     }
   });
 
+  test(`${mode.name}: the caret at the end of the widest code line is not under the marks strip`, async () => {
+    const browser = await launchWebkit();
+    try {
+      const { page, context } = await boot(browser, mode, { files: { '/w/doc.rs': LONG }, open: '/w/doc.rs', width: 1000 });
+      await openSource(page);
+      const line12 = await page.evaluate(() => [...document.querySelectorAll('.marxy-source-mount .cm-content > .cm-line')].find((l) => l.textContent.startsWith('long line')).getBoundingClientRect().top);
+      await page.mouse.click(300, line12 + 8);
+      await page.keyboard.press('End');
+      await page.waitForTimeout(500);
+      const seen = await page.evaluate(() => {
+        const cursor = document.querySelector('.marxy-source-mount .cm-cursor')?.getBoundingClientRect();
+        const strip = document.querySelector('.marxy-source-marks').getBoundingClientRect();
+        return { caret: cursor ? cursor.right : null, strip: strip.left };
+      });
+      assert.ok(seen.caret !== null, 'a caret is drawn');
+      assert.ok(seen.caret <= seen.strip - 4, `the caret (${seen.caret}) is under or against the marks strip (${seen.strip})`);
+      await context.close();
+    } finally {
+      await browser.close();
+    }
+  });
+
   test(`${mode.name}: unfolded Source and Split place the gutter at the pane's own edge`, async () => {
     const browser = await launchWebkit();
     try {
