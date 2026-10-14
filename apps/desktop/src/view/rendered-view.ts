@@ -993,6 +993,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     from: ReadingPosition | null = null,
   ): Promise<void> {
     const path = openPathNow();
+    // A page that is no document (the frontispiece) has no place to keep, but its paragraphs were broken for the
+    // width they were set at: a new width sets them again, or they overrun the columns of the new one (F-104).
+    if (!path && !shown && typeset && viewMode === 'rendered') {
+      typeset.relayout(reason);
+      await typeset.ready;
+      endResizeHold(from);
+      return;
+    }
     if (!path || !shown || viewMode !== 'rendered') {
       endResizeHold(from);
       return;

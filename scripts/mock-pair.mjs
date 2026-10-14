@@ -61,6 +61,7 @@ export const SCREENS = {
   '10-tabs-hover': 'Twelve tabs in the unfolded window, one hovered (F-99; mock 01-workspace)',
   '10-outline-popup': 'The outline popup (Shift+Cmd+O) at 1,920 x 900 with the inspector docked, over it and under the bands (the mock has no popup: its Outline tab is the reference for the type and the row)',
   '10-kind-chip-menu': 'The kind chip\'s menu open, unfolded: why the file is read as it is, then the Show as choices (mock 01-workspace)',
+  '10-empty-window': 'The empty window with a text beside its translation, opened at 800 px and widened to 1,000 (mock 01-workspace, folded; the mock has no empty window)',
   '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
 };
 
@@ -200,9 +201,11 @@ const SAVED_QUERIES = '[[query]]\nname = "Reports"\nq = "kind:report"\n\n[[query
 const settle = (page, ms) => page.waitForTimeout(ms);
 
 // ---------- the app ----------
-async function bootApp(browser, theme, { width = W, height = H, open = PLAN } = {}) {
+async function bootApp(browser, theme, { width = W, height = H, open = PLAN, piece } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme.scheme, deviceScaleFactor: 1 });
   const page = await context.newPage();
+  // The empty window's piece is chosen at random: pin it (choosePiece takes floor(random() * count)).
+  if (piece !== undefined) await page.addInitScript((k) => { Math.random = () => (k + 0.5) / 38; }, piece);
   const base = await support.harnessBase();
   const { style, body } = support.shippedSkeleton();
   await page.route(`${base}app.html`, async (route) => {
@@ -226,7 +229,7 @@ async function bootApp(browser, theme, { width = W, height = H, open = PLAN } = 
       for (const [path, text] of Object.entries(encoded)) bytes[path] = Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
       const { createMemoryShell } = await import('/src/shell/memory.ts');
       const { bootApplication } = await import('/src/main.ts');
-      const handle = await bootApplication(createMemoryShell(bytes), { argv: [open] });
+      const handle = await bootApplication(createMemoryShell(bytes), { argv: open ? [open] : [] });
       await handle.ready;
       window.__marxyHandle = handle;
       handle.palette.setIndexEntries(entries);
@@ -368,6 +371,8 @@ const APP_STATES = {
     await settle(page, 500);
   },
   async '03-terminal'(page) { await openDoc(page, SHELL_SESSION); await settle(page, 900); },
+  // Hegel's `Ich, das Wir` (piece 6), opened at 800 px where the columns stack, then the window widened to 1,000 (F-104).
+  async '10-empty-window'(page) { await page.setViewportSize({ width: 1000, height: H }); await settle(page, 1500); },
   async '08-settings'(page) {
     // A reader who has made their text larger and shortened the line: two dots, the third row at its default.
     await page.evaluate(() => window.__marxyHandle.shell.plant('/config', new TextEncoder().encode('size = 22\nmeasure = 58\n')));
@@ -409,7 +414,7 @@ const APP_STATES = {
     await settle(page, 600);
   },
 };
-const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE } };
+const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 } };
 
 // ---------- the mock ----------
 async function openMock(browser, theme, file, { width = W, height = H, hash = '' } = {}) {
@@ -488,6 +493,7 @@ const MOCK_STATES = {
   '09-inspector-versions': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="versions"]'); await settle(page, 600); } },
   '10-outline-popup': { file: '01-workspace.html', width: WIDE, run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
   '10-kind-chip-menu': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await settle(page, 300); await page.click('#kindchip'); await settle(page, 500); } },
+  '10-empty-window': { file: '01-workspace.html', width: 1000, run: async () => {} },
   '08-settings': { file: '08-settings.html', hash: '#reading', run: async (page) => { await settle(page, 400); } },
 };
 
