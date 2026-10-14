@@ -457,6 +457,18 @@ test('J-04: copy_format names the Copy as row that comes first; markdown is the 
   assert.equal(parse('copy_format = 3\n').config.copyFormat, 'markdown');
 });
 
+test('V-06: versions = false turns local versions off; absent or true keeps them on; anything else warns and keeps them on', () => {
+  const parse = (toml: string) => parseConfig(new TextEncoder().encode(toml));
+  assert.equal(parse('').config.versions, true);
+  assert.equal(parse('versions = true\n').config.versions, true);
+  const off = parse('versions = false\n');
+  assert.equal(off.config.versions, false);
+  assert.deepEqual([off.warnings, off.unknownKeys], [[], []]);
+  const bad = parse('versions = "no"\n');
+  assert.equal(bad.config.versions, true);
+  assert.deepEqual(bad.warnings, ['versions was invalid; versions stay on']);
+});
+
 // --- [strip] (K-07) ---------------------------------------------------------------------------------------------
 
 const parseText = (text: string) => parseConfig(new TextEncoder().encode(text));

@@ -2,6 +2,7 @@
 // document while dirty takes the same path (MARXY-337). With two panes (D-08) the guard is per document:
 // the notice names the document being left, sits in the pane that shows it and saves that document;
 // quitting asks about each unsaved document in turn; closing a pane asks about its document.
+import { flushVersions } from './versions/recorder.ts';
 import type { Shell } from '@marxy/shell-api';
 import type { DocumentStore } from './document/store.ts';
 import { documentName } from './document/untitled.ts';
@@ -338,7 +339,11 @@ function showPrompt(prompt: Prompt): void {
             // The reader kept editing while the save ran: what they see is not what reached disk, and going on
             // would drop it. Ask again.
             if (doc.isDirty()) showPrompt(prompt);
-            else await prompt.proceed();
+            else {
+              // Local versions (V-06): the copies queued for this document finish (at most a moment) before the window goes on.
+              await flushVersions();
+              await prompt.proceed();
+            }
           })();
         },
       },

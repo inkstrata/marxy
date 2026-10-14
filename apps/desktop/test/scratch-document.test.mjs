@@ -266,12 +266,13 @@ test('a relative image and a relative link in a scratch document are inert: a no
     await page.locator('#doc a', { hasText: 'up' }).click();
     await page.waitForTimeout(150);
     assert.equal((await snapOf(page)).path, 'untitled', 'nothing opened');
-    // Everything the shell was asked since the page was set: Marxy's own state under /data and /config aside, no read
+    // Everything the shell was asked since the page was set: Marxy's own state under /data and /config (and collection.toml beside
+    // it, which the version recorder reads for its deny rules, V-06) aside, no read
     // of any file, no stat, no listing, no asset scope or image size, no watch and no write.
     const since = await log(page);
     const touched = since.filter((e) => {
       const [method, ...rest] = e.split(':');
-      return /^(readFile|readHead|stat|readDir|peekFile|imageSize|allowAssetScope|assetUrl|watch|writeFileAtomic)$/.test(method) && !/^\/(data|config)\b/.test(rest.join(':'));
+      return /^(readFile|readHead|stat|readDir|peekFile|imageSize|allowAssetScope|assetUrl|watch|writeFileAtomic)$/.test(method) && !/^\/(data|config|collection\.toml)\b/.test(rest.join(':'));
     });
     assert.deepEqual(touched, [], since.join('\n'));
   }));

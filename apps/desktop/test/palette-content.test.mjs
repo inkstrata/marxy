@@ -106,7 +106,8 @@ test('/baseline grid lists hits from both roots, the current root first; Enter o
     const page = await boot(browser);
     await page.keyboard.press(`${await modOf(page)}+KeyP`);
     const scoredBefore = await page.evaluate(() => window.marxyPaletteBoot.prepareStats.rowsScored);
-    const writeCount = () => page.evaluate(() => window.__h.shell.calls.filter((c) => c.method === 'writeFileAtomic').length);
+    // Local versions (V-06) of the opened file are Marxy's own state, kept after first text: not the search's.
+    const writeCount = () => page.evaluate(() => window.__h.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !String(c.args[0]).startsWith('/data/versions-')).length);
     const writesBefore = await writeCount();
     await page.locator('#marxy-palette .marxy-palette-query').pressSequentially('/baseline grid');
     await page.waitForSelector('#marxy-palette .marxy-palette-hit');

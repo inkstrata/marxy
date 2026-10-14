@@ -71,6 +71,8 @@ export interface Config {
   readonly resident: boolean;
   /** The Copy as row that is first and chosen by Enter (J-04): one of `COPY_FORMATS`. A target not built yet still parses; the menu falls back to Markdown. */
   readonly copyFormat: string;
+  /** Local versions (ADR-0072, V-06): copies of the files you read and save, kept in Marxy's data folder. `false` keeps no new ones. */
+  readonly versions: boolean;
   readonly linuxWeightOffset: number | null;
   /** Valid `[[kind]]` rules in file order; the first that matches a path wins (detectKind's job). */
   readonly kindRules: readonly KindRule[];
@@ -97,6 +99,7 @@ const DEFAULTS: Config = {
   externalEditor: null,
   resident: false,
   copyFormat: 'markdown',
+  versions: true,
   linuxWeightOffset: null,
   kindRules: [],
   strip: {},
@@ -115,6 +118,7 @@ const KNOWN = new Set([
   'external_editor',
   'resident',
   'copy_format',
+  'versions',
   'linux',
   'kind',
   'strip',
@@ -199,6 +203,10 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
   if (typeof raw.copy_format === 'string' && COPY_FORMATS.includes(raw.copy_format)) copyFormat = raw.copy_format;
   else if (raw.copy_format !== undefined) warnings.push(`copy_format was invalid; using ${DEFAULTS.copyFormat}`);
 
+  let versions = DEFAULTS.versions;
+  if (typeof raw.versions === 'boolean') versions = raw.versions;
+  else if (raw.versions !== undefined) warnings.push('versions was invalid; versions stay on');
+
   let linuxWeightOffset: number | null = null;
   const linux = raw.linux;
   if (linux !== null && typeof linux === 'object' && !Array.isArray(linux)) {
@@ -225,6 +233,7 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
       externalEditor,
       resident,
       copyFormat,
+      versions,
       linuxWeightOffset,
       kindRules,
       strip,
