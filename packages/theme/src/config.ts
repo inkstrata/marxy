@@ -111,7 +111,11 @@ const DEFAULTS: Config = {
   strip: {},
 };
 
-const KNOWN = new Set([
+/**
+ * Every top-level key `parseConfig` understands. `settings-schema.ts` holds one row per entry (a test fails for a key without one), so
+ * a key added here is added to the Settings page in the same change (W-12, ADR-0075).
+ */
+export const KNOWN_KEYS: readonly string[] = [
   'theme',
   'variant',
   'size',
@@ -130,7 +134,9 @@ const KNOWN = new Set([
   'linux',
   'kind',
   'strip',
-]);
+];
+
+const KNOWN = new Set(KNOWN_KEYS);
 
 /** The ids `copy_format` takes: the Copy as targets of ADR-0065 item 1 (`apps/desktop/test/copy-as.test.mjs` holds this list equal to core's). */
 export const COPY_FORMATS: readonly string[] = ['markdown', 'plain', 'rich', 'html', 'slack', 'jira', 'json-string', 'quote'];
@@ -382,7 +388,8 @@ function parseStrip(rawStrip: unknown, warnings: string[]): Record<string, reado
   return strip;
 }
 
-function tomlString(s: string): string {
+/** A TOML string value for `s`: literal quotes when nothing needs escaping, else a basic string. */
+export function tomlString(s: string): string {
   // eslint-disable-next-line no-control-regex
   if (!s.includes("'") && !/[\u0000-\u001f\u007f]/.test(s)) return `'${s}'`;
   const escaped = s
@@ -520,23 +527,14 @@ function bracketDepthDelta(line: string, from: number): number {
 const MULTILINE = ['"""', "'''"];
 
 /**
- * Replaces or appends one top-level `key = value` line without touching any other byte: every other
- * line keeps its bytes and its own ending, the edited line keeps its indentation, key spelling and
- * trailing comment, and a key inside a table or a multi-line string is never taken for it.
+ * Where a top-level `key` is in `lines`: the line it starts on (-1 when absent), the first `[table]` header (-1 for none) and the
+ * pattern that matches a `key =` line. Lines inside a multi-line string and everything from the first table header on are not
+ * top level. A dotted key under `key` throws: the file defines it another way, and a line edit cannot honour that.
  */
-export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string): Uint8Array {
-  const eol = detectEol(bytes);
-  // Each byte becomes one char (latin1), so lines the edit never touches are written back with
-  // exactly their bytes: no BOM stripped, no invalid UTF-8 turned into U+FFFD.
-  const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
-  const body = hasBom ? bytes.subarray(3) : bytes;
-  const text = bytesToLatin1(body);
-  const lines = splitLines(text);
-  const value = bytesToLatin1(new TextEncoder().encode(tomlValue));
+function scanTopLevelKey(lines: readonly Line[], key: string): { readonly found: number; readonly firstTable: number; readonly keyLine: RegExp } {
   const k = escapeRegExp(key);
   const keyLine = new RegExp(`^([ \\t]*(?:${k}|"${k}"|'${k}')[ \\t]*=[ \\t]*)`);
   const dottedLine = new RegExp(`^[ \\t]*(?:${k}|"${k}"|'${k}')[ \\t]*\\.`);
-
   let firstTable = -1;
   let found = -1;
   let open: string | null = null;
@@ -557,18 +555,65 @@ export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string
     if (found < 0 && keyLine.test(line)) found = i;
     for (const delim of MULTILINE) if (line.split(delim).length % 2 === 0) open = delim;
   }
+  return { found, firstTable, keyLine };
+}
+
+/** The last line a value that starts on `found` runs to: a TOML array can span lines. */
+function valueLastLine(lines: readonly Line[], found: number, headLength: number): number {
+  let depth = bracketDepthDelta(lines[found]!.content, headLength);
+  let last = found;
+  while (depth > 0 && last + 1 < lines.length) {
+    last += 1;
+    depth += bracketDepthDelta(lines[last]!.content, 0);
+  }
+  return last;
+}
+
+/**
+ * Removes one top-level `key = value` line, a multi-line array value included, and not a byte else: every other line keeps its
+ * bytes and its own ending (W-12, the Settings page's reset). A key that is absent, or only inside a `[table]`, returns the input
+ * unchanged (the same bytes, not a copy of them). A dotted key under it throws, as `setTopLevelKey` does. The line's trailing
+ * comment goes with it: the line is the setting.
+ */
+export function removeTopLevelKey(bytes: Uint8Array, key: string): Uint8Array {
+  const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  const body = hasBom ? bytes.subarray(3) : bytes;
+  const lines = splitLines(bytesToLatin1(body));
+  const { found, keyLine } = scanTopLevelKey(lines, key);
+  if (found < 0) return bytes;
+  const head = keyLine.exec(lines[found]!.content)![1]!;
+  const last = valueLastLine(lines, found, head.length);
+  lines.splice(found, last - found + 1);
+  const out = latin1ToBytes(lines.map((l) => l.content + l.ending).join(''));
+  if (!hasBom) return out;
+  const withBom = new Uint8Array(out.length + 3);
+  withBom.set([0xef, 0xbb, 0xbf]);
+  withBom.set(out, 3);
+  return withBom;
+}
+
+/**
+ * Replaces or appends one top-level `key = value` line without touching any other byte: every other
+ * line keeps its bytes and its own ending, the edited line keeps its indentation, key spelling and
+ * trailing comment, and a key inside a table or a multi-line string is never taken for it.
+ */
+export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string): Uint8Array {
+  const eol = detectEol(bytes);
+  // Each byte becomes one char (latin1), so lines the edit never touches are written back with
+  // exactly their bytes: no BOM stripped, no invalid UTF-8 turned into U+FFFD.
+  const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  const body = hasBom ? bytes.subarray(3) : bytes;
+  const text = bytesToLatin1(body);
+  const lines = splitLines(text);
+  const value = bytesToLatin1(new TextEncoder().encode(tomlValue));
+  const { found, firstTable, keyLine } = scanTopLevelKey(lines, key);
 
   if (found >= 0) {
     const line = lines[found]!.content;
     const head = keyLine.exec(line)![1]!;
     // The old value may be a TOML array spanning several lines; every line it occupies is replaced
     // together, or the array's own lines would be left behind as orphaned, syntactically broken text.
-    let depth = bracketDepthDelta(line, head.length);
-    let last = found;
-    while (depth > 0 && last + 1 < lines.length) {
-      last += 1;
-      depth += bracketDepthDelta(lines[last]!.content, 0);
-    }
+    const last = valueLastLine(lines, found, head.length);
     const lastLine = lines[last]!.content;
     const hash = commentStart(lastLine, last === found ? head.length : 0);
     // Everything after the old value (the spaces or tabs, the comment) is kept byte for byte.

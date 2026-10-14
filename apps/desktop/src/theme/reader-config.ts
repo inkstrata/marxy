@@ -1,7 +1,8 @@
 // The reader's own settings from config.toml: light variant and text size, applied before first
-// text and changed by command (A-14), and the Source line-number choice (L-06.1). Only `variant`, `size`,
-// `chrome_size`, `line_numbers`, `show_whitespace`, `column_guide` (V-08), `theme` (H-05), `contrast` and `reduce_transparency` (W-22) are read or written here.
-import { applyVariant, parseConfig, resolveVariantPreference, setTopLevelKey } from '@marxy/theme';
+// text and changed by command (A-14), and the Source line-number choice (L-06.1). Applied here: `variant`, `size`, `chrome_size`,
+// `line_numbers`, `show_whitespace`, `column_guide` (V-08), `contrast` and `reduce_transparency` (W-22), and `measure` (W-12).
+// Written here: those and `theme` (H-05), and, for the Settings page (W-12, ADR-0075), every key it changes (`READER_KEYS`).
+import { applyVariant, parseConfig, removeTopLevelKey, resolveVariantPreference, setTopLevelKey } from '@marxy/theme';
 import type { Config } from '@marxy/theme';
 import type { AppShell } from '../app.ts';
 import { setLineNumbersChoice } from '../source/line-numbers.ts';
@@ -11,6 +12,9 @@ type ConfigShell = Pick<AppShell, 'readFile' | 'configPaths'>;
 type WriteShell = Pick<AppShell, 'readFile' | 'writeFileAtomic' | 'configPaths'>;
 
 export const DEFAULT_SIZE = 20;
+/** The measure in characters the stylesheet's own `--marxy-measure-chars` stands for (tokens.css), and the property a configured one sets. */
+export const DEFAULT_MEASURE = 66;
+export const MEASURE_PROPERTY = '--marxy-measure-chars';
 export const MIN_SIZE = 15;
 export const MAX_SIZE = 50;
 
@@ -176,7 +180,7 @@ export function currentVariant(root: HTMLElement = document.documentElement): 'l
  * Applies variant and size to `root`. `auto` follows the system until the next call; the returned
  * function stops that following.
  */
-export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, 'variant' | 'size' | 'lineNumbers' | 'chromeSize' | 'showWhitespace' | 'columnGuide' | 'contrast' | 'reduceTransparency'>>): () => void {
+export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, 'variant' | 'size' | 'lineNumbers' | 'chromeSize' | 'showWhitespace' | 'columnGuide' | 'contrast' | 'reduceTransparency' | 'measure' | 'typeset'>>): () => void {
   stopAuto?.();
   stopAuto = null;
   const variant = cfg.variant ?? DEFAULTS.variant;
@@ -188,6 +192,12 @@ export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, '
   if (cfg.columnGuide !== undefined) setColumnGuideChoice(cfg.columnGuide);
   // Contrast and transparency are the config's alone: a call that names neither (the palette's variant and size commands) leaves them as they are.
   if (cfg.contrast !== undefined || cfg.reduceTransparency !== undefined) applyContrast(root, cfg.contrast ?? 'system', cfg.reduceTransparency ?? false);
+  // The measure (W-12): set on the root only when the reader's is not the default, and only while Typeset is on (with it off Marxy sets no
+  // measure, and the Settings page disables the control to say so). A call that names no measure (the palette's variant and size) leaves it.
+  if (cfg.measure !== undefined) {
+    if (cfg.measure === DEFAULT_MEASURE || cfg.typeset === false) root.style.removeProperty(MEASURE_PROPERTY);
+    else root.style.setProperty(MEASURE_PROPERTY, String(cfg.measure));
+  }
   const doc = root.ownerDocument;
   let stop = (): void => {};
   if (variant === 'auto') {
@@ -214,13 +224,50 @@ export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, '
 let writes: Promise<void> = Promise.resolve();
 
 /**
- * Sets one top-level key of config.toml, every other byte kept (`setTopLevelKey`). A missing file is
- * created; a file that exists but cannot be read is left alone. Writes run one after another, so
- * three quick presses are three read-modify-writes in order, not three that overwrite each other.
+ * Every key a command or the Settings page writes through `writeReaderKey` and `resetReaderKey`. The tables (`kind`, `strip`, `linux`) are
+ * not here: they are edited in config.toml, never by a line write.
  */
-export function writeReaderKey(shell: WriteShell, key: 'variant' | 'size' | 'line_numbers' | 'show_whitespace' | 'column_guide' | 'chrome_size' | 'theme' | 'contrast' | 'reduce_transparency', tomlValue: string): Promise<void> {
-  const run = async (): Promise<void> => {
-    if (shell.configPaths === undefined) return;
+export const READER_KEYS = [
+  'variant', 'size', 'line_numbers', 'show_whitespace', 'column_guide', 'chrome_size', 'theme', 'contrast', 'reduce_transparency',
+  'measure', 'typeset', 'external_editor', 'resident', 'copy_format', 'versions',
+] as const;
+export type ReaderKey = (typeof READER_KEYS)[number];
+
+export function isReaderKey(key: string): key is ReaderKey {
+  return (READER_KEYS as readonly string[]).includes(key);
+}
+
+/**
+ * config.toml is not the bytes the caller last saw (a hand edit, another program): the write is refused and nothing is written.
+ * `current` is the file as it is now, for the page to show.
+ */
+export class ConfigChangedError extends Error {
+  readonly code = 'changed-on-disk';
+  readonly current: Uint8Array;
+  constructor(current: Uint8Array) {
+    super('config.toml changed on disk since it was read; nothing was written');
+    this.current = current;
+  }
+}
+
+export interface WriteOptions {
+  /**
+   * The bytes the caller is writing over. When the file holds anything else now, the write is refused with `ConfigChangedError`. A
+   * function is asked when the write runs, not when it was queued, so a change made right behind another is over what the first left.
+   */
+  readonly expected?: Uint8Array | (() => Uint8Array);
+}
+
+const sameBytes = (a: Uint8Array, b: Uint8Array): boolean => a.length === b.length && a.every((v, i) => v === b[i]);
+
+/**
+ * Reads config.toml (a missing file is empty), hands the bytes to `edit`, writes what it returns. A missing file is created; a file that
+ * exists but cannot be read is left alone. Writes run one after another, so three quick presses are three read-modify-writes in order,
+ * not three that overwrite each other. The shell's own stale-write guard covers the instant between the read and the write.
+ */
+function editConfig(shell: WriteShell, edit: (bytes: Uint8Array) => Uint8Array, opts: WriteOptions): Promise<Uint8Array | null> {
+  const run = async (): Promise<Uint8Array | null> => {
+    if (shell.configPaths === undefined) return null;
     const { config } = await shell.configPaths();
     let bytes: Uint8Array;
     try {
@@ -229,9 +276,36 @@ export function writeReaderKey(shell: WriteShell, key: 'variant' | 'size' | 'lin
       if ((e as { code?: string } | null)?.code !== 'not-found') throw e;
       bytes = new Uint8Array();
     }
-    await shell.writeFileAtomic(config, setTopLevelKey(bytes, key, tomlValue));
+    const expected = typeof opts.expected === 'function' ? opts.expected() : opts.expected;
+    if (expected !== undefined && !sameBytes(bytes, expected)) throw new ConfigChangedError(bytes);
+    const next = edit(bytes);
+    // Nothing to change (a reset of a key the file does not have): no write, and the file is not touched.
+    if (next === bytes) return bytes;
+    await shell.writeFileAtomic(config, next);
+    return next;
   };
   const next = writes.then(run, run);
-  writes = next.catch(() => {});
+  writes = next.then(() => {}, () => {});
   return next;
+}
+
+/**
+ * Sets one top-level key of config.toml, every other byte kept (`setTopLevelKey`). A missing file is created; a file that exists but
+ * cannot be read is left alone. Resolves to the bytes now in the file. With `expected`, a file that is not those bytes is refused.
+ */
+export async function writeReaderKey(shell: WriteShell, key: ReaderKey, tomlValue: string, opts: WriteOptions = {}): Promise<Uint8Array | null> {
+  return editConfig(shell, (bytes) => setTopLevelKey(bytes, key, tomlValue), opts);
+}
+
+/** Takes one top-level key's line out of config.toml, every other byte kept (`removeTopLevelKey`): the setting follows its default again. */
+export async function resetReaderKey(shell: WriteShell, key: ReaderKey, opts: WriteOptions = {}): Promise<Uint8Array | null> {
+  return editConfig(shell, (bytes) => removeTopLevelKey(bytes, key), opts);
+}
+
+/**
+ * Puts config.toml back to `bytes`, which were its contents before a reset (the Settings page's Undo). Refused, as any write here, when the
+ * file is not `expected`, the bytes the reset left, so an edit made since is never overwritten.
+ */
+export async function restoreReaderConfig(shell: WriteShell, bytes: Uint8Array, opts: WriteOptions): Promise<Uint8Array | null> {
+  return editConfig(shell, () => bytes.slice(), opts);
 }

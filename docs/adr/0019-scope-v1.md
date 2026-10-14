@@ -1,6 +1,6 @@
 # ADR-0019 — The v1 cut
 
-**Status:** accepted · **Source:** `docs/scope.md`
+**Status:** accepted; amended by [ADR-0075](0075-settings-page.md) (a settings page is in v1, as a view of `config.toml`) · **Source:** `docs/scope.md`
 
 ## Decision
 v1 is the smallest thing that is categorically better than the incumbents at reading, on
@@ -15,7 +15,7 @@ theme loading under the published contract; outline; find; keyboard-complete.
 
 **Not in v1:** content search, the rest of the operations catalogue, encoding utilities,
 Mermaid, export/PDF, plugins, scripting, spines and transclusion, cross-document operations,
-wikilinks, Windows, a settings UI (a config file suffices), the theme linter, a resident mode
+wikilinks, Windows, a settings UI (a config file suffices; ADR-0075 brings a settings page into v1 as a view of that file), the theme linter, a resident mode
 by default.
 
 ## Why

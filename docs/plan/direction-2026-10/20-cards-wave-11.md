@@ -633,6 +633,29 @@ unfolding the window if it is folded, as the library does. It is a view of `conf
 - Write a key the reader did not change, or reorder the file.
 - Build the per-kind typography panel (K-15), the theme editor (K-16) or measures (W-16).
 
+**Amended in the pull request (checked against `main`, 2026-10-14).**
+- *Question 1 is ruled* (the author, 2026-10-13: default accepted): ADR-0075 is accepted, and amends ADR-0019 and `docs/scope.md`.
+  Questions 2 and 3 went ahead on their recommended defaults.
+- *"as the library does"* did not hold: `library.open` is not offered folded (`when` needs an unfolded workspace), so the library
+  never unfolds the window. `view.settings` does: it unfolds, then opens the page, which is placed and covers the panes as the
+  library is. `commands/library.ts` gained one line: a library opened over Settings lets go of the panes first.
+- *`keys-table.test.mjs` (`MENU_OWNERS`)* is not edited: *Settings…* is a registry command (`Cmd("view.settings", …)`), so the key
+  table already names `view.settings` as its owner. The id is added to `MENU_COMMAND_IDS` in `apps/desktop/src/menu/menu-commands.ts`
+  instead, which the same test holds equal to the menu.
+- *`writeReaderKey` takes every key the page writes*: it does, as `READER_KEYS`, with two siblings in the same file:
+  `resetReaderKey` (the dot) and `restoreReaderConfig` (Undo), and an `expected` option that refuses a file that changed.
+- *"An edit made to `config.toml` by hand shows on the page live"*: nothing watched `config.toml` before (design 11 said so, the code
+  did not), so the page watches the config folder while it is open.
+- *`measure`* was parsed and never applied; a page whose Measure did nothing would be a lie, so `applyReaderConfig` now sets
+  `--marxy-measure-chars` on the root (only while `typeset` is on, which is the coupling rule).
+- *`resident`* is parsed and acted on nowhere. It has its row, with a sentence saying so.
+- *Collections* has no key in `config.toml` (`collection.toml` is a file of its own), so it is not drawn.
+- *`fetchRemoteImage`* is in `shell-api` and the memory shell and nowhere in the desktop shell (remote images stay blocked until B-20).
+  The privacy table lists it with "Not built yet" and what it will send, and `privacy.test.ts` fails when that stops being true.
+- *"*Clear versions*, where V-06 gave it a command"*: the command is *Clear all versions* (`versions.clear-all`); the page calls the
+  recorder's `clearAll` behind a confirmation that says it is permanent.
+- *Pair `08-settings`* shows Reading with two values changed; the mock is a window of its own, the app a page in the workspace.
+
 **Questions for the author.**
 1. **(Blocking: changes ADR-0019.)** ADR-0019 lists "a settings UI (a config file suffices)" as not in v1, `docs/scope.md`
    puts it at v1.1, and `docs/design/11-config-and-storage.md` says "There is no settings UI in v1". The direction (05,

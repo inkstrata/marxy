@@ -19,7 +19,7 @@ size = 20                       # body px, 15–50 (75–250 % of the default, A
 chrome_size = 13                # control text px, 11–26; unset, the theme's value stands (ADR-0059 item 6)
 contrast = "system"             # system (follow the system's Increase contrast, live) | more | normal; invalid → system (W-22)
 reduce_transparency = false     # true draws the find fills and the toolbar and tab fades solid; Marxy does not read the system's setting (W-22)
-measure = 66                    # average characters per line, 45–80 (never ch, ADR-0033)
+measure = 66                    # average characters per line, 45–80 (never ch, ADR-0033); applied while typeset is on (W-12)
 typeset = true                  # the Knuth–Plass path; false = engine wrapping, grid pass only
 line_numbers = false            # Source mode; absent: on for code files, off for prose
 show_whitespace = false         # Source mode: tabs and trailing spaces drawn faintly (a view only); absent: off (V-08)
@@ -44,14 +44,52 @@ read = true                     # optional: open in Read (true) or Source (false
 Parsed with `smol-toml` (MIT) by `packages/theme/src/config.ts` (it is theme-adjacent and
 shell-free: the shell hands it the bytes). Unknown keys are ignored with a notice listing them
 once. Invalid values fall back to the default for that key, with a notice. The file is read at
-startup and watched (§08 mechanism); changes apply live except `resident`.
+startup, and watched by the Settings page while it is open (below); a change made there or by hand applies live (`resident` is not acted on yet).
 
-There is no settings UI in v1. Marxy writes to the config file in exactly four cases:
-`Mod+=`/`Mod+-`/`Mod+0` write `size`, "Use light variant" and "Use dark variant" write `variant`,
-and "Use this theme" (§05) writes `theme`. All three preserve the rest of the file byte-for-byte by editing the one top-level line for that key (or appending
-it before the first `[table]` header, with the file's own line ending), through one function,
-`setTopLevelKey(bytes, key, tomlValue): Uint8Array` in `packages/theme/src/config.ts`. The fourth is
-"Always open this folder as" (below), which appends one `[[kind]]` table.
+### The Settings page (W-12, ADR-0075)
+
+`Mod+,`, *Settings…* in the Marxy menu and the palette open **Settings**, a page in the workspace as the library is (the
+panes are hidden and come back as they were; a folded window is unfolded for it; folding closes it). It is a view of
+`config.toml` and nothing more: the file stays the only store, there is no `settings.json`, no setting without a key, and
+no telemetry switch. A config file still suffices for anyone who prefers it.
+
+- **Rows.** `packages/theme/src/settings-schema.ts` holds one row per key `parseConfig` understands (`KNOWN_KEYS`), with the
+  category it is drawn under (General, Appearance, Reading, Source, Content types, Accessibility, Privacy, Advanced; a
+  category with no key, Collections today, is not drawn), the words it is searched by, its control, default, range and
+  coupling rule. `settings-schema.test.ts` fails for a key without a row and for a row without a key. The tables (`[[kind]]`,
+  `[strip]`, `[linux]`) are shown with what they hold and edited in the file (*Edit in config.toml*).
+- **Writes.** Each change is written at once, one top-level line, by `setTopLevelKey` through `writeReaderKey`
+  (`apps/desktop/src/theme/reader-config.ts`; `READER_KEYS` is every key a command or the page writes). A choice that is the
+  default (*Dark*, *System*, *Per file*) takes the key's line out instead of writing the default. The page writes only the
+  key the reader changed; it never reorders the file.
+- **The dot.** A key whose line is in the file and says something other than the default is *changed*: its row carries a dot,
+  which is a button. Clicking it removes the key's line (`removeTopLevelKey`: one line, a multi-line array value included,
+  its trailing comment with it, every other byte kept) and offers *Undo*, which writes the file back as it was. A file whose
+  last line had no line ending gains one when a key is appended, and does not lose it again on reset; every other file
+  round-trips byte for byte (`config.test.ts`).
+- **A file changed on disk is never overwritten silently.** A write is made over the bytes the page last showed
+  (`WriteOptions.expected`); if config.toml holds anything else now, the write is refused with `ConfigChangedError`, the page
+  takes the file as it is, applies it, and says so in a notice. The shell's own stale-write guard covers the instant
+  between the read and the write.
+- **Live.** The page watches the config folder: a hand edit, or a command such as `Mod+=`, shows on the page at once and is
+  applied as the launch would apply it (`applyAppConfig`, the Source aids, a bundled theme). An unknown key is kept, and
+  listed under Advanced. `measure` is applied to the page (`--marxy-measure-chars` on the root) at launch and by the page, while
+  `typeset` is on; with `typeset = false` the page disables *Measure* and says why. `resident` is parsed and shown, with a
+  note that Marxy does not act on it yet.
+- **Privacy** is computed: *Stored on this Mac* lists each of Marxy's files from the folders themselves (`readDir`: names and
+  sizes, no file opened) with its path and what it holds, read-only, and *Clear all versions*, which asks first and says it
+  is permanent; *What can leave this Mac* lists each reader action that sends something, from
+  `apps/desktop/src/settings/privacy.ts`, which `privacy.test.ts` holds equal to the shell's network-capable calls
+  (`openExternal`, `fetchRemoteImage`, the clipboard writes) and places every other call of `shell-api` as local. A row says
+  plainly when the action is not built (remote images). "Nothing else leaves this Mac" is drawn only beside that table.
+- **Advanced** opens `config.toml` itself in Source.
+
+Marxy writes to the config file in these cases: a key the Settings page changes or resets; `Mod+=`/`Mod+-`/`Mod+0` write `size`;
+"Use light variant" and "Use dark variant" write `variant`; the theme commands write `theme`; the Source toggles write
+`line_numbers`, `show_whitespace` and `column_guide`; and "Always open this folder as" (below) appends one `[[kind]]` table.
+Every key is written by editing the one top-level line for it (or appending it before the first `[table]` header, with the
+file's own line ending), preserving the rest of the file byte-for-byte, through one function,
+`setTopLevelKey(bytes, key, tomlValue): Uint8Array` in `packages/theme/src/config.ts`; a reset is `removeTopLevelKey(bytes, key)`.
 
 ### `[strip]` (K-07)
 
@@ -251,6 +289,8 @@ reader's disk in the documents themselves.
 ## Tests
 
 - `config.test.ts`: the defaults; every clamp; unknown keys reported once; a `size` write
-  preserves every other byte of a fixture config file.
+  preserves every other byte of a fixture config file; `removeTopLevelKey` removes one line and leaves every other byte.
+- `settings-schema.test.ts`: every key `parseConfig` understands has exactly one row; `settings.test.mjs` (WebKit): the page
+  writes one line, resets it, refuses a file changed on disk; `privacy.test.ts`: what can leave this Mac equals the shell's calls.
 - `storage.test.ts`: version-newer is left untouched; corrupt file is renamed and a fresh one
   written; LRU caps hold.

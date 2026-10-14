@@ -2,7 +2,7 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { COPY_FORMATS, parseConfig, setTopLevelKey } from './config.ts';
+import { COPY_FORMATS, parseConfig, removeTopLevelKey, setTopLevelKey } from './config.ts';
 
 function outsideBytes(before: Uint8Array, after: Uint8Array, editedLineStart: number, editedLineEnd: number): boolean {
   const dec = new TextDecoder();
@@ -535,4 +535,49 @@ test('[strip] more than four tools warns and truncates; a strip that is not a ta
   const odd = parseText('strip = 3\n');
   assert.deepEqual(odd.config.strip, {});
   assert.equal(odd.warnings.length, 1);
+});
+
+// removeTopLevelKey (W-12, ADR-0075): the Settings page's reset takes one line out and leaves every other byte.
+
+test('removeTopLevelKey on a commented file removes one line and leaves every other byte', () => {
+  const text = '# Marxy configuration.\n\n# the size\nsize = 22   # a comment\n\ntheme = "ink"\r\nshow_whitespace = true\n# trailing note\n\n[linux]\nweight_offset = 75\n';
+  const after = removeTopLevelKey(enc(text), 'show_whitespace');
+  assert.equal(dec(after), text.replace('show_whitespace = true\n', ''));
+  // The mixed line ending of the line before survives.
+  assert.ok(dec(after).includes('theme = "ink"\r\n# trailing note'));
+});
+
+test('removeTopLevelKey leaves a key inside a [table] alone, and returns the same bytes', () => {
+  const bytes = enc('size = 22\n\n[strip]\nsize = ["paths"]\n[linux]\nweight_offset = 75\n');
+  assert.equal(removeTopLevelKey(bytes, 'weight_offset'), bytes);
+  assert.equal(dec(removeTopLevelKey(bytes, 'size')), '\n[strip]\nsize = ["paths"]\n[linux]\nweight_offset = 75\n');
+});
+
+test('removeTopLevelKey on an absent key returns the very bytes it was given', () => {
+  const bytes = enc('size = 22\n');
+  assert.equal(removeTopLevelKey(bytes, 'measure'), bytes);
+  const empty = new Uint8Array();
+  assert.equal(removeTopLevelKey(empty, 'measure'), empty);
+});
+
+test('removeTopLevelKey takes every line of a multi-line array, and keeps a BOM', () => {
+  const text = '\ufeff# top\nlist = [\n  1,\n  2,\n] # c\nsize = 22\n';
+  const after = removeTopLevelKey(new TextEncoder().encode(text), 'list');
+  assert.equal(dec(after), '\ufeff# top\nsize = 22\n');
+  // A key that only looks like it, inside a multi-line string, is not the key.
+  const inString = enc('note = """\nsize = 3\n"""\nsize = 22\n');
+  assert.equal(dec(removeTopLevelKey(inString, 'size')), 'note = """\nsize = 3\n"""\n');
+});
+
+test('removeTopLevelKey refuses a dotted key under the name, as setTopLevelKey does', () => {
+  assert.throws(() => removeTopLevelKey(enc('size.px = 3\n'), 'size'), /dotted key/);
+});
+
+test('set then remove returns the file byte for byte when the key was not there (the page\'s round trip)', () => {
+  for (const text of ['', '# only a comment\n', 'size = 22\n\n[linux]\nweight_offset = 75\n', 'a = 1\r\nb = 2\r\n', '\ufeffsize = 22\n']) {
+    const before = enc(text);
+    const there = setTopLevelKey(before, 'show_whitespace', 'true');
+    assert.notEqual(dec(there), text);
+    assert.equal(dec(removeTopLevelKey(there, 'show_whitespace')), text);
+  }
 });
