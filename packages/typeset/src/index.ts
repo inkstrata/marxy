@@ -47,6 +47,13 @@ export interface TypesetOptions {
    * Default: the document's scrolling element.
    */
   readonly scroller?: () => HTMLElement | null;
+  /**
+   * True while the article is not on screen (the page is hidden behind another view of the file). The background
+   * batches wait while it is, and go on when it is not: a hidden element has no style kept for it, so every
+   * paragraph a batch reads is resolved from nothing, and on a long page that is most of a minute of the main thread.
+   * Polled; a scheduler without `after` ignores it.
+   */
+  readonly hold?: () => boolean;
 }
 
 export interface TypesetStats {
@@ -84,6 +91,8 @@ export interface TypesetController {
 const HEIGHT_MOVED = 0.5;
 /** How long adoption must be quiet before the background batches resume; see `lastAdopt`. */
 const ADOPT_QUIET_MS = 50;
+/** How often a held background (`TypesetOptions.hold`) looks again. */
+const HOLD_POLL_MS = 250;
 /** §04 "Which elements". A list item is its own paragraph only when it is tight (no block inside). */
 const CANDIDATES = 'p[data-marxy-s], li[data-marxy-s], dd, figcaption';
 const BLOCK_CHILD = ':scope > :is(p, ul, ol, pre, blockquote, table, div, h1, h2, h3, h4, h5, h6, hr, dl)';
@@ -709,6 +718,10 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     }
     const step = (deadline: () => number): void => {
       if (mine !== generation || abortIfKilled()) return;
+      if (opts.hold?.() === true && scheduler.after !== undefined) {
+        scheduler.after(HOLD_POLL_MS, step);
+        return;
+      }
       // While a large document is still arriving in chunks, the mount has the idle time (B-25).
       const sinceAdopt = performance.now() - lastAdopt;
       if (scheduler.after !== undefined && sinceAdopt < ADOPT_QUIET_MS) {
