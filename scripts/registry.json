@@ -178,7 +178,8 @@
     "--marxy-ws-status-h",
     "--marxy-ws-strip-h",
     "--marxy-ws-tabs-h",
-    "--marxy-ws-toolbar-h"
+    "--marxy-ws-toolbar-h",
+    "--marxy-measure-user"
   ],
   "classes": [
     "marxy-run",

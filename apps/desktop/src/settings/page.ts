@@ -9,7 +9,7 @@
 // edit shows at once, through a watch on the config folder, and is applied to the page as the same edit through the command would be.
 //
 // Keys, inside the page only: `Mod+F` focuses the search; `Esc` clears the search and then closes the page, with focus back where it was.
-import { CATEGORIES, drawnCategories, readSettings, rowsOf, searchSettings, writeFor, type CategoryId, type ChoiceOption, type SettingRow, type SettingState } from '@marxy/theme';
+import { CATEGORIES, ConfigNotReadableError, drawnCategories, readSettings, rowsOf, searchSettings, writeFor, type CategoryId, type ChoiceOption, type SettingRow, type SettingState } from '@marxy/theme';
 import type { AppHandle } from '../app.ts';
 import { notify as showNotice, noticeLine, placeNotice, removeNotice, type NoticeInput } from '../notices/index.ts';
 import { focusOrigin } from '../pane/focus.ts';
@@ -155,6 +155,12 @@ export function mountSettings(handle: AppHandle): SettingsController {
    */
   async function commit(row: SettingRow, change: { readonly toml: string } | { readonly remove: true }, undoable = false): Promise<boolean> {
     if (!isReaderKey(row.key) || shell.configPaths === undefined) return false;
+    // A file that is not TOML is never written to, from any category: the page says so once, and the control stays where the file says.
+    if (read.unparseable) {
+      sayUnreadable();
+      render();
+      return false;
+    }
     const key: ReaderKey = row.key;
     // What the write is over is read when it runs (the writes queue): a change right behind another is over what the first left.
     let prior: Uint8Array = bytes;
@@ -179,11 +185,23 @@ export function mountSettings(handle: AppHandle): SettingsController {
           kind: 'refused',
           text: `config.toml changed on disk since this page showed it, so ${row.label} was not changed. The page now shows the file as it is; change it again if you still want to.`,
         });
+      } else if (e instanceof ConfigNotReadableError) {
+        // The file as it is now does not read (or this edit would not leave it so): shown as it is, never repaired.
+        adopt(bytes, { apply: false });
+        say({ kind: 'refused', text: `${e.message}. Nothing was changed, and the file was not repaired.` });
       } else {
         say({ kind: 'error', text: `config.toml could not be updated · ${e instanceof Error ? e.message : String(e)} · Nothing was changed.` });
       }
       return false;
     }
+  }
+
+  /** One notice, for every attempt: the file does not read, so nothing will be written until it is fixed. */
+  function sayUnreadable(): void {
+    say({
+      kind: 'refused',
+      text: 'config.toml cannot be read (it is not valid TOML), so no setting can be changed here until it is fixed. Nothing will be written, and Marxy will not repair it; Advanced opens it in Source.',
+    });
   }
 
   async function undo(prior: Uint8Array, after: Uint8Array, row: SettingRow): Promise<void> {
@@ -295,11 +313,16 @@ export function mountSettings(handle: AppHandle): SettingsController {
     }
   }
 
+  function unreadableWarning(): HTMLElement {
+    return el('p', 'marxy-settings-warning', 'config.toml is not valid TOML, so the page shows the defaults and no change can be made here until the file is fixed. Marxy never repairs it; Advanced opens it in Source.');
+  }
+
   function drawPane(): void {
     paneEl.replaceChildren();
     paneEl.setAttribute('aria-label', query.trim() === '' ? CATEGORIES.find((c) => c.id === category)!.title : 'Search results');
     if (query.trim() !== '') {
       const hits = searchSettings(query);
+      if (read.unparseable) paneEl.append(unreadableWarning());
       if (hits.length === 0) {
         paneEl.append(el('p', 'marxy-settings-empty', `No setting matches “${query.trim()}”. Try one word, or the name of a key of config.toml.`));
         return;
@@ -315,9 +338,7 @@ export function mountSettings(handle: AppHandle): SettingsController {
     const head = el('div', 'marxy-settings-pane-head');
     head.append(el('h3', 'marxy-settings-pane-title', c.title), el('p', 'marxy-settings-pane-blurb', c.blurb));
     paneEl.append(head);
-    if (read.unparseable && category === 'general') {
-      paneEl.append(el('p', 'marxy-settings-warning', 'config.toml is not valid TOML, so the page shows the defaults. A change here still edits one line of the file; fix the file by hand in Advanced.'));
-    }
+    if (read.unparseable) paneEl.append(unreadableWarning());
     const rows = rowsOf(c.id);
     if (rows.length > 0) paneEl.append(group(null, rows.map((r) => buildRow(stateOf(r)))));
     if (c.id === 'privacy') paneEl.append(privacyPanel());
@@ -817,6 +838,7 @@ export function mountSettings(handle: AppHandle): SettingsController {
     stored = null;
     render();
     if (category === 'privacy' && query === '') void refreshStored();
+    if (read.unparseable) sayUnreadable();
     window.addEventListener('keydown', onWindowKey, true);
     teardown.push(() => window.removeEventListener('keydown', onWindowKey, true));
     // Folding the window closes the page; any document opening anywhere does too.

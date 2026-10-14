@@ -61,7 +61,10 @@ no telemetry switch. A config file still suffices for anyone who prefers it.
 - **Writes.** Each change is written at once, one top-level line, by `setTopLevelKey` through `writeReaderKey`
   (`apps/desktop/src/theme/reader-config.ts`; `READER_KEYS` is every key a command or the page writes). A choice that is the
   default (*Dark*, *System*, *Per file*) takes the key's line out instead of writing the default. The page writes only the
-  key the reader changed; it never reorders the file.
+  key the reader changed; it never reorders the file. The editor reads TOML, not lines: `scanTop` in `config.ts` scans the top
+  level statement by statement (multi-line strings, arrays across lines, inline tables, comments), and every edit is proved against
+  the real parser (the result is valid TOML, every other key reads as it did) or refused with `ConfigNotReadableError`. A file that
+  is not valid TOML is never written to from the page, in any category, and never repaired.
 - **The dot.** A key whose line is in the file and says something other than the default is *changed*: its row carries a dot,
   which is a button. Clicking it removes the key's line (`removeTopLevelKey`: one line, a multi-line array value included,
   its trailing comment with it, every other byte kept) and offers *Undo*, which writes the file back as it was. A file whose
@@ -73,8 +76,9 @@ no telemetry switch. A config file still suffices for anyone who prefers it.
   between the read and the write.
 - **Live.** The page watches the config folder: a hand edit, or a command such as `Mod+=`, shows on the page at once and is
   applied as the launch would apply it (`applyAppConfig`, the Source aids, a bundled theme). An unknown key is kept, and
-  listed under Advanced. `measure` is applied to the page (`--marxy-measure-chars` on the root) at launch and by the page, while
-  `typeset` is on; with `typeset = false` the page disables *Measure* and says why. `resident` is parsed and shown, with a
+  listed under Advanced. a `measure` the reader wrote applies to every kind, over the kind's own: the app sets `--marxy-measure-user` (and
+  `--marxy-measure-chars`) on the root, and the kind scope of `base.css` prefers the first; unset, each kind keeps its own
+  (theme.css), and while `typeset` is off Marxy sets no measure, so the page disables *Measure* and says why. `resident` is parsed and shown, with a
   note that Marxy does not act on it yet.
 - **Privacy** is computed: *Stored on this Mac* lists each of Marxy's files from the folders themselves (`readDir`: names and
   sizes, no file opened) with its path and what it holds, read-only, and *Clear all versions*, which asks first and says it

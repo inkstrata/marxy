@@ -646,8 +646,9 @@ unfolding the window if it is folded, as the library does. It is a view of `conf
   `resetReaderKey` (the dot) and `restoreReaderConfig` (Undo), and an `expected` option that refuses a file that changed.
 - *"An edit made to `config.toml` by hand shows on the page live"*: nothing watched `config.toml` before (design 11 said so, the code
   did not), so the page watches the config folder while it is open.
-- *`measure`* was parsed and never applied; a page whose Measure did nothing would be a lie, so `applyReaderConfig` now sets
-  `--marxy-measure-chars` on the root (only while `typeset` is on, which is the coupling rule).
+- *`measure`* was parsed and never applied; a page whose Measure did nothing would be a lie, so a `measure` the reader wrote now applies
+  to every kind, over the kind's own (`--marxy-measure-user`, preferred by `base.css`'s kind scope); unset, each kind keeps its own. It
+  applies only while `typeset` is on, which is the coupling rule.
 - *`resident`* is parsed and acted on nowhere. It has its row, with a sentence saying so.
 - *Collections* has no key in `config.toml` (`collection.toml` is a file of its own), so it is not drawn.
 - *`fetchRemoteImage`* is in `shell-api` and the memory shell and nowhere in the desktop shell (remote images stay blocked until B-20).

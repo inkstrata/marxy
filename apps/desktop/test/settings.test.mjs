@@ -387,3 +387,64 @@ test('with no config.toml the page shows the defaults and the first change creat
     assert.equal(await page.locator('[data-marxy-advanced="open-source"]').isDisabled(), false);
   }, { config: null });
 });
+
+test('a hand-written multi-line value survives: resetting External editor takes the whole string out, and a toggle never lands inside an array', async () => {
+  const text = 'external_editor = """\ncode --goto {file}\n[not_a_table]\n"""\nmatrix = [\n  [1, 2],\n  [3, 4]\n]\nsize = 22\n';
+  await withPage(async (page) => {
+    await openByKey(page);
+    await search(page, 'external editor');
+    await page.click(`${row('external_editor')} [data-marxy-dot]`);
+    await settle(page, 250);
+    assert.equal(await config(page), 'matrix = [\n  [1, 2],\n  [3, 4]\n]\nsize = 22\n', 'the whole string went, nothing else');
+    await search(page, 'whitespace');
+    await page.locator(`${row('show_whitespace')} input[role="switch"]`).click();
+    await settle(page, 250);
+    assert.equal(await config(page), 'matrix = [\n  [1, 2],\n  [3, 4]\n]\nsize = 22\nshow_whitespace = true\n', 'appended after the array, not inside it');
+  }, { config: text });
+});
+
+test('a config.toml that is not valid TOML is never written to, from any category, and the page says so once', async () => {
+  const bad = 'size = 22\nname = "unterminated\n# c\n';
+  await withPage(async (page) => {
+    await openByKey(page);
+    assert.ok((await pillTexts(page)).some((t) => /cannot be read/.test(t) && /nothing will be written|Nothing will be written/.test(t)), (await pillTexts(page)).join(' | '));
+    for (const [cat, key, selector] of [['source', 'show_whitespace', 'input[role="switch"]'], ['reading', 'typeset', 'input[role="switch"]']]) {
+      await category(page, cat);
+      assert.match(await page.locator('.marxy-settings-warning').textContent(), /not valid TOML/, `the warning is under ${cat} too`);
+      await page.locator(`${row(key)} ${selector}`).click();
+      await settle(page, 200);
+      assert.equal(await config(page), bad, `${key}: not a byte written`);
+    }
+    await search(page, 'whitespace');
+    assert.match(await page.locator('.marxy-settings-warning').textContent(), /not valid TOML/, 'and in search results');
+    assert.equal((await pillTexts(page)).filter((t) => /cannot be read/.test(t)).length, 1, 'one notice, however many attempts');
+  }, { config: bad });
+});
+
+test('a measure the reader wrote applies to every kind, over the kind\'s own; unset, each kind keeps its own', async () => {
+  const widths = {};
+  for (const [name, config] of [['unset', null], ['50', 'measure = 50\n'], ['80', 'measure = 80\n']]) {
+    await withPage(async (page) => {
+      widths[name] = await page.evaluate(async () => {
+        const out = {};
+        for (const kind of ['article', 'readme', 'report', 'transcript']) {
+          for (const el of document.querySelectorAll('[data-marxy-kind]')) el.setAttribute('data-marxy-kind', kind);
+          await new Promise((r) => setTimeout(r, 60));
+          out[kind] = document.querySelector('#doc > p').getBoundingClientRect().width;
+        }
+        return out;
+      });
+    }, { config });
+  }
+  for (const kind of ['article', 'readme', 'report', 'transcript']) {
+    const ratio = widths['80'][kind] / widths['50'][kind];
+    assert.ok(ratio > 1.5 && ratio < 1.7, `${kind}: 80 characters is about 1.6 times 50 (${widths['50'][kind]} px to ${widths['80'][kind]} px)`);
+    assert.notEqual(Math.round(widths.unset[kind]), Math.round(widths['50'][kind]), `${kind}: unset is not 50`);
+  }
+  // Unset, the kinds keep their own measures (theme.css: article 66, readme 80, report 74, transcript 66), read against the 50 in the same kind.
+  const own = { article: 66, readme: 80, report: 74, transcript: 66 };
+  for (const [kind, chars] of Object.entries(own)) {
+    const effective = (50 * widths.unset[kind]) / widths['50'][kind];
+    assert.ok(Math.abs(effective - chars) < 3, `${kind} keeps its own measure unset: about ${chars} characters, measured ${effective.toFixed(1)}`);
+  }
+});

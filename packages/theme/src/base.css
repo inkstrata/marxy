@@ -23,7 +23,8 @@
    tokens.css, so a per-kind --marxy-measure-chars would change nothing below it: the same computation is
    repeated where the kind's values apply. :root keeps its declaration, so a v1 theme renders as before. */
 [data-marxy-kind] {
-  --marxy-measure: calc(var(--marxy-measure-chars) * var(--marxy-avg-char) * 1em);
+  /* A measure the reader wrote (`--marxy-measure-user`, set on the root by the app, W-12) beats the kind's own; unset, the kind's stands. */
+  --marxy-measure: calc(var(--marxy-measure-user, var(--marxy-measure-chars)) * var(--marxy-avg-char) * 1em);
   /* The heading sizes are derived from the body size and the ratio, which a kind may set: derived again here, as
      the measure is, or a README's headings would be sized from the reader's 20 px body (K-05b). */
   --marxy-size-h1: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 3)), 1px);

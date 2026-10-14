@@ -12,9 +12,10 @@ type ConfigShell = Pick<AppShell, 'readFile' | 'configPaths'>;
 type WriteShell = Pick<AppShell, 'readFile' | 'writeFileAtomic' | 'configPaths'>;
 
 export const DEFAULT_SIZE = 20;
-/** The measure in characters the stylesheet's own `--marxy-measure-chars` stands for (tokens.css), and the property a configured one sets. */
-export const DEFAULT_MEASURE = 66;
+/** The property a configured measure sets on the root (tokens.css's own `--marxy-measure-chars`). */
 export const MEASURE_PROPERTY = '--marxy-measure-chars';
+/** What a configured measure also sets: a kind's own `--marxy-measure-chars` (theme.css) cannot override it, because the kind scope prefers this one (base.css). */
+export const MEASURE_USER_PROPERTY = '--marxy-measure-user';
 export const MIN_SIZE = 15;
 export const MAX_SIZE = 50;
 
@@ -180,7 +181,7 @@ export function currentVariant(root: HTMLElement = document.documentElement): 'l
  * Applies variant and size to `root`. `auto` follows the system until the next call; the returned
  * function stops that following.
  */
-export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, 'variant' | 'size' | 'lineNumbers' | 'chromeSize' | 'showWhitespace' | 'columnGuide' | 'contrast' | 'reduceTransparency' | 'measure' | 'typeset'>>): () => void {
+export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, 'variant' | 'size' | 'lineNumbers' | 'chromeSize' | 'showWhitespace' | 'columnGuide' | 'contrast' | 'reduceTransparency' | 'measure' | 'measureSet' | 'typeset'>>): () => void {
   stopAuto?.();
   stopAuto = null;
   const variant = cfg.variant ?? DEFAULTS.variant;
@@ -192,11 +193,17 @@ export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, '
   if (cfg.columnGuide !== undefined) setColumnGuideChoice(cfg.columnGuide);
   // Contrast and transparency are the config's alone: a call that names neither (the palette's variant and size commands) leaves them as they are.
   if (cfg.contrast !== undefined || cfg.reduceTransparency !== undefined) applyContrast(root, cfg.contrast ?? 'system', cfg.reduceTransparency ?? false);
-  // The measure (W-12): set on the root only when the reader's is not the default, and only while Typeset is on (with it off Marxy sets no
-  // measure, and the Settings page disables the control to say so). A call that names no measure (the palette's variant and size) leaves it.
+  // The measure (W-12): a `measure` the reader wrote applies to every kind, over the kind's own, while Typeset is on (with it off Marxy sets no
+  // measure, and the Settings page disables the control to say so). Unset, each kind keeps its own. A call that names no measure (the palette's
+  // variant and size) leaves it.
   if (cfg.measure !== undefined) {
-    if (cfg.measure === DEFAULT_MEASURE || cfg.typeset === false) root.style.removeProperty(MEASURE_PROPERTY);
-    else root.style.setProperty(MEASURE_PROPERTY, String(cfg.measure));
+    if (cfg.measureSet === true && cfg.typeset !== false) {
+      root.style.setProperty(MEASURE_PROPERTY, String(cfg.measure));
+      root.style.setProperty(MEASURE_USER_PROPERTY, String(cfg.measure));
+    } else {
+      root.style.removeProperty(MEASURE_PROPERTY);
+      root.style.removeProperty(MEASURE_USER_PROPERTY);
+    }
   }
   const doc = root.ownerDocument;
   let stop = (): void => {};
