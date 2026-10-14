@@ -35,6 +35,15 @@ impl ShellError {
         }
     }
 
+    /// A create-only write found something at the name (F-85, ADR-0074).
+    pub fn exists(path: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            code: "exists".into(),
+            message: message.into(),
+            path: Some(path.into()),
+        }
+    }
+
     pub fn permission(path: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             code: "permission".into(),

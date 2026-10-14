@@ -16,6 +16,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -36,6 +37,28 @@ const CORPUS_ASSETS = new Set(['image.png']);
 
 /** The signature the gate compiles against; also the anchor the deliberately broken copies patch. */
 const SAVE_SIGNATURE = 'pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), WriteError> {';
+
+/** The create-only write's signature (F-85, ADR-0074); the anchor the deliberately broken copy patches. */
+const WRITE_NEW_SIGNATURE = 'pub fn write_new(path: &Path, bytes: &[u8]) -> Result<(), WriteError> {';
+
+/** Rust tests F-85 shipped for `write_new`: the refusals, the race and the fallbacks. The live list must stay equal or grow. */
+const WRITE_NEW_RUST_CASES = [
+  'write_new_onto_a_free_name_writes_the_bytes',
+  'write_new_onto_an_existing_file_fails_exists_and_the_file_is_unchanged',
+  'write_new_onto_a_folder_fails_exists_and_the_folder_is_unchanged',
+  'write_new_onto_a_symlink_fails_exists_and_neither_the_link_nor_its_file_changes',
+  'write_new_onto_a_dangling_symlink_fails_exists_and_creates_nothing_at_its_destination',
+  'write_new_onto_a_case_variant_of_an_existing_name_fails_on_a_case_insensitive_volume',
+  'a_creator_that_appears_before_the_commit_is_not_replaced',
+  'a_creator_that_appears_before_the_link_fallback_is_not_replaced',
+  'when_the_exclusive_rename_is_unsupported_link_and_unlink_create_the_file',
+  'when_neither_exclusive_way_is_available_it_fails_saying_so_and_writes_nothing',
+  'a_failed_write_new_leaves_no_staging_file',
+  'concurrent_creators_at_one_name_have_exactly_one_winner',
+  'the_exclusive_rename_refuses_a_file_a_folder_a_link_and_a_dangling_link',
+  'the_real_not_supported_errnos_take_the_fallback_and_the_volume_refusal',
+  'an_exfat_volume_refuses_with_the_volume_message_and_writes_nothing',
+];
 
 /** Rust tests MARXY-14 shipped. The live list must stay equal or grow (criterion 2). */
 const MARXY_14_RUST_CASES = [
@@ -199,12 +222,17 @@ function buildSavePath(label, patch) {
   return binary;
 }
 
+// `--new` as the third argument drives the create-only write (F-85) instead of the save: exit 3 when it refused because something
+// is at the name (`exists`), 2 for any other failure.
 const DRIVER_MAIN = `fn main() {
     let args: Vec<String> = std::env::args().collect();
     let bytes = std::fs::read(&args[1]).expect("the document to open");
-    if let Err(err) = atomic_write::write_atomic(std::path::Path::new(&args[2]), &bytes) {
+    let create_only = args.get(3).map(|a| a == "--new").unwrap_or(false);
+    let path = std::path::Path::new(&args[2]);
+    let result = if create_only { atomic_write::write_new(path, &bytes) } else { atomic_write::write_atomic(path, &bytes) };
+    if let Err(err) = result {
         eprintln!("{err}");
-        std::process::exit(2);
+        std::process::exit(if err.kind == atomic_write::WriteErrorKind::Exists { 3 } else { 2 });
     }
 }
 `;
@@ -214,6 +242,64 @@ function save(binary, source, destination) {
   const run = spawnSync(binary, [source, destination], { encoding: 'utf8' });
   if (run.error) return run.error.message;
   return run.status === 0 ? null : run.stderr.trim() || `exit ${run.status}`;
+}
+
+/**
+ * Runs the create-only write: the exit status is 0 (created), 3 (something is at the name: `exists`) or 2 (another failure).
+ * Returns `{ status, stderr }`.
+ */
+function createOnly(binary, source, destination) {
+  const run = spawnSync(binary, [source, destination, '--new'], { encoding: 'utf8' });
+  return { status: run.error ? -1 : run.status, stderr: (run.stderr ?? '').trim() || (run.error?.message ?? '') };
+}
+
+/**
+ * Every corpus file created at a free name through the real create-only write comes out byte-for-byte; the same write onto the name
+ * now taken refuses `exists` and leaves those bytes; a symlink at a name is refused and its target is unchanged; no staging file
+ * remains in any case. Returns the problems, empty when it held.
+ */
+function createOnlyRoundTrip(binary, names, label) {
+  const problems = [];
+  const dir = join(work, `create-only-${label}`);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  for (const name of names) {
+    if (CORPUS_ASSETS.has(name)) continue;
+    const original = bytesOf(name);
+    const destination = join(dir, name);
+    const made = createOnly(binary, join(corpusDir, name), destination);
+    if (made.status !== 0) {
+      problems.push(`${name} (refused at a free name: ${made.stderr})`);
+      continue;
+    }
+    if (sha256(readFileSync(destination)) !== sha256(original)) problems.push(`${name} (created with other bytes)`);
+    // The name is taken now. A second create-only write of other bytes must refuse and change nothing.
+    const other = join(dir, `${name}.other`);
+    writeFileSync(other, Buffer.concat([original, Buffer.from('\nREPLACED')]));
+    const again = createOnly(binary, other, destination);
+    if (again.status === 0) problems.push(`${name} (a second create-only write replaced the file)`);
+    else if (again.status !== 3) problems.push(`${name} (the second write failed, but not as "exists": ${again.stderr})`);
+    if (sha256(readFileSync(destination)) !== sha256(original)) problems.push(`${name} (the file changed under a refused create-only write)`);
+  }
+  const first = names.find((name) => !CORPUS_ASSETS.has(name));
+  if (first) {
+    // A symlink (one that leads to a file, and one that leads nowhere) is a name that is taken, and is never written through.
+    const real = join(dir, 'link-target.md');
+    writeFileSync(real, 'THE FILE THE LINK POINTS AT');
+    const link = join(dir, 'a-link.md');
+    const dangling = join(dir, 'a-dangling-link.md');
+    symlinkSync(real, link);
+    symlinkSync(join(dir, 'nowhere.md'), dangling);
+    for (const target of [link, dangling]) {
+      const refused = createOnly(binary, join(corpusDir, first), target);
+      if (refused.status !== 3) problems.push(`a symlink at the name was not refused as "exists" (${refused.status}: ${refused.stderr})`);
+    }
+    if (readFileSync(real, 'utf8') !== 'THE FILE THE LINK POINTS AT') problems.push('a create-only write went through a symlink');
+    if (existsSync(join(dir, 'nowhere.md'))) problems.push('a create-only write created the file a dangling symlink leads to');
+  }
+  const staging = readdirSync(dir).filter((name) => name.includes('marxy-tmp'));
+  if (staging.length > 0) problems.push(`staging files remain: ${staging.join(', ')}`);
+  return problems;
 }
 
 /** Opens each corpus file and saves it back; returns the files whose bytes did not survive. */
@@ -404,6 +490,32 @@ function checkTheGateWouldCatchANormalisingSave() {
       console.log(`fidelity: a save path with ${name} is caught (${caught.length} files differ, including ${caught[0]})`);
     }
   }
+}
+
+/**
+ * A create-only write that replaces (no look, and a plain `rename` for the exclusive one) is the bug F-85 closes. The gate must see
+ * it: the same driver, compiled from a patched copy, has to fail the create-only check, or that check proves nothing.
+ */
+function checkTheGateWouldCatchAReplacingCreate() {
+  const source = readFileSync(savePathSource, 'utf8');
+  if (!source.includes(WRITE_NEW_SIGNATURE) || !source.includes('refuse_taken_name(path)?;') || !source.includes('&exclusive::rename,')) {
+    fail(`gate: write_new no longer has the shape the selftest patches (${WRITE_NEW_SIGNATURE}, refuse_taken_name, exclusive::rename)`);
+    return;
+  }
+  const binary = buildSavePath('replacing-create', (text) =>
+    text.replace('refuse_taken_name(path)?;', '').replace('&exclusive::rename,', '&|from, to| fs::rename(from, to),'),
+  );
+  if (!binary) return;
+  const caught = createOnlyRoundTrip(binary, corpus, 'replacing-create');
+  if (caught.length === 0) fail('selftest: a create-only write that replaces passed the create-only check; this gate proves nothing');
+  else console.log(`fidelity: a create-only write that replaces is caught (${caught.length} problems, including: ${caught[0]})`);
+}
+
+function checkWriteNewCasesSurvived(source) {
+  const names = rustTestNames(source);
+  const missing = WRITE_NEW_RUST_CASES.filter((name) => !names.includes(name));
+  if (missing.length > 0) fail(`cases: F-85 create-only tests missing: ${missing.join(', ')}`);
+  else console.log(`fidelity: create-only case list is ${WRITE_NEW_RUST_CASES.length} of ${names.length} save-path tests (F-85)`);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -681,6 +793,7 @@ checkTheShellKeepsBytes();
 
 const saveSource = readFileSync(savePathSource, 'utf8');
 checkMarxy14CasesSurvived(saveSource);
+checkWriteNewCasesSurvived(saveSource);
 checkRefuseOwnershipChangeIsProved(saveSource);
 checkLinuxXattrSkipIsNotSilent(saveSource);
 
@@ -694,8 +807,14 @@ if (savePath) {
   if (changed.length === 0) {
     console.log(`fidelity: ${corpus.length} corpus files survive open → save byte-identically, including ${HARD_FIXTURES.join(' and ')}`);
   }
+  const refused = createOnlyRoundTrip(savePath, corpus, 'faithful');
+  for (const problem of refused) fail(`create-only: ${problem}`);
+  if (refused.length === 0) {
+    console.log(`fidelity: ${corpus.length} corpus files are created byte-identically at a free name by the create-only write (write_new), refused "exists" at a taken one, and a symlink or dangling symlink is never written through (F-85)`);
+  }
   checkEditedDocumentIsSpliced(savePath, await sectionMoveEdits());
   checkTheGateWouldCatchANormalisingSave();
+  checkTheGateWouldCatchAReplacingCreate();
 }
 
 if (failures.length > 0) {

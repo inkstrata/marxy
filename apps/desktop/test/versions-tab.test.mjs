@@ -61,6 +61,10 @@ const rows = (page) =>
     els.map((el) => ({ reason: el.getAttribute('data-marxy-version-reason'), id: Number(el.getAttribute('data-marxy-version-id')), state: el.getAttribute('data-marxy-version-state'), text: el.textContent })),
   );
 
+/** The create-only writes since call `from` (F-85, ADR-0074): paths only, a refused one (a name that was taken) included. */
+const createsFrom = (page, from) =>
+  page.evaluate((n) => window.__marxyHandle.shell.calls.slice(n).filter((c) => c.method === 'writeFileNew').map((c) => c.args[0]), from);
+
 /** Open, edit, save, then another program rewrites the file: the card's scenario. Returns the call index before it began. */
 async function openEditSaveChange(page) {
   const start = await mark(page);
@@ -149,7 +153,8 @@ test('choosing a version opens the diff from it to the buffer; Restore to a copy
     assert.equal(await disk(page, expected), X, 'the copy holds the version\'s bytes exactly');
     assert.equal(await disk(page, '/r/x.md'), xBefore, 'x.md is unchanged');
     const outsideData = (await writesFrom(page, from)).filter((p) => !p.startsWith('/data/'));
-    assert.deepEqual(outsideData, [expected], 'one write, the copy');
+    assert.deepEqual(outsideData, [], 'nothing that replaces was called beside the reader\'s files');
+    assert.deepEqual(await createsFrom(page, from), [expected], 'one write, the copy, and create-only');
     assert.match(await page.textContent('#marxy-notices'), /Restored the version of \d\d\.\d\d as x \(version \d\d\.\d\d\)\.md · x\.md is unchanged/);
   });
 });
@@ -175,9 +180,11 @@ test('Restore when x (version HH.MM).md exists writes (version HH.MM 2) and neve
     await page.waitForFunction((p) => window.__marxyHandle.currentPath() === p, second);
     assert.equal(await disk(page, first), 'not Marxy\'s\n', 'the taken name keeps its bytes');
     assert.equal(await disk(page, second), X);
-    const written = (await writesFrom(page, from)).filter((p) => !p.startsWith('/data/'));
-    assert.deepEqual(written, [second]);
-    for (const p of written) assert.ok(!existing.includes(p), `${p} existed and was written`);
+    const replacing = (await writesFrom(page, from)).filter((p) => !p.startsWith('/data/'));
+    assert.deepEqual(replacing, [], 'nothing that replaces was called beside the reader\'s files');
+    const tried = await createsFrom(page, from);
+    assert.deepEqual(tried, [first, second], 'the taken name was refused `exists`, then the next was made');
+    assert.ok(existing.includes('/r/x.md'));
   });
 });
 

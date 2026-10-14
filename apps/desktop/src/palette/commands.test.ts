@@ -132,7 +132,7 @@ function conflictStore(): { store: DocumentStore; files: Map<string, Uint8Array>
     {
       async writeFileAtomic(path, bytes) { writes.push(path); files.set(path, new Uint8Array(bytes)); },
       async peekFile(path) { return files.get(path)!; },
-      async exists(path) { return files.has(path); },
+      async writeFileNew(path, bytes) { if (files.has(path)) throw Object.assign(new Error('exists'), { code: 'exists' }); writes.push(path); files.set(path, new Uint8Array(bytes)); },
     },
     '/d/a.md',
     enc.encode('# One\n'),
@@ -210,7 +210,7 @@ test('a failed copy says why, and the edits and the pending choice stay (V-07)',
     {
       async writeFileAtomic() { throw new Error('the disk is full'); },
       async peekFile(path) { return files.get(path)!; },
-      async exists() { return false; },
+      async writeFileNew() { throw new Error('the disk is full'); },
     },
     '/d/a.md',
     enc.encode('# One\n'),

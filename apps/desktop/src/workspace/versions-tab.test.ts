@@ -3,6 +3,7 @@
 // *Changed since you read*, and `name (version 14.32).md` with its free-name rule. The panel is versions-tab.test.mjs (WebKit).
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { createMemoryShell } from '../shell/memory.ts';
 import { hourMinute, MAX_VERSION_COPIES, restoreToCopy, versionCopyPath } from '../versions/restore.ts';
 import { ABOUT_VERSIONS, failureWords, listingNote, notKeptWords, sinceCounts, sizeWords, VERSIONS_TAB, versionRowWords } from './versions-tab.ts';
 
@@ -68,49 +69,46 @@ test('a restored copy is named name (version HH.MM).ext beside the file; a taken
   assert.equal(versionCopyPath('/r/Makefile', at, 1), '/r/Makefile (version 14.32)');
   assert.equal(versionCopyPath('/r/.env', at, 1), '/r/.env (version 14.32)');
   assert.equal(MAX_VERSION_COPIES, 999);
-  // Over a folder of one taken name: the second is written, the taken one and the original are never written.
+  // Over a folder of one taken name: the taken one is refused `exists` and left alone, the second is made, the original never written.
   const files = new Map<string, Uint8Array>([['/r/x.md', enc('now\n')], ['/r/x (version 14.32).md', enc('someone else\'s\n')]]);
-  const writes: string[] = [];
-  const notFound = (p: string) => Object.assign(new Error(`not found: ${p}`), { code: 'not-found' });
+  const attempts: string[] = [];
   const io = {
-    stat: async (p: string) => (files.has(p) ? { path: p } : p === '/r' ? { path: p, isDir: true } : null),
-    realPath: async (p: string) => {
-      if (p === '/r' || files.has(p)) return p;
-      throw notFound(p);
-    },
-    readHead: async (p: string) => {
-      const b = files.get(p);
-      if (!b) throw notFound(p);
-      return b.slice(0, 0);
-    },
-    writeFileAtomic: async (p: string, b: Uint8Array) => {
-      writes.push(p);
+    writeFileNew: async (p: string, b: Uint8Array) => {
+      attempts.push(p);
+      if (files.has(p)) throw Object.assign(new Error(`${p}: already exists`), { code: 'exists' });
       files.set(p, b);
     },
   };
   const out = await restoreToCopy(io, '/r/x.md', enc('then\n'), at);
   assert.deepEqual(out, { result: 'written', path: '/r/x (version 14.32 2).md', n: 2 });
-  assert.deepEqual(writes, ['/r/x (version 14.32 2).md']);
+  assert.deepEqual(attempts, ['/r/x (version 14.32).md', '/r/x (version 14.32 2).md'], 'the taken name was refused, then the next made; never the original');
   assert.equal(new TextDecoder().decode(files.get('/r/x.md')), 'now\n');
   assert.equal(new TextDecoder().decode(files.get('/r/x (version 14.32).md')), 'someone else\'s\n');
+});
+
+test('RACE (F-85): a creator that makes the copy\'s name between the look and the write keeps its bytes; Restore to a copy takes (version HH.MM 2)', async () => {
+  const at = new Date(2026, 9, 13, 14, 32).getTime();
+  const shell = createMemoryShell({ '/r/x.md': enc('now\n') });
+  shell.beforeWriteNew((p) => {
+    if (p === '/r/x (version 14.32).md') shell.plant(p, enc('PLANTED'));
+  });
+  const out = await restoreToCopy(shell, '/r/x.md', enc('then\n'), at);
+  assert.deepEqual(out, { result: 'written', path: '/r/x (version 14.32 2).md', n: 2 });
+  assert.equal(new TextDecoder().decode(await shell.peekFile('/r/x (version 14.32).md')), 'PLANTED');
+  assert.equal(new TextDecoder().decode(await shell.peekFile('/r/x.md')), 'now\n');
+  // A symlink at the name is left as it is, and its target keeps its bytes.
+  const linked = createMemoryShell({ '/r/x.md': enc('now\n'), '/r/other.md': enc('OTHER') });
+  linked.symlink('/r/x (version 14.32).md', '/r/other.md');
+  assert.equal((await restoreToCopy(linked, '/r/x.md', enc('then\n'), at)).result, 'written');
+  assert.equal(new TextDecoder().decode(await linked.peekFile('/r/other.md')), 'OTHER');
 });
 
 test('a restore whose write fails reports it, writes no other path and leaves the original as it was', async () => {
   const at = new Date(2026, 9, 13, 14, 32).getTime();
   const files = new Map<string, Uint8Array>([['/r/x.md', enc('now\n')]]);
   const writes: string[] = [];
-  const notFound = (p: string) => Object.assign(new Error(`not found: ${p}`), { code: 'not-found' });
   const io = {
-    stat: async (p: string) => (files.has(p) ? { path: p } : p === '/r' ? { path: p, isDir: true } : null),
-    realPath: async (p: string) => {
-      if (p === '/r' || files.has(p)) return p;
-      throw notFound(p);
-    },
-    readHead: async (p: string) => {
-      if (!files.has(p)) throw notFound(p);
-      return new Uint8Array(0);
-    },
-    writeFileAtomic: async (p: string) => {
+    writeFileNew: async (p: string) => {
       writes.push(p);
       throw Object.assign(new Error('No space left on device'), { code: 'io' });
     },

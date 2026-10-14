@@ -368,15 +368,16 @@ itself is not a row). A row whose command cannot run now is not drawn, so the me
   written or read again, and there is no undo: the shell has no delete, and the fork is an ordinary file the reader can remove.
   *Reveal in Finder* is not offered: the shell cannot reveal a file, and that is a privileged capability of its own.
 
-What Fork never does (the rules `document/fork.ts` and its tests hold): it never writes over a file, a folder, or a symlink (which
-`stat` cannot see, so `realPath` is asked too, and a link that leads nowhere is taken as well: a head read tells it from a missing name, so Fork skips it), and a name that differs only in case from an existing one counts as taken where the
-filesystem folds case. Names are looked for one at a time as the write is made, never from a listing made earlier. The bytes are the
+What Fork never does (the rules `document/fork.ts` and its tests hold): it never writes over a file, a folder, or a symlink (a link that leads nowhere
+included), and a name that differs only in case from an existing one counts as taken where the filesystem folds case. It does not
+look for a free name and then write: each name is tried with one create-only write (`writeFileNew`, ADR-0074), which the shell
+refuses `exists` when anything is at the name, and Fork goes on to the next. The refusal is decided by the operating system in the
+same step that makes the name appear (an exclusive rename), so there is no window in which another program's file can be replaced,
+and no link to write through. The same write is *Keep mine as a copy*'s and *Restore to a copy*'s. The bytes are the
 buffer's, so a BOM, CRLF and bytes that are not text are kept. A failed write says so (an `error` notice: what failed, that nothing was
 written and the original is unchanged, what to do; it names the file that was to be written and says why in words, never the shell's text with its hidden temporary file or an OS number), opens nothing and leaves no file, because the shell publishes a whole file or none.
-Nothing leaves the machine. **The one limit:** the shell has no create-only write (`writeFileAtomic` renames over what is there), so
-"check, then write" is two steps, and a file another program makes at that name between the last check and the rename is replaced.
-That window is the shell's own time to stage, flush and rename the bytes; nothing else is awaited between the check and the write. Closing
-it needs a create-only write in the shell, which is a new privileged capability and so an ADR (ADR-0045).
+Nothing leaves the machine. Where a volume supports neither the exclusive rename nor a hard link, the write fails ("this disk can't add
+a file without risking replacing another") rather than fall back to check-then-write.
 
 **Source editing keys (V-01).** In a pane that shows Source, and only there (Rendered does nothing with them),
 the registry binds these from `apps/desktop/src/commands/source-edit.ts`; each is also a palette command. They

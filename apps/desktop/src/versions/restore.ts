@@ -1,8 +1,8 @@
 // Restore to a copy (V-06, ADR-0072 item 7): an earlier version's bytes written beside the file as `name (version 14.32).md`, at
 // the first free name (`(version 14.32 2)` and on), and never over anything: the rule and the code of *Fork this file* (W-14,
-// `document/fork.ts`), whose one limit holds here too (the shell has no create-only write, so a file another program puts at the
-// chosen name between the last look and the write is replaced; the window is the shell's own write time). The original is not
-// read, written or named in any call: only its folder is looked at, for the copy's name.
+// `document/fork.ts`): each name is one create-only write (`writeFileNew`, ADR-0074, F-85), which the shell refuses `exists` when
+// anything is there, so a file another program puts at the chosen name is never replaced and there is no window between a look and
+// the write. The original is not read, written or named in any call.
 import { taggedPath, writeBeside, type ForkIo, type ForkOutcome } from '../document/fork.ts';
 
 /** The most names tried: `(version 14.32)`, then `(version 14.32 2)` to `(version 14.32 999)`. */

@@ -10,7 +10,7 @@ is the only TypeScript that imports `@tauri-apps/*`.
 ```
 main.rs          builder, plugins, single-instance, startup marks (exists)
 commands/mod.rs  re-exports; most #[tauri::command]s live under commands/ (main.rs and pasteboard/ hold the rest)
-commands/fs.rs   read_file, write_file_atomic, stat, image_size, repository_root
+commands/fs.rs   read_file, stat, image_size, repository_root (write_file_atomic and write_file_new are in main.rs, over atomic_write.rs)
 commands/watch.rs   watch_start, watch_stop; emits "marxy:watch" events
 commands/index.rs   index_build, index_query, index_load, index_save; headings scanner
 commands/search.rs  search_content, cancel_content_search: on-demand content scan (C-16)
@@ -33,6 +33,7 @@ one side and parsed on the other (MARXY-198).
 | --- | --- | --- | --- | --- | --- |
 | `readFile` → `read_file` | `path` | raw body (`ipc::Response`), an `ArrayBuffer` in the webview | not-found, permission, io | fs | done |
 | `writeFileAtomic` → `write_file_atomic` | raw body = bytes; header `x-marxy-path` = `encodeURIComponent(path)` | `()` | permission, io | fs | MARXY-14 |
+| `writeFileNew` → `write_file_new` | the same request as `write_file_atomic` | `()`; **create-only** (ADR-0074): the bytes at `path` only if nothing is there. A file, a folder, a symlink, a dangling symlink and (on a case-insensitive volume) a case variant are all `exists`, and nothing is written or followed. Stages and flushes a hidden temporary file in the destination's directory, then publishes it with an exclusive rename (`renamex_np(RENAME_EXCL)` on macOS, `renameat2(RENAME_NOREPLACE)` on Linux), falling back to `link` then `unlink`; if neither is available the write fails (io) saying the volume cannot create a file without risk of replacing one. No stale-write precondition: it never replaces | **exists**, permission, io | `atomic_write.rs` (`write_new`); the command is in `main.rs` | F-85 |
 | `stat` → `stat_file` | `path` | `FileStat \| null`: one entry's size and mtime without listing its folder; `null` for a missing path, one that is itself a symlink or a deny-listed name (the last component only, as `read_dir` checks) | permission, io | fs | MARXY-14, C-11.2 |
 | `readHead` → `read_head` | `path, maxBytes` | raw body (`ipc::Response`): at most the first `maxBytes`, capped at 256 KB in Rust | not-found, invalid (a symlink at the path, a folder, a FIFO or device), io | fs; opens with `O_NOFOLLOW \| O_NONBLOCK` on unix and checks the type again after opening; does not arm the stale-write guard | C-11.2 |
 | `imageSize` → `image_size` | `path` | `{ width, height } \| null` | not-found | fs (`imagesize` crate, MIT) | MARXY-26 |
@@ -181,7 +182,7 @@ webview never hears about `node_modules`.
 ## Errors
 
 `error.rs`: `NotFound → 'not-found'`, `PermissionDenied → 'permission'`, `InvalidInput → 'invalid'`,
-everything else `'io'`; commands that refuse by policy return `'unsupported'` with a message
+everything else `'io'`; a create-only write (`write_file_new`) that finds something at the name returns `'exists'` (ADR-0074); commands that refuse by policy return `'unsupported'` with a message
 saying what would be needed. Every command's `Result<T, ShellError>` serialises as
 `{ code, message, path }`.
 

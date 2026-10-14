@@ -25,6 +25,7 @@ export type MemoryShell = Pick<
   | 'readHead'
   | 'stat'
   | 'writeFileAtomic'
+  | 'writeFileNew'
   | 'watch'
   | 'platform'
   | 'startupMarks'
@@ -49,8 +50,17 @@ export type MemoryShell = Pick<
   /** Make `from` a symlink to the folder `to` for `realPath` (harness; the store itself holds no links). */
   link(from: string, to: string): void;
   queueSaveDialog(path: string | null): void;
-  /** Next writeFileAtomic rejects with this shell error code (harness). */
+  /** Next writeFileAtomic (or writeFileNew) rejects with this shell error code (harness). */
   rejectNextWrite(code: 'permission' | 'io'): void;
+  /**
+   * Put `bytes` at `path` as another program would (harness): unrecorded, emits nothing, no checks. With `beforeWriteNew` it is a
+   * creator that wins the name between a caller's look and its write.
+   */
+  plant(path: string, bytes: Uint8Array): void;
+  /** Put a symbolic link at the file name `path` leading to `target`, which need not exist (harness; unrecorded). */
+  symlink(path: string, target: string): void;
+  /** Runs at the start of every `writeFileNew`, before it looks at the name (harness): the place for a racing creator to `plant`. */
+  beforeWriteNew(hook: ((path: string) => void) | null): void;
   lastTitle: string | null;
   /** Fires every listener installed through onCloseRequested (harness). */
   emitCloseRequested(): void;
@@ -116,7 +126,7 @@ const platformOf = (): MemoryShell['platform'] => {
  * An in-memory filesystem the Playwright harness drives. Paths are POSIX absolute; a missing
  * `readFile` rejects with `code: 'not-found'`.
  */
-export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShell {
+export function createMemoryShell(files: Record<string, Uint8Array>, options: { readonly caseInsensitive?: boolean } = {}): MemoryShell {
   const store = new Map<string, Uint8Array>();
   for (const [path, bytes] of Object.entries(files)) store.set(path, bytes.slice());
   const calls: Call[] = [];
@@ -124,6 +134,19 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
   const listeners: Array<(events: readonly WatchEvent[]) => void> = [];
   const closeListeners: Array<() => void> = [];
   const links = new Map<string, string>();
+  /** Symbolic links at file names: the name is taken whether or not the target exists. */
+  const fileLinks = new Map<string, string>();
+  let beforeNew: ((path: string) => void) | null = null;
+  // APFS by default is case-insensitive and case-preserving: `Notes.md` and `notes.md` are one name.
+  const fold = (path: string): string => (options.caseInsensitive ? path.toLowerCase() : path);
+  /** What is at `path` in the way a create-only write sees it: nothing is followed, so a link is a link. */
+  const occupant = (path: string): 'file' | 'folder' | 'link' | null => {
+    const want = fold(path.replace(/\/$/, ''));
+    for (const key of fileLinks.keys()) if (fold(key) === want) return 'link';
+    for (const key of store.keys()) if (fold(key) === want) return 'file';
+    for (const key of store.keys()) if (fold(key).startsWith(`${want}/`)) return 'folder';
+    return null;
+  };
   let queuedSave: string | null | undefined;
   let writeReject: 'permission' | 'io' | null = null;
   const assetScopes = new Set<string>();
@@ -247,8 +270,37 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
       }
       store.set(path, bytes.slice());
     },
+    async writeFileNew(path, bytes) {
+      record('writeFileNew', [path, bytes]);
+      beforeNew?.(path);
+      if (writeReject) {
+        const code = writeReject;
+        writeReject = null;
+        const err = new Error(`${path}: refused`) as Error & { code: typeof code; path: string };
+        err.code = code;
+        err.path = path;
+        throw err;
+      }
+      const taken = occupant(path);
+      if (taken !== null) {
+        const err = new Error(`${path}: there is already a ${taken === 'link' ? 'symbolic link' : taken} with this name; marxy will not replace it`) as Error & { code: 'exists'; path: string };
+        err.code = 'exists';
+        err.path = path;
+        throw err;
+      }
+      store.set(path, bytes.slice());
+    },
     rejectNextWrite(code) {
       writeReject = code;
+    },
+    plant(path, bytes) {
+      store.set(path, bytes.slice());
+    },
+    symlink(path, target) {
+      fileLinks.set(path, target);
+    },
+    beforeWriteNew(hook) {
+      beforeNew = hook;
     },
     async setTitle(title) {
       record('setTitle', [title]);

@@ -403,6 +403,19 @@ A failed create-only write leaves no temporary file behind, and says why in the 
    to `link` then `unlink`, which is also exclusive; if both are refused, fail with "this volume cannot create a file
    without risk of replacing one", and write nothing.
 
+**Amended in the F-85 pull request** (the card checked against `main` at 61f8da90; question 1 ruled by the author on 2026-10-13,
+question 2 taken as recommended):
+- *New file* and *New file here* do not write anything beside a reader's file: they open a scratch document, and the only write
+  is the reader's own Save As through the native dialog, which has its own replace confirmation and stays `writeFileAtomic`.
+  The callers on `main` are *Fork this file* (`writeFork`) and *Keep mine as a copy* (`writeCopy`, now `writeBeside`).
+  *Restore to a copy* is V-06 (#717, merged before F-85): it writes through `writeBeside` (`versions/restore.ts` `restoreToCopy`),
+  which F-85 moves onto `writeFileNew`; its tests are updated and a racing-creator case is added (`versions-tab.test.ts`).
+- `ForkIo` is now `{ writeFileNew }` alone: with a create-only write there is no look, so `nameIsTaken` and its `stat`, `realPath`
+  and `readHead` are deleted, not kept as a first check. `writeBeside` (the shared walk, V-06's) is kept and rewritten around `writeFileNew`.
+- Also edited: `apps/desktop/src-tauri/src/error.rs` (the `exists` code), `apps/desktop/src/app-types.ts`,
+  `apps/desktop/src/notices/fork.ts` (the refusal in words), `apps/desktop/test/new-file.test.mjs` and the Tauri stub, and
+  `docs/design/09-app-shell.md` (Fork's "one limit" paragraph is gone). `capabilities/` is untouched (the custom command needed no entry).
+
 ---
 
 ### W-13 — The palette shows what you are about to open, and `@` finds any heading

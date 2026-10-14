@@ -92,6 +92,7 @@ export const shell: Pick<
   | 'readHead'
   | 'stat'
   | 'writeFileAtomic'
+  | 'writeFileNew'
   | 'watch'
   | 'platform'
   | 'startupMarks'
@@ -195,6 +196,17 @@ export const shell: Pick<
       throw shellErrorFromInvoke(err);
     }
     lastRead.set(path, bytes.slice());
+  },
+  /**
+   * Create-only (ADR-0074): the bytes at `path` only if nothing is there. No precondition and no `lastRead` entry: it never replaces
+   * a file the stale-write guard has seen, and a file it makes is read (and armed) when it is opened. `exists` is the refusal.
+   */
+  writeFileNew: async (path, bytes) => {
+    try {
+      await invoke('write_file_new', bytes, { headers: { 'x-marxy-path': encodeURIComponent(path) } });
+    } catch (err) {
+      throw shellErrorFromInvoke(err);
+    }
   },
   /**
    * One `search_content` call per query (C-16). The paths are first narrowed by the same rules as the
