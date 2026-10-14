@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App beside mock</title>
+<style>
+  :root { --bg: #f6f5f2; --fg: #1d1d1f; --muted: #5d5f63; --line: #d9d7d2; --card: #ffffff; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111214; --fg: #e3e5e8; --muted: #9a9ea4; --line: #2a2c30; --card: #17181a; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 -apple-system, system-ui, sans-serif; }
+  main { max-width: 1500px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 24px; font-size: 13px; }
+  nav a { color: inherit; }
+  section { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 28px; }
+  h2 { font-size: 17px; margin: 0; }
+  small { color: var(--muted); font-size: 12.5px; }
+  figure { margin: 12px 0 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+  figure > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  figure > div img { width: 100%; height: auto; display: block; border-radius: 4px; border: 1px solid var(--line); }
+  figcaption { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; font-size: 12px; color: var(--muted); padding-top: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>App beside mock</h1>
+  <nav><a href="#10-tabs-dated">10-tabs-dated</a></nav>
+  <section id="10-tabs-dated">
+    <h2>10-tabs-dated</h2>
+    <p><small>Twelve tabs of dated names that share a long start, unfolded (F-107; mock 01-workspace)</small></p>
+      <figure>
+        <div><a href="10-tabs-dated-night-app.png"><img src="10-tabs-dated-night-app.png" alt="10-tabs-dated, Night, the app" loading="lazy"></a><a href="10-tabs-dated-night-mock.png"><img src="10-tabs-dated-night-mock.png" alt="10-tabs-dated, Night, the mock" loading="lazy"></a></div>
+        <figcaption><span>App</span><span>Mock v2</span><b>Night</b></figcaption>
+      </figure>
+  </section>
+</main>
+</body>
+</html>

@@ -2,7 +2,7 @@
 // every surface the card lists, at four widths and two heights in both variants, and flags every text node whose box
 //   clipped      is cut mid-glyph by an overflow:hidden/clip ancestor,
 //   spills       passes the border box of the block that owns it (visible overflow: text floating outside its box),
-//   truncated    is ellipsised or line-clamped with no title or tooltip to reveal it,
+//   truncated    is ellipsised or line-clamped with no title or tooltip (a tab's path reveal counts) to reveal it,
 //   overlap      lies over another text box (two different text nodes, both visible, neither covering the other),
 //   covered      is drawn under an element that is not its own (the tooltip over the document),
 //   outside      sits outside the window with no scroller to bring it back.
@@ -39,6 +39,7 @@ export const ALLOW = [
   { kind: 'covered', cover: 'dialog[open], dialog[open] *', why: 'A modal dialog (palette, transform sheet, settings sheet) covers the page under it by design.' },
   { kind: 'covered', cover: '[role="status"] *, [data-notice-kind], [data-notice-kind] *', why: 'A notice pill floats over the page by design (U-02).' },
   { kind: 'covered', cover: '.marxy-verb-menu, .marxy-verb-menu *, [role="menu"], [role="menu"] *', why: 'An open menu covers what is under it by design.' },
+  { kind: 'covered', within: '[data-marxy-tab-tip]', cover: '[data-marxy-workspace-region="toolbar"], [data-marxy-workspace-region="toolbar"] *', why: 'The tab path reveal opens over the toolbar, never the document, when the tool strip is not there to hold it (F-99).' },
   { kind: 'covered', within: '#doc, .cm-content', cover: '[data-marxy-workspace-region], [data-marxy-workspace-region] *', why: 'The document scrolls under the fixed toolbar, strip and status row.' },
 ];
 
@@ -242,7 +243,7 @@ export function auditInPage({ allow }) {
     if (!over) continue;
     const r = e.getBoundingClientRect();
     if (r.width < 1 || r.bottom < 0 || r.top > VH || r.right < 0 || r.left > VW) continue;
-    if (!e.closest('[title]:not([title=""]), [data-tooltip]')) add('truncated', e, e.textContent ?? '', r, { note: `${clamp ? 'clamped' : 'ellipsised'}: ${e.scrollWidth} px of text in ${e.clientWidth} px` });
+    if (!e.closest('[title]:not([title=""]), [data-tooltip], [data-marxy-tab-path]')) add('truncated', e, e.textContent ?? '', r, { note: `${clamp ? 'clamped' : 'ellipsised'}: ${e.scrollWidth} px of text in ${e.clientWidth} px` });
   }
 
   // (5) covered: what is on top at the middle of a visible line is not its own.
