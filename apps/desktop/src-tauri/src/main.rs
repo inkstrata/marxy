@@ -963,6 +963,9 @@ mod app_menu {
             &[
                 N(About),
                 Separator,
+                // Settings (W-12, ADR-0075): a registry command with its own key, as the macOS convention puts it, under the app's name.
+                Cmd("view.settings", "Settings…", "CmdOrCtrl+,"),
+                Separator,
                 N(Services),
                 Separator,
                 N(Hide),
@@ -1946,6 +1949,32 @@ mod tests {
                 }),
             Some("CmdOrCtrl+W"),
             "Close Window keeps Cmd+W (ADR-0073)"
+        );
+    }
+
+    /// *Settings…* (W-12, ADR-0075) is the second item of the Marxy menu, after About, runs the registry command `view.settings`, and
+    /// carries the macOS key for it. The key table (`keys-table.test.mjs`) holds the key against the registry's own.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn settings_is_in_the_marxy_menu_and_runs_its_registry_command() {
+        use super::app_menu::{action_for, Action, Entry, COMMAND_PREFIX, MENU};
+        let (title, entries) = MENU[0];
+        assert_eq!(title, "Marxy");
+        let at = entries
+            .iter()
+            .position(|e| matches!(e, Entry::Cmd(id, _, _) if *id == "view.settings"))
+            .expect("Settings… is in the Marxy menu");
+        let Entry::Cmd(_, label, accelerator) = entries[at] else {
+            unreachable!("found as a Cmd")
+        };
+        assert_eq!((label, accelerator), ("Settings…", "CmdOrCtrl+,"));
+        assert!(
+            matches!(entries[at - 1], Entry::Separator),
+            "set apart from About"
+        );
+        assert_eq!(
+            action_for(&format!("{COMMAND_PREFIX}view.settings")),
+            Some(Action::ToWebview)
         );
     }
 

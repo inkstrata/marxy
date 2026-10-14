@@ -22,6 +22,7 @@ export const COMMAND_PREFIX = 'cmd:';
  * test holds this equal to the `Cmd` items of `MENU` in main.rs.
  */
 export const MENU_COMMAND_IDS: readonly string[] = [
+  'view.settings',
   'document.new',
   'document.fork',
   'collection.add-folder',

@@ -2,7 +2,8 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { COPY_FORMATS, parseConfig, setTopLevelKey } from './config.ts';
+import { parse } from 'smol-toml';
+import { COPY_FORMATS, ConfigNotReadableError, parseConfig, removeTopLevelKey, setTopLevelKey } from './config.ts';
 
 function outsideBytes(before: Uint8Array, after: Uint8Array, editedLineStart: number, editedLineEnd: number): boolean {
   const dec = new TextDecoder();
@@ -38,7 +39,7 @@ test('does not edit a key inside a table section', () => {
 });
 
 test('preserves bytes outside the edited line when replacing', () => {
-  const before = new TextEncoder().encode('variant = dark\ntheme = "/a"\nmeasure = 68\n');
+  const before = new TextEncoder().encode('variant = "dark"\ntheme = "/a"\nmeasure = 68\n');
   const after = setTopLevelKey(before, 'theme', '"/b"');
   const textBefore = new TextDecoder().decode(before);
   const textAfter = new TextDecoder().decode(after);
@@ -93,7 +94,8 @@ test('CRLF, a BOM, a missing final newline, tables, commented-out and duplicate 
   assert.equal(set('theme = "x"   # c'), 'theme = "y"   # c');
   assert.equal(set('[t]\ntheme = "x"   # c\n'), 'theme = "y"\n[t]\ntheme = "x"   # c\n');
   assert.equal(set('# theme = "x"   # c\n'), '# theme = "x"   # c\ntheme = "y"\n');
-  assert.equal(set('theme = "a"   # one\ntheme = "b"  # two\n'), 'theme = "y"   # one\ntheme = "b"  # two\n');
+  // A duplicate key is not TOML: the file is refused, not guessed at (W-12).
+  assert.throws(() => set('theme = "a"   # one\ntheme = "b"  # two\n'), ConfigNotReadableError);
 });
 
 test('a table header with a comment, an array of tables and a multi-line string end the top level', () => {
@@ -134,8 +136,8 @@ test('setTopLevelKey keeps a BOM and invalid UTF-8 in untouched lines byte for b
   const expected = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode('# '), 0xff, 0xfe, 0x0a, ...new TextEncoder().encode('theme = "y"\n# é\n')]);
   assert.deepEqual([...out], [...expected]);
   // Appending to a BOM file keeps the BOM and the bad bytes too.
-  const appended = setTopLevelKey(new Uint8Array([0xef, 0xbb, 0xbf, 0xff, 0x0a]), 'theme', '"é"');
-  assert.deepEqual([...appended], [0xef, 0xbb, 0xbf, 0xff, 0x0a, ...new TextEncoder().encode('theme = "é"\n')]);
+  const appended = setTopLevelKey(new Uint8Array([0xef, 0xbb, 0xbf, 0x23, 0x20, 0xff, 0x0a]), 'theme', '"é"');
+  assert.deepEqual([...appended], [0xef, 0xbb, 0xbf, 0x23, 0x20, 0xff, 0x0a, ...new TextEncoder().encode('theme = "é"\n')]);
   // A first-line key behind a BOM is found, not duplicated.
   assert.equal(new TextDecoder('utf-8', { ignoreBOM: true }).decode(setTopLevelKey(new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode('theme = "x"\n')]), 'theme', '"y"')), '﻿theme = "y"\n');
 });
@@ -535,4 +537,173 @@ test('[strip] more than four tools warns and truncates; a strip that is not a ta
   const odd = parseText('strip = 3\n');
   assert.deepEqual(odd.config.strip, {});
   assert.equal(odd.warnings.length, 1);
+});
+
+// removeTopLevelKey (W-12, ADR-0075): the Settings page's reset takes one line out and leaves every other byte.
+
+test('removeTopLevelKey on a commented file removes one line and leaves every other byte', () => {
+  const text = '# Marxy configuration.\n\n# the size\nsize = 22   # a comment\n\ntheme = "ink"\r\nshow_whitespace = true\n# trailing note\n\n[linux]\nweight_offset = 75\n';
+  const after = removeTopLevelKey(enc(text), 'show_whitespace');
+  assert.equal(dec(after), text.replace('show_whitespace = true\n', ''));
+  // The mixed line ending of the line before survives.
+  assert.ok(dec(after).includes('theme = "ink"\r\n# trailing note'));
+});
+
+test('removeTopLevelKey leaves a key inside a [table] alone, and returns the same bytes', () => {
+  const bytes = enc('size = 22\n\n[strip]\nsize = ["paths"]\n[linux]\nweight_offset = 75\n');
+  assert.equal(removeTopLevelKey(bytes, 'weight_offset'), bytes);
+  assert.equal(dec(removeTopLevelKey(bytes, 'size')), '\n[strip]\nsize = ["paths"]\n[linux]\nweight_offset = 75\n');
+});
+
+test('removeTopLevelKey on an absent key returns the very bytes it was given', () => {
+  const bytes = enc('size = 22\n');
+  assert.equal(removeTopLevelKey(bytes, 'measure'), bytes);
+  const empty = new Uint8Array();
+  assert.equal(removeTopLevelKey(empty, 'measure'), empty);
+});
+
+test('removeTopLevelKey takes every line of a multi-line array, and keeps a BOM', () => {
+  const text = '\ufeff# top\nlist = [\n  1,\n  2,\n] # c\nsize = 22\n';
+  const after = removeTopLevelKey(new TextEncoder().encode(text), 'list');
+  assert.equal(dec(after), '\ufeff# top\nsize = 22\n');
+  // A key that only looks like it, inside a multi-line string, is not the key.
+  const inString = enc('note = """\nsize = 3\n"""\nsize = 22\n');
+  assert.equal(dec(removeTopLevelKey(inString, 'size')), 'note = """\nsize = 3\n"""\n');
+});
+
+test('removeTopLevelKey refuses a dotted key under the name, as setTopLevelKey does', () => {
+  assert.throws(() => removeTopLevelKey(enc('size.px = 3\n'), 'size'), /dotted key/);
+});
+
+test('set then remove returns the file byte for byte when the key was not there (the page\'s round trip)', () => {
+  for (const text of ['', '# only a comment\n', 'size = 22\n\n[linux]\nweight_offset = 75\n', 'a = 1\r\nb = 2\r\n', '\ufeffsize = 22\n']) {
+    const before = enc(text);
+    const there = setTopLevelKey(before, 'show_whitespace', 'true');
+    assert.notEqual(dec(there), text);
+    assert.equal(dec(removeTopLevelKey(there, 'show_whitespace')), text);
+  }
+});
+
+// ---- the line editor reads TOML, it does not guess at lines (W-12 review: H1, H2) ----------------------------------------
+
+test('a multi-line string value is reset and replaced whole, both kinds, with [x] and key lines inside it', () => {
+  for (const q of ['"""', "'''"]) {
+    const text = `external_editor = ${q}\ncode --goto {file}\n[not_a_table]\nsize = 99\n${q}\nsize = 22\n`;
+    assert.equal(dec(removeTopLevelKey(enc(text), 'external_editor')), 'size = 22\n');
+    assert.equal(dec(setTopLevelKey(enc(text), 'external_editor', "'ed'")), "external_editor = 'ed'\nsize = 22\n");
+    // The key that only looks like one, inside the string, is not the key.
+    assert.equal(dec(removeTopLevelKey(enc(text), 'size')), `external_editor = ${q}\ncode --goto {file}\n[not_a_table]\nsize = 99\n${q}\n`);
+  }
+  // Quotes before the closing delimiter, a line-ending backslash and a delimiter in a comment.
+  const text = 'a = """x""""\nb = """\\\n  y"""  # not """ the end\nsize = 1\n';
+  assert.equal(dec(removeTopLevelKey(enc(text), 'a')), 'b = """\\\n  y"""  # not """ the end\nsize = 1\n');
+  assert.equal(dec(removeTopLevelKey(enc(text), 'b')), 'a = """x""""\nsize = 1\n');
+  assert.equal(dec(setTopLevelKey(enc('d = """a""" # c """\nsize = 1\n'), 'size', '2')), 'd = """a""" # c """\nsize = 2\n');
+});
+
+test('an array of arrays across lines does not end the top level: its [3, 4] line is not a table header', () => {
+  const text = 'matrix = [\n  [1, 2],\n  [3, 4]\n]\nsize = 22\n';
+  assert.equal(dec(setTopLevelKey(enc(text), 'show_whitespace', 'true')), `${text}show_whitespace = true\n`);
+  assert.equal(dec(removeTopLevelKey(enc(text), 'matrix')), 'size = 22\n');
+  const withTable = `${text}[linux]\nweight_offset = 1\n`;
+  assert.equal(dec(setTopLevelKey(enc(withTable), 'x', '1')), `${text}x = 1\n[linux]\nweight_offset = 1\n`);
+});
+
+test('a file that is not valid TOML is refused, never repaired: no edit is made to it', () => {
+  for (const text of ['size = 22\nname = "unterminated\n# c\n', 'a = [1, 2\nb = 1\n', 'a = 1\na = 2\n', 'x = = 1\n']) {
+    assert.throws(() => setTopLevelKey(enc(text), 'show_whitespace', 'true'), ConfigNotReadableError, text);
+    assert.throws(() => removeTopLevelKey(enc(text), 'a'), ConfigNotReadableError, text);
+  }
+  assert.throws(() => setTopLevelKey(enc('a = 1\n'), 'size', 'not toml'), /not a TOML value/);
+});
+
+/** A small seeded generator, so the fuzz below is the same on every machine. */
+function rng(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 2 ** 32;
+  };
+}
+
+test('fuzz: set and remove on generated valid files change only the key and prove it (2,000 files)', () => {
+  const PAGE_KEYS = ['theme', 'variant', 'size', 'measure', 'typeset', 'show_whitespace', 'external_editor', 'versions', 'copy_format'];
+  const junk = ['# [x] "q" \'q\' """ \'\'\' = ]', '#   key = 1', '# [[a]]', '#', ''];
+  let checked = 0;
+  for (let seed = 1; seed <= 2000; seed += 1) {
+    const r = rng(seed);
+    const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(r() * xs.length)]!;
+    const eol = r() < 0.3 ? '\r\n' : '\n';
+    const ws = (): string => pick(['', ' ', '  ', '\t']);
+    const scalar = (): string =>
+      pick([
+        String(Math.floor(r() * 100)), 'true', 'false', '1979-05-27T07:32:00Z', '3.14', '"a # b"', "'c ] d'", '"x\\"y"', '"é"',
+        '"""\nm [x]\nsize = 5\n"""', "'''\n[t]\nk = 1 # z\n'''", '"""a\\\n   b"""', '"""q"""" ', "'''r'''",
+      ]).trimEnd();
+    const value = (depth = 0): string => {
+      const roll = r();
+      if (roll < 0.55 || depth > 2) return scalar();
+      if (roll < 0.8) {
+        const items = Array.from({ length: Math.floor(r() * 4) }, () => value(depth + 1));
+        const multi = r() < 0.6;
+        if (!multi) return `[${items.join(', ')}]`;
+        const body = items.map((v) => `${ws()}${v},${r() < 0.4 ? ` ${pick(junk)}` : ''}`);
+        const last = items.length > 0 ? `${ws()}${items[items.length - 1]}` : '';
+        return `[${r() < 0.3 ? ` ${pick(junk)}` : ''}\n${body.slice(0, -1).join('\n')}${body.length > 1 ? '\n' : ''}${last}\n]`.replace(/\n/g, eol === '\r\n' ? '\n' : '\n');
+      }
+      return `{ a = ${scalar()}, b = [${scalar()}, ${scalar()}], 'c d' = ${scalar()} }`;
+    };
+    let text = '';
+    const keys: string[] = [];
+    const used = new Set<string>();
+    const count = Math.floor(r() * 9);
+    for (let n = 0; n < count; n += 1) {
+      const roll = r();
+      if (roll < 0.2) text += `${pick(junk)}\n`;
+      else if (roll < 0.28) text += '\n';
+      else {
+        const name = pick([...PAGE_KEYS, 'other', 'colour', 'matrix', 'note', 'size2']);
+        if (used.has(name)) continue;
+        used.add(name);
+        keys.push(name);
+        const shown = r() < 0.15 ? `"${name}"` : r() < 0.1 ? `'${name}'` : name;
+        text += `${ws()}${shown}${ws()}=${ws()}${value()}${r() < 0.3 ? `${ws()}${pick(junk)}` : ''}\n`;
+      }
+    }
+    if (r() < 0.25) text += `dot.ted = 1\ndot.two = ${scalar()}\n`;
+    if (r() < 0.4) text += `[tbl]\n${r() < 0.5 ? 'size = 1\n' : ''}[[arr]]\nq = ${scalar()}\n`;
+    text = text.replace(/\n/g, eol);
+    if (r() < 0.2 && text.endsWith(eol)) text = text.slice(0, -eol.length);
+    if (r() < 0.15) text = `﻿${text}`;
+    let before: Record<string, unknown>;
+    try {
+      before = parse(text.replace(/^﻿/, '')) as Record<string, unknown>;
+    } catch {
+      continue; // the generator made something TOML refuses; only valid files are the property's domain
+    }
+    checked += 1;
+    const bytes = enc(text);
+    for (const key of [...new Set([...PAGE_KEYS, ...keys])]) {
+      const where = `seed ${seed}, key ${key}\n${JSON.stringify(text)}`;
+      const set = setTopLevelKey(bytes, key, key === 'external_editor' ? "'code {file}'" : '7');
+      const afterSet = parse(dec(set).replace(/^﻿/, '')) as Record<string, unknown>;
+      for (const k of Object.keys(before)) if (k !== key) assert.deepEqual(afterSet[k], before[k], `${where}: ${k} changed by set`);
+      assert.equal(String(afterSet[key]), key === 'external_editor' ? 'code {file}' : '7', where);
+      const gone = removeTopLevelKey(bytes, key);
+      const afterGone = parse(dec(gone).replace(/^﻿/, '')) as Record<string, unknown>;
+      assert.ok(!(key in afterGone), where);
+      for (const k of Object.keys(before)) if (k !== key) assert.deepEqual(afterGone[k], before[k], `${where}: ${k} changed by remove`);
+      if (!(key in before)) assert.equal(gone, bytes, `${where}: removing an absent key returns the same bytes`);
+      // A remove is one contiguous cut of the input.
+      const a = dec(bytes);
+      const g = dec(gone);
+      let h2 = 0;
+      while (h2 < a.length && h2 < g.length && a[h2] === g[h2]) h2 += 1;
+      assert.equal(a.slice(0, h2) + a.slice(a.length - (g.length - h2)), g, `${where}: remove is not one cut`);
+      // Set then remove returns to the file when the key was not there.
+      const endsClean = a.replace(/^\ufeff/, '') === '' || /[\r\n]$/.test(a);
+      if (!(key in before) && endsClean) assert.equal(dec(removeTopLevelKey(set, key)), a, `${where}: round trip`);
+    }
+  }
+  assert.ok(checked > 1200, `the generator made ${checked} valid files; too few for the property to mean anything`);
 });

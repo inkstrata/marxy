@@ -33,6 +33,8 @@ hanging punctuation, hyphenation, in the default mode.
 The default theme on the type scale, dark (primary, ADR-0024) and light, implemented as a theme. User themes
 loadable under the published contract.
 
+**Settings.** A settings page (`Mod+,`), a view of `config.toml`, which stays the only store (ADR-0075): find any setting, see which you changed, reset one by removing its line, read what Marxy keeps on disk and what can leave the Mac. A config file still suffices for anyone who prefers it.
+
 **In-document.** Outline summoned and dismissed, tracking scroll. Find landing at the reading
 position, working in Rendered mode. Full keyboard navigation. "Open in external editor."
 
@@ -53,7 +55,6 @@ criterion once it can be verified (ADR-0046).
 | Cross-document operations | v2 | Signature kept open |
 | A plugin API | not before a deciding ADR | ADR-0052; a configured command as an operation is in scope (ADR-0049) |
 | Windows | after v1 | Nothing assumes two platforms |
-| Settings UI | v1.1 | A config file suffices |
 | Wikilinks, backlinks, graph | never | A different product |
 | Sync, accounts, mobile, publishing | never in this product | — |
 

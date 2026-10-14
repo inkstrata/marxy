@@ -326,6 +326,7 @@ chrome.
 | `Cmd+Alt+[` / `Cmd+Alt+]` (`Ctrl+Shift+[` / `Ctrl+Shift+]` elsewhere) | fold / unfold the folds on the caret's line | K-10a: CodeMirror's own keys, in Source only; a placeholder is clickable but not a tab stop, so Tab leaves the editor however many folds there are |
 | `Mod+Shift+E` | open in external editor | at the current block's line |
 | `Mod+=` / `Mod+-` / `Mod+0` | body size ±1 px / reset | persisted in config; re-layout |
+| `Mod+,` | Settings | W-12, ADR-0075 (`commands/workspace.ts`, `view.settings`): opens Settings, a page in the workspace as the library is, unfolding a folded window first; the menu's *Settings…* under Marxy runs the same command. It is a view of `config.toml`: search, categories, a dot on every changed value that resets it, and what Marxy keeps and what can leave the Mac (design 11 §The Settings page). A global chord, so it opens from a Source editor. `Esc` clears the search, then closes the page; `Mod+F` focuses the search |
 | `Alt+↑` / `Alt+↓` / `Alt+Shift+↑` | move block selection / select parent | §03 |
 | `Alt+←` / `Alt+→` | back / forward | the Linux browser convention; also `BrowserBack`/`BrowserForward` (MARXY-86 `keys.ts`) |
 | `Mod+Shift+S` | save as | §01 |
