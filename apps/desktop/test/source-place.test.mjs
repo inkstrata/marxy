@@ -162,23 +162,18 @@ test('V-12 a code line does not wrap: it scrolls inside the editor, and the numb
   }
 });
 
-test('V-12 a Markdown line wraps inside Rendered\'s column, with its continuation hung past its own indent', async () => {
+test('V-12 (F-100) a Markdown line wraps at the editor\'s right edge, with its continuation hung past its own indent', async () => {
   const browser = await launchWebkit();
   try {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const page = await browser.newPage({ viewport: { width: 640, height: 900 } });
     await boot(page, '/doc/a.md', MD);
     await page.waitForSelector('#doc .marxy-article, #doc');
-    // Rendered's column, in pixels: the article's content width.
-    const rendered = await page.evaluate(() => {
-      const el = document.querySelector('#doc');
-      const cs = getComputedStyle(el);
-      return el.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    });
     await page.keyboard.press('Meta+E');
     await sourceReady(page);
     const m = await page.evaluate(() => {
       const content = document.querySelector('#marxy-source .cm-content');
       const c = content.getBoundingClientRect();
+      const e = document.querySelector('#marxy-source .cm-editor').getBoundingClientRect();
       const ch = parseFloat(getComputedStyle(content).fontSize) * 0.6;
       /** The rows of one line: each client rect of its text, merged by top. */
       const rows = (line) => {
@@ -199,16 +194,19 @@ test('V-12 a Markdown line wraps inside Rendered\'s column, with its continuatio
       return {
         ch,
         content: { left: c.left, right: c.right, width: c.width },
+        editor: { left: e.left, right: e.right },
         paragraph: rows(pick('A long Markdown paragraph')),
         item: rows(pick('a list item')),
         nested: rows(pick('a nested item')),
       };
     });
-    assert.ok(Math.abs(m.content.width - rendered) <= m.ch, `the column is Rendered's within a character (${m.content.width} vs ${rendered})`);
+    // Source fills its pane (F-100): the text runs from a gutter's width in (84 px at 14 px) to the editor's right edge, not to Rendered's measure.
+    assert.ok(Math.abs(m.content.left - (m.editor.left + 84)) <= 1, `the text starts a gutter's width in (${m.content.left - m.editor.left})`);
+    assert.ok(Math.abs(m.content.right - m.editor.right) <= 1, `the column runs to the editor's right edge (${m.content.right} vs ${m.editor.right})`);
     for (const [name, rows, indent] of [['paragraph', m.paragraph, 0], ['list item', m.item, 0], ['nested item', m.nested, 4]]) {
       assert.ok(rows.length >= 3, `${name} wraps onto several rows (${rows.length})`);
-      assert.ok(Math.abs(rows[0].left - m.content.left) <= 0.5, `${name}: the first row starts at the column`);
-      for (const row of rows) assert.ok(row.right <= m.content.right + 0.5, `${name}: no row runs past the column`);
+      assert.ok(Math.abs(rows[0].left - m.content.left) <= 0.5, `${name}: the first row starts at the text's edge`);
+      for (const row of rows) assert.ok(row.right <= m.editor.right + 0.5, `${name}: no row runs past the editor`);
       for (const row of rows.slice(1)) {
         assert.ok(Math.abs(row.left - (m.content.left + (indent + 2) * m.ch)) <= 1, `${name}: a continuation hangs ${indent + 2} columns past the column's edge, got ${(row.left - m.content.left) / m.ch}`);
       }
@@ -218,9 +216,10 @@ test('V-12 a Markdown line wraps inside Rendered\'s column, with its continuatio
   }
 });
 
-test('V-12 (L-07) the Markdown column is centred on the window with numbers on or off; the numbers hang left of it', async () => {
+test('V-12 (F-100) the Markdown text starts a gutter in from the pane\'s edge with numbers on or off, at any width; the numbers hang left of it', async () => {
   const browser = await launchWebkit();
   try {
+    const starts = [];
     for (const width of [960, 1280]) {
       const page = await browser.newPage({ viewport: { width, height: 800 } });
       await boot(page, '/doc/a.md', MD);
@@ -228,74 +227,61 @@ test('V-12 (L-07) the Markdown column is centred on the window with numbers on o
       await sourceReady(page);
       const place = () => page.evaluate(() => {
         const c = document.querySelector('#marxy-source .cm-content').getBoundingClientRect();
+        const e = document.querySelector('#marxy-source .cm-editor').getBoundingClientRect();
         const g = document.querySelector('#marxy-source .cm-gutters')?.getBoundingClientRect() ?? null;
-        const numbers = [...document.querySelectorAll('#marxy-source .cm-lineNumbers .cm-gutterElement')].filter((e) => e.style.visibility !== 'hidden');
+        const numbers = [...document.querySelectorAll('#marxy-source .cm-lineNumbers .cm-gutterElement')].filter((n) => n.style.visibility !== 'hidden');
         return {
-          axis: c.left + c.width / 2,
-          left: c.left,
+          left: c.left - e.left,
+          right: e.right - c.right,
+          gutterLeft: g ? g.left - e.left : null,
           gutterRight: g ? g.right : null,
           numberRight: numbers.length ? Math.max(...numbers.map((n) => n.getBoundingClientRect().right)) : null,
+          abs: c.left,
         };
       });
       const off = await place();
       assert.equal(off.gutterRight, null, 'Markdown opens without numbers');
-      assert.ok(Math.abs(off.axis - width / 2) <= 1, `${width}: the column's axis is the window's with numbers off (${off.axis})`);
+      assert.ok(Math.abs(off.left - 84) <= 1, `${width}: the text starts a gutter's width in with numbers off (${off.left})`);
+      assert.ok(Math.abs(off.right) <= 1, `${width}: and runs to the editor's right edge (${off.right})`);
       await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
       await page.waitForSelector('#marxy-source .cm-lineNumbers');
       const on = await place();
-      assert.ok(Math.abs(on.axis - width / 2) <= 1, `${width}: the column's axis is the window's with numbers on (${on.axis})`);
       assert.equal(on.left, off.left, `${width}: turning the numbers on does not move the text`);
-      assert.ok(on.gutterRight <= on.left + 0.01, `${width}: the gutter ends at the text's left edge (${on.gutterRight} vs ${on.left})`);
-      assert.ok(on.numberRight <= on.left + 0.01, `${width}: the numbers are at or left of the text`);
+      assert.ok(Math.abs(on.gutterLeft) <= 0.5, `${width}: the gutter is at the editor's left edge (${on.gutterLeft})`);
+      assert.ok(on.gutterRight <= on.abs + 0.01, `${width}: the gutter ends at the text's left edge (${on.gutterRight} vs ${on.abs})`);
+      assert.ok(on.numberRight <= on.abs + 0.01, `${width}: the numbers are at or left of the text`);
+      starts.push(on.left);
       await page.close();
     }
+    assert.equal(starts[0], starts[1], 'the text starts at the same place at both widths: no centred column');
   } finally {
     await browser.close();
   }
 });
 
-test('V-12 (L-07) a code file\'s column is 100 characters wide, centred, with the numbers left of it, whatever the digits', async () => {
+test('V-12 (F-100) a code file fills the editor: the gutter at its left edge, the text a gutter in, whatever the digits or the width', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await boot(page, '/src/a.ts', 'export const a = 1;\n'.repeat(12));
     await sourceReady(page);
-    const m = await page.evaluate(() => {
-      const content = document.querySelector('#marxy-source .cm-content');
-      const c = content.getBoundingClientRect();
-      const cs = getComputedStyle(content);
-      return {
-        left: c.left,
-        // Content box: the column, without the end padding that keeps the last character off the edge.
-        width: c.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
-        ch: parseFloat(cs.fontSize) * 0.6,
-        gutterRight: document.querySelector('#marxy-source .cm-gutters').getBoundingClientRect().right,
-        editorLeft: document.querySelector('#marxy-source .cm-editor').getBoundingClientRect().left,
-        editorWidth: document.querySelector('#marxy-source .cm-editor').getBoundingClientRect().width,
-        gutterWidth: document.querySelector('#marxy-source .cm-gutters').getBoundingClientRect().width,
-      };
-    });
-    assert.ok(Math.abs(m.width - 100 * m.ch) <= m.ch, `100 characters wide (${m.width} vs ${100 * m.ch})`);
-    // The 960 px frame is centred on the window, and a 100-character column with its numbers (924 px at 14 px) cannot centre in
-    // it: the text starts one gutter in (5 digits and a line box each side: 84 px at 14 px), ADR-0067 item 3's floor.
-    assert.ok(Math.abs(m.editorLeft + m.editorWidth / 2 - 640) <= 1, `the editor is centred on the window (${m.editorLeft + m.editorWidth / 2})`);
-    assert.ok(Math.abs(m.left - (m.editorLeft + 84)) <= 1, `folded, the text starts a gutter in from the frame's editor (${m.left - m.editorLeft})`);
-    assert.ok(m.gutterRight <= m.left + 0.01, 'the numbers end where the text begins');
-    // Where there is room (a smaller Source size, a column of 600 px and its 68 px of numbers), the column is centred on the
-    // window as L-07 had it, within a pixel.
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty('--marxy-size-source', '10px');
-      document.documentElement.style.setProperty('--marxy-line-box-source', '15px');
-    });
-    await page.waitForTimeout(400);
-    const roomy = await page.evaluate(() => {
+    const read = (p) => p.evaluate(() => {
       const c = document.querySelector('#marxy-source .cm-content').getBoundingClientRect();
-      const cs = getComputedStyle(document.querySelector('#marxy-source .cm-content'));
-      const width = c.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-      return { axis: c.left + width / 2, width };
+      const e = document.querySelector('#marxy-source .cm-editor').getBoundingClientRect();
+      const g = document.querySelector('#marxy-source .cm-gutters').getBoundingClientRect();
+      return { text: c.left - e.left, gutter: g.left - e.left, gutterRight: g.right, left: c.left, right: e.right - c.right };
     });
-    assert.ok(Math.abs(roomy.width - 600) <= 6, `100 characters at 10 px (${roomy.width})`);
-    assert.ok(Math.abs(roomy.axis - 640) <= 1, `centred on the window where there is room (${roomy.axis})`);
+    const m = await read(page);
+    // The old column was 100 characters wide and centred on the window; now nothing is centred and nothing is capped.
+    assert.ok(Math.abs(m.gutter) <= 0.5, `the gutter is at the editor's left edge (${m.gutter})`);
+    assert.ok(Math.abs(m.text - 84) <= 1, `the text starts one gutter in (5 digits and a line box each side: 84 px at 14 px), got ${m.text}`);
+    assert.ok(Math.abs(m.right) <= 1, `the text runs to the editor's right edge (${m.right})`);
+    assert.ok(m.gutterRight <= m.left + 0.01, 'the numbers end where the text begins');
+    // A wider window moves only the right edge; a smaller Source size moves nothing the gutter's width does not.
+    await page.setViewportSize({ width: 1800, height: 800 });
+    await page.waitForTimeout(400);
+    const wider = await read(page);
+    assert.ok(Math.abs(wider.text - m.text) <= 0.5 && Math.abs(wider.gutter) <= 0.5, `a wider window does not move the text or the gutter (${wider.text}, ${wider.gutter})`);
     // A file with a thousand lines has four digits; the text does not move for them.
     const wide = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await boot(wide, '/src/b.ts', 'export const a = 1;\n'.repeat(1200));

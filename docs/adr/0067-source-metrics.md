@@ -49,6 +49,10 @@ wrapped where indentation means something.
 6. **The column and the ground.** Markdown is as wide as Rendered's measure (`--marxy-measure-chars`, clamped to 45
    to 80, times the average advance, times the body size); a code file's column is 100 characters of the mono face at
    Source's size. Both are centred on the window and sit on the page ground (`--marxy-color-bg`), not the code ground.
+   **Amended 2026-10-14 (F-100, the author: "in general we want to fill the window with our editor"):** the column is
+   gone. Source fills its pane: the gutter is at the pane's edge (inside the frame's inset) and the text runs from a
+   gutter's width in to the other edge, wrapping there (Markdown) or scrolling (code). Type size, line box, the exact
+   gutter, wrapping by kind and the page ground stand; Rendered keeps its measure.
 7. **Weight.** Source takes the article's weight (`--marxy-weight-body` plus the platform offset), so the dark ground's
    lighter body weight reaches it.
 8. **Nothing at rest.** The active line is tinted only while the editor holds the caret. A fold chevron shows while the

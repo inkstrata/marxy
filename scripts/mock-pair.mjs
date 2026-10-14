@@ -40,6 +40,8 @@ export const SCREENS = {
   '02-source': 'Source, unfolded (mock 02-source)',
   '02-source-folded': 'Source, folded (mock 01-workspace, Source)',
   '02-source-numbers': 'Source with line numbers on, unfolded: the gutter and the text side by side (mock 02-source)',
+  '02-source-fill-short': 'Folded Source with line numbers, a short document: the gutter at the window\'s edge, the editor as tall as the window (F-100; the mock\'s frame is 960 px centred, the departure)',
+  '02-source-fill-long': 'Folded Source with line numbers, a long document: the text runs to the right edge and scrolls (F-100; the mock\'s frame is 960 px centred, the departure)',
   '03-split': 'Split view (mock 01-workspace, Split)',
   '03-code': 'A code file in the reader (mock 01-workspace, doc=indexer-rs)',
   '03-transcript': 'A Markdown transcript in the reader (mock 01-workspace, doc=indexer-chat)',
@@ -186,6 +188,7 @@ const BUILD_LOG = toPath(docs.find((d) => d.id === 'build-log').path);
 const SHELL_SESSION = toPath(docs.find((d) => d.id === 'shell-session').path);
 const ARTICLE = toPath(docs.find((d) => d.id === 'ragged-right').path);
 const CSV = toPath(docs.find((d) => d.id === 'bench-csv').path);
+const NOTES = toPath(docs.find((d) => d.id === 'notes-1008').path);
 const entries = docs.filter((d) => d.src).map((d, i) => ({
   path: toPath(d.path),
   root: toPath(d.path).split('/').slice(0, 4).join('/'),
@@ -264,6 +267,12 @@ const TWELVE = docs.slice(0, 12);
 // Twelve dated drafts that share their first thirty characters (F-107). Written into the app's files and, for the mock, into its docs.
 const DATED = Array.from({ length: 12 }, (_, i) => ({ id: `dated-${i + 1}`, title: `2026-10-01-quarterly-planning-review-draft-${i + 1}.md`, path: `~/Work/plans/2026-10-01-quarterly-planning-review-draft-${i + 1}.md`, src: `# Quarterly planning review, draft ${i + 1}\n\nThe ${i + 1}th pass over the quarter's plan.\n` }));
 for (const d of DATED) files[toPath(d.path)] = d.src;
+async function foldedSourceNumbers(page) {
+  await page.evaluate(() => window.__cmd('view.mode-source'));
+  await settle(page, 600);
+  await page.evaluate(() => window.__cmd('view.toggle-line-numbers'));
+  await settle(page, 800);
+}
 const APP_STATES = {
   async '10-tabs-dated'(page) {
     await unfold(page);
@@ -298,6 +307,9 @@ const APP_STATES = {
     await page.evaluate(() => window.__cmd('view.toggle-line-numbers'));
     await settle(page, 800);
   },
+  // Folded Source with numbers on (the author's case, F-100): a short document and a long one; the app boots on the document.
+  async '02-source-fill-short'(page) { await foldedSourceNumbers(page); },
+  async '02-source-fill-long'(page) { await foldedSourceNumbers(page); },
   async '03-split'(page) { await unfoldedWithTabs(page); await page.evaluate(() => window.__cmd('view.mode-split')); await settle(page, 1000); },
   async '03-code'(page) { await openDoc(page, RS); await settle(page, 900); },
   async '03-transcript'(page) { await openDoc(page, CHAT); await settle(page, 900); },
@@ -433,7 +445,7 @@ const APP_STATES = {
     await settle(page, 600);
   },
 };
-const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 }, '08-settings-1000': { width: 1000 } };
+const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 }, '08-settings-1000': { width: 1000 }, '02-source-fill-short': { open: NOTES }, '02-source-fill-long': { open: PLAN } };
 
 // ---------- the mock ----------
 async function openMock(browser, theme, file, { width = W, height = H, hash = '' } = {}) {
@@ -491,6 +503,8 @@ const MOCK_STATES = {
   '02-source': { file: '02-source.html', run: async () => {} },
   '02-source-folded': { file: '01-workspace.html', run: async (page) => { await page.keyboard.press('Meta+Digit3'); await settle(page, 600); } },
   '02-source-numbers': { file: '02-source.html', run: async () => {} },
+  '02-source-fill-short': { file: '01-workspace.html', hash: '#doc=notes-1008', run: async (page) => { await page.keyboard.press('Meta+Digit3'); await settle(page, 600); } },
+  '02-source-fill-long': { file: '01-workspace.html', hash: '#doc=pg16-plan', run: async (page) => { await page.keyboard.press('Meta+Digit3'); await settle(page, 600); } },
   '03-split': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.keyboard.press('Meta+Digit2'); await settle(page, 700); } },
   '03-code': { file: '01-workspace.html', hash: '#doc=indexer-rs', run: async () => {} },
   '03-transcript': { file: '01-workspace.html', hash: '#doc=indexer-chat', run: async () => {} },
