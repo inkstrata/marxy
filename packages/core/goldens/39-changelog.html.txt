@@ -1,0 +1,32 @@
+<h1 id="changelog" data-marxy-s="0" data-marxy-e="11">Changelog</h1>
+<p data-marxy-s="13" data-marxy-e="171">All notable changes to <code data-marxy-s="36" data-marxy-e="46">tideline</code> are recorded here, newest first. Dates are the day a
+tag was cut. Compare links go to <code data-marxy-s="133" data-marxy-e="150">example.invalid</code> and are not fetched.</p>
+<h2 id="unreleased" data-marxy-s="173" data-marxy-e="186">Unreleased</h2>
+<h3 id="added" data-marxy-s="188" data-marxy-e="197">Added</h3>
+<ul data-marxy-s="199" data-marxy-e="251">
+<li data-marxy-s="199" data-marxy-e="251"><code data-marxy-s="201" data-marxy-e="225">tideline watch --quiet</code> prints nothing but errors</li>
+</ul>
+<h2 data-marxy-s="253" data-marxy-e="276"><a href="https://example.invalid/compare/v0.9.0...v0.9.2" class="marxy-external" data-marxy-s="256" data-marxy-e="263">0.9.2</a> - 2026-10-04</h2>
+<h3 id="fixed" data-marxy-s="278" data-marxy-e="287">Fixed</h3>
+<ul data-marxy-s="289" data-marxy-e="464">
+<li data-marxy-s="289" data-marxy-e="388">The watcher no longer re-indexes a file three times when an editor saves through a temporary file</li>
+<li data-marxy-s="389" data-marxy-e="464"><code data-marxy-s="391" data-marxy-e="414">index.max_file_mb = 0</code> now means “no limit” instead of “skip everything”</li>
+</ul>
+<pre class="language-text" data-marxy-s="466" data-marxy-e="538"><code class="language-text" data-marxy-s="474" data-marxy-e="535">## [9.9.9] - 2099-01-01
+this is a fenced line, not a release
+</code></pre>
+<h2 data-marxy-s="540" data-marxy-e="612"><a href="https://example.invalid/compare/v0.8.4...v0.9.0" class="marxy-external" data-marxy-s="543" data-marxy-e="599">0.9.0</a> - 2026-09-20</h2>
+<h3 id="added-1" data-marxy-s="614" data-marxy-e="623">Added</h3>
+<ul data-marxy-s="625" data-marxy-e="728">
+<li data-marxy-s="625" data-marxy-e="701">Highlight cache keyed by content hash. Warm runs are 20 to 30 times faster</li>
+<li data-marxy-s="702" data-marxy-e="728"><code data-marxy-s="704" data-marxy-e="720">tideline watch</code> command</li>
+</ul>
+<h3 id="changed" data-marxy-s="730" data-marxy-e="741">Changed</h3>
+<ul data-marxy-s="743" data-marxy-e="791">
+<li data-marxy-s="743" data-marxy-e="791"><code data-marxy-s="745" data-marxy-e="764">index.max_file_mb</code> default raised from 4 to 8</li>
+</ul>
+<h2 data-marxy-s="793" data-marxy-e="816"><a href="https://example.invalid/compare/v0.8.3...v0.8.4" class="marxy-external" data-marxy-s="796" data-marxy-e="803">0.8.4</a> - 2026-08-30</h2>
+<h3 id="fixed-1" data-marxy-s="818" data-marxy-e="827">Fixed</h3>
+<ul data-marxy-s="829" data-marxy-e="889">
+<li data-marxy-s="829" data-marxy-e="889">A symlink loop in a watched folder no longer fills the log</li>
+</ul>

@@ -94,6 +94,13 @@ backslash (one command on two lines); its output holds blank lines that stay in 
 (ESC, 0x1B, on purpose) and a `$` inside a line of output, which is output and not a prompt. Every name and path is invented.
 A `.session` opens in Read. The number is shared with `38-awkward.csv`, which is a table and not a session.
 
+## 39-changelog.md
+
+Original text written for K-22: a changelog in Keep a Changelog order with an `Unreleased` section first (which Copy release notes
+skips), three dated versions (one heading a link, one with its date in the same line), a fenced block that holds a line that
+looks like a release heading and is not one, and reference links at the end. Every name is invented; the links are `example.invalid`.
+Its name does not begin `CHANGELOG`, so the corpus reads it as an article; the tests open its bytes under a changelog's name.
+
 ## 33-article-byline.md
 
 Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair

@@ -680,6 +680,16 @@ Tools with nothing behind them stay undrawn. Nothing is folded or hidden.
 - `pnpm gate:golden` and the aesthetics gate's mechanical half over the new fixture.
 - **Pair:** `03-docs` and `03-changelog`, Night and Paper.
 
+**Amended at build (K-22).**
+- The docs measure is 80, not 84: the loader clamps a reflowing kind to 45-80 (ADR-0060), and the README profile it copies is at that edge. Docs is the README's setting, changelog the report's, notes keep the default prose (no scope).
+- `strip.ts`: the docs tool is `On this page` (`on-this-page`), the mock's name; `Versions` and `On this page` both run a new command, `inspector.show-outline` (in `kind-tools.ts`), which docks the inspector on its Outline tab (`view.outline` is the overlay, not the tab). *Copy release notes* is `changelog.copy-release-notes`; the strip's ids gain `copy-release-notes` and `on-this-page`.
+- With no version heading the tool is drawn off with its reason ("No version heading in this file"), as the log's and the terminal's tools are, not undrawn: the strip's row follows the kind, not the file's contents. `kinds-docs.test.mjs` checks the command is unavailable and nothing is copied.
+- The newest version is `newestRelease` (new, `packages/core/src/operations/release-notes.ts`, with a test): the first top-level heading whose words open with a version number (`1.4.0`, `[1.4.0]`, `v2.0`, `Version 3.1`), so `Unreleased` is skipped; its range is `sectionRange`'s, so the copy is the heading through the line before the next heading of the same or a higher level, the file's own bytes with its line endings. The notice names the version and the line count.
+- A version's date and a notes file's date line are painted with `::highlight(marxy-quiet-date)` over the characters already in the page (`kinds/quiet-dates.ts`, installed from `workspace/fill.ts`), because CSS cannot select part of a heading and a render-time `<span>` would move existing goldens. No element is added. A notes file's front-matter `date` row is quiet by CSS.
+- `39-changelog.md` is a numbered `.md`, so it owes baselines: both engines' (the Linux ones from the Playwright container) are committed, and its fenced look-alike heading puts it in the L-04 `blockEdges/code` expected-failure row. It reads as an article by name; the tests open its bytes as `CHANGELOG.md`. `27-alerts.md` is a docs-kind file, so its two engines' baselines are regenerated.
+- Also edited, beyond the list: `packages/theme/src/config.ts`, `loader.test.ts`, `strip.test.ts`, `scripts/probe-layout.mjs` (`KIND_BODY_RATIO` gains docs and changelog), `scripts/gate-aesthetics.mjs` (the expected row), `fixtures/corpus/README.md` and the goldens. `kind-profiles.test.mjs` no longer asserts a changelog keeps the text face.
+- A docs admonition is a quote whose first words are a bold label (core drops the `[!NOTE]` marker at render time and marks nothing), so an ordinary quote that begins in bold is set apart too, in a docs page only.
+
 **Do not.**
 - Build the docs-set tree, *Search docs set*, *Prev / next*, backlinks or *Daily* (K-14 and later).
 - Change the `article`, `readme` or `report` profiles.

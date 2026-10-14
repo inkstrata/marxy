@@ -216,7 +216,8 @@ test('the strip holds exactly the tools of the kind\'s row whose commands exist,
     assert.deepEqual((await strip(page)).tools, ['line-numbers']);
     await openFile(page, '/r/CHANGELOG.md');
     await settle(page);
-    assert.deepEqual((await strip(page)).tools, ['changes']);
+    // K-22: a changelog's strip adds Versions and Copy release notes before Changes.
+    assert.deepEqual((await strip(page)).tools, ['versions', 'copy-release-notes', 'changes']);
 
     // Changes is enabled once the file has changed on disk; pressing it shows what changed.
     await openFile(page, '/r/plan.md');

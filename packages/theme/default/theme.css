@@ -206,6 +206,37 @@
   --marxy-measure-chars: 74;
   --marxy-avg-char: 0.425;
 }
+[data-marxy-kind="docs"] {
+  /* A page of a docs set takes the README's setting: Inter, 16 on 26, 80 average characters, the clamp's edge (the card's 84
+     is above the loader's 45-80 clamp; Reader Typography ch.7 and 10, "Documentation": ragged, space between paragraphs,
+     identifiers that never break). K-22. */
+  --marxy-font-text: var(--marxy-face-readme);
+  --marxy-font-heading: var(--marxy-face-readme);
+  --marxy-size-body: calc(0.8 * var(--marxy-root-size-body));
+  --marxy-line-box: round(calc(0.8667 * var(--marxy-root-line-box)), 2px);
+  --marxy-size-code: calc(0.78 * var(--marxy-root-size-code));
+  --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
+  --marxy-size-caption: calc(0.87 * var(--marxy-root-size-caption));
+  --marxy-lh-h1: calc(0.8 * var(--marxy-root-lh-h1));
+  --marxy-lh-h2: calc(0.8 * var(--marxy-root-lh-h2));
+  --marxy-measure-chars: 80;
+  --marxy-avg-char: 0.454;
+}
+[data-marxy-kind="changelog"] {
+  /* A changelog takes the report's setting: Atkinson Hyperlegible Next, 17 on 26, 74 average characters, ragged: dense short
+     bullets with identifiers and versions that must not break (Reader Typography ch.7, "Changelogs"; K-22). */
+  --marxy-font-text: var(--marxy-face-sans);
+  --marxy-font-heading: var(--marxy-face-sans);
+  --marxy-size-body: calc(0.85 * var(--marxy-root-size-body));
+  --marxy-line-box: round(calc(0.8667 * var(--marxy-root-line-box)), 2px);
+  --marxy-size-code: calc(0.83 * var(--marxy-root-size-code));
+  --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
+  --marxy-size-caption: calc(0.87 * var(--marxy-root-size-caption));
+  --marxy-lh-h1: calc(0.85 * var(--marxy-root-lh-h1));
+  --marxy-lh-h2: calc(0.85 * var(--marxy-root-lh-h2));
+  --marxy-measure-chars: 74;
+  --marxy-avg-char: 0.425;
+}
 [data-marxy-kind="transcript"] {
   /* Atkinson Hyperlegible Next, 16 on 26 as a README is (0.8 and 0.8667), a 66-character text column; the speaker
      label hangs outside it in a 10-character column of its own, so the whole is the 76 of the kinds table
@@ -244,6 +275,32 @@
   color: var(--marxy-color-text-strong);
 }
 .marxy-term-start { margin-top: calc(var(--marxy-line-box-code) / 2); }
+/* Docs, notes and changelogs (K-22): restyling only, nothing inserted and no byte changed. None of these rules moves a line off
+   the grid: a border or a half-line of padding either side, never a margin that is not a half line.
+   A docs page sets its signature block (the code block right after the title, or after the one-line summary under it) apart
+   with the accent's edge, and its admonitions (a GitHub alert, which core renders as a quote whose first words are its bold
+   label) in the code ground with that edge; the label is a word, so no colour carries the type. */
+[data-marxy-kind="docs"] .marxy-article > h1 + pre,
+[data-marxy-kind="docs"] .marxy-article > h1 + p + pre {
+  /* Given through custom properties by the rule below, which names no heading: the title is only where the signature is found. */
+  --marxy-signature-edge: 3px;
+  --marxy-signature-ink: var(--marxy-color-text-strong);
+}
+[data-marxy-kind="docs"] .marxy-article > pre { border-inline-start: var(--marxy-signature-edge, 0) solid var(--marxy-color-accent); }
+[data-marxy-kind="docs"] .marxy-article > pre code { color: var(--marxy-signature-ink, inherit); }
+[data-marxy-kind="docs"] .marxy-article > blockquote:has(> p:first-child > strong:first-child) {
+  background: var(--marxy-color-code-bg);
+  border-inline-start-color: var(--marxy-color-accent);
+  border-start-end-radius: 4px;
+  border-end-end-radius: 4px;
+  padding-block: var(--marxy-half);
+  padding-inline-end: var(--marxy-half);
+}
+[data-marxy-kind="docs"] .marxy-article > blockquote:has(> p:first-child > strong:first-child) > :last-child { margin-bottom: 0; }
+/* A notes file's date is quiet: the front matter's `date` row in the secondary colour, and (app/kinds/quiet-dates.ts) a first line
+   that is only a date. A changelog's version headings take their date the same way, through the same highlight. */
+[data-marxy-kind="notes"] .marxy-article > dl:first-child > dd[data-marxy-fm-key="date"] { color: var(--marxy-color-text-secondary); }
+::highlight(marxy-quiet-date) { color: var(--marxy-color-text-secondary); }
 [data-marxy-kind="diff"] {
   /* Mono, 16 on 26 (0.8889 and 0.8667 of 18 on 30), as authored: a diff is never reflowed, so only the size and the line
      box are the profile's. A wrapped row hangs past the marker column (diffMarkerIndentCh, ADR-0036; K-09). */

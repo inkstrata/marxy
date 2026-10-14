@@ -530,6 +530,18 @@
       }
     ]
   },
+  "39-changelog.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "39-changelog.md",
+        "decisive": true
+      }
+    ]
+  },
   "README.md": {
     "kind": "readme",
     "reasons": [

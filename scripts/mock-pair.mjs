@@ -56,6 +56,8 @@ export const SCREENS = {
   '09-inspector-outline': 'The inspector docked on its Outline tab: headings with the words of each section (mock 01-workspace)',
   '03-terminal': 'A shell session in the reader (mock 01-workspace, doc=shell-session)',
   '09-inspector-versions': 'The inspector docked on its Versions tab: Changed since you read and the earlier versions (mock 01-workspace)',
+  '03-docs': 'A docs page in the reader (mock 01-workspace, doc=watch-docs)',
+  '03-changelog': 'A changelog in the reader (mock 01-workspace, doc=changelog)',
 };
 
 /** The file names one screen produces: <screen>-<theme>-{app,mock}.png. */
@@ -175,6 +177,8 @@ const RS = toPath(docs.find((d) => d.id === 'indexer-rs').path);
 const CHAT = toPath(docs.find((d) => d.id === 'indexer-chat').path);
 const BUILD_LOG = toPath(docs.find((d) => d.id === 'build-log').path);
 const SHELL_SESSION = toPath(docs.find((d) => d.id === 'shell-session').path);
+const WATCH_DOCS = toPath(docs.find((d) => d.id === 'watch-docs').path);
+const CHANGELOG = toPath(docs.find((d) => d.id === 'changelog').path);
 const ARTICLE = toPath(docs.find((d) => d.id === 'ragged-right').path);
 const CSV = toPath(docs.find((d) => d.id === 'bench-csv').path);
 const entries = docs.filter((d) => d.src).map((d, i) => ({
@@ -328,31 +332,8 @@ const APP_STATES = {
     await settle(page, 600);
   },
   async '03-terminal'(page) { await openDoc(page, SHELL_SESSION); await settle(page, 900); },
-  async '09-inspector-versions'(page) {
-    await unfoldedWithTabs(page);
-    // The card's scenario on the plan: read at open, an edit saved, then another program rewrites a line.
-    await page.evaluate(async () => {
-      const { versionRecorder } = await import('/src/versions/recorder.ts');
-      const h = window.__marxyHandle;
-      const store = h.document();
-      const path = store.snapshot().path;
-      const text = new TextDecoder().decode(store.snapshot().buffer.bytes);
-      const at = new TextEncoder().encode(text.slice(0, text.indexOf('\n## ') + 1)).length;
-      await store.apply({ range: { file: path, start: at, end: at }, replacement: 'A line the reader added and saved.\n\n', label: 'edit' });
-      await h.save();
-      await versionRecorder()?.settled();
-      const saved = new TextDecoder().decode(store.snapshot().buffer.bytes);
-      const outside = saved.replace(/\n## [^\n]*\n/, (m) => `${m}\nA paragraph another program wrote while the file was open.\n`);
-      await h.shell.writeFileAtomic(path, new TextEncoder().encode(outside));
-      h.shell.emit([{ kind: 'modified', path }]);
-    });
-    await page.waitForFunction(() => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes).includes('another program wrote'));
-    await page.evaluate(async () => (await import('/src/versions/recorder.ts')).versionRecorder()?.settled());
-    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
-    await page.locator('[data-marxy-inspector-tab="versions"]').click();
-    await page.waitForSelector('.marxy-versions [data-marxy-versions-since]');
-    await settle(page, 600);
-  },
+  async '03-docs'(page) { await openDoc(page, WATCH_DOCS); await settle(page, 900); },
+  async '03-changelog'(page) { await openDoc(page, CHANGELOG); await settle(page, 900); },
 };
 const APP_OPTS = { '08-narrow': { width: NARROW }, '03-code': {}, '03-transcript': {} };
 
@@ -419,6 +400,8 @@ const MOCK_STATES = {
   '09-inspector-outline': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
   '03-terminal': { file: '01-workspace.html', hash: '#doc=shell-session', run: async () => {} },
   '09-inspector-versions': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="versions"]'); await settle(page, 600); } },
+  '03-docs': { file: '01-workspace.html', hash: '#doc=watch-docs', run: async () => {} },
+  '03-changelog': { file: '01-workspace.html', hash: '#doc=changelog', run: async () => {} },
 };
 
 const browser = await launchWebkit();
