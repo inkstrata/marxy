@@ -66,7 +66,7 @@ export interface ClipboardMeta {
 }
 
 export type ShellError = {
-  readonly code: 'not-found' | 'permission' | 'io' | 'invalid' | 'unsupported' | 'refused';
+  readonly code: 'not-found' | 'permission' | 'io' | 'invalid' | 'unsupported' | 'refused' | 'exists';
   readonly message: string;
   readonly path?: string;
 };
@@ -76,6 +76,16 @@ export interface Shell {
   readFile(path: string): Promise<Uint8Array>;
   /** Atomic: write to a temp file in the same directory, fsync, rename over. Never in place. */
   writeFileAtomic(path: string, bytes: Uint8Array): Promise<void>;
+  /**
+   * Create-only (ADR-0074): writes exactly `bytes` at `path` only if nothing is there, else rejects with `code: 'exists'` and
+   * writes nothing. "Nothing" is exact: a file, a folder, a symlink, a symlink that leads nowhere, and (on a case-insensitive
+   * volume) a name that differs only in case all refuse. A link at `path` is never followed. The refusal is decided by the
+   * operating system in the same step that makes the name appear, not by a look beforehand, so a creator racing this write is
+   * never replaced. Staged and flushed first, like `writeFileAtomic`: the whole file appears, or none, and a failed write leaves no
+   * temporary file. Where the volume cannot do that safely it rejects (`io`) rather than risk a replace. The write for anything
+   * made beside a reader's file instead of over it; it never replaces, so it has no stale-write precondition.
+   */
+  writeFileNew(path: string, bytes: Uint8Array): Promise<void>;
   /**
    * One file's size and modification time without listing its folder (C-11.2). A narrower form of
    * `readDir`: `null` for a path that is missing, one that is itself a symlink (`readDir` omits every one) or named like a
@@ -191,6 +201,7 @@ function stubShellImpl(): Shell {
   return {
     readFile: async () => new Uint8Array(),
     writeFileAtomic: async () => {},
+    writeFileNew: async () => {},
     stat: async () => null,
     readHead: async () => new Uint8Array(),
     watch: async () => ({ close() {} }),

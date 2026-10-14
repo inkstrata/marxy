@@ -118,35 +118,55 @@ fn read_head(path: String, max_bytes: u64) -> Result<tauri::ipc::Response, Shell
 /// The header `write_file_atomic` reads its destination from, percent-encoded by the webview.
 const WRITE_PATH_HEADER: &str = "x-marxy-path";
 
-/// Saves exactly the request's raw body and nothing else about the file; see `atomic_write` for the
-/// guarantees and the cases it refuses. The bytes arrive as a raw body, not a JSON array of numbers,
-/// and the path in `x-marxy-path`. Checked end to end over the corpus by `pnpm gate:fidelity`.
-#[tauri::command]
-fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), ShellError> {
+/// The destination and the bytes of a write request: the raw body is the document, the path rides in
+/// `x-marxy-path`. `command` names the caller in a refusal.
+fn write_request<'a>(
+    command: &str,
+    request: &'a tauri::ipc::Request<'_>,
+) -> Result<(String, &'a [u8]), ShellError> {
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
         return Err(ShellError::invalid(
             "",
-            "write_file_atomic: expected the document's bytes as a raw body",
+            format!("{command}: expected the document's bytes as a raw body"),
         ));
     };
     let encoded = request
         .headers()
         .get(WRITE_PATH_HEADER)
-        .ok_or_else(|| {
-            ShellError::invalid(
-                "",
-                format!("write_file_atomic: missing {WRITE_PATH_HEADER}"),
-            )
-        })?
+        .ok_or_else(|| ShellError::invalid("", format!("{command}: missing {WRITE_PATH_HEADER}")))?
         .to_str()
-        .map_err(|e| {
-            ShellError::invalid("", format!("write_file_atomic: {WRITE_PATH_HEADER}: {e}"))
-        })?;
+        .map_err(|e| ShellError::invalid("", format!("{command}: {WRITE_PATH_HEADER}: {e}")))?;
     let path = percent_decode(encoded).map_err(|e| ShellError::invalid("", e))?;
-    atomic_write::write_atomic(std::path::Path::new(&path), bytes).map_err(|e| match e.kind {
-        WriteErrorKind::Permission => ShellError::permission(&path, e.message),
-        WriteErrorKind::Io => ShellError::io(&path, e.message),
-    })
+    Ok((path, bytes))
+}
+
+fn write_error(path: &str, e: atomic_write::WriteError) -> ShellError {
+    match e.kind {
+        WriteErrorKind::Permission => ShellError::permission(path, e.message),
+        WriteErrorKind::Io => ShellError::io(path, e.message),
+        WriteErrorKind::Exists => ShellError::exists(path, e.message),
+    }
+}
+
+/// Saves exactly the request's raw body and nothing else about the file; see `atomic_write` for the
+/// guarantees and the cases it refuses. The bytes arrive as a raw body, not a JSON array of numbers,
+/// and the path in `x-marxy-path`. Checked end to end over the corpus by `pnpm gate:fidelity`.
+#[tauri::command]
+fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), ShellError> {
+    let (path, bytes) = write_request("write_file_atomic", &request)?;
+    atomic_write::write_atomic(std::path::Path::new(&path), bytes)
+        .map_err(|e| write_error(&path, e))
+}
+
+/// Creates a file at the request's path with the request's raw body, only if nothing is at that name:
+/// a file, a folder, a link or a dangling one, and it never follows a link. Fails `exists` and writes
+/// nothing otherwise (F-85, ADR-0074). The same request shape as `write_file_atomic`; the guarantees
+/// are in `atomic_write::write_new`. Never replaces, so it is the write for anything made beside a
+/// reader's file rather than over it.
+#[tauri::command]
+fn write_file_new(request: tauri::ipc::Request<'_>) -> Result<(), ShellError> {
+    let (path, bytes) = write_request("write_file_new", &request)?;
+    atomic_write::write_new(std::path::Path::new(&path), bytes).map_err(|e| write_error(&path, e))
 }
 
 #[tauri::command]
@@ -1281,6 +1301,7 @@ fn main() {
             args,
             read_file,
             write_file_atomic,
+            write_file_new,
             set_title,
             set_menu_enabled,
             save_dialog,

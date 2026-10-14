@@ -24,7 +24,7 @@ const files = {
 };
 const entries = Object.keys(files).map((path) => ({ path, root: '/r', title: files[path].match(/^# (.*)$/m)[1], headings: [], mtimeMs: 1, size: files[path].length, kind: 'markdown' }));
 
-async function withPage(fn, { width = 1470, height = 900, open = ['/r/a.md'], data = {}, links = {} } = {}) {
+async function withPage(fn, { width = 1470, height = 900, open = ['/r/a.md'], data = {}, links = {}, symlinks = {} } = {}) {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width, height } });
@@ -42,13 +42,14 @@ async function withPage(fn, { width = 1470, height = 900, open = ['/r/a.md'], da
     await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
     const encoded = Object.fromEntries(Object.entries({ ...files, ...data }).map(([path, text]) => [path, typeof text === 'string' ? b64(text) : Buffer.from(text).toString('base64')]));
     await page.evaluate(
-      async ({ encoded, index, open, links }) => {
+      async ({ encoded, index, open, links, symlinks }) => {
         const bytes = {};
         for (const [path, text] of Object.entries(encoded)) bytes[path] = Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
         const { createMemoryShell } = await import('/src/shell/memory.ts');
         const { bootApplication } = await import('/src/main.ts');
         const shell = createMemoryShell(bytes);
         for (const [from, to] of Object.entries(links)) shell.link(from, to);
+        for (const [at, to] of Object.entries(symlinks)) shell.symlink(at, to);
         const handle = await bootApplication(shell, { argv: [open[0]] });
         await handle.ready;
         window.__marxyHandle = handle;
@@ -57,7 +58,7 @@ async function withPage(fn, { width = 1470, height = 900, open = ['/r/a.md'], da
         handle.palette.noteRead(open[0], 'open');
         for (const path of open.slice(1)) await handle.open(path);
       },
-      { encoded, index: entries, open, links },
+      { encoded, index: entries, open, links, symlinks },
     );
     await fn(page);
   } finally {
@@ -68,12 +69,23 @@ async function withPage(fn, { width = 1470, height = 900, open = ['/r/a.md'], da
 const mod = async (page) => ((await page.evaluate(() => navigator.platform.toUpperCase().includes('MAC'))) ? 'Meta' : 'Control');
 const unfold = (page) => page.evaluate(() => window.__marxyHandle.workspace().unfold());
 const settle = (page) => page.evaluate(() => new Promise((r) => setTimeout(r, 120)));
-/** Writes beside the reader's files: the memory shell's write log without Marxy's own state (/data). */
+/**
+ * Writes beside the reader's files: the memory shell's write log without Marxy's own state (/data), both writes. A fork is a
+ * create-only write (F-85, ADR-0074), a Save As the one that replaces; a `writeFileNew` call a name that was taken refused is
+ * included, and the bytes on disk (`diskBytes`) say which of them made a file. `replacingWrites` is the replacing ones alone.
+ */
 const docWrites = (page) =>
   page.evaluate(() =>
     window.__marxyHandle.shell.calls
-      .filter((c) => c.method === 'writeFileAtomic' && !c.args[0].startsWith('/data/') && !c.args[0].startsWith('/config/'))
+      .filter((c) => (c.method === 'writeFileNew' || c.method === 'writeFileAtomic') && !c.args[0].startsWith('/data/') && !c.args[0].startsWith('/config/'))
       .map((c) => [c.args[0], [...c.args[1]]]),
+  );
+/** Calls to the write that replaces, beside the reader's files: Fork, and a copy beside a file, make none. */
+const replacingWrites = (page) =>
+  page.evaluate(() =>
+    window.__marxyHandle.shell.calls
+      .filter((c) => c.method === 'writeFileAtomic' && !c.args[0].startsWith('/data/') && !c.args[0].startsWith('/config/'))
+      .map((c) => c.args[0]),
   );
 const callsTo = (page, method) => page.evaluate((m) => window.__marxyHandle.shell.calls.filter((c) => c.method === m).map((c) => [...c.args]), method);
 const diskBytes = (page, path) => page.evaluate(async (p) => [...(await window.__marxyHandle.shell.peekFile(p))], path);
@@ -210,6 +222,7 @@ test('Fork this file writes the open file\'s bytes beside it as name (fork).md, 
     await page.keyboard.press(`${key}+Shift+KeyN`);
     await waitForPath(page, '/r/a (fork).md');
     assert.deepEqual(await docWrites(page), [['/r/a (fork).md', original]], 'one write: the fork, with the original\'s bytes');
+    assert.deepEqual(await replacingWrites(page), [], 'and it is create-only: nothing that replaces was called');
     assert.deepEqual(await diskBytes(page, '/r/a.md'), original, 'the original is as it was');
     const said = (await noticeTexts(page)).find((n) => /Forked/.test(n.text));
     assert.ok(said, `a notice: ${JSON.stringify(await noticeTexts(page))}`);
@@ -218,7 +231,7 @@ test('Fork this file writes the open file\'s bytes beside it as name (fork).md, 
     assert.equal(await bufferText(page), A_TEXT);
   }));
 
-test('ADVERSARIAL: with a (fork).md already there, Fork writes (fork 2) and never calls the write on the first, which keeps its bytes; unsaved edits go into the fork only', () =>
+test('ADVERSARIAL: with a (fork).md already there, Fork is refused there, writes (fork 2), and the first keeps its bytes; unsaved edits go into the fork only', () =>
   withPage(async (page) => {
     const key = await mod(page);
     const mine = 'MY OWN FORK OF A, kept exactly\n';
@@ -229,8 +242,9 @@ test('ADVERSARIAL: with a (fork).md already there, Fork writes (fork 2) and neve
     // The original has unsaved edits, so opening the fork asks first (as any open does); the fork is already written.
     await page.waitForFunction(() => document.body.textContent.includes('Forked a.md as a (fork 2).md'));
     const writes = await docWrites(page);
-    assert.deepEqual(writes.map(([p]) => p), ['/r/a (fork 2).md'], 'the write log has no entry for a (fork).md');
-    assert.equal(Buffer.from(writes[0][1]).toString('utf8'), edited, 'the unsaved edit is in the fork');
+    assert.deepEqual(writes.map(([p]) => p), ['/r/a (fork).md', '/r/a (fork 2).md'], 'it tried the first name, was refused, and went on');
+    assert.deepEqual(await replacingWrites(page), [], 'nothing that replaces was called');
+    assert.equal(Buffer.from(writes[1][1]).toString('utf8'), edited, 'the unsaved edit is in the fork');
     assert.equal(Buffer.from(await diskBytes(page, '/r/a (fork).md')).toString('utf8'), mine);
     assert.equal(Buffer.from(await diskBytes(page, '/r/a.md')).toString('utf8'), A_TEXT, 'and not in the original on disk');
     const said = (await noticeTexts(page)).find((n) => /Forked/.test(n.text));
@@ -238,7 +252,7 @@ test('ADVERSARIAL: with a (fork).md already there, Fork writes (fork 2) and neve
     assert.equal(await focusedPath(page), '/r/a.md', 'the prompt over the unsaved original stands; nothing has been opened over it');
     await clickNotice(page, 'Open without saving');
     await waitForPath(page, '/r/a (fork 2).md');
-    assert.deepEqual((await docWrites(page)).map(([p]) => p), ['/r/a (fork 2).md'], 'still the one write');
+    assert.deepEqual((await docWrites(page)).map(([p]) => p), ['/r/a (fork).md', '/r/a (fork 2).md'], 'still the same two tries');
   }, { data: { '/r/a (fork).md': 'MY OWN FORK OF A, kept exactly\n' } }));
 
 test('a symlink at the name is a file that is there: the fork goes to the next name and the link\'s target is not touched', () =>
@@ -247,9 +261,9 @@ test('a symlink at the name is a file that is there: the fork goes to the next n
     const target = await diskBytes(page, '/r/b.md');
     await page.keyboard.press(`${key}+Shift+KeyN`);
     await waitForPath(page, '/r/a (fork 2).md');
-    assert.deepEqual((await docWrites(page)).map(([p]) => p), ['/r/a (fork 2).md']);
+    assert.deepEqual((await docWrites(page)).map(([p]) => p), ['/r/a (fork).md', '/r/a (fork 2).md'], 'the link was refused, not written through');
     assert.deepEqual(await diskBytes(page, '/r/b.md'), target);
-  }, { links: { '/r/a (fork).md': '/r/b.md' } }));
+  }, { symlinks: { '/r/a (fork).md': '/r/b.md' } }));
 
 test('text typed in Source and not yet folded into the document is in the fork, and not in the original on disk', () =>
   withPage(async (page) => {

@@ -21,6 +21,7 @@ export type AppShell = Pick<
   | 'readHead'
   | 'stat'
   | 'writeFileAtomic'
+  | 'writeFileNew'
   | 'watch'
   | 'platform'
   | 'startupMarks'

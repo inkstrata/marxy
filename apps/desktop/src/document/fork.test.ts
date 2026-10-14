@@ -1,12 +1,13 @@
-// *Fork this file* (W-14), in Node over a fake filesystem that behaves as the real shell does where it matters: `stat` does not see
-// a symlink, `writeFileAtomic` replaces what is at the name and writes *through* a symlink, a link that leads nowhere is refused,
-// and a name can differ from an existing one only by its case. Each test says which acceptance line it holds.
+// *Fork this file* (W-14, F-85), in Node over a fake filesystem that behaves as the real shell does where it matters:
+// `writeFileNew` is create-only (a file, a folder, a symlink, a dangling symlink and a name differing only by case are all taken, and
+// it fails `exists` and writes nothing), while `writeFileAtomic` replaces what is at the name and writes *through* a symlink (which is
+// why a fork must never call it). Each test says which acceptance line it holds.
 // The walk at the end is seeded: MARXY_WALK_SEED=<n> replays one seed alone.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { drawers, prng } from '../../test/support/prng.mjs';
 import { FORK_SAYS, whyForkFailed } from '../notices/fork.ts';
-import { MAX_FORKS, MAX_NAME_BYTES, forkPath, nameIsTaken, writeFork, type ForkIo } from './fork.ts';
+import { MAX_FORKS, MAX_NAME_BYTES, forkPath, isExists, writeBeside, writeFork, type ForkIo } from './fork.ts';
 import { openDocumentStore } from './store.ts';
 
 const enc = new TextEncoder();
@@ -42,40 +43,22 @@ class Fs implements ForkIo {
     this.before?.(call);
   }
 
-  async stat(path: string): Promise<unknown | null> {
-    this.enter(`stat:${path}`);
-    if (this.links.has(path)) return null; // the real stat does not see a link
-    if (this.found(path) !== undefined) return { path, isDir: false };
-    if (this.foundDir(path) !== undefined) return { path, isDir: true };
-    return null;
-  }
-  async realPath(path: string): Promise<string> {
-    this.enter(`realPath:${path}`);
-    const link = this.links.get(path);
-    if (link !== undefined) {
-      if (this.found(link) === undefined && this.foundDir(link) === undefined) throw Object.assign(new Error(`${path}: not found`), { code: 'not-found' });
-      return link;
+  /** Create-only, as the shell's: anything at the name (case folded where the volume folds) refuses `exists` and changes nothing. */
+  async writeFileNew(path: string, data: Uint8Array): Promise<void> {
+    this.enter(`new:${path}`);
+    if (this.failWrite) throw this.failWrite;
+    if (this.links.has(path) || this.found(path) !== undefined || this.foundDir(path) !== undefined) {
+      throw Object.assign(new Error(`${path}: there is already something with this name`), { code: 'exists' });
     }
-    const file = this.found(path);
-    if (file !== undefined) return file;
-    const dir = this.foundDir(path);
-    if (dir !== undefined) return dir;
-    throw Object.assign(new Error(`${path}: not found`), { code: 'not-found' });
+    this.files.set(path, data.slice());
+    this.log.push(`created:${path}`);
   }
-  async readHead(path: string, _max: number): Promise<Uint8Array> {
-    this.enter(`readHead:${path}`);
-    // As the shell does: a link (leading anywhere or nowhere) and a folder are 'not a regular file'; a missing path is not found.
-    if (this.links.has(path) || this.foundDir(path) !== undefined) throw Object.assign(new Error(`${path}: not a regular file`), { code: 'invalid' });
-    const file = this.found(path);
-    if (file === undefined) throw Object.assign(new Error(`${path}: no such file`), { code: 'not-found' });
-    return new Uint8Array(0);
-  }
+  /** What `Save` calls: replaces what is at the name and writes through a link. A fork must never call it. */
   async writeFileAtomic(path: string, data: Uint8Array): Promise<void> {
     this.enter(`write:${path}`);
     if (this.failWrite) throw this.failWrite;
     const link = this.links.get(path);
     if (link !== undefined) {
-      // The shell saves *through* a link, and refuses one that leads nowhere.
       if (this.found(link) === undefined) throw Object.assign(new Error(`${path}: is a symlink that does not resolve`), { code: 'io' });
       this.files.set(this.found(link)!, data.slice());
       return;
@@ -84,8 +67,17 @@ class Fs implements ForkIo {
     const existing = this.found(path);
     this.files.set(existing ?? path, data.slice());
   }
+  /** The names created, in order. */
   writes(): string[] {
-    return this.log.filter((c) => c.startsWith('write:')).map((c) => c.slice('write:'.length));
+    return this.log.filter((c) => c.startsWith('created:')).map((c) => c.slice('created:'.length));
+  }
+  /** Every create-only attempt, a refused one included. */
+  attempts(): string[] {
+    return this.log.filter((c) => c.startsWith('new:')).map((c) => c.slice('new:'.length));
+  }
+  /** Calls to the write that replaces: a fork makes none. */
+  replacingWrites(): string[] {
+    return this.log.filter((c) => c.startsWith('write:'));
   }
   snapshot(): Map<string, Uint8Array> {
     return new Map([...this.files].map(([k, v]) => [k, v.slice()]));
@@ -179,23 +171,14 @@ test('a failed write leaves nothing: no file at the name, nothing else changed, 
   }
 });
 
-test('a check that fails (the shell cannot say) writes nothing and says so', async () => {
-  const fs = withOriginal();
-  fs.before = (call) => {
-    if (call.startsWith('stat:')) throw Object.assign(new Error('permission denied'), { code: 'permission' });
-  };
-  const out = await writeFork(fs, ORIGINAL, BODY);
-  assert.equal(out.result, 'failed');
-  assert.deepEqual(fs.writes(), []);
-});
-
-test('ADVERSARIAL: with x (fork).md present, Fork never calls the write on it, and the original and that file keep their bytes', async () => {
+test('ADVERSARIAL: with x (fork).md present, Fork is refused `exists` there, creates nothing at it, and the original and that file keep their bytes', async () => {
   const mine = enc.encode('MY OWN FORK, kept');
   const fs = withOriginal({ '/d/notes (fork).md': mine.slice() });
   const out = await writeFork(fs, ORIGINAL, BODY);
   assert.deepEqual(out, { result: 'written', path: '/d/notes (fork 2).md', n: 2 });
-  assert.equal(fs.writes().includes('/d/notes (fork).md'), false, 'the write log has no entry for the existing fork');
-  assert.deepEqual(fs.writes(), ['/d/notes (fork 2).md']);
+  assert.deepEqual(fs.attempts(), ['/d/notes (fork).md', '/d/notes (fork 2).md'], 'it tried the first name, was refused, and went on');
+  assert.deepEqual(fs.writes(), ['/d/notes (fork 2).md'], 'only the free name was created');
+  assert.deepEqual(fs.replacingWrites(), [], 'and nothing that replaces was called');
   assert.ok(same(fs.files.get('/d/notes (fork).md'), mine));
   assert.ok(same(fs.files.get(ORIGINAL), BODY));
 });
@@ -233,68 +216,80 @@ test('every one of the 999 names taken: no write at all, a failure that says why
   for (const [k, v] of before) assert.ok(same(fs.files.get(k), v), k);
 });
 
-test('RACE: names are looked for one at a time as the write is made, never from a listing taken earlier', async () => {
-  // While the first name is being looked at, another program makes the (fork 2) file. A fork that took its name from an earlier
-  // listing would choose (fork 2) and replace it; this one looks at (fork 2) after, finds it, and takes (fork 3).
-  const fs = withOriginal({ '/d/notes (fork).md': enc.encode('first') });
-  const planted = enc.encode('PLANTED while the first name was being checked');
-  let done = false;
+test('RACE: a creator that makes the fork\'s name between the caller\'s look and the write is not replaced: Fork writes (fork 2) and the creator keeps its bytes', async () => {
+  // The F-85 window: W-14 accepted that a file made at `notes (fork).md` after the last look was replaced. The write is create-only
+  // now, so the creator wins the name and the fork takes the next one.
+  const fs = withOriginal();
+  const planted = enc.encode('PLANTED between the look and the write');
   fs.before = (call) => {
-    if (!done && call === 'stat:/d/notes (fork).md') {
-      done = true;
-      fs.files.set('/d/notes (fork 2).md', planted.slice());
+    if (call === 'new:/d/notes (fork).md') fs.files.set('/d/notes (fork).md', planted.slice());
+  };
+  const out = await writeFork(fs, ORIGINAL, BODY);
+  assert.deepEqual(out, { result: 'written', path: '/d/notes (fork 2).md', n: 2 });
+  assert.ok(same(fs.files.get('/d/notes (fork).md'), planted), 'the creator\'s file keeps its bytes');
+  assert.ok(same(fs.files.get('/d/notes (fork 2).md'), BODY));
+  assert.deepEqual(fs.replacingWrites(), []);
+});
+
+test('RACE: a creator at every name the walk reaches is skipped in turn, each left as it was', async () => {
+  const fs = withOriginal();
+  const made = new Map<string, Uint8Array>();
+  fs.before = (call) => {
+    if (!call.startsWith('new:')) return;
+    const path = call.slice('new:'.length);
+    if (made.size < 3) {
+      const data = enc.encode(`creator ${made.size}`);
+      made.set(path, data);
+      fs.files.set(path, data.slice());
     }
   };
   const out = await writeFork(fs, ORIGINAL, BODY);
-  assert.deepEqual(out, { result: 'written', path: '/d/notes (fork 3).md', n: 3 });
-  assert.ok(same(fs.files.get('/d/notes (fork 2).md'), planted), 'the file that appeared mid-way is intact');
-  assert.equal(fs.writes().includes('/d/notes (fork 2).md'), false);
+  assert.deepEqual(out, { result: 'written', path: '/d/notes (fork 4).md', n: 4 });
+  for (const [path, data] of made) assert.ok(same(fs.files.get(path), data), `${path} keeps its bytes`);
 });
 
-test('RACE: the look at the name is the last call before the write; nothing else is awaited between them', async () => {
-  const fs = withOriginal({ '/d/notes (fork).md': enc.encode('x') });
-  await writeFork(fs, ORIGINAL, BODY);
-  const at = fs.log.indexOf('write:/d/notes (fork 2).md');
-  assert.deepEqual(fs.log.slice(at - 3, at), ['stat:/d/notes (fork 2).md', 'realPath:/d/notes (fork 2).md', 'readHead:/d/notes (fork 2).md'], 'the name\'s own checks come last');
-  assert.equal(fs.log.slice(at + 1).length, 0, 'and nothing follows the write');
-});
-
-test('KNOWN LIMIT: a file that appears after the last look and before the write is replaced, because the shell has no create-only write', async () => {
-  // This test states the limit rather than hiding it (fork.ts, THE ONE LIMIT). It passes today; if the shell gains a create-only
-  // write and `writeFork` uses it, this is the test that must be turned around: the planted file would then survive.
-  const fs = withOriginal();
-  const planted = enc.encode('PLANTED between the check and the write');
+test('RACE: a symlink made at the name between the look and the write is not written through; the next name is taken', async () => {
+  const target = enc.encode('THE LINK TARGET');
+  const fs = withOriginal({ '/d/precious.md': target.slice() });
   fs.before = (call) => {
-    if (call === 'write:/d/notes (fork).md') fs.files.set('/d/notes (fork).md', planted.slice());
+    if (call === 'new:/d/notes (fork).md') fs.links.set('/d/notes (fork).md', '/d/precious.md');
   };
   const out = await writeFork(fs, ORIGINAL, BODY);
-  assert.equal(out.result, 'written');
-  assert.ok(same(fs.files.get('/d/notes (fork).md'), BODY), 'the planted file was replaced (the window is the shell\'s own write time)');
+  assert.deepEqual(out, { result: 'written', path: '/d/notes (fork 2).md', n: 2 });
+  assert.ok(same(fs.files.get('/d/precious.md'), target), 'the file the link points at is unchanged');
+  assert.equal(fs.links.get('/d/notes (fork).md'), '/d/precious.md');
 });
 
-test('nameIsTaken: a missing name is free, and only a folder\'s real path decides a link\'s place (a symlinked folder is not a link to the name)', async () => {
-  const fs = withOriginal();
-  assert.equal(await nameIsTaken(fs, '/d/free.md'), false);
-  assert.equal(await nameIsTaken(fs, ORIGINAL), true);
-  // /tmp is a link to /private/tmp on a Mac: a name in it that does not exist is free, whatever the folder resolves to.
-  const mac: ForkIo = {
-    stat: async () => null,
-    realPath: async (p) => {
-      if (p === '/tmp') return '/private/tmp';
-      if (p === '/tmp/x.md') throw Object.assign(new Error('nf'), { code: 'not-found' });
-      return p;
-    },
-    readHead: async () => { throw Object.assign(new Error('nf'), { code: 'not-found' }); },
-    writeFileAtomic: async () => {},
-  };
-  assert.equal(await nameIsTaken(mac, '/tmp/x.md'), false);
-  const linked: ForkIo = { ...mac, realPath: async (p) => (p === '/tmp' ? '/private/tmp' : p === '/tmp/y.md' ? '/elsewhere/y.md' : p) };
-  assert.equal(await nameIsTaken(linked, '/tmp/y.md'), true, 'a name that resolves somewhere else is a link');
-  // A name `stat` cannot see (a deny-listed folder name, which a fork name never is) that resolves to itself is not a link: free.
-  const plain: ForkIo = { ...mac, realPath: async (p) => (p === '/tmp' ? '/private/tmp' : p === '/tmp/z.md' ? '/private/tmp/z.md' : p) };
-  assert.equal(await nameIsTaken(plain, '/tmp/z.md'), false);
-  const seen: ForkIo = { ...mac, stat: async () => ({ isDir: false }) };
-  assert.equal(await nameIsTaken(seen, '/tmp/z.md'), true, 'a name that `stat` sees is taken, in a linked folder too');
+test('a fork makes exactly one create-only call per name tried and no look at all', async () => {
+  const fs = withOriginal({ '/d/notes (fork).md': enc.encode('x') });
+  await writeFork(fs, ORIGINAL, BODY);
+  assert.deepEqual(fs.log, ['new:/d/notes (fork).md', 'new:/d/notes (fork 2).md', 'created:/d/notes (fork 2).md']);
+});
+
+test('only `exists` means "taken": any other refusal ends the walk at that name and says which', async () => {
+  for (const code of ['io', 'permission', 'invalid', undefined]) {
+    const fs = withOriginal({ '/d/notes (fork).md': enc.encode('x') });
+    const err = Object.assign(new Error('refused'), code === undefined ? {} : { code });
+    fs.before = (call) => {
+      if (call === 'new:/d/notes (fork 2).md') fs.failWrite = err;
+    };
+    const out = await writeFork(fs, ORIGINAL, BODY);
+    assert.deepEqual(out, { result: 'failed', error: err, path: '/d/notes (fork 2).md' }, String(code));
+    assert.equal(fs.attempts().length, 2, 'it did not skip on to a third name');
+  }
+  assert.equal(isExists(Object.assign(new Error('x'), { code: 'exists' })), true);
+  assert.equal(isExists(new Error('exists')), false);
+  assert.equal(isExists('exists'), false);
+});
+
+test('writeBeside takes any namer: the same rule for a conflict copy or a restored version', async () => {
+  const fs = withOriginal({ '/d/notes (version 14.32).md': enc.encode('kept') });
+  const out = await writeBeside(fs, (n) => `/d/notes (version 14.32${n > 1 ? ` ${n}` : ''}).md`, BODY, { max: 5, what: 'version copy names' });
+  assert.deepEqual(out, { result: 'written', path: '/d/notes (version 14.32 2).md', n: 2 });
+  assert.equal(dec.decode(fs.files.get('/d/notes (version 14.32).md')), 'kept');
+  const none = await writeBeside(fs, () => '/d/notes (version 14.32).md', BODY, { max: 3, what: 'version copy names' });
+  assert.equal(none.result, 'failed');
+  assert.match((none as { error: Error }).error.message, /all 3 version copy names/);
 });
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -421,6 +416,7 @@ test('the failure notice names the file that was to be written and says why in w
     [Object.assign(new Error(`${tmp}: cannot stage a save beside the destination: File name too long (os error 63)`), { code: 'io' }), /the name is too long for this folder/],
     [Object.assign(new Error(`${tmp}: cannot be written: No space left on device (os error 28)`), { code: 'io' }), /the disk is full/],
     [Object.assign(new Error('all 999 fork names beside this file are taken'), { code: 'exhausted' }), /every fork name beside it is taken/],
+    [Object.assign(new Error(`/d/notes (fork).md: this volume cannot create a file without risk of replacing one (Operation not permitted (os error 1))`), { code: 'io' }), /this disk can't add a file without risking replacing another/],
     [new Error('something nobody expected (os error 99)'), /the write was refused/],
   ];
   for (const [error, why] of cases) {
@@ -435,15 +431,8 @@ test('the failure notice names the file that was to be written and says why in w
   assert.equal(whyForkFailed('plain string'), 'the write was refused');
 });
 
-test('a failed write reports the name it was writing, and a failure before any name does not', async () => {
+test('a failed write reports the name it was writing', async () => {
   const fs = withOriginal();
   fs.failWrite = Object.assign(new Error('x'), { code: 'permission' });
   assert.deepEqual(await writeFork(fs, ORIGINAL, BODY), { result: 'failed', error: fs.failWrite, path: '/d/notes (fork).md' });
-  const gone = withOriginal();
-  gone.before = (call) => {
-    if (call.startsWith('realPath:')) throw Object.assign(new Error('nf'), { code: 'not-found' });
-  };
-  const out = await writeFork(gone, ORIGINAL, BODY);
-  assert.equal(out.result, 'failed');
-  assert.equal('path' in out, false);
 });

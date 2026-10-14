@@ -17,6 +17,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub enum WriteErrorKind {
     Permission,
     Io,
+    /// A create-only write found something at the name (F-85, ADR-0074); nothing was written.
+    Exists,
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +38,13 @@ impl WriteError {
     fn io(message: impl Into<String>) -> Self {
         Self {
             kind: WriteErrorKind::Io,
+            message: message.into(),
+        }
+    }
+
+    fn exists(message: impl Into<String>) -> Self {
+        Self {
+            kind: WriteErrorKind::Exists,
             message: message.into(),
         }
     }
@@ -72,6 +81,221 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), WriteError> {
         let _ = fs::remove_file(&tmp);
     }
     saved
+}
+
+/// Writes exactly `bytes` at `path` only if nothing is there, and otherwise writes nothing (F-85, ADR-0074).
+///
+/// "Nothing" is exact: a file, a folder, a symlink, a symlink that leads nowhere, and on a case-insensitive
+/// volume a name that differs only in case all count as something, and the answer is `WriteErrorKind::Exists`.
+/// A link at `path` is never followed (`write_atomic` writes through one on purpose; this never does).
+///
+/// The bytes are staged and flushed in a hidden temporary file in the destination's own directory, exactly as
+/// `write_atomic` does, and the name is then made to appear by an *exclusive* rename: the kernel decides
+/// "nothing is at this name" and "this name is now the file" in one step, so a creator racing this write
+/// cannot be replaced (there is no look-then-write window). When the volume or kernel does not support the
+/// exclusive rename, `link` then `unlink` is used, which is also exclusive; when that is refused too the write
+/// fails and writes nothing. A failed write removes its temporary file.
+pub fn write_new(path: &Path, bytes: &[u8]) -> Result<(), WriteError> {
+    let dir = parent_directory(path)?;
+    // A cheap, early and readable refusal. It is not what makes the write safe: the exclusive commit below is.
+    refuse_taken_name(path)?;
+    let tmp = temp_path_for(path);
+    let created = stage_new(&tmp, bytes).and_then(|()| {
+        commit_new(&tmp, path, &dir, &exclusive::rename, &|from, to| {
+            fs::hard_link(from, to)
+        })
+    });
+    if created.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    created
+}
+
+/// `Err(Exists)` when anything at all is at `path`, a link that leads nowhere and a folder included.
+fn refuse_taken_name(path: &Path) -> Result<(), WriteError> {
+    match fs::symlink_metadata(path) {
+        Ok(meta) => {
+            let what = if meta.file_type().is_symlink() {
+                "symbolic link"
+            } else if meta.is_dir() {
+                "folder"
+            } else {
+                "file"
+            };
+            Err(taken(path, what))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(WriteError::io(format!(
+            "{}: cannot be inspected: {e}",
+            path.display()
+        ))),
+    }
+}
+
+fn taken(path: &Path, what: &str) -> WriteError {
+    WriteError::exists(format!(
+        "{}: there is already a {what} with this name; marxy will not replace it",
+        path.display()
+    ))
+}
+
+/// Puts the new bytes in the temporary file, which nothing else can already hold (`create_new`).
+fn stage_new(tmp: &Path, bytes: &[u8]) -> Result<(), WriteError> {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(tmp)
+        .map_err(|e| {
+            WriteError::io(format!(
+                "{}: cannot stage a new file beside the destination: {e}",
+                tmp.display()
+            ))
+        })?;
+    file.write_all(bytes)
+        .map_err(|e| WriteError::io(format!("{}: cannot be written: {e}", tmp.display())))?;
+    file.sync_all()
+        .map_err(|e| WriteError::io(format!("{}: cannot be flushed to disk: {e}", tmp.display())))
+}
+
+/// The refusal when neither exclusive way of publishing a file is available.
+const VOLUME_CANNOT: &str = "this volume cannot create a file without risk of replacing one";
+
+/// Publishes the staged file at `target` only if nothing is there. `exclusive` is the kernel's exclusive
+/// rename and `link` is the fallback; both are parameters so a test can make either one refuse.
+fn commit_new(
+    tmp: &Path,
+    target: &Path,
+    dir: &Path,
+    exclusive: &dyn Fn(&Path, &Path) -> std::io::Result<()>,
+    link: &dyn Fn(&Path, &Path) -> std::io::Result<()>,
+) -> Result<(), WriteError> {
+    use std::io::ErrorKind;
+    match exclusive(tmp, target) {
+        Ok(()) => {}
+        Err(e) if e.kind() == ErrorKind::AlreadyExists => {
+            return Err(taken(target, "file or folder"))
+        }
+        // Unsupported (macOS ENOTSUP, ENOSYS) and InvalidInput (Linux EINVAL for a flag the filesystem lacks):
+        // the exclusive rename is not available here, so the other exclusive way is used.
+        Err(e) if matches!(e.kind(), ErrorKind::Unsupported | ErrorKind::InvalidInput) => {
+            match link(tmp, target) {
+                Ok(()) => {
+                    // The file now has two names; the staging one is dropped so it has one. If that drop fails
+                    // the file is still complete and in place, so it is not an error of the write.
+                    let _ = fs::remove_file(tmp);
+                }
+                Err(e) if e.kind() == ErrorKind::AlreadyExists => {
+                    return Err(taken(target, "file or folder"))
+                }
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        ErrorKind::Unsupported | ErrorKind::PermissionDenied
+                    ) =>
+                {
+                    return Err(WriteError::io(format!(
+                        "{}: {VOLUME_CANNOT} ({e})",
+                        target.display()
+                    )))
+                }
+                Err(e) => {
+                    return Err(WriteError::io(format!(
+                        "{}: cannot be created: {e}",
+                        target.display()
+                    )))
+                }
+            }
+        }
+        Err(e) => {
+            return Err(WriteError::io(format!(
+                "{}: cannot be created: {e}",
+                target.display()
+            )))
+        }
+    }
+    sync_directory(dir);
+    Ok(())
+}
+
+/// The kernel's exclusive rename: `rename`, but failing `AlreadyExists` instead of replacing whatever is at
+/// the destination (a file, a folder or a link, which it does not follow). Declared inline so the fidelity
+/// gate can compile this module with a bare `rustc`.
+#[cfg(unix)]
+mod exclusive {
+    use std::io;
+    use std::path::Path;
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    use std::ffi::{c_char, c_int, c_uint, CString};
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    use std::os::unix::ffi::OsStrExt;
+
+    #[cfg(target_os = "macos")]
+    unsafe extern "C" {
+        fn renamex_np(from: *const c_char, to: *const c_char, flags: c_uint) -> c_int;
+    }
+    /// `RENAME_EXCL` in `<stdio.h>`.
+    #[cfg(target_os = "macos")]
+    const RENAME_EXCL: c_uint = 0x0000_0004;
+
+    #[cfg(target_os = "linux")]
+    unsafe extern "C" {
+        fn renameat2(
+            olddirfd: c_int,
+            oldpath: *const c_char,
+            newdirfd: c_int,
+            newpath: *const c_char,
+            flags: c_uint,
+        ) -> c_int;
+    }
+    #[cfg(target_os = "linux")]
+    const AT_FDCWD: c_int = -100;
+    /// `RENAME_NOREPLACE` in `<linux/fs.h>`.
+    #[cfg(target_os = "linux")]
+    const RENAME_NOREPLACE: c_uint = 1;
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    pub fn rename(from: &Path, to: &Path) -> io::Result<()> {
+        let from = CString::new(from.as_os_str().as_bytes())
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+        let to = CString::new(to.as_os_str().as_bytes())
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+        // SAFETY: both are valid, NUL-terminated C strings that outlive the call.
+        #[cfg(target_os = "macos")]
+        let rc = unsafe { renamex_np(from.as_ptr(), to.as_ptr(), RENAME_EXCL) };
+        #[cfg(target_os = "linux")]
+        let rc = unsafe {
+            renameat2(
+                AT_FDCWD,
+                from.as_ptr(),
+                AT_FDCWD,
+                to.as_ptr(),
+                RENAME_NOREPLACE,
+            )
+        };
+        if rc == 0 {
+            Ok(())
+        } else {
+            Err(io::Error::last_os_error())
+        }
+    }
+
+    /// Other Unixes have no exclusive rename declared here: `Unsupported` sends the caller to `link`.
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    pub fn rename(_from: &Path, _to: &Path) -> io::Result<()> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
+}
+
+/// Without an exclusive rename, `link` (which never replaces) is the only way.
+#[cfg(not(unix))]
+mod exclusive {
+    use std::io;
+    use std::path::Path;
+
+    pub fn rename(_from: &Path, _to: &Path) -> io::Result<()> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
 }
 
 /// Where the new bytes are staged: the destination's own directory, so the rename stays inside one
@@ -832,5 +1056,335 @@ mod tests {
             assert_eq!(got, acl, "the save dropped the POSIX ACL");
             println!("linux-acl: preserved");
         }
+    }
+}
+
+/// `write_new` (F-85, ADR-0074): create-only. Every refusal here must leave the name exactly as it was and
+/// no staging file beside it.
+#[cfg(test)]
+mod write_new_tests {
+    use super::*;
+    use std::io::ErrorKind;
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("marxy-new-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("scratch directory");
+        dir
+    }
+
+    /// Every name in `dir`, hidden staging files included, sorted.
+    fn names(dir: &Path) -> Vec<String> {
+        let mut out: Vec<String> = fs::read_dir(dir)
+            .expect("listing")
+            .map(|e| e.expect("entry").file_name().to_string_lossy().into_owned())
+            .collect();
+        out.sort();
+        out
+    }
+
+    fn assert_refused_exists(result: Result<(), WriteError>) -> WriteError {
+        let err = result.expect_err("a create-only write onto a taken name must fail");
+        assert_eq!(
+            err.kind,
+            WriteErrorKind::Exists,
+            "wrong refusal: {}",
+            err.message
+        );
+        assert!(!err.message.is_empty());
+        err
+    }
+
+    #[test]
+    fn write_new_onto_a_free_name_writes_the_bytes() {
+        let dir = scratch("free");
+        let target = dir.join("fresh (fork).md");
+        let bytes: &[u8] = b"\xef\xbb\xbf# t\r\n\r\nbody\r\n\x00\xff";
+        write_new(&target, bytes).expect("create");
+        assert_eq!(fs::read(&target).expect("read back"), bytes);
+        assert_eq!(
+            names(&dir),
+            vec!["fresh (fork).md".to_string()],
+            "no staging file remains"
+        );
+    }
+
+    #[test]
+    fn write_new_onto_an_existing_file_fails_exists_and_the_file_is_unchanged() {
+        let dir = scratch("file");
+        let target = dir.join("doc.md");
+        fs::write(&target, b"mine").expect("seed");
+        assert_refused_exists(write_new(&target, b"theirs"));
+        assert_eq!(fs::read(&target).expect("read back"), b"mine");
+        assert_eq!(
+            names(&dir),
+            vec!["doc.md".to_string()],
+            "no staging file remains"
+        );
+    }
+
+    #[test]
+    fn write_new_onto_a_folder_fails_exists_and_the_folder_is_unchanged() {
+        let dir = scratch("folder");
+        let target = dir.join("folder.md");
+        fs::create_dir(&target).expect("seed");
+        fs::write(target.join("inside.txt"), b"in").expect("seed inside");
+        assert_refused_exists(write_new(&target, b"x"));
+        assert!(target.is_dir());
+        assert_eq!(fs::read(target.join("inside.txt")).expect("inside"), b"in");
+        assert_eq!(names(&dir), vec!["folder.md".to_string()]);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn write_new_onto_a_symlink_fails_exists_and_neither_the_link_nor_its_file_changes() {
+        let dir = scratch("symlink");
+        let real = dir.join("real.md");
+        let link = dir.join("x (mine).md");
+        fs::write(&real, b"the other file").expect("seed");
+        std::os::unix::fs::symlink(&real, &link).expect("symlink");
+        assert_refused_exists(write_new(&link, b"copy"));
+        assert_eq!(
+            fs::read(&real).expect("real"),
+            b"the other file",
+            "the file the link points at was written through"
+        );
+        assert_eq!(fs::read_link(&link).expect("still a link"), real);
+        assert_eq!(
+            names(&dir),
+            vec!["real.md".to_string(), "x (mine).md".to_string()]
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn write_new_onto_a_dangling_symlink_fails_exists_and_creates_nothing_at_its_destination() {
+        let dir = scratch("dangling-new");
+        let missing = dir.join("missing.md");
+        let link = dir.join("link.md");
+        std::os::unix::fs::symlink(&missing, &link).expect("symlink");
+        assert_refused_exists(write_new(&link, b"copy"));
+        assert!(
+            !missing.exists(),
+            "the write created the file the dangling link led to"
+        );
+        assert_eq!(fs::read_link(&link).expect("still a link"), missing);
+        assert_eq!(names(&dir), vec!["link.md".to_string()]);
+    }
+
+    /// On a case-insensitive volume (the APFS default) `Notes (Fork).md` is the same name as `notes (fork).md`.
+    /// Skipped, loudly, where the volume is case-sensitive: there the two really are different names.
+    #[test]
+    fn write_new_onto_a_case_variant_of_an_existing_name_fails_on_a_case_insensitive_volume() {
+        let dir = scratch("case");
+        let existing = dir.join("Notes (fork).md");
+        fs::write(&existing, b"mine").expect("seed");
+        let variant = dir.join("notes (FORK).md");
+        if fs::symlink_metadata(&variant).is_err() {
+            println!("case-insensitive: skipped: this volume is case-sensitive, so a case variant is a different name");
+            write_new(&variant, b"x").expect("a different name is free");
+            return;
+        }
+        assert_refused_exists(write_new(&variant, b"theirs"));
+        assert_eq!(fs::read(&existing).expect("read back"), b"mine");
+        assert_eq!(
+            names(&dir),
+            vec!["Notes (fork).md".to_string()],
+            "no second name, no staging file"
+        );
+    }
+
+    /// The race itself: a creator appears after the early look and before the commit. The exclusive commit
+    /// must refuse and leave the creator's bytes, and the staged file must be gone.
+    #[test]
+    fn a_creator_that_appears_before_the_commit_is_not_replaced() {
+        let dir = scratch("race-commit");
+        let target = dir.join("doc (fork).md");
+        let tmp = temp_path_for(&target);
+        stage_new(&tmp, b"mine").expect("stage");
+        fs::write(&target, b"the racing creator").expect("the creator wins the name");
+        let err = assert_refused_exists(commit_new(
+            &tmp,
+            &target,
+            &dir,
+            &exclusive::rename,
+            &|a, b| fs::hard_link(a, b),
+        ));
+        assert_eq!(fs::read(&target).expect("read back"), b"the racing creator");
+        // `write_new` removes the staging file on any failure; `commit_new` alone leaves that to it.
+        let _ = fs::remove_file(&tmp);
+        assert_eq!(names(&dir), vec!["doc (fork).md".to_string()]);
+        assert!(err.message.contains("will not replace"));
+    }
+
+    /// The same race through the link fallback, with the exclusive rename made to refuse.
+    #[test]
+    fn a_creator_that_appears_before_the_link_fallback_is_not_replaced() {
+        let dir = scratch("race-link");
+        let target = dir.join("doc (fork).md");
+        let tmp = temp_path_for(&target);
+        stage_new(&tmp, b"mine").expect("stage");
+        fs::write(&target, b"the racing creator").expect("creator");
+        let unsupported = |_: &Path, _: &Path| Err(ErrorKind::Unsupported.into());
+        assert_refused_exists(commit_new(&tmp, &target, &dir, &unsupported, &|a, b| {
+            fs::hard_link(a, b)
+        }));
+        assert_eq!(fs::read(&target).expect("read back"), b"the racing creator");
+        let _ = fs::remove_file(&tmp);
+        assert_eq!(names(&dir), vec!["doc (fork).md".to_string()]);
+    }
+
+    #[test]
+    fn when_the_exclusive_rename_is_unsupported_link_and_unlink_create_the_file() {
+        let dir = scratch("fallback");
+        for kind in [ErrorKind::Unsupported, ErrorKind::InvalidInput] {
+            let refuse = move |_: &Path, _: &Path| Err(kind.into());
+            let target = dir.join(format!("{kind:?}.md"));
+            let tmp = temp_path_for(&target);
+            stage_new(&tmp, b"mine").expect("stage");
+            commit_new(&tmp, &target, &dir, &refuse, &|a, b| fs::hard_link(a, b))
+                .expect("link fallback");
+            assert_eq!(fs::read(&target).expect("read back"), b"mine");
+            assert!(!tmp.exists(), "the staging name was not unlinked");
+        }
+        assert_eq!(
+            names(&dir),
+            vec!["InvalidInput.md".to_string(), "Unsupported.md".to_string()]
+        );
+    }
+
+    #[test]
+    fn when_neither_exclusive_way_is_available_it_fails_saying_so_and_writes_nothing() {
+        let dir = scratch("no-way");
+        let target = dir.join("doc (fork).md");
+        let tmp = temp_path_for(&target);
+        stage_new(&tmp, b"mine").expect("stage");
+        let unsupported = |_: &Path, _: &Path| Err(ErrorKind::Unsupported.into());
+        let refused = |_: &Path, _: &Path| Err(ErrorKind::PermissionDenied.into());
+        let err = commit_new(&tmp, &target, &dir, &unsupported, &refused).expect_err("must fail");
+        assert_eq!(err.kind, WriteErrorKind::Io);
+        assert!(
+            err.message
+                .contains("this volume cannot create a file without risk of replacing one"),
+            "{}",
+            err.message
+        );
+        assert!(!target.exists(), "the name was created");
+        let _ = fs::remove_file(&tmp);
+        assert_eq!(names(&dir), Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_failed_write_new_leaves_no_staging_file() {
+        // A directory that is not there: staging fails, and nothing is left anywhere.
+        let dir = scratch("no-dir");
+        let target = dir.join("missing-folder").join("doc.md");
+        let err = write_new(&target, b"x").expect_err("must fail");
+        assert_eq!(err.kind, WriteErrorKind::Io);
+        assert_eq!(names(&dir), Vec::<String>::new());
+    }
+
+    /// Many creators at one name: exactly one wins and its bytes are whole; every other fails `Exists`;
+    /// nothing is left behind. Check-then-write would let more than one succeed.
+    #[test]
+    fn concurrent_creators_at_one_name_have_exactly_one_winner() {
+        use std::sync::{Arc, Barrier};
+        for round in 0..20 {
+            let dir = scratch(&format!("concurrent-{round}"));
+            let target = Arc::new(dir.join("doc (fork).md"));
+            let creators = 8usize;
+            let start = Arc::new(Barrier::new(creators));
+            let handles: Vec<_> = (0..creators)
+                .map(|i| {
+                    let target = Arc::clone(&target);
+                    let start = Arc::clone(&start);
+                    std::thread::spawn(move || {
+                        let bytes =
+                            format!("creator {i} {}", "x".repeat(4096 * (i + 1))).into_bytes();
+                        start.wait();
+                        (i, bytes.clone(), write_new(&target, &bytes))
+                    })
+                })
+                .collect();
+            let results: Vec<_> = handles
+                .into_iter()
+                .map(|h| h.join().expect("thread"))
+                .collect();
+            let winners: Vec<_> = results.iter().filter(|(_, _, r)| r.is_ok()).collect();
+            assert_eq!(
+                winners.len(),
+                1,
+                "round {round}: {} creators succeeded",
+                winners.len()
+            );
+            for (i, _, result) in &results {
+                if let Err(err) = result {
+                    assert_eq!(
+                        err.kind,
+                        WriteErrorKind::Exists,
+                        "creator {i}: {}",
+                        err.message
+                    );
+                }
+            }
+            assert_eq!(
+                fs::read(&*target).expect("read back"),
+                winners[0].1,
+                "the file is not the winner's whole bytes"
+            );
+            assert_eq!(
+                names(&dir),
+                vec!["doc (fork).md".to_string()],
+                "round {round}: a staging file remains"
+            );
+        }
+    }
+
+    /// The kernel's own exclusive rename, called directly: it must refuse every kind of occupant rather than
+    /// replace it, and it must not be the `Unsupported` that would silently route everything to `link`.
+    #[test]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    fn the_exclusive_rename_refuses_a_file_a_folder_a_link_and_a_dangling_link() {
+        let dir = scratch("excl");
+        let occupants = ["file", "folder", "link", "dangling"];
+        for name in occupants {
+            let tmp = dir.join(format!(".stage-{name}"));
+            fs::write(&tmp, b"mine").expect("stage");
+            let target = dir.join(name);
+            match name {
+                "file" => fs::write(&target, b"theirs").expect("seed"),
+                "folder" => fs::create_dir(&target).expect("seed"),
+                "link" => {
+                    fs::write(dir.join("real"), b"theirs").expect("real");
+                    std::os::unix::fs::symlink(dir.join("real"), &target).expect("link")
+                }
+                _ => std::os::unix::fs::symlink(dir.join("nowhere"), &target).expect("dangling"),
+            }
+            let err = exclusive::rename(&tmp, &target).expect_err("must not replace");
+            assert_eq!(err.kind(), ErrorKind::AlreadyExists, "{name}: {err}");
+            assert_eq!(fs::read(&tmp).expect("stage kept"), b"mine");
+        }
+        assert_eq!(fs::read(dir.join("file")).expect("file"), b"theirs");
+        assert_eq!(fs::read(dir.join("real")).expect("real"), b"theirs");
+        assert!(!dir.join("nowhere").exists());
+        let free = dir.join("free");
+        exclusive::rename(&dir.join(".stage-file"), &free).expect("a free name is taken");
+        assert_eq!(fs::read(&free).expect("free"), b"mine");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn the_new_file_is_an_ordinary_one_with_one_name() {
+        use std::os::unix::fs::MetadataExt;
+        let dir = scratch("one-name");
+        let target = dir.join("doc.md");
+        write_new(&target, b"x").expect("create");
+        let meta = fs::metadata(&target).expect("meta");
+        assert!(meta.is_file());
+        assert_eq!(
+            meta.nlink(),
+            1,
+            "the staging name must not remain as a second link"
+        );
     }
 }

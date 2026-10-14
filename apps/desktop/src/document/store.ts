@@ -12,6 +12,7 @@
 import { codeLanguageOf, createBuffer, isCodeFile, parseCode, parseMarkdown, reparseMarkdown, splice, type Buffer, type Document, type Edit, type ParsedText } from '@marxy/core';
 import { buildNodeMap, type NodeMap } from '../render/post.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
+import { writeBeside } from './fork.ts';
 import { isUntitled } from './untitled.ts';
 
 /** The privileged effects a store needs. `apps/desktop/src/shell` implements them; tests fake them. */
@@ -25,8 +26,11 @@ export interface StoreIo {
    * and writes of a file the reader has open (a config key, `.editorconfig`, a link's target) cannot move it.
    */
   peekFile?(path: string): Promise<Uint8Array>;
-  /** Whether anything (a file, a folder, a link) is at `path`: a copy is never written over one (V-07). */
-  exists?(path: string): Promise<boolean>;
+  /**
+   * Create-only (ADR-0074): the bytes at `path` only if nothing (a file, a folder, a link) is there, else rejects `code: 'exists'`
+   * and writes nothing. A copy beside the file (V-07) is written with it, never with `writeFileAtomic`, which replaces.
+   */
+  writeFileNew?(path: string, bytes: Uint8Array): Promise<void>;
   /**
    * Local versions (V-06, ADR-0072): asked, and awaited, just before `save` writes over a file that holds `replacing`: the store's
    * own `disk` for a save in place, the bytes read from the target for a Save As onto a file that is there. A copy of those bytes
@@ -645,20 +649,13 @@ export function openDocumentStore(
     serially,
   };
 
-  /** The buffer, byte for byte, at the first free `(mine)` name beside the file: its path, or the failure. Never over a file. */
+  /** The buffer, byte for byte, at the first free `(mine)` name beside the file: its path, or the failure. Never over anything: each name is a create-only write (ADR-0074). */
   async function writeCopy(): Promise<string | { readonly result: 'failed'; readonly error: unknown }> {
-    if (!io.exists) return { result: 'failed', error: new Error('cannot tell whether a copy would overwrite a file') };
-    try {
-      for (let n = 1; n <= 999; n++) {
-        const candidate = conflictCopyPath(state.path, n);
-        if (await io.exists(candidate)) continue;
-        await io.writeFileAtomic(candidate, state.buffer.bytes);
-        return candidate;
-      }
-      throw new Error('no free name for a copy');
-    } catch (error) {
-      return { result: 'failed', error };
-    }
+    const writeFileNew = io.writeFileNew;
+    if (!writeFileNew) return { result: 'failed', error: new Error('cannot write a copy without a create-only write, which could replace a file') };
+    const from = state.path;
+    const made = await writeBeside({ writeFileNew }, (n) => conflictCopyPath(from, n), state.buffer.bytes, { max: 999, what: 'copy names' });
+    return made.result === 'written' ? made.path : { result: 'failed', error: made.error };
   }
 
   /**

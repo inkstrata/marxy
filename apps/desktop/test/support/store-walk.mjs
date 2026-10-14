@@ -446,7 +446,22 @@ export class World {
         await shell.writeFileAtomic(path, bytes);
       },
       peekFile: (path) => shell.peekFile(path),
-      exists: async (path) => (await shell.stat(path)) !== null,
+      // Create-only (F-85, ADR-0074): a refused write (something is at the name) wrote nothing and is not a write for I1 to judge; one
+      // that was made found nothing there, which is what `before: null` says. A copy beside the file is the only caller.
+      writeFileNew: async (path, bytes) => {
+        const store = holder.store;
+        const doc = store ? docOf(this.model, store) : undefined;
+        await shell.writeFileNew(path, bytes);
+        this.writes.push({
+          path,
+          before: null,
+          storePath: store?.snapshot().path ?? null,
+          storeBaseline: store ? copy(store.snapshot().disk) : null,
+          modelBaseline: doc ? copy(doc.base) : null,
+          picked: false,
+          step: this.model.trace.length,
+        });
+      },
     };
   }
 

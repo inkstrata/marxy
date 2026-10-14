@@ -217,7 +217,7 @@ test('an outside write over unsaved edits: kept, every pane told once, one pendi
   const fake = fakeShell(new Map([['/d/a.md', enc.encode(text)]]));
   const writes: string[] = [];
   const store = openDocumentStore(
-    { writeFileAtomic: async (p, b) => { writes.push(p); fake.disk.set(p, b); }, exists: async (p) => fake.disk.has(p), peekFile: async (p) => fake.disk.get(p)! },
+    { writeFileAtomic: async (p, b) => { writes.push(p); fake.disk.set(p, b); }, writeFileNew: async (p, b) => { if (fake.disk.has(p)) throw Object.assign(new Error('exists'), { code: 'exists' }); writes.push(p); fake.disk.set(p, b); }, peekFile: async (p) => fake.disk.get(p)! },
     '/d/a.md',
     fake.disk.get('/d/a.md')!,
   );

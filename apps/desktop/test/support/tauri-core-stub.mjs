@@ -18,6 +18,15 @@ export const invoke = async (cmd, args, opts) => {
     fs.set(decodeURIComponent(opts.headers['x-marxy-path']), new Uint8Array(args));
     return;
   }
+  if (cmd === 'write_file_new') {
+    // Create-only, as `write_new` is: anything at the name (a file here; the Rust tests cover folders and links) is `exists`, and
+    // nothing is written. Tauri rejects with the serialised `ShellError`.
+    const path = decodeURIComponent(opts.headers['x-marxy-path']);
+    hooks.invoked.push({ cmd, args: { path } });
+    if (fs.has(path)) throw { code: 'exists', message: `${path}: there is already a file with this name; marxy will not replace it`, path };
+    fs.set(path, new Uint8Array(args));
+    return;
+  }
   if (cmd === 'search_content' || cmd === 'cancel_content_search') {
     hooks.invoked.push({ cmd, args });
     if (cmd === 'search_content' && hooks.search) return hooks.search(args);

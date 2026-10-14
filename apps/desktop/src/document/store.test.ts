@@ -32,6 +32,10 @@ function recordingIo(write?: (path: string, bytes: Uint8Array) => Promise<void>)
       writes.push({ path, bytes: new Uint8Array(bytes) });
       if (write) await write(path, bytes);
     },
+    async writeFileNew(path, bytes) {
+      writes.push({ path, bytes: new Uint8Array(bytes) });
+      if (write) await write(path, bytes);
+    },
     recordRead(path, bytes) {
       reads.push({ path, bytes: new Uint8Array(bytes) });
     },
@@ -671,8 +675,8 @@ test('property: random splices and Source edits, then undo to the start, restore
 
 const STORE_SOURCE = readFileSync(fileURLToPath(new URL('./store.ts', import.meta.url)), 'utf8');
 
-test('store.ts imports only @marxy/core, the DOM-free node map, the Source fold and the scratch path shape', () => {
-  const allowed = new Set(['@marxy/core', '../render/post.ts', '../source/buffer-commit.ts', './untitled.ts']);
+test('store.ts imports only @marxy/core, the DOM-free node map, the Source fold, the beside-a-file writer and the scratch path shape', () => {
+  const allowed = new Set(['@marxy/core', '../render/post.ts', '../source/buffer-commit.ts', './fork.ts', './untitled.ts']);
   const specs = importSpecs(STORE_SOURCE, 'store.ts') as string[];
   assert.ok(specs.length > 0);
   for (const spec of specs) assert.ok(allowed.has(spec), `store.ts may not import ${spec}`);
@@ -688,7 +692,7 @@ test('store.ts has no module-level let', () => {
 
 // ---- V-07: a file changed on disk over unsaved edits: keep mine as a copy, or take theirs ----
 
-/** A folder as a map: `peekFile`, `exists` and `writeFileAtomic` over it, with every write recorded. */
+/** A folder as a map: `peekFile`, `writeFileAtomic` and a create-only `writeFileNew` (`exists` when the name is in the map) over it, with every write recorded. */
 function folderIo(files: Map<string, Uint8Array>, failWrite?: (path: string) => boolean): RecordingIo {
   const io = recordingIo(async (path, bytes) => {
     if (failWrite?.(path)) throw new Error('disk full');
@@ -701,8 +705,9 @@ function folderIo(files: Map<string, Uint8Array>, failWrite?: (path: string) => 
       if (!bytes) throw new Error('not found');
       return bytes;
     },
-    async exists(path) {
-      return files.has(path);
+    async writeFileNew(path, bytes) {
+      if (files.has(path)) throw Object.assign(new Error(`${path}: already exists`), { code: 'exists' });
+      await io.writeFileNew!(path, bytes);
     },
   };
 }
@@ -831,9 +836,9 @@ test('a failed copy write leaves the buffer and the pending choice unchanged, an
   assert.equal(dec.decode(files.get(PATH)!), 'three\n');
 });
 
-test('without a way to tell whether a copy would overwrite a file, keep mine writes nothing', async () => {
+test('without a create-only write, keep mine writes nothing (it never falls back to one that replaces)', async () => {
   const files = new Map<string, Uint8Array>([[PATH, enc.encode('one\n')]]);
-  const io = { ...folderIo(files), exists: undefined };
+  const io = { ...folderIo(files), writeFileNew: undefined };
   const store = openDocumentStore(io, PATH, enc.encode('one\n'));
   await store.apply({ range: range(0, 3), replacement: 'two', label: 'edit' });
   assert.equal(await store.reload(enc.encode('three\n')), 'kept');
