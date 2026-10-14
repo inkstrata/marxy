@@ -19,7 +19,7 @@ text, and each card's own done-check still applies.
 | 10 | Wording | One template: "what happened · what is unchanged · what to do" |
 | 11 | What may proceed during the pass | Wrong-text fixes and F-46 proceed; new notice kinds and popups wait for U-02 |
 | 12 | The dead column | Bands run to the window edge; the reading column stays window-centred (U-01) |
-| 13 | Source frame | Build V-05 as the mock draws it, folded too; the column sits inside the frame at ADR-0067's measure |
+| 13 | Source frame | Build V-05 as the mock draws it, folded too; the column sits inside the frame at ADR-0067's measure. **Departed from, 2026-10-14 (F-100):** the author asked that Source fill the window; the frame keeps its hairline, radius and 14 px inset but is no longer capped at 960 px, and the editor fills it (no centred column). |
 | 14 | Line numbers for Markdown in Source | Off, as today, with `Ln, Col` in the bottom bar |
 | 15 | Transform sheet's primary action | Copy, one rule with the palette (U-05) |
 | 16 | Palette rows | Two-line, 46 px in the palette (U-04) |
