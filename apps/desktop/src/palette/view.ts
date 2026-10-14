@@ -344,14 +344,17 @@ function injectPaletteStyles(doc: Document): void {
       flex: 1;
       min-width: 0;
       border: 0;
-      padding: calc(var(--marxy-size-chrome) * 12 / 13) 0;
+      padding: calc(var(--marxy-size-chrome) * 12 / 13) calc(var(--marxy-size-chrome) * 6 / 13);
       font: inherit;
       font-size: calc(var(--marxy-size-chrome) * 17 / 13);
       background: transparent;
       color: inherit;
     }
     #marxy-palette .marxy-palette-query::placeholder { color: var(--marxy-color-text-secondary); }
-    #marxy-palette .marxy-palette-query:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); }
+    /* One focus frame (F-97): the ring is the field's own, drawn inside its border; the query inside draws none. */
+    #marxy-palette .marxy-palette-query:focus,
+    #marxy-palette .marxy-palette-query:focus-visible { outline: none; }
+    #marxy-palette .marxy-palette-field:focus-within { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
     #marxy-palette .marxy-palette-esc,
     #marxy-palette .marxy-palette-keycap {
       flex: none;
@@ -364,6 +367,19 @@ function injectPaletteStyles(doc: Document): void {
       font-size: 0.85em;
       line-height: 1.5;
       white-space: nowrap;
+    }
+    /* The mock's keycap (.kbd): 18 px tall, 11 px type, a heavier bottom edge. */
+    #marxy-palette .marxy-palette-keycap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      min-width: calc(var(--marxy-size-chrome) * 18 / 13);
+      height: calc(var(--marxy-size-chrome) * 18 / 13);
+      padding: 0 calc(var(--marxy-size-chrome) * 4 / 13);
+      font-size: calc(var(--marxy-size-chrome) * 11 / 13);
+      line-height: 1;
+      border-bottom-width: 2px;
     }
     #marxy-palette .marxy-palette-esc:focus-visible,
     #marxy-palette .marxy-palette-mode:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
@@ -394,7 +410,25 @@ function injectPaletteStyles(doc: Document): void {
     #marxy-palette .marxy-palette-mode-prefix { font-size: 0.9em; }
     /* The preview is a second column when the palette is wide enough (W-13): the mock's 460 / 399 split. It is part of
        the sheet, which overlays the page: nothing under the reader moves (ADR-0058, F-45). */
-    #marxy-palette .marxy-palette-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; }
+    /* The body is the one row that gives: it takes what the field, chips and footer leave, never less than three result
+       rows, and its results and preview scroll inside it, so nothing in it is drawn over the footer (F-97). */
+    #marxy-palette .marxy-palette-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+    /* The shortest supported window is 400 px tall: from there the body keeps three rows, and the panel gives up its
+       top margin to do it. Shorter than that the body shrinks and scrolls, and the footer stays. */
+    @media (min-height: 400px) {
+      #marxy-palette .marxy-palette-body { min-height: calc(var(--marxy-size-chrome) * 150 / 13); }
+    }
+    @media (max-height: 560px) {
+      #marxy-palette { margin-top: 0.5rem; }
+      #marxy-palette[open] { max-height: calc(100vh - 1rem); }
+    }
     #marxy-palette .marxy-palette-aside { display: none; }
     @container marxy-palette (min-width: 720px) {
       #marxy-palette .marxy-palette-body { grid-template-columns: minmax(0, 460fr) minmax(0, 399fr); }
@@ -563,7 +597,7 @@ function injectPaletteStyles(doc: Document): void {
       padding: calc(var(--marxy-size-chrome) * 7 / 13) calc(var(--marxy-size-chrome) * 14 / 13);
       border-top: 1px solid var(--marxy-color-rule);
       color: var(--marxy-color-text-secondary);
-      font-size: 0.9em;
+      font-size: calc(var(--marxy-size-chrome) * 11.5 / 13);
     }
     #marxy-palette .marxy-palette-foot > span { display: inline-flex; align-items: center; gap: calc(var(--marxy-size-chrome) * 5 / 13); }
     #marxy-palette .marxy-palette-foot-end { margin-inline-start: auto; }
