@@ -48,6 +48,13 @@ interface Node {
   glyphKind: Kind | null;
 }
 
+/** The characters at the end of a name that a narrow tab keeps: enough for "-12.md" and "10-01.md". */
+const NAME_TAIL = 8;
+const SEGMENTER = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+/** Hebrew, Arabic, Syriac, Thaana, NKo and their presentation forms. */
+const RTL = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]|\uD802|\uD803|\uD83A|\uD83B/;
+/** ...and at most this many, when moving back to a word's start. */
+const NAME_TAIL_MAX = 12;
 const KIND_ATTRIBUTE = 'data-marxy-kind';
 
 const folderOf = (path: string): string => (isTransient(path) ? '' : basename(dirname(path)));
@@ -216,8 +223,29 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
     open.tabIndex = -1;
     const name = document.createElement('span');
     name.className = 'marxy-tab-name';
-    name.textContent = documentName(path);
-    name.setAttribute('data-marxy-text', documentName(path));
+    const full = documentName(path);
+    name.setAttribute('data-marxy-text', full);
+    // A long name is two runs: the head gives way to an ellipsis, the tail (the last characters, with the extension) never does, so tabs
+    // whose names share a start still differ where they differ (F-107). A name of NAME_TAIL characters or fewer is one run, as it was.
+    const text = document.createElement('span');
+    text.className = 'marxy-tab-name-text';
+    // Grapheme clusters, not code points: a family emoji or an accented letter is never torn. A name with right-to-left letters stays one
+    // run with an end ellipsis: two flex items cannot be reordered together by the bidi algorithm, so a cut would scramble its words.
+    const cut = Array.from(SEGMENTER.segment(full), (g) => g.segment);
+    if (cut.length > NAME_TAIL && !RTL.test(full)) {
+      // The tail starts at a word: from the eighth character from the end back to just after a separator, at most twelve.
+      let start = cut.length - NAME_TAIL;
+      while (start > 0 && cut.length - start < NAME_TAIL_MAX && !'-_ ./'.includes(cut[start - 1]!)) start--;
+      if (start > 0 && !'-_ ./'.includes(cut[start - 1]!)) start = cut.length - NAME_TAIL;
+      const head = document.createElement('span');
+      head.className = 'marxy-tab-name-head';
+      head.textContent = cut.slice(0, start).join('');
+      const tail = document.createElement('span');
+      tail.className = 'marxy-tab-name-tail';
+      tail.textContent = cut.slice(start).join('');
+      text.append(head, tail);
+    } else text.textContent = full;
+    name.append(text);
     const dot = document.createElement('span');
     dot.className = 'marxy-tab-dirty';
     dot.setAttribute('aria-hidden', 'true');

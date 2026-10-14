@@ -62,6 +62,7 @@ export const SCREENS = {
   '10-outline-popup': 'The outline popup (Shift+Cmd+O) at 1,920 x 900 with the inspector docked, over it and under the bands (the mock has no popup: its Outline tab is the reference for the type and the row)',
   '10-kind-chip-menu': 'The kind chip\'s menu open, unfolded: why the file is read as it is, then the Show as choices (mock 01-workspace)',
   '10-empty-window': 'The empty window with a text beside its translation, opened at 800 px and widened to 1,000 (mock 01-workspace, folded; the mock has no empty window)',
+  '10-tabs-dated': 'Twelve tabs of dated names that share a long start, unfolded (F-107; mock 01-workspace)',
   '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
   '08-settings-1000': 'Settings on Content types in a 1,000 px unfolded window: the page takes the window less the sidebar (F-102; mock 08-settings, types)',
 };
@@ -260,7 +261,18 @@ async function unfoldedWithTabs(page) {
 
 // Twelve documents of the corpus, in the corpus's order: the tab row's long-names case (F-99). The first stays the one on show.
 const TWELVE = docs.slice(0, 12);
+// Twelve dated drafts that share their first thirty characters (F-107). Written into the app's files and, for the mock, into its docs.
+const DATED = Array.from({ length: 12 }, (_, i) => ({ id: `dated-${i + 1}`, title: `2026-10-01-quarterly-planning-review-draft-${i + 1}.md`, path: `~/Work/plans/2026-10-01-quarterly-planning-review-draft-${i + 1}.md`, src: `# Quarterly planning review, draft ${i + 1}\n\nThe ${i + 1}th pass over the quarter's plan.\n` }));
+for (const d of DATED) files[toPath(d.path)] = d.src;
 const APP_STATES = {
+  async '10-tabs-dated'(page) {
+    await unfold(page);
+    for (const d of DATED) { await openDoc(page, toPath(d.path)); await settle(page, 150); }
+    await openDoc(page, toPath(DATED[0].path));
+    await settle(page, 500);
+    await page.locator('.marxy-tab').nth(3).locator('.marxy-tab-open').hover();
+    await settle(page, 300);
+  },
   async '10-tabs-hover'(page) {
     await unfold(page);
     for (const d of TWELVE.slice(1)) { await openDoc(page, toPath(d.path)); await settle(page, 150); }
@@ -448,6 +460,22 @@ const SHEET_TEMPLATE = (() => {
   return m[1];
 })();
 const MOCK_STATES = {
+  '10-tabs-dated': {
+    file: '01-workspace.html',
+    run: async (page) => {
+      await mockUnfold(page);
+      await page.evaluate((list) => {
+        const G = window.Marxy;
+        const at = G.docs.find((d) => d.id === 'pg16-plan');
+        for (const d of list) G.docs.push({ ...at, ...d, unsaved: false });
+        for (const d of list) G.openDoc(d.id);
+        G.openDoc(list[0].id);
+      }, DATED);
+      await settle(page, 600);
+      await page.locator('.tabs .tab').nth(3).hover();
+      await settle(page, 300);
+    },
+  },
   '10-tabs-hover': {
     file: '01-workspace.html',
     run: async (page) => {
