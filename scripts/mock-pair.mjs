@@ -39,6 +39,7 @@ export const SCREENS = {
   '01-unfolded': 'Unfolded: toolbar, tabs, strip, sidebar (mock 01-workspace)',
   '02-source': 'Source, unfolded (mock 02-source)',
   '02-source-folded': 'Source, folded (mock 01-workspace, Source)',
+  '02-source-numbers': 'Source with line numbers on, unfolded: the gutter and the text side by side (mock 02-source)',
   '03-split': 'Split view (mock 01-workspace, Split)',
   '03-code': 'A code file in the reader (mock 01-workspace, doc=indexer-rs)',
   '03-transcript': 'A Markdown transcript in the reader (mock 01-workspace, doc=indexer-chat)',
@@ -259,6 +260,14 @@ const APP_STATES = {
   },
   async '02-source'(page) { await unfoldedWithTabs(page); await page.evaluate(() => window.__cmd('view.mode-source')); await settle(page, 800); },
   async '02-source-folded'(page) { await page.evaluate(() => window.__cmd('view.mode-source')); await settle(page, 800); },
+  // A Markdown file starts with numbers off (L-06.1); the toggle turns them on, as the author did (F-98).
+  async '02-source-numbers'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__cmd('view.mode-source'));
+    await settle(page, 600);
+    await page.evaluate(() => window.__cmd('view.toggle-line-numbers'));
+    await settle(page, 800);
+  },
   async '03-split'(page) { await unfoldedWithTabs(page); await page.evaluate(() => window.__cmd('view.mode-split')); await settle(page, 1000); },
   async '03-code'(page) { await openDoc(page, RS); await settle(page, 900); },
   async '03-transcript'(page) { await openDoc(page, CHAT); await settle(page, 900); },
@@ -395,6 +404,7 @@ const MOCK_STATES = {
   '01-unfolded': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.keyboard.press('Meta+Digit1'); await settle(page, 600); } },
   '02-source': { file: '02-source.html', run: async () => {} },
   '02-source-folded': { file: '01-workspace.html', run: async (page) => { await page.keyboard.press('Meta+Digit3'); await settle(page, 600); } },
+  '02-source-numbers': { file: '02-source.html', run: async () => {} },
   '03-split': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.keyboard.press('Meta+Digit2'); await settle(page, 700); } },
   '03-code': { file: '01-workspace.html', hash: '#doc=indexer-rs', run: async () => {} },
   '03-transcript': { file: '01-workspace.html', hash: '#doc=indexer-chat', run: async () => {} },
