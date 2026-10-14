@@ -1134,23 +1134,33 @@ button.marxy-status-item:focus-visible { outline: 2px solid var(--marxy-color-ac
 .marxy-tabs::-webkit-scrollbar { display: none; }
 /* The end of the row is a margin, not padding: padding at the end of a scrolling flex row is not scrolled to. */
 .marxy-tab:last-child { margin-inline-end: 0.9em; }
-.marxy-tab { display: flex; align-items: stretch; flex: 0 1 auto; min-width: 6em; max-width: calc(var(--marxy-size-chrome) * 220 / 13); border-radius: calc(var(--marxy-size-chrome) * 6 / 13) calc(var(--marxy-size-chrome) * 6 / 13) 0 0; }
+/* One grid (F-99; mock-v2 01-workspace): every tab is the band's height with its parts on one centre line (glyph, name, dirty dot and
+   close), and the close has a slot of one constant width on every tab, hidden (not removed) until the tab is hovered, focused or
+   active, so nothing about a tab's width or its neighbours' left edges changes with the pointer or the active tab. The hover ground
+   is the whole tab, as the active ground is, so both boxes are the same size. */
+.marxy-tab { display: flex; align-items: center; flex: 0 1 auto; min-width: calc(var(--marxy-size-chrome) * 110 / 13); max-width: calc(var(--marxy-size-chrome) * 220 / 13); height: 100%; box-sizing: border-box; border-radius: calc(var(--marxy-size-chrome) * 6 / 13) calc(var(--marxy-size-chrome) * 6 / 13) 0 0; }
+.marxy-tab:hover { background: var(--marxy-color-selection); }
 .marxy-tab > button { appearance: none; -webkit-appearance: none; margin: 0; padding: 0; border: 0; border-radius: inherit; background: none; color: inherit; font: inherit; line-height: 1; cursor: default; white-space: nowrap; }
-.marxy-tab > button:hover { background: var(--marxy-color-selection); }
 .marxy-tab > button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-tab-open { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 0.4em; padding-inline: 0.6em 0.3em; overflow: hidden; text-align: start; }
+.marxy-tab > .marxy-tab-open { flex: 1 1 auto; align-self: stretch; min-width: 0; display: flex; align-items: center; gap: calc(var(--marxy-size-chrome) * 7 / 13); padding-inline: calc(var(--marxy-size-chrome) * 12 / 13) 0; overflow: hidden; text-align: start; }
 .marxy-tab-open .marxy-kind-glyph { flex: none; display: inline-flex; }
 .marxy-tab-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The name is always as wide as its heavier face: a hidden copy in the active weight holds the width, so the active tab's weight moves no tab. */
+.marxy-tab-name::after { content: attr(data-marxy-text); display: block; height: 0; overflow: hidden; visibility: hidden; font-weight: 600; }
 .marxy-tab-dirty { flex: none; }
 .marxy-tab-dirty[hidden], .marxy-tab-close[hidden] { display: none; }
-.marxy-tab-close { flex: none; padding-inline: 0.5em; color: var(--marxy-color-text-secondary); opacity: 0; }
+/* The slot: a square of 18/13 em with a margin of 5/13 em either side, a constant 28/13 em on every tab; the chip behind the × shows on its own hover. */
+.marxy-tab > .marxy-tab-close { flex: none; width: calc(var(--marxy-size-chrome) * 18 / 13); height: min(calc(var(--marxy-size-chrome) * 18 / 13), calc(100% - 4px)); margin-inline: calc(var(--marxy-size-chrome) * 5 / 13); display: grid; place-items: center; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); color: var(--marxy-color-text-secondary); opacity: 0; }
+.marxy-tab > .marxy-tab-close:hover { background: color-mix(in srgb, var(--marxy-color-text) 14%, transparent); color: var(--marxy-color-text-strong); }
 /* The close shows on hover, on focus inside the tab, and always on the active tab; where there is no hover (touch) it always shows. */
 .marxy-tab:hover .marxy-tab-close, .marxy-tab:focus-within .marxy-tab-close, .marxy-tab[data-marxy-tab-active] .marxy-tab-close, .marxy-tab-close:focus-visible { opacity: 1; }
 @media (hover: none) { .marxy-tab-close { opacity: 1; } }
 .marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 var(--marxy-color-text-secondary); }
-/* The active tab is the page's own ground, continuous with it, and heavier; no outline and no accent line. */
+/* The active tab is the page's own ground, continuous with it, and heavier (the name holds the heavier width, above); no outline and no accent line. */
 .marxy-tab[data-marxy-tab-active] { background: var(--marxy-color-bg); font-weight: 600; box-shadow: none; }
-.marxy-tab[data-marxy-tab-active] > button:hover { background: none; }
+/* The full-name reveal: the path, in a small label under the row (tabs-view.ts places it inside the strip's band). */
+.marxy-tab-tip { position: fixed; z-index: 60; max-width: min(60ch, calc(100vw - 8px)); box-sizing: border-box; padding: calc(var(--marxy-size-chrome) * 3 / 13) calc(var(--marxy-size-chrome) * 8 / 13); border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: var(--marxy-color-surface); color: var(--marxy-color-text); font: inherit; font-size: calc(var(--marxy-size-chrome) * 12 / 13); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.marxy-tab-tip[hidden] { display: none; }
 /* The row's + (W-14): a quiet mark at the end of the tabs, with the New menu under it. It is not a tab (no `.marxy-tab`), so a
    count of tabs does not include it; it carries the row's end margin. */
 .marxy-tab-new { display: flex; align-items: stretch; flex: none; margin-inline-end: 0.9em; border-radius: calc(var(--marxy-size-chrome) * 6 / 13) calc(var(--marxy-size-chrome) * 6 / 13) 0 0; }
@@ -1567,7 +1577,7 @@ body[data-marxy-workspace="unfolded"] > .marxy-settings { grid-column: 2; grid-r
       linear-gradient(to left, GrayText, Canvas) right center / var(--marxy-tabs-fade) 100% no-repeat scroll;
   }
   .marxy-tab > button, .marxy-tab-new > button { color: CanvasText; }
-  .marxy-tab > button:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
+  .marxy-tab:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
   .marxy-tab > button:focus-visible { outline: 2px solid Highlight; }
   .marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 GrayText; }
   .marxy-tab[data-marxy-tab-active] { background: Highlight; color: HighlightText; box-shadow: none; }

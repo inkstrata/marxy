@@ -90,6 +90,52 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
     root.append(plus);
   }
 
+  // The full-name reveal (F-99): after a pause over a tab or on its focus, the path in a small label under the row, inside the tool
+  // strip's band, so it never lands on the document. With no strip band to hold it (hidden), it goes above the row, over the toolbar.
+  const tip = document.createElement('div');
+  tip.className = 'marxy-tab-tip';
+  tip.setAttribute('data-marxy-tab-tip', '');
+  tip.setAttribute('role', 'presentation');
+  tip.hidden = true;
+  document.body.append(tip);
+  let tipTimer: ReturnType<typeof setTimeout> | undefined;
+  const hideTip = (): void => {
+    clearTimeout(tipTimer);
+    tip.hidden = true;
+  };
+  const showTip = (wrap: HTMLElement): void => {
+    const path = wrap.getAttribute('data-marxy-tab-path');
+    if (path === null || el.hidden) return;
+    tip.textContent = path;
+    tip.hidden = false;
+    const tab = wrap.getBoundingClientRect();
+    const band = el.getBoundingClientRect();
+    const strip = document.querySelector<HTMLElement>('[data-marxy-workspace-region="strip"]');
+    const below = strip && !strip.hidden ? strip.getBoundingClientRect() : null;
+    const box = tip.getBoundingClientRect();
+    const roomBelow = below !== null && band.bottom + box.height <= below.bottom;
+    const top = roomBelow ? band.bottom : Math.max(0, band.top - box.height);
+    const left = Math.max(4, Math.min(tab.left, document.documentElement.clientWidth - box.width - 4));
+    tip.style.top = `${Math.round(top)}px`;
+    tip.style.left = `${Math.round(left)}px`;
+  };
+  const armTip = (event: Event): void => {
+    const wrap = (event.target as Element | null)?.closest<HTMLElement>('.marxy-tab');
+    hideTip();
+    if (wrap && root.contains(wrap)) tipTimer = setTimeout(() => showTip(wrap), 700);
+  };
+  root.addEventListener('pointerover', (event) => {
+    const from = (event as PointerEvent).relatedTarget as Element | null;
+    const wrap = (event.target as Element | null)?.closest<HTMLElement>('.marxy-tab');
+    if (wrap && from && wrap.contains(from)) return;
+    armTip(event);
+  });
+  root.addEventListener('pointerleave', hideTip);
+  root.addEventListener('pointerdown', hideTip);
+  root.addEventListener('focusin', armTip);
+  root.addEventListener('focusout', hideTip);
+  root.addEventListener('scroll', hideTip);
+
   const panesOf = (): readonly Pane[] => handle.panes().panes;
   const shownPaths = (): Set<string> => new Set(panesOf().flatMap((p) => (p.path() === null ? [] : [p.path()!])));
 
@@ -152,6 +198,7 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
     const name = document.createElement('span');
     name.className = 'marxy-tab-name';
     name.textContent = documentName(path);
+    name.setAttribute('data-marxy-text', documentName(path));
     const dot = document.createElement('span');
     dot.className = 'marxy-tab-dirty';
     dot.setAttribute('aria-hidden', 'true');
@@ -169,8 +216,8 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
     for (const b of [open, close]) b.addEventListener('mousedown', (event) => event.preventDefault());
     open.addEventListener('click', () => void showTab(path));
     close.addEventListener('click', () => void closeTab(path));
-    const title = isTransient(path) ? '' : path;
-    if (title !== '') wrap.title = title;
+    // The full path is the tab's own reveal (below), not a native `title`: that opens at the pointer, over the document's first lines.
+    if (!isTransient(path)) wrap.setAttribute('data-marxy-tab-path', path);
     return { wrap, open, close, name, dot, glyph: null, glyphKind: null };
   };
 
@@ -324,6 +371,8 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
   });
   return () => {
     withdraw();
+    hideTip();
+    tip.remove();
     off();
     kindWatch.disconnect();
     hiding.disconnect();
