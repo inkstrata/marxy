@@ -11,6 +11,16 @@ import { commands, type Command } from '../commands/index.ts';
 import { withPaletteListing } from '../commands/navigation.ts';
 import type { DocumentStore } from '../document/store.ts';
 import { appendInvisibleSegments } from '../render/invisibles-dom.ts';
+import {
+  commandPreview,
+  createPreviewFollower,
+  drawPreview,
+  filePreview,
+  previewReadBytes,
+  sectionPreview,
+  transformPreview,
+  type PreviewData,
+} from '../render/palette-preview.ts';
 import { focusOrigin } from '../pane/focus.ts';
 import { splitRefusal } from '../pane/fit.ts';
 import { buildAppContext, setPaletteCloser, setPaletteOpener } from '../selection/bind.ts';
@@ -42,7 +52,7 @@ import {
 import { setOpenListener } from './history.ts';
 import { createIndexFeed, type IndexFeed } from './index-feed.ts';
 import type { CheckoutKey } from './fold.ts';
-import { jumpForHit, paletteResults, type FoldCopies, type PreparedIndex, type RootRank } from './search.ts';
+import { jumpForHit, paletteResults, sectionQuery, SECTION_LIMIT, type FoldCopies, type PreparedIndex, type RootRank, type SectionScope } from './search.ts';
 import {
   emptySession,
   goBack,
@@ -67,6 +77,8 @@ export interface PaletteModel {
   readonly operationCommands: readonly Command[];
   readonly selected: number;
   readonly notice?: string;
+  /** An `@` or `#` query (W-13): `hits` are headings, and the rows lead with the heading and name the document. */
+  readonly sectionScope?: SectionScope;
   /** The content phase only (C-17): the matches painted, in the order the shell returned them. */
   readonly contentHits?: readonly ContentHit[];
   /** The empty phase only: `hits` is these sections' rows in order, so a row index never counts a label. */
@@ -119,6 +131,10 @@ export interface PaletteDeps {
   readonly splitRefusal?: () => string | null;
   /** The pane focused as the palette opens, to give focus back to on dismissal; null with one pane. */
   readonly focusOrigin?: () => { restore(): void } | null;
+  /** How many near copies the library's check (Q-06) already found of this file; 0 when it has not run. Never starts the check. */
+  readonly nearCopies?: (entry: IndexEntry) => number | Promise<number>;
+  /** What a transform's preview runs on: the selection, else the document's first characters (read only); null when there is none. */
+  readonly transformInput?: () => Promise<{ readonly text: string; readonly scope: 'selection' | 'document' } | null>;
 }
 
 /** Where a chosen document opens: in the focused pane (`'here'`) or the other one (`'split'`, D-07). */
@@ -212,6 +228,7 @@ function queryPalette(
   emptySections: () => readonly EmptySection[],
   content: ContentState,
   suggestedFn: () => readonly Command[],
+  currentPath: string | null,
 ): PaletteModel {
   const phase = palettePhase(query, section);
   if (phase === 'content') {
@@ -255,12 +272,28 @@ function queryPalette(
   }
   const trimmed = query.trim();
   let folded = 0;
+  // `@` and `#` list headings: the section toggle and the row limit of a file list do not apply (W-13).
+  const sections = sectionQuery(trimmed);
   const hits = paletteResults(trimmed, entries, session, {
     prepared,
-    limit: 50,
+    limit: sections === null ? 50 : SECTION_LIMIT,
     rootRank,
     fold: fold && { ...fold, folded: (copies) => (folded = copies) },
+    currentPath,
   });
+  if (sections !== null) {
+    const none = sections.scope === 'here' && currentPath === null ? 'No document is open' : hits.length === 0 ? 'No headings match' : undefined;
+    return {
+      phase,
+      section: 'headings',
+      query,
+      hits,
+      operationCommands: [],
+      selected: 0,
+      notice: none ?? foldedNotice(folded, scopeNotice),
+      sectionScope: sections.scope,
+    };
+  }
   const filtered = filterHits(hits, section);
   return {
     phase,
@@ -295,6 +328,8 @@ function injectPaletteStyles(doc: Document): void {
       max-height: min(70vh, calc(100vh - 11vh - 1rem));
     }
     #marxy-palette::backdrop { background: rgb(0 0 0 / 25%); }
+    /* The container the preview column asks about: a narrow palette has no column (W-13). */
+    #marxy-palette { container: marxy-palette / inline-size; }
     #marxy-palette .marxy-palette-field {
       display: flex;
       align-items: center;
@@ -357,8 +392,68 @@ function injectPaletteStyles(doc: Document): void {
     }
     #marxy-palette .marxy-palette-mode[aria-pressed="true"] { background: var(--marxy-color-accent-wash); border-color: transparent; color: var(--marxy-color-text); }
     #marxy-palette .marxy-palette-mode-prefix { font-size: 0.9em; }
-    /* W-13 adds the preview as a second column here; until then the list takes the width. */
+    /* The preview is a second column when the palette is wide enough (W-13): the mock's 460 / 399 split. It is part of
+       the sheet, which overlays the page: nothing under the reader moves (ADR-0058, F-45). */
     #marxy-palette .marxy-palette-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; }
+    #marxy-palette .marxy-palette-aside { display: none; }
+    @container marxy-palette (min-width: 720px) {
+      #marxy-palette .marxy-palette-body { grid-template-columns: minmax(0, 460fr) minmax(0, 399fr); }
+      #marxy-palette .marxy-palette-aside {
+        display: block;
+        min-height: 0;
+        overflow: auto;
+        box-sizing: border-box;
+        padding: calc(var(--marxy-size-chrome) * 14 / 13) calc(var(--marxy-size-chrome) * 16 / 13);
+        border-inline-start: 1px solid var(--marxy-color-rule);
+        font-size: calc(var(--marxy-size-chrome) * 12.5 / 13);
+        color: var(--marxy-color-text);
+      }
+    }
+    #marxy-palette .marxy-palette-aside[data-marxy-pending] > * { opacity: 0.55; }
+    #marxy-palette .marxy-palette-prev-chips { display: flex; flex-wrap: wrap; gap: calc(var(--marxy-size-chrome) * 5 / 13); margin: 0 0 calc(var(--marxy-size-chrome) * 12 / 13); }
+    #marxy-palette .marxy-palette-prev-chip {
+      padding: 0 calc(var(--marxy-size-chrome) * 8 / 13);
+      border: 1px solid var(--marxy-color-rule-strong);
+      border-radius: calc(var(--marxy-size-chrome) * 12 / 13);
+      color: var(--marxy-color-text-secondary);
+      font-size: 0.92em;
+      line-height: 1.7;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    #marxy-palette .marxy-palette-prev-chip-lead { color: var(--marxy-color-text); font-weight: 600; }
+    #marxy-palette .marxy-palette-prev-title { margin: 0; padding: 0; font-family: var(--marxy-face-chrome); font-variation-settings: normal; letter-spacing: normal; font-size: 1.1em; font-weight: 650; line-height: 1.3; }
+    #marxy-palette .marxy-palette-prev-group { margin: calc(var(--marxy-size-chrome) * 2 / 13) 0 calc(var(--marxy-size-chrome) * 10 / 13); color: var(--marxy-color-text-secondary); }
+    #marxy-palette .marxy-palette-prev-note { margin: 0 0 calc(var(--marxy-size-chrome) * 8 / 13); color: var(--marxy-color-text-secondary); }
+    #marxy-palette .marxy-palette-prev-more { margin: 0; color: var(--marxy-color-text-secondary); }
+    #marxy-palette .marxy-palette-prev-image { color: var(--marxy-color-text-secondary); font-style: italic; }
+    #marxy-palette .marxy-palette-prev-result { margin: 0 0 calc(var(--marxy-size-chrome) * 8 / 13); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.92em; line-height: 1.5; }
+    /* A section or a file's own text (the reading face is set on the element by palette-preview.ts: the chrome's rules carry no face but the chrome's), set small and off the baseline grid: the reading face for prose, the page's own code rules for code. Links
+       and images are inert here (palette-preview.ts). The article's custom properties are given what they stand for. */
+    #marxy-palette .marxy-palette-prev-text {
+      --lb: var(--marxy-line-box);
+      --marxy-half: calc(var(--lb) / 2);
+      --marxy-room: 0px;
+      pointer-events: none;
+      user-select: none;
+      overflow-wrap: anywhere;
+    }
+    #marxy-palette .marxy-palette-prev-prose { line-height: 1.5; font-weight: var(--marxy-weight-body, 400); }
+    #marxy-palette .marxy-palette-prev-prose :is(h1, h2, h3, h4, h5, h6) { margin: 1em 0 0.35em; padding: 0; letter-spacing: normal; line-height: 1.25; text-wrap: balance; }
+    #marxy-palette .marxy-palette-prev-prose > :first-child { margin-top: 0; }
+    #marxy-palette .marxy-palette-prev-prose h1 { font-size: 1.65em; }
+    #marxy-palette .marxy-palette-prev-prose h2 { font-size: 1.3em; }
+    #marxy-palette .marxy-palette-prev-prose h3 { font-size: 1.12em; }
+    #marxy-palette .marxy-palette-prev-prose :is(h4, h5, h6) { font-size: 1em; }
+    #marxy-palette .marxy-palette-prev-prose :is(p, ul, ol, dl, blockquote, table, figure) { margin: 0 0 0.7em; }
+    #marxy-palette .marxy-palette-prev-prose :is(ul, ol) { padding-inline-start: 1.3em; }
+    #marxy-palette .marxy-palette-prev-prose blockquote { padding-inline-start: 0.8em; border-inline-start: 2px solid var(--marxy-color-rule-strong); color: var(--marxy-color-text-secondary); }
+    #marxy-palette .marxy-palette-prev-prose :not(pre) > code { padding: 0 0.3em; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: var(--marxy-color-code-bg); font-size: 0.88em; }
+    #marxy-palette .marxy-palette-prev-text pre { width: auto; min-width: 0; max-width: 100%; margin: 0 0 0.7em; padding: calc(var(--marxy-size-chrome) * 8 / 13) calc(var(--marxy-size-chrome) * 10 / 13); font-size: calc(var(--marxy-size-chrome) * 11.5 / 13); line-height: 1.5; text-indent: 0; }
+    #marxy-palette .marxy-palette-prev-code pre { margin: 0; }
+    #marxy-palette .marxy-palette-prev-text table { border-collapse: collapse; font-size: 0.95em; }
+    #marxy-palette .marxy-palette-prev-text :is(td, th) { padding: 0 0.6em 0 0; text-align: start; }
+    #marxy-palette .marxy-palette-prev-text .marxy-line { text-indent: 0; background: none; }
     #marxy-palette .marxy-palette-results {
       list-style: none;
       margin: 0;
@@ -522,6 +617,7 @@ function fillFooter(foot: HTMLElement, doc: PaletteOwnerDocument, mac: boolean, 
             hint([chord('Mod+Enter')], 'open beside'),
             hint([chord('Mod+.')], 'pin'),
             hint([chord('Tab')], 'headings'),
+            hint(['@'], 'sections'),
             hint([chord('Mod+Shift+P')], 'commands', true),
             hint([chord('Mod+/')], 'transforms'),
           ];
@@ -537,8 +633,10 @@ function ensurePaletteStructure(
   notice: HTMLParagraphElement;
   esc: HTMLButtonElement;
   chips: readonly HTMLButtonElement[];
+  aside: HTMLElement;
 } {
   const found = () => ({
+    aside: dialog.querySelector('.marxy-palette-aside') as HTMLElement,
     input: dialog.querySelector('.marxy-palette-query') as HTMLInputElement,
     list: dialog.querySelector('.marxy-palette-results') as HTMLOListElement,
     notice: dialog.querySelector('.marxy-palette-notice') as HTMLParagraphElement,
@@ -601,7 +699,12 @@ function ensurePaletteStructure(
   list.id = 'marxy-palette-listbox';
   list.setAttribute('role', 'listbox');
   list.setAttribute('aria-label', 'Results');
-  body.appendChild(list);
+  // The preview of the highlighted row (W-13): drawn beside the list when the palette is wide enough, empty otherwise.
+  const aside = owner.createElement('aside') as HTMLElement;
+  aside.className = 'marxy-palette-aside';
+  aside.setAttribute('aria-label', 'Preview');
+  aside.setAttribute('aria-live', 'polite');
+  body.append(list, aside);
   const notice = owner.createElement('p') as HTMLParagraphElement;
   notice.className = 'marxy-palette-notice';
   notice.hidden = true;
@@ -746,6 +849,8 @@ function paintOperationRows(
 interface RowDecor {
   readonly age: (hit: IndexHit) => string | undefined;
   readonly changed: (hit: IndexHit) => boolean;
+  /** An `@` or `#` list (W-13): a row leads with its heading and names its document under it. */
+  readonly headingFirst: () => boolean;
 }
 
 const SECTION_LABELS: Record<EmptySectionKind, string> = {
@@ -788,10 +893,15 @@ function documentRow(
   text.className = 'marxy-palette-text';
   const title = doc.createElement('span') as HTMLSpanElement;
   title.className = 'marxy-palette-title';
-  title.textContent = labelForHit(hit);
+  const headingText = hit.heading === undefined ? undefined : hit.entry.headings[hit.heading]?.text;
+  const sectionRow = decor.headingFirst() && headingText !== undefined;
+  const label = sectionRow ? `${headingText} in ${hit.entry.title}` : labelForHit(hit);
+  title.textContent = sectionRow ? headingText : labelForHit(hit);
   const sub = doc.createElement('span') as HTMLSpanElement;
   sub.className = 'marxy-palette-sub';
-  sub.textContent = folderLine(hit.entry);
+  const folder = folderLine(hit.entry);
+  // The document is named under its heading, with the folder it is in.
+  sub.textContent = sectionRow ? (folder === '' ? hit.entry.title : `${hit.entry.title} · ${folder}`) : folder;
   text.append(title, sub);
   if (age === undefined) {
     row.replaceChildren(icon, text);
@@ -813,9 +923,10 @@ function documentRow(
     // are said in the option's own name.
     row.setAttribute(
       'aria-label',
-      `${labelForHit(hit)}, ${spokenAge(age)}${decor.changed(hit) ? ', changed since you read' : ''}`,
+      `${label}, ${spokenAge(age)}${decor.changed(hit) ? ', changed since you read' : ''}`,
     );
   }
+  if (sectionRow && age === undefined) row.setAttribute('aria-label', label);
   markSelected(row, selected);
   if (hit.heading !== undefined) {
     const heading = hit.entry.headings[hit.heading];
@@ -944,7 +1055,7 @@ function recordKeystrokePaint(ms: number, shell: AppShell): void {
 
 export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   injectPaletteStyles(document);
-  const { input, list, notice, esc, chips } = ensurePaletteStructure(deps.dialog, document);
+  const { input, list, notice, esc, chips, aside } = ensurePaletteStructure(deps.dialog, document);
   let session = emptySession('/');
   const feed = createIndexFeed({
     currentRoot: () => session.currentRoot,
@@ -1058,7 +1169,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     else search.update(phrase);
   };
   const query = (text: string) =>
-    queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), foldCopies(), feed.notice(), emptySections, contentState, suggested);
+    queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), foldCopies(), feed.notice(), emptySections, contentState, suggested, deps.getCurrentPath());
   const decor: RowDecor = {
     // Empty: every row has its age. Typed: only a document in a watched root does.
     age: (hit) =>
@@ -1067,6 +1178,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
         : undefined,
     changed: (hit) =>
       watched(hit.entry.root) && changedSinceRead(hit.entry, baselineMs(hit.entry.root), now()),
+    headingFirst: () => model.sectionScope !== undefined,
   };
   const rowCountOf = (m: PaletteModel): number =>
     m.phase === 'operations'
@@ -1074,11 +1186,113 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       : m.phase === 'content'
         ? (m.contentHits?.length ?? 0)
         : m.hits.length + (m.suggested?.length ?? 0);
+  // W-13: the preview column follows the highlighted row, after a pause. Opening a preview reads a file's first
+  // bytes (`readHead`, never `readFile`) and writes nothing; the highlight moving on drops the wait, so holding an
+  // arrow key reads nothing until the key is released.
+  const HEAD_CACHE = 6;
+  const headCache = new Map<string, Uint8Array | null>();
+  /** A file's first bytes for a preview, the last few kept (arrowing back reads nothing); none for a file over the large-file limit. */
+  const headOf = async (entry: IndexEntry): Promise<Uint8Array | null> => {
+    if (previewReadBytes(entry) === 0) return null;
+    const key = `${entry.path}\0${entry.mtimeMs}\0${entry.size}`;
+    const held = headCache.get(key);
+    if (held !== undefined) {
+      headCache.delete(key);
+      headCache.set(key, held);
+      return held;
+    }
+    const bytes = await deps.shell.readHead(entry.path, previewReadBytes(entry));
+    headCache.set(key, bytes);
+    for (const old of headCache.keys()) {
+      if (headCache.size <= HEAD_CACHE) break;
+      headCache.delete(old);
+    }
+    return bytes;
+  };
+  const entryCache: { entries?: readonly IndexEntry[]; byPath: Map<string, IndexEntry> } = { byPath: new Map() };
+  const entryOf = (path: string): IndexEntry | undefined => {
+    const entries = feed.entries();
+    if (entryCache.entries !== entries) {
+      entryCache.entries = entries;
+      entryCache.byPath = new Map(entries.map((entry) => [entry.path, entry]));
+    }
+    return entryCache.byPath.get(path);
+  };
+  const loadFile = async (entry: IndexEntry, heading: number | undefined): Promise<PreviewData> => {
+    let head: Uint8Array | null;
+    try {
+      head = await headOf(entry);
+    } catch (err) {
+      return { type: 'file', title: entry.title, chips: [], notice: `Could not read this file: ${err instanceof Error ? err.message : String(err)}` };
+    }
+    if (heading !== undefined) return sectionPreview(entry, heading, head);
+    let copies = 0;
+    try {
+      copies = (await deps.nearCopies?.(entry)) ?? 0;
+    } catch {
+      copies = 0;
+    }
+    return filePreview(entry, head, copies);
+  };
+  const loadCommand = async (cmd: Command): Promise<PreviewData> => {
+    const { copyId } = selectionChords();
+    const spec = cmd.key ?? (cmd.id === copyId ? 'Mod+C' : undefined);
+    const plain = commandPreview(cmd, paletteGroupOf(cmd), spec === undefined ? undefined : keyLabel(spec, isMacPlatform()));
+    const prefix = 'transform.run.';
+    if (cmd.id.startsWith(prefix) && deps.transformInput !== undefined) {
+      const input = await deps.transformInput().catch(() => null);
+      const result = input === null ? null : transformPreview(cmd.id.slice(prefix.length), input);
+      if (result !== null) return result;
+    }
+    return plain;
+  };
+  /** The highlighted row's preview: a key naming what it shows (the same key, the same preview) and how to make it. */
+  const previewTarget = (): { key: string; load: () => Promise<PreviewData> } | null => {
+    if (!open) return null;
+    let entry: IndexEntry | undefined;
+    let heading: number | undefined;
+    let command: Command | undefined;
+    if (model.phase === 'operations') command = model.operationCommands[selected];
+    else if (model.phase === 'content') {
+      const found = model.contentHits?.[selected];
+      entry = found === undefined ? undefined : entryOf(found.path);
+    } else {
+      const hit = model.hits[selected];
+      if (hit !== undefined) {
+        entry = hit.entry;
+        heading = hit.heading;
+      } else command = suggestedAt(selected);
+    }
+    if (command !== undefined) {
+      const cmd = command;
+      return { key: `cmd\0${cmd.id}`, load: () => loadCommand(cmd) };
+    }
+    if (entry === undefined) return null;
+    const file = entry;
+    return { key: `${heading === undefined ? 'file' : `section${heading}`}\0${file.path}\0${file.mtimeMs}\0${file.size}`, load: () => loadFile(file, heading) };
+  };
+  const follower = createPreviewFollower({
+    show: (data) => drawPreview(aside, data),
+    pending: (on) => {
+      if (on) aside.setAttribute('data-marxy-pending', '');
+      else aside.removeAttribute('data-marxy-pending');
+    },
+  });
+  const syncPreview = () => {
+    const target = previewTarget();
+    if (target === null) {
+      follower.follow(null, () => Promise.resolve(null));
+      return;
+    }
+    // Asked only when the pause ends: a palette too narrow for the column (it is not drawn) reads nothing.
+    follower.follow(target.key, () => (aside.getClientRects().length === 0 ? Promise.reject(new Error('no column')) : target.load()));
+  };
   const paintModel = () => {
     if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
     else if (model.phase === 'content') paintContentRows(list, model.contentHits ?? [], titleOf, selected);
     else paintDocuments();
     syncActive();
+    syncPreview();
   };
   /** The highlighted row is the field's active descendant, so a screen reader hears it and its group. */
   const syncActive = () => {
@@ -1107,7 +1321,13 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     if (model.phase === 'empty' && model.sections !== undefined) {
       paintEmptyRows(list, model.sections, model.suggested ?? [], selected, decor);
     } else {
-      paintRows(list, model.hits, selected, decor, section === 'headings' ? 'Headings' : 'Files');
+      paintRows(
+        list,
+        model.hits,
+        selected,
+        decor,
+        model.sectionScope === 'everywhere' ? 'Sections everywhere' : model.sectionScope === 'here' ? 'Headings here' : section === 'headings' ? 'Headings' : 'Files',
+      );
     }
   };
   let section: PaletteListSection = 'documents';
@@ -1156,6 +1376,8 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
 
   const dismiss = () => {
     open = false;
+    follower.reset();
+    headCache.clear();
     search?.cancel();
     if (deps.dialog.open) deps.dialog.close();
     // With two panes, focus goes back to the one the palette was summoned from (D-06's focusOrigin); an
@@ -1446,6 +1668,7 @@ export function mountPaletteFromHandle(
     throw new Error('palette mount: expected #doc and dialog#marxy-palette in the document');
   }
   const panes = typeof handle.panes === 'function' ? handle.panes() : null;
+  let facts: { readonly run: unknown; readonly threshold: number; readonly byPath: ReadonlyMap<string, { readonly copies: readonly unknown[] }> } | undefined;
   const controller = mountPaletteApp({
     shell: handle.shell,
     article,
@@ -1470,6 +1693,16 @@ export function mountPaletteFromHandle(
     visiblePaths: () => (panes?.panes ?? []).map((pane) => pane.path()).filter((path): path is string => path !== null),
     splitRefusal: () => (panes ? splitRefusal(panes) : null),
     focusOrigin: () => (panes && panes.panes.length > 1 ? focusOrigin(panes) : null),
+    nearCopies: async (entry) => {
+      // What the library's check already found (Q-06); the palette never starts it.
+      const { checksFor } = await import('../library/checks.ts');
+      const checks = checksFor(handle);
+      const run = checks.latestDup();
+      if (run === null) return 0;
+      if (facts?.run !== run || facts.threshold !== checks.threshold) facts = { run, threshold: checks.threshold, byPath: checks.dupFacts(run) };
+      return facts.byPath.get(entry.path)?.copies.length ?? 0;
+    },
+    transformInput: async () => (await import('../commands/transform.ts')).transformPreviewInput(buildAppContext()),
   });
   setPaletteCloser(() => controller.close());
   setPaletteOpener((query) => controller.open(query));

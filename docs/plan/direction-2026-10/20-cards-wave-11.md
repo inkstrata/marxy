@@ -453,6 +453,22 @@ document named under each. Enter opens the document at that heading. `#` stays h
 2. What does a file preview show for a file over the large-file limit? *Recommended:* its kind, size and "Too large to
    preview", read from the index, with no read of the file.
 
+**Amendments from the build (2026-10-13, against `origin/main` at `a142436e`).** Both questions went to their
+recommended answers. What did not reproduce, and what the build did about it:
+- **`#` was not a prefix.** The card says it "stays"; on main the palette has no `#` (nor `@`): `Tab` switches the list to
+  *Headings*, which is every heading of every document. W-13 adds both marks in `search.ts` (`sectionQuery`,
+  `sectionResults`), so `#install` is this document's headings and `@install` the collection's.
+- **Paths.** `mock-v2/04-palette.md` is `docs/plan/direction-2026-10/mock-v2/04-palette.md`. `PREVIEW_LIMIT` in
+  `transform/sheet.ts` is 20,000 characters (the result sheet's), not the preview's 1,400, which is the mock's rule and is now
+  `TRANSFORM_INPUT_CHARS`. `readHead` is `packages/shell-api`'s (256 KB), and "the large-file limit" is `LARGE_FILE_BYTES`
+  (2 MB, `source/language.ts`), restated and pinned in `palette-preview.ts`. `palette/content.ts` is the `/` search: it has
+  no file preview text to read. `palette/session.ts` needed no edit.
+- **Commands carry no description** in the registry; the column's line is by family (`describeCommand`).
+- **Beyond the listed paths**, each small: `palette/fold.ts` (`byHeading`, so two headings of one file do not fold to one),
+  `library/checks.ts` (`latestDup()`, so the chip reads Q-06's last run and never starts one), `commands/transform.ts`
+  (`transformPreviewInput`, a read-only twin of the sheet's input), `docs/ci-contract.md` and `apps/desktop/package.json`
+  (`palette-preview.test.mjs` joins `test:lite`: it holds "a preview fetches nothing").
+
 ---
 
 ### K-17 — Read a terminal session: commands and their output, grouped
