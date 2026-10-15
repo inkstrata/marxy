@@ -249,3 +249,24 @@ test('an edit is one splice: the range is the value token and the rest of the fi
   assert.equal(src.slice(r.from, r.to), '"Old"');
   assert.equal(r.replacement, '"N"');
 });
+
+test('YAML: whole-line comments, blank lines, a block scalar beside the edit and a closing rule in the body are all left alone', () => {
+  const head = '# a leading comment\ntitle: Old # trailing\n\n# between\nnote: |\n  keep: me\n  ---\n  as is\nlast: x\n';
+  const src = `---\n${head}---\n${BODY}`;
+  assert.equal(ok(src, 'title', 'New'), src.replace('title: Old', 'title: New'));
+  assert.equal(ok(src, 'last', 'zed'), src.replace('last: x', 'last: zed'));
+  // The key that is inside the block scalar is text, not an entry.
+  assert.match(refused(src, 'keep'), /no key/);
+  // A document with the same shape in CRLF changes the same one value.
+  const crlf = src.replace(/\n/g, '\r\n');
+  assert.equal(ok(crlf, 'title', 'New'), crlf.replace('title: Old', 'title: New'));
+});
+
+test('a front matter that never closes is not edited, and a duplicate key refuses on both of its rows', () => {
+  const open = '---\ntitle: Old\n\nBody with no closing rule\n';
+  const r = set(open, 'title', 'New');
+  assert.ok('refused' in r, 'an unclosed head is not front matter');
+  const dup = '---\ntitle: One\ntitle: Two\nother: z\n---\n';
+  assert.match(refused(dup, 'title', 'New'), /more than once/);
+  assert.equal(ok(dup, 'other', 'w'), dup.replace('other: z', 'other: w'));
+});
