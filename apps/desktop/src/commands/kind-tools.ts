@@ -1,6 +1,7 @@
-// The tool commands of the kinds from K-17 on (terminal, changelog, docs): a kind's tools that read the open file and hand something to the pasteboard
-// or move the view, one list here rather than a file for each kind (log.ts and data.ts keep theirs). Every tool is a view:
-// it writes nothing to the file, and Copy is the only action.
+// The tool commands of the kinds from K-17 on (terminal, changelog, docs, transcript): a kind's tools that read the open file and hand something to
+// the pasteboard or move the view, one list here rather than a file for each kind (log.ts and data.ts keep theirs). Every tool is a view:
+// it writes nothing to the file, and Copy is the only action. A transcript's filters (K-12) act on the derived view, whose module
+// is loaded only when one is shown: these commands reach it through the page, never through a static import (F-111).
 import { newestRelease, type Release } from '@marxy/core/src/operations/release-notes.ts';
 import { parseMarkdown, textOf, type Buffer } from '@marxy/core';
 import { selectInspectorTab } from '../workspace/inspector.ts';
@@ -91,6 +92,32 @@ const inspectorReachable = (): boolean => {
   return w?.hasFill('inspector') === true && !w.inspectorHidden();
 };
 
+/** The focused pane when it shows a JSONL session's derived view in Read (K-12). */
+function focusedTranscript(): Pane<AppPane> | null {
+  const pane = appHandle()?.panes().focused;
+  if (!pane || pane.kind() !== 'transcript' || pane.view.mode !== 'rendered') return null;
+  return pane.parts.article.querySelector(':scope > [data-marxy-derived="jsonl-transcript"]') === null ? null : pane;
+}
+
+/** Why a transcript's tool is off: said on the strip's button (K-08's rule). */
+function whyNoTurns(): string | null {
+  const pane = appHandle()?.panes().focused;
+  if (!pane || pane.kind() !== 'transcript' || focusedTranscript() !== null) return null;
+  return /\.jsonl$/i.test(pane.path() ?? '') ? 'Read shows the turns: ⌘E' : 'only a JSONL session is read as turns';
+}
+
+/** Turns the derived view's filter `which` on, or off when it is on. Writes nothing; forgotten when the file is opened again. */
+async function toggleTranscript(which: 'tools' | 'you' | 'agent'): Promise<void> {
+  const pane = focusedTranscript();
+  if (!pane) return;
+  const { transcriptIn } = await import('../kinds/transcript-view.ts');
+  const view = transcriptIn(pane.parts.article);
+  if (!view) return;
+  const state = view.state();
+  if (which === 'tools') view.setToolsCollapsed(!state.toolsCollapsed);
+  else view.setOnly(state.only === which ? null : which);
+}
+
 export function kindToolCommands(): readonly Command[] {
   return [
     {
@@ -110,6 +137,30 @@ export function kindToolCommands(): readonly Command[] {
       when: hasRelease,
       unavailable: () => (focusedChangelog() !== null && !hasRelease() ? NO_VERSION : null),
       run: (ctx) => copyReleaseNotes(ctx),
+    },
+    {
+      id: 'transcript.collapse-tools',
+      title: 'Collapse tools',
+      group: 'view',
+      when: () => focusedTranscript() !== null,
+      unavailable: whyNoTurns,
+      run: () => toggleTranscript('tools'),
+    },
+    {
+      id: 'transcript.only-you',
+      title: 'Only you',
+      group: 'view',
+      when: () => focusedTranscript() !== null,
+      unavailable: whyNoTurns,
+      run: () => toggleTranscript('you'),
+    },
+    {
+      id: 'transcript.only-assistant',
+      title: 'Only assistant',
+      group: 'view',
+      when: () => focusedTranscript() !== null,
+      unavailable: whyNoTurns,
+      run: () => toggleTranscript('agent'),
     },
     {
       id: 'terminal.copy-commands',

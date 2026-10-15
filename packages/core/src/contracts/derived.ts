@@ -4,12 +4,12 @@
  *
  * A `DerivedNode` is not a `Node`: it reuses `Source` from `ast.ts` and nothing else, so the type checker refuses to
  * hand one to an operation (`OperationInput.node` is a `Node`). This file holds the table deriver's types
- * (`delimited-table`, ADR-0071, K-10b); the transcript deriver's (`jsonl-transcript`, K-12) join them here.
+ * (`delimited-table`, ADR-0071, K-10b) and, below them, the transcript deriver's (`jsonl-transcript`, ADR-0061, K-12).
  */
 import type { Source } from './ast.ts';
 
 /** The derivers ADR-0061 and its amendments admit. */
-export type DeriverId = 'delimited-table';
+export type DeriverId = 'delimited-table' | 'jsonl-transcript';
 
 /**
  * How a leaf's value comes from its bytes, exactly (ADR-0071 item 2):
@@ -81,7 +81,7 @@ export interface DerivedTable {
   readonly dropped: readonly DroppedLine[];
 }
 
-export type DerivedNode = DerivedTable | DerivedRow | DerivedCell | DerivedUnreadable | DerivedPending;
+export type DerivedNode = DerivedTable | DerivedRow | DerivedCell | DerivedUnreadable | DerivedPending | TranscriptNode;
 
 /**
  * What every table tree satisfies (ADR-0061 item 4 as ADR-0071 reads it for this deriver), asserted by
@@ -94,4 +94,154 @@ export const DERIVED_TABLE_INVARIANTS = [
   'only a cell may have an empty range (an empty field)',
   'accounting: every byte is in exactly one of a cell, a delimiter, a record terminator, the BOM, an unreadable row, a dropped blank line or the pending record',
   'a row\'s cells tile it: one delimiter byte between neighbours, nothing before the first or after the last',
+] as const;
+
+// ---- the transcript deriver (`jsonl-transcript`, ADR-0061 items 3 and 4, K-12) -----------------------------------------
+//
+// A JSONL session read as the conversation it records. Every node carries `src`, the hull of what it came from, and
+// `from`, the exact byte ranges it was derived from (ADR-0061 item 3). A line is `[start, end)` with its `\n` when it has
+// one. No node has a field for a session id, a model, a cost, a token count or a per-event time: the tree is for reading
+// the open file, never metadata about it, and nothing in it feeds the index.
+
+/** How a transcript leaf's value comes from its bytes: `JSON.parse(utf8(bytes[src.start, src.end)))`, exactly. */
+export type TranscriptDecoding = 'json-string';
+
+/** Who a turn is: the reader (*you*) or the agent. */
+export type TurnSpeaker = 'you' | 'agent';
+
+/** What a leaf is to the node that holds it. */
+export type DerivedTextRole = 'text' | 'thinking' | 'tool-name' | 'tool-input' | 'tool-output';
+
+/**
+ * A leaf holding decoded text: one JSON string token, quotes included, whose decoding is `value` (ADR-0061 item 3).
+ * `markdown` only for well-formed UTF-16 decoded from valid UTF-8; a leaf with a lone surrogate or with bytes that are
+ * not UTF-8 is always `plain`.
+ */
+export interface DerivedText {
+  readonly type: 'derivedText';
+  readonly src: Source;
+  /** The one string token: `[src]`. */
+  readonly from: readonly Source[];
+  readonly value: string;
+  readonly decoding: TranscriptDecoding;
+  readonly syntax: 'markdown' | 'plain';
+  readonly role: DerivedTextRole;
+  /** For a `tool-input` leaf: the key it is the value of in the call's input, decoded. */
+  readonly key?: string;
+  /**
+   * UTF-16 offsets in `value` of each U+FFFD the decoding put in place of bytes that are not UTF-8 (ADR-0061 item 7), so
+   * a replacement Marxy made is told from one the file holds. Empty for a leaf of valid UTF-8.
+   */
+  readonly replaced: readonly number[];
+}
+
+/**
+ * A value in a shown line that the view does not set as text, and says so (ADR-0061 item 7): a tool's input that is not a
+ * string (a list, an object, a number), an item of a result that is not text, or a block of a message that is neither
+ * text, thinking nor a tool (an image, a document). The view counts them and shows their bytes as written.
+ */
+export interface UnshownValue {
+  readonly src: Source;
+  /** What it is: a JSON kind (`object`, `array`, `number`, `boolean`, `null`) or the block's `type` (`image`). */
+  readonly what: string;
+  /** For a tool's input: the key it is the value of. */
+  readonly key?: string;
+}
+
+/** A tool call and its result as one unit: `from` is the call's object and, once it is found, the result's. */
+export interface DerivedTool {
+  readonly type: 'tool';
+  readonly src: Source;
+  readonly from: readonly Source[];
+  /** The name leaf first, then the input's string values, then the result's text. */
+  readonly children: readonly DerivedText[];
+  /** True once a result for the call is in the tree; false for a call with no result yet, and for a result with no call. */
+  readonly answered: boolean;
+  /** True for a result whose call is not in the turn (no name leaf). */
+  readonly orphan: boolean;
+  /** The result says the call failed (`is_error`). */
+  readonly failed: boolean;
+  /** Its input values and result items that are not text: counted on its line, shown as written in its body. */
+  readonly unshown: readonly UnshownValue[];
+}
+
+/** An agent's thinking, folded at rest: its block's object. */
+export interface DerivedThinking {
+  readonly type: 'thinking';
+  readonly src: Source;
+  readonly from: readonly Source[];
+  readonly children: readonly DerivedText[];
+}
+
+/** A speaker's consecutive messages; `from` is each line it groups, in order. */
+export interface DerivedTurn {
+  readonly type: 'turn';
+  readonly speaker: TurnSpeaker;
+  readonly src: Source;
+  readonly from: readonly Source[];
+  readonly children: readonly (DerivedText | DerivedTool | DerivedThinking)[];
+  /** Blocks of its lines that are not text, thinking or a tool (an image): counted at its end, each a Jump to source. */
+  readonly unshown: readonly UnshownValue[];
+}
+
+/** A line that is not JSON: shown as its own bytes, never dropped. `line` is 1-based. */
+export interface TranscriptUnreadable {
+  readonly type: 'unreadable';
+  readonly src: Source;
+  readonly from: readonly Source[];
+  readonly line: number;
+}
+
+/** The unfinished last line: no newline yet, and not yet JSON (the tool is still writing it). */
+export interface TranscriptPending {
+  readonly type: 'pending';
+  readonly src: Source;
+  readonly from: readonly Source[];
+  readonly line: number;
+}
+
+/**
+ * A line the tree leaves out and says it left out (ADR-0061 item 7): its record type (the line's `type`, else its `role`),
+ * whether the deriver knows that type, and the line. A blank line is `blank`, known; a JSON value that is not an object
+ * is `(not an object)`, unknown.
+ */
+export interface DroppedRecord {
+  readonly src: Source;
+  readonly record: string;
+  readonly known: boolean;
+  readonly line: number;
+}
+
+export interface DerivedTranscript {
+  readonly type: 'transcript';
+  readonly deriver: 'jsonl-transcript';
+  /** The whole file, `[0, byteLength)` (the bytes read so far while it is still being derived). */
+  readonly src: Source;
+  /** Every line of the file, in order. */
+  readonly from: readonly Source[];
+  readonly children: readonly (DerivedTurn | TranscriptUnreadable | TranscriptPending)[];
+  readonly dropped: readonly DroppedRecord[];
+}
+
+export type TranscriptNode =
+  | DerivedTranscript
+  | DerivedTurn
+  | DerivedTool
+  | DerivedThinking
+  | DerivedText
+  | TranscriptUnreadable
+  | TranscriptPending;
+
+/**
+ * What every transcript tree satisfies (ADR-0061 item 4), asserted by `checkDerivedInvariants` in `derive/invariants.ts`
+ * (beside the deriver, because item 6 runs the ordinary parser, which a contract file does not import).
+ */
+export const DERIVED_INVARIANTS = [
+  'src.start <= src.end for every derived node, and transcript.src covers [0, byteLength)',
+  "a node's from ranges are non-empty, ordered, non-overlapping, and src is their hull",
+  "a child's from ranges are contained in its parent's from ranges",
+  "the from ranges of the tree's leaves are pairwise disjoint",
+  "a derivedText leaf's value is the declared decoding of bytes[src.start, src.end)",
+  'a markdown derivedText parses over its own value into an inner Document that satisfies AST_INVARIANTS against the UTF-8 bytes of the value, under a synthetic file name',
+  'accounting: every line of the file is the source of at least one leaf, or appears once in dropped with its record type, or is the one pending last line',
 ] as const;

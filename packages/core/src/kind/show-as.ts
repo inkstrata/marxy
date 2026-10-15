@@ -11,7 +11,7 @@
 import { KINDS } from '../contracts/kinds.ts';
 import type { Kind } from '../contracts/kinds.ts';
 import { basename, normalizePath } from '../index-model/paths.ts';
-import { detectKind } from './detect.ts';
+import { detectKind, globToRegExp } from './detect.ts';
 import type { DetectInput, DetectResult, KindRule } from './detect.ts';
 
 export const KINDS_FILE_VERSION = 1;
@@ -149,6 +149,20 @@ export function folderKindGlob(folder: string, home: string): string {
   if (dir === h) written = '~';
   else if (h !== '/' && dir.startsWith(`${h}/`)) written = `~${dir.slice(h.length)}`;
   return written === '/' ? '/**' : `${written}/**`;
+}
+
+/**
+ * The `read` of the first rule whose glob matches `path` (ADR-0060 item 7: a rule's `read = true` opens the file in Read,
+ * `false` in Source, above the kind's default mode), matched as `detectFileKind` matches rules: the path folded, each
+ * glob folded, a rule naming no kind skipped, the first match the one. Undefined when no rule matches or it says nothing.
+ */
+export function ruleReadFor(path: string, rules: readonly KindRule[] = []): boolean | undefined {
+  const folded = kindPathKey(path);
+  for (const rule of rules) {
+    if (!(KINDS as readonly string[]).includes(rule.is)) continue;
+    if (globToRegExp(rule.glob.normalize('NFC').toLowerCase()).test(folded)) return rule.read;
+  }
+  return undefined;
 }
 
 export interface FileKindInput extends Omit<DetectInput, 'showAs' | 'rules'> {

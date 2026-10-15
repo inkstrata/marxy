@@ -829,8 +829,9 @@ the conversation it records:
 - a line that is not JSON shown as "Unreadable line 412" with its bytes one click away, and an unfinished last line as
   "Still being written".
 
-The file still opens in Source, as ADR-0060 decides, unless the reader's `[[kind]]` rule or *Show as Transcript* says
-Read. `⌘E` toggles to the raw lines at the same place. The strip offers *Collapse tools*, *Only you* and *Only
+The file still opens in Source, as ADR-0060 decides, unless the reader's `[[kind]]` rule says `read = true`. (*Amended by
+K-12:* the card first said "or *Show as Transcript*"; ADR-0060 item 7 makes a JSONL transcript's default mode Source, so
+*Show as Transcript* makes ⌘E show the turns and does not open Read by itself.) `⌘E` toggles to the raw lines at the same place. The strip offers *Collapse tools*, *Only you* and *Only
 assistant*, which hide turns and leave one line saying how many. Copying a turn gives its text as shown, and *Copy as*
 offers the raw lines. No node knows a model, a session id, a cost or a token count, and nothing derived goes into the
 index.
@@ -840,8 +841,12 @@ The first screen of a 20 MB session shows before the whole file is read (commitm
 **Paths.**
 - New:
   - `packages/core/src/contracts/derived.ts` (if K-10b has not written it: `DerivedNode`, `DERIVED_INVARIANTS`,
-    `checkDerivedInvariants`, exactly as ADR-0061 items 2 to 4 give them);
-  - `packages/core/src/derive/jsonl-transcript.ts` (the deriver, in slices) and its test;
+    `checkDerivedInvariants`, exactly as ADR-0061 items 2 to 4 give them). *Amended by K-12:* K-10b wrote it; K-12 adds
+    the transcript's node types and `DERIVED_INVARIANTS` beside K-10b's, which are unchanged (question 2's default), and
+    `checkDerivedInvariants` lives in `packages/core/src/derive/invariants.ts`, because item 4.6 runs the parser, which a
+    contract file does not import;
+  - `packages/core/src/derive/jsonl-transcript.ts` (the deriver, in slices) and its test, and (*added by K-12*)
+    `derive/invariants.ts` and `derive/transcript-html.ts` (the render the view and the derived golden share);
   - `packages/core/goldens/` derived serialisations for the new fixture, and their serialiser;
   - `apps/desktop/src/kinds/transcript-view.ts` (the page half) and `apps/desktop/test/transcript-jsonl.test.mjs`
     (WebKit);
@@ -851,7 +856,16 @@ The first screen of a 20 MB session shows before the whole file is read (commitm
   mounts its grid), `apps/desktop/src/workspace/strip.ts`, `apps/desktop/src/commands/kind-tools.ts`,
   `packages/theme/default/theme.css` (the turn and tool-line rules inside the `transcript` profile),
   `scripts/registry.json`, `packages/core/scripts/golden.ts` (the derived goldens), `scripts/mock-pair.mjs` (`SCREENS`:
-  `03-transcript-jsonl`) and `scripts/mock-pair.test.mjs`, `docs/design/02-render.md`.
+  `03-transcript-jsonl`) and `scripts/mock-pair.test.mjs`, `docs/design/02-render.md`. *Added by K-12:*
+  `apps/desktop/src/document/open.ts` (the matching rule's `read` decides the mode; nothing on main read it), `apps/desktop/src/document/live-reload.ts` (a
+  reload of a file nothing has parsed maps the place through the bytes, so an append does not parse the session as
+  Markdown), `apps/desktop/test/transcript-lite.test.mjs`, `apps/desktop/package.json` (`test:lite`) and
+  `docs/ci-contract.md`,
+  `packages/core/src/kind/show-as.ts` and `detect.ts` (`ruleReadFor`, matched as the kind's rule is),
+  `apps/desktop/src/selection/view.ts` (the app's selection never resolves inside a derived view),
+  `packages/core/src/contracts/contracts.test.ts` (ADR-0061 item 6's type-level check), `fixtures/corpus/README.md` and its
+  goldens, `packages/core/goldens/kinds.json`, `docs/design/03-selection-and-operations.md` (the `turn`, `tool` and
+  `derived-text` rows ADR-0061 asks for).
 - Read: ADR-0061 whole, ADR-0071, `docs/research/reader-artifacts/proposals/P10-derived-transcript-view.md`,
   `04-capture.md` (the transcript view), `apps/desktop/test/transcript.test.mjs` (K-11).
 

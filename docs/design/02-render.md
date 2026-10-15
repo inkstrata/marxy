@@ -132,6 +132,35 @@ processed (`data-marxy-done` is set by the app, not the renderer, and is not pro
 7. **Task markers.** `input[type=checkbox]` click → `preventDefault()`, resolve the marker via
    the node map, run `toggle-task` (§03).
 
+## A derived view: a JSONL session in Read (K-12, ADR-0061)
+
+A `.jsonl` whose kind is `transcript` has no Markdown page. Read shows the **derived transcript view** instead, mounted in the
+pane's article by `view/rendered-view.ts` from `apps/desktop/src/kinds/transcript-view.ts`, a module loaded the first time one
+is shown (never by a static import from the way to first text; F-111). It opens in Source unless the matching `[[kind]]`
+rule says `read = true` (ADR-0060 item 7; `ruleReadFor` in `packages/core/src/kind/show-as.ts`); ⌘E reaches it from Source.
+
+- **The tree** is `packages/core/src/derive/jsonl-transcript.ts`: a scanner over each line's bytes that keeps every string
+  token's range, so a leaf's `src` is exactly its token and its value is the decoding of exactly those bytes (`TextDecoder`'s
+  UTF-8, then `JSON.parse`'s escapes). It reads a slice of lines per step. `derive/invariants.ts` checks
+  `DERIVED_INVARIANTS` with the standard decoders, never the deriver's own.
+- **The HTML** is `packages/core/src/derive/transcript-html.ts`, one render for the view and the derived golden: a turn is a
+  `section.marxy-turn[data-marxy-turn]` with K-11's `[data-marxy-speaker]` label; an agent's text is its own inner
+  `Document` (file `<path>#derived@<start>`) through `renderDocumentSafeHtml` under the default allow-list, its provenance,
+  ids and speaker marks taken out and its images shown as words; a prompt is plain text with its breaks kept; a tool call, a
+  thinking block and an unreadable line are one `button.marxy-tool-line` whose body is made when it is first opened. Every
+  derived element carries `data-marxy-s`/`data-marxy-e` from its node's file range; the root carries `data-marxy-derived`.
+  The invisibles pass runs on it as on a page, in core, so the golden shows the markers.
+- **The page.** The first slice of lines is derived and drawn in the task that mounts the view, the rest a few milliseconds a
+  slice. The view's block list (each leaf, tool and row, at the start of its line) stands in for `buildBlocks`, so the
+  reading position, ⌘E at the same line and a held place go through the ordinary machinery; no grid pass, typesetter or
+  deferred pass runs on it, and no AST node is read for it (a reload maps the reading place through the bytes, not a
+  parse). An append (ADR-0061 item 8) derives only the new lines from the last complete one, reading an unfinished last
+  line again, and draws only their rows, in slices; any other change derives the view again from the store's bytes.
+- **Nothing left out unsaid.** A tool's input that is not a string, a result item that is not text and a message block
+  that is neither (an image) are counted on the tool's line or at the turn's end and shown as written.
+- **Never an edit.** The app's selection (`selection/view.ts`) leaves `[data-marxy-derived]` alone, so no operation is ever
+  offered on it; the view's own menus hold only verbs that read.
+
 ## Tests
 
 - `packages/core/src/render/contract.test.ts`: for each corpus file, parse, render, parse the

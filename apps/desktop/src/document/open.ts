@@ -5,7 +5,7 @@
 // (ADR-0037). Every edit, save and fold of the open document goes through its store here.
 import { keepBeforeOverwrite } from '../versions/recorder.ts';
 import { KIND_HEAD_BYTES, lastChunkedParse, parseMarkdownChunked, type Buffer, type DetectResult, type KindRule } from '@marxy/core';
-import { detectFileKind, emptyKindsEnvelope, type KindsEnvelope } from '@marxy/core/src/kind/show-as.ts';
+import { detectFileKind, emptyKindsEnvelope, ruleReadFor, type KindsEnvelope } from '@marxy/core/src/kind/show-as.ts';
 import { parseConfig } from '@marxy/theme';
 import { buildNodeMapInSlices } from '../render/post.ts';
 import { dirname } from '@marxy/core/src/index-model/paths.ts';
@@ -207,6 +207,10 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
 
   /** The open document's kind and reasons, decided in `readAndShow` and not again until it is opened again (ADR-0060 item 6). */
   let detected: DetectResult | null = null;
+  /** The matching `[[kind]]` rule's `read` for the file being opened (ADR-0060 item 7), decided with its kind. */
+  let ruleRead: boolean | undefined;
+  /** Whether the open document opened in Source: its rule's `read`, else its kind's default mode (`modeOfOpen`). */
+  let openedInSource = false;
   /** The launch's kind when kinds.json was still being read as the page was first written: settled once it is decided again (K-05a.1). */
   let launchRedecide: Promise<void> | null = null;
 
@@ -240,8 +244,20 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     // A scratch document is Markdown until it is named, so it is detected as the Markdown file it will be (F-108).
     const result = detectFileKind({ path: isUntitled(file) ? 'untitled.md' : file, head: bytes.subarray(0, KIND_HEAD_BYTES), rules: inputs.rules, choices: inputs.choices });
     detected = result;
+    ruleRead = isUntitled(file) ? undefined : ruleReadFor(file, inputs.rules);
     setPaneKind(doc.closest('section.marxy-pane'), result.kind);
     return result;
+  }
+
+  /**
+   * Whether `file` opens in Source (ADR-0060 item 7): the matching rule's `read` (`true` opens Read, `false` Source), else
+   * the default mode of its type. A `.jsonl` opens in Source unless a rule says Read (ADR-0061 item 5): its Read is the
+   * derived transcript view when its kind is `transcript` (K-12).
+   */
+  function modeOfOpen(file: string): boolean {
+    if (ruleRead === true) return false;
+    if (ruleRead === false) return true;
+    return defaultModeForPath(file) === 'source';
   }
 
   /**
@@ -261,6 +277,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   function decideLaunchKind(file: string, bytes: Uint8Array): Promise<void> | null {
     const known = config.launchKindInputs();
     const first = applyKind(file, bytes, { rules: known.rules, choices: known.choices ?? emptyKindsEnvelope() });
+    // applyKind read the rule's `read` from the same rules: the launch document's mode is decided with its kind.
     if (known.choices !== null) return null;
     return known.later.then((choices) => {
       if (detected !== first || closed) return;
@@ -381,7 +398,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     if (!stored) return;
     landing = stored.byteOffset;
     // A file that opens in Source is already in Source (V-11); its stored place is a byte in it, not a block of a page.
-    if (defaultModeForPath(path) === 'source') {
+    if (openedInSource) {
       if (view.mode === 'source') await view.showSource(stored.byteOffset);
       return;
     }
@@ -403,8 +420,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     kind: 'now' | 'keep' | 'launch' = 'now',
   ): Promise<RenderEvidence> {
     // A file that opens in Source loads Source's code while the file is read, not after it (V-11).
-    const opensInSource = defaultModeForPath(file) === 'source';
-    if (opensInSource) view.warmSource(file);
+    // A `[[kind]]` rule's `read` is known once the kind is decided, below; Source's code is warmed on the type's default.
+    if (defaultModeForPath(file) === 'source') view.warmSource(file);
     // The reader's rules and choices are read beside the file, not after it.
     const kindInputs = kind === 'now' ? readKindInputs() : null;
     // config.toml is read beside the document, not after it (and, at launch, kinds.json starts with it).
@@ -432,7 +449,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     let preparsed: Preparsed | undefined;
     let cut = 0;
     // A file that opens in Source is not parsed here at all (V-11): its store parses when the AST is first read.
-    if (slices && !opensInSource && !(deps.stores?.held(file) ?? null)) {
+    // A `.jsonl` is never parsed as Markdown on the way in: in Read it is the derived view (K-12), in Source not parsed.
+    if (slices && defaultModeForPath(file) !== 'source' && !/\.jsonl$/i.test(file) && !(deps.stores?.held(file) ?? null)) {
       const ast = await parseMarkdownChunked(bytes, { file, yieldNow: yieldToEventLoop, aborted: () => closed });
       const stats = lastChunkedParse();
       cut = stats.kind === 'slices' ? stats.slices : 0;
@@ -447,6 +465,10 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     // read already made, without waiting for any that is still out (`decideLaunchKind`).
     if (kindInputs) await decideKind(file, bytes, kindInputs);
     else if (kind === 'launch') launchRedecide = decideLaunchKind(file, bytes);
+    const opensInSource = modeOfOpen(file);
+    openedInSource = opensInSource;
+    // A JSONL session in Read is the derived view: no Markdown parse is made for it unless something asks for one.
+    const derivedRead = !opensInSource && /\.jsonl$/i.test(file) && detected?.kind === 'transcript';
     scratchLabel = untitled ? scratch?.label : undefined;
     scratchSaveIn = untitled ? scratch?.saveIn : undefined;
     clearDismissForPath(file);
@@ -463,7 +485,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         beforeOverwrite: (path: string, replacing: Uint8Array) => keepBeforeOverwrite(path, replacing),
         writeFileNew: (path: string, written: Uint8Array) => shell.writeFileNew(path, written),
       };
-      return untitled ? openUntitledStore(io, file, bytes) : openDocumentStore(io, file, bytes, preparsed, { lazy: opensInSource });
+      return untitled ? openUntitledStore(io, file, bytes) : openDocumentStore(io, file, bytes, preparsed, { lazy: opensInSource || derivedRead });
     };
     const opened = deps.stores ? deps.stores.acquire(file, make) : make();
     current = opened;
@@ -494,7 +516,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   async function finishDocumentOpen(file: string, opts: { at?: number; firstOpen?: boolean; sliced?: boolean } = {}): Promise<void> {
     // A file that opens in Source was shown there by `readAndShow`, with no page made (V-11): nothing is typeset
     // and there is no page for images, math or highlighting; the Rendered pass waits for the reader's first ask.
-    const inSource = defaultModeForPath(file) === 'source';
+    const inSource = openedInSource;
     if (opts.firstOpen) await persistence.ensureLoaded(dirname(file));
     if (opts.sliced) await yieldToEventLoop();
     if (!inSource) await view.typeset();

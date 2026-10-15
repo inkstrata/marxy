@@ -349,6 +349,82 @@
 @media (forced-colors: active) {
   [data-marxy-kind="transcript"] [data-marxy-speaker] { forced-color-adjust: auto; font-weight: 700; }
 }
+/* A JSONL session read as turns (K-12, ADR-0061): the derived view takes K-11's labels above, so a session and a Markdown
+   transcript read alike. Exchanges are a root line box apart and the blocks of a turn half of one; a tool call, a thinking
+   block and an unreadable line are one quiet line at rest in the caption size, opened on a click, their bodies in the code
+   face. What the view left out is said in one line at its head, in the dek's colour, as words, never a badge. Nothing here
+   carries the speaker by colour. A filter hides by the `hidden` attribute, so these rules are look only. */
+[data-marxy-kind="transcript"] .marxy-transcript-head,
+[data-marxy-kind="transcript"] .marxy-transcript-dropped,
+[data-marxy-kind="transcript"] .marxy-transcript-hidden-run,
+[data-marxy-kind="transcript"] .marxy-pending {
+  font-size: var(--marxy-size-caption);
+  line-height: var(--marxy-line-box);
+  color: var(--marxy-color-text-secondary);
+  margin: 0 0 var(--marxy-half);
+}
+[data-marxy-kind="transcript"] .marxy-transcript-dropped { list-style: none; padding: 0; }
+[data-marxy-kind="transcript"] .marxy-transcript-hidden-run,
+[data-marxy-kind="transcript"] .marxy-pending { margin-top: var(--marxy-root-line-box); font-style: italic; }
+[data-marxy-kind="transcript"] :is(.marxy-transcript-count, .marxy-transcript-jump) {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+  cursor: default;
+}
+[data-marxy-kind="transcript"] .marxy-turn:focus { outline: none; }
+[data-marxy-kind="transcript"] .marxy-turn.marxy-turn-selected {
+  box-shadow: -6px 0 0 -3px var(--marxy-color-accent);
+}
+[data-marxy-kind="transcript"] .marxy-turn > :is(.marxy-derived-plain, .marxy-derived-markdown, .marxy-tool, .marxy-thinking, .marxy-transcript-hidden-run) {
+  margin: 0 0 calc(var(--marxy-root-line-box) / 2);
+}
+[data-marxy-kind="transcript"] .marxy-derived-plain { white-space: pre-wrap; }
+[data-marxy-kind="transcript"] .marxy-derived-markdown > :last-child { margin-bottom: 0; }
+[data-marxy-kind="transcript"] .marxy-tool-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 0 0.6em;
+  border: 0;
+  border-radius: 4px;
+  background: var(--marxy-color-code-bg);
+  font: inherit;
+  font-size: var(--marxy-size-caption);
+  line-height: var(--marxy-line-box);
+  text-align: start;
+  color: var(--marxy-color-text-secondary);
+  cursor: default;
+}
+[data-marxy-kind="transcript"] .marxy-tool-line::before { content: "\25B8"; color: var(--marxy-color-text-faint); }
+[data-marxy-kind="transcript"] .marxy-tool-line[aria-expanded="true"]::before { content: "\25BE"; }
+[data-marxy-kind="transcript"] .marxy-tool-name { color: var(--marxy-color-text); white-space: nowrap; }
+[data-marxy-kind="transcript"] .marxy-tool-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--marxy-face-mono);
+  color: var(--marxy-color-text-faint);
+}
+[data-marxy-kind="transcript"] .marxy-tool-size { margin-inline-start: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+[data-marxy-kind="transcript"] .marxy-tool-body { margin-top: calc(var(--marxy-root-line-box) / 2); }
+[data-marxy-kind="transcript"] .marxy-tool-body > :last-child,
+[data-marxy-kind="transcript"] .marxy-tool-body pre { margin-bottom: 0; }
+[data-marxy-kind="transcript"] .marxy-tool-input + * { margin-top: calc(var(--marxy-root-line-box) / 2); }
+[data-marxy-kind="transcript"] .marxy-tool-key { display: block; font-size: var(--marxy-size-caption); color: var(--marxy-color-text-secondary); }
+[data-marxy-kind="transcript"] .marxy-tool-omitted { color: var(--marxy-color-text-faint); font-style: italic; }
+[data-marxy-kind="transcript"] .marxy-unreadable { border-inline-start: 2px solid var(--marxy-color-accent); padding-inline-start: 0.6em; margin: var(--marxy-root-line-box) 0 0; }
+[data-marxy-kind="transcript"] .marxy-derived-replaced { outline: 1px dashed currentColor; outline-offset: -1px; border-radius: 2px; }
+[data-marxy-kind="transcript"] .marxy-derived-image { color: var(--marxy-color-text-secondary); font-style: italic; }
 /* An article's byline and dek (K-20; mock-v2 TYPOGRAPHY "Article"). The front-matter head stays where the bytes put it,
    above the title, and keeps every row in the bytes' order: the core marks the byline's rows (author, published,
    source), and an article sets them as one line ahead of the rest (`order`), values only, with a rule beneath. The keys stay on the page for a screen

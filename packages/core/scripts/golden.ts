@@ -14,6 +14,10 @@ import { renderDocumentSafeHtml } from '../src/render/pipeline.ts';
 import type { Node } from '../src/contracts/ast.ts';
 import { KIND_HEAD_BYTES, detectKind } from '../src/kind/detect.ts';
 import { checkTableInvariants, deriveTable, delimiterFor } from '../src/data/delimited.ts';
+import type { TranscriptNode } from '../src/contracts/derived.ts';
+import { checkDerivedInvariants } from '../src/derive/invariants.ts';
+import { deriveTranscript, derivesTranscript } from '../src/derive/jsonl-transcript.ts';
+import { renderTranscriptHtml } from '../src/derive/transcript-html.ts';
 
 const corpus = new URL('../../../fixtures/corpus/', import.meta.url);
 const goldens = new URL('../goldens/', import.meta.url);
@@ -135,6 +139,57 @@ for (const name of tableFixtures) {
   if (problems.length > 0) failed++;
 }
 
+// The transcript deriver (K-12, ADR-0061 item 9): every JSONL session in the corpus read as a derived tree holds
+// DERIVED_INVARIANTS, and beside it are `<fixture>.derived.txt` (one line per derived node: type, src, from, decoding,
+// syntax, value, then the dropped lines with their record types) and `<fixture>.derived.html.txt` (the sanitised render,
+// every fold open), so a deriver change that moves what a reader sees is a diff in review.
+function serialiseDerived(node: TranscriptNode, depth = 0): string[] {
+  const at = (r: { start: number; end: number }): string => `[${r.start},${r.end})`;
+  const fields: string[] = [];
+  if (node.type !== 'transcript') fields.push(`from=${node.from.map(at).join(',')}`);
+  switch (node.type) {
+    case 'transcript': fields.push(`lines=${node.from.length}`); break;
+    case 'turn':
+      fields.push(`speaker=${node.speaker}`);
+      if (node.unshown.length > 0) fields.push(`unshown=${node.unshown.map((u) => `${u.what}${at(u.src)}`).join(',')}`);
+      break;
+    case 'tool':
+      fields.push(`answered=${node.answered}`, `orphan=${node.orphan}`, `failed=${node.failed}`);
+      if (node.unshown.length > 0) fields.push(`unshown=${node.unshown.map((u) => `${u.key === undefined ? '' : `${u.key}:`}${u.what}${at(u.src)}`).join(',')}`);
+      break;
+    case 'derivedText':
+      fields.push(`role=${node.role}`, node.decoding, node.syntax);
+      if (node.key !== undefined) fields.push(`key=${quote(node.key)}`);
+      if (node.replaced.length > 0) fields.push(`replaced=${node.replaced.join(',')}`);
+      fields.push(`value=${quote(node.value)}`);
+      break;
+    case 'unreadable': case 'pending': fields.push(`line=${node.line}`); break;
+    default: break;
+  }
+  const lines = [`${'  '.repeat(depth)}${node.type} ${at(node.src)} ${fields.join(' ')}`.trimEnd()];
+  if ('children' in node) for (const child of node.children as readonly TranscriptNode[]) lines.push(...serialiseDerived(child, depth + 1));
+  if (node.type === 'transcript') for (const d of node.dropped) lines.push(`dropped ${at(d.src)} line=${d.line} record=${quote(d.record)} ${d.known ? 'known' : 'unknown'}`);
+  return lines;
+}
+
+const sessionFixtures = readdirSync(corpus).filter((name) => /^\d\d-/.test(name) && derivesTranscript(name)).sort();
+if (sessionFixtures.length === 0) {
+  console.error('golden: no JSONL session in the corpus');
+  failed++;
+}
+for (const name of sessionFixtures) {
+  const bytes = new Uint8Array(readFileSync(new URL(name, corpus)));
+  const tree = deriveTranscript(bytes, name);
+  const problems = checkDerivedInvariants(tree, bytes);
+  for (const problem of problems.slice(0, 5)) console.error(`golden: ${name}: ${problem.invariant}: ${problem.detail}`);
+  if (problems.length > 0) {
+    failed++;
+    continue;
+  }
+  if (!compare(name, new URL(`${name}.derived.txt`, goldens), `${serialiseDerived(tree).join('\n')}\n`, 'derived')) failed++;
+  if (!compare(name, new URL(`${name}.derived.html.txt`, goldens), `${renderTranscriptHtml(tree, bytes, { path: name })}\n`, 'rendered')) failed++;
+}
+
 function firstDifference(actual: string, expected: string, what: string): string[] {
   const a = actual.split('\n');
   const b = expected.split('\n');
@@ -148,4 +203,4 @@ if (failed > 0) {
   console.error(`golden gate failed: ${failed} failures over ${fixtures.length} fixtures and kinds.json`);
   process.exit(1);
 }
-console.log(`golden: ${fixtures.length} corpus fixtures ${update ? 'written' : 'match their golden AST and HTML files, and every file kind matches kinds.json'}, invariants hold`);
+console.log(`golden: ${fixtures.length} corpus fixtures and ${sessionFixtures.length} derived session ${update ? 'written' : 'match their golden AST, derived and HTML files, and every file kind matches kinds.json'}, invariants hold`);

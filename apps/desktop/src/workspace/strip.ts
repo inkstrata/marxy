@@ -32,7 +32,8 @@ export const STRIP_TOOLS: Readonly<Record<Kind, readonly StripTool[]>> = {
   readme: [OUTLINE, tool('config-table', 'Config table'), tool('open-repo', 'Open repo')],
   docs: [tool('on-this-page', 'On this page', 'inspector.show-outline'), tool('examples-only', 'Examples only'), tool('search-docs', 'Search docs set'), tool('prev-next', 'Prev / next')],
   code: [tool('line-numbers', 'Line numbers', 'view.toggle-line-numbers'), tool('wrap', 'Wrap'), tool('symbols', 'Symbols'), tool('go-to-line', 'Go to line')],
-  transcript: [tool('collapse-tools', 'Collapse tools'), tool('only-you', 'Only you'), tool('only-assistant', 'Only assistant')],
+  // K-12: a JSONL session's derived view; each hides turns or tool calls and leaves a line saying how many.
+  transcript: [tool('collapse-tools', 'Collapse tools', 'transcript.collapse-tools'), tool('only-you', 'Only you', 'transcript.only-you'), tool('only-assistant', 'Only assistant', 'transcript.only-assistant')],
   // Table takes the first slot and Chart drops off until it has a story (K-10b, ADR-0071 ruling 3).
   data: [tool('table', 'Table', 'data.table-lens'), tool('column-stats', 'Column stats', 'data.column-stats'), tool('filter', 'Filter'), tool('transpose', 'Transpose')],
   notes: [tool('backlinks', 'Backlinks'), tool('append-clipboard', 'Append clipboard'), tool('daily', 'Daily')],

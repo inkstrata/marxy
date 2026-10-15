@@ -1,4 +1,4 @@
-document [0,9102)
+document [0,10087)
   htmlBlock [0,72) value="<!-- Inventory and provenance for the fixture corpus the gates walk. -->"
   heading [74,90) level=1
     text [76,90) value="Fixture corpus"
@@ -308,3 +308,33 @@ document [0,9102)
     text [9043,9061) value=") next to a plain "
     code [9061,9065) value="-5"
     text [9065,9101) value=". Every name and number is invented."
+  heading [9103,9122) level=2
+    text [9106,9122) value="40-session.jsonl"
+  paragraph [9124,10086)
+    text [9124,9239) value="Original data written for K-12: an agent session log, one JSON object per line, in the shape Claude Code writes (a "
+    code [9239,9245) value="type"
+    text [9245,9248) value=", a"
+    softBreak [9248,9249)
+    code [9249,9258) value="message"
+    text [9258,9266) value=" with a "
+    code [9266,9272) value="role"
+    text [9272,9277) value=" and "
+    code [9277,9286) value="content"
+    text [9286,9366) value=" blocks, and the bookkeeping fields around them). The conversation is the mock's"
+    softBreak [9366,9367)
+    code [9367,9381) value="indexer-chat"
+    text [9381,9442) value=": three prompts and the agent's replies, a thinking block, a "
+    code [9442,9448) value="Bash"
+    text [9448,9494) value=" call whose result is three lines later with a"
+    softBreak [9494,9495)
+    text [9495,9546) value="bookkeeping snapshot and a system line between, an "
+    code [9546,9552) value="Edit"
+    text [9552,9718) value=" call (with a boolean input the view counts and shows as written) and its result, a prompt that holds an image block, an…"
+    softBreak [9718,9719)
+    text [9719,9760) value="escape in tool output, a lone surrogate ("
+    code [9760,9768) value="\\ud800"
+    text [9768,9846) value=") in a prompt, a summary line, a record of a type the deriver does not know, a"
+    softBreak [9846,9847)
+    text [9847,9974) value="line that is not JSON (a bad escape), a blank line, and an unfinished last line with no newline. The file is ASCII; the …"
+    softBreak [9974,9975)
+    text [9975,10086) value="id, model name, cost, token counts and times are invented and are what the derived goldens show are never read."
