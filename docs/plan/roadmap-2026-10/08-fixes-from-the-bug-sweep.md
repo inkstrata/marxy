@@ -1019,3 +1019,67 @@ What the reader sees with a dozen dated files open (`2026-10-01-quarterly-…-dr
 - **Short names unchanged:** a name that fits is drawn whole, at the same box as before (0 px).
 - **Re-run:** `node scripts/layout-audit.mjs --only tab-strip-twelve` and look at the shot.
 - **Pair:** a `mock-pair.mjs` state with twelve dated tabs, app against mock-v2.
+
+## From the local install's logs (2026-10-14)
+
+`install-local` built `origin/main` at `391aa707` and the app was launched and its unified log read. The build's
+warnings and the launch's error lines were checked against the source; three of them are work. The Tauri bundle
+identifier warning is not a story: changing `dev.marxy.app` would orphan the existing data in
+`~/Library/Application Support/dev.marxy.app`, and `tauri.conf.json` is code-owned, so it waits for the author.
+The WebKit sandbox denials, the App Intents and Siri entitlement lines, and the FSEvents purge errors are expected
+for an ad-hoc build and are not filed.
+
+### F-109 — A restored window keeps its class name
+
+**Model:** sonnet (medium) · **Size:** S · *From the launch log of 2026-10-14: `[com.apple.AppKit:StateRestoration]`
+`restoreWindowWithIdentifier:state:completionHandler:` logs `Unable to find className=(null)` at start-up.* ·
+**Paths:** the window-restoration code (find it with `grep -rn restoreWindow apps/desktop/src-tauri apps/desktop/src`),
+`apps/desktop/test/` (one restore test), `changelog.d/F-109.md`.
+
+What the reader sees: nothing visible in the window I saw; a state entry AppKit cannot map to a class is restored at
+every launch. The cause is not known. It may be a stored window state from an earlier build, or a window that is
+created without a class name.
+
+**Acceptance:**
+- **Reproduced first:** with the installed build, quit and relaunch with two documents open, and capture the log line
+  (`log show --last 1m --predicate 'process == "marxy"'`). The PR records the state that produces it.
+- **Cause named:** the PR says which window or stored state has no class name, and why.
+- **Gone:** the same relaunch produces no `Unable to find className` line, and both documents come back.
+- **Test fails without the change:** a test that restores a window state with no class name fails on `origin/main`.
+
+### F-110 — Six modules are imported both lazily and statically
+
+**Model:** sonnet (medium) · **Size:** S · *From the `vite build` warnings of 2026-10-14.* · **Paths:**
+`apps/desktop/src/notices/index.ts`, `apps/desktop/src/theme/user-theme.ts`, `apps/desktop/src/commands/copy-write.ts`,
+`apps/desktop/src/source/format-ops.ts`, `apps/desktop/src/commands/transform.ts`, `apps/desktop/src/library/checks.ts`,
+and their importers (listed in the build's warning); `changelog.d/F-110.md`.
+
+What the reader sees: nothing. The build prints six `dynamic import will not move module into another chunk`
+warnings, so the code that was meant to load on demand stays in the main bundle.
+
+**Acceptance:**
+- **Decided per module:** the PR says, for each of the six, whether the static or the dynamic import stays, and why.
+  A module meant to load on demand is not imported statically anywhere else.
+- **Build is quiet:** the desktop build (`vite build` in `apps/desktop`) prints none of the six
+  warnings.
+- **Behaviour unchanged:** the palette, notices, copy-write, Source formatting, the transform palette and the library
+  checks work as before: `pnpm precheck` is green and the existing tests for each path pass.
+
+### F-111 — Find what the main bundle holds, and split it
+
+**Model:** sonnet (high) · **Size:** M · *From the `vite build` size warning of 2026-10-14: `index-CGkme-pl.js` is
+896.6 kB (303.5 kB gzipped); the build's own limit is 500 kB.* · **Paths:** `apps/desktop/vite.config.ts`, a bundle
+report script under `scripts/` if one is needed, `changelog.d/F-111.md`. **Depends on:** F-110 (its
+static-and-dynamic imports change what the main chunk holds; measure after it merges).
+
+What the reader sees: a slower first paint, which the first-text commitment (`docs/ci-contract.md`'s start-up
+measurement) should show. The size is not yet measured against that.
+
+**Acceptance:**
+- **Measured first:** the PR records what the main chunk contains, module by module, from the build's output
+  (a rollup visualizer report or the module list), and names the largest three.
+- **Split on purpose:** the language grammars, KaTeX and the other lazy-loadable parts are loaded on demand where the
+  measurement shows they are not needed at first text. Each split is named in the PR with its measured effect.
+- **No first-text regression:** the nightly start-up measurement (`nightly.yml`) is no slower than before the change,
+  on the same machine.
+- **The warning is not hidden:** `build.chunkSizeWarningLimit` is not raised to make the warning go away.

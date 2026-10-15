@@ -421,6 +421,9 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 | F-99.1 | A tab widens when its dirty dot appears | sonnet (low) | ready | — | — | From F-99; F-107 left it out (the close slot would hide it on the active tab). |
 | F-107.1 | Middle-cut tab names: innerText gains a newline at the head/tail join; the ellipsis gap differs on the active (bold) tab | sonnet (low) | ready | — | — | From F-107's review; cosmetic. |
 | F-108 | Untitled defaults to line numbers on and a Code chip, while its metrics treat it as Markdown | sonnet (low) | ready | — | — | X-33's N-2 (`docs/taste-review/2026-10-14-source-layout/findings.md`). |
+| F-109 | A restored window keeps its class name (reproduce first) | sonnet (medium) | ready | — | — | From the 2026-10-14 launch log. Card in `08-fixes-from-the-bug-sweep.md`. |
+| F-110 | Six modules are imported both lazily and statically | sonnet (medium) | ready | — | — | From the 2026-10-14 `vite build` warnings. Card in `08-fixes-from-the-bug-sweep.md`. |
+| F-111 | Find what the main bundle holds, and split it | sonnet (high) | ready | — | F-110 | From the 2026-10-14 size warning (896.6 kB). Card in `08-fixes-from-the-bug-sweep.md`. |
 | F-106.1 | Split narrowing: Dismiss keeps the cramped split after a save; a prompt is never withdrawn; two scratch panes stay cramped with no notice; a right-hand Source survivor loses its place on restore | sonnet (medium) | ready | — | — | From F-106's reviews. |
 | X-36 | Make `scripts/layout-audit.mjs` a gate: a baseline list, `--quick --fail` on PRs touching styles or views, the full matrix nightly | sonnet (medium) | ready | — | — | X-32's recommendation; after F-105 and F-106 the baseline is the Sev-3 rows only. |
 | V-06.2 | Versions: a keep refused by a damaged manifest is silent; a late manifest write lands after "not kept" | sonnet | ready | — | — | From V-06.1's review. |
