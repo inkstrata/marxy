@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import { webkit } from 'playwright';
-import { ALLOW, BASELINE, auditInPage, baselineRows, fold, markdown, parseArgs, verdict, verdictText } from './layout-audit.mjs';
+import { ALLOW, BASELINE, auditInPage, baselineFor, baselineRows, fold, markdown, parseArgs, verdict, verdictText } from './layout-audit.mjs';
 import { launchWebkit } from './playwright-webkit.mjs';
 
 // The fast job has no WebKit; browser tests skip there unless they are required (as in probe-layout.test.mjs).
@@ -125,8 +125,8 @@ test('a boarded (known) defect is left out of both sides of the comparison', () 
   assert.deepEqual(baselineRows(list), []);
 });
 
-test('the baseline file is well formed: one reasoned row per defect, unique keys, cells the matrix has', () => {
-  const rows = JSON.parse(readFileSync(BASELINE, 'utf8'));
+for (const platform of ['darwin', 'linux']) test(`the ${platform} baseline file is well formed: unique keys, cells the matrix has`, () => {
+  const rows = JSON.parse(readFileSync(baselineFor(platform), 'utf8'));
   assert.ok(Array.isArray(rows));
   assert.equal(new Set(rows.map((r) => r.key)).size, rows.length, 'keys are unique');
   const sizes = parseArgs([]);
@@ -139,5 +139,6 @@ test('the baseline file is well formed: one reasoned row per defect, unique keys
 
 test('--baseline and --update-baseline are arguments', () => {
   assert.equal(parseArgs(['--fail']).baseline, BASELINE);
+  assert.notEqual(baselineFor('darwin'), baselineFor('linux'));
   assert.equal(parseArgs(['--update-baseline']).update, true);
 });

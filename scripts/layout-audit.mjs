@@ -11,8 +11,8 @@
 //   node scripts/layout-audit.mjs [--quick] [--only <surface|group,...>] [--theme night,paper] [--widths 800,1000,...]
 //     [--heights 600,900] [--workers 6] [--shots <dir> [--shots-every]] [--json <file>] [--md <file>] [--pieces] [--fail] [--baseline <file>] [--update-baseline] [--list]
 // Each scene boots at the width under test (the sidebar and the inspector dock by the width at which the workspace first
-// unfolds). X-36 made it a gate: `--fail` compares the run with scripts/layout-audit.baseline.json (the Sev-3 rows X-32
-// found that no card has fixed) and exits 1 on a defect that is not in it, on a baseline row that did not appear (so the
+// unfolds). X-36 made it a gate: `--fail` compares the run with scripts/layout-audit.baseline.<platform>.json (the Sev-3 rows X-32
+// found that no card has fixed; one file for macOS, one for Linux) and exits 1 on a defect that is not in it, on a baseline row that did not appear (so the
 // list shrinks and never rots), and on a surface that did not set up. `--update-baseline` rewrites the file from a run.
 // `--quick` runs on a pull request that touches styles or views; the full matrix runs nightly (docs/ci-contract.md).
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -23,7 +23,10 @@ import vm from 'node:vm';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MOCK = join(ROOT, 'docs/plan/direction-2026-10/mock-v2');
 
-export const BASELINE = join(ROOT, 'scripts/layout-audit.baseline.json');
+/** Text is set with the platform's own fonts, so a long label is cut at a different place on macOS and on Linux (the same
+ *  reason fixtures/baselines has a directory per platform, ADR-0047): one baseline file for each. */
+export const baselineFor = (platform) => join(ROOT, `scripts/layout-audit.baseline.${platform === 'darwin' ? 'darwin' : 'linux'}.json`);
+export const BASELINE = baselineFor(process.platform);
 
 export const WIDTHS = [800, 1000, 1400, 1920];
 export const HEIGHTS = [600, 900];
@@ -808,7 +811,7 @@ export function baselineRows(list) {
 export function verdictText({ added, stale, errors }) {
   const out = [];
   for (const r of added) out.push(`NEW      ${r.kind} on ${r.surface}: ${r.sel} "${r.text}" at ${r.cells.join(', ')}`);
-  for (const b of stale) out.push(`STALE    ${b.kind} on ${b.surface}: ${b.sel} is in the baseline but did not appear; remove it from scripts/layout-audit.baseline.json (node scripts/layout-audit.mjs --update-baseline)`);
+  for (const b of stale) out.push(`STALE    ${b.kind} on ${b.surface}: ${b.sel} is in the baseline but did not appear; remove it from the baseline file (node scripts/layout-audit.mjs --update-baseline)`);
   for (const e of errors) out.push(`SETUP    ${e}`);
   return out.length ? `${out.join('\n')}\n` : '';
 }

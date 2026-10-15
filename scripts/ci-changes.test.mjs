@@ -36,7 +36,7 @@ const CASES = [
   ['a theme CSS change runs the browser job', ['packages/theme/src/tokens.css'], only('web', 'layout')],
   // X-36: the layout audit's quick pass runs on styles and views, and on the audit itself; not on a core or test change.
   ['a view or style under the app runs the layout audit', ['apps/desktop/src/view/article.css'], only('web', 'layout')],
-  ['the audit and its baseline run the layout audit', ['scripts/layout-audit.mjs', 'scripts/layout-audit.baseline.json'], only('layout')],
+  ['the audit and its baseline run the layout audit', ['scripts/layout-audit.mjs', 'scripts/layout-audit.baseline.darwin.json'], only('layout')],
   ['a parser or desktop test change does not run the layout audit', ['packages/core/src/parse/blocks.ts', 'apps/desktop/test/palette.test.mjs'], only('web')],
   ['the app is web', ['apps/desktop/src/app.ts'], only('web', 'layout')],
   ['the parser is web', ['packages/core/src/parse/blocks.ts'], only('web')],
