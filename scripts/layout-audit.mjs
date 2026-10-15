@@ -428,8 +428,8 @@ function scenes(F) {
       { id: 'folded-read', group: 'Read', run: async () => {} },
       mode('folded-source', 'Source', 'view.mode-source', 'view.mode-read'),
       mode('folded-split', 'Split', 'view.mode-split', 'view.mode-split'),
-      overlay('palette-commands-folded', 'Palette', PALETTE, palette('Meta+Shift+KeyP')),
-      overlay('palette-files-folded', 'Palette', PALETTE, palette('Meta+KeyP', 'a')),
+      overlay('palette-commands-folded', 'Palette', PALETTE, palette('ControlOrMeta+Shift+KeyP')),
+      overlay('palette-files-folded', 'Palette', PALETTE, palette('ControlOrMeta+KeyP', 'a')),
       overlay('menu-verbs-folded', 'Menus', MENU, async (p) => (await p.locator('#doc p').first().click({ button: 'right' }), settle(p, 83))),
       { id: 'notice-stack-folded', group: 'Notices', probe: '.marxy-notice', run: async (p) => {
         for (const [kind, text] of [['done', 'Copied'], ['blocked', 'This file opens in Source because it is large'], ['decision', 'Keep your changes or take the version on disk?'], ['info', 'Another note']]) {
@@ -444,12 +444,12 @@ function scenes(F) {
       { id: 'unfolded-read', group: 'Read', run: async () => {} },
       mode('unfolded-source', 'Source', 'view.mode-source', 'view.mode-read'),
       mode('unfolded-split', 'Split', 'view.mode-split', 'view.mode-split'),
-      overlay('palette-files', 'Palette', PALETTE, palette('Meta+KeyP')),
-      overlay('palette-files-query', 'Palette', PALETTE, palette('Meta+KeyP', 'plan')),
-      overlay('palette-commands', 'Palette', PALETTE, palette('Meta+Shift+KeyP')),
-      overlay('palette-content', 'Palette', PALETTE, palette('Meta+Slash', 'postgres')),
-      overlay('palette-headings', 'Palette', PALETTE, palette('Meta+KeyP', '@')),
-      overlay('palette-empty', 'Palette', PALETTE, palette('Meta+KeyP', 'zzzzqqqq')),
+      overlay('palette-files', 'Palette', PALETTE, palette('ControlOrMeta+KeyP')),
+      overlay('palette-files-query', 'Palette', PALETTE, palette('ControlOrMeta+KeyP', 'plan')),
+      overlay('palette-commands', 'Palette', PALETTE, palette('ControlOrMeta+Shift+KeyP')),
+      overlay('palette-content', 'Palette', PALETTE, palette('ControlOrMeta+Slash', 'postgres')),
+      overlay('palette-headings', 'Palette', PALETTE, palette('ControlOrMeta+KeyP', '@')),
+      overlay('palette-empty', 'Palette', PALETTE, palette('ControlOrMeta+KeyP', 'zzzzqqqq')),
       overlay('menu-verbs', 'Menus', MENU, async (p) => (await p.locator('#doc p').first().click({ button: 'right' }), settle(p, 83))),
       overlay('menu-verbs-corner', 'Menus', MENU, async (p) => {
         // The pointer is near the window's far corner: the menu has to stay inside the window.
@@ -468,7 +468,7 @@ function scenes(F) {
       { id: 'notice-long', group: 'Notices', probe: '.marxy-notice', run: (p) => notify(p, { kind: 'error', text: 'Could not save /Users/reader/Work/plans/plans/2026-10-14-quarterly-database-migration-readiness-review-draft-14.md: the file changed on disk since it was opened and the copy in memory could not be merged.' }), close: (p) => p.evaluate(async () => (await import('/src/notices/index.ts')).clearNotices()) },
       { id: 'popup-find', group: 'Popups', probe: '#marxy-find:not([hidden])', run: async (p) => (await cmd(p, 'view.find'), await p.keyboard.type('postgres'), settle(p, 100)), close: (p) => p.locator('.marxy-find-input').press('Escape') },
       overlay('popup-transform-sheet', 'Popups', '#marxy-transform[open]', async (p) => {
-        await p.keyboard.press('Meta+Slash');
+        await p.keyboard.press('ControlOrMeta+Slash');
         await p.waitForSelector('#marxy-palette[open] .marxy-palette-row');
         await p.locator('#marxy-palette .marxy-palette-query').fill('>Transform: Remove front matter');
         await p.locator('#marxy-palette .marxy-palette-title').filter({ hasText: /^Transform: Remove front matter$/ }).click();
