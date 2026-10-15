@@ -42,8 +42,9 @@ const RUST = /^(apps\/desktop\/src-tauri\/|mise\.toml$)/;
 
 // What the layout audit's quick pass can see (X-36): styles and views. The audit boots the whole app, so this is the theme and
 // typesetting packages, everything the desktop app ships (CSS and views alike; its tests and the Rust shell are not it), the
-// HTML entry points and Vite config, the audit itself with its baseline, and the WebKit launcher it uses.
-const LAYOUT = /^(packages\/(theme|typeset)\/|apps\/desktop\/(src\/|index\.html|app\.html|vite\.config|test\/support\/)|scripts\/(layout-audit[.\w-]*|playwright-webkit\.mjs)$)/;
+// HTML entry points and Vite config, what the audit loads (the fixture corpus, the mock-v2 pieces, the fonts) and what Rendered is made of (core's render and sanitize),
+// the audit itself with its baselines, and the WebKit launcher it uses.
+const LAYOUT = /^(packages\/(theme|typeset)\/|fonts\/.*\.(woff2?|ttf|otf)$|fixtures\/corpus\/|docs\/plan\/direction-2026-10\/mock-v2\/|packages\/core\/src\/(render|sanitize)\/|apps\/desktop\/(src\/|index\.html|app\.html|vite\.config|test\/support\/)|scripts\/(layout-audit[.\w-]*|playwright-webkit\.mjs)$)/;
 
 // A dependency moved: the manifests and either lockfile, wherever they sit.
 const LOCKFILE = /(^|\/)(package\.json|pnpm-lock\.yaml|Cargo\.lock)$/;
@@ -63,7 +64,7 @@ export function classify(files) {
     web: any(WEB),
     rust: any(RUST),
     lockfile: any(LOCKFILE),
-    layout: any(LAYOUT) && !(files.length > 0 && files.every(isDoc)),
+    layout: any(LAYOUT), // not gated on docs_only: the mock-v2 pieces the audit loads sit under docs/
   };
 }
 

@@ -383,7 +383,32 @@ function scenes(F) {
   const cmd = (page, id) => page.evaluate((id) => window.__cmd(id), id);
   const open = (page, p) => page.evaluate((p) => window.__marxyHandle.open(p), p);
   const unfold = (page) => page.evaluate(() => window.__marxyHandle.workspace().unfold());
-  const settle = (page, ms = 100) => page.waitForTimeout(ms);
+  /** A condition, not a pause: fonts loaded, no finite animation running, and every element's box the same on three
+   *  animation frames in a row. An argument that used to be a delay in ms is ignored. A page that never holds still is an error. */
+  const settle = (page) =>
+    page.evaluate(async () => {
+      await document.fonts.ready;
+      const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+      const sig = () => {
+        const running = document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity).length;
+        let h = `${running}|`;
+        for (const el of document.querySelectorAll('body *')) {
+          const r = el.getBoundingClientRect();
+          h += `${Math.round(r.left * 10)},${Math.round(r.top * 10)},${Math.round(r.width * 10)},${Math.round(r.height * 10)};`;
+        }
+        return h;
+      };
+      const t0 = performance.now();
+      let last = '';
+      let same = 0;
+      while (same < 3) {
+        if (performance.now() - t0 > 3000) throw new Error('settle: the page kept changing for 3 s');
+        await frame();
+        const now = sig();
+        same = now === last && now.startsWith('0|') ? same + 1 : 0;
+        last = now;
+      }
+    });
   const withTabs = async (page) => {
     await unfold(page);
     for (const p of [P.handoff, P.rs, P.plan]) {
@@ -864,15 +889,11 @@ async function main(argv) {
         for (;;) {
           const task = tasks[next++];
           if (!task) return;
-          for (let attempt = 1; ; attempt++) {
-            try {
-              results.push(...(await runScene(contexts, support, F, task.sc, task.sc.steps, task.t, task.w, opts.heights, opts)));
-              break;
-            } catch (e) {
-              if (attempt < 3) continue; // a dropped dev-server request: boot it again
-              for (const s of task.sc.steps) results.push({ surface: s.id, group: s.group, theme: task.t.id, width: task.w, cells: [], errors: [`${task.w}: boot: ${e.message.split('\n')[0]}`] });
-              break;
-            }
+          // One attempt, no retry: a scene that does not boot is a SETUP row and fails the gate.
+          try {
+            results.push(...(await runScene(contexts, support, F, task.sc, task.sc.steps, task.t, task.w, opts.heights, opts)));
+          } catch (e) {
+            for (const s of task.sc.steps) results.push({ surface: s.id, group: s.group, theme: task.t.id, width: task.w, cells: [], errors: [`${task.w}: boot: ${e.message.split('\n')[0]}`] });
           }
         }
       }),

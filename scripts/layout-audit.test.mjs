@@ -1,6 +1,10 @@
 // X-32: the layout audit's argument handling, its report, and its detectors on small pages (WebKit, no Vite, no app).
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { webkit } from 'playwright';
 import { ALLOW, BASELINE, auditInPage, baselineFor, baselineRows, fold, markdown, parseArgs, verdict, verdictText } from './layout-audit.mjs';
@@ -141,4 +145,30 @@ test('--baseline and --update-baseline are arguments', () => {
   assert.equal(parseArgs(['--fail']).baseline, BASELINE);
   assert.notEqual(baselineFor('darwin'), baselineFor('linux'));
   assert.equal(parseArgs(['--update-baseline']).update, true);
+});
+
+// The real entry point, against a seeded baseline: the process exits 1 for a defect the file does not hold (NEW) and for a
+// row the run covered and did not find (STALE). One surface, one cell, so it takes a few seconds. Needs WebKit and the dev server.
+test('end to end: the command exits 1 for NEW and for STALE, 0 for a match', { skip, timeout: 120000 }, () => {
+  const dir = mkdtempSync(join(tmpdir(), 'marxy-layout-baseline-'));
+  const script = fileURLToPath(new URL('./layout-audit.mjs', import.meta.url));
+  const go = (rows) => {
+    const file = join(dir, 'baseline.json');
+    writeFileSync(file, JSON.stringify(rows));
+    return spawnSync(process.execPath, [script, '--quick', '--only', 'palette-files-query', '--fail', '--baseline', file], { encoding: 'utf8' });
+  };
+  try {
+    const first = go([]);
+    assert.equal(first.status, 1, first.stderr);
+    assert.match(first.stderr, /^NEW .*palette-files-query/m, 'an empty baseline: the known defect is new');
+    const row = JSON.parse(readFileSync(BASELINE, 'utf8')).find((r) => r.surface === 'palette-files-query' && r.cells.includes('night 800x600'));
+    assert.ok(row, 'the platform baseline holds a palette-files-query row at night 800x600');
+    const own = JSON.parse(readFileSync(BASELINE, 'utf8')).filter((r) => r.surface === 'palette-files-query' && r.cells.some((c) => c === 'night 800x600' || c === 'night 1920x600'));
+    assert.equal(go(own).status, 0, 'the rows the baseline holds for this cell pass');
+    const stale = go([...own, { ...row, key: 'truncated|palette-files-query|ghost', sel: 'ghost' }]);
+    assert.equal(stale.status, 1);
+    assert.match(stale.stderr, /^STALE .*ghost/m);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
