@@ -9,10 +9,12 @@
 // Text a scroller has scrolled away is by design and is skipped. The allowlist below prunes what is intended, each entry
 // with its reason; the entries tagged `known` are reported but belong to a card already boarded.
 //   node scripts/layout-audit.mjs [--quick] [--only <surface|group,...>] [--theme night,paper] [--widths 800,1000,...]
-//     [--heights 600,900] [--workers 6] [--shots <dir> [--shots-every]] [--json <file>] [--md <file>] [--pieces] [--fail] [--list]
+//     [--heights 600,900] [--workers 6] [--shots <dir> [--shots-every]] [--json <file>] [--md <file>] [--pieces] [--fail] [--baseline <file>] [--update-baseline] [--list]
 // Each scene boots at the width under test (the sidebar and the inspector dock by the width at which the workspace first
-// unfolds); `--fail` exits 1 on any defect not tagged `known`. Local tooling: a candidate gate (the report in
-// docs/taste-review/2026-10-14-layout-audit/ says what it found and what it cannot see), not on the PR path yet.
+// unfolds). X-36 made it a gate: `--fail` compares the run with scripts/layout-audit.baseline.<platform>.json (the Sev-3 rows X-32
+// found that no card has fixed; one file for macOS, one for Linux) and exits 1 on a defect that is not in it, on a baseline row that did not appear (so the
+// list shrinks and never rots), and on a surface that did not set up. `--update-baseline` rewrites the file from a run.
+// `--quick` runs on a pull request that touches styles or views; the full matrix runs nightly (docs/ci-contract.md).
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +22,11 @@ import vm from 'node:vm';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MOCK = join(ROOT, 'docs/plan/direction-2026-10/mock-v2');
+
+/** Text is set with the platform's own fonts, so a long label is cut at a different place on macOS and on Linux (the same
+ *  reason fixtures/baselines has a directory per platform, ADR-0047): one baseline file for each. */
+export const baselineFor = (platform) => join(ROOT, `scripts/layout-audit.baseline.${platform === 'darwin' ? 'darwin' : 'linux'}.json`);
+export const BASELINE = baselineFor(process.platform);
 
 export const WIDTHS = [800, 1000, 1400, 1920];
 export const HEIGHTS = [600, 900];
@@ -376,7 +383,32 @@ function scenes(F) {
   const cmd = (page, id) => page.evaluate((id) => window.__cmd(id), id);
   const open = (page, p) => page.evaluate((p) => window.__marxyHandle.open(p), p);
   const unfold = (page) => page.evaluate(() => window.__marxyHandle.workspace().unfold());
-  const settle = (page, ms = 100) => page.waitForTimeout(ms);
+  /** A condition, not a pause: fonts loaded, no finite animation running, and every element's box the same on three
+   *  animation frames in a row. An argument that used to be a delay in ms is ignored. A page that never holds still is an error. */
+  const settle = (page) =>
+    page.evaluate(async () => {
+      await document.fonts.ready;
+      const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+      const sig = () => {
+        const running = document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity).length;
+        let h = `${running}|`;
+        for (const el of document.querySelectorAll('body *')) {
+          const r = el.getBoundingClientRect();
+          h += `${Math.round(r.left * 10)},${Math.round(r.top * 10)},${Math.round(r.width * 10)},${Math.round(r.height * 10)};`;
+        }
+        return h;
+      };
+      const t0 = performance.now();
+      let last = '';
+      let same = 0;
+      while (same < 3) {
+        if (performance.now() - t0 > 3000) throw new Error('settle: the page kept changing for 3 s');
+        await frame();
+        const now = sig();
+        same = now === last && now.startsWith('0|') ? same + 1 : 0;
+        last = now;
+      }
+    });
   const withTabs = async (page) => {
     await unfold(page);
     for (const p of [P.handoff, P.rs, P.plan]) {
@@ -424,8 +456,8 @@ function scenes(F) {
       { id: 'folded-read', group: 'Read', run: async () => {} },
       mode('folded-source', 'Source', 'view.mode-source', 'view.mode-read'),
       mode('folded-split', 'Split', 'view.mode-split', 'view.mode-split'),
-      overlay('palette-commands-folded', 'Palette', PALETTE, palette('Meta+Shift+KeyP')),
-      overlay('palette-files-folded', 'Palette', PALETTE, palette('Meta+KeyP', 'a')),
+      overlay('palette-commands-folded', 'Palette', PALETTE, palette('ControlOrMeta+Shift+KeyP')),
+      overlay('palette-files-folded', 'Palette', PALETTE, palette('ControlOrMeta+KeyP', 'a')),
       overlay('menu-verbs-folded', 'Menus', MENU, async (p) => (await p.locator('#doc p').first().click({ button: 'right' }), settle(p, 83))),
       { id: 'notice-stack-folded', group: 'Notices', probe: '.marxy-notice', run: async (p) => {
         for (const [kind, text] of [['done', 'Copied'], ['blocked', 'This file opens in Source because it is large'], ['decision', 'Keep your changes or take the version on disk?'], ['info', 'Another note']]) {
@@ -440,12 +472,12 @@ function scenes(F) {
       { id: 'unfolded-read', group: 'Read', run: async () => {} },
       mode('unfolded-source', 'Source', 'view.mode-source', 'view.mode-read'),
       mode('unfolded-split', 'Split', 'view.mode-split', 'view.mode-split'),
-      overlay('palette-files', 'Palette', PALETTE, palette('Meta+KeyP')),
-      overlay('palette-files-query', 'Palette', PALETTE, palette('Meta+KeyP', 'plan')),
-      overlay('palette-commands', 'Palette', PALETTE, palette('Meta+Shift+KeyP')),
-      overlay('palette-content', 'Palette', PALETTE, palette('Meta+Slash', 'postgres')),
-      overlay('palette-headings', 'Palette', PALETTE, palette('Meta+KeyP', '@')),
-      overlay('palette-empty', 'Palette', PALETTE, palette('Meta+KeyP', 'zzzzqqqq')),
+      overlay('palette-files', 'Palette', PALETTE, palette('ControlOrMeta+KeyP')),
+      overlay('palette-files-query', 'Palette', PALETTE, palette('ControlOrMeta+KeyP', 'plan')),
+      overlay('palette-commands', 'Palette', PALETTE, palette('ControlOrMeta+Shift+KeyP')),
+      overlay('palette-content', 'Palette', PALETTE, palette('ControlOrMeta+Slash', 'postgres')),
+      overlay('palette-headings', 'Palette', PALETTE, palette('ControlOrMeta+KeyP', '@')),
+      overlay('palette-empty', 'Palette', PALETTE, palette('ControlOrMeta+KeyP', 'zzzzqqqq')),
       overlay('menu-verbs', 'Menus', MENU, async (p) => (await p.locator('#doc p').first().click({ button: 'right' }), settle(p, 83))),
       overlay('menu-verbs-corner', 'Menus', MENU, async (p) => {
         // The pointer is near the window's far corner: the menu has to stay inside the window.
@@ -464,7 +496,7 @@ function scenes(F) {
       { id: 'notice-long', group: 'Notices', probe: '.marxy-notice', run: (p) => notify(p, { kind: 'error', text: 'Could not save /Users/reader/Work/plans/plans/2026-10-14-quarterly-database-migration-readiness-review-draft-14.md: the file changed on disk since it was opened and the copy in memory could not be merged.' }), close: (p) => p.evaluate(async () => (await import('/src/notices/index.ts')).clearNotices()) },
       { id: 'popup-find', group: 'Popups', probe: '#marxy-find:not([hidden])', run: async (p) => (await cmd(p, 'view.find'), await p.keyboard.type('postgres'), settle(p, 100)), close: (p) => p.locator('.marxy-find-input').press('Escape') },
       overlay('popup-transform-sheet', 'Popups', '#marxy-transform[open]', async (p) => {
-        await p.keyboard.press('Meta+Slash');
+        await p.keyboard.press('ControlOrMeta+Slash');
         await p.waitForSelector('#marxy-palette[open] .marxy-palette-row');
         await p.locator('#marxy-palette .marxy-palette-query').fill('>Transform: Remove front matter');
         await p.locator('#marxy-palette .marxy-palette-title').filter({ hasText: /^Transform: Remove front matter$/ }).click();
@@ -599,7 +631,7 @@ function scenes(F) {
 // ------------------------------------------------------------------ the runner
 
 export function parseArgs(argv) {
-  const o = { only: null, themes: THEMES.map((t) => t.id), widths: WIDTHS, heights: HEIGHTS, workers: 6, shots: null, json: null, md: null, fail: false, list: false, pieces: false, every: false };
+  const o = { only: null, themes: THEMES.map((t) => t.id), widths: WIDTHS, heights: HEIGHTS, workers: 6, shots: null, json: null, md: null, fail: false, baseline: BASELINE, update: false, list: false, pieces: false, every: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const v = () => {
@@ -617,6 +649,8 @@ export function parseArgs(argv) {
     else if (a === '--json') o.json = resolve(v());
     else if (a === '--md') o.md = resolve(v());
     else if (a === '--fail') o.fail = true;
+    else if (a === '--baseline') o.baseline = resolve(v());
+    else if (a === '--update-baseline') o.update = true;
     else if (a === '--pieces') o.pieces = true;
     else if (a === '--list') o.list = true;
     else throw new Error(`unknown argument ${a}`);
@@ -763,16 +797,48 @@ export function fold(results) {
         // One row per kind of box: the twelve lines of one paragraph, or the rows of one list, are one defect.
         const key = [f.kind, r.surface, f.sel.replace(/(#[\w-]*?)\d+/g, '$1N')].join('|');
         let row = rows.get(key);
-        if (!row) rows.set(key, (row = { ...f, surface: r.surface, group: r.group, at: [], themes: new Set(), texts: new Set() }));
+        if (!row) rows.set(key, (row = { ...f, key, surface: r.surface, group: r.group, at: [], cells: new Set(), themes: new Set(), texts: new Set() }));
         row.at.push(c.size.join('x'));
         row.themes.add(r.theme);
+        row.cells.add(`${r.theme} ${c.size.join('x')}`);
         row.texts.add(f.text);
       }
     }
   }
-  const list = [...rows.values()].map(({ texts, ...r }) => ({ ...r, themes: [...r.themes].sort(), at: [...new Set(r.at)], count: texts.size }));
+  const list = [...rows.values()].map(({ texts, ...r }) => ({ ...r, themes: [...r.themes].sort(), cells: [...r.cells].sort(), at: [...new Set(r.at)], count: texts.size }));
   for (const r of list) if (!r.known) counts[r.group] = (counts[r.group] ?? 0) + 1;
   return { list, counts, suppressed, texts, errors: [...new Set(errors)], skipped: [...skipped] };
+}
+
+/**
+ * The gate's verdict. `list` is the folded run; `baseline` the rows accepted (`{ key, kind, surface, sel, text, cells }`);
+ * `ran` the cells the run covered (`'night 800x600'`) and `surfaces` the surfaces it ran. A defect whose key is not in the
+ * baseline is new. A baseline row is stale when the run covered one of its cells and the defect did not appear: it is
+ * judged only on cells this run could see, so `--quick` does not call a full-matrix row stale. Rows tagged `known` belong
+ * to a card already boarded and are left out of both sides.
+ */
+export function verdict({ list, baseline, ran, surfaces, errors = [] }) {
+  const fresh = list.filter((r) => !r.known);
+  const accepted = new Set(baseline.map((b) => b.key));
+  const seen = new Set(fresh.map((r) => r.key));
+  const added = fresh.filter((r) => !accepted.has(r.key));
+  const stale = baseline.filter((b) => !seen.has(b.key) && surfaces.has(b.surface) && b.cells.some((c) => ran.has(c)));
+  return { added, stale, errors, ok: !added.length && !stale.length && !errors.length };
+}
+
+export function baselineRows(list) {
+  return list
+    .filter((r) => !r.known)
+    .map((r) => ({ key: r.key, kind: r.kind, surface: r.surface, sel: r.sel, text: r.text, cells: r.cells }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+export function verdictText({ added, stale, errors }) {
+  const out = [];
+  for (const r of added) out.push(`NEW      ${r.kind} on ${r.surface}: ${r.sel} "${r.text}" at ${r.cells.join(', ')}`);
+  for (const b of stale) out.push(`STALE    ${b.kind} on ${b.surface}: ${b.sel} is in the baseline but did not appear; remove it from the baseline file (node scripts/layout-audit.mjs --update-baseline)`);
+  for (const e of errors) out.push(`SETUP    ${e}`);
+  return out.length ? `${out.join('\n')}\n` : '';
 }
 
 export function markdown({ list, counts, suppressed, texts, errors, skipped }, { cells, seconds, surfaces }) {
@@ -823,15 +889,11 @@ async function main(argv) {
         for (;;) {
           const task = tasks[next++];
           if (!task) return;
-          for (let attempt = 1; ; attempt++) {
-            try {
-              results.push(...(await runScene(contexts, support, F, task.sc, task.sc.steps, task.t, task.w, opts.heights, opts)));
-              break;
-            } catch (e) {
-              if (attempt < 3) continue; // a dropped dev-server request: boot it again
-              for (const s of task.sc.steps) results.push({ surface: s.id, group: s.group, theme: task.t.id, width: task.w, cells: [], errors: [`${task.w}: boot: ${e.message.split('\n')[0]}`] });
-              break;
-            }
+          // One attempt, no retry: a scene that does not boot is a SETUP row and fails the gate.
+          try {
+            results.push(...(await runScene(contexts, support, F, task.sc, task.sc.steps, task.t, task.w, opts.heights, opts)));
+          } catch (e) {
+            for (const s of task.sc.steps) results.push({ surface: s.id, group: s.group, theme: task.t.id, width: task.w, cells: [], errors: [`${task.w}: boot: ${e.message.split('\n')[0]}`] });
           }
         }
       }),
@@ -844,10 +906,21 @@ async function main(argv) {
   const folded = fold(results);
   const seconds = Math.round((Date.now() - t0) / 1000);
   const md = markdown(folded, { cells: results.reduce((n, r) => n + r.cells.length, 0), seconds, surfaces: new Set(results.map((r) => r.surface)).size });
+  for (const f of [opts.json, opts.md]) if (f) mkdirSync(dirname(f), { recursive: true });
   if (opts.json) writeFileSync(opts.json, `${JSON.stringify(folded.list, null, 1)}\n`);
   if (opts.md) writeFileSync(opts.md, md);
   process.stdout.write(md);
-  return opts.fail && folded.list.some((r) => !r.known) ? 1 : 0;
+  const ran = new Set(results.flatMap((r) => r.cells.map((c) => `${r.theme} ${c.size.join('x')}`)));
+  if (opts.update) {
+    if (opts.only || folded.errors.length) throw new Error('--update-baseline needs a whole run: no --only, and every surface set up');
+    writeFileSync(opts.baseline, `${JSON.stringify(baselineRows(folded.list), null, 1)}\n`);
+    console.error(`layout-audit: wrote ${baselineRows(folded.list).length} rows to ${opts.baseline}`);
+    return 0;
+  }
+  if (!opts.fail) return 0;
+  const v = verdict({ list: folded.list, baseline: JSON.parse(readFileSync(opts.baseline, 'utf8')), ran, surfaces: new Set(results.map((r) => r.surface)), errors: folded.errors });
+  process.stderr.write(v.ok ? 'layout-audit: matches the baseline\n' : `layout-audit: FAILED against ${opts.baseline}\n${verdictText(v)}`);
+  return v.ok ? 0 : 1;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -7,12 +7,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { verdict } from './ci-verdict.mjs';
 
-const answered = (over = {}) => ({ docs_only: 'false', web: 'false', rust: 'false', lockfile: 'false', ...over });
+const answered = (over = {}) => ({ docs_only: 'false', web: 'false', rust: 'false', lockfile: 'false', layout: 'false', ...over });
 const run = (changes, rest) => ({
   changes,
   conventions: { result: 'skipped', outputs: {} },
   fast: { result: 'skipped', outputs: {} },
   'browser-lite': { result: 'skipped', outputs: {} },
+  'layout-audit': { result: 'skipped', outputs: {} },
   rust: { result: 'skipped', outputs: {} },
   ...rest,
 });
@@ -65,7 +66,7 @@ test('needs without changes at all is red', () => {
   assert.equal(verdict(rest).ok, false);
 });
 
-for (const job of ['conventions', 'fast', 'browser-lite', 'rust']) {
+for (const job of ['conventions', 'fast', 'browser-lite', 'layout-audit', 'rust']) {
   for (const result of ['failure', 'cancelled']) {
     test(`${job} ${result} is red`, () => {
       const r = verdict(run(ok(answered({ web: 'true', rust: 'true' })), { fast: done, [job]: { result, outputs: {} } }));
@@ -91,7 +92,7 @@ test('a failed shard fails the aggregate browser-lite entry, which fails the ver
 });
 
 test('the removed outputs do not count: answering typography or fleet is not required, and answering only the four is enough', () => {
-  const r = verdict(run(ok({ docs_only: 'false', web: 'true', rust: 'false', lockfile: 'false' }), { fast: done, 'browser-lite': done }));
+  const r = verdict(run(ok({ docs_only: 'false', web: 'true', rust: 'false', lockfile: 'false', layout: 'false' }), { fast: done, 'browser-lite': done }));
   assert.equal(r.ok, true, r.errors.join('; '));
 });
 

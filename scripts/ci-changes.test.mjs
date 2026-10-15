@@ -11,8 +11,8 @@ import { OUTPUTS, classify } from './ci-changes.mjs';
 import { resolveRelativeModule } from './gate-bundle.mjs';
 import { importSpecs } from './lib/imports.mjs';
 
-const none = { docs_only: false, web: false, rust: false, lockfile: false };
-const every = { docs_only: false, web: true, rust: true, lockfile: true };
+const none = { docs_only: false, web: false, rust: false, lockfile: false, layout: false };
+const every = { docs_only: false, web: true, rust: true, lockfile: true, layout: true };
 const only = (...keys) => ({ ...none, ...Object.fromEntries(keys.map(k => [k, true])) });
 
 /** [why, diff, expected outputs]. */
@@ -33,19 +33,27 @@ const CASES = [
   ['fleet code is still code: `fast` runs, nothing else', ['orchestration/x.mjs', 'orchestration/deps.json', 'orchestration/loop.sh'], none],
   ['git hooks are code', ['.githooks/commit-msg'], none],
   ['a docs change beside fleet code is not docs only', ['docs/x.md', 'orchestration/cycle.mjs'], none],
-  ['a theme CSS change runs the browser job', ['packages/theme/src/tokens.css'], only('web')],
-  ['the app is web', ['apps/desktop/src/app.ts'], only('web')],
+  ['a theme CSS change runs the browser job', ['packages/theme/src/tokens.css'], only('web', 'layout')],
+  // X-36: the layout audit's quick pass runs on styles and views, and on the audit itself; not on a core or test change.
+  ['a view or style under the app runs the layout audit', ['apps/desktop/src/view/article.css'], only('web', 'layout')],
+  ['the audit and its baseline run the layout audit', ['scripts/layout-audit.mjs', 'scripts/layout-audit.baseline.darwin.json'], only('layout')],
+  ['a font runs the layout audit', ['fonts/literata/Literata-Regular.woff2'], only('layout')],
+  ['the fixture corpus runs the layout audit', ['fixtures/corpus/long.md'], only('web', 'layout')],
+  ['the mock-v2 pieces the audit loads run it', ['docs/plan/direction-2026-10/mock-v2/pieces.js'], only('docs_only', 'layout')],
+  ['core render output runs the layout audit', ['packages/core/src/render/html.ts'], only('web', 'layout')],
+  ['the sanitiser runs the layout audit', ['packages/core/src/sanitize/sanitize.ts'], only('web', 'layout')],
+  ['a parser or desktop test change does not run the layout audit', ['packages/core/src/parse/blocks.ts', 'apps/desktop/test/palette.test.mjs'], only('web')],
+  ['the app is web', ['apps/desktop/src/app.ts'], only('web', 'layout')],
   ['the parser is web', ['packages/core/src/parse/blocks.ts'], only('web')],
   ['a core test is web', ['packages/core/test/parse.test.mjs'], only('web')],
   ['a desktop test is web', ['apps/desktop/test/palette.test.mjs'], only('web')],
-  ['a corpus file is web and not docs, though it ends in .md', ['fixtures/corpus/01-long-technical.md'], only('web')],
+  ['a corpus file is web and not docs, though it ends in .md', ['fixtures/corpus/01-long-technical.md'], only('web', 'layout')],
   ['the app harness page is web', ['apps/desktop/gate.html'], only('web')],
-  ['a font file starts no PR job: nightly renders it', ['fonts/literata/Literata-Regular.woff2'], none],
   ['a font\'s README is docs only', ['fonts/literata/README.md'], only('docs_only')],
   ['a font\'s LICENSE is docs only', ['fonts/literata/LICENSE'], only('docs_only')],
-  ['the @font-face sheet is web (the app loads it)', ['apps/desktop/src/fonts/fonts.css'], only('web')],
+  ['the @font-face sheet is web (the app loads it)', ['apps/desktop/src/fonts/fonts.css'], only('web', 'layout')],
   // G-03: `web` narrowed from "anything under scripts/" to the scripts the browser job runs or imports.
-  ['the WebKit launcher every browser test imports is web', ['scripts/playwright-webkit.mjs'], only('web')],
+  ['the WebKit launcher every browser test imports is web', ['scripts/playwright-webkit.mjs'], only('web', 'layout')],
   ['the no-network gate is web', ['scripts/gate-no-network.mjs'], only('web')],
   ['the perf harness, whose generator progressive.test.mjs imports, is web', ['scripts/perf-harness.mjs'], only('web')],
   ['the reload measurement, which live-reload.test.mjs imports, is web', ['scripts/measure-reload.mjs'], only('web')],
@@ -56,7 +64,7 @@ const CASES = [
   ['a script no browser job runs starts only `fast`', ['scripts/precheck.mjs', 'scripts/ci-changes.mjs', 'scripts/check-workflows.mjs', 'scripts/lib/imports.mjs'], none],
   ['a script the fleet imports no longer starts a fleet job', ['scripts/check-pr.mjs'], none],
   ['Rust source runs the Rust job only', ['apps/desktop/src-tauri/src/main.rs'], only('rust')],
-  ['the Vite config is web: the Rust job no longer builds the frontend', ['apps/desktop/vite.config.ts'], only('web')],
+  ['the Vite config is web: the Rust job no longer builds the frontend', ['apps/desktop/vite.config.ts'], only('web', 'layout')],
   ['the command-line smoke is web and nightly: the Rust job no longer runs it', ['apps/desktop/scripts/smoke-cli-open.mjs'], only('web')],
   ['mise.toml pins the toolchain the Rust job uses', ['mise.toml'], only('web', 'rust')],
   ['Cargo.lock is Rust and a lockfile', ['apps/desktop/src-tauri/Cargo.lock'], only('rust', 'lockfile')],
@@ -102,7 +110,7 @@ test('every scripts/ file the browser job reaches is web', () => {
 });
 
 test('the specimen and aesthetics gates and test:fleet are nightly: no pull-request output names them', () => {
-  assert.deepEqual([...OUTPUTS], ['docs_only', 'web', 'rust', 'lockfile']);
+  assert.deepEqual([...OUTPUTS], ['docs_only', 'web', 'rust', 'lockfile', 'layout']);
   for (const [, diff] of CASES) for (const gone of ['typography', 'fleet']) assert.ok(!(gone in classify(diff)), `${gone} is no longer an output`);
 });
 

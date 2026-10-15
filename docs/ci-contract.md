@@ -1,7 +1,7 @@
 # The CI contract — everything that can turn a pull request red
 
-In short: a pull request goes red for one of four reasons, one per job in
-`.github/workflows/ci.yml` (`conventions`, `fast`, `browser-lite`, `rust`), and each has a command that
+In short: a pull request goes red for one of five reasons, one per job in
+`.github/workflows/ci.yml` (`conventions`, `fast`, `browser-lite`, `layout-audit`, `rust`), and each has a command that
 reproduces it on your machine. The path holds the five commitments of `AGENTS.md` and nothing else
 (ADR-0056); everything else runs nightly. Nothing
 else is required of a pull request. There is no board row, no Jira key, no enforced pull-request
@@ -105,10 +105,11 @@ the fleet era**. CI runs none of them.
 
 | Job | Runs when | What it does | Local command |
 | --- | --- | --- | --- |
-| `changes` | always | classifies the diff into `docs_only`, `web`, `rust` and `lockfile`, and writes the four answers the other jobs read | `node scripts/ci-changes.mjs origin/main` |
+| `changes` | always | classifies the diff into `docs_only`, `web`, `rust`, `lockfile` and `layout`, and writes the five answers the other jobs read | `node scripts/ci-changes.mjs origin/main` |
 | `conventions` | pull requests only | lints the pull-request **title** as a squash subject (a `[human]` or `(signed)` prefix from the paused fleet is stripped first) | `PR_TITLE='docs(ci): your title (A-11)' node orchestration/pr-mark.mjs --bare \| pnpm exec commitlint --verbose` |
 | `fast` | not docs-only | `pnpm check`, typecheck, lint, unit tests, the desktop palette mutation check, the import-graph half of the bundle gate, the CommonMark spec, goldens, fidelity, licences | `pnpm check && pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @marxy/desktop test:mutations && pnpm gate:bundle && pnpm gate:golden && pnpm gate:fidelity && pnpm gate:licences` |
 | `browser-lite` | `web` changed, not a push to `main` | **two shards** (`browser-lite (1)`, `browser-lite (2)`; `ci` waits for the pair as one job). Shard 1 runs the no-network gate first. Each shard runs half of the desktop **lite** suite (`--test-shard=i/2` over the files named in `test:lite` in `apps/desktop/package.json`: the files that hold a commitment, which are save, explicit save, data loss, close guard, trust, undo and line endings, live reload, operations edit, progressive rendering (its 1 MB first-text test), a log's elision note never becoming source text, so a filtered copy is exactly the lines shown (`elided-note.test.mjs`: F-84), a log's level filter answering its click at once, holding the busy mark and the "Filtering…" cover from the click, and never painting a line below the level (`log.test.mjs`: K-08, K-08.1, run at 3 MB by `MARXY_LOG_MB` in `test:lite`; about 55 s with `elided-note.test.mjs`), a file that is one 2 MB line (`long-line.test.mjs`: commitment 5 for a line that cannot be sliced, F-79), a 2 MB Markdown file sent to Source never holding the page for 500 ms after its first line (`source-open-stall.test.mjs`: the hidden Rendered page does no work, F-94) and the breaks put in such a line moving no byte (`split-runs.test.mjs`: copy, selection, find, transforms), editing a block in place (the reading line holds still through it: F-61), Source structure (`source-structure.test.mjs`: two of its tests skip on Linux, because the literal `Ctrl+Shift+...` Source chords are a Mac's only and the registry never matches them elsewhere, so they run on macOS and in no CI job: F-65), the inspector (`src/workspace/inspector.test.mjs`: the Links tab, and a code file never parsed for it: F-77), the palette's preview reading at most one 256 KB head of the highlighted file, and only after a pause (`palette-preview.test.mjs`: W-13), the table lens (`table-lens.test.mjs`: it never writes, it marks what it reshaped, a 50 MB file shows its first rows before its last byte is read, and a file of thousands of columns draws the columns in view: K-10b, F-89; about 25 s of the lite suite), and the three that hold "nothing phones home": release CSP, remote images blocked, themes make no request) in WebKit, which is required, in the pinned Playwright container. The suite needs no C linker, because the Rust half of the images test is `#[test]`s run by `cargo test` (the `rust` job). Every other desktop browser file, and `progressive-large.test.mjs` (the 1 MB reading-position tests), is in `test` and runs nightly in `browser-full` | `pnpm gate:no-network && MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test:lite`; one shard: `MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test:lite --test-shard=1/2` |
+| `layout-audit` | `layout` changed (a style or a view: `packages/theme`, `packages/typeset`, `apps/desktop/src`, font files, `fixtures/corpus`, the mock-v2 pieces, core's `render` and `sanitize`, the audit and its baselines), not a push to `main` | **Linux, Playwright container**: `node scripts/layout-audit.mjs --quick --fail`: the whole app in WebKit at 800 and 1,920 px wide, 600 px high, night variant (about 30 s), every text box checked for being cut, spilling, ellipsised without a reveal, overlapped, covered or off the window. Fails on a defect that is not in `scripts/layout-audit.baseline.<platform>.json` (`darwin` and `linux`: text is cut at a different place with each platform's fonts, so each has its own, as `fixtures/baselines` does), on a baseline row the run covered and did not find (so the list only shrinks), and on a surface that did not set up. One run, no retry; every wait in a scene is a condition (fonts ready, no animation running, every box equal on three frames), never a pause (X-36) | `node scripts/layout-audit.mjs --quick --fail` |
 | `rust` | `rust` or `lockfile` changed, not a push to `main` | **macOS**: Rust format and clippy, the crate's unit tests (`cargo test --locked`, which needs no frontend build and no binary), then `cargo fetch --locked` and the licence gate over every crate in `Cargo.lock`. A lockfile-only change (an npm bump) runs only the last two | the block below |
 | `ci` | always | the required check, above | `scripts/ci-verdict.mjs`, above |
 
@@ -218,6 +219,16 @@ them.
 | `gate:golden` | AST or source-map output moved | regenerate the goldens deliberately; `pnpm gate:golden` |
 | `gate:fidelity` | a byte that was not asked to change, changed | fix the operation, never the test; `pnpm gate:fidelity` |
 | `gate:licences` | a copyleft or undeterminable licence (ADR-0006) | `pnpm gate:licences` |
+
+### `layout-audit`
+
+| Symptom | Cause | Fix and local command |
+| --- | --- | --- |
+| `NEW` line | a text box is cut, floats or is covered and the baseline does not hold it | fix the layout, never add the row; `node scripts/layout-audit.mjs --quick --fail` names the surface, selector and size, and `--shots <dir>` saves the cell |
+| `STALE` line | a baseline row no longer appears: it was fixed (or its surface changed) | delete the row (`node scripts/layout-audit.mjs --update-baseline` rewrites the file from a whole run; read the diff, it may only lose rows) |
+| `SETUP` line | a surface did not boot | `node scripts/layout-audit.mjs --quick --only <surface> --fail` |
+
+The full matrix (both variants, four widths, two heights; about 2.5 minutes) runs nightly in `aesthetics-determinism` as monitoring: `node scripts/layout-audit.mjs --fail`.
 
 ### `browser-lite`, `rust`
 

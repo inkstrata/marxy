@@ -9,7 +9,7 @@ import { appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /** The outputs, in the order the `changes` job declares them. Every one is always written. */
-export const OUTPUTS = ['docs_only', 'web', 'rust', 'lockfile'];
+export const OUTPUTS = ['docs_only', 'web', 'rust', 'lockfile', 'layout'];
 
 // What a test or check that stays on the pull-request path reads, plus the fleet's code. G-03 took
 // `pnpm test:fleet` off the path (the fleet is paused, ADR-0051), so the orchestration prose that only
@@ -40,6 +40,12 @@ const WEB = /^(packages\/|apps\/desktop\/(src\/|test\/|index\.html|app\.html|gat
 // code nobody touched. The binary, the Vite config it embeds and the CLI smoke are built nightly.
 const RUST = /^(apps\/desktop\/src-tauri\/|mise\.toml$)/;
 
+// What the layout audit's quick pass can see (X-36): styles and views. The audit boots the whole app, so this is the theme and
+// typesetting packages, everything the desktop app ships (CSS and views alike; its tests and the Rust shell are not it), the
+// HTML entry points and Vite config, what the audit loads (the fixture corpus, the mock-v2 pieces, the fonts) and what Rendered is made of (core's render and sanitize),
+// the audit itself with its baselines, and the WebKit launcher it uses.
+const LAYOUT = /^(packages\/(theme|typeset)\/|fonts\/.*\.(woff2?|ttf|otf)$|fixtures\/corpus\/|docs\/plan\/direction-2026-10\/mock-v2\/|packages\/core\/src\/(render|sanitize)\/|apps\/desktop\/(src\/|index\.html|app\.html|vite\.config|test\/support\/)|scripts\/(layout-audit[.\w-]*|playwright-webkit\.mjs)$)/;
+
 // A dependency moved: the manifests and either lockfile, wherever they sit.
 const LOCKFILE = /(^|\/)(package\.json|pnpm-lock\.yaml|Cargo\.lock)$/;
 
@@ -50,7 +56,7 @@ const LOCKFILE = /(^|\/)(package\.json|pnpm-lock\.yaml|Cargo\.lock)$/;
  */
 export function classify(files) {
   if (files.some(f => f.startsWith('.github/') || f === '<unknown>')) {
-    return { docs_only: false, web: true, rust: true, lockfile: true };
+    return { docs_only: false, web: true, rust: true, lockfile: true, layout: true };
   }
   const any = re => files.some(f => re.test(f));
   return {
@@ -58,6 +64,7 @@ export function classify(files) {
     web: any(WEB),
     rust: any(RUST),
     lockfile: any(LOCKFILE),
+    layout: any(LAYOUT), // not gated on docs_only: the mock-v2 pieces the audit loads sit under docs/
   };
 }
 
