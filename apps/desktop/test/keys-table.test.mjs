@@ -112,6 +112,7 @@ const NOT_IN_MENU = [
   [/^source\.paste-plain$/, 'a paste variant, in the palette'],
   [/^view\.(text-|focus-|close-pane|open-beside|fold-workspace)/, 'text size, pane chords and Esc: not on the card'],
   [/^(notices\.focus|edit\.block|document\.open-in-editor)$/, 'not on the card'],
+  [/^view\.metadata$/, 'the margin preview (W-17) is summoned by its key and the palette; the View menu carries the panels'],
 ];
 
 test('every keyed registry command is in the menu with its own key, or is named as not there', () => {
@@ -212,6 +213,9 @@ test('W-03 chords are in the table: the panel keys and the fold key', () => {
   const ownerOf = (spec) => [...new Set(owners.get(registryChord(spec, MAC))?.map((c) => c.owner))];
   assert.deepEqual(ownerOf('Ctrl+Mod+S'), ['view.toggle-sidebar']);
   assert.deepEqual(ownerOf('Mod+Alt+I'), ['view.toggle-inspector']);
+  // W-17: the metadata chord is owned once, by its command, and is not the inspector's or italic's.
+  assert.deepEqual(ownerOf('Ctrl+Mod+I'), ['view.metadata']);
+  assert.ok(!ownerOf('Mod+I').includes('view.metadata'), 'Control+Command+I is not italic');
   assert.deepEqual(ownerOf('Escape').sort(), ['selection.clear', 'view.fold-workspace']);
   assert.ok(!ownerOf('Mod+S').includes('view.toggle-sidebar'), 'Control+Command+S is not save');
 });

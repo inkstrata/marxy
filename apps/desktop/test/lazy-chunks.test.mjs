@@ -188,3 +188,46 @@ test('panels that cannot be read are said in a notice, the unfold still ends, an
     await browser.close();
   }
 });
+
+test('a metadata preview chunk that cannot be read is said once, nothing is thrown, and the next press reads it again', async () => {
+  const MARGIN_CHUNK = '**/src/render/metadata-margin.ts*';
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.route(MARGIN_CHUNK, (route) => route.abort());
+    await bootTwoPanes(page, { files, open: ['/r/A.md'] });
+    await page.evaluate(() => {
+      window.__rejections = [];
+      window.addEventListener('unhandledrejection', (e) => window.__rejections.push(String(e.reason)));
+    });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    const mac = (await mod(page)) === 'Meta';
+    // The chord is the Mac's ⌃⌘I (the pane table has no spelling of it elsewhere); off a Mac the command is run the way the key does.
+    const press = async () => {
+      if (mac) await page.keyboard.press('Control+Meta+KeyI');
+      else {
+        await page.evaluate(async () => {
+          const { buildAppContext } = await import('/src/selection/bind.ts');
+          const handle = window.__marxyHandle;
+          void handle.commands().find((c) => c.id === 'view.metadata').run(buildAppContext(handle));
+        });
+      }
+    };
+    await press();
+    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((el) => el.textContent.startsWith('The metadata preview could not be loaded')));
+    await page.waitForTimeout(150);
+    const notices = await noticeTexts(page);
+    assert.equal(notices.filter((t) => t.startsWith('The metadata preview could not be loaded')).length, 1, `one notice: ${JSON.stringify(notices)}`);
+    assert.equal(await page.locator('.marxy-metadata-preview').count(), 0, 'no preview');
+    assert.deepEqual(await page.evaluate(() => window.__rejections), [], 'no unhandled rejection');
+    assert.deepEqual(errors, []);
+    // The chunk is back: the same key reads it and puts the preview in the margin.
+    await page.unroute(MARGIN_CHUNK);
+    await press();
+    await page.waitForSelector('.marxy-metadata-preview');
+    assert.deepEqual(await page.evaluate(() => window.__rejections), []);
+  } finally {
+    await browser.close();
+  }
+});

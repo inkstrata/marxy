@@ -9,6 +9,8 @@
 // `unfold()` resolves each fill has run exactly as it did when the code was static; only a peek, which is
 // synchronous, can make a region before the chunk is in, and its content then arrives a moment later.
 import type { AppHandle } from '../app.ts';
+import { setMetadataMarginLoader } from '../commands/app-handle.ts';
+import type { MetadataMargin } from '../render/metadata-margin.ts';
 import { installQuietDates } from '../kinds/quiet-dates.ts';
 import { notify } from '../notices/index.ts';
 import { createDocumentSignal, type DocumentSignal } from './document-signal.ts';
@@ -19,6 +21,19 @@ type Panels = typeof import('./panels.ts');
 
 let loaded: Panels | null = null;
 let loading: Promise<Panels> | null = null;
+
+export const MARGIN_UNAVAILABLE = 'The metadata preview could not be loaded · try the key again.';
+
+/** Reads the margin preview's chunk at the first `⌃⌘I`. A failed read is said once and not kept, so the next press tries again. */
+function loadMargin(handle: AppHandle, signal: DocumentSignal): Promise<MetadataMargin> {
+  return import('../render/metadata-margin.ts')
+    .then((m) => m.installMetadataMargin(handle, signal))
+    .catch((e: unknown) => {
+      console.warn('marxy: the metadata preview could not be loaded', e);
+      notify({ kind: 'error', text: MARGIN_UNAVAILABLE });
+      throw e;
+    });
+}
 
 export const PANELS_UNAVAILABLE = 'The side panels could not be loaded · they stay empty. Unfolding again tries once more.';
 
@@ -76,6 +91,9 @@ export function installWorkspaceFills(handle: AppHandle): void {
   workspace.fill('tabs', panel((p, el) => p.mountTabs(el, handle, signal)));
   // The inspector: a strip of the tabs registered in panels.ts (Links, Outline, Versions) and the selected panel. Folded there is none.
   workspace.fill('inspector', panel((p, el) => p.mountInspector(el, handle, signal)));
+  // `⌃⌘I` (W-17): a quiet preview of the file's metadata in Read's left margin, folded or unfolded; where there is no margin the Metadata tab
+  // opens instead. Nothing is drawn until the reader asks, so the module is read at the first press and not at first text.
+  setMetadataMarginLoader(handle, () => loadMargin(handle, signal));
   // The status bar: the file's kind, one measure, where you are and its encoding on the left, the theme and text size on the right; an item with a tab behind it opens that tab (W-11). Folded there is none.
   workspace.fill('status-bar', panel((p, el) => p.mountStatusBar(el, handle, signal)));
   // Folded, the pointer resting at an edge shows that edge's panel (W-03); the listeners exist only while folded.

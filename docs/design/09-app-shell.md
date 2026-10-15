@@ -141,7 +141,7 @@ to rule), available only while the row holds two tabs or more.
 strip and the selected tab's `role="tabpanel"` (`workspace/inspector.ts`). The strip is a table:
 `registerInspectorTab({ id, title, mount })` adds a tab and returns its withdrawal, a tab is drawn only while its builder
 is registered, and the tab shown is kept in memory for the session, never written. Links is registered beside the fill in
-`workspace/fill.ts`; Outline (W-10), Metadata (W-17) and Versions (V-06) register theirs and change nothing here. A panel
+`workspace/fill.ts`; Outline (W-10), Metadata (W-17) and Versions (V-06) register theirs and change nothing here (the strip wraps when the tabs do not fit the region). A panel
 is mounted when its tab is selected and let go when another is, and does no work while the region is hidden. The whole
 region is one tab stop: Left and Right move between tabs, Down enters the panel's rows, Up and Down move through them,
 Up from the first row returns to the tab strip.
@@ -156,6 +156,37 @@ folder above the file is a real, listed one; otherwise the row says "not checked
 here. A file that opens in Source and has not been parsed (`store.parsed()` false) is never parsed for the tab: its paths
 come from the bytes and the link list reads "Links are listed for Markdown" until the reader's first switch to Rendered
 makes the parse. Backlinks are not in the tab (they need a scan of other files; the author has not ruled).
+
+*Metadata* (`workspace/metadata-tab.ts`, W-17; `⌃⌘I`) lists, for the focused document, each section only when it has something.
+**File**: path, size, modified (`shell.stat`), encoding and line endings (the status bar's words), each with *Copy*. **Front matter**:
+every top-level key and its value, from core's `frontMatterValues` (`packages/core/src/operations/front-matter-value.ts`), read
+from the AST or, for a document opened in Source that has not been parsed, from its first 256 KB, never forcing the parse; only a
+Markdown file (or a scratch one) has any. A scalar's value is **edited in place**: the value is a button that becomes a text field
+(`Enter` commits, `Esc` leaves it, leaving the field commits), and the change is `setFrontMatterValue`'s one splice over that value's
+own bytes, applied as one `store.apply` (so one undo step, and `Mod+Z` from the tab undoes it; the file's quoting, trailing comment,
+line endings and every other byte are kept). A value it cannot edit safely (a `|` or `>` block, an anchor, an alias, a tag, a flow
+list or mapping, one that runs over several lines, an empty one, a repeated key, a TOML array, inline table or multi-line string, a
+key below a TOML `[table]`) reads as it is with the reason in the secondary voice and *Edit in Source* (`handle.jumpToSource`); a
+front matter with a line the scanner does not understand is read-only as a whole. A refused edit says why in a notice and changes
+nothing. No key is added, removed or renamed here (a follow-up once this is proved). **Detection**: the kind, the reasons (K-07's, the
+decisive one first) and *Show as*, a menu that runs K-04's `kind.show-as.*` commands. **Marxy**: last read and pinned, from the palette's
+session. **Hidden and reshaped**: the invisible and bidirectional characters by the rules Read marks them by (`shouldFlagInvisible`,
+a tag run as one) and every place Read reshapes the file (front matter shown as a head, an HTML comment set aside, a footnote moved
+to the end), each a jump (`handle.open(path, { at })`), at most 40 of each with the rest counted. **Notes**: V-04's (`source/notes.ts`'s
+`findNotes`, found after first text), each a jump. Git status, created time, permissions and Finder tags are not here (W-18, ADR-0064).
+
+*The margin preview* (`render/metadata-margin.ts`, W-17, X-21 ruling 21; `⌃⌘I`, `view.metadata`, *Show or hide metadata* in the palette)
+is a quiet block in Read's empty left margin, beside the first line: the front matter's keys and values (a longer value by its first
+line), then `modified` and `size`, at most 14 rows then "+n more", in the chrome face at 11.5/13 of the chrome size, keys faint and
+values secondary, and *More…*, which opens the Metadata tab. It is **never in the column's flow**: a zero-height layer
+(`div.marxy-metadata-margin`, `position: sticky`) is the pane's first child, so it takes no room and, sticky, follows the page as it
+scrolls (below the bands, unfolded with one pane); the block inside is absolutely placed in the margin at the first line's height.
+It is drawn when it is on and the pane is in Read with a margin of at least 230 px (scaled by the chrome size); otherwise `⌃⌘I`
+opens the tab instead (and docks the inspector from a folded window), and pressing it with the preview on turns it off. The state is
+the window's, in memory, never written. Read at rest is unchanged (X-21 question 21): the quiet head of the front matter stays as K-20
+has it (an article's byline and dek), and the preview is an addition beside it; the "folded marker" the plan once named does not exist
+on `main`, so there is nothing to click to turn the preview on but the key and the palette. `no-displacement.test.mjs` holds that it
+moves no line of the page; `test/metadata.test.mjs` holds the rest.
 
 **Status bar (W-11; ADR-0058 item 6, mock-v2 01-workspace).** Unfolded, the `status-bar` region (26 px, `--marxy-ws-status-h`) holds
 `div.marxy-status-bar[role=group]` (`workspace/status-bar.ts` reads the page; `workspace/status-facts.ts` holds the rules, under node).
@@ -315,6 +346,7 @@ chrome.
 | `Mod+1` / `Mod+2` / `Mod+3` | Read / Split / Source | W-19 (`commands/view-mode.ts`): Read and Source set the focused pane's mode and do nothing when it is already there (`Mod+E` flips). Split shows the document twice, Read left and Source right; with two panes over two files it refuses and says why. Inside Split (two panes, one document), Read and Source end it in one pane in that mode, and Split again goes back to one pane in Read (F-44); the pane that closes has its Source text folded into the store first, and a close that would lose text asks as `Mod+Shift+\` does |
 | `Mod+E` | toggle Rendered / Source | position kept (§08) |
 | `Ctrl+Mod+S` / `Mod+Alt+I` | dock or undock the sidebar / the inspector | W-03: from folded they unfold with that panel; physical keys, so they work from Source (§Peeking) |
+| `Ctrl+Mod+I` | metadata | W-17: the quiet preview in Read's left margin on or off; with no room (Split, Source, a narrow window) it opens the inspector's Metadata tab instead. A pane chord, by physical key, so it works from Source (`⌃⌘I`, never italic); not in the menu |
 | `Mod+F` | find | `Enter` next, `Shift+Enter` previous, `Esc` closes and keeps the reading position |
 | `Mod+Shift+O` | outline | `↑/↓ Enter`, `Esc` |
 | `Mod+Alt+N` | go to the newest notice | U-02: a pane chord, by physical key, so it works from Source; `Tab` and the arrows move among the notice's buttons, `Esc` dismisses it and gives focus back (§Notices) |

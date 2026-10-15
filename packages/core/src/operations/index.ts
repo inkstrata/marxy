@@ -61,3 +61,6 @@ export const MUTATING_OPERATIONS: readonly Operation[] = [
 export const OPERATIONS: readonly Operation[] = [...CLIPBOARD_OPERATIONS, ...MUTATING_OPERATIONS];
 
 export { alignTablePipes, copyCodeClean, copySection, dedupeLines, sortListItems, toggleTask, unwrapMarkdownFence };
+
+// A parametrised edit (a key and a value) is not an `Operation`, so it is not in the lists above; see front-matter-value.ts (W-17).
+export { frontMatterValues, setFrontMatterValue, SET_FRONT_MATTER_VALUE_ID } from './front-matter-value.ts';
