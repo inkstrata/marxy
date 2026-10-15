@@ -4,6 +4,7 @@ import type { Buffer } from '@marxy/core';
 import type { EditorView } from '@codemirror/view';
 import { Compartment, type Extension } from '@codemirror/state';
 import { cmDocText, lineSeparatorFor } from './buffer-commit.ts';
+import { pageStyleNonce } from './csp-nonce.ts';
 import { LARGE_FILE_BYTES } from './language.ts';
 import { setLineNumbersChoice } from './line-numbers.ts';
 import { marxyHighlighting } from './highlight-style.ts';
@@ -24,6 +25,12 @@ export interface SourceEditorOptions {
   /** Legacy app passes `false` to mean handbook default; only `true` forces on. */
   readonly lineNumbers?: boolean;
   readonly readingLinePx?: number;
+  /**
+   * Called synchronously, just before the editor's first DOM is made and its style sheet joins the page. The
+   * caller that is about to hide a long page behind the editor hides it here: a new style sheet restyles every
+   * element that is not hidden, and a long page of paragraphs costs seconds to restyle (F-94).
+   */
+  readonly beforeMount?: () => void;
 }
 
 export interface SourceEditor {
@@ -34,6 +41,8 @@ export interface SourceEditor {
   scrollToByte(byteOffset: number): void;
   docText(): string;
   setLineNumbers(on: boolean): void;
+  /** The notes about the file (V-04), in order; empty for an editor with no frame. */
+  notes(): readonly { readonly from: number; readonly words: string }[];
 }
 
 const lineNumbersCompartment = new Compartment();
@@ -201,6 +210,8 @@ export async function baseExtensions(
   const wraps = sourceWraps(buffer.path) && !isLargeSourceFile(buffer);
   const look: SourceLook = island ? 'island' : wraps ? 'prose' : 'code';
   const exts: Extension[] = [
+    // CodeMirror styles itself with runtime <style> elements; the release CSP refuses any without its nonce (F-98).
+    EditorView.cspNonce.of(pageStyleNonce()),
     // The read-back of a save joins the edit before it (stray-bytes.ts `readBack`); every other join is the default's.
     historyCompartment.of(history({ joinToEvent: (tr, adjacent) => adjacent || tr.annotation(readBack) === true })),
     // Several selections: next and all occurrences (V-01) add ranges, which a single-selection state drops.

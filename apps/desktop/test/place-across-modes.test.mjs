@@ -245,7 +245,14 @@ test('a markdown file left in Source reopens in Rendered at that paragraph (S-08
     await enterSource(page);
     await page.evaluate(() => window.scrollTo(0, 9000));
     await page.waitForTimeout(400);
-    const inSource = await sourceAtReadingLine(page);
+    let inSource = await sourceAtReadingLine(page);
+    // The paragraphs are separated by blank lines, and where the reading line falls depends on the frame's inset: step a row
+    // down until it is on text (F-100 moved the inset by 4 px).
+    for (let step = 0; step < 3 && !/^P\d{3} line /.test(inSource.text ?? ''); step++) {
+      await page.evaluate(() => window.scrollBy(0, 21));
+      await page.waitForTimeout(300);
+      inSource = await sourceAtReadingLine(page);
+    }
     assert.match(inSource.text ?? '', /^P\d{3} line /);
     // pagehide flushes the place as quit does.
     await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));

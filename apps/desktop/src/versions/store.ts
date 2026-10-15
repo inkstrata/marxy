@@ -566,7 +566,8 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
             await put(manifestPath(data, key), formatManifest(next));
           } catch (error) {
             // The new bytes are in a slot no entry names: emptied, if the disk lets it be.
-            if (shared === null) await io.writeFileAtomic(slotPath(data, key, slot), EMPTY).catch(() => undefined);
+            // An abandoned keep writes nothing more, this included (the unnamed slot is overwritten by the next keep or Clear).
+            if (shared === null && !cancelled?.()) await io.writeFileAtomic(slotPath(data, key, slot), EMPTY).catch(() => undefined);
             throw error;
           }
           // Slots that only dropped versions named are emptied, once the manifest no longer names them.

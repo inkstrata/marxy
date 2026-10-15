@@ -6,8 +6,9 @@
 // changes, on the same editor: no remount, so selection and undo stay.
 //
 // Source has metrics of its own (ADR-0067): it holds no prose, so it leaves the prose grid for a tighter
-// type and line (`--marxy-size-source` on `--marxy-line-box-source`), an exact gutter hung left of the text,
-// and, for a code file, lines that scroll instead of wrap. The in-place block editor (ADR-0048) is an
+// type and line (`--marxy-size-source` on `--marxy-line-box-source`), an exact gutter at the editor's left edge,
+// and, for a code file, lines that scroll instead of wrap. Source fills its pane (F-100): the gutter is at the edge and
+// the text runs to the other, or wraps at it; the reader's measure is Rendered's, not Source's. The in-place block editor (ADR-0048) is an
 // island inside Rendered's page and keeps Rendered's code metrics, which is the `island` look below.
 
 import { Compartment, RangeSetBuilder, type Extension } from '@codemirror/state';
@@ -28,14 +29,6 @@ const LINE = 'var(--marxy-line-box-source, 21px)';
 const DIGITS = 5;
 /** The gutter's whole width: a fold column of one line box, then the numbers, with half a line box each side. */
 const GUTTER = `calc(${DIGITS}ch + 2 * ${LINE})`;
-
-/**
- * The text column. Markdown in Source is as wide as Rendered's measure, in pixels
- * (`--marxy-measure-chars` clamped to 45..80, times the average advance, times the body size); a code file's is
- * 100 characters of the mono face at Source's size (ADR-0067).
- */
-const PROSE_COLUMN = 'calc(clamp(45, var(--marxy-measure-chars, 66), 80) * var(--marxy-avg-char, 0.463) * var(--marxy-size-body, 20px))';
-const CODE_COLUMN = '100ch';
 
 /** The rules every look shares: caret, selection, find matches and the search panel, read from tokens. */
 function sharedRules(): Record<string, Record<string, string>> {
@@ -98,7 +91,7 @@ function sharedRules(): Record<string, Record<string, string>> {
   };
 }
 
-/** The look of a Source editor for a file (V-12): its own type, an exact gutter, a column on the page ground. */
+/** The look of a Source editor for a file (V-12): its own type, an exact gutter, the page ground; it fills its pane (F-100). */
 function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, string>> {
   const text = 'var(--marxy-color-code-text, #e3dfd6)';
   const bg = 'var(--marxy-color-bg, #151412)';
@@ -106,21 +99,20 @@ function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, stri
   const mono = 'var(--marxy-font-mono, "JetBrains Mono", ui-monospace, monospace)';
   const selection = 'var(--marxy-color-selection, #1f3651)';
   const activeLine = `color-mix(in srgb, ${selection} 40%, transparent)`;
-  const column = look === 'prose' ? PROSE_COLUMN : CODE_COLUMN;
-  // The text's start edge is `start`: centred on the window, but never closer to it than the gutter is wide. The
-  // numbers hang left of that edge, in the gutter's own margin, so the edge is the same whether numbers are on or
-  // off and the column stays on the window's axis (L-07). It is margins, not scroller padding, because a sticky
+  // Source fills its pane (F-100, the author's "fill the window with our editor"): the gutter is the editor's first column,
+  // at its left edge, and the text runs from there to the right edge, or wraps at it. The text starts a gutter's width in
+  // whether the numbers are on or off, so turning them on or off never moves it (ADR-0067); when they are on they fill
+  // that space. The old rule centred a column on the window (`max(GUTTER, (100% - column) / 2)`, L-07, V-12), which put
+  // the gutter 130 to 590 px from the edge of a folded window. It is margins, not scroller padding, because a sticky
   // gutter stops at the scroller's content box and padding would push the numbers over the text.
-  const start = `max(${GUTTER}, calc((100% - ${column}) / 2))`;
-  const gutterStart = `max(0px, calc((100% - ${column}) / 2 - ${GUTTER}))`;
+  const start = GUTTER;
+  // A right pad of one line box keeps the last character clear of the marks strip and the scroll bar.
   const content: Record<string, string> =
     look === 'prose'
-      ? { width: column, flexGrow: '0', padding: `${LINE} 0` }
-      : // A code line never wraps: the content is as wide as the widest line it has drawn, and at least the column.
+      ? { padding: `${LINE} ${LINE} ${LINE} 0` }
+      : // A code line never wraps: the content is as wide as the widest line it has drawn, and at least the editor.
         {
-          flexGrow: '0',
           width: 'max-content',
-          minWidth: `max(0px, min(${column}, calc(100% - ${start} - ${LINE})))`,
           boxSizing: 'content-box',
           padding: `${LINE} ${LINE} ${LINE} 0`,
           // CodeMirror's `min-height: 100%` counts the padding in its own border box; this one is a content box, so the
@@ -163,7 +155,10 @@ function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, stri
       backgroundColor: bg,
       color: secondary,
       border: 'none',
-      marginInlineStart: gutterStart,
+      // The gutter is as wide as its columns by content, but WebKit's first layout takes the number column's width from
+      // its digits and leaves out the column's `min-width` (a calc() it does not count when sizing the container), so the
+      // numbers hang over the text until a later layout. The flex algorithm does honour a container's own `min-width`.
+      minWidth: GUTTER,
     },
     '.cm-gutters .cm-gutter': { lineHeight: LINE },
     // CodeMirror's `.cm-lineNumbers .cm-gutterElement` (padding 0 3px 0 5px) is as specific as a single theme
@@ -228,8 +223,10 @@ function islandRules(): Record<string, Record<string, string>> {
 
 /** Theme extension reading marxy tokens from the document root. */
 export function marxyCodeMirrorTheme(look: SourceLook = 'code'): Extension {
-  const rules = look === 'island' ? islandRules() : sourceRules(look);
-  return EditorView.theme(rules, { dark: !isLightVariant() });
+  if (look === 'island') return EditorView.theme(islandRules(), { dark: !isLightVariant() });
+  // A caret scrolled into view is kept 16 px from the edge (the marks strip is 8 px at the default chrome size, F-100), where
+  // CodeMirror's own 5 px would leave it and the last glyph of the widest line under the strip.
+  return [EditorView.theme(sourceRules(look), { dark: !isLightVariant() }), EditorView.scrollMargins.of(() => ({ right: 16 }))];
 }
 
 /**

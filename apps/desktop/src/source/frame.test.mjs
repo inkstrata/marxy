@@ -1,5 +1,5 @@
 // The Source frame (V-05, WebKit): the bars say only what the bytes say, the ruler sits on the text's character grid, the bars
-// never cover text and do not move when it scrolls, the column keeps ADR-0067's measure inside the frame, the marks sit at
+// never cover text and do not move when it scrolls, the editor fills the frame (F-100), the marks sit at
 // exact bytes, and none of it is a focus stop or a live region. The real app over the memory shell, with the shipped
 // skeleton's own CSS (index.html), so the frame is laid out by the rules the app ships.
 import { strict as assert } from 'node:assert';
@@ -235,6 +235,9 @@ test('V-05 the ruler marks the caret column and a selection on one line, and the
     const nums = await page.evaluate(() => [...document.querySelectorAll('.marxy-source-ruler-num:not([hidden])')].map((n) => n.textContent).slice(0, 4));
     assert.deepEqual(nums, ['10', '20', '30', '40']);
     await select(page, 9);
+    // The notch is already showing (at the start of the file) when the caret moves, and the ruler redraws in the editor's
+    // next measure, so "not hidden" says nothing about where it is: wait for that measure (two frames) before reading it.
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
     await page.waitForFunction(() => !document.querySelector('.marxy-source-ruler-caret').hidden);
     const at = await page.evaluate(async () => {
       const { activeSourceEditor } = await import('/src/source/editor.ts');
@@ -304,26 +307,20 @@ test('V-05 the bars never cover text and scrolling does not move them', async ()
   }, { width: 1200, height: 700 });
 });
 
-test('V-05 the frame is 960 px and centred folded, fills the pane unfolded; the column keeps ADR-0067\'s measure inside it', async () => {
+test('V-05 the frame fills the pane, folded and unfolded, and the editor fills the frame (F-100)', async () => {
   await withPage(async (page) => {
     await boot(page, { '/p/a.md': bytes('# A\n\nSome text that is a line.\n') }, '/p/a.md');
+    const foldedMount = await rect(page, '.marxy-source-mount');
     const frame = await rect(page, '.marxy-source-frame');
-    assert.equal(Math.round(frame.width), 960);
-    assert.ok(Math.abs(frame.left + frame.width / 2 - 720) < 1, `centred in the window (${frame.left})`);
-    // The measure is Rendered's, in pixels (ADR-0067 item 6): the same calc, resolved in the page.
-    const col = await page.evaluate(() => {
-      const probe = document.createElement('div');
-      probe.style.width = 'calc(clamp(45, var(--marxy-measure-chars, 66), 80) * var(--marxy-avg-char, 0.463) * var(--marxy-size-body, 20px))';
-      // Resolved where the editor resolves it: the Source mount re-declares the body size (K-05b).
-      document.querySelector('.marxy-source-mount').append(probe);
-      const want = probe.getBoundingClientRect().width;
-      probe.remove();
-      const c = document.querySelector('#marxy-source .cm-content').getBoundingClientRect();
+    // Folded the frame was 960 px and centred (ruling Q13); the author asked for the window to be filled (F-100): 14 px inset, no cap.
+    assert.ok(Math.abs(frame.left - foldedMount.left - 14) < 1 && Math.abs(foldedMount.right - frame.right - 14) < 1, `folded the frame is inset 14 px from its pane (${frame.left - foldedMount.left}, ${foldedMount.right - frame.right})`);
+    assert.ok(frame.width > 960, `folded the frame is wider than the old 960 px cap (${frame.width})`);
+    const inner = await page.evaluate(() => {
+      const f = document.querySelector('.marxy-source-frame').getBoundingClientRect();
       const e = document.querySelector('#marxy-source .cm-editor').getBoundingClientRect();
-      return { want, got: c.width, centre: c.left + c.width / 2, editorCentre: e.left + e.width / 2 };
+      return { left: e.left - f.left, right: f.right - e.right };
     });
-    assert.ok(Math.abs(col.got - col.want) < 1, `the column is ${col.got} px, the measure ${col.want} px`);
-    assert.ok(Math.abs(col.centre - col.editorCentre) < 1, 'the column is centred in the frame');
+    assert.ok(inner.left <= 1.5 && inner.right <= 1.5, `the editor fills the frame (${inner.left}, ${inner.right})`);
     await page.evaluate(() => window.__h.workspace().unfold());
     await page.waitForTimeout(500);
     const mount = await rect(page, '.marxy-source-mount');

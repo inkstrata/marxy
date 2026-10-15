@@ -269,6 +269,10 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
     if (outcome.result === 'failed') {
       // An abandoned keep was already said when its wait ran out.
       if (!cancelled?.()) failed(path, reason, outcome.error);
+    } else if (outcome.result === 'refused') {
+      // The policy's refusals (versions off, a deny rule, a large file) are the reader's own and stay silent. A damaged, newer or
+      // another file's manifest is not: the copy was not kept and the reader is told.
+      if (outcome.notKept === undefined && !cancelled?.()) failed(path, reason, new Error(outcome.why));
     } else if (outcome.result === 'kept' || outcome.result === 'same') {
       failures.delete(path);
       toldStreak = false;

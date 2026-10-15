@@ -64,6 +64,8 @@ export interface Config {
   /** `true` draws the little translucency there is (find fills, the toolbar and tab fades) solid, on its own (W-22). */
   readonly reduceTransparency: boolean;
   readonly measure: number;
+  /** `measure` is in the file with a valid number: it then applies to every kind, over a kind's own (W-12). Absent, each kind keeps its own. */
+  readonly measureSet: boolean;
   readonly typeset: boolean;
   /** `undefined` when the key is absent or invalid: the per-path default stands (numbers on for code files). */
   readonly lineNumbers: boolean | undefined;
@@ -98,6 +100,7 @@ const DEFAULTS: Config = {
   contrast: 'system',
   reduceTransparency: false,
   measure: 66,
+  measureSet: false,
   typeset: true,
   lineNumbers: undefined,
   showWhitespace: undefined,
@@ -111,7 +114,11 @@ const DEFAULTS: Config = {
   strip: {},
 };
 
-const KNOWN = new Set([
+/**
+ * Every top-level key `parseConfig` understands. `settings-schema.ts` holds one row per entry (a test fails for a key without one), so
+ * a key added here is added to the Settings page in the same change (W-12, ADR-0075).
+ */
+export const KNOWN_KEYS: readonly string[] = [
   'theme',
   'variant',
   'size',
@@ -130,7 +137,9 @@ const KNOWN = new Set([
   'linux',
   'kind',
   'strip',
-]);
+];
+
+const KNOWN = new Set(KNOWN_KEYS);
 
 /** The ids `copy_format` takes: the Copy as targets of ADR-0065 item 1 (`apps/desktop/test/copy-as.test.mjs` holds this list equal to core's). */
 export const COPY_FORMATS: readonly string[] = ['markdown', 'plain', 'rich', 'html', 'slack', 'jira', 'json-string', 'quote'];
@@ -190,8 +199,11 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
   else if (raw.reduce_transparency !== undefined) warnings.push('reduce_transparency was invalid; using false');
 
   let measure = DEFAULTS.measure;
-  if (typeof raw.measure === 'number' && Number.isFinite(raw.measure)) measure = clamp(Math.round(raw.measure), 45, 80);
-  else if (raw.measure !== undefined) warnings.push('measure was invalid; using 66');
+  let measureSet = false;
+  if (typeof raw.measure === 'number' && Number.isFinite(raw.measure)) {
+    measure = clamp(Math.round(raw.measure), 45, 80);
+    measureSet = true;
+  } else if (raw.measure !== undefined) warnings.push('measure was invalid; using 66');
 
   let typeset = DEFAULTS.typeset;
   if (typeof raw.typeset === 'boolean') typeset = raw.typeset;
@@ -244,6 +256,7 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
       contrast,
       reduceTransparency,
       measure,
+      measureSet,
       typeset,
       lineNumbers,
       showWhitespace,
@@ -382,7 +395,8 @@ function parseStrip(rawStrip: unknown, warnings: string[]): Record<string, reado
   return strip;
 }
 
-function tomlString(s: string): string {
+/** A TOML string value for `s`: literal quotes when nothing needs escaping, else a basic string. */
+export function tomlString(s: string): string {
   // eslint-disable-next-line no-control-regex
   if (!s.includes("'") && !/[\u0000-\u001f\u007f]/.test(s)) return `'${s}'`;
   const escaped = s
@@ -465,138 +479,332 @@ function detectEol(bytes: Uint8Array): '\n' | '\r\n' {
   return '\n';
 }
 
-type Line = { content: string; ending: string };
-
-/** Lines with their own endings, so a file with mixed endings is written back with the same ones. */
-function splitLines(text: string): Line[] {
-  const lines: Line[] = [];
-  const re = /\r\n|\n|\r/g;
-  let from = 0;
-  for (let m = re.exec(text); m; m = re.exec(text)) {
-    lines.push({ content: text.slice(from, m.index), ending: m[0] });
-    from = m.index + m[0].length;
+/** config.toml is not valid TOML (or this edit would not leave it so): nothing is written, and the file is never repaired. */
+export class ConfigNotReadableError extends Error {
+  readonly code = 'unreadable';
+  constructor(message = 'config.toml is not valid TOML, so nothing was written; fix the file by hand first') {
+    super(message);
   }
-  if (from < text.length || lines.length === 0) lines.push({ content: text.slice(from), ending: '' });
-  return lines;
 }
 
-/** `[table]` or `[[array.of.tables]]`, with an optional trailing comment. */
-function isTableHeader(line: string): boolean {
-  return /^[ \t]*\[\[?[^\]]*\]\]?[ \t]*(#.*)?$/.test(line);
-}
+const decodeUtf8 = (bytes: Uint8Array): string => new TextDecoder().decode(bytes);
 
-/** Where a trailing comment starts on a `key = value` line, outside any string; -1 for none. */
-function commentStart(line: string, from: number): number {
-  let quote: string | null = null;
-  for (let i = from; i < line.length; i += 1) {
-    const c = line[i];
-    if (quote) {
-      if (c === '\\' && quote === '"') i += 1;
-      else if (c === quote) quote = null;
-    } else if (c === '"' || c === "'") quote = c;
-    else if (c === '#') return i;
+function parseOrThrow(bytes: Uint8Array): Record<string, unknown> {
+  const text = decodeUtf8(bytes);
+  if (text.trim() === '') return {};
+  try {
+    return parse(text) as Record<string, unknown>;
+  } catch {
+    throw new ConfigNotReadableError();
   }
-  return -1;
 }
 
-/** `[`/`]` depth change from `from` to the line's end (or its comment), outside any string. A TOML
- *  array value can span lines; this is how far past `found` the value actually runs. */
-function bracketDepthDelta(line: string, from: number): number {
-  let quote: string | null = null;
-  let depth = 0;
-  for (let i = from; i < line.length; i += 1) {
-    const c = line[i];
-    if (quote) {
-      if (c === '\\' && quote === '"') i += 1;
-      else if (c === quote) quote = null;
-    } else if (c === '"' || c === "'") quote = c;
-    else if (c === '#') break;
-    else if (c === '[') depth += 1;
-    else if (c === ']') depth -= 1;
+/** A value reduced to a string that two equal TOML values share, whatever order their keys came in. */
+function canon(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canon).join(',')}]`;
+  if (v instanceof Date) return `date:${String(v)}`;
+  if (typeof v === 'bigint') return `int:${String(v)}`;
+  if (typeof v === 'object' && v !== null) {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o).sort().map((k) => `${JSON.stringify(k)}:${canon(o[k])}`).join(',')}}`;
   }
-  return depth;
+  return `${typeof v}:${JSON.stringify(v)}`;
 }
-
-const MULTILINE = ['"""', "'''"];
 
 /**
- * Replaces or appends one top-level `key = value` line without touching any other byte: every other
- * line keeps its bytes and its own ending, the edited line keeps its indentation, key spelling and
- * trailing comment, and a key inside a table or a multi-line string is never taken for it.
+ * The edit's own proof: the file after is valid TOML and every key but `key` reads exactly as it did, and `key` is absent
+ * (`want` undefined) or reads as `want`. A scanner that went wrong would fail here, and nothing would be written.
  */
-export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string): Uint8Array {
-  const eol = detectEol(bytes);
-  // Each byte becomes one char (latin1), so lines the edit never touches are written back with
-  // exactly their bytes: no BOM stripped, no invalid UTF-8 turned into U+FFFD.
-  const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
-  const body = hasBom ? bytes.subarray(3) : bytes;
-  const text = bytesToLatin1(body);
-  const lines = splitLines(text);
-  const value = bytesToLatin1(new TextEncoder().encode(tomlValue));
-  const k = escapeRegExp(key);
-  const keyLine = new RegExp(`^([ \\t]*(?:${k}|"${k}"|'${k}')[ \\t]*=[ \\t]*)`);
-  const dottedLine = new RegExp(`^[ \\t]*(?:${k}|"${k}"|'${k}')[ \\t]*\\.`);
-
-  let firstTable = -1;
-  let found = -1;
-  let open: string | null = null;
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i]!.content;
-    if (open) {
-      // An odd count of the delimiter on a line closes the string it opened.
-      if (line.split(open).length % 2 === 0) open = null;
-      continue;
-    }
-    if (isTableHeader(line)) {
-      firstTable = i;
-      break;
-    }
-    if (dottedLine.test(line)) {
-      throw new Error(`config.toml already defines a dotted key under '${key}'; edit it by hand`);
-    }
-    if (found < 0 && keyLine.test(line)) found = i;
-    for (const delim of MULTILINE) if (line.split(delim).length % 2 === 0) open = delim;
+function verifyEdit(before: Record<string, unknown>, after: Uint8Array, key: string, want: { readonly value: unknown } | undefined): void {
+  const unsafe = (): never => {
+    throw new ConfigNotReadableError('config.toml could not take this change safely, so nothing was written; edit the file by hand');
+  };
+  let now: Record<string, unknown>;
+  try {
+    now = parseOrThrow(after);
+  } catch {
+    return unsafe();
   }
-
-  if (found >= 0) {
-    const line = lines[found]!.content;
-    const head = keyLine.exec(line)![1]!;
-    // The old value may be a TOML array spanning several lines; every line it occupies is replaced
-    // together, or the array's own lines would be left behind as orphaned, syntactically broken text.
-    let depth = bracketDepthDelta(line, head.length);
-    let last = found;
-    while (depth > 0 && last + 1 < lines.length) {
-      last += 1;
-      depth += bracketDepthDelta(lines[last]!.content, 0);
-    }
-    const lastLine = lines[last]!.content;
-    const hash = commentStart(lastLine, last === found ? head.length : 0);
-    // Everything after the old value (the spaces or tabs, the comment) is kept byte for byte.
-    const floor = last === found ? head.length : 0;
-    let valueEnd = hash < 0 ? lastLine.length : hash;
-    while (valueEnd > floor && /[ \t]/.test(lastLine[valueEnd - 1]!)) valueEnd -= 1;
-    const tail = lastLine.slice(valueEnd);
-    lines.splice(found, last - found + 1, { content: `${head}${value}${tail}`, ending: lines[last]!.ending });
-  } else {
-    const entry: Line = { content: `${key} = ${value}`, ending: eol };
-    if (firstTable >= 0) lines.splice(firstTable, 0, entry);
-    else {
-      const last = lines[lines.length - 1]!;
-      if (last.content === '' && last.ending === '') lines[lines.length - 1] = entry;
-      else {
-        if (last.ending === '') last.ending = eol;
-        lines.push(entry);
-      }
-    }
+  const names = new Set([...Object.keys(before), ...Object.keys(now)]);
+  for (const name of names) {
+    if (name === key) continue;
+    if (!(name in before) || !(name in now) || canon(before[name]) !== canon(now[name])) unsafe();
   }
-  const out = latin1ToBytes(lines.map((l) => l.content + l.ending).join(''));
-  if (!hasBom) return out;
-  const withBom = new Uint8Array(out.length + 3);
-  withBom.set([0xef, 0xbb, 0xbf]);
-  withBom.set(out, 3);
-  return withBom;
+  if (want === undefined ? key in now : !(key in now) || canon(now[key]) !== canon(want.value)) unsafe();
 }
 
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// ---- a lexical scan of the top level of a TOML file ---------------------------------------------------------------------
+//
+// A line editor must know where a top-level key's value really ends and where the top-level section does, and neither is a
+// property of lines: a value can be a multi-line string (triple double or single quotes, which may hold `[x]` and `key = v`
+// lines), an array that runs across lines (its elements can look like `[table]` headers), an inline table, with comments that
+// hold brackets and quotes anywhere. So the file is scanned the way TOML reads it: statement by statement, each value by its own rule.
+
+interface TopEntry {
+  /** The key as written, one part per dotted segment (quotes removed). */
+  readonly path: readonly string[];
+  /** The offset where the statement's line begins. */
+  readonly lineStart: number;
+  /** The value's first and one-past-last offset (no trailing space or comment). */
+  readonly valueStart: number;
+  readonly valueEnd: number;
+  /** One past the statement's line ending (or the end of the text). */
+  readonly end: number;
+}
+
+interface TopScan {
+  readonly entries: readonly TopEntry[];
+  /** The offset where the first `[table]` or `[[array]]` header's line begins; -1 when there is none. */
+  readonly firstTable: number;
+}
+
+class Unscannable extends Error {}
+
+function scanTop(text: string): TopScan {
+  const n = text.length;
+  let i = 0;
+  const fail = (): never => {
+    throw new Unscannable();
+  };
+  const eolLen = (at: number): number => (text[at] === '\r' && text[at + 1] === '\n' ? 2 : text[at] === '\n' || text[at] === '\r' ? 1 : 0);
+  const isWs = (c: string | undefined): boolean => c === ' ' || c === '\t';
+  const skipWs = (): void => {
+    while (i < n && isWs(text[i])) i += 1;
+  };
+  const toEol = (): void => {
+    while (i < n && eolLen(i) === 0) i += 1;
+  };
+  /** Whitespace, line endings and comments: what may sit between the parts of an array or an inline table. */
+  const skipBlank = (): void => {
+    for (;;) {
+      if (i >= n) return;
+      if (isWs(text[i])) i += 1;
+      else if (eolLen(i) > 0) i += eolLen(i);
+      else if (text[i] === '#') toEol();
+      else return;
+    }
+  };
+  const parseKey = (): string[] => {
+    const path: string[] = [];
+    for (;;) {
+      skipWs();
+      const c = text[i];
+      if (c === '"' || c === "'") {
+        i += 1;
+        const from = i;
+        for (;;) {
+          if (i >= n || eolLen(i) > 0) return fail();
+          if (c === '"' && text[i] === '\\') i += 2;
+          else if (text[i] === c) break;
+          else i += 1;
+        }
+        const raw = text.slice(from, i);
+        i += 1;
+        path.push(c === '"' ? raw.replace(/\\(["\\])/g, '$1') : raw);
+      } else {
+        const from = i;
+        while (i < n && /[A-Za-z0-9_-]/.test(text[i]!)) i += 1;
+        if (i === from) return fail();
+        path.push(text.slice(from, i));
+      }
+      skipWs();
+      if (text[i] === '.') i += 1;
+      else return path;
+    }
+  };
+  const parseValue = (): void => {
+    const c = text[i];
+    if (c === '"') {
+      if (text.startsWith('"""', i)) {
+        i += 3;
+        for (;;) {
+          if (i >= n) return fail();
+          if (text[i] === '\\') i += 2;
+          else if (text.startsWith('"""', i)) {
+            i += 3;
+            // One or two quotes before the closing delimiter belong to the string.
+            for (let extra = 0; extra < 2 && text[i] === '"'; extra += 1) i += 1;
+            return;
+          } else i += 1;
+        }
+      }
+      i += 1;
+      for (;;) {
+        if (i >= n || eolLen(i) > 0) return fail();
+        if (text[i] === '\\') i += 2;
+        else if (text[i] === '"') {
+          i += 1;
+          return;
+        } else i += 1;
+      }
+    }
+    if (c === "'") {
+      if (text.startsWith("'''", i)) {
+        const close = text.indexOf("'''", i + 3);
+        if (close < 0) return fail();
+        i = close + 3;
+        for (let extra = 0; extra < 2 && text[i] === "'"; extra += 1) i += 1;
+        return;
+      }
+      i += 1;
+      while (i < n && text[i] !== "'") {
+        if (eolLen(i) > 0) return fail();
+        i += 1;
+      }
+      if (i >= n) return fail();
+      i += 1;
+      return;
+    }
+    if (c === '[') {
+      i += 1;
+      for (;;) {
+        skipBlank();
+        if (text[i] === ']') {
+          i += 1;
+          return;
+        }
+        parseValue();
+        skipBlank();
+        if (text[i] === ',') i += 1;
+        else if (text[i] === ']') {
+          i += 1;
+          return;
+        } else return fail();
+      }
+    }
+    if (c === '{') {
+      i += 1;
+      for (;;) {
+        skipBlank();
+        if (text[i] === '}') {
+          i += 1;
+          return;
+        }
+        parseKey();
+        skipWs();
+        if (text[i] !== '=') return fail();
+        i += 1;
+        skipWs();
+        parseValue();
+        skipBlank();
+        if (text[i] === ',') i += 1;
+        else if (text[i] === '}') {
+          i += 1;
+          return;
+        } else return fail();
+      }
+    }
+    // A number, a boolean or a date: up to a separator, a comment or the line's end, less trailing space (a date may hold one).
+    const from = i;
+    while (i < n && !',]}#'.includes(text[i]!) && eolLen(i) === 0) i += 1;
+    while (i > from && isWs(text[i - 1])) i -= 1;
+    if (i === from) fail();
+  };
+
+  const entries: TopEntry[] = [];
+  let firstTable = -1;
+  while (i < n) {
+    const lineStart = i;
+    skipWs();
+    if (i >= n) break;
+    if (eolLen(i) > 0) {
+      i += eolLen(i);
+      continue;
+    }
+    if (text[i] === '#') {
+      toEol();
+      i += eolLen(i);
+      continue;
+    }
+    if (text[i] === '[') {
+      firstTable = lineStart;
+      break;
+    }
+    const path = parseKey();
+    skipWs();
+    if (text[i] !== '=') fail();
+    i += 1;
+    skipWs();
+    const valueStart = i;
+    parseValue();
+    const valueEnd = i;
+    skipWs();
+    if (text[i] === '#') toEol();
+    if (i < n && eolLen(i) === 0) fail();
+    i += eolLen(i);
+    entries.push({ path, lineStart, valueStart, valueEnd, end: i });
+  }
+  return { entries, firstTable };
+}
+
+/** The statement for a top-level `key` (or null), after the checks both edits make: the file reads, and no dotted key hides under it. */
+function locate(bytes: Uint8Array, text: string, key: string): { readonly before: Record<string, unknown>; readonly found: TopEntry | null; readonly scan: TopScan } {
+  const before = parseOrThrow(bytes);
+  let scan: TopScan;
+  try {
+    scan = scanTop(text);
+  } catch (e) {
+    if (e instanceof Unscannable) throw new ConfigNotReadableError('config.toml could not be read safely, so nothing was written; edit the file by hand');
+    throw e;
+  }
+  if (scan.entries.some((e) => e.path.length > 1 && e.path[0] === key)) {
+    throw new Error(`config.toml already defines a dotted key under '${key}'; edit it by hand`);
+  }
+  return { before, found: scan.entries.find((e) => e.path.length === 1 && e.path[0] === key) ?? null, scan };
+}
+
+function withBom(bytes: Uint8Array, hasBom: boolean): Uint8Array {
+  if (!hasBom) return bytes;
+  const out = new Uint8Array(bytes.length + 3);
+  out.set([0xef, 0xbb, 0xbf]);
+  out.set(bytes, 3);
+  return out;
+}
+
+/**
+ * Removes one top-level `key = value` statement, the whole of it (a multi-line string or array included), and not a byte else: every
+ * other line keeps its bytes and its own ending (W-12, the Settings page's reset). A key that is absent, or only inside a `[table]`,
+ * returns the input unchanged (the same bytes, not a copy of them). The statement's trailing comment goes with it: the line is the
+ * setting. Throws `ConfigNotReadableError` when the file is not valid TOML or the result would not read as the file did less the key
+ * (the edit is proved against the real parser), and an Error for a dotted key under the name, as `setTopLevelKey` does.
+ */
+export function removeTopLevelKey(bytes: Uint8Array, key: string): Uint8Array {
+  const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  const text = bytesToLatin1(hasBom ? bytes.subarray(3) : bytes);
+  const { before, found } = locate(bytes, text, key);
+  if (found === null) return bytes;
+  const out = withBom(latin1ToBytes(text.slice(0, found.lineStart) + text.slice(found.end)), hasBom);
+  verifyEdit(before, out, key, undefined);
+  return out;
+}
+
+/**
+ * Replaces or appends one top-level `key = value` line without touching any other byte: every other line keeps its bytes and its own
+ * ending, the edited statement keeps its indentation, key spelling and trailing comment, and a key inside a table, a multi-line string
+ * or an array is never taken for it. The result is proved against the real parser before it is returned (see `removeTopLevelKey`).
+ */
+export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string): Uint8Array {
+  const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  // Each byte becomes one char (latin1), so what the edit never touches is written back with exactly its bytes: no BOM stripped, no
+  // invalid UTF-8 turned into U+FFFD.
+  const text = bytesToLatin1(hasBom ? bytes.subarray(3) : bytes);
+  const { before, found, scan } = locate(bytes, text, key);
+  const value = bytesToLatin1(new TextEncoder().encode(tomlValue));
+  let out: string;
+  if (found !== null) out = text.slice(0, found.valueStart) + value + text.slice(found.valueEnd);
+  else {
+    const eol = detectEol(bytes);
+    const entry = `${key} = ${value}${eol}`;
+    if (scan.firstTable >= 0) out = text.slice(0, scan.firstTable) + entry + text.slice(scan.firstTable);
+    else out = text + (text !== '' && !/[\r\n]$/.test(text) ? eol : '') + entry;
+  }
+  const result = withBom(latin1ToBytes(out), hasBom);
+  let want: unknown;
+  try {
+    want = (parse(`k = ${tomlValue}`) as Record<string, unknown>).k;
+  } catch {
+    throw new Error(`${tomlValue} is not a TOML value`);
+  }
+  verifyEdit(before, result, key, { value: want });
+  return result;
 }

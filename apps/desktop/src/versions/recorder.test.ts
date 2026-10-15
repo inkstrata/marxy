@@ -475,7 +475,7 @@ test('a save whose copy hangs goes on after the bound, says the copy was not kep
   unhang();
   await h.recorder.settled();
   // The hung write itself may land (it was already under way); nothing after it does, and no version is added.
-  assert.ok(h.writes.length - writesBefore <= 1, 'nothing more is written once the keep was abandoned');
+  assert.equal(h.writes.length - writesBefore, 0, 'nothing is written once the keep was abandoned, not even a clean-up');
   assert.deepEqual(await h.reasons('/r/x.md'), ['read'], 'no late "before save" version appears');
 });
 
@@ -536,4 +536,44 @@ test('closing waits for queued copies at most the bound, and says so when it run
   assert.match(said[0]!, /closed before it finished keeping earlier versions/);
   unhang();
   await h.recorder.settled();
+});
+
+test('a keep refused because the manifest is damaged is said, with the reason, and nothing is written over it', async () => {
+  const h = harness({ '/r/x.md': 'one\n' });
+  const store = h.open('/r/x.md');
+  await h.recorder.settled();
+  const manifest = [...h.disk.keys()].find((p) => /^\/data\/versions-[0-9a-f]{40}\.json$/.test(p))!;
+  h.disk.set(manifest, enc('not json'));
+  const told = h.told.length;
+  await store.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'two', label: 'edit' });
+  assert.equal((await store.save()).result, 'saved');
+  assert.equal(h.told.length, told + 1, 'the refusal is said');
+  assert.match(h.told.at(-1)!, /could not keep a version of x\.md · the save went through/);
+  assert.ok(h.recorder.failure('/r/x.md'), 'the tab can say why');
+  assert.equal(dec(h.disk.get(manifest)!), 'not json', 'the damaged record is not replaced by keeping');
+});
+
+test('a keep the reader\'s policy declines (versions off, a large file) stays silent', async () => {
+  const h = harness({ '/r/x.md': 'one\n', '/config': '[reader]\nversions = false\n' });
+  const store = h.open('/r/x.md');
+  await h.recorder.settled();
+  await store.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'two', label: 'edit' });
+  await store.save();
+  assert.equal(h.told.length, 0);
+});
+
+test('a keep abandoned while its slot is being written leaves no later write behind: no manifest, no clean-up', async () => {
+  const h = harness({ '/r/x.md': 'one\n' }, false, 40);
+  const store = h.open('/r/x.md');
+  await h.recorder.settled();
+  await store.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'two', label: 'edit' });
+  await store.save(); // 'one' is already the newest version: no new slot
+  await store.apply({ range: { file: '/r/x.md', start: 0, end: 3 }, replacement: 'six', label: 'edit' });
+  const unhang = h.hang();
+  assert.equal((await store.save()).result, 'saved'); // 'two' needs a new slot, which hangs
+  const writesBefore = h.writes.length;
+  unhang();
+  await h.recorder.settled();
+  assert.equal(h.writes.length - writesBefore, 0, 'once not kept was said, nothing more is written');
+  assert.deepEqual(await h.reasons('/r/x.md'), ['read'], 'and no version appears afterwards');
 });

@@ -320,7 +320,8 @@ test('the theme chrome size is held to 11-26 px', async () => {
 
 test('the kind scope computes --marxy-measure where its own measure-chars apply; :root keeps the v1 declaration', () => {
   assert.match(tokensCss, /^\s*--marxy-measure:\s*calc\(var\(--marxy-measure-chars\) \* var\(--marxy-avg-char\) \* 1em\)/m);
-  assert.match(baseCss, /\[data-marxy-kind\]\s*\{[^}]*--marxy-measure:\s*calc\(var\(--marxy-measure-chars\) \* var\(--marxy-avg-char\) \* 1em\)/);
+  // A measure the reader wrote (--marxy-measure-user, W-12) beats the kind's own; unset, the kind's measure-chars stand.
+  assert.match(baseCss, /\[data-marxy-kind\]\s*\{[^}]*--marxy-measure:\s*calc\(var\(--marxy-measure-user, var\(--marxy-measure-chars\)\) \* var\(--marxy-avg-char\) \* 1em\)/);
 });
 
 test('a theme declaring 0.463 for a face that measures 0.52 warns once, naming theme, face and both numbers (H-06)', async () => {

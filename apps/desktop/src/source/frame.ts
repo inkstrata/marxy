@@ -36,6 +36,7 @@ import {
   strayReadout,
 } from './frame-facts.ts';
 import { ByteCursor } from './frame-bytes.ts';
+import { findNotes, notesLabel, pathCheckerFor } from './notes.ts';
 import { createRuler, type Ruler } from './ruler.ts';
 
 /** How much of the text the indentation is read from: the first quarter megabyte is what a file's style is. */
@@ -60,6 +61,8 @@ export interface SourceFrame {
   readonly extension: Extension;
   /** Called once the editor exists: reads it into the bars. */
   attach(view: EditorView): void;
+  /** The notes about the file, in order: where each is (an editor position) and what it says. */
+  notes(): readonly { readonly from: number; readonly words: string }[];
   /** The editor now holds this buffer (another file, or a reload): the facts of the bytes are read again. */
   bind(buffer: Buffer): void;
   destroy(): void;
@@ -79,7 +82,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string): H
 interface Mark {
   readonly from: number;
   readonly to: number;
-  readonly kind: 'invisible' | 'find';
+  readonly kind: 'invisible' | 'find' | 'note';
   readonly title: string;
 }
 
@@ -108,7 +111,10 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
   const readoutEl = el('span', 'marxy-source-readout');
   const selectionEl = el('span', 'marxy-source-selected');
   const characterEl = el('span', 'marxy-source-character');
-  bottom.append(readoutEl, selectionEl, characterEl);
+  // "2 notes", only when there are any (V-04).
+  const notesEl = el('span', 'marxy-source-notes');
+  notesEl.hidden = true;
+  bottom.append(readoutEl, selectionEl, characterEl, notesEl);
 
   const fact = (name: string): HTMLElement => {
     const node = el('span', 'marxy-source-fact');
@@ -257,6 +263,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
   let marks: Mark[] = [];
   let invisibleMarks: Mark[] = [];
   let findMarks: Mark[] = [];
+  let noteMarks: Mark[] = [];
   let scanToken = 0;
   let stripSignature = '';
 
@@ -285,7 +292,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
         const placed = new Map<number, { mark: Mark; step: number }>();
         marks.forEach((mark, i) => {
           const step = Math.round(fractions[i]! * STRIP_STEPS);
-          const key = step * 2 + (mark.kind === 'find' ? 1 : 0);
+          const key = step * 4 + (mark.kind === 'find' ? 1 : mark.kind === 'note' ? 2 : 0);
           // Two marks of one kind at one place are one mark; the first names it.
           if (!placed.has(key)) placed.set(key, { mark, step });
         });
@@ -295,7 +302,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
         stripSignature = signature;
         const frag = document.createDocumentFragment();
         for (const { mark, step } of placed.values()) {
-          const node = el('i', mark.kind === 'find' ? 'marxy-source-mark marxy-source-mark-find' : 'marxy-source-mark marxy-source-mark-invisible');
+          const node = el('i', `marxy-source-mark marxy-source-mark-${mark.kind === 'find' ? 'find' : mark.kind === 'note' ? 'note' : 'invisible'}`);
           node.style.top = `${(step / STRIP_STEPS) * 100}%`;
           node.title = mark.title;
           node.addEventListener('click', () => jumpTo(mark));
@@ -309,8 +316,9 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
   const jumpTo = (mark: Mark): void => {
     if (view === null) return;
     view.dispatch({
-      // The caret ends at the start, so the bottom bar names the character the mark is for.
-      selection: { anchor: mark.to, head: mark.from },
+      // The caret ends at the start, so the bottom bar names the character the mark is for. A note is a place, not a
+      // thing to select: the caret goes there and nothing is selected.
+      selection: mark.kind === 'note' ? { anchor: mark.from } : { anchor: mark.to, head: mark.from },
       effects: EditorView.scrollIntoView(mark.from, { y: 'center' }),
       userEvent: 'select',
     });
@@ -318,7 +326,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
   };
 
   const publishMarks = (): void => {
-    marks = [...invisibleMarks, ...findMarks];
+    marks = [...invisibleMarks, ...noteMarks, ...findMarks];
     layoutMarks();
   };
 
@@ -395,6 +403,32 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
     publishMarks();
   };
 
+  /** Notes (V-04): after the text is up, then again a moment after the text stops changing. */
+  let notesToken = 0;
+  const scanNotes = (state: EditorState): void => {
+    const token = ++notesToken;
+    const text = state.doc.toString();
+    void findNotes(text, { path: buffer.path, current: () => !destroyed && token === notesToken, checkPath: pathCheckerFor(buffer.path) }).then((found) => {
+      if (found === null || destroyed || token !== notesToken) return;
+      noteMarks = found.map((note) => ({ from: note.start, to: note.end, kind: 'note', title: note.words }));
+      if (noteMarks.length === 0) notesEl.hidden = true;
+      else {
+        notesEl.textContent = notesLabel(noteMarks.length);
+        notesEl.title = 'What Marxy noticed about this file; next and previous note are in the palette';
+        notesEl.hidden = false;
+      }
+      publishMarks();
+    });
+  };
+  let notesTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleNotes = (delay: number): void => {
+    if (notesTimer !== null) clearTimeout(notesTimer);
+    notesTimer = setTimeout(() => {
+      notesTimer = null;
+      if (!destroyed && view !== null) scanNotes(view.state);
+    }, delay);
+  };
+
   let marksTimer: ReturnType<typeof setTimeout> | null = null;
   const scheduleFind = (): void => {
     if (marksTimer !== null) clearTimeout(marksTimer);
@@ -440,6 +474,14 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
       bytesAt.map(u.changes, u.startState);
       scheduleIndent();
       scheduleInvisibles();
+      // A note stays on its text: its place moves with the edit (V-04.1). A scan under way was made of the old text, so it is dropped.
+      notesToken++;
+      if (noteMarks.length > 0) {
+        noteMarks = noteMarks.map((m) => ({ ...m, from: u.changes.mapPos(m.from, 1), to: u.changes.mapPos(m.to, -1) }));
+        noteMarks = noteMarks.map((m) => (m.to < m.from ? { ...m, to: m.from } : m));
+        publishMarks();
+      }
+      scheduleNotes(700);
     }
     schedule({ facts: u.docChanged || u.startState.tabSize !== u.state.tabSize, caret: u.docChanged || u.selectionSet });
     if (u.selectionSet || u.docChanged || u.viewportChanged || u.geometryChanged) ruler?.update();
@@ -455,6 +497,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
 
   return {
     body,
+    notes: () => noteMarks.map((m) => ({ from: m.from, words: m.title })),
     extension: EditorView.updateListener.of(onUpdate),
     attach(editor) {
       view = editor;
@@ -467,6 +510,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
       readCaret();
       ruler?.update();
       scanInvisibles(editor.state);
+      scheduleNotes(250);
     },
     bind(next) {
       if (destroyed) return;
@@ -479,11 +523,15 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
         return;
       }
       bytes = next.bytes.length;
+      // Another file's notes are not this one's: they go now, and the new file's come after its text.
+      noteMarks = [];
+      notesEl.hidden = true;
       renderPath();
       renderBufferFacts();
       if (view !== null) {
         readIndent(view.state);
         scanInvisibles(view.state);
+        scheduleNotes(250);
       }
       renderLiveFacts();
       schedule({ caret: true });
@@ -492,7 +540,8 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
       destroyed = true;
       scanToken++;
       if (frameId !== 0) cancelAnimationFrame(frameId);
-      for (const timer of [indentTimer, marksTimer, invisibleTimer]) if (timer !== null) clearTimeout(timer);
+      notesToken++;
+      for (const timer of [indentTimer, marksTimer, invisibleTimer, notesTimer]) if (timer !== null) clearTimeout(timer);
       ruler?.destroy();
       root.remove();
     },
