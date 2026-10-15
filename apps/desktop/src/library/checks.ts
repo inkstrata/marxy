@@ -31,6 +31,7 @@ import {
 } from '@marxy/core/src/index-model/near-dup.ts';
 import type { DupFacts } from '@marxy/core/src/index-model/query-eval.ts';
 import type { AppHandle } from '../app.ts';
+import { inferHomeFromConfig } from '../theme/user-theme.ts';
 import { MEASURE_READ_BYTES, type ReadHead } from './measure.ts';
 import { digestOnPage, workerDigest, type Digest } from './checks-digest.ts';
 
@@ -544,7 +545,7 @@ export function checksFor(handle: AppHandle): LibraryChecks {
     // The home folder as the Links tab finds it: from where the config lives.
     home: () =>
       (home ??= (handle.shell.configPaths?.() ?? Promise.resolve(null))
-        .then(async (p) => (p ? (await import('../theme/user-theme.ts')).inferHomeFromConfig(p.config) : null))
+        .then(async (p) => (p ? inferHomeFromConfig(p.config) : null))
         .catch(() => null)),
     rootOf: (entry) => handle.imageRoot(entry.path),
     digest: workerDigest(),

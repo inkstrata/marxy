@@ -17,6 +17,7 @@ import { blockKeys, keysAfterSwap, moveSectionDown, moveSectionUp, sectionSwapOf
 import type { Operation } from '@marxy/core';
 import { walk } from '@marxy/core/src/transforms/prose.ts';
 import type { AppHandle } from '../app.ts';
+import { writeCopy } from '../commands/copy-write.ts';
 import type { AppContext } from '../commands/registry.ts';
 import type { DocumentStore } from '../document/store.ts';
 import { notify } from '../notices/index.ts';
@@ -766,7 +767,6 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
     if (model === null) return;
     const text = outlineMarkdown(model.rows);
     if (text === '') return;
-    const { writeCopy } = await import('../commands/copy-write.ts');
     const context = {
       shell: handle.shell,
       closePalette() {},

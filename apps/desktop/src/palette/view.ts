@@ -9,6 +9,8 @@ import type { AppHandle, AppShell } from '../app.ts';
 import { setAppHandle, setPalette } from '../commands/app-handle.ts';
 import { commands, type Command } from '../commands/index.ts';
 import { withPaletteListing } from '../commands/navigation.ts';
+import { transformPreviewInput } from '../commands/transform.ts';
+import { checksFor } from '../library/checks.ts';
 import type { DocumentStore } from '../document/store.ts';
 import { appendInvisibleSegments } from '../render/invisibles-dom.ts';
 import {
@@ -1729,14 +1731,13 @@ export function mountPaletteFromHandle(
     focusOrigin: () => (panes && panes.panes.length > 1 ? focusOrigin(panes) : null),
     nearCopies: async (entry) => {
       // What the library's check already found (Q-06); the palette never starts it.
-      const { checksFor } = await import('../library/checks.ts');
       const checks = checksFor(handle);
       const run = checks.latestDup();
       if (run === null) return 0;
       if (facts?.run !== run || facts.threshold !== checks.threshold) facts = { run, threshold: checks.threshold, byPath: checks.dupFacts(run) };
       return facts.byPath.get(entry.path)?.copies.length ?? 0;
     },
-    transformInput: async () => (await import('../commands/transform.ts')).transformPreviewInput(buildAppContext()),
+    transformInput: async () => transformPreviewInput(buildAppContext()),
   });
   setPaletteCloser(() => controller.close());
   setPaletteOpener((query) => controller.open(query));
