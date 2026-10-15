@@ -431,6 +431,27 @@ test('a file of 3,000 columns draws the columns in view, not all of them: sort, 
     assert.equal(await writes(page), 0);
   }));
 
+test('a sort control keeps its focus when the table is scrolled sideways and its columns are drawn again', () =>
+  withPage(async (page) => {
+    await boot(page, '/r/wide.csv');
+    await run(page, 'data.table-lens');
+    await page.waitForSelector('.marxy-table-lens-grid tbody tr[data-record]');
+    await settled(page);
+    const lastDrawn = () => page.$$eval('.marxy-table-lens-grid thead th[data-col]', (ths) => ths.at(-1).dataset.col);
+    await page.$eval('.marxy-table-lens-grid thead th[data-col="1"] button', (b) => b.focus());
+    const before = await lastDrawn();
+    // Scroll a little at a time until the columns drawn change: the header is drawn again, and its buttons with it.
+    let changed = false;
+    for (let i = 0; i < 40 && !changed; i++) {
+      await page.$eval('.marxy-table-lens-scroll', (s) => { s.scrollLeft += 25; });
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      changed = (await lastDrawn()) !== before;
+    }
+    assert.ok(changed, 'the columns drawn changed on the sideways scroll');
+    assert.ok(await page.$('.marxy-table-lens-grid thead th[data-col="1"] button'), 'column 1 is still drawn');
+    assert.equal(await page.evaluate(() => document.activeElement?.closest('th')?.dataset.col ?? null), '1', 'focus stays on the sort control of column 1');
+  }));
+
 test('an unreadable row says how many lines after it its quote reached into, which are read as rows of their own', () =>
   withPage(async (page) => {
     await boot(page, '/r/unclosed.csv');

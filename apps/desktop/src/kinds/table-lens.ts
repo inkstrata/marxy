@@ -418,6 +418,8 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
   function drawHead(): void {
     win = colWindow();
     fitColgroup();
+    // The header is drawn again on a sideways scroll, which replaces its buttons: a sort control that had focus gets it back.
+    const focusedCol = thead.contains(document.activeElement) ? (document.activeElement as HTMLElement).closest('th')?.dataset.col : undefined;
     const tr = el('tr');
     tr.setAttribute('aria-rowindex', '1');
     const rn = el('th', 'marxy-table-lens-rn', '#');
@@ -447,6 +449,12 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     }
     if (win.last < columns) tr.append(hSpacer('th'));
     thead.replaceChildren(tr);
+    if (focusedCol !== undefined) {
+      const again = thead.querySelector<HTMLButtonElement>(`th[data-col="${focusedCol}"] button`);
+      // A column scrolled out of the window takes its focus to the grid, not to the page.
+      if (again) again.focus({ preventScroll: true });
+      else table.focus({ preventScroll: true });
+    }
     table.setAttribute('aria-colcount', String(columns + 1));
     drawFoot();
   }
