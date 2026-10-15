@@ -734,7 +734,7 @@ test('the empty palette shows its three labels in order, arrows skip labels, and
   }
 });
 
-test('typed results from a watched folder show the age and the mark; an unwatched folder shows neither (C-12)', async () => {
+test('typed results show the age and the path; only a watched folder adds the changed mark (C-12, W-13.1)', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -749,9 +749,13 @@ test('typed results from a watched folder show the age and the mark; an unwatche
     assert.deepEqual(await page.$$eval('#marxy-palette .marxy-palette-section', (els) => els.map((el) => el.textContent)), ['Files'], 'a typed list has the one label, Files');
     await page.fill('#marxy-palette .marxy-palette-query', 'far');
     const far = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
-      els.filter((el) => el.dataset.rowKey === '/far/far.md:doc').map((el) => [el.querySelector('.marxy-palette-age'), el.querySelector('.marxy-palette-changed')]),
+      els.filter((el) => el.dataset.rowKey === '/far/far.md:doc').map((el) => [el.querySelector('.marxy-palette-age')?.textContent ?? null, el.querySelector('.marxy-palette-changed')]),
     );
-    assert.deepEqual(far, [[null, null]]);
+    assert.equal(far.length, 1);
+    assert.ok(far[0][0] !== null && /^(now|\d+[mhdwy])$/.test(far[0][0]), 'an unwatched folder\'s row has its age too (mock-v2)');
+    assert.equal(far[0][1], null, 'and no changed mark: that needs a watched folder');
+    const subs = await page.$$eval('#marxy-palette .marxy-palette-row', (els) => els.map((el) => [el.dataset.rowKey, el.querySelector('.marxy-palette-sub').textContent]));
+    assert.deepEqual(subs.find(([key]) => key === '/far/far.md:doc'), ['/far/far.md:doc', 'far/far.md'], 'the path under the title, from the root\'s folder down');
   } finally {
     await browser.close();
   }
@@ -867,12 +871,12 @@ test('the field has its prompt, glyph and Esc button; the chips swap the prefix 
       };
     });
     assert.equal(shape.width, 860, 'the palette is 860 px wide in a window that holds it');
-    assert.ok(/type > for commands, \/ for content/.test(shape.placeholder), shape.placeholder);
+    assert.ok(/type > for commands, \/ for content, # headings, @ sections/.test(shape.placeholder), shape.placeholder);
     assert.equal(shape.name, 'Search files, commands and content');
     assert.equal(shape.role, 'combobox');
     assert.ok(shape.controls && shape.glyph && shape.order);
     assert.deepEqual([shape.escTag, shape.escName], ['BUTTON', 'Close palette']);
-    assert.deepEqual(shape.chips, [['Everything', 'true', 'button'], ['Commands>', 'false', 'button'], ['Headings', 'false', 'button'], ['Content/', 'false', 'button']]);
+    assert.deepEqual(shape.chips, [['Everything', 'true', 'button'], ['Commands>', 'false', 'button'], ['Headings here#', 'false', 'button'], ['Sections everywhere@', 'false', 'button'], ['Content search/', 'false', 'button']]);
     assert.ok(/open beside/.test(shape.footer) && /pin/.test(shape.footer) && /transforms/.test(shape.footer), shape.footer);
 
     const chip = (label) => page.locator('#marxy-palette .marxy-palette-mode', { hasText: label });
@@ -884,11 +888,17 @@ test('the field has its prompt, glyph and Esc button; the chips swap the prefix 
     await page.fill('#marxy-palette .marxy-palette-query', 'doc');
     await chip('Commands').click();
     assert.deepEqual(await state(), { query: '>doc', pressed: ['Commands'], focused: 'marxy-palette-query' });
-    await chip('Content').click();
+    await chip('Content search').click();
     assert.deepEqual((await state()).query, '/doc');
-    assert.deepEqual((await state()).pressed, ['Content']);
-    await chip('Headings').click();
-    assert.deepEqual(await state(), { query: 'doc', pressed: ['Headings'], focused: 'marxy-palette-query' });
+    assert.deepEqual((await state()).pressed, ['Content search']);
+    await chip('Headings here').click();
+    assert.deepEqual(await state(), { query: '#doc', pressed: ['Headings here'], focused: 'marxy-palette-query' });
+    await chip('Sections everywhere').click();
+    assert.deepEqual(await state(), { query: '@doc', pressed: ['Sections everywhere'], focused: 'marxy-palette-query' });
+    await page.fill('#marxy-palette .marxy-palette-query', '@doc');
+    assert.deepEqual((await state()).pressed, ['Sections everywhere'], 'typing the mark lights its tab');
+    await chip('Commands').click();
+    assert.deepEqual((await state()).query, '>doc', 'a tab swaps the prefix and keeps the words');
     await chip('Everything').click();
     assert.deepEqual((await state()).pressed, ['Everything']);
 

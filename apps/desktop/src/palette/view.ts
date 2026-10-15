@@ -608,20 +608,24 @@ function injectPaletteStyles(doc: Document): void {
 
 type PaletteOwnerDocument = Pick<Document, 'createElement' | 'getElementById' | 'head'>;
 
-/** Modes the chips offer. `prefix` is what the query starts with; Headings is the list section, not a prefix. */
+/**
+ * The tabs, one per prefix, as the mock draws them (mock-v2 04-palette: Everything, Commands >, Headings here #,
+ * Sections everywhere @, Content search /). `prefix` is what the query starts with. The mock's `~` and `:` tabs are not
+ * here: the app has no mode behind either, and a tab that does nothing would be a lie (the departure, W-13.1).
+ */
 interface ModeChip {
   readonly label: string;
-  readonly prefix: '' | '>' | '/' | null;
-  readonly headings?: true;
+  readonly prefix: '' | '>' | '#' | '@' | '/';
 }
 const MODE_CHIPS: readonly ModeChip[] = [
   { label: 'Everything', prefix: '' },
   { label: 'Commands', prefix: '>' },
-  { label: 'Headings', prefix: null, headings: true },
-  { label: 'Content', prefix: '/' },
+  { label: 'Headings here', prefix: '#' },
+  { label: 'Sections everywhere', prefix: '@' },
+  { label: 'Content search', prefix: '/' },
 ];
 
-const PROMPT = 'Search files, or type > for commands, / for content';
+const PROMPT = 'Search files, or type > for commands, / for content, # headings, @ sections';
 
 type FooterMode = 'files' | 'commands' | 'content';
 
@@ -905,6 +909,13 @@ function folderLine(entry: IndexEntry): string {
   return dir;
 }
 
+/** A document's path as the mock's rows show it, from its root's folder down: `repo/docs/guide.md` (W-13.1). */
+function pathLine(entry: IndexEntry): string {
+  const name = entry.path.slice(entry.path.lastIndexOf('/') + 1);
+  const folder = folderLine(entry);
+  return folder === '' ? name : `${folder}/${name}`;
+}
+
 function documentRow(
   doc: Document,
   hit: IndexHit,
@@ -936,8 +947,8 @@ function documentRow(
   const sub = doc.createElement('span') as HTMLSpanElement;
   sub.className = 'marxy-palette-sub';
   const folder = folderLine(hit.entry);
-  // The document is named under its heading, with the folder it is in.
-  sub.textContent = sectionRow ? (folder === '' ? hit.entry.title : `${hit.entry.title} · ${folder}`) : folder;
+  // The document is named under its heading, with the folder it is in; a file row shows its path (mock-v2).
+  sub.textContent = sectionRow ? (folder === '' ? hit.entry.title : `${hit.entry.title} · ${folder}`) : pathLine(hit.entry);
   text.append(title, sub);
   if (age === undefined) {
     row.replaceChildren(icon, text);
@@ -1207,11 +1218,8 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   const query = (text: string) =>
     queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), foldCopies(), feed.notice(), emptySections, contentState, suggested, deps.getCurrentPath());
   const decor: RowDecor = {
-    // Empty: every row has its age. Typed: only a document in a watched root does.
-    age: (hit) =>
-      model.phase === 'empty' || watched(hit.entry.root)
-        ? relativeAge(model.phase === 'empty' ? emptyNow : now(), hit.entry.mtimeMs) || undefined
-        : undefined,
+    // Every document row has its age (mock-v2: the modified time at the row's end). The changed mark is still only a watched root's.
+    age: (hit) => relativeAge(model.phase === 'empty' ? emptyNow : now(), hit.entry.mtimeMs) || undefined,
     changed: (hit) =>
       watched(hit.entry.root) && changedSinceRead(hit.entry, baselineMs(hit.entry.root), now()),
     headingFirst: () => model.sectionScope !== undefined,
@@ -1347,10 +1355,10 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       footerMode = mode;
       fillFooter(foot, document, isMacPlatform(), mode);
     }
-    const prefix = model.phase === 'operations' ? '>' : model.phase === 'content' ? '/' : '';
+    const prefix =
+      model.phase === 'operations' ? '>' : model.phase === 'content' ? '/' : model.sectionScope === 'here' ? '#' : model.sectionScope === 'everywhere' ? '@' : '';
     MODE_CHIPS.forEach((mode, i) => {
-      const on = mode.headings ? prefix === '' && section === 'headings' : mode.prefix === prefix && !(prefix === '' && section === 'headings');
-      chips[i]?.setAttribute('aria-pressed', String(on));
+      chips[i]?.setAttribute('aria-pressed', String(mode.prefix === prefix));
     });
   };
   const paintDocuments = () => {
@@ -1472,14 +1480,9 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     chip.addEventListener('click', () => {
       const mode = MODE_CHIPS[i]!;
       // The prefix is swapped and the words after it are kept (the mock: "clicking swaps the prefix and keeps the query").
-      const rest = input.value.replace(/^\s*[>/]\s?/, '');
-      if (mode.headings) {
-        section = 'headings';
-        input.value = rest;
-      } else {
-        section = 'documents';
-        input.value = `${mode.prefix}${rest}`;
-      }
+      const rest = input.value.replace(/^\s*[>/#@]\s?/, '');
+      section = 'documents';
+      input.value = `${mode.prefix}${rest}`;
       selected = 0;
       syncContent();
       repaint();
