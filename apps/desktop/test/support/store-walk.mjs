@@ -1419,9 +1419,11 @@ export const OPS = {
       const withSibling = [...tops.keys()].filter(sibling);
       const i = withSibling.length > 0 && d.chance(0.85) ? d.pick(withSibling) : d.int(tops.length);
       const at = `${action} of section ${i} of ${tops.length} in ${doc.path} (pane ${slot})`;
+      // The byte-order mark belongs to the file, not to a section: the first section begins after it (F-112), so a move
+      // down of section 0 leaves the three bytes where they were.
       const lineStart = (byte) => {
         let p = byte;
-        while (p > 0 && before[p - 1] !== 0x0a && before[p - 1] !== 0x0d) p--;
+        while (p > bomLength(before) && before[p - 1] !== 0x0a && before[p - 1] !== 0x0d) p--;
         return p;
       };
       const startOf = (n) => lineStart(tops[n].src.start);
