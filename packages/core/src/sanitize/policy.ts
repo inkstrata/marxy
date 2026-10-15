@@ -124,6 +124,7 @@ export const CLOBBERING_IDENTIFIER_NAMES: ReadonlySet<string> = new Set([
 export const RENDERER_CLASSES_WITHOUT_PROVENANCE: ReadonlySet<string> = new Set([
   'marxy-footnotes',
   'marxy-footnote-back',
+  'marxy-diagram-caption',
 ]);
 const SMALL_INTEGER = /^[0-9]{1,9}$/;
 /** `ol start` and `li value`: one optional ASCII `-`, then up to nine ASCII digits. No `+`, unit, exponent or expression. */
@@ -375,6 +376,10 @@ export function withProvenance(
     const p = elements.p;
     if (p !== undefined) elements.p = { ...p, attributes: { ...p.attributes, [names.emphasis]: EMPHASIS_WHOLE } };
   }
+  // The diagram caption's class (F-96), in the renderer's pass only: a document's own `<p class>` is refused in
+  // the island pass, which runs under the policy without this rule, as `marxy-footnotes` is.
+  const captioned = elements.p;
+  if (captioned !== undefined) elements.p = { ...captioned, attributes: { ...captioned.attributes, class: { kind: 'tokens', token: CLASS_TOKEN } } };
   return {
     ...policy,
     name: `${policy.name}+provenance`,
