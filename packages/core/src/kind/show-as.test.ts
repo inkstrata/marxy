@@ -17,6 +17,7 @@ import {
   quarantinePathFor,
   serializeKindsFile,
   setShowAs,
+  ruleReadFor,
   showAsFor,
 } from './show-as.ts';
 import type { KindsEnvelope } from './show-as.ts';
@@ -170,4 +171,13 @@ test('folderKindGlob writes the folder\'s tree with the home folder as ~', () =>
   assert.equal(folderKindGlob('/Users/iana/x/', '/Users/ian'), '/Users/iana/x/**');
   assert.equal(folderKindGlob('/srv/logs', '/'), '/srv/logs/**');
   assert.equal(folderKindGlob('/', '/Users/ian'), '/**');
+});
+
+test("a rule's read is the first matching rule's, matched as its kind is (K-12: a JSONL session opens in Read by a rule)", () => {
+  assert.equal(ruleReadFor(JSONL, RULES), true, 'the transcript rule says read');
+  assert.equal(ruleReadFor('/Users/ian/.claude/settings.json', RULES), undefined, 'the second rule matches and says nothing');
+  assert.equal(ruleReadFor('/elsewhere/a.jsonl', RULES), undefined, 'no rule matches');
+  assert.equal(ruleReadFor(JSONL.toUpperCase(), RULES), true, 'case folded as for the kind');
+  assert.equal(ruleReadFor(JSONL, [{ glob: '/Users/ian/**', is: 'nonsense', read: false }, ...RULES]), true, 'a rule naming no kind is skipped');
+  assert.equal(ruleReadFor(JSONL, [{ glob: '/Users/ian/**', is: 'data', read: false }, ...RULES]), false, 'the first match wins');
 });

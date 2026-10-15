@@ -135,3 +135,13 @@ a field; empty fields; a short row and a long one (ragged); a byte after a closi
 blank line; a bidi control (U+202E) and a zero-width space inside a quoted field; a space before a quote (` "spaced"`,
 verbatim); an unclosed quote on a line of its own, with a well-formed row after it; and cells a spreadsheet would run
 (`=SUM(…)`, `+cmd`, `@risk`) next to a plain `-5`. Every name and number is invented.
+
+## 40-session.jsonl
+
+Original data written for K-12: an agent session log, one JSON object per line, in the shape Claude Code writes (a `type`, a
+`message` with a `role` and `content` blocks, and the bookkeeping fields around them). The conversation is the mock's
+`indexer-chat`: three prompts and the agent's replies, a thinking block, a `Bash` call whose result is three lines later with a
+bookkeeping snapshot and a system line between, an `Edit` call and its result, an escaped U+202E and U+200B in a reply, an ANSI
+escape in tool output, a lone surrogate (`\ud800`) in a prompt, a summary line, a record of a type the deriver does not know, a
+line that is not JSON (a bad escape), a blank line, and an unfinished last line with no newline. The file is ASCII; the session
+id, model name, cost, token counts and times are invented and are what the derived goldens show are never read.

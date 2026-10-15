@@ -124,7 +124,8 @@ function isTextFamily(name: string, ext: string): boolean {
   return ext === '' && TEXT_NAMES.includes(name.toLowerCase());
 }
 
-function globToRegExp(glob: string): RegExp {
+/** A `[[kind]]` glob as a whole-path pattern: `**` any folders, `*` and `?` within one name. */
+export function globToRegExp(glob: string): RegExp {
   let out = '';
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i]!;

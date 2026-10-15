@@ -101,3 +101,11 @@ a field; empty fields; a short row and a long one (ragged); a byte after a closi
 blank line; a bidi control (U+202E) and a zero-width space inside a quoted field; a space before a quote (<code data-marxy-s="8883" data-marxy-e="8894"> "spaced"</code>,
 verbatim); an unclosed quote on a line of its own, with a well-formed row after it; and cells a spreadsheet would run
 (<code data-marxy-s="9015" data-marxy-e="9026">=SUM(…)</code>, <code data-marxy-s="9028" data-marxy-e="9034">+cmd</code>, <code data-marxy-s="9036" data-marxy-e="9043">@risk</code>) next to a plain <code data-marxy-s="9061" data-marxy-e="9065">-5</code>. Every name and number is invented.</p>
+<h2 data-marxy-s="9103" data-marxy-e="9122">40-session.jsonl</h2>
+<p data-marxy-s="9124" data-marxy-e="9990">Original data written for K-12: an agent session log, one JSON object per line, in the shape Claude Code writes (a <code data-marxy-s="9239" data-marxy-e="9245">type</code>, a
+<code data-marxy-s="9249" data-marxy-e="9258">message</code> with a <code data-marxy-s="9266" data-marxy-e="9272">role</code> and <code data-marxy-s="9277" data-marxy-e="9286">content</code> blocks, and the bookkeeping fields around them). The conversation is the mock’s
+<code data-marxy-s="9367" data-marxy-e="9381">indexer-chat</code>: three prompts and the agent’s replies, a thinking block, a <code data-marxy-s="9442" data-marxy-e="9448">Bash</code> call whose result is three lines later with a
+bookkeeping snapshot and a system line between, an <code data-marxy-s="9546" data-marxy-e="9552">Edit</code> call and its result, an escaped U+202E and U+200B in a reply, an ANSI
+escape in tool output, a lone surrogate (<code data-marxy-s="9664" data-marxy-e="9672">\ud800</code>) in a prompt, a summary line, a record of a type the deriver does not know, a
+line that is not JSON (a bad escape), a blank line, and an unfinished last line with no newline. The file is ASCII; the session
+id, model name, cost, token counts and times are invented and are what the derived goldens show are never read.</p>

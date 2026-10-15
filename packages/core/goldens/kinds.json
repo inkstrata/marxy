@@ -542,6 +542,25 @@
       }
     ]
   },
+  "40-session.jsonl": {
+    "kind": "transcript",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .jsonl",
+        "kind": "data",
+        "at": "40-session.jsonl",
+        "decisive": false
+      },
+      {
+        "tier": 4,
+        "signal": "JSONL lines are objects with a role or message type",
+        "kind": "transcript",
+        "at": "line 2",
+        "decisive": true
+      }
+    ]
+  },
   "README.md": {
     "kind": "readme",
     "reasons": [
