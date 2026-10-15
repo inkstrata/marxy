@@ -416,3 +416,59 @@ test('the first draw of the tab for a document of 5,000 headings is recorded bes
   console.log(`Outline tab first draw: ${JSON.stringify(record)} (recorded, ADR-0032)`);
   assert.ok(record['5,000'].rows <= 200 && record['50'].rows > 0, 'the measurement happened');
 });
+
+// W-10.3: a relist after an edit redraws only the rows that changed. The count is of DOM operations (a MutationObserver's records
+// over the tab), not milliseconds: time flakes under load, an operation count does not. The times are recorded beside it (ADR-0032).
+async function relistOnce(page, replacement) {
+  return page.evaluate(async (text) => {
+    const store = window.__marxyHandle.document();
+    const raf = () => new Promise((r) => requestAnimationFrame(r));
+    const seen = { records: 0, added: 0, removed: 0 };
+    let drawStart = 0, drawMs = 0;
+    const observer = new MutationObserver((list) => {
+      if (drawStart > 0) drawMs = performance.now() - drawStart;
+      for (const m of list) { seen.records++; seen.added += m.addedNodes.length; seen.removed += m.removedNodes.length; (seen.kinds ??= {})[m.type + ':' + (m.attributeName ?? '')] = ((seen.kinds ??= {})[m.type + ':' + (m.attributeName ?? '')] ?? 0) + 1; }
+    });
+    // The draw alone: a listener on the store ahead of the tab's (the tab is mounted again after it) starts the clock, and the last
+    // mutation record, delivered when the draw's script ends, stops it.
+    const { selectInspectorTab } = await import('/src/workspace/inspector.ts');
+    selectInspectorTab('links');
+    await raf();
+    const offA = store.subscribe(() => { if (drawStart === 0) drawStart = performance.now(); });
+    selectInspectorTab('outline');
+    while (!document.querySelector('.marxy-outline-list [data-marxy-outline-row]')) await raf();
+    const body = document.querySelector('.marxy-outline');
+    observer.observe(body, { subtree: true, childList: true, attributes: true, characterData: true });
+    const scroller = (() => { let n = body; while (n && !['auto', 'scroll'].includes(getComputedStyle(n).overflowY)) n = n.parentElement; return n; })();
+    const top = scroller?.scrollTop ?? 0;
+    document.querySelector('[data-marxy-outline-row="heading"]').focus();
+    const t0 = performance.now();
+    await store.apply({ range: { file: store.snapshot().path ?? '/r/Ref5k.md', start: 2, end: 2 }, replacement: text, label: 'edit' });
+    while (document.querySelector('[data-marxy-outline-row="heading"] .marxy-outline-text')?.textContent.startsWith(text) !== true) await raf();
+    const ms = performance.now() - t0;
+    await raf(); await raf();
+    observer.disconnect(); offA();
+    return { ...seen, ms: Math.round(ms), drawMs: Math.round(drawMs * 10) / 10, stillFocused: document.activeElement?.hasAttribute('data-marxy-outline-row') ?? false, scrollTop: scroller?.scrollTop ?? 0, top, headings: document.querySelector('.marxy-outline-count').textContent };
+  }, replacement);
+}
+
+test('a relist after a one-heading edit at 5,000 headings writes only the rows that changed, keeping focus and scroll (W-10.3)', async () => {
+  await withPage(async (page) => {
+    const rows0 = await page.evaluate(() => document.querySelectorAll('.marxy-outline-item').length);
+    const runs = [];
+    for (const word of ['Aaa ', 'Bbb ', 'Ccc ']) runs.push(await relistOnce(page, word));
+    console.log(`Outline relist after a one-heading edit, 5,000 headings: ${JSON.stringify(runs)} (recorded, ADR-0032)`);
+    for (const run of runs) {
+      // Before W-10.3 the whole list was rebuilt: every drawn row removed and made again (hundreds of operations, a node per row).
+      assert.ok(run.added <= 3, `${run.added} nodes added`);
+      assert.ok(run.removed <= 3, `${run.removed} nodes removed`);
+      // An insert at the top moves every row after it in the file: one attribute each; nothing else is written (288 records before).
+      assert.ok(run.records <= rows0 + 10, `${run.records} DOM operations for ${rows0} drawn rows: ${JSON.stringify(run.kinds)}`);
+      assert.equal(run.stillFocused, true, 'a row kept focus');
+      assert.equal(run.scrollTop, run.top, 'the scroll position did not move');
+    }
+    const rows = await rowsOf(page);
+    assert.equal(rows.length, rows0);
+    assert.equal(rows[0].text.startsWith('Ccc Bbb Aaa'), true);
+  }, { open: ['/r/Ref5k.md'] });
+});
