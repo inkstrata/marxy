@@ -24,7 +24,7 @@ import { emptySession, type PaletteSession } from './palette/session.ts';
 import type { PieceSource } from './frontispiece/pieces.ts';
 import { splitRefusal } from './pane/fit.ts';
 import { createPanes, type AppPanes } from './pane/index.ts';
-import { installWorkspaceFills } from './workspace/fill.ts';
+import { installWorkspaceFills, loadPanels } from './workspace/fill.ts';
 import { createWorkspace, workspaceStoreFor } from './workspace/state.ts';
 import type { AppHandle, AppShell } from './app-types.ts';
 
@@ -183,6 +183,7 @@ export async function startApp(
     main: first.host.parentElement ?? document.body,
     store: workspaceStoreFor(shell),
     windowWidth: () => window.innerWidth,
+    ready: loadPanels,
   });
   const offPaneMode = followPaneModes(panes);
   // The open document is the focused pane's; with one pane that is the first pane, as it always was.

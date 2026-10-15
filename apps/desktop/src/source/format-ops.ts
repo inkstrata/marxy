@@ -11,8 +11,7 @@
 // Nothing here imports CodeMirror, so the command table can name it without the editor's code (MARXY-33); the glue that
 // dispatches an outcome (`runFormat`) loads CodeMirror when it runs.
 
-import { fileTypeOf } from '@marxy/core/src/index-model/file-types.ts';
-import { isUntitled } from '../document/untitled.ts';
+import { formatsPath } from './formats-path.ts';
 
 /** The wraps: palette and keys name them by these. */
 export type WrapKind = 'bold' | 'italic' | 'code' | 'strike' | 'link';
@@ -38,10 +37,7 @@ export interface FormatEdit {
 
 export type FormatOutcome = { readonly edit: FormatEdit } | { readonly declined: Decline };
 
-/** Formatting is Markdown's: a Markdown file or a scratch document (which is Markdown until it is named). */
-export function formatsPath(path: string): boolean {
-  return isUntitled(path) || fileTypeOf(path)?.kind === 'markdown';
-}
+export { formatsPath };
 
 /** Each kind's markers: the first is the one written, the second is written when the text already holds the first, and either is taken off. */
 const MARKS = { bold: ['**', '__'], italic: ['*', '_'], code: ['`'], strike: ['~~'] } as const;

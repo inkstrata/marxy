@@ -3,7 +3,7 @@
 import { startApp, type AppHandle, type AppShell } from './app.ts';
 import { startCollection, type CollectionHandle } from './collection/load.ts';
 import { keepFresh, type TreeWatchHandle } from './collection/watch.ts';
-import { mountPaletteFromHandle, type PaletteController } from './palette/view.ts';
+import type { PaletteController } from './palette/view.ts';
 import { mountNativeMenu } from './menu/menu-boot.ts';
 import { shell } from './shell/tauri.ts';
 
@@ -11,6 +11,8 @@ export type BootHandle = AppHandle & { readonly palette: PaletteController; read
 
 export async function bootApplication(appShell: AppShell, opts?: { argv?: readonly string[] }): Promise<BootHandle> {
   const handle = await startApp(appShell, opts);
+  // The palette is summoned, never at first text: its code is its own chunk, read once the document is up (F-111).
+  const { mountPaletteFromHandle } = await import('./palette/view.ts');
   const palette = mountPaletteFromHandle(handle, { initialPath: opts?.argv?.find((a) => !a.startsWith('-')) ?? null });
   handle.setPaletteSession(() => palette.session);
   // Every root the index walks, for the whole session; a watch event patches only its rows (A-04, C-11).

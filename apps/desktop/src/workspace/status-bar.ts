@@ -39,7 +39,7 @@ import {
   statusItems,
   themeLabel,
 } from './status-facts.ts';
-import type { DocumentSignal } from './toolbar.ts';
+import type { DocumentSignal } from './document-signal.ts';
 
 // ---- the mount ---------------------------------------------------------------------------------------------------------
 
