@@ -173,7 +173,8 @@ test('activating a tab whose name is short and whole moves no other tab either (
     await page.mouse.move(5, 400);
     const rest = await lefts(page);
     const widths = (await measure(page)).tabs.map((t) => t.tab.width);
-    assert.ok(widths.every((w) => w < 180), 'the names fit whole');
+    // Under the tab's 220px ceiling: a tab now keeps room for its dirty dot (F-99.1), so these are a little wider than they were.
+    assert.ok(widths.every((w) => w < 220), 'the names fit whole');
     for (const p of short) {
       await page.evaluate((p) => window.__marxyHandle.open(p), p);
       await page.evaluate(() => new Promise((r) => setTimeout(r, 120)));

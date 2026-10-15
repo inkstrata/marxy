@@ -116,6 +116,18 @@ test('a scratch document renders, toggles a task in one undo step, and writes an
     assert.match((await noticeText(page)).join('|'), /Opened as a new document \(not saved\)/);
   }, { argv: [] }));
 
+// F-108: "Untitled is Markdown" in one meaning: the kind chip, the Source gutter and the wrap agree, whatever was typed.
+test('an Untitled holding code-looking text is Markdown: the chip says article, as for a .md, and Source has no line numbers', () =>
+  withPage(async (page) => {
+    await openScratch(page, 'fn main() {\n    println!("hi");\n}\n');
+    await page.waitForFunction(() => window.__h.panes().focused.kind() !== null);
+    // What a saved .md is: an article (the kind the chip names), not code.
+    assert.equal(await page.evaluate(() => window.__h.panes().focused.kind()), 'article');
+    await page.evaluate(() => window.__h.toggleMode());
+    await page.waitForSelector('#marxy-source .cm-editor');
+    assert.equal(await page.evaluate(() => document.querySelector('#marxy-source .cm-lineNumbers') !== null), false, 'no gutter, as a saved .md has none');
+  }, { argv: [] }));
+
 test('the window title says Untitled, with a dot once it is changed', () =>
   withPage(async (page) => {
     await openScratch(page);

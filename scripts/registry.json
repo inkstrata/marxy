@@ -82,6 +82,8 @@
     "data-marxy-tab-tip",
     "data-marxy-tab-path",
     "data-marxy-text",
+    "data-marxy-head",
+    "data-marxy-tail",
     "data-marxy-inspector-tab",
     "data-marxy-inspector-tab-active",
     "data-marxy-link-row",
