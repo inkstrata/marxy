@@ -28,7 +28,24 @@ const STYLE_TAG_RE = /createElement\s*\(\s*['"]style['"]\s*\)/;
 // CodeMirror creates its own <style> elements (style-mod), which the release policy refuses unless they carry the page's
 // style nonce (F-98): `baseExtensions` installs `EditorView.cspNonce`, so a mount must go through it or install its own.
 const EDITOR_MOUNT_RE = /new\s+EditorView\s*\(/;
+const BASE_EXTENSIONS_CALL_RE = /baseExtensions\s*\(/;
 const BASE_EXTENSIONS_DEF_RE = /function\s+baseExtensions\s*\(/;
+const CSP_NONCE_USE_RE = /EditorView\.cspNonce/;
+
+function countMatches(re, text) {
+  return [...text.matchAll(new RegExp(re.source, 'g'))].length;
+}
+
+/**
+ * Per file (F-98.1): every `new EditorView(` must be paired with a nonce source, a `baseExtensions(` call (the definition
+ * is not a call) or an `EditorView.cspNonce` use. A second mount beside one baseExtensions call is refused.
+ */
+export function editorMountProblem(text) {
+  const mounts = countMatches(EDITOR_MOUNT_RE, text);
+  const nonceSources =
+    countMatches(BASE_EXTENSIONS_CALL_RE, text) - countMatches(BASE_EXTENSIONS_DEF_RE, text) + countMatches(CSP_NONCE_USE_RE, text);
+  return mounts > nonceSources;
+}
 
 export function parseCspString(csp) {
   const directives = new Map();
@@ -60,7 +77,7 @@ export function runtimeStyleProblems(sources) {
     if (STYLE_TAG_RE.test(text)) {
       problems.push(`${rel}: runtime code creates a <style> element${fix('use adoptRuntimeSheet / adoptedStyleSheets instead')}`);
     }
-    if (EDITOR_MOUNT_RE.test(text) && !/cspNonce|baseExtensions\s*\(/.test(text)) {
+    if (editorMountProblem(text)) {
       problems.push(`${rel}: builds an EditorView without a style nonce, so CodeMirror's <style> is refused in a release build${fix('take the extensions from baseExtensions (source/editor.ts), or add EditorView.cspNonce.of(pageStyleNonce())')}`);
     }
     if (BASE_EXTENSIONS_DEF_RE.test(text) && !/EditorView\.cspNonce/.test(text)) {
