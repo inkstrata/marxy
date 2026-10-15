@@ -307,3 +307,29 @@ test('a Source pane given back on the right comes back at the place it was left'
     assert.ok(Math.abs((await place(page, 1)) - at) < 120, `place ${at} -> ${await place(page, 1)}`);
   });
 });
+
+test('a Source pane that survives a narrowing keeps its mode and place when the window widens again', async () => {
+  await withPage(['/r/A.md', '/r/B.md'], async (page) => {
+    // The right pane is focused, so it is the one that stays; the left one is given up.
+    await page.evaluate(() => { const s = window.__marxyHandle.panes(); s.focus(s.panes[1]); });
+    await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.setMode('source'));
+    await page.evaluate(() => {
+      const sc = window.__marxyHandle.panes().panes[1].host.querySelector('.cm-scroller');
+      sc.scrollTop = sc.scrollHeight * 0.37;
+    });
+    await page.waitForTimeout(400);
+    const at = await place(page, 1);
+    assert.ok(at > 300, `B is read part way: ${at}`);
+    await narrow(page);
+    await count(page, 1);
+    assert.deepEqual(await paths(page), ['/r/B.md']);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[0].view.mode), 'source', 'B is still in Source while narrowed');
+    assert.ok(Math.abs((await place(page, 0)) - at) < 120, `place while narrowed ${at} -> ${await place(page, 0)}`);
+    await narrow(page, 1920);
+    await count(page, 2);
+    await page.waitForTimeout(600);
+    assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md']);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.mode), 'source', 'B is still in Source once widened');
+    assert.ok(Math.abs((await place(page, 1)) - at) < 120, `place ${at} -> ${await place(page, 1)}`);
+  });
+});
