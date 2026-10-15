@@ -722,7 +722,8 @@ function ensurePaletteStructure(
     const chip = owner.createElement('button') as HTMLButtonElement;
     chip.type = 'button';
     chip.className = 'marxy-palette-mode';
-    chip.tabIndex = -1;
+    // One tab stop for the group, on the chosen mode (roving; `syncChips` moves it): arrows walk the rest (W-13.2).
+    chip.tabIndex = mode.prefix === '' ? 0 : -1;
     chip.setAttribute('aria-pressed', 'false');
     chip.append(mode.label);
     if (mode.prefix) {
@@ -1363,6 +1364,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       model.phase === 'operations' ? '>' : model.phase === 'content' ? '/' : model.sectionScope === 'here' ? '#' : model.sectionScope === 'everywhere' ? '@' : '';
     MODE_CHIPS.forEach((mode, i) => {
       chips[i]?.setAttribute('aria-pressed', String(mode.prefix === prefix));
+      if (chips[i]) chips[i]!.tabIndex = mode.prefix === prefix ? 0 : -1;
     });
   };
   const paintDocuments = () => {
@@ -1480,7 +1482,28 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   });
 
   esc.addEventListener('click', () => dismiss());
+  // The mode buttons as a toolbar of modes: arrows and Home/End walk them, Tab and Shift+Tab hand focus back to the
+  // field, and Enter or Space (a button's own click) chooses and returns focus to the field (W-13.2).
   chips.forEach((chip, i) => {
+    chip.addEventListener('keydown', (event) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      let to: number | undefined;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') to = (i + 1) % chips.length;
+      else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') to = (i + chips.length - 1) % chips.length;
+      else if (event.key === 'Home') to = 0;
+      else if (event.key === 'End') to = chips.length - 1;
+      if (to !== undefined) {
+        event.preventDefault();
+        event.stopPropagation();
+        chips.forEach((other, j) => {
+          other.tabIndex = j === to ? 0 : -1;
+        });
+        chips[to]!.focus();
+      } else if (event.key === 'Tab') {
+        event.preventDefault();
+        input.focus();
+      }
+    });
     chip.addEventListener('click', () => {
       const mode = MODE_CHIPS[i]!;
       // The prefix is swapped and the words after it are kept (the mock: "clicking swaps the prefix and keeps the query").
@@ -1579,6 +1602,11 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     }
     if (event.key === 'Tab') {
       event.preventDefault();
+      // Shift+Tab leaves the field for the mode buttons, onto the chosen one (W-13.2); Tab alone switches the list section.
+      if (event.shiftKey) {
+        (chips.find((chip) => chip.tabIndex === 0) ?? chips[0])?.focus();
+        return;
+      }
       if (model.phase === 'content') return;
       section = toggleListSection(section, model.phase);
       selected = 0;

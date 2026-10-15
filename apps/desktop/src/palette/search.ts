@@ -23,8 +23,15 @@ interface MutablePreparedIndex {
   version: number;
   /** path -> index into `rows`. */
   byPath: Map<string, number>;
-  /** Every heading of every row, flat, so `@` walks one array and not documents (W-13.1). Refs of a replaced or dropped row stay until compaction, marked dead. */
-  heads: HeadingRef[];
+  /**
+   * Every heading of every row, flat, so `@` walks one array and not documents (W-13.1, W-13.2): the rows that were
+   * prepared, in order (`slots`), where each one's headings start in `masks` (`slotStart`, with `headCount` as its end),
+   * and one character mask per heading. No object per heading. A replaced or dropped row stays until compaction, marked dead.
+   */
+  slots: PreparedRow[];
+  slotStart: Uint32Array;
+  masks: Uint32Array;
+  headCount: number;
   deadHeads: number;
 }
 
@@ -37,16 +44,8 @@ interface PreparedRow {
   readonly title: string;
   readonly path: string;
   readonly headings: readonly string[];
-  /** Per heading, the characters it holds as bits (a hash of the code unit): a needle whose bits are not all there cannot match, and no string is scanned to learn it. */
-  readonly masks: Uint32Array;
   /** False once the row was replaced or dropped; its refs in the heading index are skipped. */
   live: boolean;
-}
-
-interface HeadingRef {
-  readonly row: PreparedRow;
-  readonly i: number;
-  readonly mask: number;
 }
 
 function charMask(text: string): number {
@@ -55,19 +54,55 @@ function charMask(text: string): number {
   return mask;
 }
 
+function grown(old: Uint32Array, need: number): Uint32Array {
+  if (need <= old.length) return old;
+  const next = new Uint32Array(Math.max(need, old.length * 2, 16));
+  next.set(old);
+  return next;
+}
+
+/** Per heading, the characters it holds as bits (a hash of the code unit): a needle whose bits are not all there cannot match, and no string is scanned to learn it. */
 function addHeads(index: MutablePreparedIndex, row: PreparedRow): void {
-  for (let i = 0; i < row.headings.length; i++) index.heads.push({ row, i, mask: row.masks[i]! });
+  const slot = index.slots.length;
+  index.slotStart = grown(index.slotStart, slot + 2);
+  index.masks = grown(index.masks, index.headCount + row.headings.length);
+  index.slotStart[slot] = index.headCount;
+  for (let i = 0; i < row.headings.length; i++) index.masks[index.headCount + i] = charMask(row.headings[i]!);
+  index.slots.push(row);
+  index.headCount += row.headings.length;
+  index.slotStart[slot + 1] = index.headCount;
+}
+
+/** The slot whose headings hold position `k`. */
+function slotOf(index: MutablePreparedIndex, k: number): number {
+  let lo = 0;
+  let hi = index.slots.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >>> 1;
+    if (index.slotStart[mid]! <= k) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
 }
 
 function dropHeads(index: MutablePreparedIndex, row: PreparedRow): void {
   if (!row.live) return;
   row.live = false;
   index.deadHeads += row.headings.length;
-  // A replaced file leaves refs behind; once they outnumber the live ones the array is rebuilt, so it never grows without bound.
-  if (index.deadHeads > 1024 && index.deadHeads * 2 > index.heads.length) {
-    index.heads = index.heads.filter((ref) => ref.row.live);
+  // A replaced file leaves headings behind; once they outnumber the live ones the arrays are rebuilt, so they never grow without bound.
+  if (index.deadHeads > 1024 && index.deadHeads * 2 > index.headCount) {
+    const live = index.slots.filter((slot) => slot.live);
+    index.slots = [];
+    index.headCount = 0;
     index.deadHeads = 0;
+    for (const slot of live) addHeads(index, slot);
   }
+}
+
+/** For tests (W-13.2): the shape of the heading index, to show it holds typed arrays and one slot per row, not one object per heading. */
+export function headingIndexShape(prepared: PreparedIndex): { slots: number; headings: number; masks: Uint32Array; slotStart: Uint32Array } {
+  const index = prepared as MutablePreparedIndex;
+  return { slots: index.slots.length, headings: index.headCount, masks: index.masks, slotStart: index.slotStart };
 }
 
 function prepareRow(entry: IndexEntry, readAt?: Readonly<Record<string, number>>): PreparedRow {
@@ -76,11 +111,8 @@ function prepareRow(entry: IndexEntry, readAt?: Readonly<Record<string, number>>
   for (const heading of entry.headings) headings.push(heading.text.normalize('NFC').toLowerCase());
   // The session's read time rides on the prepared row's entry, so scoring and the tie-break
   // read one value and a keystroke does no lookup. Entries nobody has read are passed through.
-  const masks = new Uint32Array(headings.length);
-  for (let i = 0; i < headings.length; i++) masks[i] = charMask(headings[i]!);
   const read = readAt?.[entry.path];
   return {
-    masks,
     live: true,
     entry: read === undefined ? entry : { ...entry, lastReadMs: read },
     title: entry.title.normalize('NFC').toLowerCase(),
@@ -100,7 +132,7 @@ export function prepareIndex(
     byPath.set(entry.path, rows.length);
     rows.push(prepareRow(entry, readAt));
   }
-  const prepared: MutablePreparedIndex = { rows, version: 0, byPath, heads: [], deadHeads: 0 };
+  const prepared: MutablePreparedIndex = { rows, version: 0, byPath, slots: [], slotStart: new Uint32Array(0), masks: new Uint32Array(0), headCount: 0, deadHeads: 0 };
   for (const row of rows) addHeads(prepared, row);
   return prepared;
 }
@@ -283,18 +315,26 @@ export function sectionResults(
     const cached = sectionCache.get(prepared);
     const from = cached !== undefined && cached.version === prepared.version && needle.startsWith(cached.needle) ? cached.found : undefined;
     const found: number[] = [];
-    const count = from === undefined ? index.heads.length : from.length;
+    const count = from === undefined ? index.headCount : from.length;
+    let slot = 0;
     for (let k = 0; k < count; k++) {
       const at = from === undefined ? k : from[k]!;
-      const ref = index.heads[at]!;
+      // Positions come in ascending order: a walk of the whole index moves a cursor, a narrowed one searches.
+      if (from === undefined) {
+        while (index.slotStart[slot + 1]! <= at) slot++;
+      } else {
+        slot = slotOf(index, at);
+      }
+      const row = index.slots[slot]!;
       sectionStats.visited++;
-      if (!ref.row.live || (ref.mask & want) !== want) continue;
+      if (!row.live || (index.masks[at]! & want) !== want) continue;
       sectionStats.scored++;
-      const raw = matchScore(ref.row.headings[ref.i]!, needle);
+      const i = at - index.slotStart[slot]!;
+      const raw = matchScore(row.headings[i]!, needle);
       if (raw === NO_MATCH) continue;
       found.push(at);
       if (raw <= 0) continue;
-      top.push({ entry: ref.row.entry, heading: ref.i, score: raw * HEADING_WEIGHT + frecencyBonus(ref.row.entry, byPath, now) });
+      top.push({ entry: row.entry, heading: i, score: raw * HEADING_WEIGHT + frecencyBonus(row.entry, byPath, now) });
     }
     sectionCache.set(prepared, { version: prepared.version, needle, found: Int32Array.from(found) });
     return finishSections(top.values(), limit, fold);
