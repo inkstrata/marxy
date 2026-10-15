@@ -32,6 +32,7 @@ jobs:
       web: ${{ steps.detect.outputs.web }}
       rust: ${{ steps.detect.outputs.rust }}
       lockfile: ${{ steps.detect.outputs.lockfile }}
+      layout: ${{ steps.detect.outputs.layout }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -161,6 +162,33 @@ jobs:
           path: results/
           if-no-files-found: ignore
 
+  # The layout audit's quick pass (X-36): when a style or a view changed, the app is booted at two widths in one variant
+  # and every text box is checked against scripts/layout-audit.baseline.json. It is one run with no retry; about 30 s on a
+  # laptop. The full matrix runs in nightly.yml.
+  layout-audit:
+    needs: changes
+    if: needs.changes.outputs.layout == 'true' && github.event_name != 'push'
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - run: node scripts/layout-audit.mjs --quick --fail --md results/layout-audit.md
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: layout-audit
+          path: results/
+          if-no-files-found: ignore
+
   # The Rust shell's own checks, on macOS (the product target; the repository is public, so the minutes
   # are free), when the crate, the toolchain or a dependency changed: format, clippy and the crate's
   # unit tests, then the licence gate over every crate in Cargo.lock. Nothing is built into a binary:
@@ -208,7 +236,7 @@ jobs:
   # The one status check branch protection requires. It runs whatever happened above, so it reports on
   # every pull request, path-filtered or docs-only; scripts/ci-verdict.mjs says what turns it red.
   ci:
-    needs: [changes, conventions, fast, browser-lite, rust]
+    needs: [changes, conventions, fast, browser-lite, layout-audit, rust]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 3

@@ -66,6 +66,12 @@ jobs:
       - name: Specimen gate
         if: ${{ !inputs.update_baselines && !cancelled() }}
         run: pnpm gate:specimen
+      # The layout audit's full matrix (X-36): both variants, four widths, two heights. Monitoring, like the rest of
+      # this job; the pull-request pass is the quick one. A red names a defect the baseline does not hold, or a
+      # baseline row that no longer appears.
+      - name: Layout audit, full matrix
+        if: ${{ !inputs.update_baselines && !cancelled() }}
+        run: node scripts/layout-audit.mjs --fail --md results/layout-audit.md
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.update_baselines }}
         with:

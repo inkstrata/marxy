@@ -1,9 +1,9 @@
 // X-32: the layout audit's argument handling, its report, and its detectors on small pages (WebKit, no Vite, no app).
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import { webkit } from 'playwright';
-import { ALLOW, auditInPage, fold, markdown, parseArgs } from './layout-audit.mjs';
+import { ALLOW, BASELINE, auditInPage, baselineRows, fold, markdown, parseArgs, verdict, verdictText } from './layout-audit.mjs';
 import { launchWebkit } from './playwright-webkit.mjs';
 
 // The fast job has no WebKit; browser tests skip there unless they are required (as in probe-layout.test.mjs).
@@ -80,4 +80,64 @@ test('the detectors flag what floats and leave what is by design', { skip }, asy
 test('the allowlist says why for every entry', () => {
   assert.ok(ALLOW.length > 0);
   for (const a of ALLOW) assert.ok(a.kind && a.why && (a.within || a.cover), JSON.stringify(a));
+});
+
+// X-36: the gate. Pure: a folded run, the baseline file, and the cells the run covered.
+const cell = (size, findings) => ({ size, findings, texts: 1, suppressed: {} });
+const defect = (sel) => ({ kind: 'truncated', sel, text: 'Cut', rect: [0, 0, 1, 1] });
+const run = (findings, theme = 'night', size = [800, 600]) => fold([{ surface: 's1', group: 'Menus', theme, errors: [], cells: [cell(size, findings)] }]);
+const ran = (...c) => new Set(c);
+
+test('the gate passes when the run holds exactly the baseline, and fails on a defect that is not in it', () => {
+  const baseline = baselineRows(run([defect('ul > li')]).list);
+  const same = run([defect('ul > li')]);
+  assert.equal(verdict({ list: same.list, baseline, ran: ran('night 800x600'), surfaces: new Set(['s1']) }).ok, true);
+  const seeded = run([defect('ul > li'), defect('p.new')]);
+  const v = verdict({ list: seeded.list, baseline, ran: ran('night 800x600'), surfaces: new Set(['s1']) });
+  assert.equal(v.ok, false);
+  assert.deepEqual(v.added.map((r) => r.sel), ['p.new']);
+  assert.match(verdictText(v), /^NEW .*p\.new/);
+});
+
+test('the gate fails on a baseline row that no longer appears, so the list shrinks and never rots', () => {
+  const baseline = baselineRows(run([defect('ul > li'), defect('p.fixed')]).list);
+  const v = verdict({ list: run([defect('ul > li')]).list, baseline, ran: ran('night 800x600'), surfaces: new Set(['s1']) });
+  assert.equal(v.ok, false);
+  assert.deepEqual(v.stale.map((r) => r.sel), ['p.fixed']);
+  assert.match(verdictText(v), /STALE .*p\.fixed/);
+});
+
+test('a run judges a baseline row only on cells it covered, and only on surfaces it ran', () => {
+  const baseline = baselineRows(run([defect('ul > li')], 'paper', [1400, 900]).list);
+  const quick = { list: [], baseline, surfaces: new Set(['s1']) };
+  assert.equal(verdict({ ...quick, ran: ran('night 800x600', 'night 1920x600') }).ok, true, 'quick does not cover paper 1400x900');
+  assert.equal(verdict({ ...quick, ran: ran('paper 1400x900') }).ok, false, 'the full matrix does');
+  assert.equal(verdict({ ...quick, ran: ran('paper 1400x900'), surfaces: new Set(['other']) }).ok, true, '--only another surface');
+});
+
+test('a surface that did not set up fails the gate: a blind run is not a pass', () => {
+  assert.equal(verdict({ list: [], baseline: [], ran: ran(), surfaces: new Set(), errors: ['s1 night: 800: boot: refused'] }).ok, false);
+});
+
+test('a boarded (known) defect is left out of both sides of the comparison', () => {
+  const list = run([{ ...defect('p.boarded'), known: 'F-98' }]).list;
+  assert.equal(verdict({ list, baseline: [], ran: ran('night 800x600'), surfaces: new Set(['s1']) }).ok, true);
+  assert.deepEqual(baselineRows(list), []);
+});
+
+test('the baseline file is well formed: one reasoned row per defect, unique keys, cells the matrix has', () => {
+  const rows = JSON.parse(readFileSync(BASELINE, 'utf8'));
+  assert.ok(Array.isArray(rows));
+  assert.equal(new Set(rows.map((r) => r.key)).size, rows.length, 'keys are unique');
+  const sizes = parseArgs([]);
+  const valid = new Set(sizes.themes.flatMap((t) => sizes.widths.flatMap((w) => sizes.heights.map((h) => `${t} ${w}x${h}`))));
+  for (const r of rows) {
+    assert.ok(r.key && r.kind && r.surface && r.sel && r.cells.length, JSON.stringify(r));
+    for (const c of r.cells) assert.ok(valid.has(c), `${r.key}: ${c} is not a cell of the matrix`);
+  }
+});
+
+test('--baseline and --update-baseline are arguments', () => {
+  assert.equal(parseArgs(['--fail']).baseline, BASELINE);
+  assert.equal(parseArgs(['--update-baseline']).update, true);
 });
