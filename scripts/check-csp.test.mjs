@@ -27,6 +27,29 @@ test('runtime style paths do not create <style> elements', () => {
   assert.deepEqual(runtimeStyleProblems(loadRuntimeStyleSources()), []);
 });
 
+test('a second EditorView without a style nonce beside baseExtensions in the same file fails the scanner (F-98.1)', () => {
+  const problems = runtimeStyleProblems({
+    'x.ts': [
+      "import { baseExtensions } from './editor.ts';",
+      'const a = new EditorView({ extensions: await baseExtensions(opts), parent });',
+      'const b = new EditorView({ state, parent });',
+    ].join('\n'),
+  });
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /without a style nonce/);
+});
+
+test('one EditorView beside one baseExtensions call in the same file passes the scanner (F-98.1)', () => {
+  const problems = runtimeStyleProblems({
+    'x.ts': [
+      "import { baseExtensions } from './editor.ts';",
+      'const exts = await baseExtensions(buffer);',
+      'const view = new EditorView({ state: EditorState.create({ extensions: exts }), parent });',
+    ].join('\n'),
+  });
+  assert.deepEqual(problems, []);
+});
+
 test('a planted createElement(style) fails the scanner', () => {
   const problems = runtimeStyleProblems({ 'x.ts': "doc.createElement('style')" });
   assert.equal(problems.length, 1);
