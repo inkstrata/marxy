@@ -10,7 +10,7 @@ import type { AppContext, Command } from './registry.ts';
 import type { StructureOp } from '../source/structure-ops.ts';
 import { writeCopy } from './copy-write.ts';
 import { notify } from '../notices/index.ts';
-import { formatsPath, type FormatOp } from '../source/format-ops.ts';
+import { formatsPath, runFormat, type FormatOp } from '../source/format-ops.ts';
 
 /** The table tools (V-02) by name. Declared here, with the command table: `source/structure.ts` is lazy and may not be imported by it (MARXY-33), and `structure-ops.ts` lists the V-01 operations. */
 export type TableTool = 'alignTable' | 'addTableRow' | 'addTableColumn' | 'sortTableRows';
@@ -122,7 +122,6 @@ export function sourceEditCommands(): readonly Command[] {
         const editor = activeSourceEditor();
         if (!editor) return;
         if (entry.format !== undefined) {
-          const { runFormat } = await import('../source/format-ops.ts');
           await runFormat(entry.format, editor.view, editor.buffer.path, (notice) => notify(notice));
         } else if (entry.table === 'copyTableCsv') {
           // The one copy path (C-07): the same text as Copy table as CSV in Rendered, one pasteboard item, one notice.

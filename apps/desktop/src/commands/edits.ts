@@ -6,6 +6,7 @@ import type { Edit } from '@marxy/core';
 import type { AppContext } from './registry.ts';
 import { appHandle } from './app-handle.ts';
 import type { DocumentStore } from '../document/store.ts';
+import { notify } from '../notices/index.ts';
 
 /** The open document's store, through the running app; null before the first document. */
 function openStore(): DocumentStore | null {
@@ -13,7 +14,6 @@ function openStore(): DocumentStore | null {
 }
 
 async function reportFailedChange(what: string, e: unknown): Promise<void> {
-  const { notify } = await import('../notices/index.ts');
   notify({ kind: 'error', text: `Could not ${what}: ${e instanceof Error ? e.message : String(e)}. The document is unchanged.` });
 }
 
