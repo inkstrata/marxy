@@ -45,7 +45,7 @@ export const STRIP_TOOL_IDS: readonly string[] = [
   'collapse-tools', 'only-you', 'only-assistant',
   'table', 'column-stats', 'filter', 'transpose',
   'backlinks', 'append-clipboard', 'daily',
-  'versions',
+  'versions', 'copy-release-notes', 'on-this-page',
   'filter-by-level', 'jump-to-first-error', 'follow-tail',
   'copy-commands', 'copy-output',
 ];

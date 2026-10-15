@@ -9,7 +9,7 @@ import { DEFAULT_THEMES, SCREENS, THEMES, configFor, indexHtml, pairFiles, parse
 const MOCK = fileURLToPath(new URL('../docs/plan/direction-2026-10/mock-v2/', import.meta.url));
 
 test('the screen table holds X-21\'s fifteen states and what stories added since', () => {
-  assert.equal(Object.keys(SCREENS).length, 34);
+  assert.equal(Object.keys(SCREENS).length, 36);
   assert.deepEqual(THEMES.map((t) => t.id), ['night', 'paper', 'ink', 'dusk', 'sepia', 'fjord', 'hc-dark', 'hc-light']);
   assert.deepEqual(DEFAULT_THEMES, ['night', 'paper']);
   assert.deepEqual(parseArgs(['01-folded', '--out', 'x']).themes, ['night', 'paper']);
@@ -31,7 +31,7 @@ test('file names are <screen>-<theme>-{app,mock}.png', () => {
 
 test('arguments: screens, all, theme, side, out', () => {
   assert.deepEqual(parseArgs(['01-unfolded', '03-split', '--out', 'x']).screens, ['01-unfolded', '03-split']);
-  assert.equal(parseArgs(['all', '--out', 'x']).screens.length, 34);
+  assert.equal(parseArgs(['all', '--out', 'x']).screens.length, 36);
   const o = parseArgs(['02-source', '--out', 'x', '--theme', 'paper', '--side', 'app']);
   assert.deepEqual([o.themes, o.sides], [['paper'], ['app']]);
 });
@@ -62,4 +62,21 @@ test('the index shows each pair in both themes with its files', () => {
 test('every screen is backed by a mock page that exists', () => {
   const pages = readdirSync(MOCK);
   for (const f of ['01-workspace.html', '02-source.html', '05-collections.html']) assert.ok(pages.includes(f), f);
+});
+
+test('K-22: every mock-pair screen has an app state and a mock state', () => {
+  // APP_STATES and MOCK_STATES are declared inside run(), so they are read from the source text, not imported.
+  const src = readFileSync(new URL('./mock-pair.mjs', import.meta.url), 'utf8');
+  const table = (name) => {
+    const start = src.indexOf(`const ${name} = {`);
+    assert.ok(start >= 0, name);
+    return src.slice(start, src.indexOf('\n};', start));
+  };
+  const app = table('APP_STATES');
+  const mock = table('MOCK_STATES');
+  for (const s of Object.keys(SCREENS)) {
+    const key = new RegExp(`^  (async )?'${s}'[(:]`, 'm');
+    assert.match(app, key, `APP_STATES has no entry for ${s}`);
+    assert.match(mock, key, `MOCK_STATES has no entry for ${s}`);
+  }
 });

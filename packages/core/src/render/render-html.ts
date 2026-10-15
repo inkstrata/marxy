@@ -166,11 +166,11 @@ function block(node: Block, tight: boolean, ctx: Context): string {
       const value = node.value.length > 0 ? `${escapeText(node.value)}\n` : '';
       const caption =
         DIAGRAM_LANGUAGES.has(lang)
-          ? `<p>${escapeText(lang)} · diagram source</p>\n`
+          ? `<p class="marxy-diagram-caption">${escapeText(lang)} · diagram source</p>\n`
           : '';
-      // The `<pre>` carries the lowercased language too, so the theme's diagram-caption rule can
-      // look one step past the caption (`p:has(+ pre.language-mermaid)`). A two-step `:has()` into
-      // the `<code>` costs WebKit time in proportion to the article on every appended block (B-25.1).
+      // The caption carries `marxy-diagram-caption` so the theme needs no `p:has(+ pre…)` sibling rule: that
+      // restyled every paragraph of a long run, quadratically (F-96; B-25.1 tuned the same selector before).
+      // The `<pre>` still takes the lowercased language for highlighting and the diagram renderers.
       const preClasses = [...(safeLang ? [`language-${escapeAttribute(lang)}`] : []), ...(node.run ? ['marxy-run'] : [])];
       const preLanguage = preClasses.length === 0 ? '' : ` class="${preClasses.join(' ')}"`;
       // The `<pre>` is the whole fence; the `<code>` is the content between the fence lines.

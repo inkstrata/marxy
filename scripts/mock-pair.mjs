@@ -60,6 +60,8 @@ export const SCREENS = {
   '09-inspector-outline': 'The inspector docked on its Outline tab: headings with the words of each section (mock 01-workspace)',
   '03-terminal': 'A shell session in the reader (mock 01-workspace, doc=shell-session)',
   '09-inspector-versions': 'The inspector docked on its Versions tab: Changed since you read and the earlier versions (mock 01-workspace)',
+  '03-docs': 'A docs page in the reader (mock 01-workspace, doc=watch-docs)',
+  '03-changelog': 'A changelog in the reader (mock 01-workspace, doc=changelog)',
   '10-tabs-hover': 'Twelve tabs in the unfolded window, one hovered (F-99; mock 01-workspace)',
   '10-outline-popup': 'The outline popup (Shift+Cmd+O) at 1,920 x 900 with the inspector docked, over it and under the bands (the mock has no popup: its Outline tab is the reference for the type and the row)',
   '10-kind-chip-menu': 'The kind chip\'s menu open, unfolded: why the file is read as it is, then the Show as choices (mock 01-workspace)',
@@ -188,6 +190,8 @@ const RS = toPath(docs.find((d) => d.id === 'indexer-rs').path);
 const CHAT = toPath(docs.find((d) => d.id === 'indexer-chat').path);
 const BUILD_LOG = toPath(docs.find((d) => d.id === 'build-log').path);
 const SHELL_SESSION = toPath(docs.find((d) => d.id === 'shell-session').path);
+const WATCH_DOCS = toPath(docs.find((d) => d.id === 'watch-docs').path);
+const CHANGELOG = toPath(docs.find((d) => d.id === 'changelog').path);
 const ARTICLE = toPath(docs.find((d) => d.id === 'ragged-right').path);
 const CSV = toPath(docs.find((d) => d.id === 'bench-csv').path);
 const NOTES = toPath(docs.find((d) => d.id === 'notes-1008').path);
@@ -406,6 +410,8 @@ const APP_STATES = {
     await settle(page, 500);
   },
   async '03-terminal'(page) { await openDoc(page, SHELL_SESSION); await settle(page, 900); },
+  async '03-docs'(page) { await openDoc(page, WATCH_DOCS); await settle(page, 900); },
+  async '03-changelog'(page) { await openDoc(page, CHANGELOG); await settle(page, 900); },
   // Hegel's `Ich, das Wir` (piece 6), opened at 800 px where the columns stack, then the window widened to 1,000 (F-104).
   async '10-empty-window'(page) { await page.setViewportSize({ width: 1000, height: H }); await settle(page, 1500); },
   async '08-settings'(page) {
@@ -557,6 +563,8 @@ const MOCK_STATES = {
   '09-inspector-outline': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
   '03-terminal': { file: '01-workspace.html', hash: '#doc=shell-session', run: async () => {} },
   '09-inspector-versions': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="versions"]'); await settle(page, 600); } },
+  '03-docs': { file: '01-workspace.html', hash: '#doc=watch-docs', run: async () => {} },
+  '03-changelog': { file: '01-workspace.html', hash: '#doc=changelog', run: async () => {} },
   '10-outline-popup': { file: '01-workspace.html', width: WIDE, run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
   '10-kind-chip-menu': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await settle(page, 300); await page.click('#kindchip'); await settle(page, 500); } },
   '10-empty-window': { file: '01-workspace.html', width: 1000, run: async () => {} },

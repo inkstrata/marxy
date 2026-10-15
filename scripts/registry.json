@@ -188,6 +188,7 @@
   ],
   "classes": [
     "marxy-run",
+    "marxy-diagram-caption",
     "marxy-toolbar-glyph",
     "marxy-strip-kind",
     "marxy-toolbar-word",

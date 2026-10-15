@@ -63,17 +63,27 @@ test('frontmatter is a quiet head above the body', () => {
 
 test('a mermaid fence shows its source and one diagram caption only', () => {
   const out = html('```mermaid\nflowchart LR\n  A --> B\n```\n');
-  assert.match(out, /<p>mermaid · diagram source<\/p>\n<pre class="language-mermaid"><code class="language-mermaid">/);
+  assert.match(out, /<p class="marxy-diagram-caption">mermaid · diagram source<\/p>\n<pre class="language-mermaid"><code class="language-mermaid">/);
   assert.match(out, /flowchart LR\n  A --&gt; B\n<\/code><\/pre>/);
   assert.ok(!out.includes('```'));
 });
 
 test('a diagram fence written in capitals still carries the lowercased language its caption rule matches (B-25.1)', () => {
-  // The theme's caption rule is `p:has(+ pre.language-mermaid)`: the `<pre>` takes the language in
-  // lower case whatever the writer typed, while the `<code>` keeps it as written for highlighting.
+  // The `<pre>` takes the language in lower case whatever the writer typed, while the `<code>` keeps it
+  // as written for highlighting; the caption is marked by class, not by what follows it (F-96).
   for (const [written, lower] of [['Mermaid', 'mermaid'], ['PlantUML', 'plantuml'], ['DOT', 'dot'], ['D2', 'd2']]) {
     const out = html(`\`\`\`${written}\nA -> B\n\`\`\`\n`);
-    assert.match(out, new RegExp(`^<p>${lower} · diagram source</p>\\n<pre class="language-${lower}"><code class="language-${written}">`));
+    assert.match(out, new RegExp(`^<p class="marxy-diagram-caption">${lower} · diagram source</p>\\n<pre class="language-${lower}"><code class="language-${written}">`));
+  }
+});
+
+test('the diagram caption keeps its class through the sanitiser, and a document cannot write one (F-96)', () => {
+  // The existing exact matches above prove it survives for every diagram language; this proves the other half.
+  for (const lang of ['mermaid', 'plantuml', 'dot', 'd2']) {
+    assert.ok(html(`\`\`\`${lang}\nA -> B\n\`\`\`\n`).includes('<p class="marxy-diagram-caption">'), lang);
+  }
+  for (const written of ['<p class="marxy-diagram-caption">mine</p>\n\nbody\n', 'plain\n\n<p class="marxy-diagram-caption">mine</p>\n']) {
+    assert.ok(!html(written).includes('marxy-diagram-caption'), written);
   }
 });
 

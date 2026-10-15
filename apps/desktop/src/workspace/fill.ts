@@ -9,6 +9,7 @@
 // `unfold()` resolves each fill has run exactly as it did when the code was static; only a peek, which is
 // synchronous, can make a region before the chunk is in, and its content then arrives a moment later.
 import type { AppHandle } from '../app.ts';
+import { installQuietDates } from '../kinds/quiet-dates.ts';
 import { notify } from '../notices/index.ts';
 import { createDocumentSignal, type DocumentSignal } from './document-signal.ts';
 import { installPeek } from './peek.ts';
@@ -79,4 +80,6 @@ export function installWorkspaceFills(handle: AppHandle): void {
   workspace.fill('status-bar', panel((p, el) => p.mountStatusBar(el, handle, signal)));
   // Folded, the pointer resting at an edge shows that edge's panel (W-03); the listeners exist only while folded.
   installPeek(workspace);
+  // A changelog's version dates and a notes file's date line are quiet, folded or not: a highlight over the page's own characters (K-22).
+  installQuietDates(handle);
 }
