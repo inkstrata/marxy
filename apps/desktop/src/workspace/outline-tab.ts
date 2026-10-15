@@ -369,6 +369,8 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
   host.append(body);
 
   let drawnKey = '';
+  /** The file the list on the page was drawn for: a relist of the same file is a difference, another file is drawn whole. */
+  let drawnPath: string | null = null;
   let model: OutlineModel | null = null;
   let path: string | null = null;
   let unsubscribeStore: (() => void) | null = null;
@@ -380,6 +382,7 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
   let markToken = 0;
   /** The rows drawn, by index into `model.rows`: all of them for a short outline, those in view and a margin for a long one. */
   const rendered = new Map<number, HTMLElement>();
+  const entries = new WeakMap<HTMLElement, { row: OutlineRow }>();
   let list: HTMLElement | null = null;
   let startIndex = new Map<number, number>();
   let winLo = 0;
@@ -509,6 +512,9 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
   const makeItem = (index: number, store: DocumentStore): HTMLElement => {
     const row = model!.rows[index]!;
     const item = el('li', 'marxy-outline-item');
+    // A relist that leaves this row as it is only moves its place in the file (every row after an edit shifts); the handlers read it here.
+    const entry: { row: OutlineRow } = { row };
+    entries.set(item, entry);
     const button = el('button', 'marxy-outline-row');
     button.type = 'button';
     button.tabIndex = -1;
@@ -518,7 +524,7 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
     button.addEventListener('mousedown', (event) => event.preventDefault());
     button.addEventListener('click', () => {
       closeMenu();
-      void handle.open(path!, { at: row.start });
+      void handle.open(path!, { at: entry.row.start });
     });
     if (row.kind === 'heading') {
       button.setAttribute('data-marxy-outline-level', String(row.level));
@@ -531,8 +537,9 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
       more.title = 'Move or change the level of this section';
       more.addEventListener('click', (event) => {
         event.stopPropagation();
-        if (openMenu?.start === row.start) closeMenu();
-        else showMenu(item, row, store, false);
+        const current = entry.row as HeadingRow;
+        if (openMenu?.start === current.start) closeMenu();
+        else showMenu(item, current, store, false);
       });
       button.append(more);
     } else if (row.kind === 'title') {
@@ -597,8 +604,10 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
   /** The rows not drawn are the list's padding: every row is one line of one height, so the scroll bar and the position are the whole outline's. */
   const padWindow = (): void => {
     if (list === null || model === null) return;
-    list.style.paddingBlockStart = winLo === 0 ? '' : `${winLo * rowH}px`;
-    list.style.paddingBlockEnd = winHi === model.rows.length ? '' : `${(model.rows.length - winHi) * rowH}px`;
+    const before = winLo === 0 ? '' : `${winLo * rowH}px`;
+    const after = winHi === model.rows.length ? '' : `${(model.rows.length - winHi) * rowH}px`;
+    if (list.style.paddingBlockStart !== before) list.style.paddingBlockStart = before;
+    if (list.style.paddingBlockEnd !== after) list.style.paddingBlockEnd = after;
   };
 
   const bindWindowScroll = (): void => {
@@ -643,6 +652,82 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
     renderRange(Math.max(0, index - MARGIN), Math.min(n, index + MARGIN + 1));
   };
 
+  /** What a row shows: two rows with the same key draw the same, wherever they sit in the file. */
+  const keyOf = (row: OutlineRow): string =>
+    row.kind === 'heading' ? `h${row.level}\0${row.depth}\0${row.words}\0${row.text}` : row.kind === 'table' ? `t${row.depth}\0${row.label}` : `T${row.depth}\0${row.text}`;
+
+  /**
+   * A relist for the same file whose list is on the page: the keyed difference of the old rows and the new. An edit changes one
+   * stretch, so the rows common to the start and the end are matched; those keep their elements (a row that only moved in the file
+   * has its place rewritten, nothing else), the stretch between is made again, and the rows drawn are the window as before. Focus
+   * stays on its element, or goes to the row made again in its place. Returns false when the list cannot be kept (drawn whole then).
+   */
+  const reconcile = (previous: OutlineModel, next: OutlineModel): boolean => {
+    if (list === null || !list.isConnected || next.headings === 0) return false;
+    const a = previous.rows;
+    const b = next.rows;
+    const ka = a.map(keyOf);
+    const kb = b.map(keyOf);
+    let p = 0;
+    while (p < ka.length && p < kb.length && ka[p] === kb[p]) p++;
+    let s = 0;
+    while (s < ka.length - p && s < kb.length - p && ka[ka.length - 1 - s] === kb[kb.length - 1 - s]) s++;
+    const delta = b.length - a.length;
+    const place = (index: number): number => (index < p ? index : index >= a.length - s ? index + delta : -1);
+    let focusedAt = -1;
+    for (const [index, li] of rendered) if (li.contains(document.activeElement)) focusedAt = index;
+    const kept = new Map<number, HTMLElement>();
+    for (const [index, li] of rendered) {
+      const at = place(index);
+      if (at >= 0) kept.set(at, li);
+      else li.remove();
+    }
+    if (marked >= 0 && place(marked) < 0) rendered.get(marked)?.querySelector('[data-marxy-outline-row]')?.removeAttribute('aria-current');
+    marked = marked < 0 ? -1 : place(marked);
+    model = next;
+    startIndex = new Map(b.map((row, i) => [row.start, i]));
+    // Rows that stayed are given their new place in the file.
+    for (const [index, li] of kept) {
+      const row = b[index]!;
+      const entry = entries.get(li)!;
+      if (entry.row.start !== row.start) li.querySelector('[data-marxy-outline-row]')!.setAttribute('data-marxy-outline-start', String(row.start));
+      entry.row = row;
+    }
+    rendered.clear();
+    for (const [index, li] of kept) rendered.set(index, li);
+    // The window to draw: all of a short outline, else the rows in view and a margin, as `wanted` finds them.
+    const [lo, hi] = b.length <= WINDOW_AT ? [0, b.length] : wanted();
+    for (const [index, li] of [...rendered]) {
+      if (index < lo || index >= hi) {
+        li.remove();
+        rendered.delete(index);
+      }
+    }
+    // Put the rows in order, writing only where the list differs: an element already in its place is not touched.
+    let cursor: Element | null = list.firstElementChild;
+    for (let i = lo; i < hi; i++) {
+      let li = rendered.get(i);
+      if (li === undefined) {
+        li = makeItem(i, watched!);
+        rendered.set(i, li);
+      }
+      if (li === cursor) cursor = cursor.nextElementSibling;
+      else list.insertBefore(li, cursor);
+    }
+    winLo = lo;
+    winHi = hi;
+    padWindow();
+    const count = body.querySelector('.marxy-outline-count');
+    const label = `${formatCount(next.headings)} ${next.headings === 1 ? 'heading' : 'headings'}`;
+    if (count !== null && count.textContent !== label) count.textContent = label;
+    if (focusedAt >= 0 && !body.contains(document.activeElement)) {
+      const to = place(focusedAt);
+      const near = rendered.get(to >= 0 ? to : Math.min(Math.max(p, lo), hi - 1));
+      near?.querySelector<HTMLElement>('[data-marxy-outline-row]')?.focus({ preventScroll: true });
+    }
+    return true;
+  };
+
   const draw = (): void => {
     if (gone || !ctx.visible()) return;
     const pane = handle.panes().focused;
@@ -683,7 +768,15 @@ function mountOutlineTab(host: HTMLElement, ctx: InspectorContext): () => void {
       clear('The outline is listed for Markdown.');
       return;
     }
-    model = outlineModelFor(snap.ast, snap.buffer);
+    const previous = model;
+    const built = outlineModelFor(snap.ast, snap.buffer);
+    if (previous !== null && drawnPath === path && reconcile(previous, built)) {
+      if (refocus !== null) focusRow(refocus);
+      askMark();
+      return;
+    }
+    drawnPath = path;
+    model = built;
     marked = -1;
     const { rows, headings } = model;
     const parts: HTMLElement[] = [];

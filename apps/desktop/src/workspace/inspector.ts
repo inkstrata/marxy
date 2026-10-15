@@ -111,7 +111,11 @@ export function mountInspector(el: HTMLElement, handle: AppHandle, signal: Docum
   const normalise = (): void => {
     const all = stops();
     if (stop === null || !all.includes(stop)) stop = (selected !== null ? buttons.get(selected) : undefined) ?? all[0] ?? null;
-    for (const node of all) node.tabIndex = node === stop ? 0 : -1;
+    // Only a stop that changes is written: setting the value it has is still a DOM write, and a long list is normalised on every change.
+    for (const node of all) {
+      const want = node === stop ? 0 : -1;
+      if (node.tabIndex !== want) node.tabIndex = want;
+    }
   };
 
   const select = (id: string, focus = false): void => {
