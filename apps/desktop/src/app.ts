@@ -182,8 +182,7 @@ export async function startApp(
     body: document.body,
     main: first.host.parentElement ?? document.body,
     store: workspaceStoreFor(shell),
-    windowWidth: () => window.innerWidth,
-    ready: loadPanels,
+    windowWidth: () => window.innerWidth, ready: loadPanels,
   });
   const offPaneMode = followPaneModes(panes);
   // The open document is the focused pane's; with one pane that is the first pane, as it always was.
