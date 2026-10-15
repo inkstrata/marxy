@@ -430,7 +430,7 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 | V-04.1 | Source notes: map marks through edits, indented ``` is not a fence, no path notes inside fences | sonnet | merged | [#753](https://github.com/inkstrata/marxy/pull/753) | — | From V-04's review. |
 | W-13.1 | Palette: mock-v2 prefix tabs, path and age on rows, an index for @ | sonnet | ready | — | — | From W-13's review (@ ~320 ms cold on 50k files). |
 | W-10.3 | Outline: a relist redraws only what changed | sonnet | ready | — | — | From W-10.2 (model build 135 ms at 4,740 headings). |
-| F-89.1 | Table lens nits: swallowed count after a valid multi-line field; sort focus on sideways scroll | sonnet (low) | ready | — | — | From F-89's review. |
+| F-89.1 | Table lens nits: swallowed count after a valid multi-line field; sort focus on sideways scroll | sonnet (low) | merged | [#755](https://github.com/inkstrata/marxy/pull/755) | — | From F-89's review. |
 | F-92 | A .txt or .md with `$ x` lines reads as a terminal session | sonnet | merged | [#756](https://github.com/inkstrata/marxy/pull/756) | — | Pre-existing; found in K-17's review. |
 | X-31 | Session handoff and ledger, 2026-10-13 evening lead | planner | in review | — | — | This PR. Docs only. |
 
