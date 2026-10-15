@@ -1,0 +1,94 @@
+[
+ {
+  "key": "covered|popup-find|article#doc.marxy-article > dl > dd",
+  "kind": "covered",
+  "surface": "popup-find",
+  "sel": "article#doc.marxy-article > dl > dd",
+  "text": "Postgres 14 → 16 upgrade plan",
+  "cells": [
+   "night 1000x600",
+   "night 1000x900",
+   "paper 1000x600",
+   "paper 1000x900"
+  ]
+ },
+ {
+  "key": "truncated|inspector-outline|ul.marxy-outline-list > li.marxy-outline-item > button.marxy-outline-row.marxy-outline-table > span.marxy-outline-text",
+  "kind": "truncated",
+  "surface": "inspector-outline",
+  "sel": "ul.marxy-outline-list > li.marxy-outline-item > button.marxy-outline-row.marxy-outline-table > span.marxy-outline-text",
+  "text": "Table: Step, Owner, Est. time, Rollback",
+  "cells": [
+   "night 1000x600",
+   "night 1000x900",
+   "paper 1000x600",
+   "paper 1000x900"
+  ]
+ },
+ {
+  "key": "truncated|palette-files-folded|li#marxy-palette-opt-N.marxy-palette-row.marxy-menu-row > span.marxy-palette-text > span.marxy-palette-sub",
+  "kind": "truncated",
+  "surface": "palette-files-folded",
+  "sel": "li#marxy-palette-opt-9.marxy-palette-row.marxy-menu-row > span.marxy-palette-text > span.marxy-palette-sub",
+  "text": "Work/plans/plans/2026-10-01-quarterly-database-m",
+  "cells": [
+   "night 800x900",
+   "paper 800x900"
+  ]
+ },
+ {
+  "key": "truncated|palette-files-folded|li#marxy-palette-opt-N.marxy-palette-row.marxy-menu-row > span.marxy-palette-text > span.marxy-palette-title",
+  "kind": "truncated",
+  "surface": "palette-files-folded",
+  "sel": "li#marxy-palette-opt-9.marxy-palette-row.marxy-menu-row > span.marxy-palette-text > span.marxy-palette-title",
+  "text": "2026-10-01-quarterly-database-migration-readines",
+  "cells": [
+   "night 1000x900",
+   "night 1400x900",
+   "night 1920x900",
+   "night 800x900",
+   "paper 1000x900",
+   "paper 1400x900",
+   "paper 1920x900",
+   "paper 800x900"
+  ]
+ },
+ {
+  "key": "truncated|palette-files-query|li#marxy-palette-opt-N.marxy-palette-row.marxy-menu-row > span.marxy-palette-text > span.marxy-palette-sub",
+  "kind": "truncated",
+  "surface": "palette-files-query",
+  "sel": "li#marxy-palette-opt-2.marxy-palette-row.marxy-menu-row > span.marxy-palette-text > span.marxy-palette-sub",
+  "text": "plans/2026-10-01-quarterly-database-migration-re",
+  "cells": [
+   "night 800x600",
+   "night 800x900",
+   "paper 800x600",
+   "paper 800x900"
+  ]
+ },
+ {
+  "key": "truncated|palette-files-query|li#marxy-palette-opt-N.marxy-palette-row.marxy-menu-row > span.marxy-palette-text > span.marxy-palette-title",
+  "kind": "truncated",
+  "surface": "palette-files-query",
+  "sel": "li#marxy-palette-opt-1.marxy-palette-row.marxy-menu-row > span.marxy-palette-text > span.marxy-palette-title",
+  "text": "Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "cells": [
+   "night 1000x600",
+   "night 1000x900",
+   "night 1400x600",
+   "night 1400x900",
+   "night 1920x600",
+   "night 1920x900",
+   "night 800x600",
+   "night 800x900",
+   "paper 1000x600",
+   "paper 1000x900",
+   "paper 1400x600",
+   "paper 1400x900",
+   "paper 1920x600",
+   "paper 1920x900",
+   "paper 800x600",
+   "paper 800x900"
+  ]
+ }
+]
