@@ -8,7 +8,7 @@ import { fileTypeOf } from '@marxy/core/src/index-model/file-types.ts';
 import { lineColumnAt, notesOf, type Note } from '@marxy/core/src/notes/notes.ts';
 import { Abandoned, parseMarkdownChunked } from '@marxy/core';
 import { pathMentions } from '@marxy/core/src/transforms/extract.ts';
-import { withParse } from '@marxy/core/src/transforms/prose.ts';
+import { protectedSpans, withParse } from '@marxy/core/src/transforms/prose.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
@@ -48,9 +48,15 @@ export interface FindNotesOptions {
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-/** Where a backticked path is written: the first place `` `path` `` stands in the text, else the start of the text. */
-function pathNote(text: string, path: string): Note {
-  const at = Math.max(0, text.indexOf(`\`${path}\``) + 1);
+/**
+ * Where a backticked path is written: the first place `` `path` `` stands in the text outside code (a path is only found in
+ * prose, so a mention inside a fence is never where its note goes), else the start of the text.
+ */
+function pathNote(text: string, path: string, code: readonly { start: number; end: number }[]): Note {
+  const needle = `\`${path}\``;
+  let found = text.indexOf(needle);
+  while (found !== -1 && code.some((s) => found >= s.start && found < s.end)) found = text.indexOf(needle, found + 1);
+  const at = Math.max(0, found + 1);
   const { line, column } = lineColumnAt(text, at);
   return { kind: 'path', start: at, end: at + path.length, byteStart: null, byteEnd: null, line, column, words: `Path ${path} at ${line}:${column} is not found` };
 }
@@ -74,13 +80,14 @@ export async function findNotes(text: string, opts: FindNotesOptions): Promise<N
   if (!opts.current()) return null;
   const notes: Note[] = notesForMarkdown(opts.path) ? notesOf(text, doc) : [];
   if (opts.checkPath !== null) {
+    const code = protectedSpans(text, doc);
     const paths = withParse(text, { text, doc }, () => pathMentions(text)).slice(0, PATH_CHECK_CAP);
     for (const path of paths) {
       await tick();
       if (!opts.current()) return null;
       const result = await opts.checkPath(path).catch((): Mentioned => 'not-checked');
       if (!opts.current()) return null;
-      if (result === 'not-found') notes.push(pathNote(text, path));
+      if (result === 'not-found') notes.push(pathNote(text, path, code));
     }
   }
   notes.sort((a, b) => a.start - b.start);
