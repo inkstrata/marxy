@@ -1,3 +1,47 @@
+# Lead handoff: 2026-10-15 (X-38), wave 11 closed, the nightly made honest
+
+**Before dispatching, check you are the only lead** (`gh pr list --state all --limit 20`; read this page and `progress.md` on
+`origin/main`). The ledger's "2026-10-15 lead session" block lists the 20 merges.
+
+## Open at the stop
+
+| Story | PR | State | Next |
+| --- | --- | --- | --- |
+| X-36 | #762 | re-review said merge at 218dd87f; `ci` green; touches `.github/workflows/` (code-owned) | the author merges; then watch the first nightly full matrix against the 6-row Linux baseline |
+| F-109, F-98.2 | — | need the packaged app launched on the Mac, which agents may not do | the author's Cursor lane: `.claude/cursor-prompts-2026-10-15.md` (untracked) |
+
+## Next, in order
+
+1. The two above. F-114 first among the code stories: one edit at 5k headings blocks a frame for about 2.8 s. Then W-10.4
+   (cache the outline model).
+2. K-12.1: a one-line append to a 20 MB transcript still costs about a second, and find, outline and the inspector inside the
+   derived view are unverified.
+3. Wave 12's cards: an X- plan story (Sonnet medium) writes them from the ahead list in `waves.md`, in the shape of
+   `20-cards-wave-11.md`. Wave 11 is done (K-12 was its last card).
+4. The older follow-ups still `ready` in the ledger (F-43.1, F-46.1, F-72, F-28 for the author).
+
+## For the author
+
+- **X-36 (#762)** waits for your merge (workflows are code-owned).
+- **Honouring a rule's `read` is now live for every kind** (K-12, ADR-0060 item 7): `read = true` on `.py`, `.json` or `.log`
+  opens Rendered; `read = false` on `.md` opens Source. Before, `read` was parsed and ignored.
+- **Shift+Tab in the palette field now reaches the mode buttons** (W-13.2); Tab alone still toggles the list sections.
+- Still open from 2026-10-14: the mock-v2 folded Source frame; the five-digit gutter.
+
+## Lessons
+
+- **Haiku fits mechanical work with a tight brief**: list unions with a stated verification, test-only stories, import edits, log
+  reading. Brief it to run no WebKit, to show its test failing first, and to report once.
+- **Read the nightly before trusting it.** Both red jobs had been red for days, and both were wrong references (an oracle that
+  moved a BOM; Linux baselines left behind by K-05b), not product bugs. An `update_baselines` run "passes" by comparing against
+  what it just wrote: it is not a green nightly.
+- **Lazy loading turns a synchronous call into a failure mode.** F-111's palette chunk could stop boot, and W-17's margin chunk
+  failed silently; each lazy import needs a caught failure, a notice and a retry, with a test that aborts the request.
+- **A shared file changes every kind.** K-12's append fix reached `document/live-reload.ts`; the re-review checked every kind,
+  two panes and the store walk before merge.
+- **Agents that report "done" can leave runs behind.** Stop an agent (TaskStop) once its report is in if the notice says it still
+  has background work; hung WebKit runs kept the load at 12–34.
+
 # Lead handoff: 2026-10-14 day (X-35), the visual stories merged
 
 **Before dispatching, check you are the only lead** (`gh pr list --state all --limit 20`; read this page and `progress.md` on
