@@ -5,7 +5,7 @@ import { commands } from '../commands/index.ts';
 import { notify } from '../notices/index.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import type { shell as tauriShell } from '../shell/tauri.ts';
-import { createDocumentSignal } from '../workspace/toolbar.ts';
+import { createDocumentSignal } from '../workspace/document-signal.ts';
 import { runMenuCommand, type MenuDeps } from './menu-commands.ts';
 import { createMenuSync, watchMenuState } from './menu-state.ts';
 

@@ -23,7 +23,7 @@ import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import { uncoverPanes } from './pane-cover.ts';
 import { TabList, isTransient } from './tabs.ts';
-import type { DocumentSignal } from './toolbar.ts';
+import type { DocumentSignal } from './document-signal.ts';
 
 type Pane = ReturnType<AppHandle['panes']>['panes'][number];
 

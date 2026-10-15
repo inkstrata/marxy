@@ -42,7 +42,7 @@ import {
   type RepositoryRow,
   type TreeRow,
 } from './sidebar-tree.ts';
-import type { DocumentSignal } from './toolbar.ts';
+import type { DocumentSignal } from './document-signal.ts';
 import { toolbarIconElement } from './toolbar-icons.ts';
 
 const LIBRARY_COMMAND = 'library.open';

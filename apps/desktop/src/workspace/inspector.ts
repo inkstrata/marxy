@@ -10,7 +10,7 @@
 // (`.marxy-inspector`); state is ARIA and data attributes.
 import type { AppHandle } from '../app.ts';
 import { appHandle } from '../commands/app-handle.ts';
-import type { DocumentSignal } from './toolbar.ts';
+import type { DocumentSignal } from './document-signal.ts';
 
 /** What a tab's builder is given: the app and the signal that follows the focused pane's document. */
 export interface InspectorContext {

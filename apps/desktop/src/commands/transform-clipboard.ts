@@ -3,11 +3,11 @@
 // transform on its text and opens the result sheet (`transform/sheet.ts`) with the clipboard as the input. The sheet's
 // primary action writes the result back as one plain-text item; Esc writes nothing. No document is read or changed.
 import { TRANSFORMS, readableText } from '@marxy/core';
-import { NOTHING_TO_TRANSFORM, pasteShellOf, readForTransform } from '../paste/read-clipboard.ts';
 import type { SheetTarget } from '../transform/sheet.ts';
 import type { AppContext, Command } from './registry.ts';
 
 export async function transformClipboard(ctx: AppContext, id: string): Promise<void> {
+  const { NOTHING_TO_TRANSFORM, pasteShellOf, readForTransform } = await import('../paste/read-clipboard.ts');
   const shell = pasteShellOf(ctx.shell);
   if (!shell) return ctx.showNotice('This window has no clipboard access · the clipboard is unchanged.', { kind: 'refused' });
   const got = await readForTransform(shell);

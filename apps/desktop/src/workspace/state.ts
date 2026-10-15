@@ -158,6 +158,8 @@ export interface WorkspaceDeps {
   /** null for a shell with nowhere to keep state (ADR-0026): the defaults apply every time. */
   readonly store: WorkspaceStore | null;
   windowWidth(): number;
+  /** Settles before an unfold makes its regions: the fills' code, when it is loaded on demand (workspace/fill.ts, F-111). */
+  ready?(): Promise<unknown>;
 }
 
 export function createWorkspace(deps: WorkspaceDeps): Workspace {
@@ -273,6 +275,8 @@ export function createWorkspace(deps: WorkspaceDeps): Workspace {
         sections ??= { collapsed: [] };
       }
     }
+    // A failed read of the fills' code is not a reason to refuse the unfold: each fill reports its own.
+    await deps.ready?.().catch(() => undefined);
     unpeekNow();
     arrangement = { ...arrangementFor(remembered, deps.windowWidth()), ...override };
     sidebarByDefault = remembered.sidebar === undefined && override?.sidebar === undefined && !arrangement.sidebar;
