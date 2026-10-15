@@ -3,12 +3,6 @@
 // `paste` handler in `source/paste.ts` takes a paste that carries HTML, and any other is the editor's own. `Mod+Alt+Shift+V`
 // (Paste and Match Style) inserts the plain text unconverted. Nothing here reads the pasteboard until a key or a command runs.
 import { openScratch } from '../document/scratch.ts';
-import {
-  CONVERTED_NOTICE,
-  NOTHING_TO_PASTE,
-  pasteShellOf,
-  readConverted,
-} from '../paste/read-clipboard.ts';
 import { appHandle } from './app-handle.ts';
 import type { Command } from './registry.ts';
 
@@ -49,6 +43,8 @@ export function pasteCommands(): readonly Command[] {
       group: 'document',
       when: () => !inSourceMode(),
       async run(ctx) {
+        // The pasteboard reader and the HTML converter load on the first paste, not at first text (F-111).
+        const { CONVERTED_NOTICE, NOTHING_TO_PASTE, pasteShellOf, readConverted } = await import('../paste/read-clipboard.ts');
         const shell = pasteShellOf(ctx.shell);
         if (!shell) return ctx.showNotice('This window has no clipboard access · nothing was pasted.', { kind: 'refused' });
         const got = await readConverted(shell);
@@ -76,6 +72,7 @@ export function pasteCommands(): readonly Command[] {
       async run(ctx) {
         // Run from a key while the palette is open: the palette's field keeps its keys. From the palette, it closed first.
         if (paletteIsOpen()) return;
+        const { pasteShellOf } = await import('../paste/read-clipboard.ts');
         const shell = pasteShellOf(ctx.shell);
         const { activeSourceEditor } = await import('../source/editor.ts');
         const { pastePlainText } = await import('../source/paste.ts');

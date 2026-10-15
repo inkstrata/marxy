@@ -15,6 +15,7 @@ import { documentName, isUntitled } from '../document/untitled.ts';
 import { keyLabel } from '../palette/commands.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import { openVerbMenu, type VerbMenuRow } from '../selection/verb-menu.ts';
+import type { DocumentSignal } from './document-signal.ts';
 import type { WorkspaceRegion } from './regions.ts';
 import { toolbarIconElement, type ToolbarGlyph } from './toolbar-icons.ts';
 
@@ -77,44 +78,6 @@ export function visibleItems(
       (item.commands.length === 0 || item.commands.some((id) => have.has(id))) &&
       (item.needsFill === undefined || filled.has(item.needsFill)),
   );
-}
-
-/** What the toolbar needs to know that the registry does not say: when the page changed. */
-export interface DocumentSignal {
-  /** Called when a document opened, changed, saved or closed in any pane, or focus moved. */
-  onChange(cb: () => void): () => void;
-}
-
-/**
- * One per app instance, made where the fills are installed, so it has seen every open since launch. It holds
- * no subscription that outlives the panes: they are let go with the panes (ADR-0037).
- */
-export function createDocumentSignal(handle: AppHandle): DocumentSignal {
-  const panes = handle.panes();
-  const listeners = new Set<() => void>();
-  const emit = (): void => {
-    for (const cb of [...listeners]) cb();
-  };
-  const watch = (pane: (typeof panes.panes)[number]): (() => void) =>
-    pane.content.onDocumentChange(() => {
-      emit();
-    });
-  watch(panes.panes[0]!);
-  panes.onSplit(() => {
-    const second = panes.panes[1];
-    return second ? watch(second) : () => {};
-  });
-  panes.onChange(() => {
-    emit();
-  });
-  return {
-    onChange(cb) {
-      listeners.add(cb);
-      return () => {
-        listeners.delete(cb);
-      };
-    },
-  };
 }
 
 const isMac = (): boolean => typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');

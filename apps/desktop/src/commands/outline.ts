@@ -1,6 +1,6 @@
 // "Outline": summon the heading list at the right edge (A-15); and the commands that move a section (W-10).
 import { closeOutline, openOutline, outlineIsOpen, type OutlineSource } from '../outline/view.ts';
-import { canMoveSection, focusedOutlineHeading, runOutlineAction } from '../workspace/outline-tab.ts';
+import { canMoveSection, focusedOutlineHeading } from '../workspace/outline-move.ts';
 import { appHandle, palette } from './app-handle.ts';
 import type { AppContext, Command } from './registry.ts';
 
@@ -42,6 +42,8 @@ function moveCommand(direction: 'up' | 'down'): Command {
       const start = targetOf(ctx);
       if (!handle || start === null || !ctx.document) return;
       ctx.closePalette();
+      // The tab's code is read on the first move, not at first text (F-111).
+      const { runOutlineAction } = await import('../workspace/outline-tab.ts');
       await runOutlineAction(handle, ctx.document, start, direction === 'up' ? 'move-up' : 'move-down');
     },
   };

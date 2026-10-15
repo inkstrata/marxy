@@ -24,7 +24,11 @@ import { notify } from '../notices/index.ts';
 import { keyLabel } from '../palette/commands.ts';
 import { formatCount } from '../source/frame-facts.ts';
 import type { InspectorContext, InspectorTab } from './inspector.ts';
+import { headingAt } from './outline-move.ts';
 import { countsAsMarkdown, createWordCounter, wordsLabel } from './status-facts.ts';
+
+// Both are in outline-move.ts, which the registry's commands read at start; the names stay exported from here.
+export { canMoveSection, focusedOutlineHeading } from './outline-move.ts';
 
 // ---- the model ---------------------------------------------------------------------------------------------------------
 
@@ -217,14 +221,6 @@ const NOT_TEXT = 'Not changed: this part of the file holds bytes that are not te
 const strict = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const encoder = new TextEncoder();
 
-function headingAt(ast: Document, start: number): Heading | null {
-  let found: Heading | null = null;
-  walk(ast, (node: Node) => {
-    if (found === null && node.type === 'heading' && node.src.start === start) found = node as Heading;
-  });
-  return found;
-}
-
 interface Plan {
   readonly op: Operation;
   readonly heading: Heading;
@@ -344,23 +340,6 @@ export async function applyOutlineAction(
     return refuse(`Not changed: ${error instanceof Error ? error.message : String(error)}`);
   }
   return applied ? { applied: true, start: landed } : refuse('Not changed: the document changed while this was being worked out');
-}
-
-/** Whether the heading that starts at `start` has a sibling section to trade places with in `direction`. A cheap look, for a command's `when`. */
-export function canMoveSection(store: DocumentStore, start: number, direction: MoveDirection): boolean {
-  if (!store.parsed()) return false;
-  const ast = store.snapshot().ast;
-  const heading = headingAt(ast, start);
-  return heading !== null && sectionSwapOf(ast, heading, direction) !== null;
-}
-
-/** The heading row that has focus in the Outline tab: where it starts, or null when focus is elsewhere. */
-export function focusedOutlineHeading(): number | null {
-  if (typeof document === 'undefined') return null;
-  const row = document.activeElement?.closest?.('[data-marxy-outline-row="heading"]');
-  if (!row) return null;
-  const start = Number((row as HTMLElement).dataset.marxyOutlineStart);
-  return Number.isInteger(start) ? start : null;
 }
 
 /** Runs `action` for the open document the way every route does: Source text typed and not yet folded goes in first, a refusal is said. */
