@@ -472,3 +472,42 @@ test('a relist after a one-heading edit at 5,000 headings writes only the rows t
     assert.equal(rows[0].text.startsWith('Ccc Bbb Aaa'), true);
   }, { open: ['/r/Ref5k.md'] });
 });
+
+test('a heading whose text changes in place keeps its row and shows the new text (samePlaceTextChange, W-10.3)', async () => {
+  await withPage(async (page) => {
+    const before = await rowsOf(page);
+    await page.evaluate(async () => {
+      const store = window.__marxyHandle.document();
+      // "# One" -> "# Uno": the same heading in the same place, only its words differ.
+      await store.apply({ range: { file: store.snapshot().path ?? '/r/Small.md', start: 2, end: 5 }, replacement: 'Uno', label: 'edit' });
+    });
+    await frames(page, 3);
+    const after = await rowsOf(page);
+    assert.equal(after.length, before.length, 'no row came or went');
+    assert.equal(after[0].text, 'Uno', 'the row shows the new text');
+    assert.deepEqual(after.slice(1).map((r) => r.text), before.slice(1).map((r) => r.text), 'the other rows are as they were');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-outline-item').length), before.length);
+  }, { open: ['/r/Small.md'] });
+});
+
+test('after any relist exactly one outline row is the tab stop (W-10.3)', async () => {
+  await withPage(async (page) => {
+    const stops = () => page.evaluate(() => document.querySelectorAll('[data-marxy-outline-row][tabindex="0"]').length);
+    await page.evaluate(() => document.querySelector('[data-marxy-outline-row="heading"]').focus());
+    await frames(page, 2);
+    assert.equal(await stops(), 1, 'one stop before any edit');
+    const edits = [
+      { start: 2, end: 5, replacement: 'Uno' }, // the same place, other words
+      { start: 0, end: 0, replacement: '# New first\n\n' }, // a row comes
+      { start: 0, end: 13, replacement: '' }, // and goes
+    ];
+    for (const edit of edits) {
+      await page.evaluate(async (e) => {
+        const store = window.__marxyHandle.document();
+        await store.apply({ range: { file: store.snapshot().path ?? '/r/Small.md', start: e.start, end: e.end }, replacement: e.replacement, label: 'edit' });
+      }, edit);
+      await frames(page, 3);
+      assert.equal(await stops(), 1, `one stop after ${JSON.stringify(edit)}`);
+    }
+  }, { open: ['/r/Small.md'] });
+});
