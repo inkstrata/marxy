@@ -327,3 +327,10 @@ test('corpus: every kind is one of the fourteen and every file has a decisive re
     assert.equal(reasons.filter((r) => r.decisive).length, 1, name);
   }
 });
+
+test('F-92: prose with a few `$ ` lines is not a terminal session; a transcript that opens at a prompt still is', () => {
+  const prose = lines('Setting up', '', 'Run this first:', '', '$ make', 'built', '', 'then this:', '', '$ make test', 'ok', '');
+  assert.equal(kindOf('notes.txt', prose), 'article');
+  assert.equal(kindOf('notes.md', prose), 'article');
+  assert.equal(kindOf('session.txt', lines('$ ls', 'a b', '', '$ pwd', '/home')), 'terminal');
+});
