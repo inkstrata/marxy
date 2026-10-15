@@ -237,13 +237,14 @@ export function mountTabs(el: HTMLElement, handle: AppHandle, signal: DocumentSi
       let start = cut.length - NAME_TAIL;
       while (start > 0 && cut.length - start < NAME_TAIL_MAX && !'-_ ./'.includes(cut[start - 1]!)) start--;
       if (start > 0 && !'-_ ./'.includes(cut[start - 1]!)) start = cut.length - NAME_TAIL;
-      const head = document.createElement('span');
-      head.className = 'marxy-tab-name-head';
-      head.textContent = cut.slice(0, start).join('');
-      const tail = document.createElement('span');
-      tail.className = 'marxy-tab-name-tail';
-      tail.textContent = cut.slice(start).join('');
-      text.append(head, tail);
+      // The cut is drawn by the two ends of the run (`::before` and `::after` in base.css) and the name is one text node, whole and
+      // out of sight, so a copy or a read of the tab gives the name on one line: two real spans would be two blocks (F-107.1).
+      text.setAttribute('data-marxy-head', cut.slice(0, start).join(''));
+      text.setAttribute('data-marxy-tail', cut.slice(start).join(''));
+      const whole = document.createElement('span');
+      whole.className = 'marxy-tab-name-full';
+      whole.textContent = full;
+      text.append(whole);
     } else text.textContent = full;
     name.append(text);
     const dot = document.createElement('span');

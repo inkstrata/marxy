@@ -127,3 +127,10 @@ test('an ordinary store is unchanged by the scratch guards', async () => {
   const store = openDocumentStore(io, '/d/a.md', enc.encode('one\n'));
   assert.equal(await store.reload(enc.encode('two\n')), 'reloaded');
 });
+
+test('F-108: an Untitled document takes the Markdown default for line numbers, as a saved .md does', async () => {
+  const { defaultLineNumbersForPath } = await import('../source/line-numbers.ts');
+  for (const scratch of ['untitled', 'untitled:2', 'untitled:7']) assert.equal(defaultLineNumbersForPath(scratch), defaultLineNumbersForPath('/d/note.md'), scratch);
+  assert.equal(defaultLineNumbersForPath('untitled'), false);
+  assert.equal(defaultLineNumbersForPath('/d/main.rs'), true, 'a code file keeps its gutter');
+});

@@ -1152,11 +1152,16 @@ button.marxy-status-item:focus-visible { outline: 2px solid var(--marxy-color-ac
 .marxy-tab-name { flex: 0 1 auto; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
 /* A long name: the head is cut with an ellipsis, the tail stays (tabs-view.ts; F-107). */
 .marxy-tab-name-text { grid-area: 1 / 1; display: flex; min-width: 0; white-space: pre; }
-.marxy-tab-name-head { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.marxy-tab-name-tail { flex: none; }
+.marxy-tab-name-text[data-marxy-tail] { position: relative; }
+.marxy-tab-name-text[data-marxy-tail]::before { content: attr(data-marxy-head); flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.marxy-tab-name-text[data-marxy-tail]::after { content: attr(data-marxy-tail); flex: none; }
+/* The whole name as one text node: not drawn (the ends above are), but what a copy or a read of the name gives, on one line (F-107.1). */
+.marxy-tab-name-full { position: absolute; inset: 0 auto auto 0; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; user-select: none; }
 .marxy-tab-name::after { content: attr(data-marxy-text); grid-area: 1 / 1; height: 0; overflow: hidden; visibility: hidden; white-space: pre; font-weight: 600; }
 .marxy-tab-dirty { flex: none; }
-.marxy-tab-dirty[hidden], .marxy-tab-close[hidden] { display: none; }
+/* Clean, the dot keeps its room and is not drawn, so a tab is as wide dirty as clean (F-99.1). */
+.marxy-tab-dirty[hidden] { display: inline; visibility: hidden; }
+.marxy-tab-close[hidden] { display: none; }
 /* The slot: a square of 18/13 em with a margin of 5/13 em either side, a constant 28/13 em on every tab; the chip behind the × shows on its own hover. */
 .marxy-tab > .marxy-tab-close { flex: none; width: calc(var(--marxy-size-chrome) * 18 / 13); height: min(calc(var(--marxy-size-chrome) * 18 / 13), calc(100% - 4px)); margin-inline: calc(var(--marxy-size-chrome) * 5 / 13); display: grid; place-items: center; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); color: var(--marxy-color-text-secondary); opacity: 0; }
 .marxy-tab > .marxy-tab-close:hover { background: color-mix(in srgb, var(--marxy-color-text) 14%, transparent); color: var(--marxy-color-text-strong); }

@@ -237,7 +237,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
 
   /** Detects what `file` is from its first bytes and the reader's rules and choices, and puts it on the pane's root. */
   function applyKind(file: string, bytes: Uint8Array, inputs: KindInputs): DetectResult {
-    const result = detectFileKind({ path: file, head: bytes.subarray(0, KIND_HEAD_BYTES), rules: inputs.rules, choices: inputs.choices });
+    // A scratch document is Markdown until it is named, so it is detected as the Markdown file it will be (F-108).
+    const result = detectFileKind({ path: isUntitled(file) ? 'untitled.md' : file, head: bytes.subarray(0, KIND_HEAD_BYTES), rules: inputs.rules, choices: inputs.choices });
     detected = result;
     setPaneKind(doc.closest('section.marxy-pane'), result.kind);
     return result;
