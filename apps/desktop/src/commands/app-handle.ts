@@ -42,8 +42,15 @@ export function setMetadataMarginLoader(h: AppHandle, load: () => Promise<Metada
   loaders.set(h, load);
 }
 
-/** The margin preview's controller for `h`, loading it when it is not yet; undefined where the workspace never said how. */
+/**
+ * The margin preview's controller for `h`, loading it when it is not yet. Undefined where the workspace never said how, and where
+ * the chunk could not be read (the loader has said so in a notice; the next call tries again).
+ */
 export async function loadMetadataMargin(h: AppHandle | null): Promise<MetadataMargin | undefined> {
   if (h === null) return undefined;
-  return margins.get(h) ?? (await loaders.get(h)?.());
+  try {
+    return margins.get(h) ?? (await loaders.get(h)?.());
+  } catch {
+    return undefined;
+  }
 }

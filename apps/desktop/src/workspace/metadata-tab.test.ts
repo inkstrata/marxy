@@ -7,6 +7,7 @@ import { createBuffer } from '@marxy/core';
 import { parseMarkdown } from '@marxy/core/src/parse/parse.ts';
 import { noteByte as noteByteOf } from './metadata-tab.ts';
 import { openDocumentStore, type StoreIo } from '../document/store.ts';
+import { previewRows } from '../render/metadata-margin.ts';
 import { hasMarks, spokenText } from './metadata-marks.ts';
 import { FRONT_MATTER_READ_LIMIT, applyFrontMatterEdit, frontMatterEnd, frontMatterOf, metadataModelOf, modifiedWords, reshapedPlaces, scanHidden, sizeFact } from './metadata-tab.ts';
 
@@ -266,4 +267,14 @@ test('metadata marks: a bidi control or a zero-width character is a visible mark
   assert.equal(hasMarks('caf\u00e9'), false);
   assert.equal(spokenText('\u202etxt.exe'), ' U+202E txt.exe');
   assert.equal(spokenText('plain'), 'plain');
+});
+
+test('the margin preview says a front matter was not read, in a row, and never reads it as none', () => {
+  const long = frontMatterOf(open('/r/huge.md', `---\n${'k: v\n'.repeat(Math.ceil((FRONT_MATTER_READ_LIMIT + 1024) / 5))}---\nBody\n`, true))!.values;
+  const { rows } = previewRows(long, [{ key: 'size', value: '1 byte' }]);
+  assert.deepEqual(rows, [{ key: 'front matter', value: 'too long to read here' }, { key: 'size', value: '1 byte' }]);
+  const readOnly = frontMatterOf(open('/r/ro.md', '---\n- a\n- b\n---\nBody\n'))!.values;
+  assert.match(previewRows(readOnly, []).rows[0]!.value, /^read-only here: /);
+  const fine = frontMatterOf(open('/r/ok.md', '---\ntitle: T\n---\nBody\n'))!.values;
+  assert.deepEqual(previewRows(fine, []).rows, [{ key: 'title', value: 'T' }]);
 });

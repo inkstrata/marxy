@@ -42,12 +42,17 @@ export interface PreviewRow {
  */
 export function previewRows(values: FrontMatterValues | null, facts: readonly PreviewRow[], max = PREVIEW_MAX_ROWS): { rows: PreviewRow[]; more: number } {
   const keys = values?.values ?? [];
-  const room = Math.max(0, max - facts.length);
+  // A front matter that could not be read says so in a row, as the tab does, and never reads as none (nothing hidden silently).
+  const unread: PreviewRow[] =
+    values !== null && values.unreadable !== null && keys.length === 0
+      ? [{ key: 'front matter', value: values.unreadable.includes('too long to read here') ? 'too long to read here' : `read-only here: ${values.unreadable}` }]
+      : [];
+  const room = Math.max(0, max - facts.length - unread.length);
   const shown = keys.slice(0, room).map((v): PreviewRow => {
     const line = v.value.split('\n', 1)[0]!;
     return { key: v.key, value: v.value.includes('\n') ? `${line} …` : line };
   });
-  return { rows: [...shown, ...facts], more: Math.max(0, keys.length - shown.length) };
+  return { rows: [...unread, ...shown, ...facts], more: Math.max(0, keys.length - shown.length) };
 }
 
 export interface MetadataMargin {
