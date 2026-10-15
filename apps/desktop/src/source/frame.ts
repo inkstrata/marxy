@@ -474,6 +474,13 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
       bytesAt.map(u.changes, u.startState);
       scheduleIndent();
       scheduleInvisibles();
+      // A note stays on its text: its place moves with the edit (V-04.1). A scan under way was made of the old text, so it is dropped.
+      notesToken++;
+      if (noteMarks.length > 0) {
+        noteMarks = noteMarks.map((m) => ({ ...m, from: u.changes.mapPos(m.from, 1), to: u.changes.mapPos(m.to, -1) }));
+        noteMarks = noteMarks.map((m) => (m.to < m.from ? { ...m, to: m.from } : m));
+        publishMarks();
+      }
       scheduleNotes(700);
     }
     schedule({ facts: u.docChanged || u.startState.tabSize !== u.state.tabSize, caret: u.docChanged || u.selectionSet });

@@ -19,6 +19,9 @@ const CASES: readonly (readonly [name: string, text: string, want: string[]])[] 
   ['a block-quoted fence closed behind its marker gives none', '> ```\n> x\n> ```\n', []],
   ['a heading inside a fence is not a heading', '# A\n\n```\n#### not\n```\n', []],
   ['an indented block has no fence to close', '    indented\n    code\n', []],
+  ['a fence indented four spaces is indented code, not a fence', '    ```js\n    code\n', []],
+  ['a fence indented with a tab is indented code, not a fence', 'x\n\n\t```\n\tcode\n', []],
+  ['a fence indented three spaces is a fence, and unclosed', '   ```\n   code\n', ['fence@1:4 Fence opened at 1:4 is never closed']],
   ['one of each', '# A\n\n### B\n\n```\nopen\n', ['heading@3:1 Heading at 3:1 jumps from level 1 to level 3', 'fence@5:1 Fence opened at 5:1 is never closed']],
 ];
 
