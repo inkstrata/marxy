@@ -9,6 +9,7 @@
 // `unfold()` resolves each fill has run exactly as it did when the code was static; only a peek, which is
 // synchronous, can make a region before the chunk is in, and its content then arrives a moment later.
 import type { AppHandle } from '../app.ts';
+import { notify } from '../notices/index.ts';
 import { createDocumentSignal, type DocumentSignal } from './document-signal.ts';
 import { installPeek } from './peek.ts';
 import type { RegionFill } from './state.ts';
@@ -18,12 +19,17 @@ type Panels = typeof import('./panels.ts');
 let loaded: Panels | null = null;
 let loading: Promise<Panels> | null = null;
 
-/** Reads the panels' chunk once. A failed read is not kept, so the next unfold tries again. */
+export const PANELS_UNAVAILABLE = 'The side panels could not be loaded · they stay empty. Unfolding again tries once more.';
+
+/** Reads the panels' chunk once. A failed read is said to the reader and not kept, so the next unfold tries again. */
 export function loadPanels(): Promise<Panels> {
   loading ??= import('./panels.ts').then(
     (m) => (loaded = m),
     (e: unknown) => {
       loading = null;
+      console.warn('marxy: the workspace panels could not be loaded', e);
+      // The same words again replace the line, so seven fills and an unfold make one notice.
+      notify({ kind: 'error', text: PANELS_UNAVAILABLE });
       throw e;
     },
   );
@@ -45,7 +51,7 @@ function panel(mount: (panels: Panels, el: HTMLElement) => (() => void) | void):
           console.warn('marxy: a workspace region could not be filled', error);
         }
       },
-      (error: unknown) => console.warn('marxy: the workspace panels could not be loaded', error),
+      () => undefined, // said by loadPanels
     );
     return () => {
       gone = true;
