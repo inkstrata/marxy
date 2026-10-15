@@ -47,13 +47,12 @@ export function sizeFact(bytes: number): string {
   return bytes < 1024 ? sizeWords(bytes) : `${sizeWords(bytes)} · ${formatCount(bytes)} bytes`;
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const two = (n: number): string => String(n).padStart(2, '0');
 
-/** "13 Oct 2026, 14:32" in the local time zone; the same in every locale, so a margin reads the same everywhere. */
+/** "2026-10-13 14:32" in the local time zone: the mock's form, and the same in every locale. */
 export function modifiedWords(ms: number): string {
   const d = new Date(ms);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${two(d.getHours())}:${two(d.getMinutes())}`;
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
 }
 
 // ---- the model ---------------------------------------------------------------------------------------------------------

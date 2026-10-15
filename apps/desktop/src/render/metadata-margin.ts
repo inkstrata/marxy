@@ -13,7 +13,8 @@ import type { FrontMatterValues } from '@marxy/core/src/operations/front-matter-
 import type { AppHandle } from '../app.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { selectInspectorTab } from '../workspace/inspector.ts';
-import { frontMatterOf, modifiedWords, sizeFact } from '../workspace/metadata-tab.ts';
+import { frontMatterOf, modifiedWords } from '../workspace/metadata-tab.ts';
+import { formatCount } from '../source/frame-facts.ts';
 import type { DocumentSignal } from '../workspace/toolbar.ts';
 import { notify } from '../notices/index.ts';
 
@@ -107,9 +108,9 @@ export function installMetadataMargin(handle: AppHandle, signal: DocumentSignal)
         }, () => {});
       }
       const ms = stats.get(path)?.mtimeMs ?? null;
-      if (ms !== null) out.push({ key: 'Modified', value: modifiedWords(ms) });
+      if (ms !== null) out.push({ key: 'modified', value: modifiedWords(ms) });
     }
-    out.push({ key: 'Size', value: sizeFact(bytes) });
+    out.push({ key: 'size', value: `${formatCount(bytes)} ${bytes === 1 ? 'byte' : 'bytes'}` });
     return out;
   };
 

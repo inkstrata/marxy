@@ -127,7 +127,7 @@ test('the preview: ⌃⌘I puts the front matter, the size and the date in Read\
       };
     });
     assert.deepEqual(preview.keys.slice(0, 3), ['name', 'description', 'license']);
-    assert.deepEqual(preview.keys.slice(-2), ['Modified', 'Size']);
+    assert.deepEqual(preview.keys.slice(-2), ['modified', 'size']);
     assert.ok(preview.values.at(-1).endsWith('bytes'), preview.values.at(-1));
     assert.equal(preview.inFlow, false, 'not inside the text');
     assert.equal(preview.layerHeight, 0, 'the layer takes no room');

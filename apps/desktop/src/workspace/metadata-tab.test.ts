@@ -20,7 +20,7 @@ test('sizeFact and modifiedWords say a size and a time the same in every locale'
   assert.equal(sizeFact(1), '1 byte');
   assert.equal(sizeFact(3116), '3.0 KB · 3,116 bytes');
   assert.equal(sizeFact(2_500_000), '2.4 MB · 2,500,000 bytes');
-  assert.match(modifiedWords(Date.UTC(2026, 9, 13, 12, 0)), /^\d{1,2} Oct 2026, \d\d:\d\d$/);
+  assert.match(modifiedWords(Date.UTC(2026, 9, 13, 12, 0)), /^2026-10-1[23] \d\d:\d\d$/);
 });
 
 test('scanHidden: invisible and bidirectional characters by the rules Read marks them by, with line and column', () => {

@@ -57,6 +57,8 @@ export const SCREENS = {
   '03-terminal': 'A shell session in the reader (mock 01-workspace, doc=shell-session)',
   '09-inspector-versions': 'The inspector docked on its Versions tab: Changed since you read and the earlier versions (mock 01-workspace)',
   '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
+  '09-inspector-metadata': 'The inspector docked on its Metadata tab: the file, its front matter with values edited in place, detection, what is hidden (mock 01-workspace)',
+  '09-metadata-margin': 'Read with the metadata preview on in the left margin, sidebar undocked for room (mock 01-workspace, Metadata toggle on)',
 };
 
 /** The file names one screen produces: <screen>-<theme>-{app,mock}.png. */
@@ -338,6 +340,24 @@ const APP_STATES = {
     await page.click('[data-marxy-category="reading"]');
     await settle(page, 400);
   },
+  async '09-inspector-metadata'(page) {
+    // The mock's own plan: it has front matter, so the section the card calls editable is drawn.
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
+    await page.locator('[data-marxy-inspector-tab="metadata"]').click();
+    await page.waitForSelector('.marxy-metadata [data-marxy-metadata-section="front-matter"]');
+    await settle(page, 600);
+  },
+  async '09-metadata-margin'(page) {
+    await unfoldedWithTabs(page);
+    // The sidebar is undocked for room: unfolded with it, the margin is under the preview's minimum and the command opens the tab.
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('sidebar', false));
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', false));
+    await settle(page, 400);
+    await page.evaluate(() => window.__cmd('view.metadata'));
+    await page.waitForSelector('.marxy-metadata-preview');
+    await settle(page, 600);
+  },
   async '09-inspector-versions'(page) {
     await unfoldedWithTabs(page);
     // The card's scenario on the plan: read at open, an edit saved, then another program rewrites a line.
@@ -429,6 +449,18 @@ const MOCK_STATES = {
   '09-inspector-outline': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
   '03-terminal': { file: '01-workspace.html', hash: '#doc=shell-session', run: async () => {} },
   '09-inspector-versions': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="versions"]'); await settle(page, 600); } },
+  '09-inspector-metadata': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="meta"]'); await settle(page, 600); } },
+  '09-metadata-margin': {
+    file: '01-workspace.html',
+    run: async (page) => {
+      await mockUnfold(page);
+      // Read (the mock unfolds into Split), with the sidebar and the inspector away for room, then the preview on.
+      await page.keyboard.press('Meta+Digit1');
+      await page.evaluate(() => { window.Marxy.fold.away('side'); window.Marxy.fold.away('insp'); });
+      await page.evaluate(() => window.Marxy.setPref('showMetadata', true));
+      await settle(page, 700);
+    },
+  },
   '08-settings': { file: '08-settings.html', hash: '#reading', run: async (page) => { await settle(page, 400); } },
 };
 

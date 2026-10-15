@@ -271,7 +271,9 @@ test('the three-dot diff contains no fidelity gate', (t) => {
     // A-08: drops the ci.yml-shape check from gate-fidelity.mjs; check.test.mjs is unique to that story's PR.
     names.includes('scripts/check.test.mjs') ||
     // W-10: saves every move of the sections fixtures through the real save path; outline-tab.test.mjs is unique to that story's PR.
-    names.includes('apps/desktop/test/outline-tab.test.mjs');
+    names.includes('apps/desktop/test/outline-tab.test.mjs') ||
+    // W-17: saves every front-matter value edit through the real save path; metadata.test.mjs is unique to that story's PR.
+    names.includes('apps/desktop/test/metadata.test.mjs');
   assert.ok(!names.includes('scripts/gate-fidelity.mjs') || gateFidelityAllowed);
 });
 
