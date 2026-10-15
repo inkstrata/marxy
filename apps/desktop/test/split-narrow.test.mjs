@@ -233,3 +233,77 @@ test('a restore keeps the surviving pane as the reader left it, in mode and plac
     assert.ok(Math.abs((await place(page, 0)) - at) < 600, `place ${at} -> ${await place(page, 0)}`);
   });
 });
+
+const tickDirty = async (page, slot) => {
+  await page.evaluate((s) => {
+    window.__marxyHandle.panes().panes[s].article.querySelector('input[type=checkbox]')
+      .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  }, slot);
+  await page.waitForFunction((s) => window.__marxyHandle.panes().panes[s].view.store()?.snapshot().dirty === true, slot);
+};
+
+test('Dismiss on the question, then a save: the cramped split gives a pane back', async () => {
+  await withPage(['/r/A.md', '/r/B.md'], async (page) => {
+    await tickDirty(page, 1);
+    await narrow(page);
+    await page.waitForSelector('#marxy-notices-2 .marxy-notice button');
+    await page.locator('#marxy-notices-2 .marxy-notice button', { hasText: 'Dismiss' }).click();
+    await page.waitForTimeout(400);
+    assert.equal((await paths(page)).length, 2, 'dismissed: nothing closed');
+    await page.evaluate(() => window.__marxyHandle.panes().panes[1].content.save());
+    await count(page, 1);
+  });
+});
+
+test('the question over unsaved edits is taken down when the window widens again', async () => {
+  await withPage(['/r/A.md', '/r/B.md'], async (page) => {
+    await tickDirty(page, 1);
+    await narrow(page);
+    await page.waitForSelector('#marxy-notices-2 .marxy-notice button');
+    await narrow(page, 1920);
+    await page.waitForFunction(() => document.querySelectorAll('#marxy-notices-2 .marxy-notice').length === 0, null, { timeout: 5000 });
+    assert.equal((await paths(page)).length, 2);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.store().snapshot().dirty), true, 'the edit is kept');
+  });
+});
+
+test('two scratch documents stay side by side in a narrow window, and the reader is told why', async () => {
+  await withPage(['/r/A.md'], async (page) => {
+    await page.evaluate(async () => {
+      const set = window.__marxyHandle.panes();
+      await set.openIn('other', '/r/B.md');
+      await set.openScratch(new TextEncoder().encode('one'));
+      set.focus(set.panes[1]);
+      await set.openScratch(new TextEncoder().encode('two'));
+    });
+    await count(page, 2);
+    await narrow(page);
+    await page.waitForFunction(() => /scratch/i.test(document.querySelector('.marxy-notice')?.textContent ?? ''), null, { timeout: 5000 });
+    assert.equal((await paths(page)).length, 2, 'neither scratch is closed');
+  });
+});
+
+test('a Source pane given back on the right comes back at the place it was left', async () => {
+  await withPage(['/r/A.md', '/r/B.md'], async (page) => {
+    await page.evaluate(async () => {
+      const s = window.__marxyHandle.panes();
+      await s.panes[1].view.setMode('source');
+    });
+    // Scrolled by hand, as a reader does, not placed by a jump.
+    await page.evaluate(() => {
+      const sc = window.__marxyHandle.panes().panes[1].host.querySelector('.cm-scroller');
+      sc.scrollTop = sc.scrollHeight * 0.37;
+    });
+    await page.waitForTimeout(400);
+    const at = await place(page, 1);
+    assert.ok(at > 300, `B is read part way: ${at}`);
+    await narrow(page);
+    await count(page, 1);
+    await narrow(page, 1920);
+    await count(page, 2);
+    await page.waitForTimeout(600);
+    assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md']);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.mode), 'source');
+    assert.ok(Math.abs((await place(page, 1)) - at) < 120, `place ${at} -> ${await place(page, 1)}`);
+  });
+});

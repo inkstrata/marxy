@@ -246,6 +246,15 @@ export async function confirmClosePane(pane: GuardPane): Promise<boolean> {
   });
 }
 
+/**
+ * Takes down the question over unsaved edits that closing `pane` put up, if it is still up: the close it held is
+ * refused, as by Dismiss. For a close that no longer needs asking (a pane given back by a narrow window, F-106.1,
+ * once the window is wide again).
+ */
+export function withdrawClosePrompt(pane: GuardPane): void {
+  if (noticeIsUp() && notice?.prompt.kind === 'pane' && notice.prompt.doc.pane === pane) notice.stop();
+}
+
 /** The pane set as the guard wires it (pane/pane-set.ts's `PaneSet`, narrowed). */
 export interface GuardedPaneSet<P extends GuardPane> {
   readonly panes: readonly P[];
