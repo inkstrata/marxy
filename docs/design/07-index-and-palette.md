@@ -161,6 +161,8 @@ not exist until summoned.
 | **operations** (`>` prefix or `⌘P` with a selection) | operations applicable to the current selection (§03), with the selection described ("h2 The index") | `Enter` runs |
 | **notice** | one line under the list when the index is truncated or still building | — |
 
+From the field, `Shift+Tab` moves focus to the mode buttons (one tab stop, on the chosen mode, where arrows walk the rest); `Tab` alone still toggles the list sections.
+
 Opening a heading hit navigates to the document and scrolls the heading to the reading line
 (§09). Opening any document pushes to history.
 
