@@ -29,7 +29,8 @@ export const KIND_HEAD_BYTES = KIND_FRONT_MATTER_SCAN_BYTES + KIND_PREFIX_BYTES;
  *    least one carries a `role` (or a `message.role`) in ROLES, or a `type` in MESSAGE_TYPES.
  *  - log: at least three lines open with a timestamp then a level word, and they are 60% of the non-blank lines
  *    outside code fences.
- *  - terminal: at least two prompt lines each followed directly by an output line.
+ *  - terminal: at least two prompt lines each followed directly by an output line, and the first non-blank
+ *    line is itself a prompt (F-92: a session opens at its prompt; prose that merely quotes `$ ` lines does not).
  *  - book: a "Chapter" heading and three paragraphs of 600 characters or more, or a chapter-numbered file name.
  */
 export const THRESHOLDS = {
@@ -254,7 +255,7 @@ function shapes(body: string, markup: boolean, path: string): Shape[] {
       if (prompts++ === 0) firstPrompt = lines[i]!.n;
     }
   }
-  if (prompts >= THRESHOLDS.terminalPrompts) {
+  if (prompts >= THRESHOLDS.terminalPrompts && nonBlank.length > 0 && PROMPT.test(nonBlank[0]!.text)) {
     out.push({ kind: 'terminal', signal: 'prompt lines each followed by output', at: `line ${firstPrompt}`, strength: prompts });
   }
   if (!markup) return out;
