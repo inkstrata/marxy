@@ -153,7 +153,11 @@ rule says `read = true` (ADR-0060 item 7; `ruleReadFor` in `packages/core/src/ki
 - **The page.** The first slice of lines is derived and drawn in the task that mounts the view, the rest a few milliseconds a
   slice. The view's block list (each leaf, tool and row, at the start of its line) stands in for `buildBlocks`, so the
   reading position, ⌘E at the same line and a held place go through the ordinary machinery; no grid pass, typesetter or
-  deferred pass runs on it, and no AST node is read for it. A reload derives the view again from the store's bytes.
+  deferred pass runs on it, and no AST node is read for it (a reload maps the reading place through the bytes, not a
+  parse). An append (ADR-0061 item 8) derives only the new lines from the last complete one, reading an unfinished last
+  line again, and draws only their rows, in slices; any other change derives the view again from the store's bytes.
+- **Nothing left out unsaid.** A tool's input that is not a string, a result item that is not text and a message block
+  that is neither (an image) are counted on the tool's line or at the turn's end and shown as written.
 - **Never an edit.** The app's selection (`selection/view.ts`) leaves `[data-marxy-derived]` alone, so no operation is ever
   offered on it; the view's own menus hold only verbs that read.
 

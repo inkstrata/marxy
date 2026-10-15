@@ -2012,6 +2012,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       return;
     }
     const byteOffset = typeof at === 'number' ? at : at?.byteOffset;
+    // An append (the agent wrote on, ADR-0061 item 8): the view derives and draws only the new lines, the rows on the page
+    // stay, and the place is held by the caller as for any reload. Anything else is derived again from the start.
+    const open = store;
+    if (derived && open && derived.update(open.snapshot().buffer.bytes)) {
+      pageStale = false;
+      if (shown && !pageHidden()) shown.blocks = derived.blocks();
+      return;
+    }
     mountDerived(byteOffset);
     afterRender();
     if (resizeObserver === null) keepOnGrid(doc);

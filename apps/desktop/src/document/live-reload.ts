@@ -4,7 +4,7 @@
 // holding Source text the store cannot see keeps the change out), and each view is put at its own place
 // in the new bytes (D-10).
 import { contentHash } from '@marxy/core';
-import { followPath, restorePosition } from '@marxy/core/src/position/restore.ts';
+import { followPath, offsetThroughEdit, restorePosition } from '@marxy/core/src/position/restore.ts';
 import { effectForOpenDocument } from '@marxy/core/src/position/watch-events.ts';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { classify } from '@marxy/core/src/index-model/kinds.ts';
@@ -259,13 +259,22 @@ export async function watchDocument(
     // The new bytes' parse, of only the blocks the change touched (B-23): the place is mapped through it.
     // The store's reload reparses the same way from its own parse, which costs as little.
     // Read here, not above: a store opened lazily (a file that opens in Source) parses when asked, and the held-apart branch above has no use for it.
-    const document = reparsedAst(path, store.snapshot().ast, buffer.bytes, diskBytes);
     // A reload maps the place through the watch's own reading of the change (ADR-0037 §6), never
     // through a splice: every view's through the same edit.
     const places = new Map<RenderedView, ReadingPosition>();
     const edit = { before: buffer.bytes, after: diskBytes };
-    for (const view of views()) {
-      places.set(view, restorePosition(view === first ? position : view.position(), document, edit));
+    if (!store.parsed()) {
+      // Nothing has asked for this file's parse (a file in Source, a JSONL session's derived view, K-12): the place is a
+      // byte, mapped through the bytes alone. Reading the AST here would parse the whole file as Markdown on every append.
+      for (const view of views()) {
+        const place = view === first ? position : view.position();
+        places.set(view, { ...place, path, byteOffset: offsetThroughEdit(place.byteOffset, edit.before, edit.after) });
+      }
+    } else {
+      const document = reparsedAst(path, store.snapshot().ast, buffer.bytes, diskBytes);
+      for (const view of views()) {
+        places.set(view, restorePosition(view === first ? position : view.position(), document, edit));
+      }
     }
     await reloadOpenFromDisk(diskBytes, places, { start, read });
   }

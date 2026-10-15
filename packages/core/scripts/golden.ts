@@ -149,8 +149,14 @@ function serialiseDerived(node: TranscriptNode, depth = 0): string[] {
   if (node.type !== 'transcript') fields.push(`from=${node.from.map(at).join(',')}`);
   switch (node.type) {
     case 'transcript': fields.push(`lines=${node.from.length}`); break;
-    case 'turn': fields.push(`speaker=${node.speaker}`); break;
-    case 'tool': fields.push(`answered=${node.answered}`, `orphan=${node.orphan}`, `failed=${node.failed}`); break;
+    case 'turn':
+      fields.push(`speaker=${node.speaker}`);
+      if (node.unshown.length > 0) fields.push(`unshown=${node.unshown.map((u) => `${u.what}${at(u.src)}`).join(',')}`);
+      break;
+    case 'tool':
+      fields.push(`answered=${node.answered}`, `orphan=${node.orphan}`, `failed=${node.failed}`);
+      if (node.unshown.length > 0) fields.push(`unshown=${node.unshown.map((u) => `${u.key === undefined ? '' : `${u.key}:`}${u.what}${at(u.src)}`).join(',')}`);
+      break;
     case 'derivedText':
       fields.push(`role=${node.role}`, node.decoding, node.syntax);
       if (node.key !== undefined) fields.push(`key=${quote(node.key)}`);

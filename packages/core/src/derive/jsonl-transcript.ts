@@ -30,6 +30,7 @@ import type {
   TranscriptPending,
   TranscriptUnreadable,
   TurnSpeaker,
+  UnshownValue,
 } from '../contracts/derived.ts';
 
 // ---- JSON over bytes ---------------------------------------------------------------------------------------------------
@@ -460,9 +461,9 @@ export const KNOWN_RECORDS: ReadonlySet<string> = new Set([
 
 type Writable<T> = { -readonly [K in keyof T]: T[K] extends readonly (infer U)[] ? U[] : T[K] };
 type WText = Writable<DerivedText>;
-type WTool = Writable<DerivedTool> & { children: DerivedText[]; from: Source[] };
+type WTool = Writable<DerivedTool> & { children: DerivedText[]; from: Source[]; unshown: UnshownValue[] };
 type WThinking = Writable<DerivedThinking>;
-type WTurn = Writable<DerivedTurn> & { children: (DerivedText | DerivedTool | DerivedThinking)[]; from: Source[] };
+type WTurn = Writable<DerivedTurn> & { children: (DerivedText | DerivedTool | DerivedThinking)[]; from: Source[]; unshown: UnshownValue[] };
 type WTranscript = Writable<DerivedTranscript> & {
   from: Source[];
   children: (DerivedTurn | TranscriptUnreadable | TranscriptPending)[];
@@ -483,6 +484,13 @@ export interface TranscriptDeriver {
   readonly lines: number;
   /** How many of the root's children are final: every one but the last until the file is read, then all. */
   readonly settled: number;
+  /**
+   * The bytes grew (ADR-0061 item 8: an agent appends to its log): reads on from where `bytes` still agrees with `next`, so
+   * only the new lines are derived. An unfinished last line is read again, its effect on the tree undone first. Returns
+   * the number of root children that kept their place and content (rows the view may keep), or -1 when `next` does not
+   * begin with every byte this deriver has relied on, so the tree must be derived again from the start.
+   */
+  extend(next: Uint8Array): number;
 }
 
 /** The first `n` bytes a step reads by default: more than a screen of turns. */
@@ -493,8 +501,8 @@ export const FIRST_SLICE_BYTES = 64 * 1024;
  * byte-order mark is read as part of the first line and skipped before its JSON.
  */
 export function createTranscriptDeriver(bytes: Uint8Array, file: string): TranscriptDeriver {
-  const b = bytes;
-  const n = b.length;
+  let b = bytes;
+  let n = b.length;
   const src = (start: number, end: number): Source => ({ file, start, end });
   const tree: WTranscript = {
     type: 'transcript',
@@ -522,7 +530,7 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
   const turnFor = (speaker: TurnSpeaker, lineSrc: Source): WTurn => {
     if (turn === null || turn.speaker !== speaker) {
       closeTurn();
-      const fresh: WTurn = { type: 'turn', speaker, src: lineSrc, from: [], children: [] };
+      const fresh: WTurn = { type: 'turn', speaker, src: lineSrc, from: [], children: [], unshown: [] };
       tree.children.push(fresh);
       turn = fresh;
     }
@@ -543,17 +551,29 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
     return made;
   };
 
-  /** The text leaves of a result's `content`: a string, or an array of text blocks (and strings). */
-  const contentLeaves = (content: JsonValue | undefined, role: DerivedTextRole, syntax: 'markdown' | 'plain'): DerivedText[] => {
+  /** What a value is, for a count: its block's `type` when it is an object that names one, else its JSON kind. */
+  const whatOf = (v: JsonValue): string => {
+    if (v.k === 'o') return str(b, field(b, v, 'type')) ?? 'object';
+    return v.k === 'a' ? 'array' : v.k === 'n' ? 'number' : v.k === 'z' ? 'null' : v.k === 's' ? 'string' : 'boolean';
+  };
+  const unshownOf = (v: JsonValue, key?: string): UnshownValue => {
+    const u: { src: Source; what: string; key?: string } = { src: src(v.s, v.e), what: whatOf(v) };
+    if (key !== undefined) u.key = key;
+    return u;
+  };
+
+  /** The text leaves of a result's `content`: a string, or an array of text blocks (and strings); the rest into `unshown`. */
+  const contentLeaves = (content: JsonValue | undefined, role: DerivedTextRole, syntax: 'markdown' | 'plain', unshown: UnshownValue[]): DerivedText[] => {
     if (content === undefined) return [];
     if (content.k === 's') return [leaf(content, role, syntax)];
     if (content.k !== 'a') return [];
     const out: DerivedText[] = [];
     for (const item of content.items) {
       if (item.k === 's') out.push(leaf(item, role, syntax));
-      else if (item.k === 'o' && str(b, field(b, item, 'type')) === 'text') {
-        const t = field(b, item, 'text');
+      else {
+        const t = item.k === 'o' && str(b, field(b, item, 'type')) === 'text' ? field(b, item, 'text') : undefined;
         if (t?.k === 's') out.push(leaf(t, role, syntax));
+        else unshown.push(unshownOf(item));
       }
     }
     return out;
@@ -561,7 +581,8 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
 
   /** A tool result block (`tool_result`), or a `role: tool` line's object: joined to its call, or a unit of its own. */
   const result = (block: JsonObject, id: string | undefined, lineSrc: Source): number => {
-    const leaves = contentLeaves(field(b, block, 'content'), 'tool-output', 'plain');
+    const unshown: UnshownValue[] = [];
+    const leaves = contentLeaves(field(b, block, 'content'), 'tool-output', 'plain', unshown);
     if (leaves.length === 0) return 0;
     const failed = field(b, block, 'is_error')?.k === 't';
     const call = id === undefined ? undefined : open.get(id);
@@ -571,18 +592,23 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
       call.from.push(src(block.s, block.e));
       call.src = hull(call.from);
       call.children.push(...leaves);
+      call.unshown.push(...unshown);
       call.answered = true;
       call.failed = failed;
       return leaves.length;
     }
     const t = turnFor('agent', lineSrc);
     const s = src(block.s, block.e);
-    const unit: WTool = { type: 'tool', src: s, from: [s], children: leaves, answered: true, orphan: true, failed };
+    const unit: WTool = { type: 'tool', src: s, from: [s], children: leaves, answered: true, orphan: true, failed, unshown };
     t.children.push(unit);
     return leaves.length;
   };
 
-  /** The blocks of one message; returns how many leaves it made. */
+  /**
+   * The blocks of one message; returns how many leaves it made. A block that is not text, thinking or a tool is counted in
+   * the turn's `unshown`. In a prompt, a tool's result is read before the prompt's own text: it answers a call of the turn
+   * before, which the prompt's turn would otherwise close.
+   */
   const message = (speaker: TurnSpeaker, content: JsonValue | undefined, lineSrc: Source): number => {
     if (content === undefined) return 0;
     const textSyntax = speaker === 'agent' ? 'markdown' : 'plain';
@@ -592,47 +618,63 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
     }
     if (content.k !== 'a') return 0;
     let made = 0;
+    const unshown: UnshownValue[] = [];
+    const kindOf = (block: JsonValue): string | undefined => (block.k === 'o' ? str(b, field(b, block, 'type')) : undefined);
+    const results = speaker === 'you' ? content.items.filter((block) => kindOf(block) === 'tool_result') : [];
+    for (const block of results) made += result(block as JsonObject, str(b, field(b, block, 'tool_use_id')), lineSrc);
     for (const block of content.items) {
       if (block.k === 's') {
         turnFor(speaker, lineSrc).children.push(leaf(block, 'text', textSyntax));
         made++;
         continue;
       }
-      if (block.k !== 'o') continue;
-      const kind = str(b, field(b, block, 'type'));
+      const kind = kindOf(block);
+      if (block.k !== 'o') {
+        unshown.push(unshownOf(block));
+        continue;
+      }
+      if (kind === 'tool_result') {
+        if (speaker !== 'you') made += result(block, str(b, field(b, block, 'tool_use_id')), lineSrc);
+        continue;
+      }
       if (kind === 'text') {
         const t = field(b, block, 'text');
-        if (t?.k !== 's') continue;
+        if (t?.k !== 's') {
+          unshown.push(unshownOf(block));
+          continue;
+        }
         turnFor(speaker, lineSrc).children.push(leaf(t, 'text', textSyntax));
         made++;
-      } else if (kind === 'thinking' && speaker === 'agent') {
-        const t = field(b, block, 'thinking');
-        if (t?.k !== 's') continue;
+      } else if (kind === 'thinking' && speaker === 'agent' && field(b, block, 'thinking')?.k === 's') {
+        const t = field(b, block, 'thinking') as JsonString;
         const s = src(block.s, block.e);
         const node: WThinking = { type: 'thinking', src: s, from: [s], children: [leaf(t, 'thinking', 'markdown')] };
         turnFor('agent', lineSrc).children.push(node);
         made++;
-      } else if (kind === 'tool_use' && speaker === 'agent') {
-        const name = field(b, block, 'name');
-        if (name?.k !== 's') continue;
+      } else if (kind === 'tool_use' && speaker === 'agent' && field(b, block, 'name')?.k === 's') {
+        const name = field(b, block, 'name') as JsonString;
         const children: DerivedText[] = [leaf(name, 'tool-name', 'plain')];
+        const inputs: UnshownValue[] = [];
         const input = field(b, block, 'input');
         if (input?.k === 'o') {
           for (let k = 0; k < input.keys.length; k++) {
             const v = input.vals[k]!;
-            if (v.k === 's') children.push(leaf(v, 'tool-input', 'plain', decodeJsonString(b, input.keys[k]!).value));
+            const key = decodeJsonString(b, input.keys[k]!).value;
+            if (v.k === 's') children.push(leaf(v, 'tool-input', 'plain', key));
+            else inputs.push(unshownOf(v, key));
           }
-        }
+        } else if (input !== undefined) inputs.push(unshownOf(input, 'input'));
         const s = src(block.s, block.e);
-        const unit: WTool = { type: 'tool', src: s, from: [s], children, answered: false, orphan: false, failed: false };
+        const unit: WTool = { type: 'tool', src: s, from: [s], children, answered: false, orphan: false, failed: false, unshown: inputs };
         turnFor('agent', lineSrc).children.push(unit);
         const id = str(b, field(b, block, 'id'));
         if (id !== undefined && !open.has(id)) open.set(id, unit);
         made += children.length;
-      } else if (kind === 'tool_result') {
-        made += result(block, str(b, field(b, block, 'tool_use_id')), lineSrc);
-      }
+      } else unshown.push(unshownOf(block));
     }
+    // Counted on the turn the line went into; a line that showed nothing is dropped and counted as a whole instead.
+    const into = turn as WTurn | null;
+    if (made > 0 && into !== null && unshown.length > 0) into.unshown.push(...unshown);
     return made;
   };
 
@@ -684,6 +726,58 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
     if (made === 0) drop(lineSrc, record, true);
   };
 
+  /**
+   * What reading the unfinished last line (no newline) changed, kept so that line can be read again once more bytes come
+   * (`extend`): the lengths of every list it can grow, the turn and the open calls it can change, and the calls' fields.
+   */
+  interface Before {
+    readonly at: number;
+    readonly line: number;
+    readonly from: number;
+    readonly dropped: number;
+    readonly children: number;
+    readonly turn: WTurn | null;
+    readonly turnState: { from: number; children: number; unshown: number; src: Source } | null;
+    readonly open: Map<string, WTool>;
+    readonly calls: { tool: WTool; from: number; children: number; unshown: number; src: Source; answered: boolean; failed: boolean }[];
+  }
+  let before: Before | null = null;
+  const remember = (): Before => ({
+    at,
+    line,
+    from: tree.from.length,
+    dropped: tree.dropped.length,
+    children: tree.children.length,
+    turn,
+    turnState: turn ? { from: turn.from.length, children: turn.children.length, unshown: turn.unshown.length, src: turn.src } : null,
+    open: new Map(open),
+    calls: [...open.values()].map((tool) => ({ tool, from: tool.from.length, children: tool.children.length, unshown: tool.unshown.length, src: tool.src, answered: tool.answered, failed: tool.failed })),
+  });
+  const undo = (k: Before): void => {
+    at = k.at;
+    line = k.line;
+    tree.from.length = k.from;
+    tree.dropped.length = k.dropped;
+    tree.children.length = k.children;
+    turn = k.turn;
+    if (turn && k.turnState) {
+      turn.from.length = k.turnState.from;
+      turn.children.length = k.turnState.children;
+      turn.unshown.length = k.turnState.unshown;
+      turn.src = k.turnState.src;
+    }
+    open = new Map(k.open);
+    for (const c of k.calls) {
+      c.tool.from.length = c.from;
+      c.tool.children.length = c.children;
+      c.tool.unshown.length = c.unshown;
+      c.tool.src = c.src;
+      c.tool.answered = c.answered;
+      c.tool.failed = c.failed;
+    }
+    tree.src = src(0, at);
+  };
+
   const step = (budgetBytes: number): boolean => {
     if (at >= n) return true;
     slices++;
@@ -693,18 +787,39 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
       const last = nl < 0;
       if (last) nl = n;
       const end = last ? n : nl + 1;
+      if (last) before = remember();
       readLine(at, nl, end, last);
       at = end;
       tree.src = src(0, at);
       if (at >= stop) break;
     }
-    if (at >= n) closeTurn();
+    // The turn and the open calls are kept at the end of the bytes: an appended line joins the turn it continues.
     return at >= n;
+  };
+
+  const extend = (next: Uint8Array): number => {
+    // The bytes the tree relied on: every line read whole, and not the unfinished last one, which is read again.
+    const keep = before !== null && at >= n ? before.at : at;
+    if (next.length < keep) return -1;
+    if (next !== b) {
+      for (let i = 0; i < keep; i++) if (next[i] !== b[i]) return -1;
+    }
+    let kept = tree.children.length;
+    if (before !== null && at >= n) {
+      undo(before);
+      kept = tree.children.length;
+    }
+    before = null;
+    b = next;
+    n = next.length;
+    // The last row may still grow with the lines that follow (a turn the new lines continue).
+    return turn !== null && tree.children[tree.children.length - 1] === turn ? Math.max(0, kept - 1) : kept;
   };
 
   return {
     tree,
     step,
+    extend,
     get done() {
       return at >= n;
     },

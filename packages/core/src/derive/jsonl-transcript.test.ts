@@ -77,17 +77,17 @@ test('the accounting rule over the corpus session: each line is a leaf\'s source
 
 test('the escaped U+202E is one character in its leaf, and is marked as Read marks a bidi control', () => {
   const tree = deriveTranscript(fixtureBytes, FIXTURE);
-  const leaf = leavesOf(tree).find((l) => l.value.includes('‮'))!;
+  const leaf = leavesOf(tree).find((l) => l.value.includes('\u202e'))!;
   assert.ok(leaf, 'a leaf holds the override');
-  assert.equal([...leaf.value].filter((c) => c === '‮').length, 1);
+  assert.equal([...leaf.value].filter((c) => c === '\u202e').length, 1);
   assert.ok(raw(fixtureBytes, leaf.src).includes('\\u202e'), 'the file spells it as a six-byte escape');
-  assert.equal(raw(fixtureBytes, leaf.src).includes('‮'), false, 'and holds no override itself');
+  assert.equal(raw(fixtureBytes, leaf.src).includes('\u202e'), false, 'and holds no override itself');
   assert.equal(leaf.syntax, 'markdown', "the agent's text is Markdown");
   const turn = turns(tree).find((t) => t.children.includes(leaf))!;
   const html = rowHtml(turn, fixtureBytes, { path: FIXTURE });
-  assert.match(html, /<code class="marxy-invisible-glyph" aria-hidden="true">202E<\/code><code class="marxy-invisible-byte marxy-invisible-bidi" aria-hidden="true">‮<\/code>/);
+  assert.match(html, /<code class="marxy-invisible-glyph" aria-hidden="true">202E<\/code><code class="marxy-invisible-byte marxy-invisible-bidi" aria-hidden="true">\u202e<\/code>/);
   // Every U+202E in the render is inside its marker: none stands bare where it would act.
-  assert.equal(html.split('‮').length - 1, 1);
+  assert.equal(html.split('\u202e').length - 1, 1);
 });
 
 test('the tool call and its result three lines later are one tool node', () => {
@@ -165,7 +165,7 @@ test('copy-turn is the turn\'s text without its label; Source lines are the whol
   assert.equal(turnText(you!), 'The indexer takes 40 seconds on my notes folder.\nCan you find out why?');
   assert.equal(
     turnText(agentTurn!),
-    "Thinking · 12 words\n\nI'll profile a cold run first, then look at where the time goes.\n\nTool · Bash · 4 lines\n\nHighlighting is **91%** of the run. Every file is highlighted on every index, even when it has not changed.\n\nOne file name in the log reads `notes‮txt.md`, and another holds a zero​width space.",
+    "Thinking · 12 words\n\nI'll profile a cold run first, then look at where the time goes.\n\nTool · Bash · 4 lines\n\nHighlighting is **91%** of the run. Every file is highlighted on every index, even when it has not changed.\n\nOne file name in the log reads `notes\u202etxt.md`, and another holds a zero\u200bwidth space.",
   );
   const lines = dec.decode(sourceLinesOf(tree, fixtureBytes, agentTurn!));
   assert.deepEqual(lines.split('\n').filter(Boolean).map((l) => JSON.parse(l).type), ['assistant', 'assistant', 'user', 'assistant'], 'lines 3, 4, 7 and 8, not the bookkeeping between');
@@ -218,7 +218,7 @@ test('lone surrogates in escapes: the leaf keeps the unit, is plain and is marke
 });
 
 test('bidi controls, raw or escaped, are each one character and drawn as a marker', () => {
-  const text = `${user('x‮y⁦z')}\n${user('PLACE').replace('PLACE', 'p\\u202eq')}\n`;
+  const text = `${user('x\u202ey\u2066z')}\n${user('PLACE').replace('PLACE', 'p\\u202eq')}\n`;
   const tree = derive(text);
   const html = turns(tree).map((t) => rowHtml(t, bytesOf(text), { path: '/r/s.jsonl' })).join('');
   assert.equal(html.match(/marxy-invisible-bidi/g)?.length, 3);
@@ -304,7 +304,7 @@ function rng(seed: number): () => number {
   };
 }
 
-const ATOMS = ['', 'a', ' ', '"', '\\', '\\"', '\\\\', '\\n', '\\u0041', '\\ud800', '\\udc00', '\\ud83d\\ude00', '\\u202e', '\\u200b', '\\u001b[31m', '\\x', '\\u12', '\t', '\u0000', '\r', 'é', '‮', '中', '😀', '{', '}', '[', ']', ':', ',', '0', '-1.5e+3', '01', '1.', 'true', 'nul', 'null', '﻿'];
+const ATOMS = ['', 'a', ' ', '"', '\\', '\\"', '\\\\', '\\n', '\\u0041', '\\ud800', '\\udc00', '\\ud83d\\ude00', '\\u202e', '\\u200b', '\\u001b[31m', '\\x', '\\u12', '\t', '\u0000', '\r', 'é', '\u202e', '中', '😀', '{', '}', '[', ']', ':', ',', '0', '-1.5e+3', '01', '1.', 'true', 'nul', 'null', '\ufeff'];
 const BAD_BYTES = [0xff, 0xc0, 0x80, 0xe2, 0x82, 0xf0, 0x9f, 0xed, 0xa0, 0xf4, 0x90, 0xc3];
 
 /** A random line of bytes: mostly JSON, often broken in one of the ways a file breaks. */
@@ -369,7 +369,7 @@ test('the byte reader agrees with JSON.parse over the UTF-8 decoding on 20,000 r
 function randomSession(r: () => number, n: number): Uint8Array {
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(r() * xs.length)]!;
   const hostile = (): string =>
-    Array.from({ length: 1 + Math.floor(r() * 4) }, () => pick(['plain words', '**bold** and `code`', '# a heading\n\n- a list', 'x‮y', '⁦iso⁩', 'zero​width', '\u001b[2J', 'nul\u0000l', 'tab\tbed', 'line\r\nbreak', '😀 pair', '中文', '﻿bom', 'ok'])).join(' ');
+    Array.from({ length: 1 + Math.floor(r() * 4) }, () => pick(['plain words', '**bold** and `code`', '# a heading\n\n- a list', 'x\u202ey', '\u2066iso\u2069', 'zero\u200bwidth', '\u001b[2J', 'nul\u0000l', 'tab\tbed', 'line\r\nbreak', '😀 pair', '中文', '\ufeffbom', 'ok'])).join(' ');
   const ids: string[] = [];
   const parts: Uint8Array[] = [];
   const lines = 1 + Math.floor(r() * 40);
@@ -386,7 +386,7 @@ function randomSession(r: () => number, n: number): Uint8Array {
         else if (kind < 0.9) {
           const id = `t${k}-${b}`;
           ids.push(id);
-          blocks.push({ type: 'tool_use', id, name: pick(['Bash', 'Read', 'Edit', 'x‮y']), input: { command: hostile(), n: 3, nested: { s: 'skip' } } });
+          blocks.push({ type: 'tool_use', id, name: pick(['Bash', 'Read', 'Edit', 'x\u202ey']), input: { command: hostile(), n: 3, nested: { s: 'skip' } } });
         } else blocks.push({ type: 'image', source: {} });
       }
       text = line({ type: 'assistant', message: { role: 'assistant', model: 'm', content: blocks, usage: { input_tokens: 1 } }, costUSD: 0.1 });
@@ -416,7 +416,7 @@ function randomSession(r: () => number, n: number): Uint8Array {
   }
   // One session in the run carries a 5 MB line.
   if (n === 500) {
-    parts.push(enc.encode(agent([{ type: 'text', text: `${'5 MB of one line. '.repeat(5 * 1024 * 1024 / 18)}‮` }])));
+    parts.push(enc.encode(agent([{ type: 'text', text: `${'5 MB of one line. '.repeat(5 * 1024 * 1024 / 18)}\u202e` }])));
     parts.push(enc.encode('\n'));
   }
   const total = parts.reduce((s, p) => s + p.length, 0);
@@ -496,6 +496,70 @@ test('slices: a session derived a few bytes at a time is the session derived who
     assert.deepEqual(JSON.parse(JSON.stringify(d.tree)), JSON.parse(JSON.stringify(whole)), `session ${n}`);
     assert.ok(d.slices >= 1);
   }
+});
+
+test('extend: a session cut at any byte and then read on from the cut is the session derived whole, and the rows it kept are unchanged', () => {
+  const r = rng(4242);
+  let cuts = 0;
+  for (let n = 0; n < 300; n++) {
+    const bytes = randomSession(r, n === 0 ? 1 : n);
+    const whole = JSON.stringify(deriveTranscript(bytes, '/r/s.jsonl'));
+    // Two appends: the file as the agent was writing it, then more, then all of it.
+    const first = Math.floor(r() * bytes.length);
+    const second = first + Math.floor(r() * (bytes.length - first));
+    const d = createTranscriptDeriver(bytes.subarray(0, first), '/r/s.jsonl');
+    while (!d.step(1 + Math.floor(r() * 2000))) {}
+    for (const cut of [second, bytes.length]) {
+      const rowsBefore = d.tree.children.map((c) => JSON.stringify(c));
+      const kept = d.extend(bytes.subarray(0, cut));
+      assert.ok(kept >= 0 && kept <= rowsBefore.length, `session ${n}: kept ${kept} of ${rowsBefore.length}`);
+      while (!d.step(1 + Math.floor(r() * 2000))) {}
+      assert.deepEqual(d.tree.children.slice(0, kept).map((c) => JSON.stringify(c)), rowsBefore.slice(0, kept), `session ${n}: a kept row changed`);
+      cuts++;
+    }
+    assert.equal(JSON.stringify(d.tree), whole, `session ${n} cut at ${first} and ${second}`);
+    assert.deepEqual(checkDerivedInvariants(d.tree, bytes, { markdown: false }), []);
+  }
+  assert.equal(cuts, 600);
+});
+
+test('extend refuses bytes that do not begin with what was read, and an append reads only the new lines', () => {
+  const head = `${user('a')}\n${agent('b')}\n`;
+  const d = createTranscriptDeriver(bytesOf(head), '/r/s.jsonl');
+  while (!d.step(1 << 20)) {}
+  assert.equal(d.extend(bytesOf(`${user('A')}\n${agent('b')}\n`)), -1, 'an edit before the end is not an append');
+  const slicesBefore = d.slices;
+  const linesBefore = d.lines;
+  assert.equal(d.extend(bytesOf(`${head}${agent('c')}\n`)), 1, 'the open agent turn may grow; the prompt stays');
+  while (!d.step(1 << 20)) {}
+  assert.equal(d.lines - linesBefore, 1, 'one line read');
+  assert.equal(d.slices - slicesBefore, 1);
+  assert.equal((d.tree.children[1] as DerivedTurn).children.length, 2, 'the appended reply joined the turn');
+});
+
+test('what a shown line holds that is not text is counted and kept: non-string inputs, image blocks, result items', () => {
+  const tree = derive(
+    [
+      agent([{ type: 'text', text: 'planning' }, { type: 'tool_use', id: 'w1', name: 'TodoWrite', input: { todos: [{ content: 'x', status: 'pending' }], count: 2, note: 'n' } }]),
+      user([{ type: 'tool_result', tool_use_id: 'w1', content: [{ type: 'text', text: 'ok' }, { type: 'image', source: {} }] }]),
+      user([{ type: 'text', text: 'look at this' }, { type: 'image', source: { type: 'base64', data: 'AAAA' } }, 7]),
+      '',
+    ].join('\n'),
+  );
+  const tool = turns(tree)[0]!.children[1] as DerivedTool;
+  assert.deepEqual(tool.unshown.map((u) => [u.what, u.key ?? null]), [['array', 'todos'], ['number', 'count'], ['image', null]]);
+  const you = turns(tree)[1]!;
+  assert.deepEqual(you.unshown.map((u) => u.what), ['image', 'number']);
+  const html = rowHtml(turns(tree)[0]!, bytesOf(''), { path: '/r/s.jsonl' });
+  assert.match(html, /3 values not shown/);
+  assert.match(rowHtml(you, bytesOf(''), { path: '/r/s.jsonl' }), /2 values not shown/);
+});
+
+test('a prompt that answers a call and then says something: the result joins the call, the text starts the prompt', () => {
+  const tree = derive([agent([{ type: 'tool_use', id: 'q1', name: 'Ask', input: {} }]), user([{ type: 'text', text: 'here' }, { type: 'tool_result', tool_use_id: 'q1', content: 'answer' }]), ''].join('\n'));
+  const units = turns(tree).flatMap((t) => t.children).filter((c): c is DerivedTool => c.type === 'tool');
+  assert.deepEqual(units.map((u) => [u.orphan, u.answered]), [[false, true]]);
+  assert.deepEqual(turns(tree).map((t) => t.speaker), ['agent', 'you']);
 });
 
 test('the differential over 1,000 generated sessions: the accounting rule and item 4.5 hold for every one, and each line shows what JSON.parse finds in it', () => {

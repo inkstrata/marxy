@@ -840,7 +840,10 @@ The first screen of a 20 MB session shows before the whole file is read (commitm
   `packages/theme/default/theme.css` (the turn and tool-line rules inside the `transcript` profile),
   `scripts/registry.json`, `packages/core/scripts/golden.ts` (the derived goldens), `scripts/mock-pair.mjs` (`SCREENS`:
   `03-transcript-jsonl`) and `scripts/mock-pair.test.mjs`, `docs/design/02-render.md`. *Added by K-12:*
-  `apps/desktop/src/document/open.ts` (the matching rule's `read` decides the mode; nothing on main read it),
+  `apps/desktop/src/document/open.ts` (the matching rule's `read` decides the mode; nothing on main read it), `apps/desktop/src/document/live-reload.ts` (a
+  reload of a file nothing has parsed maps the place through the bytes, so an append does not parse the session as
+  Markdown), `apps/desktop/test/transcript-lite.test.mjs`, `apps/desktop/package.json` (`test:lite`) and
+  `docs/ci-contract.md`,
   `packages/core/src/kind/show-as.ts` and `detect.ts` (`ruleReadFor`, matched as the kind's rule is),
   `apps/desktop/src/selection/view.ts` (the app's selection never resolves inside a derived view),
   `packages/core/src/contracts/contracts.test.ts` (ADR-0061 item 6's type-level check), `fixtures/corpus/README.md` and its

@@ -1,4 +1,4 @@
-document [0,9991)
+document [0,10087)
   htmlBlock [0,72) value="<!-- Inventory and provenance for the fixture corpus the gates walk. -->"
   heading [74,90) level=1
     text [76,90) value="Fixture corpus"
@@ -310,7 +310,7 @@ document [0,9991)
     text [9065,9101) value=". Every name and number is invented."
   heading [9103,9122) level=2
     text [9106,9122) value="40-session.jsonl"
-  paragraph [9124,9990)
+  paragraph [9124,10086)
     text [9124,9239) value="Original data written for K-12: an agent session log, one JSON object per line, in the shape Claude Code writes (a "
     code [9239,9245) value="type"
     text [9245,9248) value=", a"
@@ -329,12 +329,12 @@ document [0,9991)
     softBreak [9494,9495)
     text [9495,9546) value="bookkeeping snapshot and a system line between, an "
     code [9546,9552) value="Edit"
-    text [9552,9622) value=" call and its result, an escaped U+202E and U+200B in a reply, an ANSI"
-    softBreak [9622,9623)
-    text [9623,9664) value="escape in tool output, a lone surrogate ("
-    code [9664,9672) value="\\ud800"
-    text [9672,9750) value=") in a prompt, a summary line, a record of a type the deriver does not know, a"
-    softBreak [9750,9751)
-    text [9751,9878) value="line that is not JSON (a bad escape), a blank line, and an unfinished last line with no newline. The file is ASCII; the …"
-    softBreak [9878,9879)
-    text [9879,9990) value="id, model name, cost, token counts and times are invented and are what the derived goldens show are never read."
+    text [9552,9718) value=" call (with a boolean input the view counts and shows as written) and its result, a prompt that holds an image block, an…"
+    softBreak [9718,9719)
+    text [9719,9760) value="escape in tool output, a lone surrogate ("
+    code [9760,9768) value="\\ud800"
+    text [9768,9846) value=") in a prompt, a summary line, a record of a type the deriver does not know, a"
+    softBreak [9846,9847)
+    text [9847,9974) value="line that is not JSON (a bad escape), a blank line, and an unfinished last line with no newline. The file is ASCII; the …"
+    softBreak [9974,9975)
+    text [9975,10086) value="id, model name, cost, token counts and times are invented and are what the derived goldens show are never read."

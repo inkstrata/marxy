@@ -135,6 +135,19 @@ export interface DerivedText {
   readonly replaced: readonly number[];
 }
 
+/**
+ * A value in a shown line that the view does not set as text, and says so (ADR-0061 item 7): a tool's input that is not a
+ * string (a list, an object, a number), an item of a result that is not text, or a block of a message that is neither
+ * text, thinking nor a tool (an image, a document). The view counts them and shows their bytes as written.
+ */
+export interface UnshownValue {
+  readonly src: Source;
+  /** What it is: a JSON kind (`object`, `array`, `number`, `boolean`, `null`) or the block's `type` (`image`). */
+  readonly what: string;
+  /** For a tool's input: the key it is the value of. */
+  readonly key?: string;
+}
+
 /** A tool call and its result as one unit: `from` is the call's object and, once it is found, the result's. */
 export interface DerivedTool {
   readonly type: 'tool';
@@ -148,6 +161,8 @@ export interface DerivedTool {
   readonly orphan: boolean;
   /** The result says the call failed (`is_error`). */
   readonly failed: boolean;
+  /** Its input values and result items that are not text: counted on its line, shown as written in its body. */
+  readonly unshown: readonly UnshownValue[];
 }
 
 /** An agent's thinking, folded at rest: its block's object. */
@@ -165,6 +180,8 @@ export interface DerivedTurn {
   readonly src: Source;
   readonly from: readonly Source[];
   readonly children: readonly (DerivedText | DerivedTool | DerivedThinking)[];
+  /** Blocks of its lines that are not text, thinking or a tool (an image): counted at its end, each a Jump to source. */
+  readonly unshown: readonly UnshownValue[];
 }
 
 /** A line that is not JSON: shown as its own bytes, never dropped. `line` is 1-based. */

@@ -414,7 +414,8 @@
     "marxy-tool-omitted",
     "marxy-thinking",
     "marxy-unreadable",
-    "marxy-pending"
+    "marxy-pending",
+    "marxy-derived-unshown"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

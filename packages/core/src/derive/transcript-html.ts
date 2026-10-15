@@ -11,10 +11,10 @@
 //   carries `data-marxy-derived`.
 // - Every character the invisibles rule flags is drawn as its marker (a bidi control never acts, an ESC is ␛); a U+FFFD
 //   the decoding put for bytes that are not UTF-8, and a lone surrogate, are drawn marked, apart from a U+FFFD the file holds.
-import type { DerivedText, DerivedThinking, DerivedTool, DerivedTranscript, DerivedTurn, TranscriptPending, TranscriptUnreadable } from '../contracts/derived.ts';
+import type { DerivedText, DerivedThinking, DerivedTool, DerivedTranscript, DerivedTurn, TranscriptPending, TranscriptUnreadable, UnshownValue } from '../contracts/derived.ts';
 import { DEFAULT_POLICY, type Policy } from '../sanitize/policy.ts';
-import { escapeText } from '../sanitize/escape.ts';
-import { markInvisibles } from '../render/invisibles.ts';
+import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
+import { invisibleHexLabel, invisibleSegments, markInvisibles } from '../render/invisibles.ts';
 import { renderDocumentSafeHtml } from '../render/pipeline.ts';
 import { innerDocument } from './invariants.ts';
 
@@ -30,6 +30,7 @@ export const OUTPUT_BOUND = { past: 30, head: 10, tail: 10 } as const;
 /** Characters of one output line shown before the rest of it is counted instead. */
 export const LINE_CHARS = 4000;
 
+const utf8 = new TextDecoder('utf-8', { ignoreBOM: true });
 const plural = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 const range = (node: { readonly src: { readonly start: number; readonly end: number } }): string =>
   `data-marxy-s="${node.src.start}" data-marxy-e="${node.src.end}"`;
@@ -86,14 +87,27 @@ export function plainTextHtml(value: string, replaced: readonly number[] = [], o
  * The allow-list has run, so `="` occurs only inside a tag and these patterns reach no text.
  */
 function innerMarkdownHtml(path: string, leaf: DerivedText, policy: Policy): string {
-  const html = markInvisiblesInHtml(renderDocumentSafeHtml(innerDocument(path, leaf), policy).html);
-  return html
-    .replace(/ data-marxy-[se]="[0-9]+"/g, '')
+  const html = renderDocumentSafeHtml(innerDocument(path, leaf), policy)
+    .html.replace(/ data-marxy-[se]="[0-9]+"/g, '')
     .replace(/ (?:id|data-marxy-speaker)="[^"]*"/g, '')
+    // An image's words become text before the invisibles pass, so a bidi control in an alt is marked like any other.
     .replace(/<img\b[^>]*>/g, (tag) => {
       const alt = / alt="([^"]*)"/.exec(tag)?.[1] ?? '';
       return `<span class="marxy-derived-image">image${alt === '' ? '' : `: ${alt}`}</span>`;
-    });
+    })
+    // An attribute cannot hold a marker: a title says each flagged character by its code instead of holding it.
+    .replace(/ title="([^"]*)"/g, (_m, value: string) => ` title="${escapeAttribute(labelInvisibles(unescapeAttribute(value)))}"`);
+  return markInvisiblesInHtml(html);
+}
+
+const unescapeAttribute = (value: string): string =>
+  value.replace(/&(amp|lt|gt|quot|#39);/g, (_m, name: string) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[name] ?? '');
+
+/** `text` with each character the invisibles rule flags written as its code (`[U+202E]`), for a place that holds no markup. */
+export function labelInvisibles(text: string): string {
+  return invisibleSegments(text, { inCode: false, sourceStart: 1 })
+    .map((seg) => (seg.kind === 'text' ? seg.value : seg.kind === 'marker' ? `[U+${invisibleHexLabel(seg.cp)}]` : `[tag ×${seg.count}]`))
+    .join('');
 }
 
 /**
@@ -122,6 +136,8 @@ export function markInvisiblesInHtml(html: string): string {
 export interface RowOptions {
   /** The file's path: inner documents are parsed under `<path>#derived@<start>`. */
   readonly path: string;
+  /** The 1-based line of a byte, for the places a row names (a value not shown, its line a Jump to source). */
+  readonly lineOf?: (byte: number) => number;
   /** The allow-list for an agent's Markdown. The default, whatever the file's trust: a session is never trusted HTML. */
   readonly policy?: Policy;
 }
@@ -146,12 +162,19 @@ export function toolName(tool: DerivedTool): string {
   return tool.children.find((c) => c.role === 'tool-name')?.value ?? 'result';
 }
 
-/** The words on a tool's line after its name: the result's length, or why there is none. */
+/** The words on a tool's line after its name: the result's length, or why there is none, and what it does not show. */
 export function toolSize(tool: DerivedTool): string {
-  if (!tool.answered) return 'no result';
   const lines = lineCountOf(toolOutput(tool));
-  const size = lines === 0 ? 'no output' : plural(lines, 'line');
-  return tool.failed ? `failed · ${size}` : size;
+  const size = !tool.answered ? 'no result' : lines === 0 ? 'no output' : plural(lines, 'line');
+  const said = tool.failed ? `failed · ${size}` : size;
+  return tool.unshown.length === 0 ? said : `${said} · ${plural(tool.unshown.length, 'value')} not shown`;
+}
+
+/** A value not set as text, shown as its bytes as written, under its key and what it is. */
+function unshownValueHtml(u: UnshownValue, bytes: Uint8Array): string {
+  const raw = utf8.decode(bytes.subarray(u.src.start, u.src.end));
+  const label = `${u.key === undefined ? '' : `${u.key} · `}${u.what}, as written`;
+  return `<div class="marxy-tool-input" ${range(u)}><span class="marxy-tool-key">${plainTextHtml(label)}</span>${boundedCodeHtml(raw)}</div>`;
 }
 
 const firstInput = (tool: DerivedTool): DerivedText | undefined => tool.children.find((c) => c.role === 'tool-input');
@@ -192,15 +215,19 @@ export function boundedCodeHtml(value: string, replaced: readonly number[] = [])
   return `<pre class="marxy-tool-output"><code>${shown.join('\n')}</code></pre>`;
 }
 
-/** A tool's body, made when it is first opened: each string of its input under its key, then its output, bounded. */
-export function toolBodyHtml(tool: DerivedTool): string {
+/**
+ * A tool's body, made when it is first opened: each string of its input under its key, then each value it does not set as
+ * text, as written, then its output, bounded.
+ */
+export function toolBodyHtml(tool: DerivedTool, bytes: Uint8Array): string {
+  const unshown = tool.unshown.map((u) => unshownValueHtml(u, bytes)).join('');
   const inputs = tool.children
     .filter((c) => c.role === 'tool-input')
     .map((c) => `<div class="marxy-tool-input" ${range(c)}><span class="marxy-tool-key">${plainTextHtml(c.key ?? '')}</span>${boundedCodeHtml(c.value, c.replaced)}</div>`)
     .join('');
   const outputs = tool.children.filter((c) => c.role === 'tool-output');
   const output = outputs.length === 0 ? '' : `<div ${range({ src: { start: outputs[0]!.src.start, end: outputs[outputs.length - 1]!.src.end } })}>${boundedCodeHtml(toolOutput(tool), outputReplaced(outputs))}</div>`;
-  return inputs + output;
+  return inputs + unshown + output;
 }
 
 /** The leaves' `replaced` offsets, moved to their place in `toolOutput`'s joined text. */
@@ -218,8 +245,6 @@ function outputReplaced(outputs: readonly DerivedText[]): number[] {
 export function thinkingBodyHtml(thinking: DerivedThinking, opts: RowOptions): string {
   return thinking.children.map((leaf) => leafHtml(leaf, opts)).join('');
 }
-
-const utf8 = new TextDecoder('utf-8', { ignoreBOM: true });
 
 /** An unreadable line's body: its own bytes in the code face (U+FFFD for bytes that are not UTF-8, as Source shows them). */
 export function unreadableBodyHtml(row: TranscriptUnreadable | TranscriptPending, bytes: Uint8Array): string {
@@ -242,11 +267,25 @@ export function rowHtml(row: TranscriptRow, bytes: Uint8Array, opts: RowOptions 
   ];
   for (const child of row.children) {
     if (child.type === 'derivedText') parts.push(leafHtml(child, opts));
-    else if (child.type === 'tool') parts.push(folded('marxy-tool', child, toolLineHtml(child), expanded ? toolBodyHtml(child) : null));
+    else if (child.type === 'tool') parts.push(folded('marxy-tool', child, toolLineHtml(child), expanded ? toolBodyHtml(child, bytes) : null));
     else parts.push(folded('marxy-thinking', child, thinkingLine(child), expanded ? thinkingBodyHtml(child, opts) : null));
   }
+  if (row.unshown.length > 0) parts.push(unshownNoteHtml(row.unshown, opts.lineOf));
   parts.push('</section>');
   return parts.join('');
+}
+
+/** The words a turn ends with when its lines hold values it does not show: how many, what, and where. */
+export function unshownNote(unshown: readonly UnshownValue[]): string {
+  const kinds = [...new Set(unshown.map((u) => u.what))];
+  return `${plural(unshown.length, 'value')} not shown: ${kinds.slice(0, 4).join(', ')}${kinds.length > 4 ? ', …' : ''}`;
+}
+
+function unshownNoteHtml(unshown: readonly UnshownValue[], lineOf?: (byte: number) => number): string {
+  const jumps = unshown
+    .slice(0, GROUP_LINES)
+    .map((u) => `<button type="button" class="marxy-transcript-jump" ${range(u)}>${lineOf ? `line ${lineOf(u.src.start).toLocaleString('en-US')}` : 'source'}</button>`);
+  return `<p class="marxy-derived-unshown">${plainTextHtml(unshownNote(unshown))} · ${jumps.join(' ')}</p>`;
 }
 
 // ---- the header line --------------------------------------------------------------------------------------------------
@@ -326,7 +365,17 @@ export function headHtml(counts: TranscriptCounts, opts: { readonly done?: boole
 
 /** The whole view as HTML, every fold open: what the derived golden holds. */
 export function renderTranscriptHtml(tree: DerivedTranscript, bytes: Uint8Array, opts: RowOptions): string {
-  const rows = tree.children.map((row) => rowHtml(row, bytes, { ...opts, expanded: true }));
+  const lineOf = (byte: number): number => {
+    let lo = 0;
+    let hi = tree.from.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (tree.from[mid]!.start <= byte) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo + 1;
+  };
+  const rows = tree.children.map((row) => rowHtml(row, bytes, { lineOf, ...opts, expanded: true }));
   return `<div data-marxy-derived="jsonl-transcript">${headHtml(countsOf(tree))}\n${rows.join('\n')}\n</div>`;
 }
 
@@ -347,7 +396,9 @@ function childText(child: DerivedTurn['children'][number], isOpen: (node: Derive
 
 /** `copy-turn`: a turn's text as shown, without its label (ADR-0061 item 5). */
 export function turnText(turn: DerivedTurn, isOpen: (node: DerivedTool | DerivedThinking) => boolean = () => false): string {
-  return turn.children.map((c) => childText(c, isOpen)).join('\n\n');
+  const parts = turn.children.map((c) => childText(c, isOpen));
+  if (turn.unshown.length > 0) parts.push(unshownNote(turn.unshown));
+  return parts.join('\n\n');
 }
 
 /** `copy-user-prompts`: every prompt of yours, in order, a blank line between. */

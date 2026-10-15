@@ -2,9 +2,9 @@
 // folder, the corpus session opens in Read as turns; without one it opens in Source. ⌘E shows Source at the line Read was
 // on and back. *Only you* hides the assistant's turns and says how many; *Collapse tools* folds the tool calls into one
 // line a run; a turn's ⌘C is its text without its label; a tool's ⌘C its whole output; a drag copies what it shows, an
-// invisible's character and not its label. Nothing in the view reaches an operation, and nothing is written. The last test
-// opens a session of 20 MB and records how far the deriver had read when its first turn was painted. WebKit, over the
-// shipped skeleton and the memory shell, as table-lens.test.mjs runs.
+// invisible's character and not its label. Nothing in the view reaches an operation, and nothing is written. A rule's
+// read decides any file's mode. The first paint of a large session, an append to it and the marking of late rows are in
+// transcript-lite.test.mjs, on the pull-request path. WebKit, over the shipped skeleton and the memory shell.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -13,7 +13,7 @@ import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { valueImportSpecs } from '../../../scripts/lib/imports.mjs';
-import { bootTwoPanes, closeHarness, harnessBase, routeSkeleton } from './support/two-pane.mjs';
+import { bootTwoPanes, closeHarness } from './support/two-pane.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -31,10 +31,12 @@ const LONG = Array.from({ length: 60 }, (_, i) => [
   line({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: `t${i}`, content: `ok ${i + 1}\ndone` }] } }),
 ].join('\n')).join('\n') + '\n';
 const files = {
+  '/ruled/tool.py': 'print("a code file a rule reads")\n',
+  '/kept/notes.md': '# Notes\n\nA Markdown file a rule keeps in Source.\n',
   '/s/40-session.jsonl': SESSION,
   '/s/long.jsonl': LONG,
   '/r/40-session.jsonl': SESSION,
-  '/config': RULE,
+  '/config': `${RULE}\n[[kind]]\nglob = "/ruled/**"\nis = "code"\nread = true\n\n[[kind]]\nglob = "/kept/**"\nis = "notes"\nread = false\n`,
 };
 
 async function withPage(fn, open = ['/s/40-session.jsonl'], { width = 1440, height = 900, guard = false } = {}) {
@@ -78,7 +80,7 @@ const run = (page, id) => page.evaluate(async (command) => {
 }, id);
 const mod = (page) => page.evaluate(() => (navigator.platform === 'MacIntel' ? 'Meta' : 'Control'));
 /** Writes that reached a session (`/s/` or `/r/`): the app's own state files are not the reader's documents. */
-const writes = (page) => page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => /^write/.test(c.method) && /^\/[sr]\//.test(String(c.args[0]))).length);
+const writes = (page) => page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => /^write/.test(c.method) && /^\/(?:s|r|ruled|kept)\//.test(String(c.args[0]))).length);
 /** The 1-based line of byte `at` in the focused document. */
 const lineOf = (page, at) => page.evaluate((b) => {
   const bytes = window.__marxyHandle.panes().focused.view.store().snapshot().buffer.bytes;
@@ -139,7 +141,8 @@ test('with a [[kind]] rule that says read, the session opens in Read as turns; w
     assert.deepEqual(seen.turns, ['you', 'agent', 'you', 'agent', 'you', 'agent']);
     assert.deepEqual(seen.labels, ['You', 'Assistant', 'You', 'Assistant', 'You', 'Assistant']);
     assert.match(seen.head, /^Derived from 18 lines of JSONL · 5 not shown · 1 of unknown type · 1 unreadable line · Source (⌘E|Ctrl\+E)$/);
-    assert.deepEqual(seen.tools, [['Tool · Bash', '4 lines', 'false'], ['Tool · Edit', '1 line', 'false']], 'each tool one line at rest: its name and its result\'s length');
+    assert.deepEqual(seen.tools, [['Tool · Bash', '4 lines', 'false'], ['Tool · Edit', '1 line · 1 value not shown', 'false']], 'each tool one line at rest: its name, its result\'s length, and what it does not show');
+    assert.match(seen.text, /1 value not shown: image · line 9/, 'the prompt\'s image is counted where it was, a Jump to source');
     assert.equal(seen.thinking, 'Thinking · 12 words');
     assert.equal(seen.unreadable, 'Unreadable line 12');
     assert.equal(seen.pending, 'Still being written · line 18');
@@ -248,7 +251,7 @@ test('copying a turn gives its text without its label; a tool its whole output; 
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').length === 2);
     const agentText = await copied(page);
     assert.ok(agentText.startsWith('Thinking · 12 words\n\nI\'ll profile a cold run first'), agentText);
-    assert.ok(agentText.includes('Tool · Bash · 4 lines') && agentText.includes('`notes‮txt.md`'));
+    assert.ok(agentText.includes('Tool · Bash · 4 lines') && agentText.includes('`notes\u202etxt.md`'));
     // A tool line opens on a click and its ⌘C is the whole output.
     const bash = page.locator('.marxy-tool >> nth=0').locator('.marxy-tool-line');
     await bash.click();
@@ -280,7 +283,7 @@ test('copying a turn gives its text without its label; a tool its whole output; 
       code.dispatchEvent(event);
       return { text: event.clipboardData.getData('text/plain'), prevented: event.defaultPrevented };
     });
-    assert.deepEqual(dragged, { text: 'notes‮txt.md', prevented: true });
+    assert.deepEqual(dragged, { text: 'notes\u202etxt.md', prevented: true });
     // With the drag still on the page, every command is asked whether it applies, as the palette and the verb menu ask:
     // no operation is handed anything, because the app's own selection never took the drag.
     await page.evaluate(async () => {
@@ -343,62 +346,11 @@ test('the agent finishes its last line and writes another: Read derives the view
     assert.equal(await writes(page), writesBefore + 1, 'the other program\'s write, and none of the app\'s');
   }, ['/s/40-session.jsonl'], { guard: true }));
 
-// ---- commitment 5: a session of 20 MB ----------------------------------------------------------------------------------
-
-const LARGE_SOURCE = `
-  window.__makeSession = (mb) => {
-    const parts = [];
-    let bytes = 0;
-    for (let n = 0; bytes < mb * 1024 * 1024; n++) {
-      const l = n % 4 === 0 ? JSON.stringify({ type: 'user', message: { role: 'user', content: 'Prompt ' + n + ': look at the thing number ' + n + '.' }, sessionId: 's', timestamp: 't' })
-        : n % 4 === 1 ? JSON.stringify({ type: 'assistant', message: { role: 'assistant', model: 'm', content: [{ type: 'text', text: 'Reply ' + n + ' with *some* markdown:\\n\\n- one\\n- two\\n\\n' + 'More words here. '.repeat(20) }, { type: 'tool_use', id: 't' + n, name: 'Bash', input: { command: 'ls ' + n } }] } })
-        : n % 4 === 2 ? JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't' + (n - 1), content: 'output line\\n'.repeat(400) }] } })
-        : JSON.stringify({ type: 'file-history-snapshot', snapshot: { a: 'b'.repeat(500) } });
-      parts.push(l + '\\n');
-      bytes += l.length + 1;
-    }
-    return new TextEncoder().encode(parts.join(''));
-  };
-`;
-
-test(`a session of ${process.env.MARXY_SESSION_MB ?? 20} MB: its first turn is painted before the deriver reaches the end of the file`, () =>
-  (async () => {
-    const browser = await launchWebkit();
-    try {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-      const mb = Number(process.env.MARXY_SESSION_MB ?? 20);
-      const base = await harnessBase();
-      await routeSkeleton(page, base);
-      await page.goto(`${base}app.html`);
-      await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
-      await page.evaluate(LARGE_SOURCE);
-      const size = await page.evaluate(async ({ mb, rule }) => {
-        const bytes = window.__makeSession(mb);
-        const { createMemoryShell } = await import('/src/shell/memory.ts');
-        const { startApp } = await import('/src/app.ts');
-        const t0 = performance.now();
-        const handle = await startApp(createMemoryShell({ '/s/big.jsonl': bytes, '/config': new TextEncoder().encode(rule) }), { argv: ['/s/big.jsonl'] });
-        window.__marxyHandle = handle;
-        window.__t0 = t0;
-        await handle.ready;
-        return bytes.length;
-      }, { mb, rule: RULE });
-      await page.waitForFunction(() => window.__marxyHandle.panes().focused.parts.article.querySelector('.marxy-turn') !== null, null, { timeout: 120_000 });
-      await page.waitForFunction(async () => {
-        const { transcriptIn } = await import('/src/kinds/transcript-view.ts');
-        return transcriptIn(window.__marxyHandle.panes().focused.parts.article)?.state().firstPaint != null;
-      });
-      const first = await state(page);
-      const sinceOpen = await page.evaluate((at) => at - window.__t0, first.firstPaint.at);
-      await settled(page);
-      const last = await state(page);
-      console.log(`  ${(size / 1048576).toFixed(1)} MB: first turn painted ${sinceOpen.toFixed(0)} ms after the app started on it (${first.firstPaint.ms.toFixed(0)} ms after the view mounted), at slice ${first.firstPaint.slices} of ${last.slices} (${first.firstPaint.bytesRead} of ${size} bytes read, ${first.firstPaint.rows} rows); all ${last.rows} rows drawn`);
-      assert.equal(last.done, true);
-      assert.equal(last.bytesRead, size);
-      assert.ok(first.firstPaint.slices < last.slices, 'the deriver had more slices to read at first paint');
-      assert.ok(first.firstPaint.bytesRead < size, 'and had not reached the end of the file');
-      assert.equal(last.rows, last.treeRows, 'every row is drawn in the end');
-    } finally {
-      await browser.close();
-    }
-  })());
+test('a rule\'s read decides the mode of any file, not only a session: a code file in Read, a Markdown file in Source', () =>
+  withPage(async (page) => {
+    await page.evaluate(() => window.__marxyHandle.open('/ruled/tool.py'));
+    assert.equal(await modeNow(page), 'rendered', 'read = true opens a .py in Read');
+    await page.evaluate(() => window.__marxyHandle.open('/kept/notes.md'));
+    assert.equal(await modeNow(page), 'source', 'read = false opens a .md in Source');
+    assert.equal(await writes(page), 0);
+  }));

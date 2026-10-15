@@ -15,7 +15,7 @@
 //   in the task that mounts the view; the rest is derived and drawn a few milliseconds a slice, the loop given back
 //   between slices. `state().firstPaint` records how far the deriver had read when the first rows were painted.
 import type { DerivedThinking, DerivedTool, DerivedTranscript, DerivedTurn, TranscriptPending, TranscriptUnreadable } from '@marxy/core/src/contracts/derived.ts';
-import { createTranscriptDeriver, lineStartOf, type TranscriptDeriver } from '@marxy/core/src/derive/jsonl-transcript.ts';
+import { createTranscriptDeriver, lineOfByte, lineStartOf, type TranscriptDeriver } from '@marxy/core/src/derive/jsonl-transcript.ts';
 import {
   countsOf,
   headHtml,
@@ -32,6 +32,7 @@ import {
 } from '@marxy/core/src/derive/transcript-html.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { writeCopy } from '../commands/copy-write.ts';
+import { applyInvisibleMarkers } from '../render/invisibles-dom.ts';
 import { applyLinkDestinations } from '../render/link-dest.ts';
 import type { Block, BlockList } from '../render/post.ts';
 import { buildAppContext } from '../selection/bind.ts';
@@ -71,8 +72,10 @@ export interface TranscriptState {
   readonly bytesRead: number;
   readonly bytes: number;
   readonly lines: number;
-  /** Rows on the page, and rows in the tree. */
+  /** Rows on the page and current, and rows in the tree. */
   readonly rows: number;
+  /** Row elements made since the view was mounted: an append adds the rows it brings, not the file's. */
+  readonly drawn: number;
   readonly treeRows: number;
   /** When the first rows were painted: how far the deriver had read, and how long the mount had taken. */
   readonly firstPaint: { readonly slices: number; readonly bytesRead: number; readonly rows: number; readonly ms: number; readonly at: number } | null;
@@ -111,6 +114,12 @@ export interface TranscriptView {
   ensureThrough(byte: number): void;
   /** Resolves once the whole file is derived and drawn. */
   settled(): Promise<void>;
+  /**
+   * The file grew (an agent appended to its log, ADR-0061 item 8): only the new lines are derived and drawn, in slices,
+   * and the rows already on the page stay (the last, which the new lines may continue, is drawn again in place). False
+   * when `next` is not an append of the bytes shown: the caller mounts the view again.
+   */
+  update(next: Uint8Array): boolean;
   setOnly(who: Only): void;
   setToolsCollapsed(on: boolean): void;
   selectTurn(index: number | null): void;
@@ -131,7 +140,13 @@ const DISPLAY_ONLY = '.marxy-invisible-glyph, .marxy-link-dest';
 
 /** Mounts the view in `opts.article`, replacing what it held; the first rows are on the page when this returns. */
 export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
-  const { article, bytes, path } = opts;
+  const { article, path } = opts;
+  let bytes = opts.bytes;
+  /** `rowEls[0, fresh)` are drawn from the tree as it is; the rest, after an append, are drawn again in their place. */
+  let fresh = 0;
+  let drawn = 0;
+  let running = false;
+  const lineOf = (byte: number): number => lineOfByte(tree, byte);
   const t0 = performance.now();
   const deriver: TranscriptDeriver = createTranscriptDeriver(bytes, path);
   const tree = deriver.tree;
@@ -170,20 +185,28 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
     for (const which of openLists) toggleDropped(which ?? '', true);
   }
 
-  /** Draws the settled rows not yet on the page (every row once the file is read), up to `deadline`. */
+  /**
+   * Draws the settled rows not yet current on the page (every row once the file is read), up to `deadline`: a row an
+   * append made stale is replaced where it stands, a new one appended. Every flagged character of what is added is drawn
+   * as its marker here, in the task that adds it (the render marks them already; this holds for anything it missed).
+   */
   function drawRows(deadline = Number.POSITIVE_INFINITY): number {
     const upto = deriver.settled;
-    let added = 0;
     const batch: TranscriptRow[] = [];
     let html = '';
-    while (rowEls.length + batch.length < upto) {
-      const row = tree.children[rowEls.length + batch.length]!;
+    while (fresh + batch.length < upto) {
+      const row = tree.children[fresh + batch.length]!;
       batch.push(row);
-      html += rowHtml(row, bytes, { path });
+      html += rowHtml(row, bytes, { path, lineOf });
       if (performance.now() > deadline && batch.length >= 1) break;
     }
-    if (batch.length === 0) return 0;
+    if (batch.length === 0) {
+      trimStale();
+      return 0;
+    }
     template.innerHTML = html;
+    applyInvisibleMarkers(template.content);
+    applyLinkDestinations(template.content);
     const made = [...template.content.children] as HTMLElement[];
     for (let k = 0; k < made.length; k++) {
       const el = made[k]!;
@@ -194,13 +217,29 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
         const units = row.children.filter((c): c is DerivedTool | DerivedThinking => c.type === 'tool' || c.type === 'thinking');
         folds.forEach((f, i) => foldOf.set(f, units[i]!));
       } else if (row.type === 'unreadable') foldOf.set(el, row);
-      rowEls.push(el);
-      added++;
+      const at = fresh + k;
+      const stale = rowEls[at];
+      if (stale) {
+        if (selected === at) selected = null;
+        stale.replaceWith(el);
+        rowEls[at] = el;
+      } else {
+        root.append(el);
+        rowEls.push(el);
+      }
+      drawn++;
     }
-    applyLinkDestinations(template.content);
-    root.append(template.content);
+    fresh += batch.length;
+    trimStale();
     if (only !== null || toolsCollapsed) markRuns();
-    return added;
+    return batch.length;
+  }
+
+  /** Once the file is read, a stale row the tree no longer has (a pending line that became part of a turn) goes. */
+  function trimStale(): void {
+    if (!deriver.done || fresh < tree.children.length || rowEls.length <= fresh) return;
+    for (const el of rowEls.splice(fresh)) el.remove();
+    if (selected !== null && selected >= fresh) selected = null;
   }
 
   /** Derives and draws until `enough` says so or the file is read, without giving the loop back. */
@@ -211,15 +250,24 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
   }
 
   async function readRest(): Promise<void> {
-    while (!closed && (!deriver.done || rowEls.length < tree.children.length)) {
+    running = true;
+    try {
+      await readOn();
+    } finally {
+      running = false;
+    }
+  }
+
+  async function readOn(): Promise<void> {
+    while (!closed && (!deriver.done || fresh < tree.children.length || rowEls.length > fresh)) {
       await yieldNow();
       if (closed) return;
       const deadline = performance.now() + SLICE_MS;
       let added = 0;
       while (!closed && performance.now() < deadline) {
-        if (!deriver.done && rowEls.length >= deriver.settled) deriver.step(SLICE_BYTES);
+        if (!deriver.done && fresh >= deriver.settled) deriver.step(SLICE_BYTES);
         added += drawRows(deadline);
-        if (deriver.done && rowEls.length >= tree.children.length) break;
+        if (deriver.done && fresh >= tree.children.length) break;
       }
       drawHead();
       if (added > 0) opts.onGrow();
@@ -237,7 +285,7 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
   requestAnimationFrame(() => {
     if (closed || firstPaint !== null) return;
     const at = performance.now();
-    firstPaint = { slices: deriver.slices, bytesRead: deriver.bytesRead, rows: rowEls.length, ms: at - t0, at };
+    firstPaint = { slices: deriver.slices, bytesRead: deriver.bytesRead, rows: fresh, ms: at - t0, at };
     console.info(`marxy: transcript first paint after ${firstPaint.ms.toFixed(1)} ms, ${firstPaint.slices} of the deriver's slices, ${firstPaint.bytesRead} of ${bytes.length} bytes`);
   });
   reading = readRest();
@@ -322,7 +370,8 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
     if (!unit || !line || !body) return;
     if (on && body.childElementCount === 0) {
       template.innerHTML =
-        unit.type === 'tool' ? toolBodyHtml(unit) : unit.type === 'thinking' ? thinkingBodyHtml(unit, { path }) : unreadableBodyHtml(unit, bytes);
+        unit.type === 'tool' ? toolBodyHtml(unit, bytes) : unit.type === 'thinking' ? thinkingBodyHtml(unit, { path }) : unreadableBodyHtml(unit, bytes);
+      applyInvisibleMarkers(template.content);
       applyLinkDestinations(template.content);
       body.replaceChildren(template.content);
     }
@@ -562,14 +611,16 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
 
   const view: TranscriptView = {
     root,
-    bytes,
+    get bytes() {
+      return bytes;
+    },
     tree,
     blocks,
     ensureThrough(byte) {
       if (closed) return;
-      const before = rowEls.length;
-      readNow(() => deriver.bytesRead > byte && deriver.settled > rowEls.length);
-      if (rowEls.length !== before) opts.onGrow();
+      const before = drawn;
+      readNow(() => deriver.bytesRead > byte && deriver.settled > fresh);
+      if (drawn !== before) opts.onGrow();
     },
     async settled() {
       for (;;) {
@@ -594,6 +645,17 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
       opts.onGrow();
     },
     selectTurn: (index) => selectTurn(index),
+    update(next) {
+      if (closed) return false;
+      const kept = deriver.extend(next);
+      if (kept < 0) return false;
+      bytes = next;
+      // The rows from `kept` on stay on the page until their new drawing replaces them: the page never shortens under the reader.
+      fresh = Math.min(fresh, kept);
+      headCounts = '';
+      if (!running) reading = readRest();
+      return true;
+    },
     async copySelection() {
       const turn = selectedTurn();
       if (turn) await copyTurn(turn);
@@ -606,7 +668,8 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
         bytesRead: deriver.bytesRead,
         bytes: bytes.length,
         lines: deriver.lines,
-        rows: rowEls.length,
+        rows: fresh,
+        drawn,
         treeRows: tree.children.length,
         firstPaint,
         only,
