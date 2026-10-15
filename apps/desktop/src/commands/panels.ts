@@ -11,7 +11,7 @@
 // `Esc` is shared with `selection.clear`, and the two `when`s are never both true (a selection clears first, the
 // next `Esc` folds). It is not `global`: in a Source editor or a text field it never runs. An overlay that owns
 // `Esc` (the palette, the outline, find, the verb menu) is open when its own handler runs, so it is checked for here.
-import { appHandle, metadataMargin } from './app-handle.ts';
+import { appHandle, loadMetadataMargin } from './app-handle.ts';
 import type { AppContext, Command } from './registry.ts';
 import type { WorkspaceRegion } from '../workspace/regions.ts';
 
@@ -49,9 +49,9 @@ export function panelCommands(): readonly Command[] {
       title: 'Show or hide metadata',
       key: 'Ctrl+Mod+I',
       group: 'view',
-      when: () => appHandle()?.currentPath() != null && metadataMargin(appHandle()) !== undefined,
+      when: () => appHandle()?.currentPath() != null,
       async run() {
-        await metadataMargin(appHandle())?.toggle();
+        await (await loadMetadataMargin(appHandle()))?.toggle();
       },
     },
     {

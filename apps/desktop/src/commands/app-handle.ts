@@ -34,3 +34,16 @@ export function setMetadataMargin(h: AppHandle, margin: MetadataMargin): void {
 export function metadataMargin(h: AppHandle | null | undefined): MetadataMargin | undefined {
   return h ? margins.get(h) : undefined;
 }
+
+// The margin preview is read at the first `⌃⌘I`, not at first text: the workspace says how to load it (fill.ts), and the command asks.
+const loaders = new WeakMap<AppHandle, () => Promise<MetadataMargin>>();
+
+export function setMetadataMarginLoader(h: AppHandle, load: () => Promise<MetadataMargin>): void {
+  loaders.set(h, load);
+}
+
+/** The margin preview's controller for `h`, loading it when it is not yet; undefined where the workspace never said how. */
+export async function loadMetadataMargin(h: AppHandle | null): Promise<MetadataMargin | undefined> {
+  if (h === null) return undefined;
+  return margins.get(h) ?? (await loaders.get(h)?.());
+}

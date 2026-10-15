@@ -13,11 +13,12 @@ import type { FrontMatterValues } from '@marxy/core/src/operations/front-matter-
 import type { AppHandle } from '../app.ts';
 import { metadataMargin, setMetadataMargin } from '../commands/app-handle.ts';
 import { isUntitled } from '../document/untitled.ts';
+import { loadPanels } from '../workspace/fill.ts';
 import { selectInspectorTab } from '../workspace/inspector.ts';
 import { frontMatterOf, modifiedWords } from '../workspace/metadata-tab.ts';
 import { setMarked, spokenText } from '../workspace/metadata-marks.ts';
 import { formatCount } from '../source/frame-facts.ts';
-import type { DocumentSignal } from '../workspace/toolbar.ts';
+import type { DocumentSignal } from '../workspace/document-signal.ts';
 import { notify } from '../notices/index.ts';
 
 /** The most rows the preview draws, the facts below the front matter among them (the mock's 14). */
@@ -202,6 +203,8 @@ export function installMetadataMargin(handle: AppHandle, signal: DocumentSignal)
 
   const openTab = async (): Promise<void> => {
     const workspace = handle.workspace();
+    // The tab is registered by the panels' chunk, which a window never unfolded has not read yet.
+    await loadPanels().catch(() => undefined);
     selectInspectorTab('metadata');
     if (workspace.mode === 'folded') await workspace.dock('inspector');
     if (workspace.inspectorHidden()) {

@@ -91,6 +91,8 @@ export interface PaletteModel {
 
 export interface PaletteDeps {
   readonly shell: AppShell;
+  /** The index feed, when the caller made it before the palette loaded (main.ts, F-111); else the palette makes its own. */
+  readonly feed?: IndexFeed;
   readonly article: HTMLElement;
   readonly scroller: HTMLElement;
   readonly dialog: HTMLDialogElement;
@@ -1104,11 +1106,13 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   injectPaletteStyles(document);
   const { input, list, notice, esc, chips, aside } = ensurePaletteStructure(deps.dialog, document);
   let session = emptySession('/');
-  const feed = createIndexFeed({
-    currentRoot: () => session.currentRoot,
-    recentRoots: () => session.recentRoots,
-    readAt: () => session.readAt,
-  });
+  const feed =
+    deps.feed ??
+    createIndexFeed({
+      currentRoot: () => session.currentRoot,
+      recentRoots: () => session.recentRoots,
+      readAt: () => session.readAt,
+    });
   const now = deps.now ?? Date.now;
   const watched = (root: string) => deps.isWatched?.(root) === true;
   const baselineMs = (root: string) => deps.baselineMs?.(root);
@@ -1697,7 +1701,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
 
 export function mountPaletteFromHandle(
   handle: AppHandle,
-  opts?: { initialPath?: string | null },
+  opts?: { initialPath?: string | null; feed?: IndexFeed },
 ): PaletteController {
   // The selection controller and the command keys are the app's own: `startApp` made and installed them.
   const main = document.getElementById('marxy-main');
@@ -1710,6 +1714,7 @@ export function mountPaletteFromHandle(
   let facts: { readonly run: unknown; readonly threshold: number; readonly byPath: ReadonlyMap<string, { readonly copies: readonly unknown[] }> } | undefined;
   const controller = mountPaletteApp({
     shell: handle.shell,
+    ...(opts?.feed ? { feed: opts.feed } : {}),
     article,
     // The focused pane's scroller, asked each time: it moves with focus and with a split (D-05, D-07).
     get scroller() {
