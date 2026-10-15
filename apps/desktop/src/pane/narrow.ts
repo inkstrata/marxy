@@ -14,6 +14,8 @@
 // No flapping: the gutter shrinks with the column, so the floor measured with two panes is never above the floor
 // measured with one; a split that comes back at the open rule's width is still above the rule that keeps it.
 
+import { withdrawClosePrompt } from '../close.ts';
+import { notify } from '../notices/index.ts';
 import { isTransient } from '../workspace/tabs.ts';
 import { activeFind } from '../find/view.ts';
 import { clampToMain } from './divider.ts';
@@ -47,10 +49,21 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
   /** The reader dismissed the question over unsaved edits: not asked again until the window has room. */
   let declined = false;
   let stopped = false;
+  /** The pane whose close is waiting on the reader's answer about unsaved edits. */
+  let asking: AppPane | null = null;
+  /** Ends the wait for a dismissed document to be saved (F-106.1). */
+  let unwatch: (() => void) | null = null;
 
   const modeOf = (pane: AppPane): 'rendered' | 'source' => (pane.view.mode === 'source' ? 'source' : 'rendered');
-  const inMode = async (pane: AppPane | undefined, mode: 'rendered' | 'source'): Promise<void> => {
-    if (pane && pane.path() !== null && modeOf(pane) !== mode) await pane.view.toggleMode();
+  /** `pane` in `mode`, at `at`: the switch to Source opens at the block's top, so the place is put back. */
+  const inMode = async (pane: AppPane | undefined, mode: 'rendered' | 'source', at: number): Promise<void> => {
+    if (!pane || pane.path() === null || modeOf(pane) === mode) return;
+    await pane.view.toggleMode();
+    if (mode === 'source') await pane.view.jumpToSource(at);
+  };
+  const forget = (): void => {
+    unwatch?.();
+    unwatch = null;
   };
 
   async function giveBack(): Promise<void> {
@@ -63,6 +76,10 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
     if (leaves.path() !== null && isTransient(leaves.path()!)) {
       if (stays.path() !== null && isTransient(stays.path()!)) {
         declined = true;
+        notify(
+          { kind: 'info', text: 'Both documents here are unsaved scratch pages with no other copy, so Marxy keeps them side by side, narrow. Widen the window or close one.' },
+          { pane: stays.host },
+        );
         return;
       }
       [stays, leaves] = [leaves, stays];
@@ -84,11 +101,24 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
     if (find && find.pane === leaves) find.close();
     leaves.host.querySelector<HTMLButtonElement>('.cm-search button[name="close"]')?.click();
     hooks.hold(true);
+    asking = leaves;
     const closed = await panes.close(leaves);
+    asking = null;
     if (!closed) {
-      // Refused or dismissed: both panes stay as they were, and the layout is the reader's again.
+      // Refused or dismissed: both panes stay as they were, and the layout is the reader's again. A dismissed
+      // question is asked again once the unsaved document is saved: saving is what the reader was putting off.
       declined = true;
       hooks.hold(false);
+      const store = leaves.content.store();
+      forget();
+      if (store && store.snapshot().dirty) {
+        unwatch = store.subscribe((snap) => {
+          if (snap.dirty) return;
+          forget();
+          declined = false;
+          void settle();
+        });
+      }
       return;
     }
     given = record;
@@ -100,7 +130,7 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
       // The pane that stayed is not touched: its place, mode and text are the reader's now.
       const pane = await panes.openIn('other', g.path, { at: g.at });
       if (!pane) return;
-      await inMode(pane, g.mode);
+      await inMode(pane, g.mode, g.at);
     } else {
       // The pane that stayed is in slot 0 now; it goes to the right, as it is now, and the given-back document takes the left.
       const now = panes.panes[0]!;
@@ -108,10 +138,10 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
       const stayedAt = now.view.position().byteOffset;
       const right = await panes.openIn('other', g.stayedPath, { at: stayedAt });
       if (!right) return;
-      await inMode(right, stayedMode);
+      await inMode(right, stayedMode, stayedAt);
       const left = await panes.openIn(0, g.path, { at: g.at });
       if (!left) return;
-      await inMode(left, g.mode);
+      await inMode(left, g.mode, g.at);
     }
     panes.setRatio(clampToMain(main, g.ratio));
     panes.focus(panes.panes[g.focusedSide] ?? panes.panes[0]!);
@@ -126,6 +156,9 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
   async function settle(): Promise<void> {
     if (stopped) return;
     if (busy) {
+      // The window has room again while the reader is being asked about the pane to give back: the question
+      // is taken down, as there is nothing to close now.
+      if (asking && canShowTwoColumns(main)) withdrawClosePrompt(asking);
       again = true;
       return;
     }
@@ -134,7 +167,10 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
       do {
         again = false;
         const fits = canShowTwoColumns(main);
-        if (fits) declined = false;
+        if (fits) {
+          declined = false;
+          forget();
+        }
         if (panes.panes.length > 1) {
           if (!fits && !declined) await giveBack();
         } else if (given) {
@@ -174,6 +210,7 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
   });
   return () => {
     stopped = true;
+    forget();
     off();
     offSplit();
     observer?.disconnect();
