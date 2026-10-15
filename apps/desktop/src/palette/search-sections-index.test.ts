@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
 import { emptySession } from './session.ts';
-import { paletteResults, prepareIndex, removeRows, sectionStats, upsertRows } from './search.ts';
+import { headingIndexShape, paletteResults, prepareIndex, removeRows, sectionStats, upsertRows } from './search.ts';
 
 const FILES = 50_000;
 const TOPICS = ['alpha', 'bravo', 'delta', 'gamma', 'omega', 'kappa', 'sigma', 'theta', 'zeta', 'ruby'];
@@ -72,4 +72,18 @@ test('replacing the same files over and over does not grow what @ walks', () => 
   for (let round = 0; round < 8; round++) upsertRows(prepared, entries.map((e, i) => make(i, `Round ${round} ${i}`)));
   const { visited } = tally(() => at(prepared, '@round'));
   assert.ok(visited <= 2000 * 2 * 2, `walked ${visited} refs for ${2000 * 2} live headings`);
+});
+
+test('the heading index holds flat typed arrays, not an object per heading (W-13.2)', () => {
+  const entries = Array.from({ length: 5000 }, (_, i) => make(i));
+  const prepared = prepareIndex(entries);
+  const shape = headingIndexShape(prepared);
+  assert.equal(shape.headings, 10_000);
+  assert.ok(shape.masks instanceof Uint32Array && shape.masks.length >= shape.headings, 'one mask per heading, in one array');
+  assert.ok(shape.slotStart instanceof Uint32Array && shape.slotStart.length >= shape.slots + 1, 'offsets in one array');
+  assert.equal(shape.slots, 5000, 'one slot per row, not per heading');
+  // Nothing the index holds is a list with an entry per heading.
+  for (const [name, value] of Object.entries(prepared)) {
+    if (Array.isArray(value)) assert.ok(value.length <= entries.length, `${name} has ${value.length} entries for ${entries.length} rows`);
+  }
 });

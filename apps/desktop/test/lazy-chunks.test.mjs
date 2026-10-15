@@ -107,6 +107,64 @@ test('a palette chord pressed before a slow chunk lands opens the palette when i
   }
 });
 
+/** Boots with the palette chunk held back 1.5 s; `during` acts in that gap, then the boot is awaited. */
+async function bootWithSlowChunk(during) {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await page.route(PALETTE_CHUNK, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
+    const base = await harnessBase();
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    const encoded = Object.fromEntries(Object.entries(files).map(([path, text]) => [path, b64(text)]));
+    await page.evaluate((encoded) => {
+      window.__booted = window.marxyPaletteBoot.start(encoded, ['/r/A.md']).then(({ handle }) => { window.__h = handle; });
+    }, encoded);
+    await page.waitForFunction(() => /A paragraph of the first document/.test(document.querySelector('.marxy-article')?.textContent ?? ''));
+    assert.equal(await page.evaluate(() => window.__h === undefined), true, 'the chunk is still on its way');
+    await during(page, await mod(page));
+    await page.evaluate(() => window.__booted);
+    await page.waitForTimeout(300);
+    return await page.evaluate(() => ({
+      open: document.getElementById('marxy-palette')?.hasAttribute('open') ?? false,
+      modal: document.getElementById('gap-modal')?.hasAttribute('open') ?? false,
+    }));
+  } finally {
+    await browser.close();
+  }
+}
+
+test('two Mod+K presses before the palette lands open it and shut it, so nothing is open; three leave it open (W-13.2)', async () => {
+  const two = await bootWithSlowChunk(async (page, key) => {
+    await page.keyboard.press(`${key}+KeyK`);
+    await page.keyboard.press(`${key}+KeyK`);
+  });
+  assert.equal(two.open, false, 'a toggle twice is closed');
+  const three = await bootWithSlowChunk(async (page, key) => {
+    for (let i = 0; i < 3; i++) await page.keyboard.press(`${key}+KeyK`);
+  });
+  assert.equal(three.open, true);
+});
+
+test('a chord held before the palette lands is not replayed over a dialog that opened in the gap (W-13.2)', async () => {
+  const result = await bootWithSlowChunk(async (page, key) => {
+    await page.keyboard.press(`${key}+KeyK`);
+    await page.evaluate(() => {
+      const dialog = document.createElement('dialog');
+      dialog.id = 'gap-modal';
+      dialog.setAttribute('aria-modal', 'true');
+      dialog.textContent = 'A sheet';
+      document.body.append(dialog);
+      dialog.showModal();
+    });
+  });
+  assert.equal(result.modal, true, 'the dialog is still up');
+  assert.equal(result.open, false, 'the palette did not open over it');
+});
+
 test('panels that cannot be read are said in a notice, the unfold still ends, and the next unfold reads them again', async () => {
   const browser = await launchWebkit();
   try {
