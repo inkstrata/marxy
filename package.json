@@ -21,6 +21,7 @@
     "gate:aesthetics": "node scripts/gate-aesthetics.mjs",
     "perf": "node scripts/perf-harness.mjs",
     "mock-pair": "node scripts/mock-pair.mjs",
+    "layout-audit": "node scripts/layout-audit.mjs",
     "gate:bundle": "node scripts/gate-bundle.mjs",
     "gate:specimen": "node scripts/specimen/verify.mjs",
     "lint:commits": "commitlint --from origin/main --to HEAD --verbose",

@@ -17,6 +17,7 @@ import { layoutLeftOut } from '../notices/config-copy.ts';
 import { notify } from '../notices/index.ts';
 import { canShowTwoColumns } from '../pane/fit.ts';
 import { clampToMain } from '../pane/divider.ts';
+import { keepTwoColumns } from '../pane/narrow.ts';
 import type { AppPanes } from '../pane/index.ts';
 import type { ReadingPersistence } from '../position/reading-persistence.ts';
 
@@ -51,6 +52,8 @@ export interface LayoutKeeper {
    * restored whole) waits for the reader to change the layout first, so the file is untouched until then.
    */
   start(armed: boolean): void;
+  /** While held, a change of layout is not written (a pane given back by a narrow window, F-106); released, it is caught up. */
+  hold(on: boolean): void;
   stop(): void;
 }
 
@@ -58,13 +61,21 @@ export interface LayoutKeeper {
 export function createLayoutKeeper(panes: AppPanes, persistence: ReadingPersistence): LayoutKeeper {
   const offs: (() => void)[] = [];
   let stopped = false;
+  let held = false;
+  let catchUp: () => void = () => {};
+  const hold = (on: boolean): void => {
+    held = on;
+    if (!on) catchUp();
+  };
   return {
+    hold,
     start(armed) {
       if (stopped) return;
       const baseline = JSON.stringify(layoutOf(panes));
       let on = armed;
       let last = '';
       const note = (): void => {
+        if (held) return;
         const now = layoutOf(panes);
         const json = JSON.stringify(now);
         if (!on) {
@@ -75,10 +86,13 @@ export function createLayoutKeeper(panes: AppPanes, persistence: ReadingPersiste
         last = json;
         persistence.noteLayout(now);
       };
+      catchUp = note;
       offs.push(panes.onChange(note));
       // A pane's section carries its own mode (D-11); there is no other event for a mode change.
       const main = panes.panes[0]?.host.parentElement;
       if (main) {
+        // The window narrowed below two columns gives a pane back, and the split returns with the room (F-106).
+        offs.push(keepTwoColumns(panes, main, { hold }));
         const observer = new MutationObserver(note);
         observer.observe(main, { subtree: true, attributes: true, attributeFilter: ['data-marxy-mode'] });
         offs.push(() => observer.disconnect());

@@ -288,6 +288,9 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
     }
     const recStart = p;
     const firstField = fld.start.length;
+    // The lines a fault's quote reached into are counted from its own field; a valid multi-line field earlier in the
+    // record reached into the lines before it, which the record's own first line does not cover (F-89.1).
+    const reachedBefore = (at: number): number => breaksIn(bytes, firstLine(bytes, recStart).end, at);
     let fault: { reason: UnreadableReason; at: number; swallowed: number } | null = null;
     let recEnd = -1;
     let next = -1;
@@ -330,7 +333,7 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
             unfinished = true;
             break;
           }
-          fault = { reason: 'unclosed-quote', at: fs, swallowed: lines };
+          fault = { reason: 'unclosed-quote', at: fs, swallowed: lines + reachedBefore(fs) };
           break;
         }
         fe = close + 1;
@@ -343,7 +346,7 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
             break;
           }
           if (gap === 0) {
-            fault = { reason: 'after-quote', at: after, swallowed: lines };
+            fault = { reason: 'after-quote', at: after, swallowed: lines + reachedBefore(fs) };
             break;
           }
         }

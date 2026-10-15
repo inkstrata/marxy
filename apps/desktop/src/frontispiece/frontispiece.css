@@ -92,6 +92,16 @@
 @container marxy-frontispiece (min-width: 40em) {
   .marxy-frontispiece-parallel { grid-template-columns: repeat(2, minmax(0, max-content)); }
 }
+/* Prose is set by the typesetter, which breaks each paragraph to the width it finds and lays the breaks
+   out as `nowrap`. Columns sized by that text are circular: the set lines are the column, so the column
+   can only keep the width it was set at (a window widened from 800 to 1,000 px kept lines set for 800 and
+   drew them over the other column), and two columns never settle to the same width (F-104). A prose
+   column is the measure, or half the page when that is less: its width is the page's and the text
+   is set to it, in a window opened at any width or resized to it. */
+.marxy-frontispiece-prose .marxy-frontispiece-parallel { grid-template-columns: minmax(0, var(--marxy-column)); }
+@container marxy-frontispiece (min-width: 40em) {
+  .marxy-frontispiece-prose .marxy-frontispiece-parallel { grid-template-columns: repeat(2, minmax(0, var(--marxy-column))); }
+}
 .marxy-frontispiece-lang { max-width: var(--marxy-column); min-width: 0; }
 .marxy-frontispiece-lang > :last-child { margin-bottom: 0; }
 

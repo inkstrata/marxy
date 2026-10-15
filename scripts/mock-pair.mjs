@@ -12,7 +12,7 @@ import vm from 'node:vm';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MOCK = join(ROOT, 'docs/plan/direction-2026-10/mock-v2');
 
-const W = 1440, H = 900, NARROW = 760;
+const W = 1440, H = 900, NARROW = 760, SHORT = 400, WIDE = 1920;
 // `app` is the `theme` line the app's config gets (H-05): none for Night and Paper, a bundled name for the rest.
 export const THEMES = [
   { id: 'night', scheme: 'dark', mock: 'night', label: 'Night' },
@@ -39,6 +39,9 @@ export const SCREENS = {
   '01-unfolded': 'Unfolded: toolbar, tabs, strip, sidebar (mock 01-workspace)',
   '02-source': 'Source, unfolded (mock 02-source)',
   '02-source-folded': 'Source, folded (mock 01-workspace, Source)',
+  '02-source-numbers': 'Source with line numbers on, unfolded: the gutter and the text side by side (mock 02-source)',
+  '02-source-fill-short': 'Folded Source with line numbers, a short document: the gutter at the window\'s edge, the editor as tall as the window (F-100; the mock\'s frame is 960 px centred, the departure)',
+  '02-source-fill-long': 'Folded Source with line numbers, a long document: the text runs to the right edge and scrolls (F-100; the mock\'s frame is 960 px centred, the departure)',
   '03-split': 'Split view (mock 01-workspace, Split)',
   '03-code': 'A code file in the reader (mock 01-workspace, doc=indexer-rs)',
   '03-transcript': 'A Markdown transcript in the reader (mock 01-workspace, doc=indexer-chat)',
@@ -48,6 +51,7 @@ export const SCREENS = {
   '03-data': 'A CSV in the table lens (mock 01-workspace, doc=bench-csv)',
   '04-palette': 'The palette, files (mock 04-palette)',
   '04-palette-commands': 'The palette, commands (mock 04-palette)',
+  '04-palette-short': 'The palette, search with a preview, in the shortest supported window, 400 px tall (mock 04-palette)',
   '05-library': 'The library (mock 05-collections)',
   '06-transform-sheet': 'The transform result sheet (mock 01-workspace)',
   '07-notice': 'A notice, unfolded (mock toast)',
@@ -56,9 +60,17 @@ export const SCREENS = {
   '09-inspector-outline': 'The inspector docked on its Outline tab: headings with the words of each section (mock 01-workspace)',
   '03-terminal': 'A shell session in the reader (mock 01-workspace, doc=shell-session)',
   '09-inspector-versions': 'The inspector docked on its Versions tab: Changed since you read and the earlier versions (mock 01-workspace)',
-  '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
   '09-inspector-metadata': 'The inspector docked on its Metadata tab: the file, its front matter with values edited in place, detection, what is hidden (mock 01-workspace)',
   '09-metadata-margin': 'Read with the metadata preview on in the left margin, sidebar undocked for room (mock 01-workspace, Metadata toggle on)',
+  '10-tabs-hover': 'Twelve tabs in the unfolded window, one hovered (F-99; mock 01-workspace)',
+  '10-outline-popup': 'The outline popup (Shift+Cmd+O) at 1,920 x 900 with the inspector docked, over it and under the bands (the mock has no popup: its Outline tab is the reference for the type and the row)',
+  '10-kind-chip-menu': 'The kind chip\'s menu open, unfolded: why the file is read as it is, then the Show as choices (mock 01-workspace)',
+  '10-empty-window': 'The empty window with a text beside its translation, opened at 800 px and widened to 1,000 (mock 01-workspace, folded; the mock has no empty window)',
+  '10-tabs-dated': 'Twelve tabs of dated names that share a long start, unfolded (F-107; mock 01-workspace)',
+  '10-split-narrowed': 'A split made at 1,920 px and narrowed to 800 x 600: one pane is given back (F-106; mock 01-workspace at 800 px, one reading column)',
+  '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
+  '08-settings-1000': 'Settings on Content types in a 1,000 px unfolded window: the page takes the window less the sidebar (F-102; mock 08-settings, types)',
+  '05-library-1000': 'The Library in a 1,000 px unfolded window: whole Name, Path and Modified columns and a preview that leaves the list its width (F-105; mock 05-collections)',
 };
 
 /** The file names one screen produces: <screen>-<theme>-{app,mock}.png. */
@@ -180,6 +192,7 @@ const BUILD_LOG = toPath(docs.find((d) => d.id === 'build-log').path);
 const SHELL_SESSION = toPath(docs.find((d) => d.id === 'shell-session').path);
 const ARTICLE = toPath(docs.find((d) => d.id === 'ragged-right').path);
 const CSV = toPath(docs.find((d) => d.id === 'bench-csv').path);
+const NOTES = toPath(docs.find((d) => d.id === 'notes-1008').path);
 const entries = docs.filter((d) => d.src).map((d, i) => ({
   path: toPath(d.path),
   root: toPath(d.path).split('/').slice(0, 4).join('/'),
@@ -197,9 +210,11 @@ const SAVED_QUERIES = '[[query]]\nname = "Reports"\nq = "kind:report"\n\n[[query
 const settle = (page, ms) => page.waitForTimeout(ms);
 
 // ---------- the app ----------
-async function bootApp(browser, theme, { width = W, height = H, open = PLAN } = {}) {
+async function bootApp(browser, theme, { width = W, height = H, open = PLAN, piece } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme.scheme, deviceScaleFactor: 1 });
   const page = await context.newPage();
+  // The empty window's piece is chosen at random: pin it (choosePiece takes floor(random() * count)).
+  if (piece !== undefined) await page.addInitScript((k) => { Math.random = () => (k + 0.5) / 38; }, piece);
   const base = await support.harnessBase();
   const { style, body } = support.shippedSkeleton();
   await page.route(`${base}app.html`, async (route) => {
@@ -223,7 +238,7 @@ async function bootApp(browser, theme, { width = W, height = H, open = PLAN } = 
       for (const [path, text] of Object.entries(encoded)) bytes[path] = Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
       const { createMemoryShell } = await import('/src/shell/memory.ts');
       const { bootApplication } = await import('/src/main.ts');
-      const handle = await bootApplication(createMemoryShell(bytes), { argv: [open] });
+      const handle = await bootApplication(createMemoryShell(bytes), { argv: open ? [open] : [] });
       await handle.ready;
       window.__marxyHandle = handle;
       handle.palette.setIndexEntries(entries);
@@ -251,7 +266,34 @@ async function unfoldedWithTabs(page) {
   await settle(page, 700);
 }
 
+// Twelve documents of the corpus, in the corpus's order: the tab row's long-names case (F-99). The first stays the one on show.
+const TWELVE = docs.slice(0, 12);
+// Twelve dated drafts that share their first thirty characters (F-107). Written into the app's files and, for the mock, into its docs.
+const DATED = Array.from({ length: 12 }, (_, i) => ({ id: `dated-${i + 1}`, title: `2026-10-01-quarterly-planning-review-draft-${i + 1}.md`, path: `~/Work/plans/2026-10-01-quarterly-planning-review-draft-${i + 1}.md`, src: `# Quarterly planning review, draft ${i + 1}\n\nThe ${i + 1}th pass over the quarter's plan.\n` }));
+for (const d of DATED) files[toPath(d.path)] = d.src;
+async function foldedSourceNumbers(page) {
+  await page.evaluate(() => window.__cmd('view.mode-source'));
+  await settle(page, 600);
+  await page.evaluate(() => window.__cmd('view.toggle-line-numbers'));
+  await settle(page, 800);
+}
 const APP_STATES = {
+  async '10-tabs-dated'(page) {
+    await unfold(page);
+    for (const d of DATED) { await openDoc(page, toPath(d.path)); await settle(page, 150); }
+    await openDoc(page, toPath(DATED[0].path));
+    await settle(page, 500);
+    await page.locator('.marxy-tab').nth(3).locator('.marxy-tab-open').hover();
+    await settle(page, 300);
+  },
+  async '10-tabs-hover'(page) {
+    await unfold(page);
+    for (const d of TWELVE.slice(1)) { await openDoc(page, toPath(d.path)); await settle(page, 150); }
+    await openDoc(page, toPath(TWELVE[0].path));
+    await settle(page, 500);
+    await page.locator(`[data-marxy-tab="${toPath(TWELVE[3].path)}"] .marxy-tab-open`).hover();
+    await settle(page, 300);
+  },
   async '01-folded'(page) {},
   async '01-unfolded'(page) {
     await unfoldedWithTabs(page);
@@ -261,6 +303,17 @@ const APP_STATES = {
   },
   async '02-source'(page) { await unfoldedWithTabs(page); await page.evaluate(() => window.__cmd('view.mode-source')); await settle(page, 800); },
   async '02-source-folded'(page) { await page.evaluate(() => window.__cmd('view.mode-source')); await settle(page, 800); },
+  // A Markdown file starts with numbers off (L-06.1); the toggle turns them on, as the author did (F-98).
+  async '02-source-numbers'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__cmd('view.mode-source'));
+    await settle(page, 600);
+    await page.evaluate(() => window.__cmd('view.toggle-line-numbers'));
+    await settle(page, 800);
+  },
+  // Folded Source with numbers on (the author's case, F-100): a short document and a long one; the app boots on the document.
+  async '02-source-fill-short'(page) { await foldedSourceNumbers(page); },
+  async '02-source-fill-long'(page) { await foldedSourceNumbers(page); },
   async '03-split'(page) { await unfoldedWithTabs(page); await page.evaluate(() => window.__cmd('view.mode-split')); await settle(page, 1000); },
   async '03-code'(page) { await openDoc(page, RS); await settle(page, 900); },
   async '03-transcript'(page) { await openDoc(page, CHAT); await settle(page, 900); },
@@ -278,6 +331,14 @@ const APP_STATES = {
     await page.keyboard.press('Meta+Shift+KeyP');
     await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
     await settle(page, 500);
+  },
+  async '04-palette-short'(page) {
+    await openDoc(page, HANDOFF); await settle(page, 200); await openDoc(page, RS); await settle(page, 200); await openDoc(page, PLAN); await settle(page, 500);
+    await page.keyboard.press('Meta+KeyP');
+    await page.waitForSelector('#marxy-palette[open]');
+    await page.locator('#marxy-palette .marxy-palette-query').fill('a');
+    await page.waitForSelector('#marxy-palette .marxy-palette-row');
+    await settle(page, 600);
   },
   async '05-library'(page) {
     await unfoldedWithTabs(page);
@@ -315,6 +376,14 @@ const APP_STATES = {
     await settle(page, 400);
   },
   async '08-narrow'(page) { await unfoldedWithTabs(page); },
+  // Made wide (the window is booted at WIDE), then narrowed: the split gives a pane back below two columns (F-106).
+  async '10-split-narrowed'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__cmd('view.mode-split'));
+    await settle(page, 800);
+    await page.setViewportSize({ width: 800, height: 600 });
+    await settle(page, 1200);
+  },
   async '09-inspector-outline'(page) {
     await unfoldedWithTabs(page);
     await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
@@ -330,7 +399,17 @@ const APP_STATES = {
     await page.waitForSelector('.marxy-outline [aria-current="location"]');
     await settle(page, 600);
   },
+  async '10-outline-popup'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
+    await settle(page, 300);
+    await page.evaluate(() => window.__cmd('view.outline'));
+    await page.waitForSelector('#marxy-outline[open] .marxy-outline-row');
+    await settle(page, 500);
+  },
   async '03-terminal'(page) { await openDoc(page, SHELL_SESSION); await settle(page, 900); },
+  // Hegel's `Ich, das Wir` (piece 6), opened at 800 px where the columns stack, then the window widened to 1,000 (F-104).
+  async '10-empty-window'(page) { await page.setViewportSize({ width: 1000, height: H }); await settle(page, 1500); },
   async '08-settings'(page) {
     // A reader who has made their text larger and shortened the line: two dots, the third row at its default.
     await page.evaluate(() => window.__marxyHandle.shell.plant('/config', new TextEncoder().encode('size = 22\nmeasure = 58\n')));
@@ -339,6 +418,25 @@ const APP_STATES = {
     await page.waitForSelector('[data-marxy-settings]');
     await page.click('[data-marxy-category="reading"]');
     await settle(page, 400);
+  },
+  async '10-kind-chip-menu'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__cmd('kind.chip'));
+    await page.waitForSelector('.marxy-verb-menu');
+    await settle(page, 400);
+  },
+  async '08-settings-1000'(page) {
+    await page.evaluate(() => window.__cmd('view.settings'));
+    await page.waitForSelector('[data-marxy-settings]');
+    await page.click('[data-marxy-category="types"]');
+    await settle(page, 400);
+  },
+  async '05-library-1000'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate((e) => window.__marxyHandle.palette.setIndexEntries(e), entries);
+    await page.evaluate(() => window.__cmd('library.open'));
+    await page.waitForSelector('[data-marxy-library]');
+    await settle(page, 600);
   },
   async '09-inspector-metadata'(page) {
     // The mock's own plan: it has front matter, so the section the card calls editable is drawn.
@@ -384,7 +482,7 @@ const APP_STATES = {
     await settle(page, 600);
   },
 };
-const APP_OPTS = { '08-narrow': { width: NARROW }, '03-code': {}, '03-transcript': {} };
+const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-split-narrowed': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 }, '08-settings-1000': { width: 1000 }, '02-source-fill-short': { open: NOTES }, '02-source-fill-long': { open: PLAN }, '05-library-1000': { width: 1000 } };
 
 // ---------- the mock ----------
 async function openMock(browser, theme, file, { width = W, height = H, hash = '' } = {}) {
@@ -411,10 +509,39 @@ const SHEET_TEMPLATE = (() => {
   return m[1];
 })();
 const MOCK_STATES = {
+  '10-tabs-dated': {
+    file: '01-workspace.html',
+    run: async (page) => {
+      await mockUnfold(page);
+      await page.evaluate((list) => {
+        const G = window.Marxy;
+        const at = G.docs.find((d) => d.id === 'pg16-plan');
+        for (const d of list) G.docs.push({ ...at, ...d, unsaved: false });
+        for (const d of list) G.openDoc(d.id);
+        G.openDoc(list[0].id);
+      }, DATED);
+      await settle(page, 600);
+      await page.locator('.tabs .tab').nth(3).hover();
+      await settle(page, 300);
+    },
+  },
+  '10-tabs-hover': {
+    file: '01-workspace.html',
+    run: async (page) => {
+      await mockUnfold(page);
+      await page.evaluate((ids) => { for (const id of ids) window.Marxy.openDoc(id); window.Marxy.openDoc(ids[0]); }, TWELVE.map((d) => d.id));
+      await settle(page, 600);
+      await page.locator(`.tabs .tab[data-id="${TWELVE[3].id}"]`).hover();
+      await settle(page, 300);
+    },
+  },
   '01-folded': { file: '01-workspace.html', run: async () => {} },
   '01-unfolded': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.keyboard.press('Meta+Digit1'); await settle(page, 600); } },
   '02-source': { file: '02-source.html', run: async () => {} },
   '02-source-folded': { file: '01-workspace.html', run: async (page) => { await page.keyboard.press('Meta+Digit3'); await settle(page, 600); } },
+  '02-source-numbers': { file: '02-source.html', run: async () => {} },
+  '02-source-fill-short': { file: '01-workspace.html', hash: '#doc=notes-1008', run: async (page) => { await page.keyboard.press('Meta+Digit3'); await settle(page, 600); } },
+  '02-source-fill-long': { file: '01-workspace.html', hash: '#doc=pg16-plan', run: async (page) => { await page.keyboard.press('Meta+Digit3'); await settle(page, 600); } },
   '03-split': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.keyboard.press('Meta+Digit2'); await settle(page, 700); } },
   '03-code': { file: '01-workspace.html', hash: '#doc=indexer-rs', run: async () => {} },
   '03-transcript': { file: '01-workspace.html', hash: '#doc=indexer-chat', run: async () => {} },
@@ -424,6 +551,7 @@ const MOCK_STATES = {
   '03-data': { file: '01-workspace.html', hash: '#doc=bench-csv', run: async () => {} },
   '04-palette': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('')); await settle(page, 600); } },
   '04-palette-commands': { file: '01-workspace.html', run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('>')); await settle(page, 600); } },
+  '04-palette-short': { file: '01-workspace.html', height: SHORT, run: async (page) => { await page.evaluate(() => window.Marxy.palette.open('a')); await settle(page, 600); } },
   '05-library': { file: '05-collections.html', run: async () => {} },
   '06-transform-sheet': {
     file: '01-workspace.html',
@@ -449,6 +577,10 @@ const MOCK_STATES = {
   '09-inspector-outline': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
   '03-terminal': { file: '01-workspace.html', hash: '#doc=shell-session', run: async () => {} },
   '09-inspector-versions': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="versions"]'); await settle(page, 600); } },
+  '10-outline-popup': { file: '01-workspace.html', width: WIDE, run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
+  '10-kind-chip-menu': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await settle(page, 300); await page.click('#kindchip'); await settle(page, 500); } },
+  '10-empty-window': { file: '01-workspace.html', width: 1000, run: async () => {} },
+  '10-split-narrowed': { file: '01-workspace.html', width: 800, run: async (page) => { await mockUnfold(page); await settle(page, 500); } },
   '09-inspector-metadata': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="meta"]'); await settle(page, 600); } },
   '09-metadata-margin': {
     file: '01-workspace.html',
@@ -462,6 +594,8 @@ const MOCK_STATES = {
     },
   },
   '08-settings': { file: '08-settings.html', hash: '#reading', run: async (page) => { await settle(page, 400); } },
+  '05-library-1000': { file: '05-collections.html', width: 1000, run: async () => {} },
+  '08-settings-1000': { file: '08-settings.html', hash: '#types', width: 1000, run: async (page) => { await settle(page, 400); } },
 };
 
 const browser = await launchWebkit();
@@ -484,7 +618,7 @@ try {
       }
       if (opts.sides.includes('mock')) {
         const m = MOCK_STATES[screen];
-        const { context, page } = await openMock(browser, theme, m.file, { width: m.width ?? W, hash: m.hash ?? '' });
+        const { context, page } = await openMock(browser, theme, m.file, { width: m.width ?? W, height: m.height ?? H, hash: m.hash ?? '' });
         try {
           await m.run(page);
         } catch (e) {

@@ -25,6 +25,27 @@ function walk(dir, out = []) {
 }
 
 const STYLE_TAG_RE = /createElement\s*\(\s*['"]style['"]\s*\)/;
+// CodeMirror creates its own <style> elements (style-mod), which the release policy refuses unless they carry the page's
+// style nonce (F-98): `baseExtensions` installs `EditorView.cspNonce`, so a mount must go through it or install its own.
+const EDITOR_MOUNT_RE = /new\s+EditorView\s*\(/;
+const BASE_EXTENSIONS_CALL_RE = /baseExtensions\s*\(/;
+const BASE_EXTENSIONS_DEF_RE = /function\s+baseExtensions\s*\(/;
+const CSP_NONCE_USE_RE = /EditorView\.cspNonce/;
+
+function countMatches(re, text) {
+  return [...text.matchAll(new RegExp(re.source, 'g'))].length;
+}
+
+/**
+ * Per file (F-98.1): every `new EditorView(` must be paired with a nonce source, a `baseExtensions(` call (the definition
+ * is not a call) or an `EditorView.cspNonce` use. A second mount beside one baseExtensions call is refused.
+ */
+export function editorMountProblem(text) {
+  const mounts = countMatches(EDITOR_MOUNT_RE, text);
+  const nonceSources =
+    countMatches(BASE_EXTENSIONS_CALL_RE, text) - countMatches(BASE_EXTENSIONS_DEF_RE, text) + countMatches(CSP_NONCE_USE_RE, text);
+  return mounts > nonceSources;
+}
 
 export function parseCspString(csp) {
   const directives = new Map();
@@ -55,6 +76,12 @@ export function runtimeStyleProblems(sources) {
   for (const [rel, text] of Object.entries(sources)) {
     if (STYLE_TAG_RE.test(text)) {
       problems.push(`${rel}: runtime code creates a <style> element${fix('use adoptRuntimeSheet / adoptedStyleSheets instead')}`);
+    }
+    if (editorMountProblem(text)) {
+      problems.push(`${rel}: builds an EditorView without a style nonce, so CodeMirror's <style> is refused in a release build${fix('take the extensions from baseExtensions (source/editor.ts), or add EditorView.cspNonce.of(pageStyleNonce())')}`);
+    }
+    if (BASE_EXTENSIONS_DEF_RE.test(text) && !/EditorView\.cspNonce/.test(text)) {
+      problems.push(`${rel}: baseExtensions does not install EditorView.cspNonce${fix('add EditorView.cspNonce.of(pageStyleNonce()) to its extensions')}`);
     }
   }
   return problems;
@@ -96,6 +123,14 @@ function runSelftest() {
   const caught = runtimeStyleProblems(planted);
   if (caught.length !== 1) {
     console.error('check-csp --selftest: planted createElement(style) was not caught');
+    process.exit(1);
+  }
+  const unnonced = runtimeStyleProblems({
+    'planted-mount.ts': 'const view = new EditorView({ state, parent });',
+    'planted-base.ts': 'export async function baseExtensions(a) { return []; }',
+  });
+  if (unnonced.length !== 2) {
+    console.error('check-csp --selftest: a planted EditorView without a style nonce was not caught');
     process.exit(1);
   }
   const bad = cspProblems("style-src 'self' 'unsafe-inline'");

@@ -659,6 +659,7 @@ export function mountLibrary(workspace: Workspace, handle: AppHandle): LibraryCo
       name.append(glyph);
     }
     name.append(el('span', 'marxy-library-row-name', row.title));
+    name.title = row.title;
     const path = cell('path');
     path.append(el('span', 'marxy-library-row-rel', row.rel));
     path.title = row.rel;

@@ -794,8 +794,11 @@ work, not this pass.
 The editor sits in an enclosure, `.marxy-source-frame`, that `createSourceEditor` builds inside the mount in the same task as the
 editor (so nothing paints between them and first text never waits for a bar). A mount that is not the app's (the editor's own
 harness) gets the bare editor. The frame has a hairline edge (`--marxy-color-rule`), radius 13 and the page ground, and is inset
-from its pane (14 px folded, 12 px unfolded); folded it is at most 960 px wide and centred, unfolded it fills the pane. The text
-column inside is ADR-0067's, centred in the frame. The editor scrolls inside the frame (its own scroller), so the bars stay put.
+from its pane (14 px folded, 12 px unfolded) and fills the rest of it, folded or not (F-100, the author's "in general we want to fill
+the window with our editor"; it overrules the X-21 ruling's 960 px folded frame). The editor fills the frame edge to edge: the gutter
+is its first column at the frame's left edge, and the text runs from a gutter's width in to the right edge (a code line scrolls,
+a Markdown line wraps at it). There is no centred column and no measure in Source; Rendered keeps its measure. The editor scrolls
+inside the frame (its own scroller), so the bars stay put.
 
 Every bar shows only what the bytes say, and says nothing else (no score, no summary, nothing drawn on the text):
 

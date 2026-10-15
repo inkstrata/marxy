@@ -173,6 +173,23 @@ test('V-04 notes follow the text: a repaired fence loses its note, and Source is
   });
 });
 
+test('V-04.1 marks move with the text: an edit above a note leaves it on its text before any rescan', async () => {
+  await withApp('/r/noted.md', async (page) => {
+    await page.waitForFunction(() => document.querySelectorAll('.marxy-source-mark-note').length === 3);
+    // Three lines go in at the top and the next note is asked for in the same breath, before the rescan a moment later.
+    const line = await page.evaluate(async () => {
+      const { activeSourceEditor } = await import('/src/source/editor.ts');
+      const { commands } = await import('/src/commands/index.ts');
+      const { buildAppContext } = await import('/src/selection/bind.ts');
+      const { view } = activeSourceEditor();
+      view.dispatch({ changes: { from: 0, insert: 'a\nb\nc\n' }, selection: { anchor: 0 } });
+      await commands().find((c) => c.id === 'source.next-note').run(buildAppContext(window.__marxyHandle));
+      return view.state.doc.lineAt(view.state.selection.main.head).number;
+    });
+    assert.equal(line, 6, 'the heading note was on line 3 and is on line 6 now');
+  });
+});
+
 test('V-04 a 2 MB Markdown file shows its first text before its notes, and the numbers are recorded', async () => {
   const para = 'A paragraph of ordinary prose that fills a line of the file with words.\n\n';
   const big = `# Big\n\n${para.repeat(Math.ceil(2_000_000 / para.length))}\n#### Skips\n\n\`\`\`\nnever closed\n`;

@@ -4,7 +4,7 @@ import type { Shell, ShellError } from '@marxy/shell-api';
 import { appHandle } from './commands/app-handle.ts';
 import type { DocumentStore } from './document/store.ts';
 import { documentName, isUntitled } from './document/untitled.ts';
-import { ensureNoticesRegion, focusedPane, noticeLine, placeNotice, removeNotice } from './notices/index.ts';
+import { ensureNoticesRegion, focusedPane, noticeLine, notify, placeNotice, removeNotice, SOURCE_HELD_APART } from './notices/index.ts';
 
 export type SaveResult = 'saved' | 'unchanged' | 'cancelled' | 'failed';
 
@@ -81,7 +81,6 @@ export async function save(
   // Held apart (D-11): the store holds the other pane's text, not this pane's, so writing it would say "saved"
   // while this pane's typing is still only in its editor. Refuse, and say why.
   if (deps.holdsUnfoldedSource?.()) {
-    const { notify, SOURCE_HELD_APART } = await import('./notices/index.ts');
     notify({ kind: 'refused', text: SOURCE_HELD_APART }, { pane: deps.pane });
     return 'cancelled';
   }
@@ -99,7 +98,6 @@ export async function save(
   }
 
   if (path.startsWith('marxy:')) {
-    const { notify } = await import('./notices/index.ts');
     notify({
       kind: 'refused',
       text: `${readOnlyNoticeName(path)} is part of Marxy and cannot be saved · nothing was written · Save as… to keep a copy.`,

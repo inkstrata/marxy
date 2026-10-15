@@ -25,6 +25,7 @@ export async function createSourceEditor(
     : null;
   if (frame) exts.push(frame.extension);
   const state = EditorState.create({ doc, extensions: exts });
+  opts.beforeMount?.();
   const view = new EditorView({ state, parent: frame?.body ?? opts.parent });
   frame?.attach(view);
   // The grammar arrives after the text; a destroyed editor or another file by then gets none (generation counter).

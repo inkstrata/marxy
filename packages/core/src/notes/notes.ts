@@ -66,7 +66,10 @@ export function notesOf(lf: string, doc: Document = parseText(lf)): Note[] {
     if (node.run === true) continue; // a code file read as code has no fences
     const text = lf.slice(span.start, span.end).replace(/\n+$/, '');
     const firstEnd = text.indexOf('\n');
-    const first = (firstEnd === -1 ? text : text.slice(0, firstEnd)).replace(LEAD, '');
+    const firstRaw = firstEnd === -1 ? text : text.slice(0, firstEnd);
+    // A fence may be indented at most three spaces; four (or a tab) make the block indented code, which has no fence to close.
+    if (/^(?: {4}|\t)/.test(firstRaw)) continue;
+    const first = firstRaw.replace(LEAD, '');
     const opener = OPENER.exec(first)?.[1];
     if (opener === undefined) continue; // an indented block has no fence
     const lastStart = text.lastIndexOf('\n');

@@ -1063,3 +1063,49 @@ test('the checks\' worker answers as the page does (path mentions and shingles),
     for (const o of same.out) assert.deepEqual([o.mentions, o.shingles], [true, true], JSON.stringify(o.m));
   });
 });
+
+// F-105: the columns stay whole at the widths a reader's window really has (X-32 findings 5 and 8).
+const measure = (page) =>
+  page.evaluate(() => {
+    const lib = document.querySelector('[data-marxy-library]');
+    const rect = (e) => e.getBoundingClientRect();
+    const cut = [];
+    for (const row of document.querySelectorAll('[data-marxy-library-row]')) {
+      const rr = rect(row);
+      for (const cell of row.querySelectorAll('.marxy-library-cell')) {
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+        const t = range.getBoundingClientRect();
+        const c = rect(cell);
+        const ell = cell.querySelector('.marxy-library-row-name, .marxy-library-row-rel');
+        const ellipsised = ell !== null && ell.scrollWidth > ell.clientWidth + 1;
+        const titled = ((ell?.title ?? '') + (cell.title ?? '')) !== '';
+        if (ell === null && t.width > 0 && (t.right > c.right + 0.5 || t.left < c.left - 0.5)) cut.push(`${cell.className}: text ${t.left}..${t.right} cell ${c.left}..${c.right}`);
+        if (ellipsised && !titled) cut.push(`${cell.className}: ellipsised with no title (${ell.textContent})`);
+        if (t.bottom > rr.bottom + 0.5 || t.right > rr.right + 0.5) cut.push(`${cell.className}: outside its row`);
+      }
+    }
+    const col = (n) => { const e = document.querySelector(`.marxy-library-cell-${n}`); return e ? Math.round(rect(e).width) : null; };
+    return {
+      lib: Math.round(rect(lib).width),
+      results: Math.round(rect(document.querySelector('.marxy-library-results')).width),
+      preview: Math.round(rect(document.querySelector('.marxy-library-preview')).width),
+      name: col('name'), path: col('path'), modified: col('modified'), status: col('status'), cut,
+    };
+  });
+for (const width of [900, 1000, 1100]) {
+  test(`F-105: at ${width} px the Library's name, path and modified columns are whole`, async () => {
+    await withPage(async (page) => {
+      await unfold(page);
+      await openLibrary(page);
+      await settle(page, 200);
+      const m = await measure(page);
+      console.log('F105', width, JSON.stringify(m));
+      assert.deepEqual(m.cut, [], 'no cell is cut mid-glyph or ellipsised without a title');
+      assert.ok(m.modified >= 40, `the Modified column fits "23h" (${m.modified} px)`);
+      assert.ok(m.name >= 140, `the Name column is readable (${m.name} px)`);
+      assert.ok(m.path >= 100, `the Path column shows more than a word (${m.path} px)`);
+      assert.ok(m.preview <= m.lib * 0.4, `the preview does not take half the list (${m.preview} of ${m.lib} px)`);
+    }, { width, height: 900 });
+  });
+}

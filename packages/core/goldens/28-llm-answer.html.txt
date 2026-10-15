@@ -59,7 +59,7 @@ grep -R "sendmail\|curl" /opt/invoice-export/*.sh
 </ol>
 <h2 id="step-3-stand-up-the-queue" data-marxy-s="3356" data-marxy-e="3385">Step 3: Stand up the queue</h2>
 <p data-marxy-s="3387" data-marxy-e="3436">Here is the topology I would use. Keep it boring.</p>
-<p>mermaid · diagram source</p>
+<p class="marxy-diagram-caption">mermaid · diagram source</p>
 <pre class="language-mermaid" data-marxy-s="3438" data-marxy-e="3679"><code class="language-mermaid" data-marxy-s="3449" data-marxy-e="3676">flowchart LR
     P[Producer: scheduler] --&gt;|enqueue| Q[(exports queue)]
     Q --&gt; W1[Worker 1]
