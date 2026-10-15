@@ -23,16 +23,51 @@ interface MutablePreparedIndex {
   version: number;
   /** path -> index into `rows`. */
   byPath: Map<string, number>;
+  /** Every heading of every row, flat, so `@` walks one array and not documents (W-13.1). Refs of a replaced or dropped row stay until compaction, marked dead. */
+  heads: HeadingRef[];
+  deadHeads: number;
 }
 
-/** Counters for tests: how many rows were prepared and how many were scored (matched) by keystrokes. */
+/** Counters for tests: rows prepared and scored by keystrokes; and for `@`, heading refs looked at and headings actually scored. */
 export const prepareStats = { prepareRow: 0, rowsScored: 0 };
+export const sectionStats = { visited: 0, scored: 0 };
 
 interface PreparedRow {
   readonly entry: IndexEntry;
   readonly title: string;
   readonly path: string;
   readonly headings: readonly string[];
+  /** Per heading, the characters it holds as bits (a hash of the code unit): a needle whose bits are not all there cannot match, and no string is scanned to learn it. */
+  readonly masks: Uint32Array;
+  /** False once the row was replaced or dropped; its refs in the heading index are skipped. */
+  live: boolean;
+}
+
+interface HeadingRef {
+  readonly row: PreparedRow;
+  readonly i: number;
+  readonly mask: number;
+}
+
+function charMask(text: string): number {
+  let mask = 0;
+  for (let i = 0; i < text.length; i++) mask |= 1 << (text.charCodeAt(i) % 31);
+  return mask;
+}
+
+function addHeads(index: MutablePreparedIndex, row: PreparedRow): void {
+  for (let i = 0; i < row.headings.length; i++) index.heads.push({ row, i, mask: row.masks[i]! });
+}
+
+function dropHeads(index: MutablePreparedIndex, row: PreparedRow): void {
+  if (!row.live) return;
+  row.live = false;
+  index.deadHeads += row.headings.length;
+  // A replaced file leaves refs behind; once they outnumber the live ones the array is rebuilt, so it never grows without bound.
+  if (index.deadHeads > 1024 && index.deadHeads * 2 > index.heads.length) {
+    index.heads = index.heads.filter((ref) => ref.row.live);
+    index.deadHeads = 0;
+  }
 }
 
 function prepareRow(entry: IndexEntry, readAt?: Readonly<Record<string, number>>): PreparedRow {
@@ -41,8 +76,12 @@ function prepareRow(entry: IndexEntry, readAt?: Readonly<Record<string, number>>
   for (const heading of entry.headings) headings.push(heading.text.normalize('NFC').toLowerCase());
   // The session's read time rides on the prepared row's entry, so scoring and the tie-break
   // read one value and a keystroke does no lookup. Entries nobody has read are passed through.
+  const masks = new Uint32Array(headings.length);
+  for (let i = 0; i < headings.length; i++) masks[i] = charMask(headings[i]!);
   const read = readAt?.[entry.path];
   return {
+    masks,
+    live: true,
     entry: read === undefined ? entry : { ...entry, lastReadMs: read },
     title: entry.title.normalize('NFC').toLowerCase(),
     path: entry.path.normalize('NFC').toLowerCase(),
@@ -61,7 +100,8 @@ export function prepareIndex(
     byPath.set(entry.path, rows.length);
     rows.push(prepareRow(entry, readAt));
   }
-  const prepared: MutablePreparedIndex = { rows, version: 0, byPath };
+  const prepared: MutablePreparedIndex = { rows, version: 0, byPath, heads: [], deadHeads: 0 };
+  for (const row of rows) addHeads(prepared, row);
   return prepared;
 }
 
@@ -84,8 +124,10 @@ export function upsertRows(
       index.byPath.set(entry.path, index.rows.length);
       index.rows.push(row);
     } else {
+      dropHeads(index, index.rows[at]!);
       index.rows[at] = row;
     }
+    addHeads(index, row);
   }
   index.version++;
 }
@@ -99,6 +141,7 @@ export function removeRows(prepared: PreparedIndex, paths: readonly string[]): v
     if (at === undefined) continue;
     const last = index.rows.length - 1;
     const moved = index.rows[last]!;
+    dropHeads(index, index.rows[at]!);
     index.rows[at] = moved;
     index.rows.pop();
     index.byPath.delete(path);
@@ -232,6 +275,30 @@ export function sectionResults(
     rows = rows.filter((row) => at.has(row.entry.path));
     orderOf = (row) => at.get(row.entry.path)!;
   }
+  if (query.scope === 'everywhere' && needle !== '') {
+    // W-13.1: from the heading index, not the documents. A heading missing one of the needle's characters is passed
+    // by one mask test, and a keystroke that extends the last query looks only at the last query's matches.
+    const index = prepared as MutablePreparedIndex;
+    const want = charMask(needle);
+    const cached = sectionCache.get(prepared);
+    const from = cached !== undefined && cached.version === prepared.version && needle.startsWith(cached.needle) ? cached.found : undefined;
+    const found: number[] = [];
+    const count = from === undefined ? index.heads.length : from.length;
+    for (let k = 0; k < count; k++) {
+      const at = from === undefined ? k : from[k]!;
+      const ref = index.heads[at]!;
+      sectionStats.visited++;
+      if (!ref.row.live || (ref.mask & want) !== want) continue;
+      sectionStats.scored++;
+      const raw = matchScore(ref.row.headings[ref.i]!, needle);
+      if (raw === NO_MATCH) continue;
+      found.push(at);
+      if (raw <= 0) continue;
+      top.push({ entry: ref.row.entry, heading: ref.i, score: raw * HEADING_WEIGHT + frecencyBonus(ref.row.entry, byPath, now) });
+    }
+    sectionCache.set(prepared, { version: prepared.version, needle, found: Int32Array.from(found) });
+    return finishSections(top.values(), limit, fold);
+  }
   for (const row of rows) {
     for (let i = 0; i < row.headings.length; i++) {
       let score: number;
@@ -246,7 +313,13 @@ export function sectionResults(
       top.push({ entry: row.entry, heading: i, score });
     }
   }
-  const found = top.values();
+  return finishSections(top.values(), limit, fold);
+}
+
+/** The last `@` query's matching heading refs per prepared index, valid for one version of it. */
+const sectionCache = new WeakMap<PreparedIndex, { version: number; needle: string; found: Int32Array }>();
+
+function finishSections(found: IndexHit[], limit: number, fold: FoldCopies | undefined): readonly IndexHit[] {
   if (fold === undefined) return found.slice(0, limit);
   const { hits, dropped } = foldHitsCounted(found, fold.keyOf, fold.currentCheckout, new Set(), true);
   const shown = hits.slice(0, limit);
