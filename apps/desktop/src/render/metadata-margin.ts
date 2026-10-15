@@ -11,6 +11,7 @@
 // Pure parts first (`previewRows`, `roomNeeded`), then `installMetadataMargin`, called from `workspace/fill.ts`.
 import type { FrontMatterValues } from '@marxy/core/src/operations/front-matter-value.ts';
 import type { AppHandle } from '../app.ts';
+import { metadataMargin, setMetadataMargin } from '../commands/app-handle.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { selectInspectorTab } from '../workspace/inspector.ts';
 import { frontMatterOf, modifiedWords } from '../workspace/metadata-tab.ts';
@@ -56,12 +57,6 @@ export interface MetadataMargin {
   openTab(): Promise<void>;
 }
 
-const controllers = new WeakMap<AppHandle, MetadataMargin>();
-
-/** The margin preview's controller for `handle`, once `installMetadataMargin` has run. */
-export function metadataMargin(handle: AppHandle | null | undefined): MetadataMargin | undefined {
-  return handle ? controllers.get(handle) : undefined;
-}
 
 const px = (value: string): number => Number.parseFloat(value) || 0;
 
@@ -76,7 +71,7 @@ export function marginRoom(host: HTMLElement): number {
 }
 
 export function installMetadataMargin(handle: AppHandle, signal: DocumentSignal): MetadataMargin {
-  const existing = controllers.get(handle);
+  const existing = metadataMargin(handle);
   if (existing) return existing;
   const panes = handle.panes();
   let on = false;
@@ -233,7 +228,7 @@ export function installMetadataMargin(handle: AppHandle, signal: DocumentSignal)
     },
     openTab,
   };
-  controllers.set(handle, controller);
+  setMetadataMargin(handle, controller);
 
   signal.onChange(schedule);
   handle.workspace().onChange(() => {

@@ -11,8 +11,7 @@
 // `Esc` is shared with `selection.clear`, and the two `when`s are never both true (a selection clears first, the
 // next `Esc` folds). It is not `global`: in a Source editor or a text field it never runs. An overlay that owns
 // `Esc` (the palette, the outline, find, the verb menu) is open when its own handler runs, so it is checked for here.
-import { metadataMargin } from '../render/metadata-margin.ts';
-import { appHandle } from './app-handle.ts';
+import { appHandle, metadataMargin } from './app-handle.ts';
 import type { AppContext, Command } from './registry.ts';
 import type { WorkspaceRegion } from '../workspace/regions.ts';
 

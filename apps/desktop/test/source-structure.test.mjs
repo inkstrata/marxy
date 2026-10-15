@@ -478,11 +478,11 @@ test('registry: no chord is bound twice, and the new chords do not touch a pane 
     assert.equal(cmd.global, true, `${entry.id} runs from inside the editor`);
   }
   // A pane chord is `Mod` plus a physical key; none of ours is `Mod+Backslash`, digits or arrows with Alt.
-  const paneKeys = new Set(PANE_CHORDS.map((c) => `meta-${c.shift ? 'shift-' : ''}${c.alt ? 'alt-' : ''}${c.code}`));
+  const paneKeys = new Set(PANE_CHORDS.map((c) => `meta-${c.ctrl ? 'ctrl-' : ''}${c.shift ? 'shift-' : ''}${c.alt ? 'alt-' : ''}${c.code}`));
   for (const entry of SOURCE_EDIT_ENTRIES.filter((e) => e.key?.startsWith('Mod'))) {
     const parts = entry.key.split('+');
     const code = parts.at(-1).length === 1 ? `Key${parts.at(-1).toUpperCase()}` : parts.at(-1);
-    assert.ok(!paneKeys.has(`meta-${parts.includes('Shift') ? 'shift-' : ''}${parts.includes('Alt') ? 'alt-' : ''}${code}`), `${entry.key} is a pane chord`);
+    assert.ok(!paneKeys.has(`meta-${parts.includes('Ctrl') ? 'ctrl-' : ''}${parts.includes('Shift') ? 'shift-' : ''}${parts.includes('Alt') ? 'alt-' : ''}${code}`), `${entry.key} is a pane chord`);
   }
   // `Mod+/` is the transforms key: no source command takes it.
   assert.ok(!SOURCE_EDIT_ENTRIES.some((e) => e.key === 'Mod+/'));
