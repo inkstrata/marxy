@@ -78,6 +78,9 @@ function paintSelected(article: HTMLElement, selection: Selection): void {
   else if (selection.kind === 'blocks') for (const el of selection.els) el.classList.add('marxy-selected');
 }
 
+/** A derived view's root (K-12, ADR-0061; scripts/registry.json): the app's selection never resolves inside one. */
+const DERIVED = '[data-marxy-derived]';
+
 export type SelectionShell = AppShell & {
   clipboardWrite(data: { readonly text: string; readonly html?: string }): Promise<void>;
   openExternal?(url: string): Promise<void>;
@@ -606,6 +609,12 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       selectNone();
       return Promise.resolve();
     }
+    // A derived view (K-12, ADR-0061) is not a page of AST nodes: nothing in it resolves to one, so no verb that splices
+    // is ever offered on what it shows. It selects its own turns and tools.
+    if (raw.closest(DERIVED) !== null) {
+      selectNone();
+      return Promise.resolve();
+    }
 
     const link = raw.closest('a[href]');
     if (link instanceof HTMLAnchorElement && how.link === 'follow') return followLink(link, ev);
@@ -654,6 +663,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       selectNone();
       return;
     }
+    if (raw.closest(DERIVED) !== null) return;
     // Shift+click grows a block selection into a run of its siblings (E-05).
     if (ev.shiftKey && !ev.altKey && (state.selection.kind === 'node' || state.selection.kind === 'blocks') && active.target.article.contains(raw)) {
       extendTo(raw);
@@ -672,6 +682,12 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     const snap = opts.store()?.snapshot();
     const domSel = window.getSelection();
     if (!snap || !domSel || article.closest('[hidden]') !== null) return;
+    // A drag over a derived view is `derived-text` (ADR-0061 item 5): the view copies it as displayed, and no byte range of
+    // the file is recorded from it, so no operation can be handed the bytes behind decoded text.
+    if (article.querySelector(DERIVED) !== null) {
+      if (state.selection.kind !== 'none') selectNone();
+      return;
+    }
     const drag = recordDrag(article, domSel, snap.buffer.path, snap.ast.children.map((b) => b.src));
     if (!drag) return;
     state = select(state, { kind: 'text', ...drag, version: active.shownVersion ?? snap.version });
@@ -744,7 +760,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     };
     const onPointerDown = (ev: PointerEvent): void => {
       const raw = ev.target;
-      const carrier = raw instanceof Element ? raw.closest('[data-marxy-s]') : null;
+      const carrier = raw instanceof Element && raw.closest(DERIVED) === null ? raw.closest('[data-marxy-s]') : null;
       if (carrier) record.pointerCarrier = carrier;
     };
     article.addEventListener('pointerdown', onPointerDown, true);

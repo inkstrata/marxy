@@ -71,6 +71,7 @@ export const SCREENS = {
   '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
   '08-settings-1000': 'Settings on Content types in a 1,000 px unfolded window: the page takes the window less the sidebar (F-102; mock 08-settings, types)',
   '05-library-1000': 'The Library in a 1,000 px unfolded window: whole Name, Path and Modified columns and a preview that leaves the list its width (F-105; mock 05-collections)',
+  '03-transcript-jsonl': 'The mock\'s chat as an agent\'s JSONL session, read as turns by a [[kind]] rule (K-12; mock 01-workspace, doc=indexer-chat)',
 };
 
 /** The file names one screen produces: <screen>-<theme>-{app,mock}.png. */
@@ -195,6 +196,30 @@ const CHANGELOG = toPath(docs.find((d) => d.id === 'changelog').path);
 const ARTICLE = toPath(docs.find((d) => d.id === 'ragged-right').path);
 const CSV = toPath(docs.find((d) => d.id === 'bench-csv').path);
 const NOTES = toPath(docs.find((d) => d.id === 'notes-1008').path);
+// The mock's chat as the JSONL session an agent writes (K-12): the same prompts, replies and tool calls, a line each, with
+// the bookkeeping a real log carries. A [[kind]] rule for its folder says read = true, so it opens in Read.
+const CHAT_JSONL = '/Users/reader/Work/plans/transcripts/2026-10-07-indexer-perf.jsonl';
+const TRANSCRIPT_RULE = '[[kind]]\nglob = "/Users/reader/Work/plans/transcripts/*.jsonl"\nis = "transcript"\nread = true\n';
+{
+  const j = (o) => JSON.stringify(o);
+  const you = (content) => j({ type: 'user', message: { role: 'user', content }, sessionId: 's-1' });
+  const agent = (content) => j({ type: 'assistant', message: { role: 'assistant', model: 'm', content }, sessionId: 's-1' });
+  const result = (id, content) => you([{ type: 'tool_result', tool_use_id: id, content }]);
+  files[CHAT_JSONL] = `${[
+    j({ type: 'summary', summary: 'Why is the indexer slow?' }),
+    you('The indexer takes 40 seconds on my notes folder. Can you find out why?'),
+    agent([{ type: 'text', text: "I'll profile a cold run first, then look at where the time goes." }, { type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'cargo run --release -- index ~/Notes --profile' } }]),
+    result('t1', 'indexed 932 files in 41.8s\n  parse      2.1s\n  highlight 37.9s\n  write      1.8s'),
+    agent([{ type: 'text', text: "Highlighting is 91% of the run. Every file is highlighted on every index, even when it hasn't changed." }, { type: 'tool_use', id: 't2', name: 'Read', input: { file_path: 'src/indexer.rs' } }]),
+    result('t2', 'src/indexer.rs (lines 40-58)'),
+    you('So cache it?'),
+    agent([{ type: 'text', text: 'Yes. Key the highlighted output by the file\'s content hash and skip files whose hash is unchanged. On your folder that should bring a warm run under 2 seconds.' }, { type: 'tool_use', id: 't3', name: 'Edit', input: { file_path: 'src/indexer.rs', old_string: 'let html = highlight(&src, lang)?;', new_string: 'let html = cache.get_or_insert(hash(&src), || highlight(&src, lang))?;' } }]),
+    result('t3', 'The file src/indexer.rs has been updated.'),
+    j({ type: 'file-history-snapshot', snapshot: {} }),
+    you('Run it again.'),
+    agent([{ type: 'text', text: 'Warm run: **1.6 s**. Cold run is unchanged at 41 s, which is expected, since the cache starts empty.' }]),
+  ].join('\n')}\n`;
+}
 const entries = docs.filter((d) => d.src).map((d, i) => ({
   path: toPath(d.path),
   root: toPath(d.path).split('/').slice(0, 4).join('/'),
@@ -212,7 +237,7 @@ const SAVED_QUERIES = '[[query]]\nname = "Reports"\nq = "kind:report"\n\n[[query
 const settle = (page, ms) => page.waitForTimeout(ms);
 
 // ---------- the app ----------
-async function bootApp(browser, theme, { width = W, height = H, open = PLAN, piece } = {}) {
+async function bootApp(browser, theme, { width = W, height = H, open = PLAN, piece, rules } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme.scheme, deviceScaleFactor: 1 });
   const page = await context.newPage();
   // The empty window's piece is chosen at random: pin it (choosePiece takes floor(random() * count)).
@@ -231,7 +256,8 @@ async function bootApp(browser, theme, { width = W, height = H, open = PLAN, pie
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   // Two saved queries, so the sidebar draws its Smart collections (Q-07) as the mock does. The memory shell's config is /config.
   const withQueries = { ...files, '/collection.toml': SAVED_QUERIES };
-  const config = configFor(theme);
+  const themed = configFor(theme);
+  const config = rules ? `${themed ?? ''}${rules}` : themed;
   const all = config === null ? withQueries : { ...withQueries, '/config': config };
   const encoded = Object.fromEntries(Object.entries(all).map(([p, t]) => [p, support.b64(t)]));
   await page.evaluate(
@@ -319,6 +345,7 @@ const APP_STATES = {
   async '03-split'(page) { await unfoldedWithTabs(page); await page.evaluate(() => window.__cmd('view.mode-split')); await settle(page, 1000); },
   async '03-code'(page) { await openDoc(page, RS); await settle(page, 900); },
   async '03-transcript'(page) { await openDoc(page, CHAT); await settle(page, 900); },
+  async '03-transcript-jsonl'(page) { await settle(page, 900); },
   async '03-log'(page) { await openDoc(page, BUILD_LOG); await settle(page, 900); },
   async '03-diff'(page) { await openDoc(page, DIFF); await settle(page, 900); },
   async '03-article'(page) { await openDoc(page, ARTICLE); await settle(page, 900); },
@@ -468,7 +495,7 @@ const APP_STATES = {
     await settle(page, 600);
   },
 };
-const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-split-narrowed': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 }, '08-settings-1000': { width: 1000 }, '02-source-fill-short': { open: NOTES }, '02-source-fill-long': { open: PLAN }, '05-library-1000': { width: 1000 } };
+const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-split-narrowed': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 }, '08-settings-1000': { width: 1000 }, '02-source-fill-short': { open: NOTES }, '02-source-fill-long': { open: PLAN }, '05-library-1000': { width: 1000 }, '03-transcript-jsonl': { open: CHAT_JSONL, rules: TRANSCRIPT_RULE } };
 
 // ---------- the mock ----------
 async function openMock(browser, theme, file, { width = W, height = H, hash = '' } = {}) {
@@ -531,6 +558,7 @@ const MOCK_STATES = {
   '03-split': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await page.keyboard.press('Meta+Digit2'); await settle(page, 700); } },
   '03-code': { file: '01-workspace.html', hash: '#doc=indexer-rs', run: async () => {} },
   '03-transcript': { file: '01-workspace.html', hash: '#doc=indexer-chat', run: async () => {} },
+  '03-transcript-jsonl': { file: '01-workspace.html', hash: '#doc=indexer-chat', run: async () => {} },
   '03-log': { file: '01-workspace.html', hash: '#doc=build-log', run: async () => {} },
   '03-diff': { file: '01-workspace.html', hash: '#doc=indexer-rs', run: async () => {} },
   '03-article': { file: '01-workspace.html', hash: '#doc=ragged-right', run: async () => {} },

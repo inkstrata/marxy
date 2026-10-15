@@ -196,8 +196,19 @@ table, `apps/desktop/src/selection/verbs.ts`, so the order is written in one pla
 
 **Derived selections (ADR-0061, ADR-0071).** A selection in a derived view is a `DerivedNode`, never a `Node`, so
 no operation's `canApply` sees it and nothing it resolves to reaches a splice. ADR-0061 names `turn`, `tool` and
-`derived-text` (K-12 adds their rows). ADR-0071 adds **`cell`**, built by K-10b: a click on a cell of the CSV or TSV table
-lens selects it.
+`derived-text`, built by K-12 for a JSONL session read as turns; ADR-0071 adds **`cell`**, built by K-10b: a click on a cell
+of the CSV or TSV table lens selects it.
+
+| Kind | `⌘C` default | Menu (ADR-0061 item 6) |
+| --- | --- | --- |
+| `turn` (a click on its label) | `copy-turn`: the turn's text as shown, without its label (a tool or thinking block as its one line, and its text too when it is open) | Copy turn · Copy as… · Source lines (JSONL) · Copy your prompts · Jump to source · Open in Source |
+| `tool` (its line, which a click also opens) | `copy-tool-output`: the whole output, folded or not | Copy output · Copy as… · Source lines (JSONL) · Expand or Collapse · Jump to source · Open in Source |
+| `derived-text` (a drag) | the text as displayed: a label it covered, an omission line as its words, an invisible's character and never its label | the webview's copy; the app's own selection never takes it |
+
+*Copy as* on a turn or a tool offers its text and **Source lines (JSONL)**, the exact bytes of the whole lines it came from.
+Jump to source selects a turn's lines, a tool's call and result, in Source. The app's selection (`selection/view.ts`) never
+resolves inside `[data-marxy-derived]`, so no `canApply` is ever asked about one; `apps/desktop/test/transcript-jsonl.test.mjs`
+counts the calls. Built in `packages/core/src/derive/` and `apps/desktop/src/kinds/transcript-view.ts`.
 
 - **Bytes.** A `cell` resolves to the whole raw field, quotes included, delimiter and record terminator excluded: for
   `a,"x ""y""",b` the middle cell's range is the 9 bytes `"x ""y"""`. An empty field resolves to its empty range; an

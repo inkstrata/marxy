@@ -35,7 +35,7 @@ test('every command a tool names is a command the registry has today, or the too
   for (const id of named) assert.ok(real.includes(id), `${id} is not registered`);
 });
 
-test('today the strip holds only what exists: Changes for report and changelog, Outline for readme and docs, Line numbers for code, two tools for a log, two for data', () => {
+test('today the strip holds only what exists: Changes for report and changelog, Outline for readme and docs, Line numbers for code, two tools for a log, two for data, three for a transcript', () => {
   const drawn = (kind: (typeof KINDS)[number]) => toolsFor(kind, none, real).map((t) => t.label);
   assert.deepEqual(drawn('report'), ['Changes']);
   // K-22: Versions and Copy release notes join Changes; Compare has no command.
@@ -51,7 +51,9 @@ test('today the strip holds only what exists: Changes for report and changelog, 
   assert.ok(!STRIP_TOOLS.data.some((t) => t.id === 'chart'));
   // K-17: Copy commands and Copy output; Wrap has no command yet.
   assert.deepEqual(drawn('terminal'), ['Copy commands', 'Copy output']);
-  for (const kind of ['article', 'book', 'transcript', 'notes', 'diff', 'html'] as const) {
+  // K-12: the transcript's three, each a view over a JSONL session's derived turns.
+  assert.deepEqual(drawn('transcript'), ['Collapse tools', 'Only you', 'Only assistant']);
+  for (const kind of ['article', 'book', 'notes', 'diff', 'html'] as const) {
     assert.deepEqual(drawn(kind), [], kind);
   }
 });

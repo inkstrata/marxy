@@ -24,6 +24,7 @@ import { guardLongRuns } from '../render/long-runs.ts';
 import { DEFAULT_THRESHOLD, mountProgressively, parseInertInSlices, type ProgressiveMount } from '../render/progressive.ts';
 import { yieldToEventLoop } from '../startup/yield.ts';
 import type { RenderedSelection } from '../selection/view.ts';
+import type { TranscriptView } from '../kinds/transcript-view.ts';
 import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
 import { notify, paneOf, SOURCE_HELD_APART } from '../notices/index.ts';
 import { cmDocText, leaveSourceMode } from '../source/buffer-commit.ts';
@@ -603,6 +604,22 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   const openPathNow = (): string | null => store?.snapshot().path ?? null;
   const bufferNow = (): Buffer | null => store?.snapshot().buffer ?? null;
   const afterRender = (): void => deps.selection?.()?.afterRender();
+
+  /**
+   * The derived transcript view (K-12, ADR-0061), when this document is a JSONL session read as a transcript: Read mounts
+   * it in the article in place of a page, and its module is loaded the first time one is shown, never on the way to first
+   * text (F-111). No Markdown page is made for such a file: its block list is the view's, so the reading position, ⌘E and
+   * a held place work through it as through any page, and no AST node is read for it.
+   */
+  let derived: TranscriptView | null = null;
+  let transcriptModule: typeof import('../kinds/transcript-view.ts') | null = null;
+  const loadTranscriptModule = async (): Promise<typeof import('../kinds/transcript-view.ts')> =>
+    (transcriptModule ??= await import('../kinds/transcript-view.ts'));
+  /** Whether Read shows `path` as the derived view: a `.jsonl` this pane reads as a transcript (ADR-0060's kind). */
+  const readsAsTranscript = (path: string | null | undefined): boolean =>
+    path != null && /\.jsonl$/i.test(path) && doc.closest('[data-marxy-kind]')?.getAttribute('data-marxy-kind') === 'transcript';
+  /** The block list of what is on the page: the derived view's, or the page's own. */
+  const blocksOf = (article: HTMLElement): BlockList => (derived ? derived.blocks() : buildBlocks(article, shown?.nodeMap ?? new Map()));
   const refreshTitle = (): Promise<void> => deps.refreshTitle?.() ?? Promise.resolve();
 
   // The article's wiring (the task click, the harness's "wired" flag), with this view's context: a
@@ -736,7 +753,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // The page may have been hidden while the editor was being made, and its grid passes skipped for it.
     if (shown) scheduleSnap(doc);
     // No page was ever made for this file (it opens in Source): the reader still gets its text, as it is.
-    const bare = mount === null;
+    const bare = mount === null && derived === null;
     if (bare) showPlainText();
     notify(
       {
@@ -761,6 +778,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   }
 
   async function showRendered(byteOffset: number, fraction: number): Promise<void> {
+    // A JSONL session's Read is the derived view: its module is in before Read shows, so the page never shows empty.
+    if (readsAsTranscript(openPathNow())) await loadTranscriptModule();
     setModeChrome('rendered');
     const path = openPathNow();
     // Folds that came in while Source showed left the page as it was (B-27): set it from the store's bytes now.
@@ -788,6 +807,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   async function enterSourceFromRendered(): Promise<void> {
     const path = openPathNow();
     if (!shown || !path) return;
+    if (derived && !pageHidden()) shown.blocks = derived.blocks();
     const pos = currentPosition(scroller, shown.blocks, path, 'rendered');
     const exact = exactPlaceOf(pos, path);
     lastReadingByteOffset = exact ?? pos.byteOffset;
@@ -1048,6 +1068,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   function snap(article: HTMLElement, from?: HTMLElement): void {
     cancelScheduledSnap();
+    // The derived view is set by its own rules, not the grid pass: its block list is read, and the held place put back.
+    if (derived) {
+      if (pageHidden()) return;
+      lastSnapAt = performance.now();
+      if (shown) shown.blocks = derived.blocks();
+      holdAnchor();
+      return;
+    }
     if (pageHidden()) {
       changedBlocks = null;
       wholeGeneration += 1;
@@ -1059,7 +1087,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     }
     lastSnapAt = performance.now();
     snapToGrid(article, parseFloat(getComputedStyle(article).lineHeight), from ? { from } : undefined);
-    if (shown) shown.blocks = buildBlocks(article, shown.nodeMap);
+    if (shown) shown.blocks = blocksOf(article);
     holdAnchor();
   }
 
@@ -1070,7 +1098,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   function snapChanged(article: HTMLElement, changed: readonly HTMLElement[]): void {
     if (pageHidden()) return;
     holdingScroll(() => snapBlocks(article, parseFloat(getComputedStyle(article).lineHeight), changed));
-    if (shown) shown.blocks = buildBlocks(article, shown.nodeMap);
+    if (shown) shown.blocks = blocksOf(article);
     holdAnchor();
   }
 
@@ -1098,7 +1126,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       aborted: () => generation !== wholeGeneration || mount !== current || pageHidden(),
     });
     if (generation !== wholeGeneration || mount !== current || pageHidden()) return;
-    if (shown) shown.blocks = buildBlocks(article, shown.nodeMap);
+    if (shown) shown.blocks = blocksOf(article);
     holdAnchor();
   }
 
@@ -1381,6 +1409,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     blockEdit = null;
     mount?.cancel();
     mount = null;
+    derived?.destroy();
+    derived = null;
     unsubscribe?.();
     unsubscribe = null;
     store = null;
@@ -1747,14 +1777,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // it closes just before the page is set again, putting back any text the store does not have.
     const editing = blockEdit !== null && setsPage(before, snapshot, change) ? blockEdit : null;
     const ownCommit = editing?.owns(change) ?? false;
-    if (editing && shown) shown.blocks = buildBlocks(doc, shown.nodeMap);
+    if (editing && shown) shown.blocks = blocksOf(doc);
     switch (change.kind) {
       case 'open':
       case 'close':
         return;
       case 'save':
         // A Save as moved the store to another name: the parse the page resolves through follows it.
-        if (change.renamedFrom !== undefined && shown) {
+        if (change.renamedFrom !== undefined && shown && !derived) {
           // The name changed what the file is read as (a scratch Markdown page saved as `.py`, or the reverse, V-10):
           // the page is set again from the new parse, as for a rename, not kept under it.
           if (isCodeFile(change.renamedFrom) !== isCodeFile(change.path)) break;
@@ -1851,6 +1881,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * frame, then the viewport set with hyphenation and hanging punctuation, and the rest in idle time.
    */
   async function typesetDocument(): Promise<void> {
+    // The derived view is not a page of paragraphs to set (K-12).
+    if (derived) return;
     const controller = startTypeset(doc);
     const current = mount;
     await controller.ready;
@@ -1890,6 +1922,10 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       pageStale = true;
       return;
     }
+    if (readsAsTranscript(store.snapshot().path)) {
+      rerenderTranscript(at);
+      return;
+    }
     pageStale = false;
     const { path: file, ast, nodeMap, buffer } = store.snapshot();
     // The page is about to go: a block open in place goes with it, its text kept (a trust change, a fold of
@@ -1924,6 +1960,101 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * threshold, else the first screens (from `landing` down, when given) now and the rest in idle chunks
    * once `start` settles. Replaces, and cancels, the mount of whatever was shown before.
    */
+  /**
+   * The derived view over the store's bytes, in place of whatever the article held, its first rows through `at` drawn now
+   * (K-12). A view it replaces hands on its filters. `shown` is the store's document, read only when asked, with no node
+   * map: nothing on this page resolves to an AST node.
+   */
+  function mountDerived(at?: number): void {
+    const open = store;
+    if (!open || !transcriptModule) return;
+    const { path, buffer } = open.snapshot();
+    const carry = derived?.state() ?? null;
+    derived?.destroy();
+    derived = null;
+    mount?.cancel();
+    mount = null;
+    destroyTypeset();
+    cancelScheduledSnap();
+    pageStale = false;
+    shown = {
+      get ast() {
+        return open.snapshot().ast;
+      },
+      html: '',
+      nodeMap: new Map(),
+      blocks: [],
+      render: null,
+    };
+    derived = transcriptModule.mountTranscript({
+      article: doc,
+      bytes: buffer.bytes,
+      path,
+      through: at,
+      carry: carry ? { only: carry.only, toolsCollapsed: carry.toolsCollapsed } : undefined,
+      onGrow: () => {
+        if (derived && !pageHidden()) scheduleSnap(doc);
+      },
+      jumpToSource: (start, end) => jumpToSourceRange(start, end),
+      openSource: () => requestSwitchTo('source'),
+    });
+    if (!pageHidden()) shown.blocks = derived.blocks();
+  }
+
+  /** The derived view again from the store's bytes, at `at` (a reload, an edit folded in from Source). */
+  function rerenderTranscript(at?: number | Pick<ReadingPosition, 'byteOffset' | 'fraction'>): void {
+    if (!transcriptModule) {
+      // Not loaded yet (the file opened in Source): it is loaded, and the view made when it is, if Read still shows.
+      pageStale = true;
+      void loadTranscriptModule().then(() => {
+        if (store && viewMode === 'rendered' && pageStale) rerenderFromBuffer(at);
+      });
+      return;
+    }
+    const byteOffset = typeof at === 'number' ? at : at?.byteOffset;
+    mountDerived(byteOffset);
+    afterRender();
+    if (resizeObserver === null) keepOnGrid(doc);
+    if (at !== undefined && typeof at !== 'number' && shown && store) {
+      mountThrough(at.byteOffset);
+      restoreTo(shown.blocks, { path: store.snapshot().path, byteOffset: at.byteOffset, fraction: at.fraction, mode: 'rendered' });
+    }
+  }
+
+  /** The open of a JSONL session in Read (K-12): the derived view's first rows, then the open goes on as for a page. */
+  async function showTranscript(next: DocumentStore, opts?: { at?: number; onMounted?: () => void }): Promise<RenderEvidence> {
+    await loadTranscriptModule();
+    if (store !== next) throw new Error('the document was replaced while its transcript view loaded');
+    if (viewMode === 'source') {
+      setModeChrome('rendered');
+      dropRetiredSource();
+    }
+    mountDerived(opts?.at);
+    afterRender();
+    opts?.onMounted?.();
+    await shell.mark('rendered', Date.now());
+    await shell.mark('first_screen', Date.now(), `blocks=${doc.querySelectorAll('.marxy-turn, .marxy-unreadable, .marxy-pending').length} bytes=${derived?.state().bytesRead ?? 0}`);
+    keepOnGrid(doc);
+    landOn(opts?.at);
+    const evidence = deps.measure.renderEvidence(doc);
+    await shell.mark('render', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars} heading=${evidence.heading}`);
+    return evidence;
+  }
+
+  /** Source with bytes `[start, end)` selected: the derived view's Jump to source (ADR-0061 item 5). */
+  async function jumpToSourceRange(start: number, end: number): Promise<void> {
+    await jumpToSource(start);
+    const editor = sourceEditor;
+    const buffer = bufferNow();
+    if (!editor || !buffer || viewMode !== 'source') return;
+    const state = editor.view.state;
+    const from = utf16ToCmPos(buffer, state as CmStateLike, byteToUtf16(buffer, start));
+    const to = utf16ToCmPos(buffer, state as CmStateLike, byteToUtf16(buffer, end));
+    editor.view.dispatch({ selection: { anchor: from, head: to } });
+    editor.scrollToByte(start);
+    editor.view.dom.querySelector<HTMLElement>('.cm-content')?.focus({ preventScroll: true });
+  }
+
   /** What a parsed page gets before it is mounted: remote images stripped, and a break put in any run of text too long to lay out (F-79). */
   function prepareParsed(parsed: HTMLElement, file: string): void {
     guardLongRuns(parsed);
@@ -1967,6 +2098,11 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * was appended on the grid and in the block list, so a position can be restored there at once.
    */
   function mountThrough(byte: number): void {
+    if (derived) {
+      derived.ensureThrough(byte);
+      if (shown && !pageHidden()) shown.blocks = derived.blocks();
+      return;
+    }
     if (!mount || mount.isComplete()) return;
     const before = doc.childElementCount;
     mount.ensureThrough(byte);
@@ -2058,6 +2194,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     store = next;
     follow(next);
     if (opts?.source === true) return showInSource(next, opts);
+    if (readsAsTranscript(next.snapshot().path)) return showTranscript(next, opts);
     let { path: file, ast, nodeMap, buffer } = next.snapshot();
     const abandoned = (): boolean => store !== next;
     // A large document beside another pane: rendered, then parsed into the inert body, in slices. A document
@@ -2182,6 +2319,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     contentComplete: async () => {
       await mount?.complete;
       await completePass;
+      await derived?.settled();
     },
     get mode() {
       return viewMode;
@@ -2213,10 +2351,10 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       const path = openPathNow();
       if (!shown || !path || viewMode !== 'rendered' || doc.hidden) return change();
       // The block list as the page is now, not as the last grid pass left it: what the reader sees is what they hold.
-      shown.blocks = buildBlocks(doc, shown.nodeMap);
+      shown.blocks = blocksOf(doc);
       const place = currentPosition(scroller, shown.blocks, path, 'rendered');
       change();
-      shown.blocks = buildBlocks(doc, shown.nodeMap);
+      shown.blocks = blocksOf(doc);
       restoreTo(shown.blocks, place);
     },
     followGrowth(el, by) {
@@ -2228,6 +2366,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     },
     typeset: typesetDocument,
     deferredWork(file) {
+      // The derived view has no images, math or code to highlight after it (K-12): nothing waits on it.
+      if (derived) return async () => {};
       // Once the whole document is in (at once under the threshold); later chunks do not hold the open
       // up, so the reader can switch mode or open another document while they are appended (A-02).
       const current = mount;
