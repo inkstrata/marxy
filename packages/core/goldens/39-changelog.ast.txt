@@ -1,0 +1,66 @@
+document [0,1005)
+  heading [0,11) level=1
+    text [2,11) value="Changelog"
+  paragraph [13,171)
+    text [13,36) value="All notable changes to "
+    code [36,46) value="tideline"
+    text [46,99) value=" are recorded here, newest first. Dates are the day a"
+    softBreak [99,100)
+    text [100,133) value="tag was cut. Compare links go to "
+    code [133,150) value="example.invalid"
+    text [150,171) value=" and are not fetched."
+  heading [173,186) level=2
+    text [176,186) value="Unreleased"
+  heading [188,197) level=3
+    text [192,197) value="Added"
+  list [199,251) ordered=false tight=true
+    listItem [199,251)
+      paragraph [201,251)
+        code [201,225) value="tideline watch --quiet"
+        text [225,251) value=" prints nothing but errors"
+  heading [253,276) level=2
+    link [256,263) url="https://example.invalid/compare/v0.9.0...v0.9.2"
+      text [257,262) value="0.9.2"
+    text [263,276) value=" - 2026-10-04"
+  heading [278,287) level=3
+    text [282,287) value="Fixed"
+  list [289,464) ordered=false tight=true
+    listItem [289,388)
+      paragraph [291,388)
+        text [291,388) value="The watcher no longer re-indexes a file three times when an editor saves through a temporary file"
+    listItem [389,464)
+      paragraph [391,464)
+        code [391,414) value="index.max_file_mb = 0"
+        text [414,464) value=" now means \"no limit\" instead of \"skip everything\""
+  codeBlock [466,538) lang=text info="text" content=[474,535) value="## [9.9.9] - 2099-01-01\nthis is a fenced line, not a release"
+  heading [540,612) level=2
+    link [543,599) url="https://example.invalid/compare/v0.8.4...v0.9.0"
+      text [544,549) value="0.9.0"
+    text [599,612) value=" - 2026-09-20"
+  heading [614,623) level=3
+    text [618,623) value="Added"
+  list [625,728) ordered=false tight=true
+    listItem [625,701)
+      paragraph [627,701)
+        text [627,701) value="Highlight cache keyed by content hash. Warm runs are 20 to 30 times faster"
+    listItem [702,728)
+      paragraph [704,728)
+        code [704,720) value="tideline watch"
+        text [720,728) value=" command"
+  heading [730,741) level=3
+    text [734,741) value="Changed"
+  list [743,791) ordered=false tight=true
+    listItem [743,791)
+      paragraph [745,791)
+        code [745,764) value="index.max_file_mb"
+        text [764,791) value=" default raised from 4 to 8"
+  heading [793,816) level=2
+    link [796,803) url="https://example.invalid/compare/v0.8.3...v0.8.4"
+      text [797,802) value="0.8.4"
+    text [803,816) value=" - 2026-08-30"
+  heading [818,827) level=3
+    text [822,827) value="Fixed"
+  list [829,889) ordered=false tight=true
+    listItem [829,889)
+      paragraph [831,889)
+        text [831,889) value="A symlink loop in a watched folder no longer fills the log"
