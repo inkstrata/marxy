@@ -67,6 +67,7 @@ export const SCREENS = {
   '10-tabs-dated': 'Twelve tabs of dated names that share a long start, unfolded (F-107; mock 01-workspace)',
   '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
   '08-settings-1000': 'Settings on Content types in a 1,000 px unfolded window: the page takes the window less the sidebar (F-102; mock 08-settings, types)',
+  '05-library-1000': 'The Library in a 1,000 px unfolded window: whole Name, Path and Modified columns and a preview that leaves the list its width (F-105; mock 05-collections)',
 };
 
 /** The file names one screen produces: <screen>-<theme>-{app,mock}.png. */
@@ -419,6 +420,13 @@ const APP_STATES = {
     await page.click('[data-marxy-category="types"]');
     await settle(page, 400);
   },
+  async '05-library-1000'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate((e) => window.__marxyHandle.palette.setIndexEntries(e), entries);
+    await page.evaluate(() => window.__cmd('library.open'));
+    await page.waitForSelector('[data-marxy-library]');
+    await settle(page, 600);
+  },
   async '09-inspector-versions'(page) {
     await unfoldedWithTabs(page);
     // The card's scenario on the plan: read at open, an edit saved, then another program rewrites a line.
@@ -445,7 +453,7 @@ const APP_STATES = {
     await settle(page, 600);
   },
 };
-const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 }, '08-settings-1000': { width: 1000 }, '02-source-fill-short': { open: NOTES }, '02-source-fill-long': { open: PLAN } };
+const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 }, '08-settings-1000': { width: 1000 }, '02-source-fill-short': { open: NOTES }, '02-source-fill-long': { open: PLAN }, '05-library-1000': { width: 1000 } };
 
 // ---------- the mock ----------
 async function openMock(browser, theme, file, { width = W, height = H, hash = '' } = {}) {
@@ -544,6 +552,7 @@ const MOCK_STATES = {
   '10-kind-chip-menu': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await settle(page, 300); await page.click('#kindchip'); await settle(page, 500); } },
   '10-empty-window': { file: '01-workspace.html', width: 1000, run: async () => {} },
   '08-settings': { file: '08-settings.html', hash: '#reading', run: async (page) => { await settle(page, 400); } },
+  '05-library-1000': { file: '05-collections.html', width: 1000, run: async () => {} },
   '08-settings-1000': { file: '08-settings.html', hash: '#types', width: 1000, run: async (page) => { await settle(page, 400); } },
 };
 
