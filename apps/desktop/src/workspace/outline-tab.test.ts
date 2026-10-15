@@ -164,6 +164,21 @@ test('Move up and Move down: the other section is the other way round, in one un
   assert.equal(textOfStore(store), after);
 });
 
+// F-112, store-walk seed 817: a byte-order mark is the file's, not the first section's. Moving section 0 down must leave the mark
+// first; the walk's reference used to carry it down with the section (the product was right, the oracle wrong).
+test('Move down of the first section of a file with a byte-order mark and CRLF keeps the mark at byte 0 (F-112)', async () => {
+  const first = '# Field notes\r\n\r\nA paragraph.\r\n\r\n';
+  const second = '# List\r\n\r\n- one\r\n- two\r\n\r\nEnd.\r\n';
+  const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...enc.encode(first + second)]);
+  const store = openDocumentStore({ writeFileAtomic: async () => {} }, '/o.md', bytes);
+  const result = await applyOutlineAction(store, 3, 'move-down');
+  assert.equal(result.applied, true);
+  const after = store.snapshot().buffer.bytes;
+  assert.deepEqual([...after.subarray(0, 3)], [0xef, 0xbb, 0xbf], 'the mark is still the first three bytes');
+  assert.equal(dec.decode(after), '\ufeff' + second + first, 'the second section, then the first, after the mark');
+  assert.equal(after.length, bytes.length, 'no byte is added or lost');
+});
+
 test('Promote and Demote are E-07\'s: the # runs of the section move one level, and a setext heading is declined in words', async () => {
   const store = storeOf('# A\n\n## B\n\n### C\n\n## D\n');
   const demote = await applyOutlineAction(store, startOf(textOfStore(store), 'B'), 'demote');
