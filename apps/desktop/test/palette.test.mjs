@@ -914,6 +914,45 @@ test('the field has its prompt, glyph and Esc button; the chips swap the prefix 
   }
 });
 
+test('the mode buttons are one tab stop: Shift+Tab reaches them, arrows walk them, Enter and Space choose, focus returns to the field (W-13.2)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage();
+    const mod = await bootDocument(page);
+    await page.keyboard.press(`${mod}+KeyK`);
+    await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
+    const snap = () => page.evaluate(() => ({
+      query: document.querySelector('#marxy-palette .marxy-palette-query').value,
+      pressed: [...document.querySelectorAll('#marxy-palette .marxy-palette-mode[aria-pressed=true]')].map((b) => b.firstChild.textContent),
+      stops: [...document.querySelectorAll('#marxy-palette .marxy-palette-mode')].filter((b) => b.tabIndex === 0).map((b) => b.firstChild.textContent),
+      focus: document.activeElement?.classList.contains('marxy-palette-mode') ? document.activeElement.firstChild.textContent : document.activeElement?.className,
+    }));
+    assert.deepEqual(await snap(), { query: '', pressed: ['Everything'], stops: ['Everything'], focus: 'marxy-palette-query' });
+    await page.keyboard.press('Shift+Tab');
+    assert.equal((await snap()).focus, 'Everything', 'Shift+Tab leaves the field for the chosen mode button');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    assert.deepEqual(await snap(), { query: '', pressed: ['Everything'], stops: ['Headings here'], focus: 'Headings here' });
+    await page.keyboard.press('Enter');
+    assert.deepEqual(await snap(), { query: '#', pressed: ['Headings here'], stops: ['Headings here'], focus: 'marxy-palette-query' }, 'Enter chooses and the field has focus again');
+    await page.keyboard.press('Shift+Tab');
+    assert.equal((await snap()).focus, 'Headings here', 'the one tab stop follows the chosen mode');
+    await page.keyboard.press('End');
+    await page.keyboard.press('Space');
+    assert.deepEqual(await snap(), { query: '/', pressed: ['Content search'], stops: ['Content search'], focus: 'marxy-palette-query' }, 'Space chooses');
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowLeft');
+    assert.equal((await snap()).focus, 'Content search', 'the arrows wrap');
+    await page.keyboard.press('Tab');
+    assert.equal((await snap()).focus, 'marxy-palette-query', 'Tab hands focus back to the field');
+    await page.keyboard.type('doc');
+    assert.equal((await snap()).query, '/doc', 'typing in the field works as before');
+  } finally {
+    await browser.close();
+  }
+});
+
 test('> lists the commands under group headers that are not options; the arrows walk the rows only; a row is 46 px (U-04)', async () => {
   const browser = await launchWebkit();
   try {

@@ -4,7 +4,7 @@ import { startApp, type AppHandle, type AppShell } from './app.ts';
 import { startCollection, type CollectionHandle } from './collection/load.ts';
 import { keepFresh, type TreeWatchHandle } from './collection/watch.ts';
 import { notify } from './notices/index.ts';
-import { holdPaletteChords, queryFor } from './palette/early-chords.ts';
+import { holdPaletteChords, modalOpenOutsidePalette, replayedOpening } from './palette/early-chords.ts';
 import { createIndexFeed } from './palette/index-feed.ts';
 import { emptySession } from './palette/session.ts';
 import type { PaletteController } from './palette/view.ts';
@@ -52,8 +52,9 @@ export async function bootApplication(appShell: AppShell, opts?: { argv?: readon
     live = palette;
     handle.setPaletteSession(() => palette.session);
     if (typeof window !== 'undefined') (window as Window & { __marxyPalette?: PaletteController }).__marxyPalette = palette;
-    // The chord pressed while the chunk was on its way opens what it would have opened.
-    if (pressed) palette.open(queryFor(pressed));
+    // The chords pressed while the chunk was on its way do what they would have done, unless a dialog or modal has the screen now (W-13.2).
+    const opening = replayedOpening(pressed, typeof document !== 'undefined' && modalOpenOutsidePalette());
+    if (opening) palette.open(opening.query);
   }
   return Object.assign(handle, { palette, collection, trees });
 }

@@ -401,6 +401,78 @@ async function sectionMoveEdits() {
   return out;
 }
 
+/**
+ * The front-matter value edits (W-17) as edits: each editable key of every corpus file that has front matter, and of eighty
+ * generated YAML and TOML front matters (CRLF, lone CR, mixed endings, a BOM; quoted, commented), set by the real operation
+ * (`setFrontMatterValue`) to an awkward value. Each is held to the operation's own property before it is saved (`problemsWith`:
+ * the splice is the value's token on one line, every other line and the body are byte for byte as they were, every other key
+ * reads the same, this one reads as asked, and K-20's row reader and a TOML parser agree), and then saved through the real save
+ * path like every other edit. The check is proved able to fail on a tampered edit.
+ */
+async function frontMatterValueEdits() {
+  const load = (path) => import(pathToFileURL(join(repoRoot, 'packages', 'core', 'src', path)).href);
+  const [{ parseMarkdown }, { frontMatterValues, setFrontMatterValue }, docs] = await Promise.all([
+    load('parse/parse.ts'),
+    load('operations/front-matter-value.ts'),
+    load('operations/testing/front-matter-docs.ts'),
+  ]);
+  const out = [];
+  const add = (file, original, key, value) => {
+    const doc = parseMarkdown(new Uint8Array(original), { file });
+    const edit = setFrontMatterValue(doc, new Uint8Array(original), key, value);
+    if (!edit.ok) {
+      fail(`edit: ${file}: set-front-matter-value refused ${key} (${edit.reason}), which it lists as editable`);
+      return;
+    }
+    if (edit.unchanged) return;
+    const format = original.subarray(original[0] === 0xef ? 3 : 0, original[0] === 0xef ? 6 : 3).toString() === '+++' ? 'toml' : 'yaml';
+    for (const problem of docs.problemsWith(new Uint8Array(original), key, value, edit, format)) fail(`edit: ${file}: setting ${key} to ${JSON.stringify(value)}: ${problem}`);
+    out.push({ file, original, label: `${file} (set ${key})`, start: edit.range.start, end: edit.range.end, replacement: Buffer.from(edit.replacement, 'utf-8') });
+  };
+  for (const file of corpus.filter((name) => name.endsWith('.md'))) {
+    const original = bytesOf(file);
+    const shown = frontMatterValues(parseMarkdown(new Uint8Array(original), { file }), new Uint8Array(original));
+    if (shown === null) continue;
+    for (const row of shown.values) {
+      if (row.refusal !== null) continue;
+      add(file, original, row.key, 'Edited');
+      add(file, original, row.key, 'a: "q" # x');
+    }
+  }
+  const fromCorpus = out.length;
+  for (let seed = 1; seed <= 80; seed++) {
+    const generated = docs.generateDoc(seed);
+    const original = Buffer.from(generated.source, 'utf-8');
+    generated.entries.forEach((entry, i) => {
+      if (entry.editable) add(`fm-generated-${seed}-${i}.md`, original, entry.key, docs.NEW_VALUES[(seed * 7 + i * 13) % docs.NEW_VALUES.length]);
+    });
+  }
+  if (fromCorpus === 0) fail('edit: no corpus file has an editable front-matter value, so the corpus half of the front-matter edits tests nothing');
+  if (out.length - fromCorpus < 80) fail(`edit: only ${out.length - fromCorpus} generated front-matter edits were made; the generator or the operation changed`);
+  // The check can fail: an edit that eats the line ending after its value, or changes the next line too, is seen.
+  const probe = Buffer.from('---\r\ntitle: Old\r\nb: 1\r\n---\r\nBody\r\n');
+  const probeDoc = parseMarkdown(new Uint8Array(probe), { file: 'probe.md' });
+  const good = setFrontMatterValue(probeDoc, new Uint8Array(probe), 'title', 'New');
+  if (!good.ok || docs.problemsWith(new Uint8Array(probe), 'title', 'New', good, 'yaml').length !== 0) fail('selftest: the front-matter edit check does not accept a correct edit');
+  else {
+    const tampered = { ...good, range: { ...good.range, end: good.range.end + 2 }, replacement: 'New\n' };
+    if (docs.problemsWith(new Uint8Array(probe), 'title', 'New', tampered, 'yaml').length === 0) fail('selftest: an edit that replaced a CRLF with an LF passed the front-matter edit check; this gate proves nothing');
+  }
+  return out;
+}
+
+function checkFrontMatterEditsAreSpliced(binary, edits) {
+  const dir = join(work, 'front-matter');
+  mkdirSync(dir, { recursive: true });
+  let held = 0;
+  for (const { file, original, label, start, end, replacement } of edits) {
+    if (saveSpliced(binary, dir, file, original, start, end, replacement, label)) held++;
+  }
+  if (edits.length > 0 && held === edits.length) {
+    console.log(`fidelity: save-after-front-matter-edit — ${held} value edits (set-front-matter-value; YAML and TOML, quoted and commented, CRLF, CR and BOM) change that value's bytes and nothing else, leave every other key and the body as they were, and save that way (W-17)`);
+  }
+}
+
 function checkEditedDocumentIsSpliced(binary, moves) {
   const dir = join(work, 'edited');
   mkdirSync(dir, { recursive: true });
@@ -813,6 +885,7 @@ if (savePath) {
     console.log(`fidelity: ${corpus.length} corpus files are created byte-identically at a free name by the create-only write (write_new), refused "exists" at a taken one, and a symlink or dangling symlink is never written through (F-85)`);
   }
   checkEditedDocumentIsSpliced(savePath, await sectionMoveEdits());
+  checkFrontMatterEditsAreSpliced(savePath, await frontMatterValueEdits());
   checkTheGateWouldCatchANormalisingSave();
   checkTheGateWouldCatchAReplacingCreate();
 }

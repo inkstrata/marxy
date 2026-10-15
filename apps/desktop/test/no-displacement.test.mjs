@@ -9,7 +9,8 @@
 // measured in test/notices-pill.test.mjs, where the editor's own lines are the text.
 // Not covered, on purpose: the inline block editor (in flow by design; it holds the reading line, see commands/block-edit.ts).
 //
-// To add a surface: append `{ name, open, close }` to SURFACES (`splitToo`: also run it with two panes; `splitOnly`: only with two). `open(page, s)` runs the command and resolves when the
+// To add a surface: append `{ name, open, close }` to SURFACES (`splitToo`: also run it with two panes; `splitOnly`: only with two;
+// `foldedOnly`: only in the folded window, where the surface has the room it needs). `open(page, s)` runs the command and resolves when the
 // surface is up; `close(page, s)` dismisses it and resolves when it is gone. `s.mod` is the platform's modifier key.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
@@ -33,6 +34,8 @@ const B = '/r/other.md';
 const DOC = skip ? '' : readFileSync(join(corpus, '01-long-technical.md'), 'utf8');
 const TEXT = 'public.utf8-plain-text';
 const FIRST_TRANSFORM = TRANSFORMS[0].name;
+// The skill file with front matter (W-17): its head is the first thing on the page, and the metadata preview sits beside it.
+const SKILL = skip ? '' : readFileSync(join(corpus, '26-skill-front-matter.md'), 'utf8');
 
 const escapeKey = (page) => page.keyboard.press('Escape');
 const gone = (page, selector) => page.waitForFunction((sel) => !document.querySelector(sel), selector);
@@ -248,6 +251,29 @@ export const SURFACES = [
     },
   },
   {
+    // The metadata preview (W-17) is a zero-height sticky layer in the pane's margin, so it takes no room in the column. It needs
+    // a margin: unfolded at this width the same command docks the inspector instead, a region, which has its own guard
+    // (test/metadata.test.mjs, src/workspace/inspector.test.mjs). So it runs folded only.
+    name: 'metadata preview (⌃⌘I, then off)',
+    foldedOnly: true,
+    open: async (page) => {
+      await page.evaluate(async () => {
+        const { buildAppContext } = await import('/src/selection/bind.ts');
+        const handle = window.__marxyHandle;
+        await handle.commands().find((c) => c.id === 'view.metadata').run(buildAppContext(handle));
+      });
+      await page.waitForSelector('.marxy-metadata-preview');
+    },
+    close: async (page) => {
+      await page.evaluate(async () => {
+        const { buildAppContext } = await import('/src/selection/bind.ts');
+        const handle = window.__marxyHandle;
+        await handle.commands().find((c) => c.id === 'view.metadata').run(buildAppContext(handle));
+      });
+      await gone(page, '.marxy-metadata-preview');
+    },
+  },
+  {
     name: 'notice (empty clipboard transform)',
     splitToo: true,
     open: async (page, s) => {
@@ -296,11 +322,11 @@ const measure = (page) =>
     };
   });
 
-async function withApp(fn, { split = false } = {}) {
+async function withApp(fn, { split = false, doc = DOC } = {}) {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await bootTwoPanes(page, { files: { [A]: DOC, [B]: DOC }, open: split ? [A, B] : [A], guard: true });
+    await bootTwoPanes(page, { files: { [A]: doc, [B]: DOC }, open: split ? [A, B] : [A], guard: true });
     await page.evaluate(async (initialPath) => {
       const { mountPaletteFromHandle } = await import('/src/palette/view.ts');
       const handle = window.__marxyHandle;
@@ -323,6 +349,7 @@ for (const windowState of WINDOWS) {
   for (const surface of SURFACES) {
     if (windowState === 'split' && !surface.splitToo && !surface.splitOnly) continue;
     if (windowState !== 'split' && surface.splitOnly) continue;
+    if (windowState !== 'folded' && surface.foldedOnly) continue;
     test(`${windowState}: ${surface.name}: opening and closing it moves neither the first visible line nor the scroll position`, async () => {
       await withApp(async (page, s) => {
         if (windowState === 'unfolded') await page.evaluate(() => window.__marxyHandle.workspace().unfold());
@@ -342,3 +369,23 @@ for (const windowState of WINDOWS) {
     });
   }
 }
+
+// W-17: on the skill file, whose front matter is the first thing on the page, `⌃⌘I` shows the preview beside it and moves no line.
+test('folded: ⌃⌘I on the skill front-matter file puts its keys in the margin and moves neither the first visible line nor the scroll position', async () => {
+  const surface = SURFACES.find((s) => s.name.startsWith('metadata preview'));
+  await withApp(async (page, s) => {
+    for (const scroll of [0, 1500]) {
+      await page.evaluate((y) => window.scrollTo(0, y), scroll);
+      await settle(page);
+      const before = await measure(page);
+      assert.ok(before.line, 'a line of text is visible');
+      await surface.open(page, s);
+      await settle(page);
+      assert.deepEqual(await measure(page), before, `at ${scroll}: open`);
+      assert.ok((await page.locator('.marxy-metadata-preview-list > dt').allTextContents()).includes('name'), 'the front matter is in the margin');
+      await surface.close(page, s);
+      await settle(page);
+      assert.deepEqual(await measure(page), before, `at ${scroll}: closed`);
+    }
+  }, { doc: SKILL });
+});

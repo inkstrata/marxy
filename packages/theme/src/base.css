@@ -1182,7 +1182,7 @@ button.marxy-status-item:focus-visible { outline: 2px solid var(--marxy-color-ac
 /* The inspector's content (W-09): a strip of tabs and the selected panel, in the `inspector` region's column. Layout only; W-04 owns the look.
    Nothing here changes the region's width, so the reading column does not move. A link's destination is text, never an anchor. */
 .marxy-inspector { display: flex; flex-direction: column; min-height: 100%; }
-.marxy-inspector-tabs { display: flex; gap: 2px; padding: 0.5em 0.6em; border-block-end: 1px solid var(--marxy-color-rule); position: sticky; top: 0; background: var(--marxy-color-surface); z-index: 1; }
+.marxy-inspector-tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 0.5em 0.6em; border-block-end: 1px solid var(--marxy-color-rule); position: sticky; top: 0; background: var(--marxy-color-surface); z-index: 1; }
 .marxy-inspector-tab { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.7em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: var(--marxy-color-text-secondary); font: inherit; cursor: default; }
 .marxy-inspector-tab:hover { background: var(--marxy-color-selection); }
 .marxy-inspector-tab[data-marxy-inspector-tab-active] { color: var(--marxy-color-text); background: var(--marxy-color-accent-wash); }
@@ -1246,6 +1246,59 @@ button.marxy-link-row:hover { background: var(--marxy-color-selection); }
 .marxy-versions-restore:hover { background: var(--marxy-color-selection); color: var(--marxy-color-text); }
 .marxy-versions-since:focus-visible, .marxy-versions-row:focus-visible, .marxy-versions-restore:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
 .marxy-versions-about { margin: 1.2em 0 0; color: var(--marxy-color-text-secondary); font-size: 0.92em; line-height: 1.45; }
+/* The Metadata tab (W-17; mock-v2 01-workspace `.msec` and `.mkv`): sections, each a heading over key and value rows. A front-matter value
+   is a button that becomes a field where it stands (Enter commits, Esc leaves it); Copy shows on the row under the pointer or the
+   focus. A value that cannot be edited here reads as text, says why in the secondary voice, and offers Edit in Source. Layout and the
+   quiet look only: nothing changes the region's width, so the reading column does not move. */
+.marxy-metadata-heading { margin: 0.9em 0 0.3em; font: inherit; font-weight: 600; color: var(--marxy-color-text-secondary); }
+.marxy-metadata-list { margin: 0; display: grid; gap: 0.1em; }
+.marxy-metadata-row { display: grid; grid-template-columns: minmax(4.5em, 32%) minmax(0, 1fr); column-gap: 0.7em; align-items: baseline; padding: 0.25em 0.4em; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); }
+.marxy-metadata-row:hover, .marxy-metadata-row:focus-within { background: var(--marxy-color-selection); }
+.marxy-metadata-key { margin: 0; color: var(--marxy-color-text-secondary); overflow-wrap: anywhere; }
+.marxy-metadata-value { margin: 0; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 0.1em 0.5em; overflow-wrap: anywhere; }
+.marxy-metadata-value > :is(.marxy-metadata-text, .marxy-metadata-edit, .marxy-metadata-input, .marxy-metadata-select) { grid-column: 1; grid-row: 1; justify-self: start; }
+.marxy-metadata-value > .marxy-metadata-input { justify-self: stretch; }
+.marxy-metadata-text { color: var(--marxy-color-text); min-width: 0; }
+.marxy-metadata-multiline { display: block; white-space: pre-wrap; font-family: var(--marxy-font-mono); font-size: calc(var(--marxy-size-chrome) * 12 / 13); }
+.marxy-metadata-why { grid-column: 1 / -1; color: var(--marxy-color-text-secondary); font-size: calc(var(--marxy-size-chrome) * 11.5 / 13); line-height: 1.4; }
+.marxy-metadata-edit, .marxy-metadata-copy, .marxy-metadata-source, .marxy-metadata-jump {
+  appearance: none; -webkit-appearance: none; margin: 0; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: default;
+}
+.marxy-metadata-edit { padding: 0; min-width: 0; color: var(--marxy-color-text); white-space: pre-wrap; text-decoration: underline dotted var(--marxy-color-rule-strong); text-underline-offset: 0.2em; }
+.marxy-metadata-edit:hover { text-decoration-style: solid; }
+.marxy-metadata-input { min-width: 0; box-sizing: border-box; margin: 0; padding: 0.15em 0.4em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: var(--marxy-color-bg); color: var(--marxy-color-text); font: inherit; }
+.marxy-metadata-input:focus-visible, .marxy-metadata-select:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
+.marxy-metadata-copy, .marxy-metadata-source { padding: 0.05em 0.4em; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); color: var(--marxy-color-text-secondary); font-size: calc(var(--marxy-size-chrome) * 11.5 / 13); white-space: nowrap; }
+.marxy-metadata-source { grid-column: 1; justify-self: start; }
+.marxy-metadata-copy { grid-column: 2; grid-row: 1; opacity: 0; }
+.marxy-metadata-row:hover .marxy-metadata-copy, .marxy-metadata-row:focus-within .marxy-metadata-copy, .marxy-metadata-copy:focus-visible { opacity: 1; }
+@media (hover: none) { .marxy-metadata-copy { opacity: 1; } }
+.marxy-metadata-copy:hover, .marxy-metadata-source:hover { color: var(--marxy-color-text); background: var(--marxy-color-selection); }
+.marxy-metadata-edit:focus-visible, .marxy-metadata-copy:focus-visible, .marxy-metadata-source:focus-visible, .marxy-metadata-jump:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-metadata-select { max-width: 100%; margin: 0; padding: 0.1em 0.3em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: var(--marxy-color-text); font: inherit; }
+.marxy-metadata-reasons { margin: 0.3em 0 0; padding: 0 0.4em; list-style: none; color: var(--marxy-color-text-secondary); font-size: calc(var(--marxy-size-chrome) * 11.5 / 13); line-height: 1.45; }
+.marxy-metadata-reason { overflow-wrap: anywhere; }
+.marxy-metadata-reason::before { content: "\2192\00a0"; }
+.marxy-metadata-note, .marxy-metadata-empty { margin: 0.3em 0.4em; color: var(--marxy-color-text-secondary); line-height: 1.45; }
+.marxy-metadata-jump { display: grid; grid-template-columns: minmax(4.5em, 32%) minmax(0, 1fr); column-gap: 0.7em; align-items: baseline; box-sizing: border-box; width: 100%; padding: 0.25em 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); overflow-wrap: anywhere; }
+.marxy-metadata-row:has(> .marxy-metadata-jump) { display: block; padding: 0; }
+.marxy-metadata-jump:hover { background: var(--marxy-color-selection); }
+.marxy-metadata-jump-label { padding-inline-start: 0.4em; color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
+.marxy-metadata-jump-words { color: var(--marxy-color-text); }
+
+/* The margin preview (W-17, ruling 21; mock-v2 `.mm`): a zero-height sticky layer, the pane's first child, so it takes no room in the column's flow
+   and the text under it never moves (ADR-0070, F-45). Its block sits in Read's empty left margin, beside the first line, in small chrome type
+   on the page's ground: keys faint, values secondary. Unfolded with one pane the window scrolls under the bands, so the layer sticks below them. */
+.marxy-metadata-margin { position: sticky; top: 0; height: 0; z-index: 3; margin: 0; padding: 0; pointer-events: none; }
+body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) .marxy-metadata-margin { top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h)); }
+.marxy-metadata-preview { position: absolute; box-sizing: border-box; pointer-events: auto; font: calc(var(--marxy-size-chrome) * 11.5 / 13) / 1.4 var(--marxy-face-chrome); color: var(--marxy-color-text-secondary); }
+.marxy-metadata-preview-list { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: calc(var(--marxy-size-chrome) * 4 / 13) calc(var(--marxy-size-chrome) * 12 / 13); }
+.marxy-metadata-preview-list > dt { color: var(--marxy-color-text-faint); white-space: nowrap; }
+.marxy-metadata-preview-list > dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--marxy-color-text-secondary); }
+.marxy-metadata-preview-more { margin-block-start: calc(var(--marxy-size-chrome) * 4 / 13); color: var(--marxy-color-text-faint); }
+.marxy-metadata-preview-link { appearance: none; -webkit-appearance: none; margin: calc(var(--marxy-size-chrome) * 6 / 13) 0 0; padding: 0; border: 0; background: none; color: var(--marxy-color-text-secondary); font: inherit; text-decoration: underline; text-decoration-color: var(--marxy-color-rule-strong); text-underline-offset: 2px; cursor: default; }
+.marxy-metadata-preview-link:hover { color: var(--marxy-color-text); }
+.marxy-metadata-preview-link:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 2px; border-radius: 2px; }
 /* The sidebar (W-07 layout; W-04 owns the look). One column in the `sidebar` region, 252 px (`--marxy-ws-sidebar-w`; the
    panel scrolls, the page does not): an optional Library row, then two sections, each a header button (the title, and a
    quiet count once folded) over a list of rows. A row is the kind's glyph, the title and a quiet age; the title shrinks
@@ -1604,6 +1657,10 @@ body[data-marxy-workspace="unfolded"] > .marxy-settings { grid-column: 2 / var(-
   .marxy-versions-since:focus-visible, .marxy-versions-row:focus-visible, .marxy-versions-restore:focus-visible { outline: 2px solid Highlight; }
   .marxy-versions-since-when, .marxy-versions-what, .marxy-versions-restore, .marxy-versions-about { color: GrayText; }
   .marxy-versions-rail { border-color: CanvasText; }
+  .marxy-metadata-edit:focus-visible, .marxy-metadata-copy:focus-visible, .marxy-metadata-source:focus-visible, .marxy-metadata-jump:focus-visible, .marxy-metadata-input:focus-visible, .marxy-metadata-select:focus-visible, .marxy-metadata-preview-link:focus-visible { outline-color: Highlight; }
+  .marxy-metadata-key, .marxy-metadata-why, .marxy-metadata-reasons, .marxy-metadata-note, .marxy-metadata-empty, .marxy-metadata-heading, .marxy-metadata-copy, .marxy-metadata-source, .marxy-metadata-jump-label, .marxy-metadata-preview, .marxy-metadata-preview-list > dt, .marxy-metadata-preview-list > dd, .marxy-metadata-preview-more { color: GrayText; }
+  .marxy-metadata-input, .marxy-metadata-select { border-color: CanvasText; background: Canvas; color: CanvasText; }
+  .marxy-metadata-row:hover, .marxy-metadata-row:focus-within, .marxy-metadata-jump:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
   .marxy-library-scope[aria-current="true"], .marxy-library-row[aria-selected="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; box-shadow: none; }
   .marxy-library-row[aria-selected="true"] * { color: HighlightText; }
   .marxy-library-field, .marxy-library-save-name, .marxy-library-save, .marxy-library-suggest, .marxy-query-chip { border-color: CanvasText; }

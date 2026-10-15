@@ -5,6 +5,7 @@
 import { mountKindChip, mountStrip } from './kind-chip.ts';
 import { mountInspector, registerInspectorTab } from './inspector.ts';
 import { LINKS_TAB } from './links-tab.ts';
+import { METADATA_TAB } from './metadata-tab.ts';
 import { OUTLINE_TAB } from './outline-tab.ts';
 import { VERSIONS_TAB } from './versions-tab.ts';
 import { mountSidebar } from './sidebar-view.ts';
@@ -17,6 +18,8 @@ import { mountToolbar } from './toolbar.ts';
 // diff from each, Restore to a copy beside it). A second id replaces the first, so loading twice is harmless.
 registerInspectorTab(LINKS_TAB);
 registerInspectorTab(OUTLINE_TAB);
+// Metadata (W-17): the file, its front matter (a value edited in place), how it was read, what is hidden in it and what Read reshaped.
+registerInspectorTab(METADATA_TAB);
 registerInspectorTab(VERSIONS_TAB);
 
 export { mountInspector, mountKindChip, mountSidebar, mountStatusBar, mountStrip, mountTabs, mountToolbar };

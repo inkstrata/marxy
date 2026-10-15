@@ -34,6 +34,7 @@ export const PANE_CHORDS: readonly PaneChord[] = [
   { code: 'ArrowRight', alt: true, command: 'view.focus-right' },
   { code: 'KeyS', ctrl: true, command: 'view.toggle-sidebar' },
   { code: 'KeyI', alt: true, command: 'view.toggle-inspector' },
+  { code: 'KeyI', ctrl: true, command: 'view.metadata' },
   { code: 'KeyN', alt: true, command: 'notices.focus' },
 ];
 
