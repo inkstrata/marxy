@@ -1,19 +1,16 @@
 # Lead handoff: 2026-10-14 day (X-35), the visual stories merged
 
 **Before dispatching, check you are the only lead** (`gh pr list --state all --limit 20`; read this page and `progress.md` on
-`origin/main`). The ledger's "2026-10-14 day" block lists what merged (13 PRs: F-94, F-97..F-104, F-107, X-32, X-33, and the order).
+`origin/main`). The ledger's "2026-10-14 day" block lists what merged (15 PRs: F-94, F-97..F-107, X-32, X-33, and the order).
 
 ## Open at the stop
 
-| Story | PR | State | Next |
-| --- | --- | --- | --- |
-| F-105 | #746 | review running (Sonnet medium) | merge on a merge verdict; rebase unions `scripts/mock-pair.mjs` |
-| F-106 | #747 | adversarial review running (two panes) | merge on a merge verdict; same rebase |
+Nothing: every story dispatched this session merged (F-105 #746, F-106 #747 last).
 
 ## Next, in order
 
-1. F-105 and F-106 above. Then the follow-ups boarded today: F-98.2 (prove the nonce in the packaged app), F-98.1, F-99.1,
-   F-107.1, F-108, and X-36 (make the layout audit a gate once its baseline is only Sev-3 rows).
+1. The follow-ups boarded today: F-98.2 (prove the nonce in the packaged app), F-98.1, F-99.1,
+   F-107.1, F-106.1, F-108, and X-36 (make the layout audit a gate once its baseline is only Sev-3 rows).
 2. The older order below ("Next, in order" of the 2026-10-14 early handoff): K-22, F-94 is done, W-17, K-12, F-96, the Linux
    baselines, wave 12's cards.
 

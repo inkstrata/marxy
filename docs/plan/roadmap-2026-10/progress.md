@@ -413,14 +413,15 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 | F-102 | The Settings page keeps a readable column in a 900 to 1,150 px window (card 250 px wide, one word a line, labels over values, a segment cut) | sonnet (high) | merged | [#743](https://github.com/inkstrata/marxy/pull/743) | — | From X-32 (Sev-1). Cause: the body grid holds a 252 px right-hand track while the inspector is closed. Card in `08-fixes-from-the-bug-sweep.md`. Read X-33's note on the window's axis first. |
 | F-103 | The kind chip's menu shows why in whole words (reasons cut to `n…`) | sonnet (medium) | merged | [#740](https://github.com/inkstrata/marxy/pull/740) | — | From X-32 (Sev-1). Card in `08-fixes-from-the-bug-sweep.md`. |
 | F-104 | The empty window's two-column pieces keep their columns apart (drawn over each other after a widening; unequal columns unfolded at 1,400 px) | sonnet (medium) | merged | [#742](https://github.com/inkstrata/marxy/pull/742) | — | From X-32 (Sev-1); 17 of 38 pieces carry two languages, 10 broke in the scan. Card in `08-fixes-from-the-bug-sweep.md`. |
-| F-105 | The Library keeps its columns whole in a 900 to 1,150 px window | sonnet (medium) | in review | [#746](https://github.com/inkstrata/marxy/pull/746) | — | From X-32 (Sev-2). Depends on F-102 (the same right-hand track). Card in `08-fixes-from-the-bug-sweep.md`. |
-| F-106 | A split narrowed below two columns gives one back | sonnet (medium) | in review | [#747](https://github.com/inkstrata/marxy/pull/747) | — | From X-32 (Sev-2). Card in `08-fixes-from-the-bug-sweep.md`. |
+| F-105 | The Library keeps its columns whole in a 900 to 1,150 px window | sonnet (medium) | merged | [#746](https://github.com/inkstrata/marxy/pull/746) | — | From X-32 (Sev-2). Depends on F-102 (the same right-hand track). Card in `08-fixes-from-the-bug-sweep.md`. |
+| F-106 | A split narrowed below two columns gives one back | sonnet (medium) | merged | [#747](https://github.com/inkstrata/marxy/pull/747) | — | From X-32 (Sev-2). Card in `08-fixes-from-the-bug-sweep.md`. |
 | F-107 | Tabs whose names share a prefix stay distinguishable (twelve dated tabs all read `2026-…`) | sonnet (medium) | merged | [#744](https://github.com/inkstrata/marxy/pull/744) | — | From X-32 (Sev-2). After F-99 merges; re-run the audit first. Card in `08-fixes-from-the-bug-sweep.md`. |
 | F-98.1 | Source's CSP nonce: drop the dead `script` branch in `pageStyleNonce`; check-csp's EditorView rule is per file (a second EditorView beside a `baseExtensions` call is not caught) | sonnet (low) | ready | — | — | From F-98's review. |
 | F-98.2 | Prove F-98's nonce in the packaged app (Untitled, Source, line numbers on) on macOS; `smoke-built-app.mjs` is Linux only | sonnet (medium) | ready | — | — | From F-98: proven from Tauri's source and the harness only. |
 | F-99.1 | A tab widens when its dirty dot appears | sonnet (low) | ready | — | — | From F-99; F-107 left it out (the close slot would hide it on the active tab). |
 | F-107.1 | Middle-cut tab names: innerText gains a newline at the head/tail join; the ellipsis gap differs on the active (bold) tab | sonnet (low) | ready | — | — | From F-107's review; cosmetic. |
 | F-108 | Untitled defaults to line numbers on and a Code chip, while its metrics treat it as Markdown | sonnet (low) | ready | — | — | X-33's N-2 (`docs/taste-review/2026-10-14-source-layout/findings.md`). |
+| F-106.1 | Split narrowing: Dismiss keeps the cramped split after a save; a prompt is never withdrawn; two scratch panes stay cramped with no notice; a right-hand Source survivor loses its place on restore | sonnet (medium) | ready | — | — | From F-106's reviews. |
 | X-36 | Make `scripts/layout-audit.mjs` a gate: a baseline list, `--quick --fail` on PRs touching styles or views, the full matrix nightly | sonnet (medium) | ready | — | — | X-32's recommendation; after F-105 and F-106 the baseline is the Sev-3 rows only. |
 | V-06.2 | Versions: a keep refused by a damaged manifest is silent; a late manifest write lands after "not kept" | sonnet | ready | — | — | From V-06.1's review. |
 | V-04.1 | Source notes: map marks through edits, indented ``` is not a fence, no path notes inside fences | sonnet | ready | — | — | From V-04's review. |
@@ -480,9 +481,9 @@ H-0010 stays parked.
 
 ## 2026-10-14 day lead session: the visual stories first (Opus lead, Sonnet agents only)
 
-The author: "move up our latest visual changes stories", then "merge prs as they become ready". Merged 14: F-97 card + order #732,
+The author: "move up our latest visual changes stories", then "merge prs as they become ready". Merged 15: F-97 card + order #732,
 X-33 #737, X-32 #738, F-94 #730, F-98 #739, F-97 #735, F-99 #736, F-101 #741, F-103 #740, F-104 #742, F-102 #743, F-107 #744,
-F-100 #745. In review at the stop: F-105 #746, F-106 #747 (adversarial: two panes).
+F-100 #745, F-105 #746, F-106 #747 (adversarial review, returned once: a scratch document given back silently).
 
 Findings: F-98's cause was the release CSP refusing CodeMirror's runtime `<style>` (X-33), fixed with the page's style nonce; no
 dev-harness test could see it. X-32's audit (`scripts/layout-audit.mjs`) found 14 defects, boarded F-101..F-107. F-100 departs from
