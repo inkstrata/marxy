@@ -65,6 +65,7 @@ export const SCREENS = {
   '10-kind-chip-menu': 'The kind chip\'s menu open, unfolded: why the file is read as it is, then the Show as choices (mock 01-workspace)',
   '10-empty-window': 'The empty window with a text beside its translation, opened at 800 px and widened to 1,000 (mock 01-workspace, folded; the mock has no empty window)',
   '10-tabs-dated': 'Twelve tabs of dated names that share a long start, unfolded (F-107; mock 01-workspace)',
+  '10-split-narrowed': 'A split made at 1,920 px and narrowed to 800 x 600: one pane is given back (F-106; mock 01-workspace at 800 px, one reading column)',
   '08-settings': 'Settings as a page, on Reading, with the text size changed (mock 08-settings; the mock is its own window, the app a page in the workspace)',
   '08-settings-1000': 'Settings on Content types in a 1,000 px unfolded window: the page takes the window less the sidebar (F-102; mock 08-settings, types)',
   '05-library-1000': 'The Library in a 1,000 px unfolded window: whole Name, Path and Modified columns and a preview that leaves the list its width (F-105; mock 05-collections)',
@@ -373,6 +374,14 @@ const APP_STATES = {
     await settle(page, 400);
   },
   async '08-narrow'(page) { await unfoldedWithTabs(page); },
+  // Made wide (the window is booted at WIDE), then narrowed: the split gives a pane back below two columns (F-106).
+  async '10-split-narrowed'(page) {
+    await unfoldedWithTabs(page);
+    await page.evaluate(() => window.__cmd('view.mode-split'));
+    await settle(page, 800);
+    await page.setViewportSize({ width: 800, height: 600 });
+    await settle(page, 1200);
+  },
   async '09-inspector-outline'(page) {
     await unfoldedWithTabs(page);
     await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', true));
@@ -453,7 +462,7 @@ const APP_STATES = {
     await settle(page, 600);
   },
 };
-const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 }, '08-settings-1000': { width: 1000 }, '02-source-fill-short': { open: NOTES }, '02-source-fill-long': { open: PLAN }, '05-library-1000': { width: 1000 } };
+const APP_OPTS = { '08-narrow': { width: NARROW }, '04-palette-short': { height: SHORT }, '03-code': {}, '03-transcript': {}, '10-outline-popup': { width: WIDE }, '10-split-narrowed': { width: WIDE }, '10-empty-window': { width: 800, open: null, piece: 6 }, '08-settings-1000': { width: 1000 }, '02-source-fill-short': { open: NOTES }, '02-source-fill-long': { open: PLAN }, '05-library-1000': { width: 1000 } };
 
 // ---------- the mock ----------
 async function openMock(browser, theme, file, { width = W, height = H, hash = '' } = {}) {
@@ -551,6 +560,7 @@ const MOCK_STATES = {
   '10-outline-popup': { file: '01-workspace.html', width: WIDE, run: async (page) => { await mockUnfold(page); await page.click('#insp [data-it="outline"]'); await settle(page, 600); } },
   '10-kind-chip-menu': { file: '01-workspace.html', run: async (page) => { await mockUnfold(page); await settle(page, 300); await page.click('#kindchip'); await settle(page, 500); } },
   '10-empty-window': { file: '01-workspace.html', width: 1000, run: async () => {} },
+  '10-split-narrowed': { file: '01-workspace.html', width: 800, run: async (page) => { await mockUnfold(page); await settle(page, 500); } },
   '08-settings': { file: '08-settings.html', hash: '#reading', run: async (page) => { await settle(page, 400); } },
   '05-library-1000': { file: '05-collections.html', width: 1000, run: async () => {} },
   '08-settings-1000': { file: '08-settings.html', hash: '#types', width: 1000, run: async (page) => { await settle(page, 400); } },
