@@ -39,7 +39,7 @@ export function queryFor(chord: PaletteChord): string | undefined {
 
 /** True when something other than the palette holds the screen: an open dialog or a modal (a sheet, the settings) that opened while the palette's chunk was on its way. */
 export function modalOpenOutsidePalette(doc: Document = document): boolean {
-  return doc.querySelector('dialog[open]:not(#marxy-palette), [aria-modal="true"]:not(#marxy-palette)') !== null;
+  return doc.querySelector('[aria-modal="true"][open]:not(#marxy-palette), dialog[open]:not(#marxy-palette)') !== null;
 }
 
 /**
