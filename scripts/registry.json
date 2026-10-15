@@ -139,7 +139,8 @@
     "data-marxy-advanced",
     "data-marxy-metadata-key",
     "data-marxy-metadata-section",
-    "data-marxy-metadata-jump"
+    "data-marxy-metadata-jump",
+    "data-marxy-metadata-typed"
   ],
   "customProperties": [
     "--marxy-col",

@@ -15,6 +15,7 @@ import { KINDS } from '@marxy/core/src/contracts/kinds.ts';
 import { fileTypeOf } from '@marxy/core/src/index-model/file-types.ts';
 import type { Reason } from '@marxy/core/src/kind/detect.ts';
 import { parseMarkdown } from '@marxy/core/src/parse/parse.ts';
+import { opensLikeFrontmatter } from '@marxy/core/src/parse/reparse.ts';
 import { shouldFlagInvisible } from '@marxy/core/src/render/invisibles.ts';
 import { frontMatterValues, setFrontMatterValue, type FrontMatterValues } from '@marxy/core/src/operations/front-matter-value.ts';
 import type { Note } from '@marxy/core/src/notes/notes.ts';
@@ -26,6 +27,7 @@ import type { DocumentStore } from '../document/store.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { notify } from '../notices/index.ts';
 import { buildAppContext } from '../selection/bind.ts';
+import { setMarked, spokenText, hasMarks } from './metadata-marks.ts';
 import { codePointLabel, codePointName, encodingFact, formatCount, lineEndingFact } from '../source/frame-facts.ts';
 import { findNotes, pathCheckerFor } from '../source/notes.ts';
 import type { InspectorContext, InspectorTab } from './inspector.ts';
@@ -253,14 +255,59 @@ export function reshapedPlaces(buffer: Buffer, ast: Document | null, cap = LIST_
   return { items, total };
 }
 
-/** The front matter of a store, read without making the parse a lazy store has not made: the AST when there is one, else the head's. */
+/** The longest front matter read here (bytes). Beyond it the tab says so, rather than parse a megabyte-scale head on every change. */
+export const FRONT_MATTER_READ_LIMIT = 16 * 1024 * 1024;
+
+/**
+ * Where a front matter that the file opens with ends: the byte after its closing line, 0 when the file does not open like one or
+ * the opening is never closed. A line scan of the bytes, no parse; the fence is the opening's own (`---` or `+++`), alone on its
+ * line but for spaces and tabs.
+ */
+export function frontMatterEnd(bytes: Uint8Array): number {
+  if (!opensLikeFrontmatter(bytes)) return 0;
+  let i = 0;
+  while (bytes[i] === 0xef && bytes[i + 1] === 0xbb && bytes[i + 2] === 0xbf) i += 3;
+  const fence = bytes[i]!;
+  const lineEnd = (from: number): number => {
+    for (let j = from; j < bytes.length; j++) if (bytes[j] === 0x0a || bytes[j] === 0x0d) return j;
+    return bytes.length;
+  };
+  const after = (at: number): number => (bytes[at] === 0x0d && bytes[at + 1] === 0x0a ? at + 2 : at + 1);
+  let at = after(lineEnd(i));
+  while (at < bytes.length) {
+    const end = lineEnd(at);
+    if (end - at >= 3 && bytes[at] === fence && bytes[at + 1] === fence && bytes[at + 2] === fence) {
+      let k = at + 3;
+      while (k < end && (bytes[k] === 0x20 || bytes[k] === 0x09)) k++;
+      if (k === end) return Math.min(bytes.length, after(end));
+    }
+    at = after(end);
+  }
+  return 0;
+}
+
+/**
+ * The front matter of a store, read without making the parse a lazy store has not made: the AST when there is one, else the
+ * front matter's own bytes (found by a line scan, however long it is) parsed on their own. A head longer than
+ * `FRONT_MATTER_READ_LIMIT` is listed as read-only with that said, never as no front matter.
+ */
 export function frontMatterOf(store: DocumentStore): { readonly document: Document; readonly bytes: Uint8Array; readonly values: FrontMatterValues } | null {
   const snap = store.snapshot();
   const path = snap.path;
   if (!isUntitled(path) && fileTypeOf(path)?.kind !== 'markdown') return null;
   const bytes = snap.buffer.bytes;
-  // A Source-only store has no AST yet and is not asked for one: the front matter is at the top, so its head is parsed on its own.
-  const document = store.parsed() ? snap.ast : parseMarkdown(bytes.subarray(0, Math.min(bytes.length, 256 * 1024)), { file: path });
+  let document: Document;
+  if (store.parsed()) {
+    document = snap.ast;
+  } else {
+    // A Source-only store has no AST yet and is not asked for one: the front matter is at the top, so it is parsed on its own.
+    const end = frontMatterEnd(bytes);
+    if (end > FRONT_MATTER_READ_LIMIT) {
+      const long: FrontMatterValues = { format: 'yaml', values: [], unreadable: `the front matter is longer than ${formatCount(FRONT_MATTER_READ_LIMIT / (1024 * 1024))} MB, too long to read here` };
+      return { document: parseMarkdown(new Uint8Array(0), { file: path }), bytes, values: long };
+    }
+    document = parseMarkdown(bytes.subarray(0, end === 0 ? Math.min(bytes.length, 1024) : end), { file: path });
+  }
   const values = frontMatterValues(document, bytes);
   return values === null ? null : { document, bytes, values };
 }
@@ -312,7 +359,7 @@ export function metadataModelOf(input: ModelInput): MetadataModel {
 
 // ---- the edit ----------------------------------------------------------------------------------------------------------
 
-export type EditResult = { readonly applied: true; readonly unchanged: boolean } | { readonly applied: false; readonly why: string };
+export type EditResult = { readonly applied: true; readonly unchanged: boolean; readonly typed?: string | null } | { readonly applied: false; readonly why: string };
 
 /**
  * Sets the front-matter value of `key` to `value` as one `apply` of `store` (one undo step); nothing is written to a file. Refused,
@@ -322,13 +369,14 @@ export type EditResult = { readonly applied: true; readonly unchanged: boolean }
 export async function applyFrontMatterEdit(store: DocumentStore, key: string, value: string): Promise<EditResult> {
   const found = frontMatterOf(store);
   if (found === null) return { applied: false, why: 'This file has no front matter' };
+  if (found.values.unreadable !== null) return { applied: false, why: `This front matter is read-only: ${found.values.unreadable}` };
   const snap = store.snapshot();
   const edit = setFrontMatterValue(found.document, found.bytes, key, value);
   if (!edit.ok) return { applied: false, why: edit.reason };
   if (edit.unchanged) return { applied: true, unchanged: true };
   try {
     const applied = await store.apply({ range: edit.range, replacement: edit.replacement, label: `front matter: ${key}`, baseVersion: snap.version });
-    return applied ? { applied: true, unchanged: false } : { applied: false, why: 'The document changed while this was being worked out; nothing was changed' };
+    return applied ? { applied: true, unchanged: false, typed: edit.typed } : { applied: false, why: 'The document changed while this was being worked out; nothing was changed' };
   } catch (error) {
     return { applied: false, why: error instanceof Error ? error.message : String(error) };
   }
@@ -367,6 +415,14 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, te
   return node;
 };
 
+/** An element whose text came out of the file: a bidi control or a zero-width character in it is drawn as a mark (commitment 4). */
+const markedEl = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text: string): HTMLElementTagNameMap[K] => {
+  const node = document.createElement(tag);
+  node.className = className;
+  setMarked(node, text);
+  return node;
+};
+
 /** The longest a value is drawn on one row before the rest is folded behind its first lines. */
 const VALUE_LINES = 6;
 
@@ -381,6 +437,8 @@ function mountMetadataTab(host: HTMLElement, ctx: InspectorContext): () => void 
   let watched: DocumentStore | null = null;
   /** The key whose edit button gets focus once the list is drawn again: the one just edited. */
   let refocus: string | null = null;
+  /** What the last edit said of its value's type, shown under that value until the document moves again (an undo takes it away). */
+  let typedNote: { readonly key: string; readonly version: number; readonly text: string } | null = null;
   /** The value being typed, so a redraw that is not an edit of it (a reload) does not take it away. */
   let editing: { readonly key: string } | null = null;
 
@@ -399,7 +457,7 @@ function mountMetadataTab(host: HTMLElement, ctx: InspectorContext): () => void 
     const b = el('button', 'marxy-metadata-copy', 'Copy');
     b.type = 'button';
     b.tabIndex = -1;
-    b.setAttribute('aria-label', `Copy ${label}`);
+    b.setAttribute('aria-label', `Copy ${spokenText(label)}`);
     b.addEventListener('mousedown', (event) => event.preventDefault());
     b.addEventListener('click', () => void writeCopy(buildAppContext(handle), { text }, `Copied ${label}`));
     return b;
@@ -408,7 +466,7 @@ function mountMetadataTab(host: HTMLElement, ctx: InspectorContext): () => void 
   const factRow = (list: HTMLElement, fact: Fact): void => {
     const row = el('div', 'marxy-metadata-row');
     const dd = el('dd', 'marxy-metadata-value');
-    dd.append(el('span', 'marxy-metadata-text', fact.value), copyButton(fact.label.toLowerCase(), fact.copy));
+    dd.append(markedEl('span', 'marxy-metadata-text', fact.value), copyButton(fact.label.toLowerCase(), fact.copy));
     row.append(el('dt', 'marxy-metadata-key', fact.label), dd);
     list.append(row);
   };
@@ -419,8 +477,8 @@ function mountMetadataTab(host: HTMLElement, ctx: InspectorContext): () => void 
     button.type = 'button';
     button.tabIndex = -1;
     button.setAttribute('data-marxy-metadata-jump', mark);
-    button.append(el('span', 'marxy-metadata-jump-label', label), el('span', 'marxy-metadata-jump-words', words));
-    button.setAttribute('aria-label', `${label}: ${words}`);
+    button.append(el('span', 'marxy-metadata-jump-label', label), markedEl('span', 'marxy-metadata-jump-words', words));
+    button.setAttribute('aria-label', `${label}: ${spokenText(words)}`);
     button.addEventListener('mousedown', (event) => event.preventDefault());
     button.addEventListener('click', () => void handle.open(path, { at: byte }));
     row.append(button);
@@ -435,18 +493,18 @@ function mountMetadataTab(host: HTMLElement, ctx: InspectorContext): () => void 
       const lines = v.value.split('\n');
       const shown = lines.length > VALUE_LINES ? `${lines.slice(0, VALUE_LINES).join('\n')}\n…` : v.value;
       if (v.refusal === null) {
-        const edit = el('button', 'marxy-metadata-edit', v.value === '' ? '(empty)' : shown);
+        const edit = markedEl('button', 'marxy-metadata-edit', v.value === '' ? '(empty)' : shown);
         edit.type = 'button';
         edit.tabIndex = -1;
         edit.title = 'Change this value';
-        edit.setAttribute('aria-label', `${v.key}: ${v.value === '' ? 'empty' : v.value}. Edit value`);
+        edit.setAttribute('aria-label', `${spokenText(v.key)}: ${v.value === '' ? 'empty' : spokenText(v.value)}. Edit value`);
         edit.addEventListener('mousedown', (event) => event.preventDefault());
         edit.addEventListener('click', () => beginEdit(dd, edit, store, v.key, v.value));
         dd.append(edit);
       } else {
-        const text = el('span', 'marxy-metadata-text', shown === '' ? '(empty)' : shown);
+        const text = markedEl('span', 'marxy-metadata-text', shown === '' ? '(empty)' : shown);
         if (lines.length > 1) text.classList.add('marxy-metadata-multiline');
-        const why = el('span', 'marxy-metadata-why', `${v.refusal}.`);
+        const why = markedEl('span', 'marxy-metadata-why', `${v.refusal}.`);
         const source = el('button', 'marxy-metadata-source', 'Edit in Source');
         source.type = 'button';
         source.tabIndex = -1;
@@ -454,8 +512,14 @@ function mountMetadataTab(host: HTMLElement, ctx: InspectorContext): () => void 
         source.addEventListener('click', () => void handle.jumpToSource(v.lineStart));
         dd.append(text, why, source);
       }
+      const said = typedNote !== null && typedNote.key === v.key && typedNote.version === store.snapshot().version ? typedNote.text : null;
+      if (said !== null) {
+        const note = el('span', 'marxy-metadata-why', said);
+        note.setAttribute('data-marxy-metadata-typed', '');
+        dd.append(note);
+      }
       dd.append(copyButton(v.key, v.value));
-      row.append(el('dt', 'marxy-metadata-key', v.key), dd);
+      row.append(markedEl('dt', 'marxy-metadata-key', v.key), dd);
       list.append(row);
     }
   };
@@ -466,7 +530,7 @@ function mountMetadataTab(host: HTMLElement, ctx: InspectorContext): () => void 
     input.type = 'text';
     input.value = current;
     input.spellcheck = false;
-    input.setAttribute('aria-label', `${key}, value`);
+    input.setAttribute('aria-label', `${spokenText(key)}, value`);
     editing = { key };
     let done = false;
     const end = (commit: boolean): void => {
@@ -480,7 +544,15 @@ function mountMetadataTab(host: HTMLElement, ctx: InspectorContext): () => void 
       }
       void runFrontMatterEdit(handle, store, key, input.value).then((result) => {
         // An edit that took makes the store tell the tab, which draws the new value; a refused one puts the old back.
-        if (!result.applied || result.unchanged) draw(true);
+        if (!result.applied || result.unchanged) {
+          draw(true);
+          return;
+        }
+        // The store has told the tab and it has drawn the new value; the sentence about its type goes under it.
+        if (result.typed) {
+          typedNote = { key, version: store.snapshot().version, text: result.typed };
+          draw(true);
+        }
       });
     };
     input.addEventListener('keydown', (event) => {
@@ -495,6 +567,17 @@ function mountMetadataTab(host: HTMLElement, ctx: InspectorContext): () => void 
     });
     input.addEventListener('blur', () => end(true));
     button.replaceWith(input);
+    // A text field cannot draw a mark inside itself: a value holding a bidi control or a zero-width character is shown again
+    // under it with those characters marked, as it is typed.
+    const marks = el('span', 'marxy-metadata-why');
+    marks.hidden = true;
+    const showMarks = (): void => {
+      marks.hidden = !hasMarks(input.value);
+      if (!marks.hidden) setMarked(marks, input.value);
+    };
+    input.addEventListener('input', showMarks);
+    input.after(marks);
+    showMarks();
     dd.querySelector('.marxy-metadata-copy')?.remove();
     input.focus();
     input.select();
@@ -590,7 +673,7 @@ function mountMetadataTab(host: HTMLElement, ctx: InspectorContext): () => void 
       det.list.append(showAs);
       const reasons = el('ul', 'marxy-metadata-reasons');
       const ordered = [...model.kind.reasons.filter((r) => r.decisive), ...model.kind.reasons.filter((r) => !r.decisive)];
-      for (const r of ordered) reasons.append(el('li', 'marxy-metadata-reason', `${r.decisive ? 'Because ' : ''}${r.signal} · ${r.at}`));
+      for (const r of ordered) reasons.append(markedEl('li', 'marxy-metadata-reason', `${r.decisive ? 'Because ' : ''}${r.signal} · ${r.at}`));
       det.root.append(reasons);
       sections.push(det.root);
     }

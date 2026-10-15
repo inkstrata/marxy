@@ -50,13 +50,15 @@ const files = {
   '/r/crlf.md': EDIT.replace(/\n/g, '\r\n'),
   '/r/notes.md': NOTES,
   '/r/plain.md': `# Plain\n\n${filler}\n`,
+  // A reordering override in a value and a zero-width space in a key and a value: the file's own bytes, to be shown as marks.
+  '/r/bidi.md': '---\ntitle: \u202eexe.txt\nk\u200bey: plain\nnote: a\u200bb\n---\n\n# Heading\n\nBody.\n',
 };
 
-async function withPage(width, fn, { open = ['/r/skill.md'], unfold = false } = {}) {
+async function withPage(width, fn, { open = ['/r/skill.md'], unfold = false, guard = false } = {}) {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
-    await bootTwoPanes(page, { files, open });
+    await bootTwoPanes(page, { files, open, guard });
     if (unfold) await page.evaluate(() => window.__marxyHandle.workspace().unfold());
     await fn(page);
   } finally {
@@ -331,4 +333,134 @@ test('the preview is a surface: with it on, scrolling and a second pane move not
     await page.evaluate(() => window.__marxyHandle.commands().find((c) => c.id === 'view.mode-read').run({}));
     await page.waitForSelector('.marxy-metadata-preview');
   });
+});
+
+/** Every element under `selector` that holds a raw bidi control or zero-width character outside a mark. */
+const rawInvisibles = (page, root) =>
+  page.evaluate((root) => {
+    const bad = [];
+    const walker = document.createTreeWalker(document.querySelector(root), NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (/[\u200b-\u200f\u202a-\u202e\u2066-\u2069]/.test(n.nodeValue) && !n.parentElement.closest('.marxy-invisible')) bad.push(n.nodeValue);
+    }
+    return bad;
+  }, root);
+
+test('a bidi control or a zero-width character in a key or a value is a visible mark with a spoken name, in the tab and in the margin', async () => {
+  await withPage(1280, async (page) => {
+    await run(page, 'view.metadata');
+    await page.waitForSelector('.marxy-metadata-preview');
+    assert.deepEqual(await rawInvisibles(page, '.marxy-metadata-preview'), [], 'the margin draws no raw control');
+    const marks = await page.evaluate(() => [...document.querySelectorAll('.marxy-metadata-preview .marxy-invisible')].map((m) => m.querySelector('.marxy-invisible-glyph').textContent));
+    assert.deepEqual(marks, ['202E', '200B', '200B'], 'the override, then the key\'s zero-width space, then the value\'s');
+    const label = await page.evaluate(() => [...document.querySelectorAll('.marxy-metadata-preview [role="img"]')].map((r) => r.getAttribute('aria-label')));
+    assert.ok(label.some((l) => l.includes('U+202E') && l.includes('exe.txt')), `a spoken name: ${label}`);
+    const tip = await page.evaluate(() => [...document.querySelectorAll('.marxy-metadata-preview dd')].map((d) => d.title));
+    assert.ok(tip.every((t) => !/[\u200b\u202e]/.test(t)), 'a tooltip carries no raw control either');
+  }, { open: ['/r/bidi.md'] });
+  // The tab: the key, the value on its edit button, and the aria-label of that button.
+  await withPage(1700, async (page) => {
+    await openTab(page);
+    await page.waitForSelector('[data-marxy-metadata-section="front-matter"] .marxy-metadata-edit');
+    assert.deepEqual(await rawInvisibles(page, '.marxy-metadata'), [], 'the tab draws no raw control');
+    const marks = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-metadata-section="front-matter"] .marxy-invisible')].map((m) => m.querySelector('.marxy-invisible-glyph').textContent));
+    assert.equal(marks.filter((m) => m === '202E').length, 1, 'the override in the title value');
+    assert.equal(marks.filter((m) => m === '200B').length, 2, 'the zero-width space in a key and in a value');
+    const row = (key) => `[data-marxy-metadata-key="${key}"]`;
+    assert.equal(await page.locator(`${row('title')} .marxy-metadata-edit .marxy-invisible-glyph`).textContent(), '202E');
+    assert.match(await page.locator(`${row('title')} .marxy-metadata-edit`).getAttribute('aria-label'), /^title: U\+202E exe\.txt\. Edit value$|^title:\s+U\+202E\s+exe\.txt\./);
+    assert.ok((await page.locator('.marxy-metadata-key [role="img"]').first().getAttribute('aria-label')).includes('U+200B'), 'the key is read with the character named');
+    // The marks are the page's: the value copied is the file\'s own text, and editing it leaves the control in place unless it is changed.
+    const original = await doc(page);
+    await page.click(`${row('note')} .marxy-metadata-edit`);
+    const input = page.locator(`${row('note')} .marxy-metadata-input`);
+    assert.equal(await input.inputValue(), 'a\u200bb', 'the field holds the real value');
+    const hint = page.locator(`${row('note')} .marxy-metadata-why`);
+    await page.waitForFunction(() => document.querySelector('[data-marxy-metadata-key="note"] .marxy-metadata-why:not([hidden]) .marxy-invisible'));
+    await input.fill('plain');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-metadata-key="note"] .marxy-metadata-why')?.hidden === true);
+    await input.fill('c\u202ed');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-metadata-key="note"] .marxy-metadata-why:not([hidden]) .marxy-invisible-bidi'));
+    assert.equal(await hint.locator('.marxy-invisible-glyph').textContent(), '202E', 'typing a control shows its mark under the field');
+    await page.keyboard.press('Escape');
+    assert.equal(await doc(page), original, 'Esc wrote nothing');
+  }, { open: ['/r/bidi.md'] });
+});
+
+test('an edit that keeps or changes a typed value says what the value is now, and an undo takes the sentence away', async () => {
+  await withPage(1700, async (page) => {
+    await page.evaluate(() => window.__marxyHandle.open('/r/edit.md'));
+    await openTab(page);
+    await page.waitForSelector('[data-marxy-metadata-key="draft"] .marxy-metadata-edit');
+    const original = await doc(page);
+    await page.click('[data-marxy-metadata-key="draft"] .marxy-metadata-edit');
+    await page.locator('[data-marxy-metadata-key="draft"] .marxy-metadata-input').fill('false');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('[data-marxy-metadata-key="draft"] [data-marxy-metadata-typed]');
+    assert.equal(await page.locator('[data-marxy-metadata-key="draft"] [data-marxy-metadata-typed]').textContent(), 'Still a true-or-false value.');
+    // Text typed as a word that reads as another type is kept as text, and says so.
+    await page.click('[data-marxy-metadata-key="title"] .marxy-metadata-edit');
+    await page.locator('[data-marxy-metadata-key="title"] .marxy-metadata-input').fill('true');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('[data-marxy-metadata-key="title"] [data-marxy-metadata-typed]');
+    assert.match(await page.locator('[data-marxy-metadata-key="title"] [data-marxy-metadata-typed]').textContent(), /^Kept as text/);
+    assert.ok((await doc(page)).includes("title: 'true'"));
+    const mod = (await isMac(page)) ? 'Meta' : 'Control';
+    await page.keyboard.press(`${mod}+KeyZ`);
+    await page.keyboard.press(`${mod}+KeyZ`);
+    await page.waitForFunction((o) => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes) === o, original);
+    assert.equal(await page.locator('[data-marxy-metadata-typed]').count(), 0, 'the sentences go with the edits');
+  });
+});
+
+test('the same document in two panes: an edit through the tab shows in both, and undo puts both back', async () => {
+  await withPage(1900, async (page) => {
+    await openTab(page);
+    await page.waitForSelector('[data-marxy-metadata-key="title"] .marxy-metadata-edit');
+    const original = await doc(page);
+    const shared = await page.evaluate(() => {
+      const { panes } = window.__marxyHandle.panes();
+      return panes.length === 2 && panes[0].content.store() === panes[1].content.store();
+    });
+    assert.equal(shared, true, 'two panes, one store');
+    await page.click('[data-marxy-metadata-key="title"] .marxy-metadata-edit');
+    await page.locator('[data-marxy-metadata-key="title"] .marxy-metadata-input').fill('Both panes');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes).includes('title: Both panes'));
+    const seen = () => page.evaluate(() => window.__marxyHandle.panes().panes.map((p) => ({ text: new TextDecoder().decode(p.content.store().snapshot().buffer.bytes), shows: p.article.textContent.includes('Both panes') })));
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes.every((p) => p.article.textContent.includes('Both panes')));
+    const after = await seen();
+    assert.equal(after[0].text, after[1].text);
+    assert.equal(after[0].text, original.replace('title: Old', 'title: Both panes'));
+    assert.ok(after.every((p) => p.shows), 'each pane shows the new title');
+    await page.evaluate(() => window.__marxyHandle.document().undo());
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes.every((p) => !p.article.textContent.includes('Both panes')));
+    assert.equal(await doc(page), original);
+  }, { open: ['/r/edit.md', '/r/edit.md'] });
+});
+
+test('an outside write while the tab holds an edit goes down the conflict path: the reader\'s bytes stay, the disk\'s are held, nothing is written', async () => {
+  await withPage(1700, async (page) => {
+    await page.evaluate(() => window.__marxyHandle.open('/r/edit.md'));
+    await openTab(page);
+    await page.waitForSelector('[data-marxy-metadata-key="title"] .marxy-metadata-edit');
+    const original = await doc(page);
+    await page.click('[data-marxy-metadata-key="title"] .marxy-metadata-edit');
+    await page.locator('[data-marxy-metadata-key="title"] .marxy-metadata-input').fill('Mine');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes).includes('title: Mine'));
+    const outside = original.replace('title: Old', 'title: Theirs');
+    await page.evaluate((text) => window.__outside('/r/edit.md', text), outside);
+    await page.waitForFunction(() => window.__marxyHandle.document().conflict() !== null);
+    assert.equal(await doc(page), original.replace('title: Old', 'title: Mine'), 'the reader\'s edit stands; the outside write did not replace it');
+    // A second edit through the tab still lands on the reader\'s buffer, and the conflict is still pending.
+    await page.click('[data-marxy-metadata-key="draft"] .marxy-metadata-edit');
+    await page.locator('[data-marxy-metadata-key="draft"] .marxy-metadata-input').fill('false');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes).includes('draft: false'));
+    assert.equal(await doc(page), original.replace('title: Old', 'title: Mine').replace('draft: true', 'draft: false'));
+    assert.equal(await page.evaluate(() => new TextDecoder().decode(window.__marxyHandle.document().conflict())), outside);
+    assert.equal(await page.evaluate(() => window.__disk('/r/edit.md')), outside, 'the file on disk is the outside write, untouched');
+    assert.deepEqual(await page.evaluate(() => window.__appWrites.filter((w) => w.path.startsWith('/r/'))), [], 'nothing was written to the file');
+  }, { guard: true });
 });

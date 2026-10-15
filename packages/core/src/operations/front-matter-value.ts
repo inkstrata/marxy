@@ -56,6 +56,8 @@ export type FrontMatterEdit =
       /** The new value is the one already there: nothing to splice. */
       readonly unchanged: boolean;
       readonly summary: string;
+      /** In words, when the written value is typed (a number, true or false, a date, empty) or was kept as text by quotes; else null. */
+      readonly typed: string | null;
     }
   | { readonly ok: false; readonly reason: string };
 
@@ -660,7 +662,20 @@ export function frontMatterValues(document: Document, bytes: Uint8Array): FrontM
   const found = locate(document, bytes);
   if (typeof found === 'string') return found === 'This file has no front matter' ? null : { format: 'yaml', values: [], unreadable: found };
   const { scan, block, start } = found;
-  const base = (line: number): number => start + byteLength(block.slice(0, scan.lineStarts[line]!));
+  // The byte offset of each entry's line, taken as a running total: the entries come in line order, so each is the last one
+  // plus the bytes between them. (Measuring from the top of the block for every entry is quadratic: 23 s for a 30,000-key head.)
+  let seenChar = 0;
+  let seenByte = start;
+  const base = (line: number): number => {
+    const at = scan.lineStarts[line]!;
+    if (at < seenChar) {
+      seenChar = 0;
+      seenByte = start;
+    }
+    seenByte += byteLength(block.slice(seenChar, at));
+    seenChar = at;
+    return seenByte;
+  };
   return {
     format: scan.format,
     unreadable: scan.unreadable,
@@ -712,6 +727,28 @@ function renderToml(quoting: Quoting, next: string): string {
   return TOML_BARE.test(next) ? next : doubleQuoted(next);
 }
 
+const CLASS_WORDS: Record<ScalarClass, string> = {
+  null: 'an empty value',
+  bool: 'a true-or-false value',
+  number: 'a number',
+  timestamp: 'a date',
+  string: 'text',
+};
+
+/**
+ * What the reader should know of the type a YAML value is written as (it is the word they typed that decides it): that a number
+ * is still a number, that `1` typed as `true` is now a true-or-false value and no longer a number, and that a word that would
+ * read as one of those was put in quotes so it stays text. Null when text stays text.
+ */
+function typedNote(old: ScalarClass, typed: string, written: string): string | null {
+  const wouldBe = yamlClass(typed);
+  const quoted = written.startsWith('"') || written.startsWith("'");
+  const now: ScalarClass = quoted ? 'string' : wouldBe;
+  if (now === 'string' && wouldBe !== 'string') return `Kept as text: the quotes stop it being read as ${CLASS_WORDS[wouldBe]}.`;
+  if (now === old) return old === 'string' ? null : `Still ${CLASS_WORDS[now]}.`;
+  return `Now ${CLASS_WORDS[now]}, not ${CLASS_WORDS[old]}.`;
+}
+
 /**
  * The edit that sets the value of `key` in `document`'s front matter to `value` (the text as a reader reads it, not as the
  * file writes it). `bytes` are the document's bytes. On success, `range` and `replacement` are one splice over the bytes of
@@ -731,7 +768,7 @@ export function setFrontMatterValue(document: Document, bytes: Uint8Array, key: 
   const { from, to } = entry.token;
   const range: Source = { file, start: start + byteLength(block.slice(0, from)), end: start + byteLength(block.slice(0, to)) };
   const old = block.slice(from, to);
-  if (value === entry.value) return { ok: true, range, replacement: old, unchanged: true, summary: `${key} is already that` };
+  if (value === entry.value) return { ok: true, range, replacement: old, unchanged: true, summary: `${key} is already that`, typed: null };
   const replacement = scan.format === 'yaml' ? renderYaml(entry.quoting, entry.cls, value) : renderToml(entry.quoting, value);
   // The result is read again before it is offered: the other entries come back as they were and this one as asked.
   const patched = block.slice(0, from) + replacement + block.slice(to);
@@ -747,5 +784,6 @@ export function setFrontMatterValue(document: Document, bytes: Uint8Array, key: 
       return e.sig === was.sig && e.value === was.value && e.refusal === was.refusal;
     });
   if (!same) return refuse('Marxy could not write that value without risk to the file; edit it in Source');
-  return { ok: true, range, replacement, unchanged: false, summary: `${key} changed` };
+  const typed = scan.format === 'yaml' ? typedNote(entry.cls ?? 'string', value, replacement) : null;
+  return { ok: true, range, replacement, unchanged: false, summary: `${key} changed`, typed };
 }

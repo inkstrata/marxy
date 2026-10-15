@@ -15,6 +15,7 @@ import { metadataMargin, setMetadataMargin } from '../commands/app-handle.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { selectInspectorTab } from '../workspace/inspector.ts';
 import { frontMatterOf, modifiedWords } from '../workspace/metadata-tab.ts';
+import { setMarked, spokenText } from '../workspace/metadata-marks.ts';
 import { formatCount } from '../source/frame-facts.ts';
 import type { DocumentSignal } from '../workspace/toolbar.ts';
 import { notify } from '../notices/index.ts';
@@ -142,10 +143,10 @@ export function installMetadataMargin(handle: AppHandle, signal: DocumentSignal)
     list.className = 'marxy-metadata-preview-list';
     for (const row of rows) {
       const dt = document.createElement('dt');
-      dt.textContent = row.key;
+      setMarked(dt, row.key);
       const dd = document.createElement('dd');
-      dd.textContent = row.value;
-      dd.title = row.value;
+      setMarked(dd, row.value);
+      dd.title = spokenText(row.value);
       list.append(dt, dd);
     }
     block.append(list);

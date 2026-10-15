@@ -270,3 +270,46 @@ test('a front matter that never closes is not edited, and a duplicate key refuse
   assert.match(refused(dup, 'title', 'New'), /more than once/);
   assert.equal(ok(dup, 'other', 'w'), dup.replace('other: z', 'other: w'));
 });
+
+test('a 30,000-key head is read in linear time, and each key keeps its own byte offset', () => {
+  const n = 30_000;
+  const lines: string[] = [];
+  for (let i = 0; i < n; i++) lines.push(`k${i}: ${i % 7 === 0 ? 'né' : 'v'}${i}`);
+  const doc = `---\n${lines.join('\n')}\n---\n${BODY}`;
+  const bytes = enc.encode(doc);
+  const parsed = parseMarkdown(bytes, { file: 'big.md' });
+  const t0 = performance.now();
+  const shown = frontMatterValues(parsed, bytes)!;
+  const ms = performance.now() - t0;
+  assert.equal(shown.values.length, n);
+  // The quadratic took 23 s here; a linear pass is well under a second. 4 s leaves room for a loaded machine and still cannot hide it.
+  assert.ok(ms < 4000, `frontMatterValues took ${Math.round(ms)} ms for ${n} keys`);
+  for (const i of [0, 1, 7, 8, 14_999, 29_999]) {
+    const v = shown.values[i]!;
+    assert.equal(v.key, `k${i}`);
+    assert.equal(dec.decode(bytes.subarray(v.lineStart, v.lineStart + `k${i}:`.length)), `k${i}:`, `line ${i} starts at its own byte`);
+  }
+  // One edit of the last key is still one splice of that value.
+  const r = set(doc, 'k29999', 'changed');
+  assert.ok('text' in r);
+  assert.equal(r.text, doc.replace('k29999: v29999', 'k29999: changed'));
+});
+
+test('YAML: a typed value says what it is written as, and a word kept as text says it was quoted', () => {
+  const typed = (source: string, key: string, value: string): string | null => {
+    const bytes = enc.encode(source);
+    const edit = setFrontMatterValue(parseMarkdown(bytes, { file: 'f.md' }), bytes, key, value);
+    assert.ok(edit.ok);
+    return edit.typed;
+  };
+  const src = '---\ncount: 1\ntitle: Old\nquoted: "Old"\nwhen: 2026-10-13\n---\n';
+  assert.equal(typed(src, 'count', '2'), 'Still a number.');
+  assert.equal(typed(src, 'count', 'true'), 'Now a true-or-false value, not a number.');
+  assert.equal(typed(src, 'count', 'many'), 'Now text, not a number.');
+  assert.equal(typed(src, 'count', ''), 'Kept as text: the quotes stop it being read as an empty value.', 'an empty string is written as \'\', not as nothing');
+  assert.equal(typed(src, 'when', '2026-11-01'), 'Still a date.');
+  assert.equal(typed(src, 'title', 'true'), 'Kept as text: the quotes stop it being read as a true-or-false value.');
+  assert.equal(typed(src, 'quoted', '42'), 'Kept as text: the quotes stop it being read as a number.');
+  assert.equal(typed(src, 'title', 'New'), null, 'text stays text without a word');
+  assert.equal(ok(src, 'count', 'true'), src.replace('count: 1', 'count: true'), 'the written bytes are the typed word');
+});

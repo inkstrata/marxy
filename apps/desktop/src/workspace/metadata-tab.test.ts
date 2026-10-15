@@ -7,7 +7,8 @@ import { createBuffer } from '@marxy/core';
 import { parseMarkdown } from '@marxy/core/src/parse/parse.ts';
 import { noteByte as noteByteOf } from './metadata-tab.ts';
 import { openDocumentStore, type StoreIo } from '../document/store.ts';
-import { applyFrontMatterEdit, frontMatterOf, metadataModelOf, modifiedWords, reshapedPlaces, scanHidden, sizeFact } from './metadata-tab.ts';
+import { hasMarks, spokenText } from './metadata-marks.ts';
+import { FRONT_MATTER_READ_LIMIT, applyFrontMatterEdit, frontMatterEnd, frontMatterOf, metadataModelOf, modifiedWords, reshapedPlaces, scanHidden, sizeFact } from './metadata-tab.ts';
 
 const enc = new TextEncoder();
 const dec = new TextDecoder('utf-8', { ignoreBOM: true });
@@ -91,7 +92,7 @@ test('applyFrontMatterEdit: one splice, one undo step, and the bytes are back af
   const store = open('/r/a.md', text);
   const before = store.snapshot().buffer.bytes.slice();
   const done = await applyFrontMatterEdit(store, 'title', 'New "one"');
-  assert.deepEqual(done, { applied: true, unchanged: false });
+  assert.deepEqual(done, { applied: true, unchanged: false, typed: null });
   assert.equal(textOf(store), '---\r\ntitle: "New \\"one\\"" # keep\r\nauthor: Ada\r\n---\r\n\r\nBody\r\n');
   assert.equal(store.snapshot().canUndo, true);
   await store.undo();
@@ -124,7 +125,7 @@ test('applyFrontMatterEdit on a document opened in Source (not parsed) edits fro
   const body = 'Body line\n'.repeat(5000);
   const store = open('/r/big.md', `---\ntitle: Old\n---\n${body}`, true);
   assert.equal(store.parsed(), false);
-  assert.deepEqual(await applyFrontMatterEdit(store, 'title', 'New'), { applied: true, unchanged: false });
+  assert.deepEqual(await applyFrontMatterEdit(store, 'title', 'New'), { applied: true, unchanged: false, typed: null });
   assert.equal(textOf(store), `---\ntitle: New\n---\n${body}`);
 });
 
@@ -156,4 +157,113 @@ test('noteByte: a note\'s line and column in the editor\'s LF text are the byte 
   const note = { kind: 'fence', start: 0, end: 0, byteStart: null, byteEnd: null, line: 2, column: 8, words: '' } as const;
   const byte = noteByteOf(buffer, note);
   assert.equal(dec.decode(buffer.bytes.subarray(byte, byte + 3)), '```');
+});
+
+test('frontMatterOf: a head of 544 KB in a store not parsed is read whole, not cut at 256 KB and called no front matter', async () => {
+  const lines: string[] = [];
+  for (let size = 0, i = 0; size < 544 * 1024; i++) {
+    const line = `key${i}: value number ${i} in a head that is long`;
+    lines.push(line);
+    size += line.length + 1;
+  }
+  const text = `---\n${lines.join('\n')}\n---\n\n# Body\n\n${'Paragraph.\n\n'.repeat(2000)}`;
+  assert.ok(enc.encode(lines.join('\n')).length > 544 * 1024);
+  const store = open('/r/long.md', text, true);
+  assert.equal(store.parsed(), false);
+  const found = frontMatterOf(store)!;
+  assert.ok(found !== null, 'the long head is a front matter');
+  assert.equal(found.values.values.length, lines.length);
+  assert.equal(found.values.values.at(-1)!.key, `key${lines.length - 1}`);
+  assert.equal(store.parsed(), false, 'and the document was not parsed to find it');
+  assert.deepEqual(await applyFrontMatterEdit(store, `key${lines.length - 1}`, 'changed'), { applied: true, unchanged: false, typed: null });
+  assert.equal(textOf(store), text.replace(`key${lines.length - 1}: value number ${lines.length - 1} in a head that is long`, `key${lines.length - 1}: changed`));
+});
+
+test('frontMatterEnd: the closing line of the opening fence, for LF, CRLF, a BOM and trailing blanks; none where it never closes', () => {
+  const end = (t: string) => frontMatterEnd(enc.encode(t));
+  assert.equal(end('---\na: 1\n---\nBody'), 13);
+  assert.equal(end('---\r\na: 1\r\n---\r\nBody'), 16);
+  assert.equal(end('\ufeff---\na: 1\n--- \t\nBody'), 3 + 4 + 5 + 6);
+  assert.equal(end('+++\na = 1\n+++\n'), 14);
+  assert.equal(end('---\na: 1\n+++\nBody'), 0, 'the fence is the opening\'s own');
+  assert.equal(end('---\na: 1\nBody without a closing rule\n'), 0);
+  assert.equal(end('# no front matter\n---\n'), 0);
+  assert.equal(end('---\na: 1\n---'), 12, 'a closing rule with no line break after it');
+});
+
+test('frontMatterOf: a head past the limit is listed as too long to read here, never as no front matter, and an edit is refused with that', async () => {
+  const filler = 'k: v\n'.repeat(Math.ceil((FRONT_MATTER_READ_LIMIT + 1024) / 5));
+  const store = open('/r/huge.md', `---\n${filler}---\nBody\n`, true);
+  const found = frontMatterOf(store);
+  assert.ok(found !== null);
+  assert.deepEqual(found.values.values, []);
+  assert.match(found.values.unreadable ?? '', /too long to read here/);
+  const result = await applyFrontMatterEdit(store, 'k', 'x');
+  assert.equal(result.applied, false);
+  assert.match((result as { why: string }).why, /too long to read here/);
+});
+
+test('applyFrontMatterEdit: an outside write that lands first is not overwritten, and one that waits on a dirty buffer goes to the conflict path', async () => {
+  // Clean buffer: the file is rewritten on disk while the edit is being worked out. The edit is refused as stale, the disk's bytes stand.
+  const text = '---\ntitle: Old\nauthor: Ada\n---\nBody\n';
+  const disk = '---\ntitle: Disk\nauthor: Grace\n---\nBody\n';
+  const clean = open('/r/a.md', text);
+  const reloading = clean.reload(enc.encode(disk));
+  const racing = applyFrontMatterEdit(clean, 'title', 'Mine');
+  assert.equal(await reloading, 'reloaded');
+  const lost = await racing;
+  assert.equal(lost.applied, false);
+  assert.match((lost as { why: string }).why, /changed while this was being worked out; nothing was changed/);
+  assert.equal(textOf(clean), disk, 'the outside write was not clobbered');
+
+  // Dirty buffer: an edit is made, then the file changes on disk. The reload is kept, not applied; the next edit lands on the buffer
+  // the reader has, the disk's bytes are held for an explicit choice, and nothing is written.
+  const writes: string[] = [];
+  const spyIo: StoreIo = { ...io, writeFileAtomic: async (path) => void writes.push(path) };
+  const dirty = openDocumentStore(spyIo, '/r/b.md', enc.encode(text), undefined, { lazy: false });
+  assert.deepEqual(await applyFrontMatterEdit(dirty, 'title', 'First'), { applied: true, unchanged: false, typed: null });
+  assert.equal(await dirty.reload(enc.encode(disk)), 'kept');
+  assert.deepEqual(dirty.conflict(), enc.encode(disk), 'the outside write is held as the pending conflict');
+  assert.deepEqual(await applyFrontMatterEdit(dirty, 'author', 'Second'), { applied: true, unchanged: false, typed: null });
+  assert.equal(textOf(dirty), '---\ntitle: First\nauthor: Second\n---\nBody\n', 'both edits are on the buffer the reader has');
+  assert.deepEqual(dirty.conflict(), enc.encode(disk), 'the conflict is still pending, for the reader to settle');
+  assert.deepEqual(writes, [], 'nothing was written to the file');
+});
+
+test('applyFrontMatterEdit: redo after undo restores the exact bytes of the edit, and undo again the exact bytes before it', async () => {
+  const text = '\ufeff---\r\ntitle: "Old" # keep\r\ncount: 1\r\n---\r\n\r\nBody \u200b\r\n';
+  const store = open('/r/a.md', text);
+  const before = store.snapshot().buffer.bytes.slice();
+  assert.equal((await applyFrontMatterEdit(store, 'count', 'true') as { typed?: string | null }).typed, 'Now a true-or-false value, not a number.');
+  const after = store.snapshot().buffer.bytes.slice();
+  assert.equal(dec.decode(after), text.replace('count: 1', 'count: true'));
+  assert.equal(await store.undo(), true);
+  assert.deepEqual(store.snapshot().buffer.bytes, before);
+  assert.equal(await store.redo(), true);
+  assert.deepEqual(store.snapshot().buffer.bytes, after, 'redo gives back the edited bytes exactly');
+  assert.equal(await store.undo(), true);
+  assert.deepEqual(store.snapshot().buffer.bytes, before);
+});
+
+test('one store seen by two views: both are told of an edit made through either, with the same bytes', async () => {
+  const store = open('/r/a.md', '---\ntitle: Old\n---\nBody\n');
+  const seenA: string[] = [];
+  const seenB: string[] = [];
+  store.subscribe((snap) => void seenA.push(dec.decode(snap.buffer.bytes)));
+  store.subscribe((snap) => void seenB.push(dec.decode(snap.buffer.bytes)));
+  await applyFrontMatterEdit(store, 'title', 'New');
+  await store.undo();
+  const edited = '---\ntitle: New\n---\nBody\n';
+  const original = '---\ntitle: Old\n---\nBody\n';
+  assert.deepEqual(seenA, [edited, original]);
+  assert.deepEqual(seenB, seenA);
+});
+
+test('metadata marks: a bidi control or a zero-width character is a visible mark with a spoken name, and plain text is left as text', () => {
+  assert.equal(hasMarks('exe.txt'), false);
+  assert.equal(hasMarks('\u202eexe.txt'), true);
+  assert.equal(hasMarks('a\u200bb'), true);
+  assert.equal(hasMarks('caf\u00e9'), false);
+  assert.equal(spokenText('\u202etxt.exe'), ' U+202E txt.exe');
+  assert.equal(spokenText('plain'), 'plain');
 });
