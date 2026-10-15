@@ -38,9 +38,11 @@ test('every command a tool names is a command the registry has today, or the too
 test('today the strip holds only what exists: Changes for report and changelog, Outline for readme and docs, Line numbers for code, two tools for a log, two for data', () => {
   const drawn = (kind: (typeof KINDS)[number]) => toolsFor(kind, none, real).map((t) => t.label);
   assert.deepEqual(drawn('report'), ['Changes']);
-  assert.deepEqual(drawn('changelog'), ['Changes']);
+  // K-22: Versions and Copy release notes join Changes; Compare has no command.
+  assert.deepEqual(drawn('changelog'), ['Versions', 'Copy release notes', 'Changes']);
   assert.deepEqual(drawn('readme'), ['Outline']);
-  assert.deepEqual(drawn('docs'), ['Outline']);
+  // K-22: the mock's "On this page" opens the inspector's Outline tab; the rest of the docs-set tools wait for K-14.
+  assert.deepEqual(drawn('docs'), ['On this page']);
   assert.deepEqual(drawn('code'), ['Line numbers']);
   // K-08: exactly these two; Wrap and Follow tail have no command yet and are not drawn.
   assert.deepEqual(drawn('log'), ['Filter by level', 'Jump to first error']);

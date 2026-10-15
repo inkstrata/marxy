@@ -752,7 +752,7 @@ export function spacingAppliedFailures(s) {
  * expects. Written out here, not read from the stylesheet, so a profile whose ratio moves fails the gate until someone
  * says so; a kind with no entry (every other kind, and a page with no kind) is held to the reader's size as before.
  */
-export const KIND_BODY_RATIO = { readme: 0.8, report: 0.85, transcript: 0.8 };
+export const KIND_BODY_RATIO = { readme: 0.8, report: 0.85, transcript: 0.8, docs: 0.8, changelog: 0.85 };
 
 /** The 200 % condition: body text is `want` px (twice the default size) times the kind's profile ratio, not whatever the page happened to use. */
 export function text200AppliedFailures(s, want) {

@@ -1,5 +1,6 @@
-// The default theme's kind profiles (K-05b; ADR-0059 item 7, ADR-0060): `article`, `readme` and `report` each
-// set a face, a size, a line box and a measure through the kind scope; every other kind reads as it did. The
+// The default theme's kind profiles (K-05b; ADR-0059 item 7, ADR-0060; K-22 adds `docs` and `changelog`): `article`, `readme`, `report`,
+// `docs` and `changelog` each set a face, a size, a line box and a measure through the kind scope; `notes` reads as the default prose; every
+// other kind reads as it did. The
 // sizes are multiples of the reader's own, the column holds its character count at any reader size, and the
 // Source editor is not styled by a profile. The app boots on the shipped skeleton and its inline default theme
 // over the memory shell, so these are the rules the app ships.
@@ -33,6 +34,8 @@ const files = {
   '/r/README.md': prose,
   '/r/plan.md': plan,
   '/r/CHANGELOG.md': '# Changelog\n\n## 1.0.0\n\n- first\n',
+  '/r/docs/watch.md': '# Index::watch\n\nWatch folders.\n\n## Parameters\n\nx\n\n## Returns\n\ny\n',
+  '/r/notes/2026-10-08.md': '2026-10-08\n\n# Thursday\n\n- one\n',
   '/r/main.rs': 'fn main() {}\n',
 };
 
@@ -106,12 +109,28 @@ test('each profile sets its face, size, line box and column; a kind with no prof
     assert.deepEqual([report.body, report.line], [17, 26], 'the report is 17 on 26');
     near(report.chars, 74, 'the report column, in average characters');
 
+    // K-22: a changelog takes the report's setting, a docs page the README's, and notes keep today's prose.
     const changelog = await open(page, '/r/CHANGELOG.md');
     assert.equal(changelog.kind, 'changelog');
-    assert.equal(changelog.family, 'Literata', 'a kind with no profile keeps the text face');
-    assert.deepEqual([changelog.body, changelog.line], [20, 30]);
-    near(changelog.chars, 66, 'and its measure');
-    near(changelog.column, 66 * 0.463 * 20, 'and its column in pixels');
+    assert.equal(changelog.family, 'Atkinson Hyperlegible Next');
+    assert.equal(changelog.headingFamily, 'Atkinson Hyperlegible Next');
+    assert.deepEqual([changelog.body, changelog.line], [17, 26], 'a changelog is 17 on 26');
+    near(changelog.chars, 74, 'the changelog column, in average characters');
+
+    const docs = await open(page, '/r/docs/watch.md');
+    assert.equal(docs.kind, 'docs');
+    assert.equal(docs.family, 'Inter');
+    assert.equal(docs.headingFamily, 'Inter');
+    assert.deepEqual([docs.body, docs.line], [16, 26], 'a docs page is 16 on 26');
+    near(docs.chars, 80, 'the docs column is 80 characters, the clamp edge');
+    assert.equal(docs.h1, 31, 'headings are sized from the docs body (16 x 1.25^3)');
+
+    const notes = await open(page, '/r/notes/2026-10-08.md');
+    assert.equal(notes.kind, 'notes');
+    assert.equal(notes.family, 'Literata', 'notes keep the text face');
+    assert.deepEqual([notes.body, notes.line], [20, 30]);
+    near(notes.chars, 66, 'and its measure');
+    near(notes.column, 66 * 0.463 * 20, 'and its column in pixels');
   }));
 
 test('the profiles hold in Paper as in Night', () =>
@@ -122,6 +141,10 @@ test('the profiles hold in Paper as in Night', () =>
     assert.deepEqual([readme.family, readme.body, readme.line], ['Inter', 16, 26]);
     const report = await open(page, '/r/plan.md');
     assert.deepEqual([report.family, report.body, report.line], ['Atkinson Hyperlegible Next', 17, 26]);
+    const docs = await open(page, '/r/docs/watch.md');
+    assert.deepEqual([docs.family, docs.body, docs.line], ['Inter', 16, 26]);
+    const changelog = await open(page, '/r/CHANGELOG.md');
+    assert.deepEqual([changelog.family, changelog.body, changelog.line], ['Atkinson Hyperlegible Next', 17, 26]);
   }));
 
 test('a profile is a multiple of the reader size: at two reader sizes the sizes follow and every line box is whole and even', () =>
@@ -129,13 +152,13 @@ test('a profile is a multiple of the reader size: at two reader sizes the sizes 
     await bootTwoPanes(page, { files, open: ['/r/README.md'] });
     for (const size of [16, 24]) {
       await readerSize(page, size);
-      for (const [path, ratio, face] of [['/r/README.md', 0.8, 'Inter'], ['/r/plan.md', 0.85, 'Atkinson Hyperlegible Next']]) {
+      for (const [path, ratio, face] of [['/r/README.md', 0.8, 'Inter'], ['/r/plan.md', 0.85, 'Atkinson Hyperlegible Next'], ['/r/docs/watch.md', 0.8, 'Inter'], ['/r/CHANGELOG.md', 0.85, 'Atkinson Hyperlegible Next']]) {
         const m = await open(page, path);
         assert.equal(m.family, face);
         near(m.body, ratio * size, `${path} body at reader size ${size}`);
         assert.ok(Number.isInteger(m.line) && m.line % 2 === 0, `${path} line box ${m.line} is a whole even pixel at reader size ${size}`);
         assert.ok(Number.isInteger(m.lineCode) && m.lineCode % 2 === 0, `${path} code line box ${m.lineCode} is a whole even pixel`);
-        near(m.chars, path.endsWith('README.md') ? 80 : 74, `${path} holds its characters at reader size ${size}`);
+        near(m.chars, ['README.md', 'watch.md'].some((n) => path.endsWith(n)) ? 80 : 74, `${path} holds its characters at reader size ${size}`);
       }
     }
   }));

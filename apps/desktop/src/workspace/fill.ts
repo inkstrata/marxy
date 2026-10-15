@@ -4,6 +4,7 @@
 // composition root is not touched again. The fills are registered at launch and cost nothing: they run only
 // when the window unfolds, and are taken out when it folds (workspace/state.ts), so a folded page has none.
 import type { AppHandle } from '../app.ts';
+import { installQuietDates } from '../kinds/quiet-dates.ts';
 import { mountKindChip, mountStrip } from './kind-chip.ts';
 import { mountInspector, registerInspectorTab } from './inspector.ts';
 import { installMetadataMargin } from '../render/metadata-margin.ts';
@@ -44,4 +45,6 @@ export function installWorkspaceFills(handle: AppHandle): void {
   workspace.fill('status-bar', (el) => mountStatusBar(el, handle, signal));
   // Folded, the pointer resting at an edge shows that edge's panel (W-03); the listeners exist only while folded.
   installPeek(workspace);
+  // A changelog's version dates and a notes file's date line are quiet, folded or not: a highlight over the page's own characters (K-22).
+  installQuietDates(handle);
 }
