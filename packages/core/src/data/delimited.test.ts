@@ -129,6 +129,11 @@ test('an unreadable row says how many lines after it its quote reached into: tho
   assert.deepEqual(unreadable(derive('x,"ab"c,d\nok,1\n')), [['after-quote', 0]]);
   assert.deepEqual(unreadable(derive('a,b\r2,"oops\rmid,2\rlast,3\r')), [['unclosed-quote', 2]]);
   assert.deepEqual(unreadable(derive('a,b\r\n2,"oops\r\nmid,2\r\nlast,3\r\n')), [['unclosed-quote', 2]]);
+  // A valid multi-line field earlier in the same record: its line break is a line the record's quoting reached into.
+  // The record's own quote reached into the line its multi-line field ran onto (1); that line is then read again as a row
+  // of its own, unreadable with nothing after it to swallow.
+  assert.deepEqual(unreadable(derive('a,b\n"x\ny",1,"c"d\nnext,2\n')), [['after-quote', 1], ['after-quote', 0]]);
+  assert.deepEqual(unreadable(derive('a,b\n"x\ny",1,"oops\nmid,2\n')), [['unclosed-quote', 2], ['unclosed-quote', 1]]);
 });
 
 test('delimiterHint: a one-field table whose every row holds the same count of another delimiter may use it; a real table or a mixed one gives no hint (F-89)', () => {
