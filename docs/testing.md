@@ -38,7 +38,7 @@ checks another one).
 | `changed` | `quick`, plus the browser test files that cover the changed folders, `lint:rust` and `cargo test` when `apps/desktop/src-tauri` changed |
 | `full` | every unit suite, `lint:rust`, `cargo test`, every browser test file, `pnpm --filter @marxy/desktop build`, and on Windows `check:tauri` |
 
-CI (`.github/workflows/ci.yml`) runs this tool and nothing of its own, in two jobs. On macOS it runs every step
+CI (`.github/workflows/ci.yml`) runs this tool and nothing of its own, in two jobs, and a third, `ci` (the check branch protection requires), passes when both do. On macOS it runs every step
 that passes there (all but `browser` and `tauri`), with `--tier full --only`. On Windows it runs `changed` against the base branch
 on a pull request, `quick` on a push to `main`, and any tier on a manual run. Each job uploads its step logs as an
 artifact. The browser suite is not yet green on macOS WebKit; the files that fail there are listed in

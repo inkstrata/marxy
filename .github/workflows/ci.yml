@@ -88,3 +88,17 @@ jobs:
           name: verify-logs-windows
           path: ${{ runner.temp }}/verify
           if-no-files-found: ignore
+
+  # Branch protection on main requires the one check `ci`; it passes only when both platforms did.
+  ci:
+    if: always()
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Both platforms passed
+        env:
+          MACOS: ${{ needs.macos.result }}
+          WINDOWS: ${{ needs.windows.result }}
+        run: |
+          echo "macos: $MACOS, windows: $WINDOWS"
+          test "$MACOS" = success && test "$WINDOWS" = success
