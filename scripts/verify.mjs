@@ -293,14 +293,21 @@ function git(root, args) {
   return r.stdout;
 }
 
-/** Paths changed since the merge base with `base`: commits, staged and unstaged edits, and untracked files. */
+/**
+ * Paths changed since the merge base with `base`: commits, staged and unstaged edits, and untracked files. A bare
+ * branch name that is not a local branch falls back to `origin/<name>`: a CI checkout has `origin/main` and no `main`.
+ */
 export function changedPaths(root, base) {
   let mb;
-  try {
-    mb = git(root, ['merge-base', base, 'HEAD']).trim();
-  } catch {
-    throw new Error(`base ref ${base} not found in ${root}; pass --base <ref>`);
+  for (const ref of base.includes('/') ? [base] : [base, `origin/${base}`]) {
+    try {
+      mb = git(root, ['merge-base', ref, 'HEAD']).trim();
+      break;
+    } catch {
+      // try the next candidate
+    }
   }
+  if (!mb) throw new Error(`base ref ${base} not found in ${root}; pass --base <ref>`);
   const lines = s => s.split('\n').map(l => l.trim()).filter(Boolean);
   const set = new Set([...lines(git(root, ['diff', '--name-only', '--no-renames', mb])), ...lines(git(root, ['ls-files', '--others', '--exclude-standard']))]);
   return [...set].sort();

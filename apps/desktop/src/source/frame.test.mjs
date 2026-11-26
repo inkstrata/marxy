@@ -285,11 +285,21 @@ test('the bars never cover text and scrolling does not move them', async () => {
     assert.ok(before.top[1] <= before.ruler[0] + 0.01 && before.ruler[1] <= before.scroller[0] + 0.01, 'the top bar and the ruler end where the text begins');
     assert.ok(before.scroller[1] <= before.bottom[0] + 0.01, 'the text ends where the bottom bar begins');
     assert.ok(before.frame[0] <= before.top[0] && before.bottom[1] <= before.frame[1] + 0.01, 'everything is inside the frame');
-    await page.evaluate(() => { document.querySelector('#marxy-source .cm-scroller').scrollTop = 1500; });
+    // On a slow machine (CI's macOS runner) a late layout pass just after open can put the scroller back once, so
+    // scroll until it holds: what is under test is the bars during a scroll, not the place kept at open.
+    const held = await page
+      .waitForFunction(() => {
+        const s = document.querySelector('#marxy-source .cm-scroller');
+        if (s.scrollTop > 1000) return true;
+        s.scrollTop = 1500;
+        return false;
+      }, null, { timeout: 5000, polling: 100 })
+      .then(() => true, () => false);
     await page.waitForTimeout(300);
     const after = await geometry();
     assert.deepEqual(after, before, 'the bars and the frame did not move with the scroll');
-    assert.ok(await page.evaluate(() => document.querySelector('#marxy-source .cm-scroller').scrollTop > 1000), 'the text did scroll');
+    const scroll = await page.evaluate(() => { const s = document.querySelector('#marxy-source .cm-scroller'); return { top: s.scrollTop, height: s.scrollHeight, client: s.clientHeight }; });
+    assert.ok(held && scroll.top > 1000, `the text did scroll (${JSON.stringify(scroll)})`);
     // No visible row is under a bar: the point at each row's centre is the editor's, never a bar's.
     const covered = await page.evaluate(() => {
       const bad = [];

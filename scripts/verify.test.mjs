@@ -2,10 +2,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { allBrowserTests, catalog, classifyChanges, DESKTOP_UNIT_BROWSER, desktopUnitFiles, formatCounts, heavySpan, mapProblems, parseArgs, parseCounts, plan, slotCount, slotWaitSec, SUPPORT_SMOKE, table } from './verify.mjs';
+import { allBrowserTests, catalog, changedPaths, classifyChanges, DESKTOP_UNIT_BROWSER, desktopUnitFiles, formatCounts, heavySpan, mapProblems, parseArgs, parseCounts, plan, slotCount, slotWaitSec, SUPPORT_SMOKE, table } from './verify.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const map = JSON.parse(readFileSync(join(ROOT, 'scripts/verify-map.json'), 'utf8'));
@@ -243,4 +244,26 @@ test('slot wait: three hours by default, a bad MARXY_VERIFY_SLOT_WAIT_SEC is ref
   assert.equal(slotWaitSec({ MARXY_VERIFY_SLOT_WAIT_SEC: '0' }), 0);
   assert.equal(slotWaitSec({ MARXY_VERIFY_SLOT_WAIT_SEC: '30' }), 30);
   for (const bad of ['soon', '-5', 'Infinity']) assert.throws(() => slotWaitSec({ MARXY_VERIFY_SLOT_WAIT_SEC: bad }), /MARXY_VERIFY_SLOT_WAIT_SEC/);
+});
+
+test('changedPaths: a bare base that is only a remote branch (a CI checkout) resolves as origin/<base>', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'verify-base-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const g = (...a) => {
+    const r = spawnSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...a], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    return r.stdout.trim();
+  };
+  g('init', '-q', '-b', 'main');
+  writeFileSync(join(dir, 'a.txt'), 'a');
+  g('add', '.');
+  g('commit', '-q', '-m', 'a');
+  g('update-ref', 'refs/remotes/origin/main', g('rev-parse', 'HEAD'));
+  g('checkout', '-q', '-b', 'topic');
+  g('branch', '-D', 'main');
+  writeFileSync(join(dir, 'b.txt'), 'b');
+  g('add', '.');
+  g('commit', '-q', '-m', 'b');
+  assert.deepEqual(changedPaths(dir, 'main'), ['b.txt']);
+  assert.throws(() => changedPaths(dir, 'nope'), /base ref nope not found/);
 });
