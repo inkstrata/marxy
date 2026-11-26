@@ -44,7 +44,7 @@ technical map and [docs/working.md](docs/working.md) is how a change is carried 
 | Pictures of the app | `pnpm --filter @marxy/desktop shots <scenario.mjs>` (`--exe` for the built window) |
 | Rust | `cargo test` in `apps/desktop/src-tauri`; `pnpm lint:rust` |
 | Release build and smoke check | `pnpm --filter @marxy/desktop build` |
-| Installer | `pnpm --filter @marxy/desktop bundle`; on Windows, signed, kept and installed: `pnpm work installer` |
+| Installer | `pnpm --filter @marxy/desktop bundle`; built from a ref, kept and installed (macOS and Windows): `pnpm work installer` |
 | Drive the real window (Windows) | `pnpm --filter @marxy/desktop check:tauri`, after `build` |
 | Clear finished work | `pnpm work clean` lists it, `--apply` removes it |
 
