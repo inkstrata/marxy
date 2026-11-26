@@ -1,4 +1,4 @@
-// strip-emoji and strip-citations were rewritten for speed (W-21.2): neither parses a text it cannot change, and
+// strip-emoji and strip-citations were rewritten for speed: neither parses a text it cannot change, and
 // strip-citations makes one pass over the prose of the original text where it made two, the second over a text it had
 // to parse again. The output must be the same bytes. This keeps the earlier bodies and compares, on the corpus and on
 // fuzzed text with stray bytes (U+DC80 to U+DCFF), astral emoji and every marker the two transforms read.

@@ -1,38 +1,38 @@
-/* marxy base stylesheet — system-owned layout and rhythm (docs/design/05-theme.md, ADR-0008).
+/* marxy base stylesheet — system-owned layout and rhythm.
    Themes set tokens; this file turns them into a page that keeps the design language by
-   construction. Every vertical distance is a multiple of the grid unit, half the body line box
-   (ADR-0030): paragraphs sit half a line apart, headings close their line-box remainder with
+   construction. Every vertical distance is a multiple of the grid unit, half the body line box:
+  paragraphs sit half a line apart, headings close their line-box remainder with
    padding, and whatever cannot be constructed (code, tables, images, math) is padded by snapToGrid. No margin or
    padding here is a bare px value; scripts/lint-default-theme.mjs checks. */
 
 /* The column, as an absolute length computed where the measure's em means the body size, so code,
-   tables and anything else in another size can reach the same edges (ADR-0033). */
+   tables and anything else in another size can reach the same edges. */
 @property --marxy-column { syntax: '<length>'; inherits: true; initial-value: 0px; }
 
 :root {
   /* Role sizes derived from the scale; the contract lists only the base and the ratio. */
-  --marxy-size-h1: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 3)), 1px);
-  --marxy-size-h2: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 2)), 1px);
-  --marxy-size-h3: round(calc(var(--marxy-size-body) * var(--marxy-scale-ratio)), 1px);
+  --marxy-size-h1: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 2.1)), 1px);
+  --marxy-size-h2: round(calc(var(--marxy-size-body) * var(--marxy-scale-ratio)), 1px);
+  --marxy-size-h3: var(--marxy-size-body);
   color-scheme: dark;
   background: var(--marxy-color-bg);
 }
 :root[data-marxy-variant="light"] { color-scheme: light; }
 
-/* A pane's kind scope may set its own measure (ADR-0059 item 7). --marxy-measure is computed on :root in
+/* A pane's kind scope may set its own measure. --marxy-measure is computed on :root in
    tokens.css, so a per-kind --marxy-measure-chars would change nothing below it: the same computation is
    repeated where the kind's values apply. :root keeps its declaration, so a v1 theme renders as before. */
 [data-marxy-kind] {
-  /* A measure the reader wrote (`--marxy-measure-user`, set on the root by the app, W-12) beats the kind's own; unset, the kind's stands. */
+  /* A measure the reader wrote (`--marxy-measure-user`, set on the root by the app) beats the kind's own; unset, the kind's stands. */
   --marxy-measure: calc(var(--marxy-measure-user, var(--marxy-measure-chars)) * var(--marxy-avg-char) * 1em);
   /* The heading sizes are derived from the body size and the ratio, which a kind may set: derived again here, as
-     the measure is, or a README's headings would be sized from the reader's 20 px body (K-05b). */
-  --marxy-size-h1: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 3)), 1px);
-  --marxy-size-h2: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 2)), 1px);
-  --marxy-size-h3: round(calc(var(--marxy-size-body) * var(--marxy-scale-ratio)), 1px);
+     the measure is, or a README's headings would be sized from the reader's 20 px body. */
+  --marxy-size-h1: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 2.1)), 1px);
+  --marxy-size-h2: round(calc(var(--marxy-size-body) * var(--marxy-scale-ratio)), 1px);
+  --marxy-size-h3: var(--marxy-size-body);
 }
 /* Source is the same editor whatever the kind: a profile is how the text is read, not how the bytes are shown, so
-   the editor takes the reader's own sizes back (K-05b). */
+   the editor takes the reader's own sizes back. */
 .marxy-source-mount {
   --marxy-size-body: var(--marxy-root-size-body);
   --marxy-size-code: var(--marxy-root-size-code);
@@ -41,11 +41,11 @@
   --marxy-line-box-code: var(--marxy-root-line-box-code);
 }
 
-/* The Source frame (V-05; rulings Q13 and Q14, ADR-0067's metrics inside it): the editor in a hairline enclosure with
+/* The Source frame (its metrics inside it): the editor in a hairline enclosure with
    thin bars on its edges, each showing only what the bytes say. Lengths are ratios of the chrome size (13 px at the
    default), the face is the chrome face, the grounds and the rule are roles. The mount keeps its place (index.html fixes
-   it to the window, or the pane); it only gains an inset. Source fills its pane (F-100, the author's "fill the window with
-   our editor", which overrules ruling Q13's 960 px centred frame and ADR-0067's centred column): the frame takes the
+   it to the window, or the pane); it only gains an inset. Source fills its pane (the author's "fill the window with
+   our editor", which overrules the 960 px centred frame and the centred column): the frame takes the
    whole pane inside a 14 px inset (12 unfolded), and the editor takes the whole frame, so the gutter is at the frame's
    left edge and the text runs to its right edge or wraps at it. Nothing here is drawn on the text. */
 .marxy-source-mount:not([hidden]):has(> .marxy-source-frame) {
@@ -53,7 +53,6 @@
   box-sizing: border-box;
   padding: calc(var(--marxy-size-chrome) * 14 / 13);
 }
-body[data-marxy-workspace="unfolded"] .marxy-source-mount:not([hidden]):has(> .marxy-source-frame) { padding: calc(var(--marxy-size-chrome) * 12 / 13); }
 .marxy-source-frame {
   flex: 1 1 0;
   min-width: 0;
@@ -139,7 +138,7 @@ body[data-marxy-workspace="unfolded"] .marxy-source-mount:not([hidden]):has(> .m
   clip-path: polygon(0 100%, 50% 0, 100% 100%);
 }
 .marxy-source-ruler-span { position: absolute; bottom: 0; height: 2px; background: var(--marxy-color-accent); }
-/* The editor fills the body edge to edge (F-100): its gutter is at the frame's left edge. The marks strip lies over the editor's
+/* The editor fills the body edge to edge: its gutter is at the frame's left edge. The marks strip lies over the editor's
    right edge, at the height of what each mark names; the text keeps a line box clear of it (theme-bridge.ts). The editor is
    in the flow with a height of 100% (a body with a definite height, the app's, fills; one with none, a test page's, is as tall as
    the text), so the editor's own scroller is what scrolls inside the frame. */
@@ -150,7 +149,7 @@ body[data-marxy-workspace="unfolded"] .marxy-source-mount:not([hidden]):has(> .m
 .marxy-source-mark::before { content: ""; position: absolute; inset: -3px 0; }
 .marxy-source-mark-invisible { background: var(--marxy-color-accent); }
 .marxy-source-mark-find { background: var(--marxy-color-find-edge); }
-/* A note (V-04) is a faint ring where the other marks are bars, so its shape says what colour cannot; it is quieter than they are. */
+/* A note is a faint ring where the other marks are bars, so its shape says what colour cannot; it is quieter than they are. */
 .marxy-source-mark-note { box-sizing: border-box; height: 6px; margin-top: -3px; background: transparent; border: 1.5px solid var(--marxy-color-text-faint); border-radius: 50%; }
 .marxy-source-notes { color: var(--marxy-color-text-faint); }
 html:root[data-marxy-contrast="more"] .marxy-source-mark-note { border-color: var(--marxy-color-text); border-width: 2px; }
@@ -163,13 +162,13 @@ html:root[data-marxy-contrast="more"] .marxy-source-mark-note { border-color: va
 html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-color-text); }
 ::selection { background: var(--marxy-color-selection); }
 
-/* One chrome for every summoned surface and every menu (W-04; ADR-0059 items 4 and 6, docs/design/05-theme.md
-   "One chrome"). Face and size are the chrome tokens; the ground, outline and elevation are the surface roles; every
+/* One chrome for every summoned surface and every menu.
+   Face and size are the chrome tokens; the ground, outline and elevation are the surface roles; every
    length below is a ratio of the chrome size (28 px for a row at 13), so the reader's chrome_size scales them and a
    theme's values are untouched. The ratios live here once: the palette and outline sheets and the verb menu's markup
    take these classes and keep layout only. Radii are system constants by the surface's size: 6 (a menu, find, a
    peek), 9 (the palette), 13 (a sheet), 10 (a notice's pill). The text being read is outside all of this. Notices float off the
-   column and wear the same chrome (U-02, below). */
+   column and wear the same chrome (below). */
 .marxy-surface,
 .marxy-verb-menu,
 .marxy-find {
@@ -208,9 +207,9 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
   white-space: nowrap;
 }
 
-/* Notices (U-02; docs/design/09-app-shell.md §Notices, X-21 rulings 1 to 10): a pill off the reading column, floated at its
+/* Notices: a pill off the reading column, floated at its
    pane's foot (index.html places the region; nothing here is in the column's flow). It is the app speaking, so it takes
-   the chrome face and the surface roles, like every summoned surface (W-04): the surface ground and outline, the elevation,
+   the chrome face and the surface roles, like every summoned surface: the surface ground and outline, the elevation,
    a 10 px radius at 13. What kind of news it is is told by a glyph and a word first (Done, Not done, Needs you, Note) and
    by the status role's colour and wash after, never by colour alone; each status colour is held at 4.5:1 on the surface
    and on its wash by gate:contrast. The pill hugs its text and wraps it at 40 em; its buttons are quiet text. Forced colours
@@ -302,7 +301,7 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
   .marxy-notice { animation: none; transition: none; }
 }
 
-/* The verb menu (C-13, ADR-0054): summoned by right-click, the context-menu key or Enter; built on open
+/* The verb menu: summoned by right-click, the context-menu key or Enter; built on open
    and removed on close, so nothing here applies at rest. Existing tokens only. */
 .marxy-verb-menu {
   position: fixed;
@@ -316,7 +315,7 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
 .marxy-verb-menu-item { outline: none; }
 .marxy-verb-menu-item:focus { background: var(--marxy-color-selection); }
 .marxy-verb-menu-title { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* A row that only tells (K-07's reasons, F-103): the reason is the message, so it wraps in whole words and its hint
+/* A row that only tells: the reason is the message, so it wraps in whole words and its hint
    (the tier and where the signal was seen, or the file's own name) sits under it on a line of its own, wrapping too,
    never truncated. The choices (rows that run something) keep one line. */
 .marxy-verb-menu-item[aria-disabled="true"] { flex-wrap: wrap; align-items: baseline; row-gap: 0; padding-block: calc(var(--marxy-size-chrome) * 6 / 13); }
@@ -333,16 +332,16 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
   /* Drives both font-weight and the variable axis: WebKitGTK rounds font-weight, the axis is exact. */
   --marxy-wght: calc(var(--marxy-weight-body) + var(--marxy-weight-offset));
   /* Space belongs above (constraint 3): the named gaps are 2lb / half, both grid units. The
-     heading line box is not always a unit, so padding-bottom closes that remainder (MARXY-128). */
-  --marxy-heading-above: calc(var(--lb) * 2);
+     heading line box is not always a unit, so padding-bottom closes that remainder. */
+  --marxy-heading-above: calc(var(--lb) * 1.5);
   --marxy-heading-below: var(--marxy-half);
   /* The measure in average characters of the text face, never in ch: a ch is the digit zero, which
-     in Literata is a quarter wider than an average character (constraint 1, ADR-0033). Clamped to
+     in Literata is a quarter wider than an average character (constraint 1). Clamped to
      45–80 characters however a theme sets it. */
   --marxy-column: clamp(calc(45 * var(--marxy-avg-char) * 1em), var(--marxy-measure), calc(80 * var(--marxy-avg-char) * 1em));
   /* The side gutter is a minimum, not a fixed width (Reader Typography ch.4 "Margins"): the
      column's own width is what sets the margin, so the gutter only has to guarantee a floor —
-     16px narrow, 24px on larger screens, widened below (MARXY-263). */
+     16px narrow, 24px on larger screens, widened below. */
   --marxy-gutter: 16px;
   /* How far wide content (code, tables) may run into the right margin: from the gutter to the edge of the box the article sits in (the window, or one pane of a split;
      100cqi falls back to the small viewport unit where no container exists). */
@@ -351,7 +350,7 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
   max-width: var(--marxy-column);
   margin-inline: auto;
   /* Top padding is one grid unit, not the three line-boxes that made an opened document read as
-     vertically centered instead of starting near the top of the window (MARXY-263). */
+     vertically centered instead of starting near the top of the window. */
   padding: var(--marxy-half) var(--marxy-gutter) calc(var(--lb) * 5);
   font-family: var(--marxy-font-text);
   font-size: var(--marxy-size-body);
@@ -370,7 +369,7 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
 .marxy-article > :first-child { margin-top: 0; }
 .marxy-article > :last-child { margin-bottom: 0; }
 /* Larger screens: the gutter's floor rises from 16px to 24px (Reader Typography ch.4); the
-   column still sets the margin above this floor (MARXY-263). */
+   column still sets the margin above this floor. */
 @media (min-width: 30em) {
   .marxy-article { --marxy-gutter: 24px; }
 }
@@ -381,14 +380,14 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
 /* The article's containing block is the container --marxy-room is measured against. */
 #marxy-main { container-type: inline-size; }
 
-/* Headings: hierarchy from size and weight only (constraint 4); space belongs above (constraint 3).
-   The named gaps are 2lb above and half a line below (both grid units); padding-bottom closes the
-   heading line box's remainder so 56 / 34 / 14 for h2 at 17 px falls out of the formula. */
+/* Headings: hierarchy from size and weight only, in the strong ink (constraint 4); space belongs above (constraint 3).
+   The named gaps are a line and a half above and half a line below (grid units); padding-bottom closes the heading
+   line box's remainder. h3 is the body's size, told apart by weight. */
 h1, h2, h3, h4, h5, h6 {
   --marxy-wght: calc(var(--marxy-weight-heading) + var(--marxy-weight-offset));
   font-family: var(--marxy-font-heading);
   font-weight: var(--marxy-wght);
-  color: inherit;
+  color: var(--marxy-color-text-strong);
   border: 0;
   background: none;
   text-wrap: balance;
@@ -408,6 +407,7 @@ h2 {
   padding-bottom: mod(calc(-1 * (var(--marxy-line-h2) + var(--marxy-heading-above) + var(--marxy-heading-below))), var(--marxy-half));
 }
 h3 {
+  --marxy-wght: calc(var(--marxy-weight-strong) + var(--marxy-weight-offset));
   font-size: var(--marxy-size-h3);
   line-height: var(--lb);
   letter-spacing: calc(var(--marxy-tracking-heading) * 0.55);
@@ -415,8 +415,10 @@ h3 {
 }
 h4, h5, h6 { font-size: var(--marxy-size-body); line-height: var(--lb); margin: var(--lb) 0 var(--marxy-heading-below); }
 h5, h6 { font-style: italic; font-synthesis: none; }
-/* Tracking breaks joins and conjuncts in cursive and Indic scripts (ADR-0033). */
+/* Tracking breaks joins and conjuncts in cursive and Indic scripts. */
 :is(h1, h2, h3, h4, h5, h6):lang(ar, fa, ur, ps, sd, ug, he, yi, hi, mr, ne, sa, bn, pa, gu, ta, te, kn, ml, si, th, lo, km, my) { letter-spacing: 0; }
+/* A heading whose own letters set it right to left (dir="auto", render/direction.ts) is in such a script whatever its tag says. */
+:is(h1, h2, h3, h4, h5, h6):dir(rtl) { letter-spacing: 0; }
 
 /* Text blocks: half a line apart, so every top lands on the grid unit. */
 p, ul, ol, dl, blockquote, table, figure { margin: 0 0 var(--marxy-half); }
@@ -428,7 +430,7 @@ dt { --marxy-wght: calc(var(--marxy-weight-heading) + var(--marxy-weight-offset)
    what the column leaves, down to a minimum gutter (Reader Typography ch.4 "Margins"), and a hang
    spends that margin as protrusion does (ch.5 "Microtypography"), never past its floor. So a top-level
    list indents by the part of its hang the room cannot hold: at 480 px and below it does not hang at
-   all, and at 20 px type a bullet hangs fully from about 710 px, a number from about 750 px (L-03).
+   all, and at 20 px type a bullet hangs fully from about 710 px, a number from about 750 px.
    Bullets (their ink is 1.15em) and checkboxes hang within 1.25em, ordered markers 2.25em (below). */
 ul, ol { padding-inline-start: 1.25em; }
 .marxy-article > :is(ul, ol) { padding-inline-start: max(0em, 1.25em - var(--marxy-room)); }
@@ -437,8 +439,8 @@ li { margin: 0; }
 li > :is(ul, ol) { margin-bottom: 0; }
 li::marker { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
 /* Top-level ordered lists: hang decimal markers in the margin with tabular figures right-aligned
-   so 1 and 10 share an edge (review #0, MARXY-129).
-   The number is the built-in list-item counter, which already honours <ol start> and reversed (F-22),
+   so 1 and 10 share an edge (review #0).
+   The number is the built-in list-item counter, which already honours <ol start> and reversed,
    so no counter of our own can drift from the list. The box is 2.25em at least and grows with a
    longer number ("1000."), pushing the item's text right instead of running into it. */
 .marxy-article > ol { list-style: none; }
@@ -448,10 +450,10 @@ li::marker { color: var(--marxy-color-text-secondary); font-variant-numeric: tab
   box-sizing: border-box;
   min-width: 2.25em;
   white-space: nowrap;
-  /* Top-aligned, so the box takes no part in baseline alignment and cannot grow its line (cf. B-22). */
+  /* Top-aligned, so the box takes no part in baseline alignment and cannot grow its line. */
   vertical-align: top;
   /* The gap sits inside the hanging box: a margin outside it pushed each item's first line 0.35em
-     right of its own continuation lines (found by the hang check, ADR-0033). */
+     right of its own continuation lines (found by the hang check). */
   margin-inline: -2.25em 0;
   padding-inline-end: 0.35em;
   text-align: end;
@@ -459,29 +461,37 @@ li::marker { color: var(--marxy-color-text-secondary); font-variant-numeric: tab
   color: var(--marxy-color-text-secondary);
 }
 li:has(> input[type="checkbox"]:first-child, > p:first-child > input[type="checkbox"]:first-child) { list-style: none; }
-input[type="checkbox"] {
+:where(.marxy-article) input[type="checkbox"] {
   appearance: none;
+  /* Centred on the first line box, as 19 sets it; its end margin is the hang's 0.5em less the space after it (about
+     0.3em), so the item's text meets the column edge. A control does not inherit the text's size by itself. Not a
+     float: a float is a block to the grid, and a box centred on the line is off it. */
+  position: relative;
   box-sizing: border-box;
+  font-size: inherit;
   width: 0.75em;
   height: 0.75em;
-  margin: 0 0.5em 0 -1.25em;
-  /* Top, not baseline: review #1 had the box sitting on the bottom of the line (MARXY-128). */
+  margin: calc((var(--lb) - 0.75em) / 2) 0.2em 0 -1.25em;
+  /* Top, not baseline: review #1 had the box sitting on the bottom of the line. */
   vertical-align: top;
-  border: 1px solid var(--marxy-color-text-secondary);
-  border-radius: 2px;
+  border: 0;
+  border-radius: 0.18em;
+  box-shadow: inset 0 0 0 1.5px var(--marxy-color-text-faint);
   background: none;
   /* Behaviour, not looks: the box is always disabled (sanitiser), and WebKit sends a disabled control
      no click at all. With no hit-testing of its own, the click reaches the list item, which toggles it. */
   pointer-events: none;
 }
-input[type="checkbox"]:checked {
-  border-color: var(--marxy-color-accent);
-  background: var(--marxy-color-accent);
-  box-shadow: inset 0 0 0 2px var(--marxy-color-bg);
+/* Done is ink, as 19 sets it: the box filled in the faint ink, its tick the ground, the item's text secondary. */
+:where(.marxy-article) input[type="checkbox"]:checked { background: var(--marxy-color-text-faint); box-shadow: none; }
+:where(.marxy-article) input[type="checkbox"]:checked::after {
+  content: ""; position: absolute; left: 34%; top: 14%; width: 26%; height: 48%;
+  border: solid var(--marxy-color-bg); border-width: 0 0.12em 0.12em 0; transform: rotate(45deg);
 }
+:where(.marxy-article) li:has(> input[type="checkbox"]:checked:first-child, > p:first-child > input[type="checkbox"]:checked:first-child) { color: var(--marxy-color-text-secondary); }
 
 /* Quotations: indented behind a rule mixed toward secondary so it reads at ≥ 3:1 without
-   rewriting the frozen quote-rule token (MARXY-128, review #1: too subtle). */
+   rewriting the frozen quote-rule token (review #1: too subtle). */
 blockquote {
   --marxy-quote-edge: color-mix(in srgb, var(--marxy-color-quote-rule) 30%, var(--marxy-color-text-secondary));
   padding-inline-start: calc(var(--marxy-half) + var(--marxy-quote-rule-width));
@@ -489,32 +499,42 @@ blockquote {
   margin-inline: 0;
 }
 
-/* Front matter head (ADR-0036 clause 7): caption size, 14ch keys, values verbatim. */
-.marxy-article > dl:first-child {
-  display: grid;
-  grid-template-columns: 14ch minmax(0, 1fr);
-  column-gap: var(--marxy-half);
-  row-gap: calc(var(--lb) / 4);
+/* Front matter (core render/frontmatter.ts), drawn after the title: one quiet byline, the author then the date, each value
+   carrying its own bytes. The head keeps every row in the bytes' order, unseen but for the byline's; the Metadata panel
+   lists them all, and Reveal draws them as the file's keys and values. Without an author or a date nothing is drawn. */
+.marxy-article > dl[data-marxy-fm-part="head"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.3em;
   margin: 0 0 var(--marxy-half);
+  font-family: var(--marxy-face-chrome);
   font-size: var(--marxy-size-caption);
   line-height: var(--lb);
   color: var(--marxy-color-text-secondary);
 }
-.marxy-article > dl:first-child > dt {
-  grid-column: 1;
-  margin: 0;
-  font-weight: calc(var(--marxy-weight-heading) + var(--marxy-weight-offset));
-  color: var(--marxy-color-text-secondary);
+.marxy-article > dl[data-marxy-fm-part="head"]:not(:has(> dd[data-marxy-fm-part="byline"])) { display: none; }
+.marxy-article > dl[data-marxy-fm-part="head"] > :is(dt, dd:not([data-marxy-fm-part="byline"])) { display: none; }
+.marxy-article > dl[data-marxy-fm-part="head"] > dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.marxy-article > dl[data-marxy-fm-part="head"] > dd[data-marxy-fm-key="author"] { order: -1; }
+.marxy-article > dl[data-marxy-fm-part="head"]:has(> dd[data-marxy-fm-key="author"][data-marxy-fm-part="byline"]) > dd[data-marxy-fm-part="byline"]:not([data-marxy-fm-key="author"])::before {
+  content: "\00B7";
+  margin-inline-end: 0.3em;
 }
-.marxy-article > dl:first-child > dd { margin: 0; grid-column: 2; color: var(--marxy-color-text); }
-.marxy-article > dl:first-child > dd > code {
-  display: block;
-  white-space: pre-wrap;
-  font-family: var(--marxy-font-mono);
-  /* 18/15 of the caption it sits in: the label/value proportion the default has, at every text size */
-  font-size: 1.2em;
-  line-height: var(--marxy-line-box-code);
+.marxy-article > dl[data-marxy-fm-part="head"] [data-marxy-fm-part="quote"] { display: none; }
+/* Reveal: the head as the file has it, every key and value in two quiet columns. */
+.marxy-article[data-marxy-reveal] > dl[data-marxy-fm-part="head"] {
+  display: grid;
+  grid-template-columns: 14ch minmax(0, 1fr);
+  column-gap: var(--marxy-half);
 }
+.marxy-article[data-marxy-reveal] > dl[data-marxy-fm-part="head"] > :is(dt, dd) { display: block; order: 0; }
+.marxy-article[data-marxy-reveal] > dl[data-marxy-fm-part="head"] > dt { grid-column: 1; color: var(--marxy-color-text-faint); }
+.marxy-article[data-marxy-reveal] > dl[data-marxy-fm-part="head"] > dd { grid-column: 2; }
+.marxy-article[data-marxy-reveal] > dl[data-marxy-fm-part="head"] > dd::before { content: none; }
+.marxy-article[data-marxy-reveal] > dl[data-marxy-fm-part="head"] [data-marxy-fm-part="quote"] { display: inline; }
+/* A value of several lines is its code, set in the line at the caption's size so the head stays on the grid. */
+.marxy-article[data-marxy-reveal] > dl[data-marxy-fm-part="head"] > dd > code { display: inline; font-size: inherit; line-height: inherit; white-space: normal; }
 
 /* GitHub alerts: label only, no box or hue (handbook ch.6). */
 .marxy-article blockquote > p > strong:first-child {
@@ -527,7 +547,7 @@ blockquote {
 
 /* A diagram fence's caption. The renderer marks it (`marxy-diagram-caption`), so no rule looks at the
    next sibling: a `p:has(+ pre…)` restyled every paragraph of a long run in time that grew with the
-   square of their number (F-96; B-25.1 tuned the same selector earlier). */
+   square of their number. */
 .marxy-article > p.marxy-diagram-caption {
   margin: 0 0 calc(var(--lb) / 4);
   font-size: var(--marxy-size-caption);
@@ -536,10 +556,10 @@ blockquote {
 }
 
 /* Code. A different voice at a matched x-height (constraint 5), on its own line box; blocks are
-   padded back onto the grid by snapToGrid. Code is verbatim (ADR-0033): no ligatures, no reader
+   padded back onto the grid by snapToGrid. Code is verbatim: no ligatures, no reader
    spacing, no hyphens. A block keeps its authored width: it starts at the column's left edge, is at
-   least the column wide, and grows into the right margin up to 100 columns. A line longer than that
-   still wraps — never a scrollbar per block — with a hanging indent and a rule beside every
+   least the column wide, and grows into the right margin as far as the pane's edge. A line longer than that
+   still wraps there — never a scrollbar per block — with a hanging indent and a rule beside every
    continuation row, so a wrapped line never reads as two. */
 code, kbd, pre {
   font-family: var(--marxy-font-mono);
@@ -557,7 +577,7 @@ pre {
   box-sizing: border-box;
   width: max-content;
   min-width: 100%;
-  max-width: min(calc(100% + var(--marxy-room)), calc(100ch + 2 * var(--marxy-half)));
+  max-width: calc(100% + var(--marxy-room));
   margin: var(--lb) 0;
   padding: var(--marxy-half);
   font-size: var(--marxy-size-code);
@@ -570,13 +590,16 @@ pre {
   text-indent: 2ch hanging each-line;
   tab-size: var(--marxy-tab-size, 4);
 }
-/* The pieces of a code file read as code (V-10, 200 lines each) are one block to the eye: they meet with no gap,
+/* The pieces of a code file read as code (200 lines each) are one block to the eye: they meet with no gap,
    square at the join. */
-/* The pieces of a file are laid out only when they are near the screen (K-08, F-80): a file of tens of megabytes is thousands of
+/* The pieces of a file are laid out only when they are near the screen: a file of tens of megabytes is thousands of
    pieces, and a change of one's height (the level filter makes it in every piece of a log; a jump to the end splits and
    colours the pieces it lands on) would otherwise cost the layout of every one, seconds at 10 MB. The room of one not yet laid
    out is a full piece (200 lines) until it has been, and then what it was. */
 pre.marxy-run {
+  /* A file's pieces are one block, so each is as wide as the room: the longest line of one piece is not another's width.
+     The width is set, not measured, because a piece off screen has no content to measure. */
+  width: calc(100% + var(--marxy-room));
   content-visibility: auto;
   contain-intrinsic-size: auto calc(var(--marxy-line-box-code) * 200 + var(--marxy-half) * 2);
 }
@@ -590,7 +613,8 @@ pre.marxy-run:has(+ pre.marxy-run) { margin-bottom: 0; border-bottom-left-radius
 .marxy-line {
   --marxy-hang: min(calc(var(--marxy-indent, 0ch) + 2ch), 50%);
   display: inline-block;
-  width: 100%;
+  /* A minimum, not a width: a width of 100% would give the block no width of its own to grow to from its longest line. */
+  min-width: 100%;
   vertical-align: top;
   text-indent: var(--marxy-hang) hanging;
   background: linear-gradient(var(--marxy-color-text-secondary), var(--marxy-color-text-secondary))
@@ -619,6 +643,32 @@ a code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em);
 .marxy-diff-del { background: var(--marxy-color-diff-del); }
 .marxy-diff-add-word { background: var(--marxy-color-diff-add-word); }
 .marxy-diff-del-word { background: var(--marxy-color-diff-del-word); }
+/* A changed word reads in ink first: heavier and underlined where added, struck where removed; the tint is the theme's. */
+:is(.marxy-diff-add-word, .marxy-diff-del-word) {
+  font-weight: 800; color: var(--marxy-color-text-strong);
+  text-decoration-line: underline; text-decoration-thickness: 1.5px; text-underline-offset: 4px; text-decoration-color: var(--marxy-color-text-faint);
+}
+.marxy-diff-del-word { text-decoration-line: line-through; color: var(--marxy-color-text-secondary); }
+/* A patch numbered on both sides, its hunk heads in words, from attributes the highlight pass sets: none of
+   it is the line's text, so copy, find and the byte map read the patch as written. The numbers sit in the block's own
+   padding, old then new; a hunk head's text is at no size under its words. */
+code:has(> .marxy-line:is([data-marxy-a], [data-marxy-b], [data-marxy-hunk])) {
+  --marxy-patch-no: 5ch;
+  display: block;
+  padding-inline-start: calc(2 * var(--marxy-patch-no));
+}
+.marxy-line:is([data-marxy-a], [data-marxy-b]) { position: relative; }
+.marxy-line[data-marxy-a]::before, .marxy-line[data-marxy-b]::after {
+  position: absolute; inset-block-start: 0; width: calc(var(--marxy-patch-no) - 1.5ch);
+  text-align: end; text-indent: 0; color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.marxy-line[data-marxy-a]::before { content: attr(data-marxy-a); inset-inline-start: calc(-2 * var(--marxy-patch-no)); }
+.marxy-line[data-marxy-b]::after { content: attr(data-marxy-b); inset-inline-start: calc(-1 * var(--marxy-patch-no)); }
+.marxy-line[data-marxy-hunk] { font-size: 0; background: none; text-indent: 0; }
+.marxy-line[data-marxy-hunk]::before {
+  content: attr(data-marxy-hunk);
+  font: 400 var(--marxy-size-caption) / var(--marxy-line-box-code) var(--marxy-face-chrome); color: var(--marxy-color-text-faint);
+}
 /* The level word is weight 700 (Reader Artifacts 10-spec, "Log level"): the mono face's own bold, whatever the text face's
    strong weight is, and no hue. The platform's weight offset still applies. */
 .marxy-log-level {
@@ -626,7 +676,7 @@ a code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em);
   font-weight: var(--marxy-wght);
   color: inherit;
 }
-/* A log (K-08). The level word is weight 700 (above) and the leading timestamp is the comment colour: neither adds a hue
+/* A log. The level word is weight 700 (above) and the leading timestamp is the comment colour: neither adds a hue
    to a level, so a log reads without colour. A line at ERROR or above, and the lines that continue it, carry a rule at
    their left edge. Every log line holds the rule's 2px (transparent when there is none) so the text does not move
    between lines; the wrapped-row rule below it is placed from the text's edge. In forced colours the rule is a border
@@ -639,7 +689,7 @@ pre.language-log .marxy-line {
   background-origin: content-box;
 }
 pre.language-log .marxy-log-error { border-inline-start-color: var(--marxy-color-text); }
-/* The level filter (K-08). A hidden run is wrapped, newlines and all, in one element that is not drawn; a piece every line of
+/* The level filter. A hidden run is wrapped, newlines and all, in one element that is not drawn; a piece every line of
    which is hidden takes no room. */
 .marxy-log-hidden-text { display: none; }
 .marxy-log-hidden-piece { display: none; }
@@ -665,7 +715,7 @@ pre.language-log .marxy-log-error { border-inline-start-color: var(--marxy-color
 }
 .marxy-log-hidden-run:hover { color: var(--marxy-color-text); text-decoration: underline; text-underline-offset: 0.18em; }
 .marxy-log-hidden-run:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-/* ESC is drawn by the invisible-character marker (MARXY-236) as the control picture, bare, in the comment colour (K-08);
+/* ESC is drawn by the invisible-character marker as the control picture, bare, in the comment colour;
    the buffer keeps the byte, and a copy takes it. Every other control keeps its hex label in a box. */
 .marxy-invisible-esc .marxy-invisible-glyph {
   min-width: 0;
@@ -675,6 +725,151 @@ pre.language-log .marxy-log-error { border-inline-start-color: var(--marxy-color
   border: 0;
   background: none;
 }
+/* The log page: a whole-file log in Read, drawn by render/log-page.ts from attributes over the file's own text.
+   The time of day stands in a column left of the entries (in the left margin when there is room for it, else inside the
+   column), the level in a column of its own, the message after it, and a wrapped message continues under itself. A pause
+   before a slow step is a row of its own, a new day a heading. An escape sequence is a mark, the text it styles is emphasis,
+   and a line under its entry says what it asks for. What the page draws in their place (the date and zone of a timestamp,
+   the spacing around a level, an escape's parameters) is text at no size, so a copy, find and the filter read the file.
+   The column widths are lengths computed in the piece's own face: the time takes no room and is drawn at no size, so a
+   width in its own `ch` would be nothing. The time and anything absolutely placed stay inside the piece: a piece is
+   `content-visibility: auto`, and so contains its paint. Fenced logs in Markdown keep the code block. */
+@property --marxy-log-col { syntax: '<length>'; inherits: true; initial-value: 0px; }
+@property --marxy-log-gap { syntax: '<length>'; inherits: true; initial-value: 0px; }
+@property --marxy-log-lv { syntax: '<length>'; inherits: true; initial-value: 0px; }
+/* The heading is as wide as the page it heads: the log runs into the right margin like code. */
+.marxy-log-day {
+  margin: 0 calc(-1 * var(--marxy-room)) var(--marxy-half) 0;
+  font-family: var(--marxy-face-chrome);
+  font-size: var(--marxy-size-caption);
+  line-height: var(--lb);
+  color: var(--marxy-color-text-secondary);
+}
+.marxy-log-day::before { content: attr(data-marxy-day); color: var(--marxy-color-text-strong); font-weight: 620; }
+.marxy-log-day[data-marxy-day]::after { content: ' \00b7  ' attr(data-marxy-times); }
+.marxy-log-day:not([data-marxy-day])::after { content: attr(data-marxy-times); }
+.marxy-log-day + pre { margin-top: 0; padding-top: 0; }
+/* The pieces of a log page meet with no inset: a blank row between two entries would read as a pause the file did not have.
+   What the grid pass adds under a piece is less than a row. */
+pre.language-log.marxy-run + pre.language-log.marxy-run { padding-top: 0; }
+pre.language-log.marxy-run:has(+ pre.language-log.marxy-run) { padding-bottom: 0; }
+pre.language-log.marxy-run {
+  --marxy-log-gap: 2.5ch;
+  --marxy-log-col: calc(var(--marxy-log-t, 12) * 1ch + var(--marxy-log-gap));
+  --marxy-log-lv: 7ch;
+  --marxy-log-lift: min(var(--marxy-log-col), var(--marxy-room));
+  margin-inline-start: calc(-1 * var(--marxy-log-lift));
+  width: calc(100% + var(--marxy-room) + var(--marxy-log-lift));
+  min-width: calc(100% + var(--marxy-log-lift));
+  max-width: none;
+  padding-inline: var(--marxy-log-col) 0;
+  background: none;
+  border-radius: 0;
+}
+pre.language-log.marxy-run .marxy-line {
+  position: relative;
+  border-inline-start: 0;
+  padding-inline-start: var(--marxy-log-lv);
+}
+pre.language-log.marxy-run .marxy-line[data-marxy-rank] { --marxy-hang: var(--marxy-log-lv); padding-inline-start: 0; background: none; }
+pre.language-log.marxy-run .marxy-line[data-marxy-rank="3"] { color: var(--marxy-color-text-strong); }
+/* Text drawn at no size takes no line height either: at the code's line height, a box of no size centred on the baseline
+   would reach below the line and make it taller. */
+pre.language-log.marxy-run :is(.marxy-log-space, .marxy-log-esc) { font-size: 0; line-height: 0; }
+.marxy-lines-text .marxy-log-esc { font-size: 0; line-height: 0; }
+/* The invisible-character marker inside a hidden code is taken out of the flow: left in, it holds the room of a drawn ESC. */
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-log-esc:not(.marxy-log-esc-bad) .marxy-invisible { position: absolute; }
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-log-esc:not(.marxy-log-esc-bad) .marxy-invisible-glyph { min-width: 0; padding: 0; border: 0; background: none; }
+pre.language-log.marxy-run .marxy-log-time {
+  position: absolute;
+  top: var(--marxy-log-above, 0px);
+  left: calc(-1 * var(--marxy-log-col));
+  font-size: 0;
+  line-height: 0;
+  white-space: nowrap;
+}
+pre.language-log.marxy-run .marxy-log-time::before {
+  content: attr(data-marxy-shown);
+  font-size: var(--marxy-size-code);
+  line-height: var(--marxy-line-box-code);
+}
+pre.language-log.marxy-run .marxy-log-level {
+  display: inline-block;
+  min-width: calc(var(--marxy-log-lv) - 1ch);
+  margin-inline-end: 1ch;
+  text-indent: 0;
+}
+/* A status inside its line (an access log's) stays where the line writes it. */
+pre.language-log.marxy-run .marxy-log-level.marxy-log-inline { display: inline; min-width: 0; margin-inline-end: 0; }
+/* Ink first: INFO and below are faint at the line's weight, WARN and ERROR keep the level's weight in the strong ink. */
+pre.language-log.marxy-run :is([data-marxy-rank="0"], [data-marxy-rank="1"]) > .marxy-log-level {
+  --marxy-wght: inherit;
+  font-weight: inherit;
+  color: var(--marxy-color-text-faint);
+}
+pre.language-log.marxy-run :is([data-marxy-rank="2"], [data-marxy-rank="3"]) > .marxy-log-level { color: var(--marxy-color-text-strong); }
+pre.language-log.marxy-run .marxy-line:is([data-marxy-gap], [data-marxy-day]) {
+  --marxy-log-above: var(--marxy-line-box-code);
+  padding-block-start: var(--marxy-line-box-code);
+}
+pre.language-log.marxy-run .marxy-line[data-marxy-gap] {
+  background: linear-gradient(var(--marxy-color-rule), var(--marxy-color-rule)) 0 calc(var(--marxy-line-box-code) / 2) / calc(var(--marxy-log-lv) - 1ch) 1px no-repeat;
+  background-origin: border-box;
+}
+pre.language-log.marxy-run .marxy-line[data-marxy-gap]::before {
+  content: attr(data-marxy-gap);
+  position: absolute;
+  top: 0;
+  left: calc(-1 * var(--marxy-log-col));
+  width: calc(var(--marxy-log-col) - var(--marxy-log-gap));
+  text-align: end;
+  text-indent: 0;
+  font-family: var(--marxy-face-chrome);
+  font-size: var(--marxy-size-caption);
+  line-height: var(--marxy-line-box-code);
+  color: var(--marxy-color-text-faint);
+}
+pre.language-log.marxy-run .marxy-line[data-marxy-day]::before {
+  content: attr(data-marxy-day);
+  position: absolute;
+  top: 0;
+  left: 0;
+  text-indent: 0;
+  font-family: var(--marxy-face-chrome);
+  font-size: var(--marxy-size-caption);
+  font-weight: 620;
+  line-height: var(--marxy-line-box-code);
+  color: var(--marxy-color-text-strong);
+}
+/* An escape code is hidden; one that is cut short or garbled is not, and keeps its mark. */
+pre.language-log.marxy-run .marxy-log-esc-bad::before {
+  content: 'ESC';
+  display: inline-block;
+  margin: 0 0.1em;
+  padding: 0 0.3em;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--marxy-color-accent) 45%, transparent);
+  font-family: var(--marxy-face-chrome);
+  font-size: calc(var(--marxy-size-code) * 0.58);
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+  vertical-align: 0.3em;
+  text-indent: 0;
+  color: var(--marxy-color-accent);
+}
+/* What an escape code styles takes the theme's own tones, never the colour the file writes: both log readings use these. */
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-ansi-warn { color: var(--marxy-color-status-warn); }
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-ansi-err { color: var(--marxy-color-status-err); }
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-ansi-ok { color: var(--marxy-tok-string); }
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-ansi-blue { color: var(--marxy-tok-function); }
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-ansi-magenta { color: var(--marxy-tok-number); }
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-ansi-cyan { color: var(--marxy-tok-tag); }
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-ansi-muted { color: var(--marxy-color-text-faint); }
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-ansi-bold { --marxy-wght: calc(var(--marxy-weight-strong) + var(--marxy-weight-offset)); font-weight: var(--marxy-wght); }
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-ansi-italic { font-style: italic; }
+:is(pre.language-log.marxy-run, .marxy-lines-text) .marxy-ansi-underline { text-decoration: underline; }
+pre.language-log.marxy-run .marxy-log-hidden-run { padding-inline-start: 0; }
 .marxy-line-omitted {
   position: absolute;
   width: 1px;
@@ -705,7 +900,7 @@ table {
   border-collapse: collapse;
   font-variant-numeric: tabular-nums lining-nums;
   font-size: round(calc(var(--marxy-size-body) * 0.88), 1px);
-  /* Code's line box, not the body's: a wrap was a whole 28 px on 15 px type (MARXY-128). */
+  /* Code's line box, not the body's: a wrap was a whole 28 px on 15 px type. */
   line-height: var(--marxy-line-box-code);
 }
 th, td { padding: var(--marxy-half) 1.25em var(--marxy-half) 0; text-align: start; vertical-align: top; box-shadow: inset 0 -1px 0 var(--marxy-color-rule); }
@@ -713,9 +908,41 @@ th { --marxy-wght: calc(var(--marxy-weight-heading) + var(--marxy-weight-offset)
 :is(th, td):last-child { padding-inline-end: 0; }
 th[align="center"], td[align="center"] { text-align: center; }
 th[align="right"], td[align="right"] { text-align: end; }
+/* A table wider than its room (render/wide-tables.ts) ends between two columns, never through a cell; the side with more
+   fades; and its own note line, under its rows, says how many columns are past the edge. The line is one line box, so
+   the page below stays on the grid; it is not faded, and stays at the left as the rows scroll. */
+:is(table, .marxy-reading-scroll)[data-marxy-cut] { max-width: var(--marxy-table-cut); }
+/* The fade is a cell's trailing room wide, so it softens the edge and the rules and never the figures in the last cell. */
+table { --marxy-edge-fade: 1.25em; }
+.marxy-reading-scroll { --marxy-edge-fade: calc(1.3em * 0.85); }
+.marxy-reading-scroll[data-marxy-more="end"] { mask-image: linear-gradient(to left, transparent, #000 var(--marxy-edge-fade)); }
+.marxy-reading-scroll[data-marxy-more="start"] { mask-image: linear-gradient(to right, transparent, #000 var(--marxy-edge-fade)); }
+.marxy-reading-scroll[data-marxy-more="both"] { mask-image: linear-gradient(to right, transparent, #000 var(--marxy-edge-fade), #000 calc(100% - var(--marxy-edge-fade)), transparent); }
+table[data-marxy-more] { mask-repeat: no-repeat; mask-position: top, bottom; mask-size: 100% calc(100% - var(--lb)), 100% var(--lb); }
+table[data-marxy-more="end"] { mask-image: linear-gradient(to left, transparent, #000 var(--marxy-edge-fade)), linear-gradient(#000, #000); }
+table[data-marxy-more="start"] { mask-image: linear-gradient(to right, transparent, #000 var(--marxy-edge-fade)), linear-gradient(#000, #000); }
+table[data-marxy-more="both"] { mask-image: linear-gradient(to right, transparent, #000 var(--marxy-edge-fade), #000 calc(100% - var(--marxy-edge-fade)), transparent), linear-gradient(#000, #000); }
+table[data-marxy-more-cols]::after {
+  content: attr(data-marxy-more-cols);
+  display: block;
+  position: sticky;
+  left: 0;
+  width: max-content;
+  height: var(--lb);
+  font-family: var(--marxy-face-chrome);
+  font-size: calc(var(--marxy-size-caption) * 0.9);
+  font-weight: 400;
+  line-height: var(--lb);
+  color: var(--marxy-color-text-faint);
+}
+.marxy-reading-foot[data-marxy-more-cols]:not([data-marxy-more-cols=""])::after { content: " \00B7  " attr(data-marxy-more-cols); }
 
 /* A scrolling table is reachable from the keyboard (the app gives it tabindex) and shows where focus is. */
 :is(pre, table):focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 2px; }
+/* Every other stop on the page shows where focus is the same way: a fold, a column that sorts, the table view. */
+:is(summary, th[data-marxy-sort], .marxy-table-lens-grid):focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 2px; border-radius: 2px; }
+/* Inside the box where a scroller would clip a ring drawn outside it. */
+:is(th[data-marxy-sort], .marxy-table-lens-grid):focus-visible { outline-offset: -2px; }
 
 /* A thematic break is space with a quiet mark in it, not a rule (constraint 4). */
 hr {
@@ -764,14 +991,165 @@ a {
 a:hover { text-decoration-color: currentColor; }
 abbr[title] { text-decoration: underline dotted 1px; text-underline-offset: 0.18em; }
 
-/* Images: never wider than the measure, their box reserved before decode (MARXY-26), centred when
+/* Images: never wider than the measure, their box reserved before decode, centred when
    they stand alone. An inline image sits in the line; one that is taller than it is snapped. */
 img { max-width: 100%; height: auto; vertical-align: middle; }
 p > img:only-child { display: block; margin-inline: auto; }
 
-/* Set by the typesetter (docs/design/04-typeset.md). */
+/* Set by the typesetter. */
 .marxy-selected { box-shadow: -3px 0 0 var(--marxy-color-accent); }
-/* One block open for editing in place (E-04, ADR-0048): Source for that block, where the block was. It sits in
+/* The cursor (the prototype's `.blk.cur`): a block under it is washed, the wash run 12 px into the margins,
+   with a bar beyond it in the accent; the other blocks of a run take the bar in the rule colour; what a section holds has a
+   hairline there. A code block keeps its own ground (its colours are held only on it) and takes the bar alone. Inline
+   selections (a link) keep the accent rule above. */
+.marxy-article :is(p, h1, h2, h3, h4, h5, h6, li, ul, ol, blockquote, table, dl, hr, figure, div, details).marxy-selected {
+  background: var(--marxy-color-accent-wash);
+  /* The wash is translucent: a ground under its margin keeps the bar beyond it 3 px wide. */
+  box-shadow: -12px 0 0 var(--marxy-color-accent-wash), -12px 0 0 var(--marxy-color-bg), 12px 0 0 var(--marxy-color-accent-wash), -15px 0 0 var(--marxy-color-rule-strong);
+}
+.marxy-article :is(p, h1, h2, h3, h4, h5, h6, li, ul, ol, blockquote, table, dl, hr, figure, div, details).marxy-cursor {
+  box-shadow: -12px 0 0 var(--marxy-color-accent-wash), -12px 0 0 var(--marxy-color-bg), 12px 0 0 var(--marxy-color-accent-wash), -15px 0 0 var(--marxy-color-accent);
+}
+.marxy-article pre > code.marxy-selected { box-shadow: none; }
+.marxy-article pre:has(> code.marxy-selected) { box-shadow: -12px 0 0 var(--marxy-color-bg), -15px 0 0 var(--marxy-color-rule-strong); }
+.marxy-article pre:has(> code.marxy-cursor) { box-shadow: -12px 0 0 var(--marxy-color-bg), -15px 0 0 var(--marxy-color-accent); }
+.marxy-article .marxy-in-section:not(.marxy-selected) { box-shadow: -12px 0 0 var(--marxy-color-bg), -13px 0 0 var(--marxy-color-rule-strong); }
+
+/* The verb bar (the prototype's `.verbbar`): one line at the foot of the focused pane while the cursor is
+   set. verb-bar.ts places it over the pane's middle; it floats, so the page under it never moves. */
+.marxy-verb-bar {
+  position: fixed;
+  z-index: 9;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: calc(var(--marxy-size-chrome) * 14 / 13);
+  padding: calc(var(--marxy-size-chrome) * 7 / 13) calc(var(--marxy-size-chrome) * 12 / 13);
+  border-radius: calc(var(--marxy-size-chrome) * 10 / 13);
+  font-size: calc(var(--marxy-size-chrome) * 12 / 13);
+  line-height: 1;
+  color: var(--marxy-color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.marxy-verb-bar[hidden] { display: none; }
+/* The page's foot: while the verb bar stands over a pane (verb-bar.ts marks it), a band of the page's ground as tall as
+   the bar and the room around it (the bar sits 16 px above the pane's foot), pinned to the bottom of what the reader sees
+   of the pane. No line of the page is under the bar, and the last line clears it. The band is sticky at the end of the
+   pane, so it moves no line above it as it comes and goes. Whatever scrolls a part into view keeps it above the band:
+   the window's scroll padding (set on the root by verb-bar.ts as a length, never through `var()`: a `var()` in the root's
+   style makes Chromium restyle every element when it changes), the pane's, and that of a viewer's own scrollers, which
+   have no band. */
+:root { --marxy-verb-room: calc(var(--marxy-size-chrome) * 64 / 13); }
+.marxy-pane[data-marxy-verb-bar]:not([data-marxy-mode="source"]):not(:has(> .marxy-viewer-mount:not([hidden])))::after {
+  content: "";
+  display: block;
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  height: var(--marxy-verb-room);
+  background: var(--marxy-color-bg);
+  pointer-events: none;
+}
+#marxy-main[data-marxy-split] > .marxy-pane[data-marxy-verb-bar],
+.marxy-pane[data-marxy-verb-bar] .marxy-viewer-mount :is(.marxy-imgstage, .marxy-pdf-stage, .marxy-hexscroll, .marxy-fcard, .marxy-atree, .marxy-arch-preview, .marxy-arch-sheet, .marxy-fontpage, .marxy-mailpage, .marxy-htmlpage, .marxy-mediapage, .marxy-office, .marxy-tpage) {
+  scroll-padding-bottom: var(--marxy-verb-room);
+}
+@media print { .marxy-pane::after { display: none !important; } }
+.marxy-verb-bar-where { color: var(--marxy-color-text-strong); font-family: var(--marxy-font-mono); font-weight: 600; font-size: 0.96em; }
+.marxy-verb-bar-what { overflow: hidden; text-overflow: ellipsis; max-width: 22em; }
+.marxy-verb-bar-sep { flex: none; width: 1px; height: calc(var(--marxy-size-chrome) * 14 / 13); background: var(--marxy-color-rule-strong); }
+.marxy-verb-bar-verb {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: default;
+}
+.marxy-verb-bar-verb:hover { color: var(--marxy-color-text-strong); }
+@media print { .marxy-verb-bar { display: none; } }
+
+/* The depths (depths/dress.ts). X-ray: the part's stored lines in a box in its place, the part
+   itself out of the page while it shows. Every glyph the box adds (line numbers, a tab's arrow, a trailing space's dot, a
+   line's ending) is drawn from an attribute or a pseudo-element, so a copy from the box is the file's bytes and nothing
+   else. */
+.marxy-article .marxy-xray {
+  box-sizing: border-box;
+  margin: var(--lb) 0;
+  padding: var(--marxy-half) 0;
+  font-family: var(--marxy-font-mono);
+  font-size: var(--marxy-size-code);
+  line-height: var(--marxy-line-box-code);
+  font-variant-ligatures: none;
+  font-feature-settings: "calt" 0, "liga" 0;
+  color: var(--marxy-color-code-text);
+  background: var(--marxy-color-code-bg);
+  border-radius: var(--marxy-code-radius);
+  text-indent: 0;
+  hyphens: manual;
+  text-align: start;
+  list-style: none;
+}
+.marxy-article .marxy-xray.marxy-xray-current { box-shadow: -12px 0 0 var(--marxy-color-bg), -15px 0 0 var(--marxy-color-accent); }
+.marxy-xray-head {
+  display: flex; justify-content: space-between; padding: 0 var(--marxy-half);
+  font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 11 / 13);
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--marxy-color-text-faint);
+  user-select: none; -webkit-user-select: none;
+}
+.marxy-xray-head::before { content: attr(data-marxy-xray-head); }
+.marxy-xray-head::after { content: "x closes"; text-transform: none; letter-spacing: 0; }
+.marxy-xray-line { display: grid; grid-template-columns: 4.2ch minmax(0, 1fr); padding-right: var(--marxy-half); }
+.marxy-xray-line::before {
+  content: attr(data-marxy-line); text-align: right; padding-right: 1.2ch; color: var(--marxy-color-text-faint);
+  user-select: none; -webkit-user-select: none;
+}
+.marxy-xray-text { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: var(--marxy-tab-size, 4); }
+.marxy-xray-text[data-marxy-eol]::after {
+  content: attr(data-marxy-eol); color: var(--marxy-color-text-faint); margin-left: 0.3ch;
+  user-select: none; -webkit-user-select: none;
+}
+.marxy-xray-tab, .marxy-xray-space { position: relative; }
+.marxy-xray-tab::before, .marxy-xray-space::before {
+  position: absolute; left: 0; top: 0; color: var(--marxy-color-accent);
+  user-select: none; -webkit-user-select: none; pointer-events: none;
+}
+.marxy-xray-tab::before { content: "\2192"; }
+.marxy-xray-space::before { content: "\00b7"; left: 50%; transform: translateX(-50%); }
+.marxy-article .marxy-xrayed { display: none !important; }
+
+/* Reveal: the markup the reading left out, back in its place in the mono face, quietly. The marks are text, so a copy
+   takes what is drawn. */
+.marxy-reveal-mark {
+  font-family: var(--marxy-font-mono); font-size: 0.82em; font-style: normal; font-weight: 400;
+  letter-spacing: 0; text-transform: none; text-decoration: none; color: var(--marxy-color-text-faint);
+  white-space: pre;
+}
+.marxy-reveal-line { display: block; line-height: var(--lb); }
+.marxy-article[data-marxy-reveal] li { list-style: none; }
+.marxy-reveal-hang { display: inline-block; min-width: 2.4em; margin-inline-start: -2.4em; text-align: end; }
+.marxy-article[data-marxy-reveal] input[type="checkbox"][data-marxy-s] { display: none; }
+
+/* Folds: a folded section shows its heading and a quiet count of what is inside; "only this" leaves the rest out, a
+   dashed row saying how much at each gap. */
+.marxy-article .marxy-fold-out, .marxy-article .marxy-focus-out { display: none !important; }
+.marxy-article .marxy-folded::after {
+  content: attr(data-marxy-folded);
+  margin-inline-start: 0.8em; padding: 0.1em 0.6em; border-radius: 0.8em;
+  box-shadow: inset 0 0 0 1px var(--marxy-color-rule-strong);
+  font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 11 / 13); font-weight: 400;
+  font-style: normal; letter-spacing: 0; text-transform: none; color: var(--marxy-color-text-faint);
+  vertical-align: middle; white-space: nowrap;
+}
+.marxy-elide {
+  position: relative; margin: var(--marxy-half) 0; text-align: center; cursor: default;
+  font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 11 / 13); line-height: var(--lb);
+  color: var(--marxy-color-text-faint);
+  user-select: none; -webkit-user-select: none;
+}
+.marxy-elide::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed var(--marxy-color-rule-strong); }
+.marxy-elide::after { content: attr(data-marxy-elide); position: relative; padding: 0 1em; background: var(--marxy-color-bg); }
+.marxy-elide:hover { color: var(--marxy-color-text-strong); }
+/* One block open for editing in place: Source for that block, where the block was. It sits in
    the measure like a code block, in the code face, with the accent rule of a selected block, and exists only
    while the reader edits it; at rest the page holds no element of this class. */
 .marxy-block-editor {
@@ -787,7 +1165,7 @@ p > img:only-child { display: block; margin-inline: auto; }
 /* A hung grapheme is an inline-block, shaped apart from the rest of its line. It has no line height of
    its own: it sits on the line's baseline and can never make the line taller. With the body's, WebKit
    placed its box to the 1/64 px a little below the line's own at sizes such as 16 and 28, each line
-   holding one grew by 1/64 px, and a long document drifted off the grid (B-22). */
+   holding one grew by 1/64 px, and a long document drifted off the grid. */
 .marxy-hang { display: inline-block; line-height: 0; }
 
 /* Display math wider than the measure scrolls inside its own block instead of widening the page. */
@@ -798,7 +1176,7 @@ p > img:only-child { display: block; margin-inline: auto; }
    left 2.14px off the grid and the pass decides nothing is needed. A block box has no such split. */
 .marxy-article pre.marxy-math-block > code { display: block; }
 
-/* Invisible-character markers (handbook ch.7, MARXY-236): 1ch hairline box, hex label, code ground. */
+/* Invisible-character markers (handbook ch.7): 1ch hairline box, hex label, code ground. */
 .marxy-invisible {
   display: inline-block;
   vertical-align: baseline;
@@ -837,7 +1215,7 @@ p > img:only-child { display: block; margin-inline: auto; }
 .marxy-invisible-bidi { unicode-bidi: isolate; }
 .marxy-invisible-tag .marxy-invisible-glyph { padding: 0 0.1ch; }
 
-/* Mismatch host at rest (title); destination on summon only (MARXY-236). */
+/* Mismatch host at rest (title); destination on summon only. */
 a.marxy-link-mismatch::before {
   content: ' \2197\00a0' attr(title);
   font-family: var(--marxy-font-mono);
@@ -858,10 +1236,10 @@ a.marxy-link-mismatch::before {
 a:hover .marxy-link-dest,
 a:focus .marxy-link-dest { display: inline; }
 
-/* Rendered find (D-13; docs/design/09-app-shell.md §Find). A match is a pale fill and a 2 px edge in
-   --marxy-color-find-edge (3:1 on the grounds, WCAG 1.4.11), as Source draws it after L-11; the current
-   match adds a line above as well as below, so it is told apart by shape and not by colour alone
-   (ADR-0033). The overlay rectangles below are the fallback where the engine has no CSS.highlights. */
+/* Rendered find. A match is a pale fill and a 2 px edge in
+   --marxy-color-find-edge (3:1 on the grounds, WCAG 1.4.11), as Source draws it; the current
+   match adds a line above as well as below, so it is told apart by shape and not by colour alone.
+  The overlay rectangles below are the fallback where the engine has no CSS.highlights. */
 ::highlight(marxy-find) {
   background-color: var(--marxy-color-find);
   text-decoration: underline 2px var(--marxy-color-find-edge);
@@ -926,12 +1304,13 @@ a:focus .marxy-link-dest { display: inline; }
 }
 .marxy-find-count:empty { display: none; }
 
-/* The divider between two panes (D-04; ADR-0057): drawn only while two panes are open, 1 px of
+/* The divider between two panes: drawn only while two panes are open, 1 px of
    --marxy-color-divider, zero layout width (the grid's columns are exactly the ratio). The hit area is
    --marxy-divider-hit wide, centred on the boundary. The focused pane's side shows --marxy-color-divider-focus
    for 150 ms when focus moves; delete the two @keyframes and the two :has rules to drop the fade. */
 #marxy-main[data-marxy-split] { position: relative; }
-.marxy-divider { position: absolute; top: 0; bottom: 0; z-index: 5; width: var(--marxy-divider-hit); margin-inline-start: calc(var(--marxy-divider-hit) / -2); cursor: col-resize; touch-action: none; }
+/* Over the frame's minimap strip (z-index 7, frame.css), which ends at the left pane's edge under half the grip: it took the drags and double-clicks. */
+.marxy-divider { position: absolute; top: 0; bottom: 0; z-index: 8; width: var(--marxy-divider-hit); margin-inline-start: calc(var(--marxy-divider-hit) / -2); cursor: col-resize; touch-action: none; }
 .marxy-divider::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--marxy-color-divider); }
 .marxy-divider:is(:hover, :active, :focus-visible)::before { background: var(--marxy-color-divider-focus); }
 .marxy-divider:focus-visible { outline: 2px solid var(--marxy-color-divider-focus); outline-offset: -2px; }
@@ -940,736 +1319,20 @@ a:focus .marxy-link-dest { display: inline; }
 @keyframes marxy-divider-fade-0 { from { background: var(--marxy-color-divider-focus); } to { background: var(--marxy-color-divider); } }
 @keyframes marxy-divider-fade-1 { from { background: var(--marxy-color-divider-focus); } to { background: var(--marxy-color-divider); } }
 
-/* The unfolded workspace (ADR-0058; W-02). Folded is no rule at all: the regions are not in the page and
-   `data-marxy-workspace` is absent, so every selector below is dead and the page is exactly the page above.
-   Unfolded, `<body>` is a grid of three columns around the panes. The side columns are one width, the wider of
-   the two panels, so the middle column is centred on the window and the reading column in it does not move
-   when the panels come and go; they give way, down to nothing, only when the middle would fall below the
-   measure's floor (45 characters and a gutter each side; twice that for two panes). The regions are empty
-   containers: W-03 to W-11 fill them. The bands above the panes and the status bar stay in view as the window
-   scrolls (sticky over a grid area that runs the document's whole height). */
-body[data-marxy-workspace="unfolded"] {
-  --marxy-ws-sidebar-w: 252px;
-  --marxy-ws-inspector-w: 300px;
-  --marxy-ws-toolbar-h: 52px;
-  --marxy-ws-tabs-h: 34px;
-  --marxy-ws-strip-h: 40px;
-  --marxy-ws-status-h: 26px;
-  --marxy-ws-left: var(--marxy-ws-sidebar-w);
-  --marxy-ws-right: var(--marxy-ws-inspector-w);
-  --marxy-ws-min-pane: calc(45 * var(--marxy-avg-char) * var(--marxy-size-body) + 32px);
-  --marxy-ws-panes-h: calc(100vh - var(--marxy-ws-toolbar-h) - var(--marxy-ws-tabs-h) - var(--marxy-ws-strip-h) - var(--marxy-ws-status-h));
-  --marxy-ws-side: max(var(--marxy-ws-left), var(--marxy-ws-right));
-  display: grid;
-  grid-template-columns: minmax(0, var(--marxy-ws-side)) minmax(var(--marxy-ws-min-pane), 1fr) minmax(0, var(--marxy-ws-side));
-  grid-template-rows: var(--marxy-ws-toolbar-h) var(--marxy-ws-tabs-h) var(--marxy-ws-strip-h) auto var(--marxy-ws-status-h);
-  min-height: 100vh;
-  scroll-padding-top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h));
-}
-/* Two panes need two columns' room. */
-body[data-marxy-workspace="unfolded"]:has(#marxy-main[data-marxy-split]) { --marxy-ws-min-pane: calc(2 * (45 * var(--marxy-avg-char) * var(--marxy-size-body) + 32px)); }
-/* A region that is not docked is still in the page, `hidden`, and takes no room. */
-body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="sidebar"][hidden]) { --marxy-ws-left: 0px; }
-body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="inspector"][hidden]) { --marxy-ws-right: 0px; }
-body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="toolbar"][hidden]) { --marxy-ws-toolbar-h: 0px; }
-body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="tabs"][hidden]) { --marxy-ws-tabs-h: 0px; }
-body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="strip"][hidden]) { --marxy-ws-strip-h: 0px; }
-body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="status-bar"][hidden]) { --marxy-ws-status-h: 0px; }
-/* The bands reach the window's edge (U-01; the author's Q12): from the sidebar's edge to the right edge of the window, or to the
-   inspector's edge while it is docked; with no sidebar, from the left edge. Only the bands stretch. The panes stay in column 2 of
-   the symmetric grid, so the reading column is centred on the window and does not move when a panel docks (ADR-0058 item 6). */
-body[data-marxy-workspace="unfolded"] { --marxy-ws-band-from: 2; --marxy-ws-band-to: -1; }
-body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="sidebar"][hidden]) { --marxy-ws-band-from: 1; }
-body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="inspector"]:not([hidden])) { --marxy-ws-band-to: 3; }
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region] {
-  box-sizing: border-box;
-  min-width: 0;
-  background: var(--marxy-color-surface);
-  color: var(--marxy-color-text);
-  font: var(--marxy-size-chrome) var(--marxy-face-chrome);
-  border: 0 solid var(--marxy-color-rule);
-  z-index: 4;
-}
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region][hidden] { display: none; }
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="sidebar"],
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="inspector"] {
-  grid-row: 1 / 5;
-  position: sticky;
-  top: 0;
-  align-self: start;
-  height: calc(100vh - var(--marxy-ws-status-h));
-  overflow: auto;
-}
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="sidebar"] { grid-column: 1; border-inline-end-width: 1px; }
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="inspector"] { grid-column: 3; border-inline-start-width: 1px; }
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="toolbar"],
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="tabs"],
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="strip"] {
-  grid-column: var(--marxy-ws-band-from) / var(--marxy-ws-band-to);
-  position: sticky;
-  align-self: start;
-  border-block-end-width: 1px;
-}
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="toolbar"] { grid-row: 1 / -1; top: 0; height: var(--marxy-ws-toolbar-h); }
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="tabs"] { grid-row: 2 / -1; top: var(--marxy-ws-toolbar-h); height: var(--marxy-ws-tabs-h); }
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="strip"] { grid-row: 3 / -1; top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h)); height: var(--marxy-ws-strip-h); }
-body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="status-bar"] {
-  grid-column: 1 / -1;
-  grid-row: 1 / -1;
-  position: sticky;
-  bottom: 0;
-  align-self: end;
-  height: var(--marxy-ws-status-h);
-  border-block-start-width: 1px;
-}
-/* The status bar's content (W-11; mock-v2 01-workspace): one row on the chrome face, 11.5 at the default chrome size, quiet. The
-   file's facts run from the left, the theme and the text size from the right, with the spacer between. An item is text; one with
-   something behind it is a button, bare until hovered (the selection ground) or focused (the accent outline). Nothing here
-   changes the region's height, so the panes' height and the reading column are what they were without it. */
-.marxy-status-bar {
-  display: flex; align-items: center; gap: calc(var(--marxy-size-chrome) * 14 / 13); height: 100%; min-width: 0;
-  padding-inline: calc(var(--marxy-size-chrome) * 12 / 13); overflow: hidden; white-space: nowrap;
-  font-size: calc(var(--marxy-size-chrome) * 11.5 / 13); color: var(--marxy-color-text-secondary);
-  user-select: none; -webkit-user-select: none;
-}
-.marxy-status-item { flex: none; min-width: 0; }
-.marxy-status-item[data-marxy-status-item="where"] { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
-.marxy-status-grow { flex: 1 1 0; min-width: 0; }
-button.marxy-status-item {
-  appearance: none; -webkit-appearance: none; margin: 0; padding: 0 calc(var(--marxy-size-chrome) * 5 / 13); border: 0;
-  height: calc(var(--marxy-size-chrome) * 20 / 13); border-radius: calc(var(--marxy-size-chrome) * 4 / 13);
-  background: none; color: inherit; font: inherit; cursor: default;
-}
-button.marxy-status-item:hover { background: var(--marxy-color-selection); color: var(--marxy-color-text); }
-button.marxy-status-item:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-/* The narrow window (U-08; Q18). Below 900 px (`NARROW_WINDOW` in workspace/state.ts, which leaves the sidebar undocked by
-   default) the right reserve is zero: the panes take the window less the sidebar, when the reader docked it (the measure gives way, the page never runs off). The inspector
-   no longer has a column; docked, it lies over the page's right edge, under the bands, and never over Source or Split, where
-   it is not drawn. The toolbar drops its title before any control. Above 900 px none of this applies. */
-@media (max-width: 899.98px) {
-  body[data-marxy-workspace="unfolded"] {
-    grid-template-columns: minmax(0, var(--marxy-ws-left)) minmax(0, 1fr) 0;
-    --marxy-ws-band-to: -1;
-  }
-  body[data-marxy-workspace="unfolded"]:has(> [data-marxy-workspace-region="inspector"]:not([hidden])) { --marxy-ws-band-to: -1; }
-  body[data-marxy-workspace="unfolded"] > [data-marxy-workspace-region="inspector"] {
-    position: fixed;
-    top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h));
-    right: 0;
-    bottom: var(--marxy-ws-status-h);
-    height: auto;
-    width: var(--marxy-ws-inspector-w);
-    max-width: 90vw;
-    box-shadow: var(--marxy-shadow-surface);
-  }
-  body[data-marxy-workspace="unfolded"][data-marxy-mode="source"] > [data-marxy-workspace-region="inspector"],
-  body[data-marxy-workspace="unfolded"]:has(#marxy-main[data-marxy-split]) > [data-marxy-workspace-region="inspector"] { display: none; }
-}
-/* The toolbar (W-05 layout, W-04 states). A row in the toolbar region on the chrome face; the controls are bare until
-   they have a state, and every state is drawn from the surface roles (text, text-secondary, accent and the accent
-   wash on the surface), so each pair is one the contrast gate already holds: hover is the selection ground, checked
-   and pressed are the accent wash with an accent line under the label (never colour alone), disabled is the
-   secondary text, and focus is the accent outline. The title keeps five ems, the most the narrowest column spares it at the default size, and
-   the folder beside it goes first. When the controls and the title together do not fit (chrome_size 26 in the narrowest
-   column) the row scrolls, and an edge that hides controls is faded into the ground, so there is always a visible
-   sign that more is out of sight; the arrow keys and focus bring a control into view. */
-.marxy-toolbar {
-  --marxy-toolbar-fade: calc(var(--marxy-size-chrome) * 2);
-  display: flex; align-items: center; gap: calc(var(--marxy-size-chrome) * 4 / 13); height: 100%; padding-inline: 0.9em; min-width: 0;
-  overflow-x: auto; scrollbar-width: none; user-select: none; -webkit-user-select: none;
-  background:
-    linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-toolbar-fade) 100% no-repeat local,
-    linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-toolbar-fade) 100% no-repeat local,
-    linear-gradient(to right, color-mix(in srgb, var(--marxy-color-text) 28%, transparent), transparent) left center / var(--marxy-toolbar-fade) 100% no-repeat scroll,
-    linear-gradient(to left, color-mix(in srgb, var(--marxy-color-text) 28%, transparent), transparent) right center / var(--marxy-toolbar-fade) 100% no-repeat scroll;
-}
-.marxy-toolbar::-webkit-scrollbar { display: none; }
-.marxy-toolbar button { flex: none; appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.6em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; cursor: default; white-space: nowrap; }
-.marxy-toolbar button:hover { background: var(--marxy-color-selection); }
-.marxy-toolbar button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-toolbar button[aria-checked="true"],
-.marxy-toolbar button[aria-pressed="true"] { background: var(--marxy-color-accent-wash); box-shadow: inset 0 -2px 0 var(--marxy-color-accent); }
-.marxy-toolbar button[aria-disabled="true"] { color: var(--marxy-color-text-secondary); background: none; box-shadow: none; }
-.marxy-toolbar button[aria-disabled="true"][aria-checked="true"] { box-shadow: inset 0 -2px 0 var(--marxy-color-text-secondary); }
-.marxy-toolbar [data-marxy-toolbar-item] { display: flex; align-items: center; flex: none; gap: 2px; }
-.marxy-toolbar [hidden] { display: none; }
-.marxy-toolbar [data-marxy-toolbar-item="title"] { flex: 1 1 0; min-width: 5em; gap: 8px; overflow: hidden; white-space: nowrap; }
-.marxy-toolbar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.marxy-toolbar-folder { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.marxy-toolbar-dirty[hidden] { display: none; }
-/* U-03 (Q17): icons with tooltips. A control is a 28 px round button around a 16 px glyph (scaled with the chrome size);
-   only the Read / Split / Source control keeps words, as one pill with a ring, the checked choice on the accent wash
-   and set heavier so it is never colour alone. The title is two lines: the name over its folder. */
-.marxy-toolbar-glyph { display: inline-flex; flex: none; }
-/* The strip leads with the kind (U-09): capitals, 11px / 600, faint. The DOM keeps the kind's id; the case is drawn here. */
-.marxy-strip-kind { flex: none; margin-inline: 0.4em 0.6em; font-size: calc(var(--marxy-size-chrome) * 11 / 13); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--marxy-color-text-faint); user-select: none; }
-.marxy-toolbar-glyph svg { display: block; width: calc(var(--marxy-size-chrome) * 16 / 13); height: calc(var(--marxy-size-chrome) * 16 / 13); }
-.marxy-toolbar button:not([role="radio"]) { display: inline-flex; align-items: center; justify-content: center; gap: 0.3em; min-width: calc(var(--marxy-size-chrome) * 28 / 13); height: calc(var(--marxy-size-chrome) * 28 / 13); max-height: calc(var(--marxy-ws-toolbar-h, 52px) - 4px); padding: 0 0.4em; border-radius: 999px; }
-.marxy-toolbar [data-marxy-toolbar-item="copy"] { gap: 0; }
-.marxy-toolbar [data-marxy-toolbar-item="copy"] .marxy-toolbar-copy-menu { min-width: 0; padding: 0 0.2em; }
-.marxy-toolbar [data-marxy-toolbar-item="mode"] { gap: 0; padding: 0.1em; border: 1px solid var(--marxy-color-rule); border-radius: 999px; }
-.marxy-toolbar [data-marxy-toolbar-item="mode"] button { display: inline-flex; align-items: center; gap: 0.3em; height: calc(var(--marxy-size-chrome) * 24 / 13); padding: 0 0.5em; border-radius: 999px; }
-.marxy-toolbar [data-marxy-toolbar-item="mode"] button[aria-checked="true"] { font-weight: 650; }
-.marxy-toolbar [data-marxy-toolbar-item="kind"] button { display: inline-flex; align-items: center; gap: 0.4em; height: calc(var(--marxy-size-chrome) * 24 / 13); padding: 0 0.8em 0 0.65em; border: 1px solid var(--marxy-color-rule); border-radius: 999px; }
-.marxy-kind-chip-name { text-transform: capitalize; }
-.marxy-toolbar-lines { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
-.marxy-toolbar-name { font-weight: 650; }
-.marxy-toolbar-folder { font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-secondary); }
-.marxy-toolbar [data-marxy-toolbar-item="title"] { gap: 6px; }
-@media (max-width: 899.98px) { .marxy-toolbar [data-marxy-toolbar-item="title"] { display: none; } }
-/* The tab row (W-06 layout; W-04 owns the look). One row in the `tabs` region, a tab per document opened since the window
-   unfolded: the kind's glyph, the name and the unsaved dot, and a close button. The row fills the band's height and
-   never wraps; when the tabs do not fit (a narrow window, chrome_size 26, many documents) each shrinks to a floor of
-   six ems and the row scrolls, with the edge that hides tabs faded into the ground as the toolbar's is, so the page
-   itself never scrolls sideways. The active tab is the focused pane's document (accent line under it); a document
-   the other pane shows has a quiet line of the secondary text. The close button is out of the tab stops: Delete
-   closes the tab that has focus. */
-.marxy-tabs {
-  --marxy-tabs-fade: calc(var(--marxy-size-chrome) * 2);
-  display: flex; align-items: stretch; gap: 2px; height: 100%; padding-inline-start: 0.9em; min-width: 0;
-  overflow-x: auto; scrollbar-width: none; user-select: none; -webkit-user-select: none;
-  background:
-    linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-tabs-fade) 100% no-repeat local,
-    linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-tabs-fade) 100% no-repeat local,
-    linear-gradient(to right, color-mix(in srgb, var(--marxy-color-text) 28%, transparent), transparent) left center / var(--marxy-tabs-fade) 100% no-repeat scroll,
-    linear-gradient(to left, color-mix(in srgb, var(--marxy-color-text) 28%, transparent), transparent) right center / var(--marxy-tabs-fade) 100% no-repeat scroll;
-}
-.marxy-tabs::-webkit-scrollbar { display: none; }
-/* The end of the row is a margin, not padding: padding at the end of a scrolling flex row is not scrolled to. */
-.marxy-tab:last-child { margin-inline-end: 0.9em; }
-/* One grid (F-99; mock-v2 01-workspace): every tab is the band's height with its parts on one centre line (glyph, name, dirty dot and
-   close), and the close has a slot of one constant width on every tab, hidden (not removed) until the tab is hovered, focused or
-   active, so nothing about a tab's width or its neighbours' left edges changes with the pointer or the active tab. The hover ground
-   is the whole tab, as the active ground is, so both boxes are the same size. */
-.marxy-tab { display: flex; align-items: center; flex: 0 1 auto; min-width: calc(var(--marxy-size-chrome) * 150 / 13); max-width: calc(var(--marxy-size-chrome) * 220 / 13); height: 100%; box-sizing: border-box; border-radius: calc(var(--marxy-size-chrome) * 6 / 13) calc(var(--marxy-size-chrome) * 6 / 13) 0 0; }
-.marxy-tab:hover { background: var(--marxy-color-selection); }
-.marxy-tab > button { appearance: none; -webkit-appearance: none; margin: 0; padding: 0; border: 0; border-radius: inherit; background: none; color: inherit; font: inherit; line-height: 1; cursor: default; white-space: nowrap; }
-.marxy-tab > button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-tab > .marxy-tab-open { flex: 1 1 auto; align-self: stretch; min-width: 0; display: flex; align-items: center; gap: calc(var(--marxy-size-chrome) * 7 / 13); padding-inline: calc(var(--marxy-size-chrome) * 12 / 13) 0; overflow: hidden; text-align: start; }
-.marxy-tab-open .marxy-kind-glyph { flex: none; display: inline-flex; }
-.marxy-tab-name { flex: 0 1 auto; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
-/* A long name: the head is cut with an ellipsis, the tail stays (tabs-view.ts; F-107). */
-.marxy-tab-name-text { grid-area: 1 / 1; display: flex; min-width: 0; white-space: pre; }
-.marxy-tab-name-text[data-marxy-tail] { position: relative; }
-.marxy-tab-name-text[data-marxy-tail]::before { content: attr(data-marxy-head); flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.marxy-tab-name-text[data-marxy-tail]::after { content: attr(data-marxy-tail); flex: none; }
-/* The whole name as one text node: not drawn (the ends above are), but what a copy or a read of the name gives, on one line (F-107.1). */
-.marxy-tab-name-full { position: absolute; inset: 0 auto auto 0; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; user-select: none; }
-.marxy-tab-name::after { content: attr(data-marxy-text); grid-area: 1 / 1; height: 0; overflow: hidden; visibility: hidden; white-space: pre; font-weight: 600; }
-.marxy-tab-dirty { flex: none; }
-/* Clean, the dot keeps its room and is not drawn, so a tab is as wide dirty as clean (F-99.1). */
-.marxy-tab-dirty[hidden] { display: inline; visibility: hidden; }
-.marxy-tab-close[hidden] { display: none; }
-/* The slot: a square of 18/13 em with a margin of 5/13 em either side, a constant 28/13 em on every tab; the chip behind the × shows on its own hover. */
-.marxy-tab > .marxy-tab-close { flex: none; width: calc(var(--marxy-size-chrome) * 18 / 13); height: min(calc(var(--marxy-size-chrome) * 18 / 13), calc(100% - 4px)); margin-inline: calc(var(--marxy-size-chrome) * 5 / 13); display: grid; place-items: center; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); color: var(--marxy-color-text-secondary); opacity: 0; }
-.marxy-tab > .marxy-tab-close:hover { background: color-mix(in srgb, var(--marxy-color-text) 14%, transparent); color: var(--marxy-color-text-strong); }
-/* The close shows on hover, on focus inside the tab, and always on the active tab; where there is no hover (touch) it always shows. */
-.marxy-tab:hover .marxy-tab-close, .marxy-tab:focus-within .marxy-tab-close, .marxy-tab[data-marxy-tab-active] .marxy-tab-close, .marxy-tab-close:focus-visible { opacity: 1; }
-@media (hover: none) { .marxy-tab-close { opacity: 1; } }
-.marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 var(--marxy-color-text-secondary); }
-/* The active tab is the page's own ground, continuous with it, and heavier (the name holds the heavier width, above); no outline and no accent line. */
-.marxy-tab[data-marxy-tab-active] { background: var(--marxy-color-bg); font-weight: 600; box-shadow: none; }
-/* The full-name reveal: the path, in a small label under the row (tabs-view.ts places it inside the strip's band). */
-.marxy-tab-tip { position: fixed; z-index: 60; max-width: calc(100vw - 8px); box-sizing: border-box; padding: calc(var(--marxy-size-chrome) * 3 / 13) calc(var(--marxy-size-chrome) * 8 / 13); border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: var(--marxy-color-surface); color: var(--marxy-color-text); font: inherit; font-size: calc(var(--marxy-size-chrome) * 12 / 13); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
-.marxy-tab-tip[hidden] { display: none; }
-/* The row's + (W-14): a quiet mark at the end of the tabs, with the New menu under it. It is not a tab (no `.marxy-tab`), so a
-   count of tabs does not include it; it carries the row's end margin. */
-.marxy-tab-new { display: flex; align-items: stretch; flex: none; margin-inline-end: 0.9em; border-radius: calc(var(--marxy-size-chrome) * 6 / 13) calc(var(--marxy-size-chrome) * 6 / 13) 0 0; }
-.marxy-tab-new > button { appearance: none; -webkit-appearance: none; margin: 0; padding: 0 0.7em; border: 0; border-radius: inherit; background: none; color: var(--marxy-color-text-secondary); font: inherit; line-height: 1; cursor: default; }
-.marxy-tab-new > button:hover { background: var(--marxy-color-selection); }
-.marxy-tab-new > button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-
-/* The inspector's content (W-09): a strip of tabs and the selected panel, in the `inspector` region's column. Layout only; W-04 owns the look.
-   Nothing here changes the region's width, so the reading column does not move. A link's destination is text, never an anchor. */
-.marxy-inspector { display: flex; flex-direction: column; min-height: 100%; }
-.marxy-inspector-tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 0.5em 0.6em; border-block-end: 1px solid var(--marxy-color-rule); position: sticky; top: 0; background: var(--marxy-color-surface); z-index: 1; }
-.marxy-inspector-tab { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.7em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: var(--marxy-color-text-secondary); font: inherit; cursor: default; }
-.marxy-inspector-tab:hover { background: var(--marxy-color-selection); }
-.marxy-inspector-tab[data-marxy-inspector-tab-active] { color: var(--marxy-color-text); background: var(--marxy-color-accent-wash); }
-.marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-inspector-panel { flex: 1 1 auto; min-width: 0; padding: 0.4em 0.6em 1em; }
-.marxy-links-heading { margin: 0.9em 0 0.3em; font: inherit; font-weight: 600; color: var(--marxy-color-text-secondary); }
-.marxy-links-list { list-style: none; margin: 0; padding: 0; }
-.marxy-links-empty { margin: 0.2em 0; color: var(--marxy-color-text-secondary); }
-.marxy-link-row { appearance: none; -webkit-appearance: none; display: flex; flex-direction: column; gap: 0.1em; box-sizing: border-box; width: 100%; margin: 0; padding: 0.35em 0.4em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: inherit; font: inherit; text-align: start; cursor: default; overflow-wrap: anywhere; }
-button.marxy-link-row:hover { background: var(--marxy-color-selection); }
-.marxy-inspector .marxy-link-dest, .marxy-inspector .marxy-link-status { color: var(--marxy-color-text-secondary); }
-.marxy-inspector .marxy-link-mismatch { color: var(--marxy-color-text); font-weight: 600; }
-.marxy-inspector .marxy-link-mismatch::before { content: "\26A0\FE0E  "; }
-/* The Outline tab (W-10; mock-v2 01-workspace `.outline-row`): the headings, indented by level, each with the quiet count of its section's
-   words; the section under the reading line or the caret is washed; a row's menu (its mouse door is the three dots, shown on hover and
-   focus) lists the moves and the level changes. Rows are buttons in the inspector's one tab stop (the shell roves them). */
-.marxy-outline-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6em; margin: 0.5em 0 0.3em; color: var(--marxy-color-text-secondary); }
-.marxy-outline-copy { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.15em 0.55em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: inherit; font: inherit; cursor: default; }
-.marxy-outline-copy:hover { background: var(--marxy-color-selection); color: var(--marxy-color-text); }
-.marxy-outline-copy:focus-visible, .marxy-outline-row:focus-visible, .marxy-outline-menu-item:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-outline-list { list-style: none; margin: 0; padding: 0; }
-.marxy-outline-empty { margin: 0.2em 0; color: var(--marxy-color-text-secondary); }
-.marxy-outline-row { appearance: none; -webkit-appearance: none; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 0.5em; box-sizing: border-box; width: 100%; margin: 0; padding-block: 0.3em; padding-inline-end: 0.4em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: inherit; font: inherit; text-align: start; cursor: default; }
-.marxy-outline-row:hover { background: var(--marxy-color-selection); }
-.marxy-outline-row[aria-current="location"] { background: var(--marxy-color-accent-wash); color: var(--marxy-color-text); }
-.marxy-outline-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.marxy-outline-row[data-marxy-outline-level="1"] .marxy-outline-text, .marxy-outline-title .marxy-outline-text { font-weight: 600; }
-.marxy-outline-words { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; font-size: 0.92em; }
-.marxy-outline-table .marxy-outline-text { color: var(--marxy-color-text-secondary); font-size: 0.92em; }
-.marxy-outline-more { width: 1.1em; text-align: center; color: var(--marxy-color-text-secondary); visibility: hidden; }
-.marxy-outline-item:hover .marxy-outline-more, .marxy-outline-row:focus-visible .marxy-outline-more, .marxy-outline-item[data-marxy-outline-open] .marxy-outline-more { visibility: visible; }
-.marxy-outline-more:hover { color: var(--marxy-color-text); }
-.marxy-outline-menu { display: flex; flex-direction: column; margin: 0.15em 0 0.35em 1.2em; padding: 0.25em; border: 1px solid var(--marxy-color-rule); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: var(--marxy-color-surface); }
-.marxy-outline-menu-item { appearance: none; -webkit-appearance: none; display: flex; justify-content: space-between; gap: 1em; margin: 0; padding: 0.3em 0.5em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: inherit; font: inherit; text-align: start; cursor: default; }
-.marxy-outline-menu-item:hover { background: var(--marxy-color-selection); }
-.marxy-outline-menu-item[aria-disabled="true"] { color: var(--marxy-color-text-secondary); }
-.marxy-outline-menu-key { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
-/* The Versions tab (V-06; mock 01-workspace's Versions: a rail dot, the time, the reason and size quiet beneath it). *Changed
-   since you read* is a block on the accent wash at the top; each version is a row that opens its diff, with Restore to a copy
-   beside it, quiet until pointed at. A note that something is wrong (a damaged record, a failed copy) carries a warning sign. */
-.marxy-versions-since { appearance: none; -webkit-appearance: none; display: grid; gap: 0.15em; box-sizing: border-box; width: 100%; margin: 0.5em 0 0.4em; padding: 0.55em 0.7em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: var(--marxy-color-accent-wash); color: var(--marxy-color-text); font: inherit; text-align: start; cursor: default; }
-.marxy-versions-since:hover { background: var(--marxy-color-selection); }
-.marxy-versions-since-title { font-weight: 600; }
-.marxy-versions-since-counts { font-variant-numeric: tabular-nums; }
-.marxy-versions-since-when { color: var(--marxy-color-text-secondary); font-size: 0.92em; }
-.marxy-versions-heading { margin: 0.9em 0 0.3em; font: inherit; font-weight: 600; color: var(--marxy-color-text-secondary); }
-.marxy-versions-note { margin: 0.35em 0; color: var(--marxy-color-text-secondary); line-height: 1.45; }
-.marxy-versions-note[data-marxy-versions-warn] { color: var(--marxy-color-text); }
-.marxy-versions-note[data-marxy-versions-warn]::before { content: "\26A0\FE0E  "; }
-.marxy-versions-list { list-style: none; margin: 0; padding: 0; }
-.marxy-versions-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.3em; }
-.marxy-versions-row { appearance: none; -webkit-appearance: none; display: grid; grid-template-columns: 14px minmax(0, 1fr); column-gap: 0.6em; align-items: center; box-sizing: border-box; width: 100%; margin: 0; padding: 0.35em 0.5em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; text-align: start; cursor: default; }
-.marxy-versions-row:hover { background: var(--marxy-color-selection); }
-.marxy-versions-rail { grid-row: 1 / span 3; box-sizing: border-box; width: 9px; height: 9px; border: 2px solid var(--marxy-color-edge); border-radius: 50%; }
-.marxy-versions-row[data-marxy-version-reason="read"] .marxy-versions-rail { border-color: var(--marxy-color-accent); }
-.marxy-versions-when { grid-column: 2; font-weight: 600; font-variant-numeric: tabular-nums; }
-.marxy-versions-what, .marxy-versions-state { grid-column: 2; color: var(--marxy-color-text-secondary); font-size: 0.92em; font-variant-numeric: tabular-nums; }
-.marxy-versions-state { color: var(--marxy-color-text); }
-.marxy-versions-state::before { content: "\26A0\FE0E  "; }
-.marxy-versions-restore { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.2em 0.5em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: var(--marxy-color-text-secondary); font: inherit; font-size: 0.92em; white-space: nowrap; cursor: default; }
-.marxy-versions-restore:hover { background: var(--marxy-color-selection); color: var(--marxy-color-text); }
-.marxy-versions-since:focus-visible, .marxy-versions-row:focus-visible, .marxy-versions-restore:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-versions-about { margin: 1.2em 0 0; color: var(--marxy-color-text-secondary); font-size: 0.92em; line-height: 1.45; }
-/* The Metadata tab (W-17; mock-v2 01-workspace `.msec` and `.mkv`): sections, each a heading over key and value rows. A front-matter value
-   is a button that becomes a field where it stands (Enter commits, Esc leaves it); Copy shows on the row under the pointer or the
-   focus. A value that cannot be edited here reads as text, says why in the secondary voice, and offers Edit in Source. Layout and the
-   quiet look only: nothing changes the region's width, so the reading column does not move. */
-.marxy-metadata-heading { margin: 0.9em 0 0.3em; font: inherit; font-weight: 600; color: var(--marxy-color-text-secondary); }
-.marxy-metadata-list { margin: 0; display: grid; gap: 0.1em; }
-.marxy-metadata-row { display: grid; grid-template-columns: minmax(4.5em, 32%) minmax(0, 1fr); column-gap: 0.7em; align-items: baseline; padding: 0.25em 0.4em; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); }
-.marxy-metadata-row:hover, .marxy-metadata-row:focus-within { background: var(--marxy-color-selection); }
-.marxy-metadata-key { margin: 0; color: var(--marxy-color-text-secondary); overflow-wrap: anywhere; }
-.marxy-metadata-value { margin: 0; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 0.1em 0.5em; overflow-wrap: anywhere; }
-.marxy-metadata-value > :is(.marxy-metadata-text, .marxy-metadata-edit, .marxy-metadata-input, .marxy-metadata-select) { grid-column: 1; grid-row: 1; justify-self: start; }
-.marxy-metadata-value > .marxy-metadata-input { justify-self: stretch; }
-.marxy-metadata-text { color: var(--marxy-color-text); min-width: 0; }
-.marxy-metadata-multiline { display: block; white-space: pre-wrap; font-family: var(--marxy-font-mono); font-size: calc(var(--marxy-size-chrome) * 12 / 13); }
-.marxy-metadata-why { grid-column: 1 / -1; color: var(--marxy-color-text-secondary); font-size: calc(var(--marxy-size-chrome) * 11.5 / 13); line-height: 1.4; }
-.marxy-metadata-edit, .marxy-metadata-copy, .marxy-metadata-source, .marxy-metadata-jump {
-  appearance: none; -webkit-appearance: none; margin: 0; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: default;
-}
-.marxy-metadata-edit { padding: 0; min-width: 0; color: var(--marxy-color-text); white-space: pre-wrap; text-decoration: underline dotted var(--marxy-color-rule-strong); text-underline-offset: 0.2em; }
-.marxy-metadata-edit:hover { text-decoration-style: solid; }
-.marxy-metadata-input { min-width: 0; box-sizing: border-box; margin: 0; padding: 0.15em 0.4em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: var(--marxy-color-bg); color: var(--marxy-color-text); font: inherit; }
-.marxy-metadata-input:focus-visible, .marxy-metadata-select:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
-.marxy-metadata-copy, .marxy-metadata-source { padding: 0.05em 0.4em; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); color: var(--marxy-color-text-secondary); font-size: calc(var(--marxy-size-chrome) * 11.5 / 13); white-space: nowrap; }
-.marxy-metadata-source { grid-column: 1; justify-self: start; }
-.marxy-metadata-copy { grid-column: 2; grid-row: 1; opacity: 0; }
-.marxy-metadata-row:hover .marxy-metadata-copy, .marxy-metadata-row:focus-within .marxy-metadata-copy, .marxy-metadata-copy:focus-visible { opacity: 1; }
-@media (hover: none) { .marxy-metadata-copy { opacity: 1; } }
-.marxy-metadata-copy:hover, .marxy-metadata-source:hover { color: var(--marxy-color-text); background: var(--marxy-color-selection); }
-.marxy-metadata-edit:focus-visible, .marxy-metadata-copy:focus-visible, .marxy-metadata-source:focus-visible, .marxy-metadata-jump:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-metadata-select { max-width: 100%; margin: 0; padding: 0.1em 0.3em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 4 / 13); background: none; color: var(--marxy-color-text); font: inherit; }
-.marxy-metadata-reasons { margin: 0.3em 0 0; padding: 0 0.4em; list-style: none; color: var(--marxy-color-text-secondary); font-size: calc(var(--marxy-size-chrome) * 11.5 / 13); line-height: 1.45; }
-.marxy-metadata-reason { overflow-wrap: anywhere; }
-.marxy-metadata-reason::before { content: "\2192\00a0"; }
-.marxy-metadata-note, .marxy-metadata-empty { margin: 0.3em 0.4em; color: var(--marxy-color-text-secondary); line-height: 1.45; }
-.marxy-metadata-jump { display: grid; grid-template-columns: minmax(4.5em, 32%) minmax(0, 1fr); column-gap: 0.7em; align-items: baseline; box-sizing: border-box; width: 100%; padding: 0.25em 0; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); overflow-wrap: anywhere; }
-.marxy-metadata-row:has(> .marxy-metadata-jump) { display: block; padding: 0; }
-.marxy-metadata-jump:hover { background: var(--marxy-color-selection); }
-.marxy-metadata-jump-label { padding-inline-start: 0.4em; color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
-.marxy-metadata-jump-words { color: var(--marxy-color-text); }
-
-/* The margin preview (W-17, ruling 21; mock-v2 `.mm`): a zero-height sticky layer, the pane's first child, so it takes no room in the column's flow
-   and the text under it never moves (ADR-0070, F-45). Its block sits in Read's empty left margin, beside the first line, in small chrome type
-   on the page's ground: keys faint, values secondary. Unfolded with one pane the window scrolls under the bands, so the layer sticks below them. */
-.marxy-metadata-margin { position: sticky; top: 0; height: 0; z-index: 3; margin: 0; padding: 0; pointer-events: none; }
-body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) .marxy-metadata-margin { top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h)); }
-.marxy-metadata-preview { position: absolute; box-sizing: border-box; pointer-events: auto; font: calc(var(--marxy-size-chrome) * 11.5 / 13) / 1.4 var(--marxy-face-chrome); color: var(--marxy-color-text-secondary); }
-.marxy-metadata-preview-list { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: calc(var(--marxy-size-chrome) * 4 / 13) calc(var(--marxy-size-chrome) * 12 / 13); }
-.marxy-metadata-preview-list > dt { color: var(--marxy-color-text-faint); white-space: nowrap; }
-.marxy-metadata-preview-list > dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--marxy-color-text-secondary); }
-.marxy-metadata-preview-more { margin-block-start: calc(var(--marxy-size-chrome) * 4 / 13); color: var(--marxy-color-text-faint); }
-.marxy-metadata-preview-link { appearance: none; -webkit-appearance: none; margin: calc(var(--marxy-size-chrome) * 6 / 13) 0 0; padding: 0; border: 0; background: none; color: var(--marxy-color-text-secondary); font: inherit; text-decoration: underline; text-decoration-color: var(--marxy-color-rule-strong); text-underline-offset: 2px; cursor: default; }
-.marxy-metadata-preview-link:hover { color: var(--marxy-color-text); }
-.marxy-metadata-preview-link:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 2px; border-radius: 2px; }
-/* The sidebar (W-07 layout; W-04 owns the look). One column in the `sidebar` region, 252 px (`--marxy-ws-sidebar-w`; the
-   panel scrolls, the page does not): an optional Library row, then two sections, each a header button (the title, and a
-   quiet count once folded) over a list of rows. A row is the kind's glyph, the title and a quiet age; the title shrinks
-   to an ellipsis first, so at `chrome_size` 26 the row still fits the column and the age is never pushed out. Nothing
-   is drawn in a row but those three; a changed file is told by its age in the accent, and by its accessible name. */
-.marxy-sidebar { display: flex; flex-direction: column; gap: 0.6em; min-width: 0; padding: 0.6em 0.5em; user-select: none; -webkit-user-select: none; }
-.marxy-sidebar button { appearance: none; -webkit-appearance: none; margin: 0; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; line-height: 1.3; text-align: start; cursor: default; }
-.marxy-sidebar button:hover { background: var(--marxy-color-selection); }
-.marxy-sidebar button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-sidebar-library { display: block; width: 100%; padding: 0.35em 0.6em; }
-.marxy-sidebar-section { min-width: 0; }
-/* The look (U-06; the mock's 01-unfolded). A flush panel: the inset card waits for the overlay title bar (Q20, ADR-0038). */
-.marxy-sidebar { min-height: 100%; box-sizing: border-box; gap: 0.2em; }
-.marxy-sidebar-search { display: flex; align-items: center; gap: 0.5em; width: 100%; min-height: calc(var(--marxy-size-chrome) * 28 / 13); padding: 0 0.6em; margin-block-end: 0.4em; background: var(--marxy-color-selection); color: var(--marxy-color-text-faint); }
-.marxy-sidebar-search .marxy-toolbar-glyph, .marxy-sidebar-chevron { flex: none; display: inline-flex; }
-.marxy-sidebar-search-label { flex: 1; min-width: 0; }
-.marxy-sidebar-chip { flex: none; font: inherit; font-size: calc(var(--marxy-size-chrome) * 11 / 13); line-height: 1.3; }
-.marxy-sidebar-head { display: flex; align-items: center; gap: 0.3em; width: 100%; min-height: calc(var(--marxy-size-chrome) * 28 / 13); padding: 0 0.6em 0 0.3em; color: var(--marxy-color-text-faint); font-size: calc(var(--marxy-size-chrome) * 11 / 13); font-weight: 600; letter-spacing: 0.01em; }
-.marxy-sidebar-head:hover { color: var(--marxy-color-text-secondary); }
-.marxy-sidebar-chevron svg { width: 0.9em; height: 0.9em; }
-.marxy-sidebar-head[aria-expanded="false"] .marxy-sidebar-chevron { transform: rotate(-90deg); }
-.marxy-sidebar-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.marxy-sidebar-count { flex: none; margin-inline-start: auto; font-weight: 500; font-variant-numeric: tabular-nums; }
-.marxy-sidebar-list { list-style: none; margin: 0; padding: 0; }
-.marxy-sidebar-row { display: flex; align-items: center; gap: 0.5em; width: 100%; min-width: 0; min-height: calc(var(--marxy-size-chrome) * 28 / 13); padding: 0 0.6em; white-space: nowrap; }
-.marxy-sidebar-row[aria-current="true"] { background: var(--marxy-color-accent-wash); color: var(--marxy-color-text-strong); font-weight: 600; }
-.marxy-sidebar-row .marxy-kind-glyph { flex: none; display: inline-flex; }
-.marxy-sidebar-name { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.marxy-sidebar-age { flex: none; font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-faint); }
-.marxy-sidebar-foot { margin-block-start: auto; padding: 0.6em 0.6em 0.1em; border-top: 1px solid var(--marxy-color-rule); color: var(--marxy-color-text-secondary); font-size: calc(var(--marxy-size-chrome) * 11.5 / 13); }
-.marxy-sidebar-row-changed .marxy-sidebar-age { color: var(--marxy-color-accent); }
-.marxy-sidebar-tree li { background-image: repeating-linear-gradient(to right, transparent 0, transparent calc(1.1em - 1px), var(--marxy-color-rule) calc(1.1em - 1px), var(--marxy-color-rule) 1.1em); background-repeat: no-repeat; background-position: 0.95em 0; }
-.marxy-sidebar-node { display: flex; align-items: center; gap: 0.4em; width: 100%; min-width: 0; min-height: calc(var(--marxy-size-chrome) * 26 / 13); padding-inline-end: 0.6em; white-space: nowrap; }
-.marxy-sidebar-node .marxy-toolbar-glyph, .marxy-sidebar-node .marxy-kind-glyph { flex: none; display: inline-flex; }
-.marxy-sidebar-node-chevron { flex: none; display: inline-flex; width: 0.9em; height: 0.9em; color: var(--marxy-color-text-faint); }
-.marxy-sidebar-node[aria-expanded="false"] .marxy-sidebar-chevron { transform: rotate(-90deg); }
-.marxy-sidebar-node-top { font-weight: 600; color: var(--marxy-color-text-strong); }
-.marxy-sidebar-node[aria-current="true"] { background: var(--marxy-color-accent-wash); color: var(--marxy-color-text-strong); font-weight: 600; }
-.marxy-sidebar-node[aria-busy="true"] .marxy-sidebar-name { color: var(--marxy-color-text-faint); }
-.marxy-sidebar-badge { padding: 0 0.45em; border-radius: 1em; background: var(--marxy-color-accent-wash); color: var(--marxy-color-accent); font-variant-numeric: tabular-nums; }
-.marxy-sidebar-mark { flex: none; font-size: calc(var(--marxy-size-chrome) * 8 / 13); color: var(--marxy-color-accent); }
-.marxy-sidebar-note { display: block; padding-block: 0.3em; padding-inline-end: 0.6em; color: var(--marxy-color-text-faint); font-size: calc(var(--marxy-size-chrome) * 11 / 13); }
-
-/* The panes: the middle of the grid, below the bands. A split fills what the bands leave (index.html gives it the window's height). */
-body[data-marxy-workspace="unfolded"] #marxy-main { grid-column: 2; grid-row: 4; min-height: var(--marxy-ws-panes-h); }
-body[data-marxy-workspace="unfolded"] #marxy-main[data-marxy-split] { height: var(--marxy-ws-panes-h); }
-body[data-marxy-workspace="unfolded"] #marxy-main[data-marxy-split] > .marxy-pane { height: var(--marxy-ws-panes-h); }
-/* One pane in Source: index.html fixes the editor's mount to the window (inset 0), which paints the source under the
-   sidebar and the bands. Unfolded it sits in the panes' column, as the split's mount does. The selectors outweigh
-   index.html's, which are not touched. */
-body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) { position: relative; }
-body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) .marxy-source-mount:not([hidden]) { position: absolute; inset: 0; overflow: auto; }
-/* The notices' pills sit 40 px (at 13) above the window's foot, as the mock's toast does: 14 above the status bar when it is
-   shown. One pane in Rendered scrolls the window under the bar, so its region (sticky to the window's foot) keeps the
-   window-relative 40. Two panes, and one pane in Source, end above the bar, so their foot is the pane's own: the 40 less the
-   bar, never under 14 (U-02). */
-body[data-marxy-workspace="unfolded"] { --marxy-notice-foot: max(calc(var(--marxy-size-chrome) * 14 / 13), calc(var(--marxy-size-chrome) * 40 / 13 - var(--marxy-ws-status-h))); }
-body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) > .marxy-pane:not([data-marxy-mode="source"]) > [role="status"] { bottom: calc(var(--marxy-size-chrome) * 40 / 13); }
-body[data-marxy-workspace="unfolded"] #marxy-main:not([data-marxy-split]) > .marxy-pane[data-marxy-mode="source"] > [role="status"] { position: absolute; }
-
-/* The library view (Q-03; ADR-0062 item 2). A sibling of the panes in the unfolded workspace: it stands in the panes' cell of
-   the grid while they are hidden (`hidden` and `inert`, set by the view). The panes keep their box and lose only their paint
-   (`visibility`), so the window keeps its height and its scroll position, no scroll event runs under the view, and the place
-   the reader had is not written over; the window does not scroll while the view shows, and the view sticks under the bands.
-   It has no ground, border or shadow of its own: the page's ground, the rule role between its parts, the selection role for
-   the row under the pointer and the accent for the active one, which also gets a bar (never colour alone). A row is a fixed
-   number of lines, so the view can window the list: `--marxy-library-line` and `--marxy-library-pad` are read back by the
-   view through two hidden probes. */
-body #marxy-main[hidden]:not([data-marxy-split]) { display: block; visibility: hidden; }
-body #marxy-main[hidden][data-marxy-split] { display: grid; visibility: hidden; }
-html:has(> body > .marxy-library) { overflow: hidden; }
-.marxy-library {
-  --marxy-library-line: calc(var(--marxy-size-chrome) * 1.5);
-  --marxy-library-pad: calc(var(--marxy-size-chrome) * 0.4);
-  --marxy-library-row: calc(var(--marxy-size-chrome) * 30 / 13);
-  --marxy-library-cols: minmax(12em, 2fr) minmax(8em, 3fr) 5em 6em;
-  box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; flex-direction: column;
-  color: var(--marxy-color-text); font: var(--marxy-size-chrome) var(--marxy-face-chrome);
-}
-body[data-marxy-workspace="unfolded"] > .marxy-library { grid-column: 2 / var(--marxy-ws-band-to); grid-row: 4; position: sticky; top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h)); align-self: start; z-index: 3; height: var(--marxy-ws-panes-h); }
-.marxy-library-probe { position: absolute; visibility: hidden; pointer-events: none; width: 0; }
-.marxy-library-probe-line { height: var(--marxy-library-line); }
-.marxy-library-probe-pad { height: var(--marxy-library-pad); }
-.marxy-library-probe-row { height: var(--marxy-library-row); }
-.marxy-library-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4em 1.2em; padding: 0.8em 0.9em 0.4em; }
-.marxy-library-heading { flex: 0 1 auto; min-width: 0; }
-.marxy-library-title { margin: 0; font: inherit; font-size: 1.25em; font-weight: var(--marxy-weight-strong); }
-.marxy-library-blurb { margin: 0; color: var(--marxy-color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.marxy-library-scopes { display: flex; flex: 1 1 20em; gap: 0.2em; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.marxy-library-scope { flex: none; appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.6em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; cursor: default; white-space: nowrap; }
-.marxy-library-scope:hover { background: var(--marxy-color-selection); }
-.marxy-library-scope:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-library-scope[aria-current="true"] { background: var(--marxy-color-accent-wash); box-shadow: inset 0 -2px 0 var(--marxy-color-accent); }
-.marxy-library-scope-count { margin-inline-start: 0.4em; color: var(--marxy-color-text-secondary); }
-.marxy-library-search { position: relative; padding: 0.2em 0.9em 0.4em; }
-.marxy-library-field, .marxy-library-save-name { box-sizing: border-box; width: 100%; padding: 0.45em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; }
-.marxy-library-field:focus-visible, .marxy-library-save-name:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
-.marxy-library-suggest { position: absolute; z-index: 5; inset-inline: 0.9em; margin-top: 0.15em; max-height: 14em; overflow: auto; background: var(--marxy-color-surface); border: 1px solid var(--marxy-color-rule); }
-.marxy-library-suggest[hidden], .marxy-library-chips[hidden] { display: none; }
-.marxy-library-suggest-item { display: flex; gap: 1em; justify-content: space-between; padding: 0.3em 0.7em; }
-.marxy-library-suggest-item[aria-selected="true"] { background: var(--marxy-color-accent-wash); box-shadow: inset 3px 0 0 var(--marxy-color-accent); }
-.marxy-library-suggest-detail { color: var(--marxy-color-text-secondary); }
-.marxy-library-chips { display: flex; flex-wrap: wrap; gap: 0.3em; padding-block-start: 0.4em; }
-.marxy-query-chip { display: inline-flex; align-items: center; gap: 0.4em; padding: 0.1em 0.2em 0.1em 0.6em; border: 1px solid var(--marxy-color-edge); border-radius: 1em; background: var(--marxy-color-accent-wash); }
-.marxy-query-chip[data-marxy-query-chip="flagged"] { border-style: dashed; background: var(--marxy-color-status-warn-wash); color: var(--marxy-color-status-warn); }
-.marxy-query-chip-note { color: var(--marxy-color-text-secondary); font-size: 0.9em; }
-.marxy-query-chip-remove { appearance: none; -webkit-appearance: none; margin: 0; padding: 0 0.4em; border: 0; border-radius: 1em; background: none; color: inherit; font: inherit; cursor: default; }
-.marxy-query-chip-remove:hover { background: var(--marxy-color-selection); }
-.marxy-query-chip-remove:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-/* Save as smart collection (Q-07): the last item of the row of chips, as the mock draws it. Asking for the name replaces the button
-   with a field in the same row, so nothing below it moves. A pill like the filter menus. The view's own notices float at its foot,
-   because the panes' are hidden under it. */
-.marxy-library-save { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.1em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: 1em; background: none; color: var(--marxy-color-text-secondary); font: inherit; cursor: default; }
-.marxy-library-save:hover { background: var(--marxy-color-selection); color: var(--marxy-color-text); }
-.marxy-library-save:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
-.marxy-library-save[hidden], .marxy-library-save-form[hidden] { display: none; }
-.marxy-library-save-form { display: inline-flex; align-items: center; gap: 0.3em; min-width: 0; }
-.marxy-library-save-form .marxy-library-save-name { width: 16em; padding: 0.1em 0.6em; }
-.marxy-library-notices { position: absolute; inset-inline: 0; bottom: calc(var(--marxy-size-chrome) * 36 / 13); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: calc(var(--marxy-size-chrome) * 6 / 13); padding-inline: calc(var(--marxy-size-chrome) * 16 / 13); pointer-events: none; }
-.marxy-library-notices:empty { display: none; }
-.marxy-library-notices > * { pointer-events: auto; }
-.marxy-library-notices > [data-notice-held] { display: none; }
-.marxy-library-bar { display: flex; align-items: center; justify-content: space-between; gap: 1em; padding: 0.2em 0.9em 0.5em; color: var(--marxy-color-text-secondary); }
-.marxy-library-facets { display: flex; flex-wrap: wrap; gap: 0.4em; min-width: 0; }
-.marxy-library-facets[hidden] { display: none; }
-.marxy-library-facet { position: relative; }
-.marxy-library-facet-button, .marxy-library-facet-item, .marxy-library-colhead button { appearance: none; -webkit-appearance: none; margin: 0; border: 0; background: none; color: inherit; font: inherit; cursor: default; }
-.marxy-library-facet-button { padding: 0.2em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: 999px; color: var(--marxy-color-text-secondary); }
-.marxy-library-facet-button:hover { background: var(--marxy-color-selection); }
-.marxy-library-facet-button[data-marxy-facet-on] { background: var(--marxy-color-accent-wash); color: var(--marxy-color-text); }
-.marxy-library-facet-button::after { content: " \25BE"; }
-.marxy-library-facet-menu { position: absolute; z-index: 5; inset-block-start: 100%; inset-inline-start: 0; margin-block-start: 0.2em; min-width: 12em; padding: 0.25em; background: var(--marxy-color-surface); border: 1px solid var(--marxy-color-rule); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); }
-.marxy-library-facet-menu[hidden] { display: none; }
-.marxy-library-facet-item { display: flex; width: 100%; justify-content: space-between; gap: 1em; padding: 0.25em 0.6em; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); color: var(--marxy-color-text); text-align: start; }
-.marxy-library-facet-item:hover, .marxy-library-facet-item:focus-visible { background: var(--marxy-color-selection); outline: none; }
-.marxy-library-facet-item[aria-checked="true"] { box-shadow: inset 3px 0 0 var(--marxy-color-accent); }
-.marxy-library-facet-count { color: var(--marxy-color-text-secondary); }
-.marxy-library-facet-button:focus-visible, .marxy-library-colhead button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
-.marxy-library-stats { margin: 0.2em 0 0; display: flex; flex-wrap: wrap; gap: 0 0.9em; color: var(--marxy-color-text-secondary); }
-.marxy-library-status { min-width: 0; padding: 0.3em 0.9em; border-block-start: 1px solid var(--marxy-color-rule); color: var(--marxy-color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.marxy-library-sort select { margin-inline-start: 0.3em; font: inherit; color: var(--marxy-color-text); background: none; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 4 / 13); }
-.marxy-library-body { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(14em, 30%, 24em); border-block-start: 1px solid var(--marxy-color-rule); }
-.marxy-library-results { position: relative; min-height: 0; overflow-y: auto; }
-.marxy-library-results:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-library-rows { position: relative; }
-.marxy-library-grid-head { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: var(--marxy-library-cols); column-gap: 0.8em; align-items: center; box-sizing: border-box; padding: 0.25em 0.9em; border-inline-start: 3px solid transparent; background: var(--marxy-color-surface); border-block-end: 1px solid var(--marxy-color-rule); color: var(--marxy-color-text-secondary); }
-.marxy-library-colhead { font-size: 0.92em; }
-.marxy-library-colhead button { padding: 0.1em 0.3em; margin-inline-start: -0.3em; border-radius: calc(var(--marxy-size-chrome) * 4 / 13); color: inherit; }
-.marxy-library-colhead button:hover:not(:disabled) { background: var(--marxy-color-selection); }
-.marxy-library-colhead[aria-sort="ascending"] button::after { content: " \2191"; }
-.marxy-library-colhead[aria-sort="descending"] button::after { content: " \2193"; }
-.marxy-library-colhead[aria-sort="ascending"], .marxy-library-colhead[aria-sort="descending"] { color: var(--marxy-color-text); }
-.marxy-library-row { position: absolute; inset-inline: 0; box-sizing: border-box; display: grid; grid-template-columns: var(--marxy-library-cols); grid-template-rows: var(--marxy-library-row) auto; column-gap: 0.8em; align-content: start; padding: 0 0.9em; border-inline-start: 3px solid transparent; overflow: hidden; cursor: default; }
-.marxy-library-row:hover { background: var(--marxy-color-selection); }
-.marxy-library-row[aria-selected="true"] { background: var(--marxy-color-accent-wash); border-inline-start-color: var(--marxy-color-accent); }
-.marxy-library-cell { display: flex; align-items: center; gap: 0.5em; min-width: 0; overflow: hidden; white-space: nowrap; }
-.marxy-library-cell-name { font-weight: var(--marxy-weight-strong); }
-.marxy-library-cell-path, .marxy-library-cell-modified, .marxy-library-cell-status { color: var(--marxy-color-text-secondary); }
-.marxy-library-cell .marxy-kind-glyph { flex: none; display: inline-flex; }
-.marxy-library-row-name, .marxy-library-row-rel { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.marxy-library-mark { flex: none; display: inline-flex; align-items: center; gap: 0.3em; font-weight: normal; color: var(--marxy-color-text-secondary); }
-.marxy-library-mark-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.marxy-library-row-whys { grid-column: 1 / -1; padding-inline-start: 1.5em; color: var(--marxy-color-text-secondary); }
-.marxy-library-row-why { height: var(--marxy-library-line); line-height: var(--marxy-library-line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.marxy-library-preview { min-width: 0; overflow: auto; padding: 0.8em 0.9em; border-inline-start: 1px solid var(--marxy-color-rule); }
-.marxy-library-preview-title { margin: 0; font: inherit; font-size: 1.15em; font-weight: var(--marxy-weight-strong); overflow-wrap: anywhere; }
-.marxy-library-preview-path { margin: 0.2em 0 0.8em; color: var(--marxy-color-text-secondary); overflow-wrap: anywhere; }
-.marxy-library-preview-empty { color: var(--marxy-color-text-secondary); }
-.marxy-library-facts { display: grid; grid-template-columns: auto 1fr; gap: 0.2em 1em; margin: 0 0 0.8em; }
-.marxy-library-facts dt { color: var(--marxy-color-text-secondary); }
-.marxy-library-facts dd { margin: 0; overflow-wrap: anywhere; }
-.marxy-library-preview-head { margin: 0.8em 0 0.3em; font: inherit; font-weight: var(--marxy-weight-strong); }
-.marxy-library-preview ul { margin: 0; padding: 0; list-style: none; }
-.marxy-library-preview li { overflow-wrap: anywhere; }
-.marxy-library-preview-actions { display: flex; flex-wrap: wrap; gap: 0.4em; margin-block-start: 1em; }
-.marxy-library-preview-actions button { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; cursor: default; }
-.marxy-library-preview-actions button:hover { background: var(--marxy-color-selection); }
-.marxy-library-preview-actions button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
-@media (max-width: 760px) { .marxy-library-body { grid-template-columns: minmax(0, 1fr); } .marxy-library-preview { display: none; } }
-
-/* The Settings page (W-12; ADR-0075, mock-v2/08-settings.md): a page in the unfolded workspace, placed exactly as the library is and
-   covering the panes the same way (the view sets `hidden` and `inert` on them; they come back as they were). On the left a column as
-   System Settings has it: the title, the search, the categories, and the file with how much of it is changed; on the right the rows of
-   one category (or of the search) in cards: the label and what it does on the left of a row, its control on the right or, for a slider
-   or a few choices, under the words, and before the label the dot of a changed value, which is a button. Nothing is drawn from a colour
-   alone: the dot has a name, a changed row says "Changed", a switch is read by where its knob is, and a disabled control says why
-   under it. No transition runs, so Reduce motion has nothing to turn off. The selectors that style a control name the page first:
-   the document's own `input[type="checkbox"]` rule (the task-list box) is more specific than a class. */
-html:has(> body > .marxy-settings) { overflow: hidden; }
-.marxy-settings {
-  box-sizing: border-box; min-width: 0; overflow: hidden; display: flex; flex-direction: column;
-  color: var(--marxy-color-text); font: var(--marxy-size-chrome) var(--marxy-face-chrome);
-}
-/* A page that is not the reader (F-102): it has no inspector, so it takes the right-hand track the reader keeps empty to stay on
-   the window's axis, as far as the inspector's edge when one is docked (`--marxy-ws-band-to`, the bands' own end line). */
-body[data-marxy-workspace="unfolded"] > .marxy-settings { grid-column: 2 / var(--marxy-ws-band-to); grid-row: 4; position: sticky; top: calc(var(--marxy-ws-toolbar-h) + var(--marxy-ws-tabs-h) + var(--marxy-ws-strip-h)); align-self: start; z-index: 3; height: var(--marxy-ws-panes-h); }
-.marxy-settings-body { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(11em, 16em) minmax(0, 1fr); }
-.marxy-settings-side { display: flex; flex-direction: column; gap: 0.5em; min-height: 0; padding: 0.9em 0.7em 0.5em; border-inline-end: 1px solid var(--marxy-color-rule); }
-.marxy-settings-title { margin: 0 0.3em; font: inherit; font-size: 1.25em; font-weight: var(--marxy-weight-strong); }
-.marxy-settings .marxy-settings-field { box-sizing: border-box; width: 100%; padding: 0.4em 0.7em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 8 / 13); background: none; color: inherit; font: inherit; }
-.marxy-settings .marxy-settings-field:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
-.marxy-settings-nav { flex: 1 1 0; display: flex; flex-direction: column; gap: 0.1em; min-height: 0; overflow-y: auto; }
-.marxy-settings-nav-item { appearance: none; -webkit-appearance: none; display: flex; justify-content: space-between; align-items: center; gap: 0.6em; margin: 0; padding: 0.45em 0.7em; border: 0; border-radius: calc(var(--marxy-size-chrome) * 8 / 13); background: none; color: inherit; font: inherit; text-align: start; cursor: default; }
-.marxy-settings-nav-item:hover { background: var(--marxy-color-selection); }
-.marxy-settings-nav-item:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-settings-nav-item[aria-current="true"] { background: var(--marxy-color-accent-wash); font-weight: var(--marxy-weight-strong); }
-.marxy-settings-nav-item[data-marxy-empty="true"] { color: var(--marxy-color-text-secondary); }
-.marxy-settings-nav-count { color: var(--marxy-color-text-secondary); font-size: 0.92em; }
-.marxy-settings-nav-dot { flex: none; width: 0.5em; height: 0.5em; border-radius: 50%; background: var(--marxy-color-accent); }
-.marxy-settings-foot { padding: 0.4em 0.4em 0; border-block-start: 1px solid var(--marxy-color-rule); }
-.marxy-settings-count { margin: 0; color: var(--marxy-color-text-secondary); font-size: 0.92em; overflow-wrap: anywhere; }
-.marxy-settings-pane { min-width: 0; min-height: 0; overflow-y: auto; padding: 0.9em 1.4em 4em; }
-.marxy-settings-pane:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-settings-pane-head { padding-block-end: 0.5em; }
-.marxy-settings-pane-title { margin: 0; font: inherit; font-size: 1.25em; font-weight: var(--marxy-weight-strong); }
-.marxy-settings-pane-blurb, .marxy-settings-lede { margin: 0.2em 0 0.6em; color: var(--marxy-color-text-secondary); max-width: 48em; }
-.marxy-settings-group { margin-block: 0.4em 1em; max-width: 52em; }
-.marxy-settings-group-title { margin: 0.6em 0.2em 0.4em; font: inherit; font-weight: var(--marxy-weight-strong); color: var(--marxy-color-text-secondary); }
-.marxy-settings-empty, .marxy-settings-warning { margin: 1em 0; max-width: 48em; color: var(--marxy-color-text-secondary); }
-.marxy-settings-warning { color: var(--marxy-color-status-warn); }
-.marxy-settings-warnings { margin: 0 0 0.6em; padding-inline-start: 1.2em; color: var(--marxy-color-text-secondary); }
-/* A group of rows is a card: one hairline round it, and one between rows. */
-.marxy-settings-group:has(> .marxy-setting) { border: 1px solid var(--marxy-color-rule); border-radius: calc(var(--marxy-size-chrome) * 10 / 13); background: var(--marxy-color-surface); }
-.marxy-settings-group:has(> .marxy-setting) > .marxy-settings-group-title { margin: 0; padding: 0.7em 0.9em 0.1em; }
-.marxy-setting { display: grid; grid-template-columns: 1.4em minmax(0, 1fr) auto; column-gap: 0.4em; align-items: start; padding: 0.8em 0.9em; }
-.marxy-setting + .marxy-setting { border-block-start: 1px solid var(--marxy-color-rule); }
-.marxy-setting[data-marxy-wide="true"] { grid-template-columns: 1.4em minmax(0, 1fr); }
-.marxy-setting[data-marxy-wide="true"] > .marxy-setting-control { grid-column: 2; justify-content: flex-start; padding-block-start: 0.55em; }
-.marxy-setting-dot-cell { padding-block-start: 0.1em; }
-.marxy-setting-dot { appearance: none; -webkit-appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 1.4em; height: 1.4em; margin: 0; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--marxy-color-accent); cursor: default; }
-.marxy-setting-dot-mark { width: 0.55em; height: 0.55em; border-radius: 50%; background: currentColor; }
-.marxy-setting-dot:hover { background: var(--marxy-color-selection); }
-.marxy-setting-dot:hover .marxy-setting-dot-mark { background: none; box-shadow: inset 0 0 0 2px currentColor; }
-.marxy-setting-dot:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
-.marxy-setting-text { min-width: 0; }
-.marxy-setting-label { display: block; font-weight: var(--marxy-weight-strong); }
-.marxy-setting-desc, .marxy-setting-meta, .marxy-setting-note, .marxy-setting-why { margin: 0.2em 0 0; max-width: 46em; color: var(--marxy-color-text-secondary); }
-.marxy-setting-meta { font-size: 0.92em; }
-.marxy-setting-key, .marxy-settings-stored-name { font-family: var(--marxy-face-mono, ui-monospace, monospace); font-size: 0.95em; }
-.marxy-setting[data-marxy-changed="true"] .marxy-setting-meta { color: var(--marxy-color-text); }
-.marxy-setting-why { color: var(--marxy-color-text); }
-.marxy-setting[data-marxy-disabled="true"] .marxy-setting-label { color: var(--marxy-color-text-secondary); }
-.marxy-setting-control { display: flex; justify-content: flex-end; align-items: center; min-height: 1.9em; min-width: 0; }
-.marxy-settings input.marxy-settings-switch { appearance: none; -webkit-appearance: none; position: relative; flex: none; box-sizing: border-box; width: 2.7em; height: 1.55em; margin: 0; border: 1px solid var(--marxy-color-edge); border-radius: 999px; background: none; box-shadow: none; pointer-events: auto; vertical-align: baseline; cursor: default; }
-.marxy-settings input.marxy-settings-switch::after { content: ""; position: absolute; top: 0.18em; inset-inline-start: 0.2em; width: 1em; height: 1em; border-radius: 50%; background: var(--marxy-color-text-secondary); }
-.marxy-settings input.marxy-settings-switch:checked { background: var(--marxy-color-accent); border-color: var(--marxy-color-accent); box-shadow: none; }
-.marxy-settings input.marxy-settings-switch:checked::after { inset-inline-start: calc(100% - 1.2em); background: var(--marxy-color-accent-fg); }
-.marxy-settings input.marxy-settings-switch:disabled, .marxy-settings-slider:disabled, .marxy-settings-select:disabled, .marxy-settings-text:disabled { opacity: 0.5; }
-.marxy-settings input.marxy-settings-switch:focus-visible, .marxy-settings-slider:focus-visible, .marxy-settings-select:focus-visible, .marxy-settings-text:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 2px; }
-.marxy-settings-segmented { display: inline-flex; max-width: 100%; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 8 / 13); overflow: hidden; }
-.marxy-settings-segment { position: relative; display: flex; }
-.marxy-settings-segment + .marxy-settings-segment { border-inline-start: 1px solid var(--marxy-color-rule); }
-.marxy-settings .marxy-settings-segment input { appearance: none; -webkit-appearance: none; position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; opacity: 0; pointer-events: auto; cursor: default; }
-.marxy-settings-segment-label { padding: 0.3em 0.9em; white-space: nowrap; }
-.marxy-settings-segment:hover { background: var(--marxy-color-selection); }
-.marxy-settings-segment:has(input:checked) { background: var(--marxy-color-accent-wash); }
-.marxy-settings-segment:has(input:checked) .marxy-settings-segment-label { font-weight: var(--marxy-weight-strong); }
-.marxy-settings-segment:has(input:focus-visible) { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
-.marxy-settings-segment:has(input:disabled) { opacity: 0.5; }
-.marxy-settings-select, .marxy-settings-text { box-sizing: border-box; padding: 0.3em 0.6em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: var(--marxy-color-text); font: inherit; }
-.marxy-settings-select { min-width: 11em; }
-.marxy-settings-text { width: min(32em, 100%); font-family: var(--marxy-face-mono, ui-monospace, monospace); }
-.marxy-settings-range { display: flex; align-items: center; gap: 0.8em; }
-.marxy-settings-slider { width: 14em; margin: 0; accent-color: var(--marxy-color-accent); }
-.marxy-settings-range-value { min-width: 6.5em; font-variant-numeric: tabular-nums; color: var(--marxy-color-text-secondary); }
-.marxy-settings-table-control { display: flex; align-items: center; justify-content: flex-end; gap: 0.8em; flex-wrap: wrap; }
-.marxy-settings-table-summary { color: var(--marxy-color-text-secondary); }
-.marxy-settings-button { appearance: none; -webkit-appearance: none; margin: 0; padding: 0.3em 0.8em; border: 1px solid var(--marxy-color-edge); border-radius: calc(var(--marxy-size-chrome) * 6 / 13); background: none; color: inherit; font: inherit; cursor: default; }
-.marxy-settings-button:hover:not(:disabled) { background: var(--marxy-color-selection); }
-.marxy-settings-button:disabled { opacity: 0.5; }
-.marxy-settings-button:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 1px; }
-.marxy-settings-button-danger { border-color: var(--marxy-color-status-err); color: var(--marxy-color-status-err); }
-.marxy-settings-stored, .marxy-settings-leaves { margin: 0; padding: 0; list-style: none; border: 1px solid var(--marxy-color-rule); border-radius: calc(var(--marxy-size-chrome) * 10 / 13); background: var(--marxy-color-surface); }
-.marxy-settings-stored-item, .marxy-settings-leave { padding: 0.7em 0.9em; }
-.marxy-settings-stored-item + .marxy-settings-stored-item, .marxy-settings-leave + .marxy-settings-leave { border-block-start: 1px solid var(--marxy-color-rule); }
-.marxy-settings-stored-head { display: flex; justify-content: space-between; gap: 1em; align-items: baseline; }
-.marxy-settings-stored-size { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.marxy-settings-stored-holds { margin: 0.15em 0 0; }
-.marxy-settings-stored-path { margin: 0.15em 0 0; color: var(--marxy-color-text-secondary); font-family: var(--marxy-face-mono, ui-monospace, monospace); font-size: 0.9em; overflow-wrap: anywhere; }
-.marxy-settings-clear { margin-block-start: 0.5em; }
-.marxy-settings-clear-ask { margin: 0 0 0.5em; }
-.marxy-settings-clear-actions { display: flex; gap: 0.5em; }
-.marxy-settings-leave-status { margin-inline-start: 0.8em; padding: 0.05em 0.6em; border: 1px dashed var(--marxy-color-edge); border-radius: 999px; color: var(--marxy-color-text-secondary); font-size: 0.92em; }
-.marxy-settings-leave-facts { display: grid; grid-template-columns: 4em minmax(0, 1fr); gap: 0.15em 0.8em; margin: 0.2em 0 0; }
-.marxy-settings-leave-facts dt { color: var(--marxy-color-text-secondary); }
-.marxy-settings-leave-facts dd { margin: 0; }
-.marxy-settings-nothing-else { margin: 0.8em 0.2em 0; font-weight: var(--marxy-weight-strong); }
-.marxy-settings-advanced .marxy-settings-button { margin-block: 0.2em 0.8em; }
-.marxy-settings-advanced { padding-inline: 0.2em; }
-.marxy-settings-notices { position: absolute; inset-inline: 0; bottom: calc(var(--marxy-size-chrome) * 36 / 13); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: calc(var(--marxy-size-chrome) * 6 / 13); padding-inline: calc(var(--marxy-size-chrome) * 16 / 13); pointer-events: none; }
-.marxy-settings-notices:empty { display: none; }
-.marxy-settings-notices > * { pointer-events: auto; }
-.marxy-settings-notices > [data-notice-held] { display: none; }
-@media (max-width: 760px) {
-  .marxy-settings-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  .marxy-settings-side { border-inline-end: 0; border-block-end: 1px solid var(--marxy-color-rule); }
-  .marxy-settings-nav { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
-  .marxy-settings-foot { display: none; }
-  .marxy-setting { grid-template-columns: 1.4em minmax(0, 1fr); }
-  .marxy-setting > .marxy-setting-control { grid-column: 2; justify-content: flex-start; padding-block-start: 0.4em; }
-}
-
-/* Accessibility media queries (Reader Artifacts ch.9, MARXY-241). */
+/* Accessibility media queries (Reader Artifacts ch.9). */
 @media (forced-colors: active) {
   .marxy-source-frame, .marxy-source-top, .marxy-source-ruler, .marxy-source-bottom { border-color: CanvasText; }
   .marxy-source-ruler-tick, .marxy-source-ruler-caret, .marxy-source-ruler-span, .marxy-source-mark { forced-color-adjust: none; background: CanvasText; }
   .marxy-source-mark-find { background: Highlight; }
   .marxy-source-mark-note { background: transparent; border: 1.5px solid CanvasText; }
   a { text-decoration: underline; forced-color-adjust: none; }
-  .marxy-settings .marxy-setting-dot-mark, .marxy-settings input.marxy-settings-switch::after { forced-color-adjust: none; background: CanvasText; }
-  .marxy-settings input.marxy-settings-switch, .marxy-settings .marxy-settings-segmented, .marxy-settings .marxy-settings-select, .marxy-settings .marxy-settings-text, .marxy-settings .marxy-settings-button, .marxy-settings .marxy-settings-field { border-color: CanvasText; }
-  .marxy-settings .marxy-settings-segment:has(input:checked), .marxy-settings .marxy-settings-nav-item[aria-current="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   del, s { text-decoration: line-through; }
   :is(pre, table):focus-visible { outline: 2px solid ButtonText; outline-offset: 2px; }
   .marxy-surface, .marxy-verb-menu, .marxy-find { border-color: CanvasText; background: Canvas; color: CanvasText; box-shadow: none; }
-  /* A notice keeps its outline, and its buttons read as links; a decision's outline is the thicker one (U-02). */
+  /* A notice keeps its outline, and its buttons read as links; a decision's outline is the thicker one. */
   .marxy-notice { border-color: CanvasText; background: Canvas; background-image: none; color: CanvasText; box-shadow: none; }
   .marxy-notice[data-notice-kind="decision"] { border-width: 2px; }
   .marxy-notice-dismiss, .marxy-notice-action { color: LinkText; }
-  /* The toolbar's states and scroll fade drop with background and shadow, so each is redrawn in system colours (W-04). */
-  .marxy-toolbar {
-    forced-color-adjust: none;
-    color: CanvasText;
-    background:
-      linear-gradient(to right, Canvas, Canvas) left center / var(--marxy-toolbar-fade) 100% no-repeat local,
-      linear-gradient(to left, Canvas, Canvas) right center / var(--marxy-toolbar-fade) 100% no-repeat local,
-      linear-gradient(to right, GrayText, Canvas) left center / var(--marxy-toolbar-fade) 100% no-repeat scroll,
-      linear-gradient(to left, GrayText, Canvas) right center / var(--marxy-toolbar-fade) 100% no-repeat scroll;
-  }
-  .marxy-toolbar button { color: CanvasText; }
-  .marxy-toolbar button:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
-  .marxy-toolbar button:focus-visible { outline: 2px solid Highlight; }
-  .marxy-toolbar button[aria-checked="true"],
-  .marxy-toolbar button[aria-pressed="true"] { background: Highlight; color: HighlightText; box-shadow: none; }
-  .marxy-toolbar button[aria-disabled="true"] { color: GrayText; background: none; }
-  .marxy-toolbar button[aria-disabled="true"][aria-checked="true"] { background: none; color: GrayText; outline: 1px dashed GrayText; outline-offset: -1px; }
-  .marxy-tabs {
-    background:
-      linear-gradient(to right, Canvas, Canvas) left center / var(--marxy-tabs-fade) 100% no-repeat local,
-      linear-gradient(to left, Canvas, Canvas) right center / var(--marxy-tabs-fade) 100% no-repeat local,
-      linear-gradient(to right, GrayText, Canvas) left center / var(--marxy-tabs-fade) 100% no-repeat scroll,
-      linear-gradient(to left, GrayText, Canvas) right center / var(--marxy-tabs-fade) 100% no-repeat scroll;
-  }
-  .marxy-tab > button, .marxy-tab-new > button { color: CanvasText; }
-  .marxy-tab:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
-  .marxy-tab > button:focus-visible { outline: 2px solid Highlight; }
-  .marxy-tab[data-marxy-tab-shown] { box-shadow: inset 0 -2px 0 GrayText; }
-  .marxy-tab[data-marxy-tab-active] { background: Highlight; color: HighlightText; box-shadow: none; }
-  .marxy-tab[data-marxy-tab-active] > button { color: HighlightText; }
-  .marxy-inspector-tab[data-marxy-inspector-tab-active] { background: Highlight; color: HighlightText; }
-  .marxy-inspector-tab:focus-visible, .marxy-link-row:focus-visible, .marxy-outline-row:focus-visible, .marxy-outline-copy:focus-visible, .marxy-outline-menu-item:focus-visible { outline-color: Highlight; }
-  .marxy-outline-row[aria-current="location"] { outline: 2px solid Highlight; outline-offset: -2px; background: none; }
-  .marxy-outline-words, .marxy-outline-more, .marxy-outline-menu-key, .marxy-outline-table .marxy-outline-text { color: GrayText; }
-  .marxy-outline-menu { border-color: CanvasText; background: Canvas; }
-  .marxy-versions-since { forced-color-adjust: none; background: Canvas; color: CanvasText; outline: 1px solid CanvasText; outline-offset: -1px; }
-  .marxy-versions-since:focus-visible, .marxy-versions-row:focus-visible, .marxy-versions-restore:focus-visible { outline: 2px solid Highlight; }
-  .marxy-versions-since-when, .marxy-versions-what, .marxy-versions-restore, .marxy-versions-about { color: GrayText; }
-  .marxy-versions-rail { border-color: CanvasText; }
-  .marxy-metadata-edit:focus-visible, .marxy-metadata-copy:focus-visible, .marxy-metadata-source:focus-visible, .marxy-metadata-jump:focus-visible, .marxy-metadata-input:focus-visible, .marxy-metadata-select:focus-visible, .marxy-metadata-preview-link:focus-visible { outline-color: Highlight; }
-  .marxy-metadata-key, .marxy-metadata-why, .marxy-metadata-reasons, .marxy-metadata-note, .marxy-metadata-empty, .marxy-metadata-heading, .marxy-metadata-copy, .marxy-metadata-source, .marxy-metadata-jump-label, .marxy-metadata-preview, .marxy-metadata-preview-list > dt, .marxy-metadata-preview-list > dd, .marxy-metadata-preview-more { color: GrayText; }
-  .marxy-metadata-input, .marxy-metadata-select { border-color: CanvasText; background: Canvas; color: CanvasText; }
-  .marxy-metadata-row:hover, .marxy-metadata-row:focus-within, .marxy-metadata-jump:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
-  .marxy-library-scope[aria-current="true"], .marxy-library-row[aria-selected="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; box-shadow: none; }
-  .marxy-library-row[aria-selected="true"] * { color: HighlightText; }
-  .marxy-library-field, .marxy-library-save-name, .marxy-library-save, .marxy-library-suggest, .marxy-query-chip { border-color: CanvasText; }
-  .marxy-library-suggest { background: Canvas; }
-  .marxy-sidebar button:hover { background: none; outline: 1px solid ButtonText; outline-offset: -1px; }
-  .marxy-sidebar button:focus-visible { outline: 2px solid Highlight; }
-  .marxy-sidebar-head, .marxy-sidebar-age, .marxy-sidebar-search, .marxy-sidebar-foot { color: GrayText; }
-  .marxy-sidebar-row[aria-current="true"], .marxy-sidebar-node[aria-current="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
-  .marxy-sidebar-mark { color: Highlight; }
   .marxy-verb-menu-item:focus { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .marxy-verb-menu-item:focus .marxy-verb-menu-key { color: HighlightText; }
   .marxy-divider::before { background: CanvasText; animation: none !important; forced-color-adjust: none; }
@@ -1679,7 +1342,7 @@ body[data-marxy-workspace="unfolded"] > .marxy-settings { grid-column: 2 / var(-
   .marxy-diff-add { border-inline-start: 3px solid currentColor; }
   .marxy-diff-del { border-inline-start: 3px dashed currentColor; }
 }
-/* More contrast (W-22): the system's Increase contrast, or `contrast = "more"` in config.toml, which the app resolves into
+/* More contrast: the system's Increase contrast, or `contrast = "more"` in config.toml, which the app resolves into
    `data-marxy-contrast` ("more" or "normal"); the media query covers the moment before it does and yields to "normal".
    No role is raised and no token is added: the chosen theme's own roles are pointed at its stronger ones. Secondary and faint
    text take the body text's colour (7:1 on the ground), rules, hairlines and dividers the edge role (3:1 or more); focus
@@ -1704,7 +1367,7 @@ html:root[data-marxy-contrast="more"] {
     --marxy-color-quote-rule: var(--marxy-color-edge);
   }
 }
-/* Solid fills (W-22): the find rectangles of the fallback and the scroll fades of the toolbar and the tabs lose their
+/* Solid fills: the find rectangles of the fallback lose their
    transparency under more contrast, and on their own under `reduce_transparency = true` (`data-marxy-transparency="reduced"`).
    A find rectangle is drawn over the text, so its solid fill blends (lighten on dark, darken on light) and the words stay. A
    fade becomes an edge-to-surface ramp. Marxy does not read the system's Reduce transparency: WebKit reports no query for it.
@@ -1713,63 +1376,14 @@ html:root[data-marxy-contrast="more"] {
   html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"]) .marxy-find-rect { background-color: var(--marxy-color-find); mix-blend-mode: lighten; }
   html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"]) .marxy-find-rect-current { background-color: var(--marxy-color-find-current); mix-blend-mode: lighten; }
   html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"])[data-marxy-variant="light"] .marxy-find-rect, html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"])[data-marxy-variant="light"] .marxy-find-rect-current { mix-blend-mode: darken; }
-  html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"]) .marxy-toolbar {
-    background:
-      linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-toolbar-fade) 100% no-repeat local,
-      linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-toolbar-fade) 100% no-repeat local,
-      linear-gradient(to right, var(--marxy-color-edge), var(--marxy-color-surface)) left center / var(--marxy-toolbar-fade) 100% no-repeat scroll,
-      linear-gradient(to left, var(--marxy-color-edge), var(--marxy-color-surface)) right center / var(--marxy-toolbar-fade) 100% no-repeat scroll;
-  }
-  html:root:is([data-marxy-contrast="more"], [data-marxy-transparency="reduced"]) .marxy-tabs {
-    background:
-      linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-tabs-fade) 100% no-repeat local,
-      linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-tabs-fade) 100% no-repeat local,
-      linear-gradient(to right, var(--marxy-color-edge), var(--marxy-color-surface)) left center / var(--marxy-tabs-fade) 100% no-repeat scroll,
-      linear-gradient(to left, var(--marxy-color-edge), var(--marxy-color-surface)) right center / var(--marxy-tabs-fade) 100% no-repeat scroll;
-  }
 }
 @media (prefers-contrast: more) and (forced-colors: none) {
   html:root:not([data-marxy-contrast="normal"]) .marxy-find-rect { background-color: var(--marxy-color-find); mix-blend-mode: lighten; }
   html:root:not([data-marxy-contrast="normal"]) .marxy-find-rect-current { background-color: var(--marxy-color-find-current); mix-blend-mode: lighten; }
   html:root:not([data-marxy-contrast="normal"])[data-marxy-variant="light"] .marxy-find-rect, html:root:not([data-marxy-contrast="normal"])[data-marxy-variant="light"] .marxy-find-rect-current { mix-blend-mode: darken; }
-  html:root:not([data-marxy-contrast="normal"]) .marxy-toolbar {
-    background:
-      linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-toolbar-fade) 100% no-repeat local,
-      linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-toolbar-fade) 100% no-repeat local,
-      linear-gradient(to right, var(--marxy-color-edge), var(--marxy-color-surface)) left center / var(--marxy-toolbar-fade) 100% no-repeat scroll,
-      linear-gradient(to left, var(--marxy-color-edge), var(--marxy-color-surface)) right center / var(--marxy-toolbar-fade) 100% no-repeat scroll;
-  }
-  html:root:not([data-marxy-contrast="normal"]) .marxy-tabs {
-    background:
-      linear-gradient(to right, var(--marxy-color-surface), var(--marxy-color-surface)) left center / var(--marxy-tabs-fade) 100% no-repeat local,
-      linear-gradient(to left, var(--marxy-color-surface), var(--marxy-color-surface)) right center / var(--marxy-tabs-fade) 100% no-repeat local,
-      linear-gradient(to right, var(--marxy-color-edge), var(--marxy-color-surface)) left center / var(--marxy-tabs-fade) 100% no-repeat scroll,
-      linear-gradient(to left, var(--marxy-color-edge), var(--marxy-color-surface)) right center / var(--marxy-tabs-fade) 100% no-repeat scroll;
-  }
 }
-/* Peeking (ADR-0058 item 5; W-03). Folded, the pointer resting at an edge shows that edge's panel for as long as it stays:
-   one region, made on `<body>` with `data-marxy-peek` naming it, fixed over the window, so the panes and the reading
-   column do not move. Without the attribute there is no rule at all. The shadow is the theme's; the fade is a
-   fraction of a second and none under reduced motion (the block below). */
-body[data-marxy-peek] > [data-marxy-workspace-region] {
-  position: fixed;
-  z-index: 6;
-  box-sizing: border-box;
-  min-width: 0;
-  background: var(--marxy-color-surface);
-  color: var(--marxy-color-text);
-  font: var(--marxy-size-chrome) var(--marxy-face-chrome);
-  border: 0 solid var(--marxy-color-rule);
-  box-shadow: var(--marxy-shadow-surface);
-  animation: marxy-peek-in 150ms ease-out;
-}
-body[data-marxy-peek] > [data-marxy-workspace-region="toolbar"] { top: 0; left: 0; right: 0; height: var(--marxy-ws-toolbar-h, 52px); border-block-end-width: 1px; }
-body[data-marxy-peek] > [data-marxy-workspace-region="sidebar"] { top: 0; bottom: 0; left: 0; width: var(--marxy-ws-sidebar-w, 252px); max-width: 90vw; overflow: auto; border-inline-end-width: 1px; }
-body[data-marxy-peek] > [data-marxy-workspace-region="inspector"] { top: 0; bottom: 0; right: 0; width: var(--marxy-ws-inspector-w, 300px); max-width: 90vw; overflow: auto; border-inline-start-width: 1px; }
-@keyframes marxy-peek-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   .marxy-divider::before { animation: none !important; }
-  body[data-marxy-peek] > [data-marxy-workspace-region] { animation: none !important; transition-duration: 0s !important; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
@@ -1778,13 +1392,13 @@ body[data-marxy-peek] > [data-marxy-workspace-region="inspector"] { top: 0; bott
   }
 }
 
-/* A log's error rule, in forced colours (K-08): the border is the rule, in a system colour; the others stay clear. */
+/* A log's error rule, in forced colours: the border is the rule, in a system colour; the others stay clear. */
 @media (forced-colors: active) {
   pre.language-log .marxy-line { border-inline-start-color: Canvas; }
   pre.language-log .marxy-log-error { border-inline-start-color: CanvasText; }
 }
 
-/* The table lens (K-10b, ADR-0071): a CSV or TSV as a grid in place of its Source, in the Source mount, as mock-v2's data view
+/* The table lens: a CSV or TSV as a grid in place of its Source, in the Source mount, as the data view
    draws it. The Source frame stays mounted under it and keeps its place, hidden. A line of what the grid is and reshaped
    sits over it; the grid scrolls in its own box under a sticky header row and a sticky row-number column, in the sans
    face at the chrome's size, numbers right-aligned in tabular figures, identifiers in the code face. A decoded cell (a
@@ -1833,8 +1447,7 @@ body[data-marxy-peek] > [data-marxy-workspace-region="inspector"] { top: 0; bott
 }
 .marxy-table-lens-count:hover { color: var(--marxy-color-text-strong); }
 .marxy-table-lens-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
-/* Focus is shown by the rule under the header line turning to the accent, and by the selected cell's own outline. */
-.marxy-table-lens-grid:focus-visible { outline: none; }
+/* Focus is shown by the grid's ring, the rule under the header line turning to the accent, and the selected cell's own outline. */
 .marxy-table-lens:focus-within .marxy-table-lens-info { border-block-end-color: var(--marxy-color-accent); }
 .marxy-table-lens-grid {
   /* The article's table rules (a block that scrolls, the body's size, inset rules) are not the grid's. */
@@ -1896,7 +1509,7 @@ th[aria-sort="ascending"] .marxy-table-lens-arrow, th[aria-sort="descending"] .m
 .marxy-table-lens-grid :is(.marxy-table-lens-unreadable, .marxy-table-lens-pending) code { font-family: var(--marxy-face-mono); font-size: calc(var(--marxy-size-chrome) * 12 / 13); }
 .marxy-table-lens-label { margin-inline-end: 1em; font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-secondary); }
 .marxy-table-lens-spacer td { padding: 0; border: 0; }
-/* The columns not drawn, stood for by one cell (F-89); and what an unreadable row says of the lines after it, and the delimiter hint. */
+/* The columns not drawn, stood for by one cell; and what an unreadable row says of the lines after it, and the delimiter hint. */
 .marxy-table-lens-grid .marxy-table-lens-hspacer { padding: 0; }
 .marxy-table-lens-swallowed { margin-inline-start: 1em; font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-chrome) * 11 / 13); color: var(--marxy-color-text-secondary); }
 .marxy-table-lens-hint { color: var(--marxy-color-text-strong); }
@@ -1911,3 +1524,363 @@ th[aria-sort="ascending"] .marxy-table-lens-arrow, th[aria-sort="descending"] .m
 }
 .marxy-table-lens-grid tfoot .marxy-table-lens-rn { z-index: 3; background: var(--marxy-color-surface); }
 .marxy-table-lens-stat { color: var(--marxy-color-text-faint); }
+
+/* Readings (packages/core/src/reading): a data file as a tree you fold, JSON Lines and CSV as tables, verse with every
+   line kept, plain prose as paragraphs, and a file that does not read as its format says, as written. Ink, not hue:
+   keys in the strong ink, strings in quotes, numbers in tabular figures, true, false and null faint and italic. */
+.marxy-reading { --marxy-tree-step: 22px; }
+.marxy-reading-head, .marxy-reading-foot, .marxy-rows-note {
+  margin: 0 0 var(--marxy-half);
+  font-family: var(--marxy-face-chrome);
+  font-size: calc(var(--marxy-size-caption) * 0.9);
+  line-height: var(--lb);
+  color: var(--marxy-color-text-faint);
+}
+.marxy-reading-foot { margin: var(--marxy-half) 0 0; line-height: 1.55; }
+/* The sort note is empty at rest; it still carries a wide table's "N more columns" (render/wide-tables.ts). */
+.marxy-reading-foot:empty:is(:not([data-marxy-more-cols]), [data-marxy-more-cols=""]) { display: none; }
+.marxy-reading-foot:empty[data-marxy-more-cols]:not([data-marxy-more-cols=""])::after { content: attr(data-marxy-more-cols); }
+/* A long table's passes (reading its rows, a sort, a filter) say how far they have got at the end of the page's first
+   line, over it, so the table does not move when the line comes and goes. */
+.marxy-records:has(> .marxy-rows-note) { position: relative; }
+.marxy-rows-note { position: absolute; inset-block-start: 0; inset-inline-end: 0; margin: 0; }
+.marxy-rows-note:empty { display: none; }
+/* The rows a long table has not drawn: their height, nothing else. */
+.marxy-rows-gap > td { padding: 0; }
+/* The page's account of itself (core reading/account.ts): the app's words, not the file's, so folded under the page's
+   caption, which is its key: one quiet line of meta above the content. One switch on <html> opens it on every page
+   (desktop frame/account.ts). */
+.marxy-account {
+  margin: 0 0 var(--marxy-half);
+  font-family: var(--marxy-face-chrome);
+  font-size: calc(var(--marxy-size-caption) * 0.9);
+  line-height: 1.55;
+  color: var(--marxy-color-text-faint);
+  text-indent: 0;
+  text-align: start;
+}
+.marxy-account-key {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  padding: 0.1em 0;
+  font: inherit;
+  color: var(--marxy-color-text-faint);
+  border-radius: 3px;
+}
+.marxy-account-key::before {
+  content: "";
+  flex: none;
+  width: 0.42em;
+  height: 0.42em;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-0.12em) rotate(-45deg);
+  transition: transform 120ms ease;
+}
+/* The caption in its key keeps its own face and size; the box around it keeps the space. */
+.marxy-account-key > .marxy-reading-head { margin: 0; color: inherit; line-height: inherit; }
+/* The key beside a caption line that holds more than words: the chevron alone, on the line's first baseline. */
+.marxy-account-beside { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 0.4em; align-items: baseline; font-size: inherit; line-height: inherit; color: inherit; }
+.marxy-account-beside > :nth-child(2) { margin: 0; min-width: 0; }
+.marxy-account-beside > .marxy-account-body { grid-column: 1 / -1; }
+/* A page drawn inside a page (a fenced part, an entry previewed in an archive) has no line of meta: its host page's is the one. */
+:is(.marxy-part, .marxy-embed) :is(.marxy-account, .marxy-reading > .marxy-reading-head) { display: none; }
+.marxy-account-key:hover { color: var(--marxy-color-text-strong); }
+.marxy-account-key:focus-visible { outline: 2px solid var(--marxy-color-accent, currentColor); outline-offset: 2px; }
+.marxy-account-body { display: none; max-width: 46em; margin: 0.3em 0 0; padding-inline-start: 0.85em; border-inline-start: 1.5px solid var(--marxy-color-rule); color: var(--marxy-color-text-secondary); }
+.marxy-account-body > p { margin: 0 0 0.35em; }
+.marxy-account-body > p:last-child { margin-bottom: 0; }
+:root[data-marxy-account-open] .marxy-account-body { display: block; }
+:root[data-marxy-account-open] .marxy-account-key::before { transform: translateY(-0.3em) rotate(45deg); }
+@media (prefers-reduced-motion: reduce) { .marxy-account-key::before { transition: none; } }
+/* A fold with the key's look and its own state (frame/account.ts OWN): its key's aria-expanded opens it, not the switch. */
+:root .marxy-account-own > .marxy-account-key[aria-expanded="false"] + .marxy-account-body { display: none; }
+:root .marxy-account-own > .marxy-account-key[aria-expanded="true"] + .marxy-account-body { display: block; }
+:root .marxy-account-own > .marxy-account-key[aria-expanded="false"]::before { transform: translateY(-0.12em) rotate(-45deg); }
+:root .marxy-account-own > .marxy-account-key[aria-expanded="true"]::before { transform: translateY(-0.3em) rotate(45deg); }
+/* An empty file says so where its text would be, and nothing else of a reading shows (view/rendered-view.ts sets it). */
+.marxy-article[data-marxy-empty] > * { display: none; }
+.marxy-article[data-marxy-empty]::before {
+  content: "This file is empty \00B7  0 bytes";
+  display: block;
+  font-family: var(--marxy-face-chrome);
+  font-size: var(--marxy-size-caption);
+  line-height: var(--lb);
+  color: var(--marxy-color-text-secondary);
+}
+/* Data reads in the chrome face a size under the body: keys are labels, and a file of them is scanned, not read. */
+.marxy-tree, .marxy-records { font-family: var(--marxy-face-chrome); }
+.marxy-tree { font-size: calc(var(--marxy-size-body) * 0.8); line-height: 1.625; }
+.marxy-tree :is(.marxy-tree-leaf, .marxy-tree-branch > summary) { min-height: 1.625em; }
+.marxy-tree-leaf, .marxy-tree-branch > summary { padding-inline-start: 0; overflow-wrap: anywhere; }
+.marxy-tree-branch > summary { list-style: none; cursor: default; position: relative; }
+.marxy-tree-branch > summary::-webkit-details-marker { display: none; }
+.marxy-tree-branch > summary::before {
+  content: "\25B8"; position: absolute; inset-inline-start: -1.7em; width: 1.35em; text-align: center;
+  color: var(--marxy-color-text-faint); font-size: 0.75em; line-height: calc(1.625 / 0.75);
+}
+.marxy-tree-branch[open] > summary::before { content: "\25BE"; }
+.marxy-tree-kids { margin-inline-start: 0.35em; padding-inline-start: calc(var(--marxy-tree-step) - 0.35em); border-inline-start: 1px solid var(--marxy-color-rule); }
+.marxy-tree-key { --marxy-wght: calc(620 + var(--marxy-weight-offset)); font-weight: var(--marxy-wght); color: var(--marxy-color-text-strong); margin-inline-end: 0.5em; }
+/* An index is a key, as 19 sets it. */
+.marxy-tree-index { --marxy-wght: calc(620 + var(--marxy-weight-offset)); font-weight: var(--marxy-wght); color: var(--marxy-color-text-strong); margin-inline-end: 0.5em; font-variant-numeric: tabular-nums; }
+/* A value that wraps hangs under itself, not under its key. */
+.marxy-tree-leaf { display: flex; align-items: baseline; }
+.marxy-tree-leaf > .marxy-tree-key, .marxy-tree-leaf > .marxy-tree-index { flex: none; }
+.marxy-tree-meta { font-size: 0.844em; color: var(--marxy-color-text-faint); margin-inline-start: 0.3em; }
+/* A tree drawn in part: where it stops, how many more and the line where Source has them, and two ways on. */
+.marxy-tree-stop {
+  margin: calc(var(--marxy-half) / 3) 0 calc(var(--marxy-half) / 2); padding: calc(var(--marxy-half) * 0.75) var(--marxy-half);
+  border-radius: 8px; box-shadow: inset 0 0 0 1px var(--marxy-color-rule-strong); color: var(--marxy-color-text-secondary); line-height: 1.5;
+}
+.marxy-tree-stop p { margin: 0 0 calc(var(--marxy-half) * 0.6); }
+.marxy-tree-stop b { font-weight: 600; color: var(--marxy-color-text-strong); }
+.marxy-tree-ways { display: flex; flex-wrap: wrap; gap: 8px; }
+.marxy-tree-undrawn > .marxy-tree-key { color: var(--marxy-color-text-secondary); }
+.marxy-tree-crumb { margin: 0 0 calc(var(--marxy-half) / 3); font-size: 0.9em; color: var(--marxy-color-text-faint); }
+:is(.marxy-tree, .marxy-records) :is(.marxy-tree-string, .marxy-tree-number, .marxy-tree-literal, .marxy-tree-block) { font-family: var(--marxy-face-mono); font-size: 0.906em; }
+.marxy-tree-table :is(.marxy-tree-string, .marxy-tree-number, .marxy-tree-literal) { font-size: inherit; }
+.marxy-tree-string { color: var(--marxy-color-text); }
+.marxy-tree-number { color: var(--marxy-color-text-strong); font-variant-numeric: tabular-nums; }
+.marxy-tree-literal { color: var(--marxy-color-text-faint); font-style: italic; }
+.marxy-tree-block { display: block; white-space: pre-wrap; margin: 0 0 0 1.2em; padding-inline-start: 0.8em; border-inline-start: 2px solid var(--marxy-color-quote-rule); color: var(--marxy-color-text); }
+.marxy-tree-text { color: var(--marxy-color-text); }
+.marxy-tree-attrs { font-family: var(--marxy-face-mono); font-size: 0.844em; color: var(--marxy-color-text-secondary); }
+.marxy-tree-attr { color: var(--marxy-color-text-faint); }
+.marxy-tree-table, .marxy-reading-table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.marxy-tree-table { margin: calc(var(--marxy-half) / 6) 0 calc(var(--marxy-half) * 2 / 3); font-family: var(--marxy-face-mono); font-size: 0.844em; line-height: 1.63; }
+.marxy-reading-table { margin: 0; font-size: calc(var(--marxy-size-body) * 0.85); line-height: 1.765; }
+.marxy-records[data-marxy-reading="records"] .marxy-reading-table { font-size: calc(var(--marxy-size-body) * 0.75); line-height: 1.867; }
+:is(.marxy-tree-table, .marxy-reading-table) th {
+  text-align: start; font-weight: 600; color: var(--marxy-color-text-secondary);
+  box-shadow: inset 0 -1px 0 var(--marxy-color-rule-strong); padding: 0 1.3em 0 0; white-space: nowrap;
+}
+.marxy-tree-table th { font-family: var(--marxy-face-chrome); font-size: 0.889em; color: var(--marxy-color-text-faint); }
+/* Rules drawn inside the cell, as 19 draws them, so each row is its line box and no more. */
+:is(.marxy-tree-table, .marxy-reading-table) td { padding: 0 1.3em 0 0; box-shadow: inset 0 -1px 0 var(--marxy-color-rule); white-space: nowrap; vertical-align: top; }
+.marxy-tree-table td { padding-block: 0.3em; }
+:is(.marxy-tree-table, .marxy-reading-table) :is(td, th).marxy-num { text-align: end; }
+.marxy-reading-table td.marxy-num { text-align: end; }
+/* A wide table runs into the margin as a Markdown table does, then scrolls. */
+.marxy-reading-scroll { width: max-content; max-width: calc(100% + var(--marxy-room)); overflow-x: auto; }
+.marxy-reading-scroll > .marxy-reading-table { display: table; max-width: none; overflow: visible; }
+.marxy-reading-table th[data-marxy-sort] { cursor: default; }
+.marxy-reading-table th[data-marxy-sort]:hover, .marxy-reading-table th[data-marxy-sort]:focus-visible { color: var(--marxy-color-text-strong); }
+.marxy-reading-table th[aria-sort="descending"]::after { content: " \2193"; }
+.marxy-reading-table th[aria-sort="ascending"]::after { content: " \2191"; }
+.marxy-records-bad td { white-space: normal; font-style: italic; color: var(--marxy-color-text-secondary); }
+.marxy-records-bad code { font-family: var(--marxy-face-mono); font-style: normal; }
+/* Verse: every line where the file breaks it, a long one hanging under itself, a number every five in the margin. */
+/* Where the margin has no room for the numbers (a pane of two), the lines make way for them, as a list's markers do:
+   a line's 10 was cut to 0 at the pane's edge. */
+.marxy-verse { font-size: var(--marxy-size-body); line-height: var(--lb); padding-inline-start: max(0em, 3em - var(--marxy-room, 0px) - var(--marxy-gutter, 0px)); }
+.marxy-verse-title { margin: 0 0 var(--lb); }
+.marxy-stanza { margin: 0 0 var(--lb); }
+.marxy-verse-line { position: relative; padding-inline-start: calc(2em + var(--marxy-verse-indent, 0) * 1ch); text-indent: -2em; }
+.marxy-verse-no {
+  position: absolute; inset-inline-start: -3em; width: 2em; text-align: end; text-indent: 0;
+  font-family: var(--marxy-face-chrome); font-size: var(--marxy-size-caption); color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums;
+}
+/* As written: each line kept, numbered quietly. */
+.marxy-written { font-family: var(--marxy-face-mono); font-size: var(--marxy-size-code); line-height: var(--marxy-line-box-code); }
+.marxy-written-line { display: grid; grid-template-columns: 3.5em minmax(0, 1fr); column-gap: 1em; }
+.marxy-written-no { text-align: end; color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums; user-select: none; -webkit-user-select: none; }
+.marxy-written-text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--marxy-color-text); }
+/* Lines: a big file, a screen of rows drawn at a time (view/reading-lines.ts). Each row is its own box, so a row drawn or
+   taken away restyles itself and nothing else; the rows run into the room on the right, as a log's pieces do. Its number
+   hangs in a margin as wide as the last line's number. */
+.marxy-lines-body {
+  font-family: var(--marxy-face-mono); font-size: var(--marxy-size-code); line-height: var(--marxy-line-box-code);
+  width: min(calc(100% + var(--marxy-room, 0px)), calc(100ch + 10ch)); contain: layout style;
+}
+/* A row is a block, not a grid: the page's block list and reading place are made of blocks that carry their bytes. */
+.marxy-lines-row { position: relative; padding-inline-start: calc(var(--marxy-lines-digits, 6) * 1ch + 2ch); contain: layout style; }
+.marxy-lines-no {
+  position: absolute; inset-inline-start: 0; width: calc(var(--marxy-lines-digits, 6) * 1ch); text-align: end;
+  color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums; user-select: none; -webkit-user-select: none;
+}
+.marxy-lines-text { display: block; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--marxy-color-text); }
+.marxy-lines-time { color: var(--marxy-tok-comment); }
+.marxy-lines-row:is([data-marxy-rank="2"], [data-marxy-rank="3"]) .marxy-lines-level { font-weight: 700; }
+.marxy-lines-gap { contain: strict; }
+.marxy-lines-probe { position: absolute; white-space: pre; }
+.marxy-lines-none { margin: 0; color: var(--marxy-color-text-secondary); font-family: var(--marxy-face-chrome); font-size: var(--marxy-size-caption); }
+/* A fenced part of a page read as data: its reading where the fence's block was, set in from the prose by a hair. */
+.marxy-part { margin: var(--lb) 0; padding-inline-start: var(--marxy-half); border-inline-start: 1px solid var(--marxy-color-rule); }
+/* A notebook: its cells down the column, a code cell's run number quiet in the margin (an attribute,
+   so find and copy read the cell, not the number), its outputs under it set in by a rule, each output's notes in the
+   chrome's face. Outputs are as saved; nothing on this page runs. */
+.marxy-notebook > :is(.marxy-reading-head, .marxy-account) { margin-block-end: var(--lb); }
+.marxy-nb-cell { position: relative; margin: 0 0 var(--lb); }
+.marxy-nb-md > :first-child { margin-top: 0; }
+.marxy-nb-md > :last-child { margin-bottom: 0; }
+.marxy-nb-code > pre { margin: 0; }
+.marxy-nb-code::before, .marxy-nb-out[data-marxy-run]::before {
+  content: "[" attr(data-marxy-run) "]"; position: absolute; inset-inline-end: calc(100% + 0.9em); top: var(--marxy-half);
+  font-family: var(--marxy-font-mono); font-size: var(--marxy-size-caption); line-height: var(--marxy-line-box-code);
+  color: var(--marxy-color-text-faint); white-space: pre; font-variant-numeric: tabular-nums; user-select: none; -webkit-user-select: none;
+}
+.marxy-nb-out[data-marxy-run]::before { top: 0; inset-inline-end: calc(100% + var(--marxy-half) + 0.9em); }
+.marxy-nb-outputs { margin: calc(var(--lb) / 3) 0 0; padding-inline-start: var(--marxy-half); box-shadow: inset 2px 0 0 var(--marxy-color-rule); }
+.marxy-nb-out { position: relative; margin: 0 0 calc(var(--lb) / 2); }
+.marxy-nb-out:last-child { margin-bottom: 0; }
+/* Output text a step under the code that made it: what was printed, not what was written. */
+.marxy-nb-out pre.marxy-nb-text, .marxy-nb-raw pre.marxy-nb-text { margin: 0; font-size: calc(var(--marxy-size-code) * 0.9); }
+.marxy-nb-raw pre.marxy-nb-text, :is(.marxy-nb-stderr, .marxy-nb-error) pre.marxy-nb-text { color: var(--marxy-color-text-secondary); }
+.marxy-nb-note, .marxy-nb-said {
+  margin: calc(var(--lb) / 4) 0 0; font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-caption) * 0.9);
+  line-height: 1.55; color: var(--marxy-color-text-faint);
+}
+.marxy-nb-raw > .marxy-nb-note { margin: 0 0 calc(var(--lb) / 4); }
+.marxy-nb-ename { margin: 0 0 calc(var(--lb) / 4); font-family: var(--marxy-face-chrome); font-size: var(--marxy-size-caption); color: var(--marxy-color-text); }
+.marxy-nb-ename > b { color: var(--marxy-color-text-strong); }
+.marxy-nb-img { display: block; max-width: 100%; height: auto; border-radius: 4px; }
+/* An HTML output: what the allow-list kept, a table set as the readings set theirs, wide ones scrolling in the margin. */
+.marxy-nb-html { max-width: calc(100% + var(--marxy-room)); overflow-x: auto; font-family: var(--marxy-face-chrome); font-size: var(--marxy-size-caption); line-height: 1.55; }
+.marxy-nb-html p { margin: 0 0 calc(var(--lb) / 4); }
+.marxy-nb-html table { border-collapse: collapse; margin: 0; font-family: var(--marxy-font-mono); font-size: 0.92em; line-height: 1.7; font-variant-numeric: tabular-nums; }
+.marxy-nb-html :is(th, td) { padding: 0 1.3em 0 0; text-align: end; white-space: nowrap; box-shadow: inset 0 -1px 0 var(--marxy-color-rule); }
+.marxy-nb-html th { font-family: var(--marxy-face-chrome); font-weight: 600; color: var(--marxy-color-text-faint); }
+.marxy-nb-md-out > :first-child { margin-top: 0; }
+.marxy-nb-md-out > :last-child { margin-bottom: 0; }
+/* JavaScript and widget outputs: named, never run, their text one press away. */
+.marxy-nb-asis > summary { display: block; list-style: none; cursor: pointer; margin: calc(var(--lb) / 4) 0 0; }
+.marxy-nb-asis > summary::-webkit-details-marker { display: none; }
+.marxy-nb-asis .marxy-nb-said { margin: 0; }
+.marxy-nb-show { font-family: var(--marxy-face-chrome); font-size: calc(var(--marxy-size-caption) * 0.9); color: var(--marxy-color-text-secondary); text-decoration: underline; text-underline-offset: 2px; }
+.marxy-nb-asis > summary:hover .marxy-nb-show, .marxy-nb-asis > summary:focus-visible .marxy-nb-show { color: var(--marxy-color-text-strong); }
+.marxy-nb-asis > pre.marxy-nb-text { margin: calc(var(--lb) / 4) 0 0; }
+/* Table aids (a proposal): the header carried over the rows as they scroll under it. No row or column hover. */
+:root[data-marxy-proposal-table-aids] .marxy-article thead[data-marxy-lifted] { position: relative; z-index: 2; }
+:root[data-marxy-proposal-table-aids] .marxy-article thead[data-marxy-lifted] th { background: var(--marxy-color-bg); }
+/* Notes where you read (a proposal): the note under its line, on the page's grid. */
+.marxy-note-here {
+  display: grid; grid-template-columns: 1.6em minmax(0, 1fr); margin: 0 0 var(--lb); padding: calc(var(--lb) / 4) var(--marxy-half);
+  border-inline-start: 2px solid var(--marxy-color-rule-strong); background: var(--marxy-color-surface); border-radius: 0 4px 4px 0;
+  font-size: var(--marxy-size-caption); line-height: var(--lb); color: var(--marxy-color-text-secondary);
+}
+.marxy-note-here > div > :last-child { margin-bottom: 0; }
+.marxy-note-here-n { color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums; }
+.marxy-footnote-ref[data-marxy-note-open] a { color: var(--marxy-color-text-strong); }
+/* The note in the margin when the pane has room for it: beside the line that calls it, in the chrome's face, quiet.
+   Placed by proposals/notes-in-place.ts, which sets its top and width. */
+.marxy-article[data-marxy-notes-margin] { position: relative; }
+.marxy-note-margin {
+  position: absolute; left: calc(100% + 4px); display: grid; grid-template-columns: 1.5em minmax(0, 1fr);
+  font: 400 calc(var(--marxy-size-caption) * 0.93) / 1.45 var(--marxy-face-chrome); color: var(--marxy-color-text-secondary);
+  text-indent: 0; hyphens: manual; transition: color 0.2s ease;
+}
+.marxy-note-margin > div > * { margin: 0; font: inherit; }
+.marxy-note-margin > div > * + * { margin-top: 0.4em; }
+.marxy-note-margin[data-marxy-flash] { color: var(--marxy-color-text-strong); }
+/* Diagrams: drawn in ink inside the fence's own block, its code kept there, hidden, until Its source shows it. */
+pre[data-marxy-diagram="drawn"] { max-width: calc(100% + var(--marxy-room)); padding-inline: 0; background: none; white-space: normal; text-indent: 0; }
+pre[data-marxy-diagram="drawn"]:not([data-marxy-diagram-source]) > code { display: none; }
+pre[data-marxy-diagram="drawn"][data-marxy-diagram-source] { padding-inline: var(--marxy-half); background: var(--marxy-color-code-bg); white-space: pre-wrap; }
+pre[data-marxy-diagram-source] .marxy-diagram-scroll > svg { display: none; }
+.marxy-diagram { display: block; font-family: var(--marxy-face-chrome); }
+/* A diagram is drawn at its own width (`--marxy-dw`) and never scaled down to fit: wider than the room to the pane's edge,
+   it scrolls sideways in its own scroller, the side with more fades (render/wide-tables.ts), and the caption, outside the scroller, stays put. */
+.marxy-diagram-scroll { display: block; overflow-x: auto; }
+.marxy-diagram-scroll > svg { display: block; max-width: 100%; min-width: var(--marxy-dw, 0px); height: auto; }
+.marxy-diagram-scroll[data-marxy-more="end"] { mask-image: linear-gradient(to left, transparent, #000 var(--lb)); }
+.marxy-diagram-scroll[data-marxy-more="start"] { mask-image: linear-gradient(to right, transparent, #000 var(--lb)); }
+.marxy-diagram-scroll[data-marxy-more="both"] { mask-image: linear-gradient(to right, transparent, #000 var(--lb), #000 calc(100% - var(--lb)), transparent); }
+/* The renderer's "mermaid · diagram source" line says the block is code; drawn, it is not. */
+.marxy-article > p.marxy-diagram-caption[data-marxy-diagram="drawn"] { display: none; }
+.marxy-diagram-title, .marxy-diagram-note {
+  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 14px; margin: calc(var(--marxy-half) * 2 / 3) 0 0;
+  font: 400 var(--marxy-size-caption) / 1.5 var(--marxy-face-chrome); color: var(--marxy-color-text-faint); white-space: normal; text-indent: 0;
+}
+.marxy-diagram-note { margin: 0 0 calc(var(--marxy-half) / 2); }
+.marxy-diagram-source { padding: 0; border: 0; background: none; font: inherit; color: var(--marxy-color-text-secondary); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.mm .mm-text-md { font-size: 14px; }
+.mm .mm-text-sm { font-size: 12.5px; }
+.mm :is(.mm-node, .mm-actor) { fill: var(--marxy-color-bg); stroke: var(--marxy-color-rule-strong); stroke-width: 1.2; }
+.mm :is(.mm-node.mm-diamond, .mm-node.mm-hexagon, .mm-node.mm-cylinder, .mm-note, .mm-frame-tab) { fill: var(--marxy-color-surface); }
+.mm :is(.mm-node-label, .mm-actor-label, .mm-num, .mm-frame-label) { fill: var(--marxy-color-text-strong); }
+.mm :is(.mm-actor-label, .mm-frame-label) { font-weight: 600; }
+.mm :is(.mm-edge, .mm-self) { fill: none; stroke: var(--marxy-color-text-faint); stroke-width: 1.2; }
+.mm :is(.mm-edge-dotted, .mm-msg-dotted) { stroke-dasharray: 3 4; }
+.mm .mm-edge-thick { stroke-width: 2.4; stroke: var(--marxy-color-text-secondary); }
+.mm :is(.mm-edge-label, .mm-frame-cond) { fill: var(--marxy-color-text-secondary); }
+.mm .mm-edge-label-bg { fill: var(--marxy-color-bg); }
+.mm :is(.mm-head, .mm-head-x, .mm-head-o) { fill: var(--marxy-color-text-faint); stroke: var(--marxy-color-text-faint); }
+.mm .mm-head-o { fill: var(--marxy-color-bg); }
+.mm .mm-cluster { fill: none; stroke: var(--marxy-color-rule); stroke-width: 1.2; }
+.mm .mm-cluster-label { fill: var(--marxy-color-text-faint); font-weight: 600; }
+.mm .mm-lifeline { stroke: var(--marxy-color-rule); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.mm .mm-msg { fill: none; stroke: var(--marxy-color-text-secondary); stroke-width: 1.2; }
+.mm :is(.mm-msg-label, .mm-note-label) { fill: var(--marxy-color-text); }
+.mm .mm-note { stroke: var(--marxy-color-rule); }
+.mm .mm-activation { fill: var(--marxy-color-code-bg); stroke: var(--marxy-color-rule-strong); }
+.mm .mm-frame { fill: none; stroke: var(--marxy-color-rule-strong); stroke-width: 1; }
+.mm .mm-frame-tab { stroke: var(--marxy-color-rule-strong); stroke-width: 1; }
+.mm .mm-frame-divider { stroke: var(--marxy-color-rule-strong); stroke-dasharray: 4 4; }
+.mm .mm-num-label { fill: var(--marxy-color-bg); font-weight: 700; }
+/* Margin notes: the reader's own note on a part, in the margin beside it when the pane has room,
+   else under it. Placed by apps/desktop/src/notes/margin.ts, which sets a margin note's top and width. */
+.marxy-article[data-marxy-mnotes-margin] { position: relative; }
+.marxy-mnote {
+  font: 400 calc(var(--marxy-size-caption) * 0.93) / 1.45 var(--marxy-face-chrome); color: var(--marxy-color-text-secondary);
+  border-inline-start: 2px solid var(--marxy-color-accent); padding: 0 0 0 calc(var(--lb) / 3); text-align: start; text-indent: 0;
+  hyphens: manual; white-space: pre-wrap; cursor: text;
+}
+.marxy-mnote:hover { color: var(--marxy-color-text-strong); }
+.marxy-mnote[data-marxy-mnote-at="margin"] { position: absolute; left: calc(100% + 24px); }
+.marxy-mnote[data-marxy-mnote-at="under"] { margin: calc(var(--lb) / -4) 0 var(--lb); }
+.marxy-mnote-field {
+  display: block; width: 100%; box-sizing: border-box; min-height: 3.2em; resize: none; border: 0; border-radius: 5px; outline: 0;
+  padding: calc(var(--lb) / 6) calc(var(--lb) / 4); font: inherit; color: var(--marxy-color-text-strong); background: var(--marxy-color-surface);
+}
+/* The cursor over a kind's parts (parts/cursor.ts): a viewer's part, a reading's row or cell, a
+   notebook's cell, an x-rayed part's stored form, each as a block under Rendered's cursor: the wash, and the accent bar
+   at its start. A row's bar is on its first cell, since a table row takes no shadow of its own. */
+.marxy-viewer-mount .marxy-selected { background: var(--marxy-color-accent-wash); box-shadow: inset 3px 0 0 var(--marxy-color-rule-strong); }
+.marxy-viewer-mount .marxy-cursor { background: var(--marxy-color-accent-wash); box-shadow: inset 3px 0 0 var(--marxy-color-accent); }
+:is(.marxy-viewer-mount, .marxy-article) tr.marxy-selected { box-shadow: none; }
+:is(.marxy-viewer-mount, .marxy-article) tr.marxy-selected > :is(td, th) { background: var(--marxy-color-accent-wash); }
+:is(.marxy-viewer-mount, .marxy-article) tr.marxy-selected > :first-child { box-shadow: inset 3px 0 0 var(--marxy-color-rule-strong); }
+:is(.marxy-viewer-mount, .marxy-article) tr.marxy-cursor > :first-child { box-shadow: inset 3px 0 0 var(--marxy-color-accent); }
+:is(.marxy-viewer-mount, .marxy-article) td.marxy-cursor { background: var(--marxy-color-accent-wash); box-shadow: inset 0 0 0 2px var(--marxy-color-accent); }
+.marxy-article :is(section, details, tr, td).marxy-selected:not(tr):not(td) { background: var(--marxy-color-accent-wash); box-shadow: -12px 0 0 var(--marxy-color-accent-wash), -15px 0 0 var(--marxy-color-rule-strong); }
+.marxy-article :is(section, details).marxy-cursor { box-shadow: -12px 0 0 var(--marxy-color-accent-wash), -15px 0 0 var(--marxy-color-accent); }
+.marxy-article pre .marxy-line.marxy-selected { background: var(--marxy-color-accent-wash); box-shadow: -12px 0 0 var(--marxy-color-accent-wash), -15px 0 0 var(--marxy-color-rule-strong); }
+.marxy-article pre .marxy-line.marxy-cursor { box-shadow: -12px 0 0 var(--marxy-color-accent-wash), -15px 0 0 var(--marxy-color-accent); }
+.marxy-viewer-mount .marxy-xray { margin: calc(var(--marxy-line-box) / 4) 0; }
+
+/* A look's type: what the look engine sets on a pane. The defaults in tokens.css leave a page
+   as it was. An indented paragraph takes back the half line above it, so it stays on the grid with no space between. */
+.marxy-article :is(h1, h2, h3, h4) { font-style: var(--marxy-heading-style); text-transform: var(--marxy-heading-case); }
+.marxy-article { font-variant-numeric: var(--marxy-figures); }
+.marxy-article > p + p { text-indent: var(--marxy-paragraph-indent); }
+[data-marxy-look-para="indent"] .marxy-article > p + p { margin-top: calc(-1 * var(--marxy-half)); }
+
+/* Reveal on a kind's reading (parts/kind-reveal.ts): a value the reading drew in its own way
+   gives its place to the value as written, and a log's stamps and spacing are drawn as the file writes them. */
+[data-marxy-reveal-swapped] { display: none !important; }
+.marxy-article[data-marxy-reveal] [data-marxy-reading] li { list-style: revert; }
+.marxy-article[data-marxy-reveal] pre.language-log.marxy-run .marxy-log-time { position: static; font-size: inherit; line-height: inherit; color: var(--marxy-color-text-faint); }
+.marxy-article[data-marxy-reveal] pre.language-log.marxy-run .marxy-log-time::before { content: none; }
+.marxy-article[data-marxy-reveal] pre.language-log.marxy-run .marxy-log-space { font-size: inherit; line-height: inherit; }
+.marxy-reading .marxy-reveal-line, .marxy-transcript .marxy-reveal-line { line-height: 1.5; overflow-wrap: anywhere; }
+.marxy-article[data-marxy-reveal] .marxy-tree-leaf { display: block; }
+.marxy-article[data-marxy-reveal] .marxy-tree :is(.marxy-tree-key, .marxy-tree-index) { margin-inline-end: 0; }
+.marxy-tree .marxy-reveal-mark + .marxy-tree-index { margin-inline-start: 0.4em; }
+/* Notes on a viewer's parts (notes/part-notes.ts): a layer of their own in the part's scroller, beside the part, or just
+   under it over what follows when there is no room at its right. */
+.marxy-mnote-host { position: relative; }
+.marxy-mnote-layer { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 3; }
+.marxy-mnote-layer .marxy-mnote { position: absolute; box-sizing: border-box; margin: 0; padding: 0.15em 0 0.15em 0.6em; }
+.marxy-mnote-layer .marxy-mnote[data-marxy-mnote-at="under"] {
+  padding: 0.45em 0.75em; border: 0; border-radius: 0 6px 6px 0; background: var(--marxy-color-surface);
+  box-shadow: inset 2px 0 0 var(--marxy-color-accent), 0 0 0 1px var(--marxy-color-rule);
+}
+/* Justified prose: a look that justifies (Book) has the browser justify and hyphenate its paragraphs. The
+   typesetter's breaker is ragged-right only and marks its breaks as forced, which justification leaves ragged, so it stands
+   aside here (its kill switch). */
+[data-marxy-look-align="justify"] .marxy-article { --marxy-typeset: none; }
+[data-marxy-look-align="justify"] .marxy-article p { text-align: justify; hyphens: auto; -webkit-hyphens: auto; }

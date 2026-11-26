@@ -1,4 +1,4 @@
-// The Tauri shell's watch (C-11.1): the `fs-watch` listener is registered before `watch_root` is
+// The Tauri shell's watch: the `fs-watch` listener is registered before `watch_root` is
 // asked for, so a tree watch that refuses (or reports a change) the moment it is up is not lost.
 import { strict as assert } from 'node:assert';
 import { register } from 'node:module';
@@ -47,7 +47,7 @@ test('a watch_root that fails leaves no listener behind', async () => {
   await new Promise((r) => setTimeout(r, 40));
 });
 
-test('payloads that arrived before the key are replayed once, and the buffer does not outlive the replay (C-11.2)', async () => {
+test('payloads that arrived before the key are replayed once, and the buffer does not outlive the replay', async () => {
   const received = [];
   hooks.watchRoot = async () => {
     emit('fs-watch', { key: KEY, events: [{ kind: 'created', path: '/tree/early.md' }] });
@@ -59,7 +59,7 @@ test('payloads that arrived before the key are replayed once, and the buffer doe
   handle.close();
 });
 
-test('close names the watch it opened, and swallows only "not watching" (C-11.2)', async () => {
+test('close names the watch it opened, and swallows only "not watching"', async () => {
   hooks.invoked.length = 0;
   hooks.watchRoot = async () => ({ key: KEY, id: 42 });
   const handle = await shell.watch('/tree', () => {}, { recursive: true });

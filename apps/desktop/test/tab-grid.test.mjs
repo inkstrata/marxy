@@ -1,7 +1,8 @@
-// F-99: the tab row keeps every tab on one grid. Twelve tabs of long names in the unfolded window, the real app on the
+// the tab row keeps every tab on one grid. Twelve tabs of long names in the unfolded window, the real app on the
 // shipped skeleton and CSS in WebKit. A close button never touches its neighbour; its slot is the same width on every tab
 // whether or not it shows; hovering or activating moves no other tab's left edge; heights, gaps and vertical centres agree;
-// the row is centred between its rules; and the full-name reveal never lands over the document's first line.
+// and every tab stands on the row's rule. The window has one row (frame/tab-row.ts); these measure it.
+// Its full name is the tab's own title now, so the old row's delayed reveal and its tests went.
 import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
@@ -28,7 +29,7 @@ async function withRow(fn, { width = 1280, height = 900, only = paths, store = f
   try {
     const page = await browser.newPage({ viewport: { width, height } });
     await bootTwoPanes(page, { files: store, open: [only[0]] });
-    await page.evaluate(() => window.__marxyHandle.workspace().unfold());
+    await page.evaluate(() => window.__marxyHandle.frame().unfold());
     for (const p of only.slice(1)) {
       await page.evaluate((p) => window.__marxyHandle.open(p), p);
       await page.evaluate(() => new Promise((r) => setTimeout(r, 40)));
@@ -47,18 +48,17 @@ const measure = (page) =>
       const r = el.getBoundingClientRect();
       return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, mid: (r.top + r.bottom) / 2 };
     };
-    const region = document.querySelector('[data-marxy-workspace-region="tabs"]');
-    const toolbar = document.querySelector('[data-marxy-workspace-region="toolbar"]');
+    const head = document.querySelector('.marxy-tabbar');
+    const region = head.querySelector('.marxy-tabs');
     return {
-      region: box(region),
-      toolbarBottom: toolbar.getBoundingClientRect().bottom,
+      region: box(head),
       tabs: [...region.querySelectorAll('.marxy-tab')].map((t) => {
-        const glyph = t.querySelector('svg');
+        const glyph = t.querySelector('.marxy-tab-open svg');
         const text = document.createRange();
         text.selectNodeContents(t.querySelector('.marxy-tab-name'));
         const tr = text.getBoundingClientRect();
         return {
-          path: t.getAttribute('data-marxy-tab'),
+          path: t.title.split('\n')[0],
           x: t.offsetLeft,
           tab: box(t),
           open: box(t.querySelector('.marxy-tab-open')),
@@ -70,7 +70,8 @@ const measure = (page) =>
     };
   });
 
-const hover = (page, path) => page.hover(`[data-marxy-tab="${path}"] .marxy-tab-open`);
+const tabOpen = (path) => `.marxy-tabbar .marxy-tab[title^="${path}"] .marxy-tab-open`;
+const hover = (page, path) => page.hover(tabOpen(path));
 /** Left edges within the row's content (the row's own scroll is not a move). */
 const lefts = async (page) => (await measure(page)).tabs.map((t) => t.x);
 
@@ -126,7 +127,7 @@ test('hovering or activating a tab moves no other tab\'s left edge', async () =>
   });
 });
 
-test('one grid: equal heights and gaps, one vertical centre, the row centred between its rules', async () => {
+test('one grid: equal heights and gaps, one vertical centre, every tab standing on the row\'s rule', async () => {
   await withRow(async (page) => {
     await hover(page, paths[3]);
     const m = await measure(page);
@@ -138,31 +139,8 @@ test('one grid: equal heights and gaps, one vertical centre, the row centred bet
       const mids = [t.label.mid, t.close.mid, t.tab.mid, ...(t.glyph ? [t.glyph.mid] : [])];
       assert.ok(Math.max(...mids) - Math.min(...mids) <= 1, `${t.path}: label, icon, close and tab centres differ: ${mids}`);
     }
-    // The row sits between the toolbar's rule above and its own rule below: the tab's top and the band's bottom rule
-    // leave the same room round the text.
-    const t = m.tabs[0];
-    const above = t.label.mid - m.region.top;
-    const below = m.region.bottom - 1 - t.label.mid;
-    assert.ok(Math.abs(above - below) <= 1, `text centre ${above}px under the top, ${below}px above the bottom rule`);
-  });
-});
-
-test('the full-name reveal opens after a delay and never over the document\'s first line', async () => {
-  await withRow(async (page) => {
-    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-tab[title]').length), 0, 'no native tooltip: it opens over the text');
-    await hover(page, paths[2]);
-    assert.equal(await page.evaluate(() => document.querySelector('[data-marxy-tab-tip]')?.hidden ?? true), true, 'not at once');
-    await page.waitForSelector('[data-marxy-tab-tip]:not([hidden])', { timeout: 3000 });
-    const r = await page.evaluate(() => {
-      const tip = document.querySelector('[data-marxy-tab-tip]').getBoundingClientRect();
-      const line = document.querySelector('#doc').getBoundingClientRect();
-      const first = document.querySelector('#doc p, #doc h1').getBoundingClientRect();
-      return { tip: { top: tip.top, bottom: tip.bottom, left: tip.left, right: tip.right }, first: { top: first.top, bottom: first.bottom }, doc: line.top, text: document.querySelector('[data-marxy-tab-tip]').textContent };
-    });
-    assert.equal(r.text, paths[2]);
-    assert.ok(r.tip.bottom <= r.first.top + 0.01, `the reveal's bottom ${r.tip.bottom} reaches the first line at ${r.first.top}`);
-    await page.mouse.move(5, 400);
-    await page.waitForSelector('[data-marxy-tab-tip][hidden]', { state: 'attached' });
+    // The tabs stand on the row's bottom rule, as a browser's do (frame.css, the row's tabs fill its height).
+    for (const t of m.tabs) assert.ok(Math.abs(t.tab.bottom - m.region.bottom) <= 1, `${t.path}: the tab stands on the rule (${t.tab.bottom} against ${m.region.bottom})`);
   });
 });
 
@@ -173,7 +151,7 @@ test('activating a tab whose name is short and whole moves no other tab either (
     await page.mouse.move(5, 400);
     const rest = await lefts(page);
     const widths = (await measure(page)).tabs.map((t) => t.tab.width);
-    // Under the tab's 220px ceiling: a tab now keeps room for its dirty dot (F-99.1), so these are a little wider than they were.
+    // Under the tab's 220px ceiling: a tab now keeps room for its dirty dot, so these are a little wider than they were.
     assert.ok(widths.every((w) => w < 220), 'the names fit whole');
     for (const p of short) {
       await page.evaluate((p) => window.__marxyHandle.open(p), p);
@@ -184,46 +162,3 @@ test('activating a tab whose name is short and whole moves no other tab either (
   }, { only: short, store });
 });
 
-const tipShown = (page) => page.evaluate(() => !document.querySelector('[data-marxy-tab-tip]').hidden);
-
-test('the full path reaches assistive tech: the hovered or focused tab is described by the tip', async () => {
-  await withRow(async (page) => {
-    await hover(page, paths[2]);
-    const d = await page.evaluate((p) => {
-      const open = document.querySelector(`[data-marxy-tab="${p}"] .marxy-tab-open`);
-      const id = open.getAttribute('aria-describedby');
-      const el = id && document.getElementById(id);
-      return { id, text: el?.textContent, role: el?.getAttribute('role') };
-    }, paths[2]);
-    assert.ok(d.id, 'aria-describedby is set');
-    assert.equal(d.text, paths[2]);
-    assert.equal(d.role, 'tooltip');
-    await page.mouse.move(5, 400);
-    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-tab-open[aria-describedby]').length), 0, 'gone with the pointer');
-    await page.focus(`[data-marxy-tab="${paths[4]}"] .marxy-tab-open`);
-    assert.equal(await page.evaluate((p) => document.querySelector(`[data-marxy-tab="${p}"] .marxy-tab-open`).hasAttribute('aria-describedby'), paths[4]), true, 'keyboard focus too');
-  });
-});
-
-test('Esc dismisses an open tip without folding the workspace', async () => {
-  await withRow(async (page) => {
-    await hover(page, paths[2]);
-    await page.waitForSelector('[data-marxy-tab-tip]:not([hidden])', { timeout: 3000 });
-    await page.keyboard.press('Escape');
-    assert.equal(await tipShown(page), false, 'dismissed');
-    assert.equal(await page.evaluate(() => document.body.getAttribute('data-marxy-workspace')), 'unfolded', 'the workspace did not fold');
-    // With no tip showing the row's listener does not take the key (the app's own Esc handling is what it was).
-    await page.mouse.move(5, 400);
-    assert.equal(await tipShown(page), false);
-  });
-});
-
-test('any active-tab change hides the tip', async () => {
-  await withRow(async (page) => {
-    await hover(page, paths[2]);
-    await page.waitForSelector('[data-marxy-tab-tip]:not([hidden])', { timeout: 3000 });
-    await page.evaluate((p) => window.__marxyHandle.open(p), paths[6]);
-    await page.waitForTimeout(150);
-    assert.equal(await tipShown(page), false);
-  });
-});

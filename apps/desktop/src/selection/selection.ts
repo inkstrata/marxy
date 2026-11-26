@@ -1,14 +1,15 @@
-// The Rendered-mode selection union and pure moves on the AST (docs/design/03-selection-and-operations.md).
+// The Rendered-mode selection union and pure moves on the AST.
 
 import type { Block, Document, Heading, Inline, Node, Source } from '@marxy/core';
 import { nodeAt } from '@marxy/core';
+import { titleFirst } from '@marxy/core/src/render/frontmatter.ts';
 
 export type Selection =
   | { kind: 'none' }
   | { kind: 'node'; node: Block | Inline; el: Element }
   | { kind: 'section'; heading: Heading; range: Source }
   /**
-   * A contiguous run of sibling blocks (E-05): `range` is first.start to last.end, no node. The elements are
+   * A contiguous run of sibling blocks: `range` is first.start to last.end, no node. The elements are
    * the mounted carriers of those blocks, painted together; a block not yet on the page has none.
    */
   | { kind: 'blocks'; first: Block; last: Block; range: Source; els: readonly Element[] }
@@ -16,7 +17,7 @@ export type Selection =
   | {
       kind: 'text';
       text: string;
-      /** The selected part of the article, recorded when the drag was made (C-06); absent when not known. */
+      /** The selected part of the article, recorded when the drag was made; absent when not known. */
       range?: Range;
       /** The bytes of the top-level blocks the drag touches, at `version`; null when it touches none. */
       src?: Source | null;
@@ -45,7 +46,7 @@ const BLOCK_TYPES: ReadonlySet<Block['type']> = new Set([
   'frontmatter',
 ]);
 
-function isBlock(node: Node): node is Block {
+export function isBlock(node: Node): node is Block {
   return BLOCK_TYPES.has(node.type as Block['type']);
 }
 
@@ -55,7 +56,7 @@ export function select(state: SelectionState, selection: Selection): SelectionSt
 
 type Parent = Document | Block;
 
-function findParent(root: Document, target: Node): Parent | null {
+export function findParent(root: Document, target: Node): Parent | null {
   let found: Parent | null = null;
   const walk = (node: Node, parent: Parent): void => {
     if (found !== null) return;
@@ -69,14 +70,28 @@ function findParent(root: Document, target: Node): Parent | null {
   return found;
 }
 
-function blockSiblings(doc: Document, node: Block): Block[] {
+/** The document's top-level blocks in the order the page draws them: the title before the front matter it follows (render/frontmatter.ts). */
+export function drawnChildren(doc: Document): Block[] {
+  const top = doc.children.filter(isBlock);
+  return titleFirst(top) ? [top[1]!, top[0]!, ...top.slice(2)] : top;
+}
+
+/** A block's siblings in the order the page draws them, which is where the cursor steps. */
+export function blockSiblings(doc: Document, node: Block): Block[] {
+  const parent = findParent(doc, node);
+  if (!parent || parent === doc) return drawnChildren(doc);
+  return (parent.children ?? []).filter(isBlock);
+}
+
+/** A block's siblings in the bytes' order, for an edit that splices between them. */
+export function byteSiblings(doc: Document, node: Block): Block[] {
   const parent = findParent(doc, node);
   if (!parent || parent === doc) return doc.children.filter(isBlock);
   return (parent.children ?? []).filter(isBlock);
 }
 
 /** The innermost block at `byte`; an inline hit climbs to the block that holds it. */
-function blockAt(doc: Document, byte: number): Block | null {
+export function blockAt(doc: Document, byte: number): Block | null {
   let node: Node | null = nodeAt(doc, byte);
   while (node && !isBlock(node)) {
     const parent: Parent | null = findParent(doc, node);
@@ -85,7 +100,7 @@ function blockAt(doc: Document, byte: number): Block | null {
   return node;
 }
 
-/** Previous or next block sibling in document order, or `null` at an edge. */
+/** Previous or next block sibling in the order the page draws them, or `null` at an edge. */
 export function moveSibling(doc: Document, sel: Selection, dir: -1 | 1): Selection {
   if (sel.kind !== 'node') return sel;
   let block: Block | null = isBlock(sel.node) ? sel.node : blockAt(doc, sel.node.src.start);
@@ -116,21 +131,42 @@ function blockOf(doc: Document, node: Block | Inline): Block | null {
   return isBlock(node) ? node : blockAt(doc, node.src.start);
 }
 
-/** The blocks of a run, first to last: siblings under one parent. */
+/**
+ * The blocks of a run between two siblings, in the order the page draws them, whichever end comes first. The title and
+ * the front matter drawn under it are one unit in a run: their bytes are in the other order, so a run that took one
+ * without the other would hold bytes it does not draw.
+ */
 export function runBlocks(doc: Document, first: Block, last: Block): Block[] {
   const siblings = blockSiblings(doc, first);
-  const from = siblings.indexOf(first);
-  const to = siblings.indexOf(last);
-  return from < 0 || to < from ? [] : siblings.slice(from, to + 1);
+  const a = siblings.indexOf(first);
+  const b = siblings.indexOf(last);
+  if (a < 0 || b < 0) return [];
+  const run = siblings.slice(Math.min(a, b), Math.max(a, b) + 1);
+  const top = doc.children;
+  if (siblings[0] === top[1] && titleFirst(top) && run[0] === top[0]) run.unshift(top[1]!);
+  return run;
 }
 
-/** The source range of a run: the first block's start to the last block's end. */
+/** A run's ends in the bytes: its block that starts first and the one that ends last, so its range holds every block it draws. */
+export function runHull(doc: Document, first: Block, last: Block): { first: Block; last: Block } {
+  const blocks = runBlocks(doc, first, last);
+  if (blocks.length === 0) return { first, last };
+  let lo = blocks[0]!;
+  let hi = blocks[0]!;
+  for (const b of blocks) {
+    if (b.src.start < lo.src.start) lo = b;
+    if (b.src.end > hi.src.end) hi = b;
+  }
+  return { first: lo, last: hi };
+}
+
+/** The source range of a run whose ends are in the bytes' order (`runHull`): the first block's start to the last block's end. */
 export function runRange(first: Block, last: Block): Source {
   return { file: first.src.file, start: first.src.start, end: last.src.end };
 }
 
 /**
- * The run from `anchor` to `target` (E-05): both must be siblings under one parent, so `target` climbs to the
+ * The run from `anchor` to `target`: both must be siblings under one parent, so `target` climbs to the
  * ancestor that is a sibling of `anchor`; a target outside the anchor's container gives null (the gesture is
  * ignored). The order does not matter. `anchor` and `target` may be the same block.
  */
@@ -160,7 +196,7 @@ function runEnds(doc: Document, sel: Selection): { first: Block; last: Block } |
 }
 
 /**
- * `Shift+click` on `target` (E-05): the run grows to hold it. Once a run exists it is the hull of the run and the
+ * `Shift+click` on `target`: the run grows to hold it. Once a run exists it is the hull of the run and the
  * target's sibling, so a click inside it changes nothing. Null when the selection is not a block or a run, or the
  * target is outside the container.
  */

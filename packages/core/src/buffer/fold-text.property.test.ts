@@ -1,4 +1,4 @@
-// Properties of the Source fold (F-34.1, ADR-0069). A file of random bytes, invalid sequences among them, is cut into
+// Properties of the Source fold. A file of random bytes, invalid sequences among them, is cut into
 // cells by a decoder of the test's own (a valid character, or one byte that is not part of one). The reader's edits
 // are made on those cells: deleting, typing (U+FFFD and line breaks included), moving and duplicating runs, swapping.
 // The editor's text is the Source text's slices for the cells, in their new order, plus what was typed; the oracle's
@@ -225,7 +225,7 @@ test(`a Source fold writes exactly the bytes the edited text names: ${CASES} ran
   assert.ok(moved > CASES / 4 && copied > CASES / 4 && typedFffd > CASES / 10, `moved ${moved}, copied ${copied}, typed U+FFFD ${typedFffd}`);
 });
 
-// The block editor's fold (F-34.2, ADR-0048): the same files, edited inside one slice of them (a block: whole runs, from a
+// The block editor's fold: the same files, edited inside one slice of them (a block: whole runs, from a
 // line start), through the slice's Source text. The bytes outside the slice are untouched and the slice becomes exactly
 // the bytes its edited text names. Line endings are uniform here (the slice fold converts a typed line break to the
 // slice's own first ending, which is its documented rule and not what this test is about).
@@ -333,7 +333,7 @@ const encoder = new TextEncoder();
 const isHigh = (code: number): boolean => code >= 0xd800 && code < 0xdc00;
 const isLow = (code: number): boolean => code >= 0xdc00 && code < 0xe000;
 
-/** `foldText` as it was on main at 3566489e, unchanged: the reference for a file that is valid UTF-8. */
+/** `foldText` in its earlier form, kept as written: the reference for a file that is valid UTF-8. */
 function mainFoldText(like: Buffer, text: string): { range: Source; replacement: Uint8Array } | null {
   const skip = like.bom ? 1 : 0;
   const old = like.text;

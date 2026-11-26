@@ -1,5 +1,5 @@
 // Byte provenance over the fixture corpus: the invariants, the UTF-16 → byte conversion, the
-// constructs the contract names, and the parse-time measurement the perf gate reads (ADR-0022).
+// constructs the contract names, and the parse-time measurement the perf gate reads.
 
 import { strict as assert } from 'node:assert';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -367,8 +367,8 @@ const resultsDir = new URL('../../../../results/', import.meta.url);
 const perfPath = new URL('perf.json', resultsDir);
 const parseSnapshotPath = new URL('perf-parse.json', resultsDir);
 
-// A record, not a check (ADR-0032; MARXY-59 deleted the self-calibrating machine-factor probe this
-// test used to carry). Since A-03 the nightly perf harness records parse in the app as
+// A record, not a check (the self-calibrating machine-factor probe this
+// test used to carry is gone). The perf harness records parse in the app as
 // `parsed − file_read`; this write keeps a developer machine's Node number in the same results/ files.
 function writeParseMeasurement(median: number): void {
   mkdirSync(fileURLToPath(resultsDir), { recursive: true });
@@ -395,7 +395,7 @@ test('parsing 01-long-technical.md records its median in results/perf.json', () 
   const median = runs[Math.floor(runs.length / 2)]!;
   writeParseMeasurement(median);
   console.log(`parse 01-long-technical.md: ${median.toFixed(2)} ms median`);
-  // Not a check on the number, which nothing gates (ADR-0032). These read both files back because a
+  // Not a check on the number, which nothing gates. These read both files back because a
   // write that silently does not happen is how a measurement disappears without anyone noticing.
   const written = JSON.parse(readFileSync(perfPath, 'utf8')) as { parse_long_technical_ms: number };
   assert.equal(written.parse_long_technical_ms, median);
@@ -474,7 +474,7 @@ test('decodeWithOffsets decodes exactly as TextDecoder and charges each replacem
   }
 });
 
-test('a literal > that starts a continuation line is text, not a container marker (MARXY-337)', () => {
+test('a literal > that starts a continuation line is text, not a container marker', () => {
   const source = 'a\n    >b';
   const bytes = new TextEncoder().encode(source);
   const document = parseMarkdown(bytes, { file: 't.md' });
@@ -487,7 +487,7 @@ test('a literal > that starts a continuation line is text, not a container marke
   assert.equal(source.slice(last.src.start, last.src.end), '>b');
 });
 
-test('a quote marker on a continuation line still belongs to the soft break (MARXY-337)', () => {
+test('a quote marker on a continuation line still belongs to the soft break', () => {
   const source = '> a\n> b\n> > c';
   const bytes = new TextEncoder().encode(source);
   const document = parseMarkdown(bytes, { file: 't.md' });
@@ -497,7 +497,7 @@ test('a quote marker on a continuation line still belongs to the soft break (MAR
   assert.equal(source.slice(breaks[0]!.src.start, breaks[0]!.src.end), '\n> ');
 });
 
-test('list items never overlap when an item ends in an unclosed fence (MARXY-337)', () => {
+test('list items never overlap when an item ends in an unclosed fence', () => {
   const source = '* ```js\n* x';
   const bytes = new TextEncoder().encode(source);
   const document = parseMarkdown(bytes, { file: 't.md' });
@@ -508,7 +508,7 @@ test('list items never overlap when an item ends in an unclosed fence (MARXY-337
   assert.equal(source.slice(items[0]!.src.start, items[0]!.src.end), '* ```js\n');
 });
 
-test('random documents of lists, quotes, fences, CRLF and BOMs satisfy every invariant (MARXY-337)', () => {
+test('random documents of lists, quotes, fences, CRLF and BOMs satisfy every invariant', () => {
   const pieces = ['* ', '- ', '1. ', '> ', '>', '  ', '    ', '\t', '```', '```js', '~~~', '# ', '## ', 'a', 'b c', '>b', '[ ] ', '[x] ', '\\>', '&gt;', 'é', '日', '---', '|a|b|', '\n', '\n', '\n', '\r\n', '\r'];
   let seed = 1;
   const random = (): number => {

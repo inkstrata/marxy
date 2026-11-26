@@ -1,0 +1,12 @@
+{
+  "name": "probe", "private": true, "packageManager": "pnpm@11.18.0",
+  "scripts": {
+    "roottest": "node --test scripts/lib/*.test.mjs scripts/*.test.mjs",
+    "quotedtest": "node --test \"scripts/**/*.test.mjs\"",
+    "lintrust": "cd apps/desktop/src-tauri && cargo fmt --check && cargo clippy --locked --quiet -- -D warnings && node -e \"console.log(process.cwd())\"",
+    "build": "vite build && tauri build --no-bundle -- --locked && node argv.mjs",
+    "echo": "echo 'css only'",
+    "envvar": "MARXY_SMOKE_REQUIRED=1 node argv.mjs",
+    "pass": "node argv.mjs"
+  }
+}

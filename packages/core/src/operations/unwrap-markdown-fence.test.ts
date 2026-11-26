@@ -1,4 +1,4 @@
-// unwrap-markdown-fence (E-06): table rows in LF, CRLF, CR, no trailing newline and BOM; corpus case; refusals; properties.
+// unwrap-markdown-fence: table rows in LF, CRLF, CR, no trailing newline and BOM; corpus case; refusals; properties.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Document, Node, Source } from '../contracts/ast.ts';

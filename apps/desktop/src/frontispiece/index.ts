@@ -1,4 +1,4 @@
-// The frontispiece (MARXY-257): a launch with no document shows one passage from the Commonplace.
+// The frontispiece: a launch with no document shows one passage from the Commonplace.
 // Loaded by dynamic import from the no-document branch of boot(), so a launch that opens a document
 // carries none of it — not this module, not its stylesheet, not a single piece.
 /// <reference types="vite/client" />
@@ -35,7 +35,7 @@ export async function renderPiece(sources: readonly PieceSource[], random?: () =
 /** Sets the rendered piece already in `doc` as the frontispiece, with its stylesheet. */
 export function shape(doc: HTMLElement, matter: PieceMatter): HTMLElement {
   const owner = doc.ownerDocument;
-  // A constructable sheet, not a <style>: the release CSP's style nonce refuses runtime <style> (MARXY-250).
+  // A constructable sheet, not a <style>: the release CSP's style nonce refuses runtime <style>.
   if (!owner.getElementById('marxy-frontispiece-style')) adoptRuntimeSheet(owner, 'marxy-frontispiece-style', css);
   return shapeFrontispiece(doc, matter);
 }

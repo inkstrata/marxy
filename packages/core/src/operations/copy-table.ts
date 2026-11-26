@@ -1,9 +1,8 @@
-// copy-table-tsv, copy-table-csv, copy-table-json: a table's cells for a spreadsheet or a script (C-08).
+// copy-table-tsv, copy-table-csv, copy-table-json: a table's cells for a spreadsheet or a script.
 //
 // The three spreadsheet payloads (TSV text, its HTML, CSV) carry no live formula: a cell that a
 // spreadsheet would read as one gets a leading `'`, which Sheets and Excel show as plain text.
 // JSON is not a formula context and stays faithful. The trade is written in
-// docs/design/03-selection-and-operations.md.
 import type { Table } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 import { escapeText } from '../sanitize/escape.ts';
@@ -18,13 +17,18 @@ function gridOf(input: OperationInput): string[][] {
 }
 
 const PLAIN_NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+// A signed number as a sheet formats it: digits with spaces, commas and points, a percent sign or a currency symbol, and an
+// optional exponent. Any letter or other operator makes it a formula.
+const SIGNED_NUMBER = /^[+-][\d\s.,%$€£¥]*\d[\d\s.,%$€£¥]*(?:[eE][+-]?\d+)?$/;
 
 /**
  * Prefix `'` to a cell a spreadsheet would run: `=`, `@`, a tab or a carriage return first (OWASP's CSV-injection list; a
- * spreadsheet skips them and reads what follows), or `+`/`-` not forming a plain number.
+ * spreadsheet skips them and reads what follows), or `+`/`-` not forming a number as a sheet shows it (`-1,234.50`, `-$5`, `-12%`).
  */
 export function guardFormula(cell: string): string {
-  if (/^[=@\t\r]/.test(cell) || (/^[+-]/.test(cell) && !PLAIN_NUMBER.test(cell))) return `'${cell}`;
+  // A spreadsheet skips leading spaces too, so the sign and `=` tests look at what follows them.
+  const at = cell.trimStart();
+  if (/^[\t\r]/.test(cell) || /^[=@]/.test(at) || (/^[+-]/.test(at) && !PLAIN_NUMBER.test(at) && !SIGNED_NUMBER.test(at))) return `'${cell}`;
   return cell;
 }
 

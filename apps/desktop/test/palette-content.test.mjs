@@ -1,5 +1,5 @@
-// `/` in the palette searches file contents and lands at the match (C-17). Real WebKit, the memory shell's
-// content search (C-16), two roots (C-10).
+// `#` in the Line searches file contents and lands at the match. Real WebKit, the memory shell's
+// content search, two roots.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -8,7 +8,7 @@ import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const desktopRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -100,25 +100,26 @@ async function boot(browser, argv = ['/repo/README.md']) {
 
 const modOf = async (page) => ((await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control');
 
-test('/baseline grid lists hits from both roots, the current root first; Enter opens the file at the match with its block selected; nothing is written', async () => {
+test('#baseline grid lists hits from both roots, the current root first; Enter opens the file at the match with its block selected; nothing is written', async () => {
   const browser = await launchWebkit();
   try {
     const page = await boot(browser);
     await page.keyboard.press(`${await modOf(page)}+KeyP`);
     const scoredBefore = await page.evaluate(() => window.marxyPaletteBoot.prepareStats.rowsScored);
-    // Local versions (V-06) of the opened file are Marxy's own state, kept after first text: not the search's.
-    const writeCount = () => page.evaluate(() => window.__h.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !String(c.args[0]).startsWith('/data/versions-')).length);
+    // Local versions of the opened file are Marxy's own state, kept after first text: not the search's. So is
+    // layout.json, which keeps the window's row of tabs and is written a moment after launch, whenever that lands.
+    const writeCount = () => page.evaluate(() => window.__h.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !String(c.args[0]).startsWith('/data/versions-') && String(c.args[0]) !== '/data/layout.json').length);
     const writesBefore = await writeCount();
-    await page.locator('#marxy-palette .marxy-palette-query').pressSequentially('/baseline grid');
+    await page.locator('#marxy-palette .marxy-palette-query').pressSequentially('#baseline grid');
     await page.waitForSelector('#marxy-palette .marxy-palette-hit');
     assert.equal(await writeCount(), writesBefore, 'the search itself writes nothing');
 
     const rows = await page.$$eval('#marxy-palette .marxy-palette-hit', (els) =>
-      els.map((el) => ({ text: el.textContent ?? '', mark: el.querySelector('mark.marxy-palette-match')?.textContent })),
+      els.map((el) => ({ text: el.getAttribute('aria-label') ?? '', mark: el.querySelector('mark.marxy-palette-match')?.textContent })),
     );
     assert.equal(rows.length, 3);
     assert.ok(rows.every((r) => r.mark === 'baseline grid'), 'the match is marked in every preview');
-    assert.ok(rows.every((r) => /· line \d+/.test(r.text)));
+    assert.ok(rows.every((r) => /, line \d+: /.test(r.text)), 'each row names its file and line (the file also heads its group)');
     assert.match(rows[0].text, /Home|Guide/, 'the current root (/repo) comes first');
     assert.match(rows[2].text, /Notes/, 'the other root comes last');
     assert.match(await page.textContent('#marxy-palette .marxy-palette-notice'), /^3 matches in 3 files$/);
@@ -127,7 +128,7 @@ test('/baseline grid lists hits from both roots, the current root first; Enter o
     const scoredAfter = await page.evaluate(() => window.marxyPaletteBoot.prepareStats.rowsScored);
     assert.equal(scoredAfter, scoredBefore, 'no fuzzy scan while typing a content query');
 
-    await page.locator('#marxy-palette .marxy-palette-hit', { hasText: 'Guide' }).click();
+    await page.locator('#marxy-palette .marxy-palette-hit[aria-label^="Guide,"]').click();
     await page.waitForFunction(() => document.title.includes('guide.md'));
     await page.waitForFunction(() => document.querySelector('#doc .marxy-selected') !== null);
     const selected = await page.evaluate(() => {
@@ -146,17 +147,21 @@ test('/baseline grid lists hits from both roots, the current root first; Enter o
   }
 });
 
-test('Enter on the selected row opens it; Tab does nothing; a fuzzy query still scores rows', async () => {
+test('Enter on the selected row opens it; Tab keeps the search in the Search panel; a fuzzy query still scores rows', async () => {
   const browser = await launchWebkit();
   try {
     const page = await boot(browser);
     await page.keyboard.press(`${await modOf(page)}+KeyP`);
     const input = page.locator('#marxy-palette .marxy-palette-query');
-    await input.pressSequentially('/baseline grid');
+    await input.pressSequentially('#baseline grid');
     await page.waitForSelector('#marxy-palette .marxy-palette-hit');
+    // Tab: the Line closes and the left section's Search panel holds the search.
     await page.keyboard.press('Tab');
-    assert.equal(await input.inputValue(), '/baseline grid');
-    assert.equal((await page.$$('#marxy-palette .marxy-palette-hit')).length, 3);
+    await page.waitForFunction(() => !document.getElementById('marxy-palette').open);
+    assert.equal(await page.evaluate(() => window.__h.frame()?.left.shown() ?? null), 'search');
+    await page.keyboard.press(`${await modOf(page)}+KeyP`);
+    assert.equal(await input.inputValue(), '#baseline grid', 'the Line comes back on the query it had');
+    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-hit').length === 3);
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
@@ -173,15 +178,15 @@ test('Enter on the selected row opens it; Tab does nothing; a fuzzy query still 
   }
 });
 
-test('"/" alone shows the hint, and a stale answer cannot replace a newer query', async () => {
+test('"#" alone shows the hint, and a stale answer cannot replace a newer query', async () => {
   const browser = await launchWebkit();
   try {
     const page = await boot(browser);
     await page.keyboard.press(`${await modOf(page)}+KeyP`);
     const input = page.locator('#marxy-palette .marxy-palette-query');
-    await input.fill('/');
+    await input.fill('#');
     assert.equal(await page.textContent('#marxy-palette .marxy-palette-notice'), 'Type to search file contents');
-    await input.fill('/zzzz-nothing');
+    await input.fill('#zzzz-nothing');
     await page.waitForFunction(() => document.querySelector('#marxy-palette .marxy-palette-notice')?.textContent === 'No matches');
   } finally {
     await browser.close();
@@ -193,10 +198,10 @@ test('bidi controls and zero-width characters in a preview are marked, never pai
   try {
     const page = await boot(browser);
     await page.keyboard.press(`${await modOf(page)}+KeyP`);
-    await page.locator('#marxy-palette .marxy-palette-query').pressSequentially('/zebra crossing');
+    await page.locator('#marxy-palette .marxy-palette-query').pressSequentially('#zebra crossing');
     await page.waitForSelector('#marxy-palette .marxy-palette-hit');
     const row = await page.evaluate(() => {
-      const el = [...document.querySelectorAll('#marxy-palette .marxy-palette-hit')].find((r) => r.textContent.includes('Trojan'));
+      const el = [...document.querySelectorAll('#marxy-palette .marxy-palette-hit')].find((r) => r.getAttribute('aria-label').startsWith('Trojan,'));
       const raw = /[\u202a-\u202e\u2066-\u2069\u200b-\u200d\u2060\ufeff]/u;
       // The marker's own isolated character is aria-hidden display; everything else must carry none.
       const clone = el.cloneNode(true);
@@ -224,9 +229,9 @@ test('a hit deep in a document long enough to mount progressively lands on its b
   try {
     const page = await boot(browser);
     await page.keyboard.press(`${await modOf(page)}+KeyP`);
-    await page.locator('#marxy-palette .marxy-palette-query').pressSequentially('/needle-at-the-very-end');
+    await page.locator('#marxy-palette .marxy-palette-query').pressSequentially('#needle-at-the-very-end');
     await page.waitForSelector('#marxy-palette .marxy-palette-hit');
-    await page.locator('#marxy-palette .marxy-palette-hit', { hasText: 'Big' }).click();
+    await page.locator('#marxy-palette .marxy-palette-hit[aria-label^="Big,"]').click();
     await page.waitForFunction(() => document.title.includes('big.md'));
     await page.waitForFunction(() => document.querySelector('#doc .marxy-selected') !== null);
     const selected = await page.evaluate(() => {
@@ -243,7 +248,7 @@ test('a hit deep in a document long enough to mount progressively lands on its b
 // The markers of the row whose text includes `title`: inside the match's <mark>, outside it, and any raw left.
 const rowMarkers = (page, title) =>
   page.evaluate((t) => {
-    const el = [...document.querySelectorAll('#marxy-palette .marxy-palette-hit')].find((r) => r.textContent.includes(t));
+    const el = [...document.querySelectorAll('#marxy-palette .marxy-palette-hit')].find((r) => r.getAttribute('aria-label').startsWith(`${t},`));
     const raw = /[\u202a-\u202e\u2066-\u2069\u200b-\u200d\u2060\ufeff]/u;
     const clone = el.cloneNode(true);
     clone.querySelectorAll('.marxy-invisible-byte').forEach((n) => n.remove());
@@ -262,7 +267,7 @@ test('an invisible before the match and one inside it are each marked in their o
   try {
     const page = await boot(browser);
     await page.keyboard.press(`${await modOf(page)}+KeyP`);
-    await page.locator('#marxy-palette .marxy-palette-query').fill('/quagga\u200bphrase');
+    await page.locator('#marxy-palette .marxy-palette-query').fill('#quagga\u200bphrase');
     await page.waitForSelector('#marxy-palette .marxy-palette-hit');
     const row = await rowMarkers(page, 'Split');
     assert.deepEqual(row.inMatch, ['200B'], 'the ZWSP inside the match is marked inside the <mark>');
@@ -280,7 +285,7 @@ test('a joiner at the edge of the match is judged with its neighbours: an emoji 
   try {
     const page = await boot(browser);
     await page.keyboard.press(`${await modOf(page)}+KeyP`);
-    await page.locator('#marxy-palette .marxy-palette-query').fill('/ly \u{1F468}');
+    await page.locator('#marxy-palette .marxy-palette-query').fill('#ly \u{1F468}');
     await page.waitForSelector('#marxy-palette .marxy-palette-hit');
     const row = await rowMarkers(page, 'Family');
     assert.deepEqual([...row.inMatch, ...row.outside], [], 'no marker, as in Rendered and the label');
@@ -301,9 +306,9 @@ async function dirtyThenEnterOnGuideHit(browser) {
   await page.waitForFunction(() => window.marxyDocumentEdit().dirty === true);
   await page.waitForTimeout(150);
   await page.keyboard.press(`${await modOf(page)}+KeyP`);
-  await page.locator('#marxy-palette .marxy-palette-query').pressSequentially('/baseline grid');
+  await page.locator('#marxy-palette .marxy-palette-query').pressSequentially('#baseline grid');
   await page.waitForSelector('#marxy-palette .marxy-palette-hit');
-  await page.locator('#marxy-palette .marxy-palette-hit', { hasText: 'Guide' }).click();
+  await page.locator('#marxy-palette .marxy-palette-hit[aria-label^="Guide,"]').click();
   await page.waitForFunction(() => document.querySelectorAll('#marxy-notices .marxy-notice button').length > 0);
   await page.waitForTimeout(200);
   assert.equal(await page.evaluate(() => window.__h.currentPath()), '/repo/tasks.md', 'nothing opened yet');

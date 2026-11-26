@@ -1,5 +1,6 @@
-// The version store (V-06, ADR-0072) over an in-memory data folder that logs every write and can be made to fail. What a
-// reader is promised: a read, a save and a reload keep three versions with their reasons; identical bytes are kept once; the
+// The version store over an in-memory data folder that logs every write and can be made to fail. What a
+// reader is promised: each keep is a version with its reason (the recorder keeps only before a save and before a reload; a
+// `read` is still a reason an older Marxy's manifest holds, and the store keeps and lists it); identical bytes are kept once; the
 // limits drop the oldest first; Clear leaves no version's bytes readable through the store; a denied, large, scratch or own
 // file is never written; every write is in the data folder; a full disk, an unwritable folder, a damaged manifest and a
 // version file removed by hand are each reported, never silently dropped or written over.
@@ -346,7 +347,7 @@ test('a damaged manifest is reported with how, never written over by keeping; Cl
   for (const [bad, reason] of [
     ['{ not json', /not valid JSON/],
     ['[]', /not a JSON object/],
-    ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":99,"time":"2026-10-13T00:00:00Z","size":1,"hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reason":"read"}]}', /names no slot/],
+    ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":1000,"time":"2026-10-13T00:00:00Z","size":1,"hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reason":"read"}]}', /names no slot/],
     ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":1,"time":"yesterday","size":1,"hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reason":"read"}]}', /no time/],
     ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":1,"time":"2026-10-13T00:00:00Z","size":1,"hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reason":"opened"}]}', /no reason/],
     ['{"version":1,"path":"/r/x.md","next":2,"versions":[{"id":1,"slot":1,"time":"2026-10-13T00:00:00Z","size":1,"reason":"read"}]}', /no hash/],
@@ -452,4 +453,125 @@ test('a manifest edited so that a version names a same-size sibling\'s slot read
   const l = await store.list('/r/x.md');
   assert.ok(l.kind === 'damaged' || (l.kind === 'ok' && l.versions.some((v) => v.bytes === 'changed')), 'never listed as whole');
   if (l.kind === 'ok') for (const v of l.versions) if (v.bytes === 'ok') assert.equal(dec((await store.read('/r/x.md', v.id) as { bytes: Uint8Array }).bytes), v.reason === 'read' ? 'AAAA\n' : 'BBBB\n');
+});
+
+test('a keep cut short leaves a slot no manifest names; the sweep empties it, so the total it counted comes down', async () => {
+  const io = fakeIo();
+  const store = createVersionStore(io);
+  // Abandoned between its slot and its manifest (a save's copy that ran out of time): the bytes are in a slot, the manifest never came.
+  let abandoned = false;
+  const write = io.writeFileAtomic;
+  io.writeFileAtomic = async (path, bytes) => {
+    await write(path, bytes);
+    if (/-\d\d$/.test(path) && bytes.length > 0) abandoned = true;
+  };
+  const out = await store.keep('/r/new.md', enc('lost copy\n'), 'before save', () => abandoned);
+  assert.equal(out.result, 'failed');
+  // A second file: its kept version is named, and a slot of its own key that the manifest does not name is a leftover too.
+  io.writeFileAtomic = write;
+  assert.equal((await store.keep('/r/x.md', enc('kept\n'), 'before save')).result, 'kept');
+  const xKey = await versionsKey('/r/x.md');
+  io.files.set(slotPath(DATA, xKey, 7), enc('a leftover\n'));
+  const orphanKey = await versionsKey('/r/new.md');
+  assert.equal(io.files.has(manifestPath(DATA, orphanKey)), false, 'no manifest names the abandoned slot');
+  assert.ok((await store.totalBytes()) > enc('kept\n').length, 'the leftovers count');
+
+  await store.sweep();
+
+  const unnamed = [...io.files.entries()].filter(([p, b]) => {
+    const m = /\/versions-([0-9a-f]{40})-(\d\d)$/.exec(p);
+    if (!m || b.length === 0) return false;
+    const manifest = io.files.get(manifestPath(DATA, m[1]!));
+    if (!manifest) return true;
+    const parsed = parseManifest(manifest);
+    return parsed.kind === 'ok' && !parsed.manifest.versions.some((v) => v.slot === Number(m[2]));
+  });
+  assert.deepEqual(unnamed.map(([p]) => p), [], 'no non-empty slot without a manifest naming it');
+  assert.equal(await store.totalBytes(), enc('kept\n').length);
+  const [v] = await listOf(store, '/r/x.md');
+  assert.equal(dec((await store.read('/r/x.md', v!.id) as { bytes: Uint8Array }).bytes), 'kept\n', 'a named version is untouched');
+});
+
+test('the sweep leaves alone a slot under a manifest it cannot read as its own', async () => {
+  const io = fakeIo();
+  const store = createVersionStore(io);
+  const key = await versionsKey('/r/x.md');
+  io.files.set(manifestPath(DATA, key), enc('not json'));
+  io.files.set(slotPath(DATA, key, 1), enc('the reader may want this\n'));
+  await store.sweep();
+  assert.equal(dec(io.files.get(slotPath(DATA, key, 1))!), 'the reader may want this\n');
+});
+
+// ---- the Versions panel's acts: keep for good, delete one, clear older, the setting, all files ----
+
+test('a copy kept for good stays past the copies setting and the age limit; the setting is asked at each keep', async () => {
+  const io = fakeIo();
+  let perFile = 20;
+  const store = createVersionStore(io, { perFile: () => perFile });
+  await store.keep('/r/x.md', enc('first\n'), 'before save');
+  assert.equal(await store.setKept('/r/x.md', 1, true), true);
+  const key = await versionsKey('/r/x.md');
+  assert.equal(JSON.parse(dec(io.files.get(manifestPath(DATA, key))!)).versions[0].kept, true, 'the manifest says it');
+  perFile = 5;
+  for (let i = 2; i <= 9; i++) {
+    io.clock += 1000;
+    await store.keep('/r/x.md', enc(`v${i}\n`), 'before save');
+  }
+  const versions = await listOf(store, '/r/x.md');
+  assert.equal(versions.length, 5, 'five in all, as set');
+  assert.deepEqual(versions.map((v) => v.id), [9, 8, 7, 6, 1], 'the kept copy is still there, the oldest others went');
+  assert.equal(versions.at(-1)!.kept, true);
+  io.clock += 40 * DAY;
+  assert.equal((await store.sweep()).dropped, 4, 'the age limit drops every copy but the kept one');
+  assert.deepEqual((await listOf(store, '/r/x.md')).map((v) => v.id), [1]);
+  assert.equal(await store.setKept('/r/x.md', 1, false), true);
+  assert.equal(JSON.parse(dec(io.files.get(manifestPath(DATA, key))!)).versions[0].kept, undefined, 'unkept writes no flag');
+  assert.equal(await store.setKept('/r/x.md', 42, true), false, 'no such copy');
+});
+
+test('a slot past 99 is named with three digits and read back as the store\'s own', async () => {
+  const io = fakeIo();
+  const store = createVersionStore(io, { perFile: () => 100 });
+  for (let i = 1; i <= 100; i++) {
+    io.clock += 1000;
+    await store.keep('/r/x.md', enc(`v${i}\n`), 'before save');
+  }
+  const key = await versionsKey('/r/x.md');
+  assert.equal(dec(io.files.get(`${DATA}/versions-${key}-100`)!), 'v100\n');
+  assert.equal((await listOf(store, '/r/x.md')).length, 100);
+  assert.equal(await store.totalBytes(), [...Array(100)].reduce((n, _, i) => n + `v${i + 1}\n`.length, 0));
+});
+
+test('delete drops one copy and empties its slot unless another copy shares it; the file\'s other copies stay', async () => {
+  const io = fakeIo();
+  const store = createVersionStore(io);
+  const A = enc('alpha\n');
+  await store.keep('/r/x.md', A, 'before save');
+  io.clock += 1000;
+  await store.keep('/r/x.md', enc('beta\n'), 'before save');
+  io.clock += 1000;
+  await store.keep('/r/x.md', A, 'before reload');
+  const key = await versionsKey('/r/x.md');
+  assert.equal(await store.drop('/r/x.md', 1), true);
+  assert.equal(dec(io.files.get(slotPath(DATA, key, 1))!), 'alpha\n', 'version 3 still names slot 1');
+  assert.equal(await store.drop('/r/x.md', 3), true);
+  assert.equal(io.files.get(slotPath(DATA, key, 1))!.length, 0, 'emptied once nothing names it');
+  assert.deepEqual((await listOf(store, '/r/x.md')).map((v) => v.id), [2]);
+  assert.equal(await store.drop('/r/x.md', 3), false, 'gone already');
+});
+
+test('dropWhere clears older copies across every file, never one kept for good; listAll names each file with its copies', async () => {
+  const io = fakeIo();
+  const store = createVersionStore(io);
+  await store.keep('/r/a.md', enc('a1\n'), 'before save');
+  await store.keep('/r/b.md', enc('b1\n'), 'before save');
+  await store.setKept('/r/b.md', 1, true);
+  io.clock += 2 * DAY;
+  await store.keep('/r/a.md', enc('a2\n'), 'before save');
+  const all = await store.listAll();
+  assert.deepEqual(all.map((f) => [f.path, f.versions.map((v) => v.id)]), [['/r/a.md', [2, 1]], ['/r/b.md', [1]]]);
+  const now = io.clock;
+  const r = await store.dropWhere((v) => now - v.time > DAY);
+  assert.deepEqual([r.dropped, r.errors.length], [1, 0]);
+  assert.deepEqual((await store.listAll()).map((f) => [f.path, f.versions.map((v) => v.id)]), [['/r/a.md', [2]], ['/r/b.md', [1]]]);
 });

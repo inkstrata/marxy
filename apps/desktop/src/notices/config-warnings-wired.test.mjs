@@ -1,4 +1,4 @@
-// K-07.1, the wiring: a malformed [[kind]] or [strip] in config.toml reaches the reader as a refusal through the real
+// The wiring: a malformed [[kind]] or [strip] in config.toml reaches the reader as a refusal through the real
 // launch (theme/app-config.ts) and through the strip's own re-read (workspace/kind-chip.ts), not only through the reporter.
 // The real app over the memory shell, in WebKit (test/support/two-pane.mjs).
 import { strict as assert } from 'node:assert';
@@ -46,22 +46,6 @@ test('launch: a malformed [[kind]] rule is shown as a refusal that names the rul
 
 test('launch: a malformed [strip] entry is shown as a refusal that names the entry', async () => {
   await withPage('[strip]\nreport = ["outline", "nope"]\n', async (page) => {
-    await page.waitForFunction(() => document.querySelector('.marxy-notice[data-notice-kind="refused"]') !== null);
-    const shown = await refusals(page);
-    assert.equal(shown.length, 1, shown.join(' | '));
-    assert.match(shown[0], /\[strip\] report/);
-  });
-});
-
-test('strip re-read: a [strip] that goes wrong after launch is shown when the strip next reads config.toml', async () => {
-  await withPage('size = 20\n', async (page) => {
-    assert.deepEqual(await refusals(page), []);
-    await page.evaluate(async () => {
-      const h = window.__marxyHandle;
-      h.workspace().unfold();
-      await h.shell.writeFileAtomic('/config', new TextEncoder().encode('[strip]\nreport = ["outline", "nope"]\n'));
-      await h.open('/r/b.md');
-    });
     await page.waitForFunction(() => document.querySelector('.marxy-notice[data-notice-kind="refused"]') !== null);
     const shown = await refusals(page);
     assert.equal(shown.length, 1, shown.join(' | '));

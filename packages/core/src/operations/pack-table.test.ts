@@ -1,15 +1,15 @@
-// C-08: copy-table-tsv, copy-table-csv and copy-table-json.
+// copy-table-tsv, copy-table-csv and copy-table-json.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Document, Table } from '../contracts/ast.ts';
 import { createBuffer, textOf } from '../buffer/buffer.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import { copyTableCsv, copyTableJson, copyTableTsv, csvOf, guardFormula, jsonOf, tsvOf } from './copy-table.ts';
-import { TABLE_PACK } from './pack-table.ts';
 import { cellGrid } from './table-cells.ts';
 import { corpusDocuments } from './testing/corpus.ts';
 
 const enc = new TextEncoder();
+const TABLE_OPS = [copyTableTsv, copyTableCsv, copyTableJson];
 
 function tableInput(source: string) {
   const document: Document = parseMarkdown(enc.encode(source), { file: 'c08.md' });
@@ -23,9 +23,9 @@ const tsv = (source: string) => copyTableTsv.run(tableInput(source)).clipboard!;
 const csv = (source: string) => copyTableCsv.run(tableInput(source)).clipboard!.text;
 const json = (source: string) => copyTableJson.run(tableInput(source)).clipboard!.text;
 
-test('TABLE_PACK lists the three table copies, in order, with their titles', () => {
-  assert.deepEqual(TABLE_PACK.map((o) => o.id), ['copy-table-tsv', 'copy-table-csv', 'copy-table-json']);
-  assert.deepEqual(TABLE_PACK.map((o) => o.title), ['Copy table as TSV', 'Copy table as CSV', 'Copy table as JSON']);
+test('the three table copies keep their ids and titles', () => {
+  assert.deepEqual(TABLE_OPS.map((o) => o.id), ['copy-table-tsv', 'copy-table-csv', 'copy-table-json']);
+  assert.deepEqual(TABLE_OPS.map((o) => o.title), ['Copy table as TSV', 'Copy table as CSV', 'Copy table as JSON']);
 });
 
 test('escaped pipe arrives as a pipe', () => {
@@ -67,7 +67,7 @@ test('a table in a BOM-prefixed document', () => {
 test('canApply is true on a table, false on a tableCell, a row, a paragraph and a raw span', () => {
   const input = tableInput('| a |\n|---|\n| 1 |\n');
   const table = input.node as Table;
-  for (const op of TABLE_PACK) {
+  for (const op of TABLE_OPS) {
     assert.equal(op.canApply(input), true, op.id);
     const row = table.children[1]!;
     assert.equal(op.canApply({ ...input, node: row.children[0]!, range: row.children[0]!.src }), false, `${op.id} cell`);
@@ -78,7 +78,7 @@ test('canApply is true on a table, false on a tableCell, a row, a paragraph and 
 
 test('operations never change the buffer', () => {
   const input = tableInput('| a |\n|---|\n| 1 |\n');
-  for (const op of TABLE_PACK) assert.equal(op.run(input).replacement, input.text);
+  for (const op of TABLE_OPS) assert.equal(op.run(input).replacement, input.text);
 });
 
 test('TSV: a tab or line break inside a cell becomes one space', () => {
@@ -114,7 +114,7 @@ test('plain numbers are untouched; @handle and +text are guarded', () => {
   assert.equal(tsv('| a |\n|---|\n| -x |\n').text, "a\n'-x");
 });
 
-test('a cell that starts with a tab or a carriage return is guarded in the CSV, as OWASP lists them (F-89)', () => {
+test('a cell that starts with a tab or a carriage return is guarded in the CSV, as OWASP lists them', () => {
   // The CSV keeps tabs and CRs in a cell, so a spreadsheet that skips them would run what follows.
   assert.equal(guardFormula('\t=1+1'), "'\t=1+1");
   assert.equal(guardFormula('\r=1+1'), "'\r=1+1");

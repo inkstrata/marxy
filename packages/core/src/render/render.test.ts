@@ -1,5 +1,5 @@
 // What a reader gets: the structure the renderer sets, and the promise that every document in the
-// corpus comes out of the pipeline with nothing in it that fetches or executes (ADR-0009).
+// corpus comes out of the pipeline with nothing in it that fetches or executes.
 
 import { strict as assert } from 'node:assert';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -10,7 +10,7 @@ import { RENDERED_POLICY } from '../sanitize/policy.ts';
 import { renderSafeHtml } from './pipeline.ts';
 
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
-/** The HTML with its byte provenance taken out, for the tests that are about shape (ADR-0023). */
+/** The HTML with its byte provenance taken out, for the tests that are about shape. */
 const withoutProvenance = (html: string): string => html.replace(/ data-marxy-[se]="[0-9]+"/g, '');
 const html = (markdown: string): string => withoutProvenance(renderSafeHtml(markdown, { file: 'test.md' }).html);
 
@@ -25,7 +25,7 @@ test('text is escaped, so prose cannot become markup', () => {
 test('a fenced code block is literal text with its language on it', () => {
   assert.equal(
     html('```html\n<script>alert(1)</script>\n```\n'),
-    '<pre class="language-html"><code class="language-html">&lt;script&gt;alert(1)&lt;/script&gt;\n</code></pre>',
+    '<pre class="language-html" data-marxy-lang="html"><code class="language-html">&lt;script&gt;alert(1)&lt;/script&gt;\n</code></pre>',
   );
 });
 
@@ -50,34 +50,34 @@ test('footnotes are numbered here, so every id in the output is one we chose', (
   assert.match(footnotes, /<ol class="marxy-footnotes">\n<li id="marxy-fn-1">/);
 });
 
-test('math is set as its source until KaTeX loads on first use (MARXY-28)', () => {
+test('math is set as its source until KaTeX loads on first use', () => {
   assert.match(html('$$\nx^2\n$$\n'), /<pre class="marxy-math-block"><code>x\^2\n<\/code><\/pre>/);
   assert.match(html('Inline $x^2$ math\n'), /<code class="marxy-math">x\^2<\/code>/);
 });
 
-test('frontmatter is a quiet head above the body', () => {
+test('frontmatter is a head above the body, marked as the head', () => {
   const out = html('---\ntitle: x\n---\n\nBody\n');
-  assert.match(out, /<dl>\s*<dt data-marxy-fm-key="title">title<\/dt>/);
+  assert.match(out, /<dl data-marxy-fm-part="head">\s*<dt data-marxy-fm-key="title">title<\/dt>/);
   assert.match(out, /<p>Body<\/p>/);
 });
 
 test('a mermaid fence shows its source and one diagram caption only', () => {
   const out = html('```mermaid\nflowchart LR\n  A --> B\n```\n');
-  assert.match(out, /<p class="marxy-diagram-caption">mermaid · diagram source<\/p>\n<pre class="language-mermaid"><code class="language-mermaid">/);
+  assert.match(out, /<p class="marxy-diagram-caption">mermaid · diagram source<\/p>\n<pre class="language-mermaid" data-marxy-lang="mermaid"><code class="language-mermaid">/);
   assert.match(out, /flowchart LR\n  A --&gt; B\n<\/code><\/pre>/);
   assert.ok(!out.includes('```'));
 });
 
-test('a diagram fence written in capitals still carries the lowercased language its caption rule matches (B-25.1)', () => {
+test('a diagram fence written in capitals still carries the lowercased language its caption rule matches', () => {
   // The `<pre>` takes the language in lower case whatever the writer typed, while the `<code>` keeps it
-  // as written for highlighting; the caption is marked by class, not by what follows it (F-96).
+  // as written for highlighting; the caption is marked by class, not by what follows it.
   for (const [written, lower] of [['Mermaid', 'mermaid'], ['PlantUML', 'plantuml'], ['DOT', 'dot'], ['D2', 'd2']]) {
     const out = html(`\`\`\`${written}\nA -> B\n\`\`\`\n`);
-    assert.match(out, new RegExp(`^<p class="marxy-diagram-caption">${lower} · diagram source</p>\\n<pre class="language-${lower}"><code class="language-${written}">`));
+    assert.match(out, new RegExp(`^<p class="marxy-diagram-caption">${lower} · diagram source</p>\\n<pre class="language-${lower}" data-marxy-lang="${lower}"><code class="language-${written}">`));
   }
 });
 
-test('the diagram caption keeps its class through the sanitiser, and a document cannot write one (F-96)', () => {
+test('the diagram caption keeps its class through the sanitiser, and a document cannot write one', () => {
   // The existing exact matches above prove it survives for every diagram language; this proves the other half.
   for (const lang of ['mermaid', 'plantuml', 'dot', 'd2']) {
     assert.ok(html(`\`\`\`${lang}\nA -> B\n\`\`\`\n`).includes('<p class="marxy-diagram-caption">'), lang);
@@ -87,7 +87,7 @@ test('the diagram caption keeps its class through the sanitiser, and a document 
   }
 });
 
-test('a fence language that is not one plain token never becomes a class, so a document cannot borrow marxy-* classes (B-25.1)', () => {
+test('a fence language that is not one plain token never becomes a class, so a document cannot borrow marxy-* classes', () => {
   const hostile = [
     'x&#32;marxy-math-block',
     'Mermaid&#x20;MARXY-LINE-OMITTED',
@@ -105,11 +105,11 @@ test('a fence language that is not one plain token never becomes a class, so a d
   }
 });
 
-test('ordinary language names still get their class on the pre and the code (B-25.1)', () => {
+test('ordinary language names still get their class on the pre and the code', () => {
   const long = 'a'.repeat(32);
   for (const [written, pre] of [['c++', 'c++'], ['c#', 'c#'], ['f#', 'f#'], ['objective-c', 'objective-c'], [long, long], ['JavaScript', 'javascript']]) {
     const out = html(`\`\`\`${written}\nA\n\`\`\`\n`);
-    assert.match(out, new RegExp(`<pre class="language-${pre.replace(/[+]/g, '\\$&')}"><code class="language-${written.replace(/[+]/g, '\\$&')}">`), written);
+    assert.match(out, new RegExp(`<pre class="language-${pre.replace(/[+]/g, '\\$&')}" data-marxy-lang="[^"]+"><code class="language-${written.replace(/[+]/g, '\\$&')}">`), written);
   }
   assert.doesNotMatch(html(`\`\`\`${'a'.repeat(33)}\nA\n\`\`\`\n`), /class=/);
 });

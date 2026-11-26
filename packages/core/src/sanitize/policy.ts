@@ -1,4 +1,4 @@
-// The allow-list: the security boundary of the rendered document (ADR-0009). Default-deny — an
+// The allow-list: the security boundary of the rendered document. Default-deny — an
 // element, an attribute or a URL scheme reaches the DOM only because it is named here, and nothing
 // in this file names a bad thing, because the vector nobody thought of is the one that matters.
 
@@ -34,7 +34,7 @@ export interface ElementRule {
   /**
    * Attributes the element always carries, whatever the document said. `disabled` on a checkbox is
    * the case: marxy is a reader, so a control whose state changes while the file's bytes do not is
-   * a lie to the reader (ADR-0001).
+   * a lie to the reader.
    */
   readonly forced?: Readonly<Record<string, string | true>>;
 }
@@ -44,7 +44,7 @@ export interface Policy {
   readonly name: string;
   /**
    * When set, `id` and `name` values with this prefix (case-insensitive) are refused unless the
-   * element carries this pass's secret provenance names (ADR-0023, ADR-0036 P02). Public
+   * element carries this pass's secret provenance names. Public
    * `data-marxy-s`/`e` do not exempt a tag; `withProvenance` no longer clears this field.
    */
   readonly reservedIdPrefix?: string;
@@ -104,11 +104,11 @@ export const BLOCK_ELEMENTS: ReadonlySet<string> = new Set([
 
 /** An anchor, an id, a footnote label: conservative, and never a value a CSS selector can smuggle. */
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9_.:-]{0,64}$/;
-/** Only the two families the renderer and the highlighter (MARXY-27) emit. */
+/** Only the two families the renderer and the highlighter emit. */
 const CLASS_TOKEN = /^(?:language-[A-Za-z0-9#+._-]{1,32}|marxy-[a-z-]{1,32})$/;
 
 /**
- * `id` and `name` values that would shadow a `window` or `document` property by named access (P02).
+ * `id` and `name` values that would shadow a `window` or `document` property by named access.
  * Built from a fixed list, not from runtime introspection, so the boundary is reviewable.
  */
 export const CLOBBERING_IDENTIFIER_NAMES: ReadonlySet<string> = new Set([
@@ -153,7 +153,7 @@ const CELL_ATTRIBUTES: Readonly<Record<string, AttributeRule>> = {
 
 /**
  * Markdown-equivalent elements: the tags a markdown document could have produced without writing
- * HTML at all. This is the default allow-list ADR-0009 asks for, and raw HTML in a file is held to
+ * HTML at all. This is the default allow-list, and raw HTML in a file is held to
  * exactly the same list as the renderer's own output, so there is one boundary to reason about.
  */
 const MARKDOWN_EQUIVALENT: Readonly<Record<string, ElementRule>> = {
@@ -187,8 +187,7 @@ const MARKDOWN_EQUIVALENT: Readonly<Record<string, ElementRule>> = {
   },
   /**
    * An image may keep a *local* reference only: `src` is a `subresource`, and the default scheme
-   * list for a subresource is empty, so a remote image loses its `src` and shows its `alt`. Naming
-   * the blocked host in a notice is MARXY-26; widening this on a reader's say-so is MARXY-44.
+   * list for a subresource is empty, so a remote image loses its `src` and shows its `alt`.
    */
   img: { attributes: { src: SUBRESOURCE, alt: TEXT, title: TEXT, class: { kind: 'tokens', token: CLASS_TOKEN } } },
   kbd: {},
@@ -223,7 +222,7 @@ const TRANSPARENT: readonly string[] = [
 
 /**
  * The default policy. `subresource` has no schemes at all: nothing in a document a stranger wrote
- * may cause a fetch, because a fetch is a read receipt (AGENTS.md). `link` allows the three schemes
+ * may cause a fetch, because a fetch is a read receipt. `link` allows the three schemes
  * a reader can act on deliberately, and every scheme-bearing value that is not one of them —
  * `javascript:`, `data:`, `vbscript:`, `file:`, and every scheme not invented yet — is removed.
  */
@@ -247,7 +246,7 @@ function headingWithAlign(level: ElementRule): ElementRule {
   return { attributes: { ...level.attributes, ...ALIGN_BLOCK } };
 }
 
-/** README layout HTML: same network boundary as the default list (§12). */
+/** README layout HTML: same network boundary as the default list. */
 const WIDE_ELEMENTS: Readonly<Record<string, ElementRule>> = {
   ...MARKDOWN_EQUIVALENT,
   div: { attributes: ALIGN_BLOCK },
@@ -285,34 +284,37 @@ export const WIDE_POLICY: Policy = {
   urlSchemes: DEFAULT_POLICY.urlSchemes,
 };
 
-/** The policy the app passes after a reader opts in to HTML for one document (§12). */
+/** The policy the app passes after a reader opts in to HTML for one document. */
 export function policyFor(grant: { readonly html: boolean }): Policy {
   return grant.html ? WIDE_POLICY : DEFAULT_POLICY;
 }
 
-/** The two attributes that carry byte provenance into the DOM (ADR-0023), as the reader's DOM sees them. */
+/** The two attributes that carry byte provenance into the DOM, as the reader's DOM sees them. */
 export interface ProvenanceNames {
   readonly start: string;
   readonly end: string;
   /**
-   * The attribute a heading that names a speaker carries (K-11), under a name only the renderer knows in a
+   * The attribute a heading that names a speaker carries, under a name only the renderer knows in a
    * pipeline pass, so a document cannot write one. Absent in a policy that does not admit it.
    */
   readonly speaker?: string;
   /**
-   * The front-matter head's own markers (K-20), under names only the renderer knows in a pipeline pass like `speaker`:
-   * the key a `dt`/`dd` row is for, the part of an article's head a row or a span is (byline, dek, a quote mark, a URL's
-   * scheme or path), and a paragraph wholly in emphasis. Absent in a policy that does not admit them.
+   * The front-matter head's own markers, under names only the renderer knows in a pipeline pass like `speaker`:
+   * the key a `dt`/`dd` row is for, the head itself on its `dl`, the part a row or a span is (the byline, a quote mark),
+   * and a paragraph wholly in emphasis. Absent in a policy that does not admit them.
    */
   readonly fmKey?: string;
   readonly fmPart?: string;
   readonly emphasis?: string;
+  /** A code block's language id, on its `<pre>`. */
+  readonly lang?: string;
 }
 
 export const SPEAKER_ATTR = 'data-marxy-speaker';
 export const FM_KEY_ATTR = 'data-marxy-fm-key';
 export const FM_PART_ATTR = 'data-marxy-fm-part';
 export const EMPHASIS_ATTR = 'data-marxy-emphasis';
+export const LANG_ATTR = 'data-marxy-lang';
 export const PROVENANCE_ATTRIBUTES: ProvenanceNames = {
   start: 'data-marxy-s',
   end: 'data-marxy-e',
@@ -320,28 +322,31 @@ export const PROVENANCE_ATTRIBUTES: ProvenanceNames = {
   fmKey: FM_KEY_ATTR,
   fmPart: FM_PART_ATTR,
   emphasis: EMPHASIS_ATTR,
+  lang: LANG_ATTR,
 };
 
 const SPEAKER_ROLE: AttributeRule = { kind: 'enum', values: ['you', 'assistant', 'tool', 'system'] };
-/** A head row's part (K-20): only an article's profile styles it. */
-const FM_ROW_PART: AttributeRule = { kind: 'enum', values: ['byline', 'dek'] };
-/**
- * A span inside a byline value (K-20): a quote mark, or a URL's scheme or path, each hidden by the article profile; or a
- * web source's whole URL, which the app makes a link in an article.
- */
-const FM_SPAN_PART: AttributeRule = { kind: 'enum', values: ['quote', 'scheme', 'path', 'url'] };
+/** A head row's part: the byline's rows. */
+const FM_ROW_PART: AttributeRule = { kind: 'enum', values: ['byline'] };
+/** The front-matter head itself, told apart from a `<dl>` the document wrote. */
+const FM_HEAD_PART: AttributeRule = { kind: 'enum', values: ['head'] };
+/** A span inside a byline value: one of a pair of outer quotes, not drawn. */
+const FM_SPAN_PART: AttributeRule = { kind: 'enum', values: ['quote'] };
 const EMPHASIS_WHOLE: AttributeRule = { kind: 'enum', values: ['whole'] };
 const HEADINGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const;
+
+/** A language id as the renderer writes it: one lowercase token. */
+const LANG_ID: AttributeRule = { kind: 'pattern', pattern: /^[a-z0-9#+._-]{1,32}$/ };
 
 /** A byte offset: decimal, no sign, no leading space, at most a gigabyte of document. */
 const BYTE_OFFSET: AttributeRule = { kind: 'pattern', pattern: /^[0-9]{1,9}$/ };
 
 /**
  * A copy of `policy` that also allows the two provenance attributes on every element. Never used
- * on its own against a document: the pipeline passes names nobody outside one render can know
- * (ADR-0023), and the checks use the public names to judge the pipeline's output.
+ * on its own against a document: the pipeline passes names nobody outside one render can know,
+ * and the checks use the public names to judge the pipeline's output.
  */
-/** Deferred remote image marker (§12); registered in scripts/registry.json. */
+/** Deferred remote image marker; registered in scripts/registry.json. */
 export const REMOTE_IMAGE_ATTR = 'data-marxy-remote';
 
 const REMOTE_IMAGE_DEFERRED: AttributeRule = {
@@ -368,6 +373,8 @@ export function withProvenance(
       const rule = elements[row];
       if (rule !== undefined) elements[row] = { ...rule, attributes: { ...rule.attributes, [names.fmKey]: TEXT, [names.fmPart]: FM_ROW_PART } };
     }
+    const dl = elements.dl;
+    if (dl !== undefined) elements.dl = { ...dl, attributes: { ...dl.attributes, [names.fmPart]: FM_HEAD_PART } };
     // A span is the renderer's only with its part: a document's own span lacks the secret name and, as `requires`
     // fails on an element the policy also lists as transparent, is unwrapped as before (sanitize-html.ts).
     elements.span = { attributes: { [names.fmPart]: FM_SPAN_PART }, requires: [names.fmPart] };
@@ -376,7 +383,11 @@ export function withProvenance(
     const p = elements.p;
     if (p !== undefined) elements.p = { ...p, attributes: { ...p.attributes, [names.emphasis]: EMPHASIS_WHOLE } };
   }
-  // The diagram caption's class (F-96), in the renderer's pass only: a document's own `<p class>` is refused in
+  if (names.lang !== undefined) {
+    const pre = elements.pre;
+    if (pre !== undefined) elements.pre = { ...pre, attributes: { ...pre.attributes, [names.lang]: LANG_ID } };
+  }
+  // The diagram caption's class, in the renderer's pass only: a document's own `<p class>` is refused in
   // the island pass, which runs under the policy without this rule, as `marxy-footnotes` is.
   const captioned = elements.p;
   if (captioned !== undefined) elements.p = { ...captioned, attributes: { ...captioned.attributes, class: { kind: 'tokens', token: CLASS_TOKEN } } };

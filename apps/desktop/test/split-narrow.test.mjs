@@ -1,4 +1,4 @@
-// A split narrowed below two columns gives one back (F-106; X-32 finding 6). A split is refused at open when the
+// A split narrowed below two columns gives one back. A split is refused at open when the
 // window cannot hold two columns at the typography floor (`splitRefusal`); a split made wide and then narrowed
 // used to keep two ~250 px panes. The same rule now decides the narrowed case: the unfocused pane is given back,
 // its document stays a tab, its place is kept, and widening again brings the split back when nothing has changed.
@@ -19,7 +19,8 @@ after(() => closeHarness());
 const para = (word) => `${word} runs long enough to wrap across several lines of the column, so the page has real paragraphs. `;
 const files = {
   '/r/A.md': `# Alpha\n\n${para('Alpha').repeat(14)}\n\n## Later\n\n${para('Later').repeat(14)}\n\n- [ ] alpha task\n`,
-  '/r/B.md': `# Bravo\n\n${para('Bravo').repeat(14)}\n\n## Deep\n\n${para('Deep').repeat(14)}\n\n- [ ] bravo task\n`,
+  // A section after Deep: in a 900 px window byte 2,400 can then reach the reading line, not the end of a short page.
+  '/r/B.md': `# Bravo\n\n${para('Bravo').repeat(14)}\n\n## Deep\n\n${para('Deep').repeat(14)}\n\n## After\n\n${para('After').repeat(14)}\n\n- [ ] bravo task\n`,
 };
 
 async function withPage(open, fn) {
@@ -27,7 +28,7 @@ async function withPage(open, fn) {
   try {
     const page = await browser.newPage({ viewport: { width: 1920, height: 900 } });
     await bootTwoPanes(page, { files, open });
-    await page.evaluate(() => window.__marxyHandle.workspace().unfold());
+    await page.evaluate(() => window.__marxyHandle.frame().unfold());
     await page.waitForTimeout(200);
     await fn(page);
   } finally {
@@ -40,6 +41,17 @@ const narrow = async (page, width = 800) => {
   await page.setViewportSize({ width, height: 600 });
 };
 const count = (page, n) => page.waitForFunction((n) => window.__marxyHandle.panes().panes.length === n, n, { timeout: 8000 });
+/**
+ * The split brought back, as far as its last step: the pane that stayed is opened on the right first, so for a moment
+ * both panes show it, then the given-back document takes the left and the focus goes back to the side it was on.
+ */
+const restored = (page, want, focused) =>
+  page
+    .waitForFunction(({ want, focused }) => {
+      const set = window.__marxyHandle.panes();
+      return JSON.stringify(set.panes.map((p) => p.path())) === JSON.stringify(want) && set.focused === set.panes[focused];
+    }, { want, focused })
+    .catch(() => {});
 /** Whether the page's own rule would refuse a split now, and the narrowest article. */
 const fit = (page) =>
   page.evaluate(async () => {
@@ -47,8 +59,15 @@ const fit = (page) =>
     const set = window.__marxyHandle.panes();
     return { fits: canShowTwoColumns(set.panes[0].host.parentElement), widths: set.panes.map((p) => Math.round(p.article.clientWidth)) };
   });
-const tabs = (page) => page.evaluate(() => [...document.querySelectorAll('[data-marxy-tab]')].map((t) => t.getAttribute('data-marxy-tab')));
+const tabs = (page) => page.evaluate(() => [...document.querySelectorAll('[data-marxy-tab-path]')].map((t) => t.getAttribute('data-marxy-tab-path')));
 const place = (page, slot) => page.evaluate((s) => window.__marxyHandle.panes().panes[s].view.position().byteOffset, slot);
+/** Waits for pane `slot` to be within `near` bytes of `at`: an open lands its place a frame or more after it resolves. */
+const placeNear = (page, slot, at, near) =>
+  page
+    .waitForFunction(({ slot, at, near }) => Math.abs(window.__marxyHandle.panes().panes[slot].view.position().byteOffset - at) < near, { slot, at, near })
+    .catch(() => {});
+/** Source has landed: a switch resolves before CodeMirror applies its place in its next frame, which would undo a scroll made sooner. */
+const sourceLanded = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 const scrollPane = async (page, slot, to) => {
   await page.evaluate(async ({ slot, to }) => {
     const pane = window.__marxyHandle.panes().panes[slot];
@@ -81,8 +100,10 @@ test('the given-back document stays a tab, and widening again restores the split
     assert.ok(Math.abs((await place(page, 0)) - leftBefore) < 600, 'the surviving pane keeps its place');
     await narrow(page, 1920);
     await count(page, 2);
-    await page.waitForTimeout(500);
+    await restored(page, ['/r/A.md', '/r/B.md'], 0);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md']);
+    await placeNear(page, 1, rightBefore, 600);
+    await placeNear(page, 0, leftBefore, 600);
     assert.ok(Math.abs((await place(page, 1)) - rightBefore) < 600, `B's place came back: ${rightBefore} -> ${await place(page, 1)}`);
     assert.ok(Math.abs((await place(page, 0)) - leftBefore) < 600, 'A is where it was');
   });
@@ -96,6 +117,7 @@ test('the focused pane is the one that stays, left or right', async () => {
     assert.deepEqual(await paths(page), ['/r/B.md']);
     await narrow(page, 1920);
     await count(page, 2);
+    await restored(page, ['/r/A.md', '/r/B.md'], 1);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md'], 'the order is the one it had');
   });
 });
@@ -121,9 +143,10 @@ test('unsaved edits survive: a dirty surviving pane stays dirty, a dirty given-b
   });
 });
 
-test('a same-document split (the Split control) narrows to one pane in Read, the document kept', async () => {
+test('a same-document split (Split, Mod+2) narrows to one pane in Read, the document kept', async () => {
   await withPage(['/r/A.md'], async (page) => {
-    await page.locator('[role=radiogroup] [role=radio]', { hasText: 'Split' }).click();
+    // There is no Split control in a toolbar: Mod+2 is Split, Read and Source side by side (commands/view-mode.ts).
+    await page.keyboard.press('ControlOrMeta+Digit2');
     await count(page, 2);
     await narrow(page);
     await count(page, 1);
@@ -210,7 +233,7 @@ test('closing the given-back document\'s tab while narrowed ends the restore', a
   await withPage(['/r/A.md', '/r/B.md'], async (page) => {
     await narrow(page);
     await count(page, 1);
-    await page.locator('[data-marxy-tab="/r/B.md"] .marxy-tab-close').click();
+    await page.locator('[data-marxy-tab-path="/r/B.md"] .marxy-tab-close').click();
     await page.waitForTimeout(300);
     await narrow(page, 1920);
     await page.waitForTimeout(700);
@@ -228,8 +251,9 @@ test('a restore keeps the surviving pane as the reader left it, in mode and plac
     const at = await place(page, 0);
     await narrow(page, 1920);
     await count(page, 2);
-    await page.waitForTimeout(600);
+    await restored(page, ['/r/A.md', '/r/B.md'], 0);
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[0].view.mode), 'source');
+    await placeNear(page, 0, at, 600);
     assert.ok(Math.abs((await place(page, 0)) - at) < 600, `place ${at} -> ${await place(page, 0)}`);
   });
 });
@@ -289,6 +313,7 @@ test('a Source pane given back on the right comes back at the place it was left'
       const s = window.__marxyHandle.panes();
       await s.panes[1].view.setMode('source');
     });
+    await sourceLanded(page);
     // Scrolled by hand, as a reader does, not placed by a jump.
     await page.evaluate(() => {
       const sc = window.__marxyHandle.panes().panes[1].host.querySelector('.cm-scroller');
@@ -301,9 +326,10 @@ test('a Source pane given back on the right comes back at the place it was left'
     await count(page, 1);
     await narrow(page, 1920);
     await count(page, 2);
-    await page.waitForTimeout(600);
+    await restored(page, ['/r/A.md', '/r/B.md'], 0);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md']);
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.mode), 'source');
+    await placeNear(page, 1, at, 120);
     assert.ok(Math.abs((await place(page, 1)) - at) < 120, `place ${at} -> ${await place(page, 1)}`);
   });
 });
@@ -313,6 +339,7 @@ test('a Source pane that survives a narrowing keeps its mode and place when the 
     // The right pane is focused, so it is the one that stays; the left one is given up.
     await page.evaluate(() => { const s = window.__marxyHandle.panes(); s.focus(s.panes[1]); });
     await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.setMode('source'));
+    await sourceLanded(page);
     await page.evaluate(() => {
       const sc = window.__marxyHandle.panes().panes[1].host.querySelector('.cm-scroller');
       sc.scrollTop = sc.scrollHeight * 0.37;
@@ -327,9 +354,10 @@ test('a Source pane that survives a narrowing keeps its mode and place when the 
     assert.ok(Math.abs((await place(page, 0)) - at) < 120, `place while narrowed ${at} -> ${await place(page, 0)}`);
     await narrow(page, 1920);
     await count(page, 2);
-    await page.waitForTimeout(600);
+    await restored(page, ['/r/A.md', '/r/B.md'], 1);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md']);
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.mode), 'source', 'B is still in Source once widened');
+    await placeNear(page, 1, at, 120);
     assert.ok(Math.abs((await place(page, 1)) - at) < 120, `place ${at} -> ${await place(page, 1)}`);
   });
 });

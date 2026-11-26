@@ -1,8 +1,8 @@
 // Golden-file gate: parse every markdown fixture in the corpus, serialise the AST with its byte
 // provenance, and diff it against the committed file in ../goldens. Run with `--update` to rewrite
 // them; a diff in CI means the parser changed what a reader sees, which belongs in a review.
-// The goldens are parser-independent by design (ADR-0021): swapping the parser must not move them.
-// Beside each AST golden is the sanitised render (`.html.txt`, MARXY-75), so a renderer or allow-list
+// The goldens are parser-independent by design: swapping the parser must not move them.
+// Beside each AST golden is the sanitised render (`.html.txt`), so a renderer or allow-list
 // change that moves what a reader's DOM receives is a diff a reviewer reads, not a surprise.
 
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -48,7 +48,11 @@ function details(node: Node): string {
     case 'image': fields.push(`url=${quote(node.url)}`, `alt=${quote(node.alt)}`); if (node.title !== undefined) fields.push(`title=${quote(node.title)}`); break;
     case 'footnoteDefinition': case 'footnoteReference': fields.push(`label=${quote(node.label)}`); break;
     case 'taskMarker': fields.push(`checked=${node.checked}`); break;
-    case 'text': case 'code': case 'html': case 'htmlBlock': case 'mathBlock': case 'mathInline': case 'frontmatter':
+    case 'text': case 'code': case 'html': case 'htmlBlock': case 'mathBlock': case 'mathInline':
+      fields.push(`value=${quote(node.value)}`);
+      break;
+    case 'frontmatter':
+      if (node.content) fields.push(`content=[${node.content.start},${node.content.end})`);
       fields.push(`value=${quote(node.value)}`);
       break;
     default: break;
@@ -83,7 +87,7 @@ for (const name of fixtures) {
   if (!compare(name, new URL(`${base}.html.txt`, goldens), html, 'rendered')) failed++;
 }
 
-// Code files (V-10): the corpus's `04-source.*` are read as code, code blocks of at most 200 lines over all their bytes, never as Markdown.
+// Code files: the corpus's `04-source.*` are read as code, code blocks of at most 200 lines over all their bytes, never as Markdown.
 const codeFixtures = readdirSync(corpus).filter((name) => /^\d\d-/.test(name) && !name.endsWith('.md') && isCodeFile(name)).sort();
 if (codeFixtures.length === 0) {
   console.error('golden: no code files in the corpus');
@@ -121,7 +125,7 @@ function compare(name: string, file: URL, expected: string, what: string): boole
   return false;
 }
 
-// kinds.json (K-03): every file in the corpus, not only the Markdown ones, with the kind detection gives it and why.
+// kinds.json: every file in the corpus, not only the Markdown ones, with the kind detection gives it and why.
 const kinds: Record<string, unknown> = {};
 for (const name of readdirSync(corpus).sort()) {
   const bytes = new Uint8Array(readFileSync(new URL(name, corpus)));
@@ -130,7 +134,7 @@ for (const name of readdirSync(corpus).sort()) {
 }
 if (!compare('the corpus', new URL('kinds.json', goldens), `${JSON.stringify(kinds, null, 2)}\n`, 'detected')) failed++;
 
-// The table deriver (K-10b, ADR-0071): every CSV and TSV in the corpus read as a table holds DERIVED_TABLE_INVARIANTS.
+// The table deriver: every CSV and TSV in the corpus read as a table holds DERIVED_TABLE_INVARIANTS.
 const tableFixtures = readdirSync(corpus).filter((name) => delimiterFor(name) !== null).sort();
 for (const name of tableFixtures) {
   const bytes = new Uint8Array(readFileSync(new URL(name, corpus)));
@@ -139,7 +143,7 @@ for (const name of tableFixtures) {
   if (problems.length > 0) failed++;
 }
 
-// The transcript deriver (K-12, ADR-0061 item 9): every JSONL session in the corpus read as a derived tree holds
+// The transcript deriver: every JSONL session in the corpus read as a derived tree holds
 // DERIVED_INVARIANTS, and beside it are `<fixture>.derived.txt` (one line per derived node: type, src, from, decoding,
 // syntax, value, then the dropped lines with their record types) and `<fixture>.derived.html.txt` (the sanitised render,
 // every fold open), so a deriver change that moves what a reader sees is a diff in review.

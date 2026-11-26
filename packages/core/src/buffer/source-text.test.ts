@@ -1,4 +1,4 @@
-// The Source text (F-34.1, ADR-0069): each byte that is not UTF-8 is its own code unit, U+DC80 to U+DCFF, and encodes
+// The Source text: each byte that is not UTF-8 is its own code unit, U+DC80 to U+DCFF, and encodes
 // back to that byte; everything else is the reading decode. And what reads the file for Rendered and the index never
 // sees one of those code units.
 
@@ -145,11 +145,11 @@ test('the Source text of 1 MB with strays is built in well under the fold\'s own
   const ms = performance.now() - t0;
   assert.equal(sameUnits, false);
   assert.equal(hex(encodeSourceText(text).subarray(0, 64)), hex(buffer.bytes.subarray(0, 64)));
-  // Recorded, not a budget (ADR-0032): the number is in the PR.
+  // Recorded, not a budget.
   console.log(`# Source text of ${buffer.bytes.length} bytes with 30000 strays: ${ms.toFixed(1)} ms`);
 });
 
-test('byteToSourceOffset and sourceTextOfRange: a byte is the unit that begins there, whole pairs and stray runs included (F-34.2)', () => {
+test('byteToSourceOffset and sourceTextOfRange: a byte is the unit that begins there, whole pairs and stray runs included', () => {
   // "a", an astral character (4 bytes, two units), a cut-off E2 82 (two stray units), "é" (2 bytes), "b".
   const buffer = createBuffer('/r.md', Uint8Array.from([0x61, 0xf0, 0x9f, 0x98, 0x80, 0xe2, 0x82, 0xc3, 0xa9, 0x62]));
   const text = sourceTextOf(buffer).text;

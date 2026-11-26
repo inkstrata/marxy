@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check --formatter-enabled=false .",
-    "test": "node --test 'src/**/*.test.ts' 'test/**/*.test.mjs'"
+    "test": "node --test \"src/**/*.test.ts\" \"test/**/*.test.mjs\""
   },
   "dependencies": {
     "justif": "^0.9.1"

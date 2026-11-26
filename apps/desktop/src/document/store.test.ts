@@ -1,6 +1,6 @@
-// The document store (ADR-0037 as amended; roadmap 2026-10 B-04). Node only: no DOM, no app.
-// Each test named after a step-6 bullet of the story; the three ADR-0037 defects are reproduced here
-// against the store, so B-11 wires in something already proven.
+// The document store. Node only: no DOM, no app.
+// The three defects are reproduced here
+// against the store, so what wires in is something already proven.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -42,6 +42,21 @@ function recordingIo(write?: (path: string, bytes: Uint8Array) => Promise<void>)
   };
 }
 
+/** `io`'s writes, refused as the shell refuses them when `onDisk(path)` is not the write's `expected` bytes. */
+function checkedAgainst(io: RecordingIo, onDisk: (path: string) => Uint8Array | undefined): RecordingIo {
+  const write = io.writeFileAtomic.bind(io);
+  return {
+    ...io,
+    async writeFileAtomic(path, bytes, expected) {
+      const there = onDisk(path);
+      if (expected && there && (there.length !== expected.length || there.some((v, i) => v !== expected[i]))) {
+        throw Object.assign(new Error(`${path}: changed on disk since it was opened; refusing to overwrite`), { code: 'changed' });
+      }
+      return write(path, bytes);
+    },
+  };
+}
+
 const PATH = '/repo/doc.md';
 const text = (snap: DocumentSnapshot): string => dec.decode(snap.buffer.bytes);
 const byteIndex = (bytes: Uint8Array, needle: string, from = 0): number => {
@@ -60,7 +75,7 @@ function findNode(node: Node, type: Node['type']): Node | null {
   return null;
 }
 
-test('apply bumps version by one, pushes one entry, makes the store dirty, and never writes (ADR-0037 defect 3)', async () => {
+test('apply bumps version by one, pushes one entry, makes the store dirty, and never writes', async () => {
   const io = recordingIo();
   const store = openDocumentStore(io, PATH, enc.encode('# Title\n\n- [ ] task\n'));
   const before = store.snapshot();
@@ -80,7 +95,7 @@ test('apply bumps version by one, pushes one entry, makes the store dirty, and n
   assert.equal(io.writes.length, 0, 'apply never calls writeFileAtomic');
 });
 
-test('apply and commitSource never call writeFileAtomic; dirty is buffer ≠ disk (ADR-0037 defect 3)', async () => {
+test('apply and commitSource never call writeFileAtomic; dirty is buffer ≠ disk', async () => {
   const io = recordingIo();
   const original = '# Title\n\nbody\n';
   const store = openDocumentStore(io, PATH, enc.encode(original));
@@ -127,7 +142,7 @@ test('commitSource with a change pushes exactly one entry labelled "edit in Sour
   assert.equal(text(store.snapshot()), '# Title\n\nbody\n\ntail\n');
 });
 
-test('ADR-0037 defect 2: toggle a task, type in Source, undo twice restores the original bytes', async () => {
+test('toggle a task, type in Source, undo twice restores the original bytes', async () => {
   const original = corpus('03-ai-plan.md');
   const store = openDocumentStore(recordingIo(), PATH, original);
   const at = byteIndex(original, '- [ ] Attestation');
@@ -145,7 +160,7 @@ test('ADR-0037 defect 2: toggle a task, type in Source, undo twice restores the 
   assert.ok(text(store.snapshot()).includes('- [x] Attestation signing policy'));
 });
 
-test('ADR-0037 defect 1: a failed save leaves the snapshot identical and the next undo stays inside the history', async () => {
+test('a failed save leaves the snapshot identical and the next undo stays inside the history', async () => {
   const original = corpus('03-ai-plan.md');
   const io = recordingIo(async () => {
     throw Object.assign(new Error('read-only file system'), { code: 'permission' });
@@ -155,7 +170,7 @@ test('ADR-0037 defect 1: a failed save leaves the snapshot identical and the nex
   assert.ok(table);
   const tableText = dec.decode(original.subarray(table.src.start, table.src.end));
   const tail = original.slice(table.src.end);
-  // An alignment: the table grows. The seams pass lost 196 bytes after it when undo used a stale length.
+  // An alignment: the table grows. An earlier version lost 196 bytes after it when undo used a stale length.
   const aligned = tableText.replaceAll(' | ', '  |  ');
   assert.ok(aligned.length > tableText.length);
   assert.equal(await store.apply({ range: table.src, replacement: aligned, label: 'Align table pipes' }), true);
@@ -281,7 +296,7 @@ test('a save, a rename or an adopted reload between reading a range and applying
 
 test('bytesVersion is by reference: every bytes-changing transition makes a new array, and no other one does', async () => {
   // `commit` compares `buffer.bytes` by reference to decide whether a range read earlier still holds
-  // (B-12 review). Pin both halves, so a transition that edits the array in place, or copies it when the
+  // Pin both halves, so a transition that edits the array in place, or copies it when the
   // bytes are unchanged, fails here rather than letting a stale range through or refusing a good one.
   const io = recordingIo();
   const store = openDocumentStore(io, PATH, enc.encode('one two\n'));
@@ -330,7 +345,7 @@ test('commitSource with a stale baseVersion resolves false and leaves the store 
   assert.equal(text(store.snapshot()), '# Heading\n\nbody typed\n');
 });
 
-test('commitSource asks `refuse` at its turn, after what was queued before it, and a refused fold leaves the store untouched (F-48)', async () => {
+test('commitSource asks `refuse` at its turn, after what was queued before it, and a refused fold leaves the store untouched', async () => {
   const store = openDocumentStore(recordingIo(), PATH, enc.encode('# Title\n\nbody\n'));
   let refusing = false;
   // Queued first, as another pane's fold is: it lands before this fold's turn, and the answer is read then.
@@ -402,6 +417,40 @@ test('previousDisk: the bytes a clean reload replaced, in memory only; a kept re
   assert.equal(store.snapshot().previousDisk, null, 'dropped with the document');
 });
 
+test('append: the new bytes are spliced on at the old end, history cleared, announced as a reload that appended', async () => {
+  const io = recordingIo();
+  const store = openDocumentStore(io, PATH, enc.encode('one\n'));
+  await store.apply({ range: range(0, 3), replacement: 'two', label: 'edit' });
+  await store.save();
+  const changes: Transition[] = [];
+  store.subscribe((_snap, change) => changes.push(change));
+  const bytes = store.snapshot().buffer.bytes;
+  assert.equal(await store.append(enc.encode('three\n'), { from: bytes.length }), 'reloaded');
+  const snap = store.snapshot();
+  assert.equal(text(snap), 'two\nthree\n');
+  assert.deepEqual(snap.disk, snap.buffer.bytes);
+  assert.equal(snap.dirty, false);
+  assert.equal(snap.canUndo, false);
+  assert.deepEqual(changes, [{ kind: 'reload', appended: 6 }]);
+  assert.equal(dec.decode(snap.previousDisk ?? undefined), 'two\n');
+});
+
+test('append is refused, with nothing changed, over unsaved edits, a moved end or a write of ours after the read', async () => {
+  const store = openDocumentStore(recordingIo(), PATH, enc.encode('one\n'));
+  const added = enc.encode('more\n');
+  assert.equal(await store.append(added, { from: 3 }), 'stale', 'the buffer is not 3 bytes long');
+  assert.equal(await store.append(added, { from: 4, holds: () => true }), 'stale', 'a view holds Source text');
+  const readAt = store.writes();
+  await store.apply({ range: range(0, 3), replacement: 'own', label: 'edit' });
+  const before = store.snapshot();
+  assert.equal(await store.append(added, { from: 4 }), 'stale', 'unsaved edits');
+  assert.equal(store.snapshot(), before);
+  await store.save();
+  assert.equal(await store.append(added, { from: 4, readAt }), 'stale', 'read before a save of ours wrote');
+  assert.equal(await store.append(new Uint8Array(0), { from: 4 }), 'stale', 'nothing to add');
+  assert.equal(text(store.snapshot()), 'own\n');
+});
+
 test('reload into a dirty buffer: kept, nothing changed', async () => {
   const store = openDocumentStore(recordingIo(), PATH, enc.encode('one\n'));
   await store.apply({ range: range(0, 3), replacement: 'two', label: 'edit' });
@@ -422,6 +471,54 @@ test('reload of the bytes on disk while dirty (the echo of our own save, then an
   // A real external change while dirty is still kept.
   assert.equal(await store.reload(enc.encode('ten\n')), 'kept');
   assert.equal(store.snapshot(), before);
+});
+
+test('a reload read before our latest save lands after it: unchanged, the buffer, disk and undo stay with the save, and the next save works', async () => {
+  let disk = enc.encode('A\n');
+  let copying: Promise<void> = Promise.resolve();
+  const store = openDocumentStore(
+    {
+      writeFileAtomic: async (_p, b) => void (disk = b.slice()),
+      peekFile: async () => disk,
+      // The copy kept before a save, slow enough for a watch read to queue behind it.
+      beforeOverwrite: () => copying,
+    },
+    PATH,
+    disk,
+  );
+  await store.apply({ range: range(0, 1), replacement: 'B', label: 'type' });
+  assert.equal((await store.save()).result, 'saved');
+  // The watch hears that save and reads the file: B.
+  const readAt = store.writes();
+  const read = disk;
+  // The reader types C and saves again while that read is on its way to the store's queue.
+  await store.apply({ range: range(0, 1), replacement: 'C', label: 'type' });
+  let release!: () => void;
+  copying = new Promise((resolve) => (release = resolve));
+  const saving = store.save();
+  const reloading = store.reload(read, { readAt });
+  release();
+  assert.equal((await saving).result, 'saved');
+  assert.equal(await reloading, 'unchanged');
+  const snap = store.snapshot();
+  assert.equal(text(snap), 'C\n');
+  assert.equal(dec.decode(snap.disk!), 'C\n', 'disk is what was written last');
+  assert.equal(snap.canUndo, true, 'history is kept');
+  assert.equal(store.conflict(), null);
+  await store.apply({ range: range(0, 0), replacement: 'more ', label: 'type' });
+  assert.equal((await store.save()).result, 'saved');
+  assert.equal(dec.decode(disk), 'more C\n');
+});
+
+test('a reload read after our latest save is a real change: adopted as before', async () => {
+  let disk = enc.encode('A\n');
+  const store = openDocumentStore({ writeFileAtomic: async (_p, b) => void (disk = b.slice()), peekFile: async () => disk }, PATH, disk);
+  await store.apply({ range: range(0, 1), replacement: 'B', label: 'type' });
+  await store.save();
+  const readAt = store.writes();
+  disk = enc.encode('outside\n');
+  assert.equal(await store.reload(disk, { readAt }), 'reloaded');
+  assert.equal(text(store.snapshot()), 'outside\n');
 });
 
 test('reload with the bytes already in the buffer: unchanged, disk follows', async () => {
@@ -450,7 +547,7 @@ test('rename changes the path and keeps history and dirty', async () => {
   assert.equal(store.snapshot().dirty, false);
 });
 
-test('rename arms the stale-write guard on the new name with the bytes last read (D-10)', async () => {
+test('rename arms the stale-write guard on the new name with the bytes last read', async () => {
   const io = recordingIo();
   const store = openDocumentStore(io, PATH, enc.encode('# A\n\nbody\n'));
   await store.apply({ range: range(2, 3), replacement: 'B', label: 'edit' });
@@ -463,10 +560,9 @@ test('rename arms the stale-write guard on the new name with the bytes last read
   );
 });
 
-test('a save is refused when disk is no longer the bytes the store loaded or wrote, whatever else read the file (D-10)', async () => {
+test('a save is refused when disk is no longer the bytes the store loaded or wrote, whatever else read the file', async () => {
   let onDisk = enc.encode('# A\n\nbody\n');
-  const io = recordingIo(async (_path, bytes) => { onDisk = new Uint8Array(bytes); });
-  io.peekFile = async () => onDisk;
+  const io = checkedAgainst(recordingIo(async (_path, bytes) => { onDisk = new Uint8Array(bytes); }), () => onDisk);
   const store = openDocumentStore(io, PATH, onDisk);
   await store.apply({ range: range(2, 3), replacement: 'B', label: 'edit' });
   onDisk = enc.encode('# A\n\nbody\nOUTSIDE\n');
@@ -584,7 +680,7 @@ test('history is bounded and a push after undo drops the redo branch', async () 
 });
 
 test('commitSource text must use the file line separators: LF text on a mixed-ending file rewrites endings', async () => {
-  // Pinned for B-11: the editor sets lineSeparator from buffer.eol, so cmDocText's separators come back.
+  // Pinned: the editor sets lineSeparator from buffer.eol, so cmDocText's separators come back.
   const original = enc.encode('a\r\nb\nc\r\nd\n');
   const own = openDocumentStore(recordingIo(), PATH, original);
   assert.equal(await own.commitSource(cmDocText(own.snapshot().buffer).replace('c', 'c!')), true);
@@ -680,7 +776,7 @@ test('store.ts imports only @marxy/core, the DOM-free node map, the Source fold,
   const specs = importSpecs(STORE_SOURCE, 'store.ts') as string[];
   assert.ok(specs.length > 0);
   for (const spec of specs) assert.ok(allowed.has(spec), `store.ts may not import ${spec}`);
-  // And, by name, the modules the ADR says lose their document state to this one.
+  // And, by name, the modules that lose their document state to this one.
   for (const spec of specs) assert.doesNotMatch(spec, /(^|\/)(app\.ts|selection\/|commands\/)|@tauri-apps/);
   assert.doesNotMatch(STORE_SOURCE, /\b(document|window)\.|HTMLElement|globalThis/, 'no DOM in the store');
 });
@@ -690,14 +786,14 @@ test('store.ts has no module-level let', () => {
 });
 
 
-// ---- V-07: a file changed on disk over unsaved edits: keep mine as a copy, or take theirs ----
+// ---- a file changed on disk over unsaved edits: keep mine as a copy, or take theirs ----
 
 /** A folder as a map: `peekFile`, `writeFileAtomic` and a create-only `writeFileNew` (`exists` when the name is in the map) over it, with every write recorded. */
 function folderIo(files: Map<string, Uint8Array>, failWrite?: (path: string) => boolean): RecordingIo {
-  const io = recordingIo(async (path, bytes) => {
+  const io = checkedAgainst(recordingIo(async (path, bytes) => {
     if (failWrite?.(path)) throw new Error('disk full');
     files.set(path, new Uint8Array(bytes));
-  });
+  }), (path) => files.get(path));
   return {
     ...io,
     async peekFile(path) {
@@ -877,7 +973,7 @@ test('a Save as elsewhere ends the pending choice about the old file', async () 
   assert.equal(store.conflict(), null);
 });
 
-test('the file deleted while a choice is pending: Take theirs refuses and keeps the edits; stale bytes are never adopted (V-07)', async () => {
+test('the file deleted while a choice is pending: Take theirs refuses and keeps the edits; stale bytes are never adopted', async () => {
   const { files, store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
   files.delete(PATH);
   const before = store.snapshot();
@@ -887,7 +983,7 @@ test('the file deleted while a choice is pending: Take theirs refuses and keeps 
   assert.ok(store.conflict(), 'still pending');
 });
 
-test('the file deleted while a choice is pending: Keep mine saves the copy and keeps the buffer, adopting nothing (V-07)', async () => {
+test('the file deleted while a choice is pending: Keep mine saves the copy and keeps the buffer, adopting nothing', async () => {
   const { files, store } = await conflicted(enc.encode('one\n'), { start: 0, end: 3, replacement: 'two' }, enc.encode('three\n'));
   files.delete(PATH);
   const outcome = await store.resolveConflict('mine');
@@ -897,12 +993,12 @@ test('the file deleted while a choice is pending: Keep mine saves the copy and k
   assert.equal(store.snapshot().canUndo, true);
 });
 
-// --- A store opened lazily: a file that opens in Source has no parse until something asks (V-11.1) -------------
+// --- A store opened lazily: a file that opens in Source has no parse until something asks -------------
 
 const CODE = '# a comment\n\ndef main():\n    # another\n    return 1\n';
 const lazyStore = (io: StoreIo = recordingIo(), path = '/repo/x.py', bytes = CODE) =>
   openDocumentStore(io, path, enc.encode(bytes), undefined, { lazy: true });
-/** What the parse of these bytes under this name is, as a string that compares: a code file's is one code block (V-10). */
+/** What the parse of these bytes under this name is, as a string that compares: a code file's is one code block. */
 const parseOf = (bytes: Uint8Array, file: string): string => JSON.stringify(parsedAs(file, bytes));
 const astOf = (snap: DocumentSnapshot): string => JSON.stringify(snap.ast);
 
@@ -998,4 +1094,90 @@ test('lazy: reading the node map makes the parse too, once, and an eager store h
   assert.equal(store.snapshot().ast, snap.ast, 'and belongs to the one parse');
   const eager = openDocumentStore(recordingIo(), PATH, enc.encode('# T\n'));
   assert.equal(eager.parsed(), true, 'a store opened without lazy has always parsed');
+});
+
+test('rechoose: a kind that changes the parse parses the bytes again for every subscriber, history kept; one that does not, nothing', async () => {
+  const store = openDocumentStore(recordingIo(), '/r/notes.rst', enc.encode('Title\n=====\n\nwords\n'));
+  await store.apply({ range: { file: '/r/notes.rst', start: 13, end: 18 }, replacement: 'prose', label: 'edit' });
+  assert.equal(store.snapshot().ast.children[0]?.type, 'codeBlock');
+  const seen: { kind: string; first: string | undefined }[][] = [[], []];
+  for (const list of seen) store.subscribe((snap, change) => list.push({ kind: change.kind, first: snap.ast.children[0]?.type }));
+  assert.equal(await store.rechoose('article'), true);
+  for (const list of seen) assert.deepEqual(list, [{ kind: 'reparse', first: 'heading' }], 'both views hear one reparse');
+  assert.equal(store.snapshot().canUndo, true, 'history is kept');
+  assert.equal(await store.rechoose('article'), false, 'the same choice again does nothing');
+  assert.equal(await store.rechoose('readme'), false, 'another prose kind parses alike');
+  assert.equal(await store.rechoose(undefined), true);
+  assert.equal(store.snapshot().ast.children[0]?.type, 'codeBlock');
+});
+
+test('a .txt read as a log, a session or a patch is parsed as that code; switching between them parses again, a prose kind is Markdown', async () => {
+  const LOG = '2026-11-19T08:10:00.000Z WARN db: select * where id = $1 and $2\n';
+  const store = openDocumentStore(recordingIo(), '/r/api.txt', enc.encode(LOG), undefined, { chosen: 'log' });
+  const first = store.snapshot().ast.children[0];
+  assert.equal(first?.type, 'codeBlock');
+  assert.equal(first?.type === 'codeBlock' ? first.lang : null, 'log', 'the log page, not a paragraph with maths in it');
+  assert.equal(await store.rechoose('terminal'), true, 'a session parses again: same parser, another language');
+  const term = store.snapshot().ast.children[0];
+  assert.equal(term?.type === 'codeBlock' ? term.lang : null, 'terminal');
+  assert.equal(await store.rechoose('article'), true);
+  assert.equal(store.snapshot().ast.children[0]?.type, 'paragraph', 'a .txt read as prose is its Markdown parse');
+  assert.equal(JSON.stringify(parsedAs('/r/api.log', enc.encode(LOG), 'log')), JSON.stringify(parsedAs('/r/api.log', enc.encode(LOG))), 'a .log is the log page whatever its kind');
+});
+
+test('rechoose between a log and a session keeps a dirty edit and its history: undo after it goes back to the file', async () => {
+  const LOG = '2026-11-19T08:10:00.000Z WARN slow\n';
+  const store = openDocumentStore(recordingIo(), '/r/api.txt', enc.encode(LOG), undefined, { chosen: 'log' });
+  assert.equal(await store.apply({ range: { file: '/r/api.txt', start: 25, end: 29 }, replacement: 'ERROR', label: 'edit' }), true);
+  const edited = text(store.snapshot());
+  assert.equal(edited, '2026-11-19T08:10:00.000Z ERROR slow\n');
+  assert.equal(await store.rechoose('terminal'), true);
+  const snap = store.snapshot();
+  assert.equal(text(snap), edited, 'the typed text is kept');
+  assert.equal(snap.dirty, true, 'and is still unsaved');
+  assert.equal(snap.canUndo, true, 'and its history is kept');
+  const piece = snap.ast.children[0];
+  assert.equal(piece?.type === 'codeBlock' ? piece.value : null, '2026-11-19T08:10:00.000Z ERROR slow', 'the new parse is of the edited bytes');
+  assert.equal(await store.undo(), true);
+  assert.equal(text(store.snapshot()), LOG);
+  assert.equal(store.snapshot().dirty, false);
+});
+
+test('a save in place reads nothing: it hands the write the store\'s own disk bytes; a Save As hands none', async () => {
+  const original = enc.encode('# A\n\nbody\n');
+  const expectations: (Uint8Array | undefined)[] = [];
+  const io = recordingIo();
+  const write = io.writeFileAtomic.bind(io);
+  io.writeFileAtomic = async (path, bytes, expected) => {
+    expectations.push(expected);
+    return write(path, bytes);
+  };
+  io.peekFile = async () => assert.fail('a save must not read the file');
+  const store = openDocumentStore(io, PATH, original);
+  await store.apply({ range: range(2, 3), replacement: 'B', label: 'edit' });
+  assert.equal((await store.save()).result, 'saved');
+  assert.equal(dec.decode(expectations[0]!), '# A\n\nbody\n');
+  await store.apply({ range: range(2, 3), replacement: 'C', label: 'edit' });
+  assert.equal((await store.save()).result, 'saved');
+  assert.equal(dec.decode(expectations[1]!), '# B\n\nbody\n', 'the baseline moved to what was written');
+  io.peekFile = undefined;
+  assert.equal((await store.save({ to: '/repo/elsewhere.md' })).result, 'saved');
+  assert.equal(expectations[2], undefined);
+});
+
+test('a save the shell refuses keeps no version: the copy of disk is made only once the write went through', async () => {
+  let onDisk = enc.encode('one\n');
+  const kept: string[] = [];
+  const io = checkedAgainst(recordingIo(async (_path, bytes) => { onDisk = new Uint8Array(bytes); }), () => onDisk);
+  io.beforeOverwrite = async (_path, replacing) => {
+    kept.push(dec.decode(replacing));
+  };
+  const store = openDocumentStore(io, PATH, onDisk);
+  await store.apply({ range: range(0, 3), replacement: 'two', label: 'edit' });
+  onDisk = enc.encode('outside\n');
+  assert.equal((await store.save()).result, 'failed');
+  assert.deepEqual(kept, [], 'nothing was replaced, so nothing is kept');
+  onDisk = enc.encode('one\n');
+  assert.equal((await store.save()).result, 'saved');
+  assert.deepEqual(kept, ['one\n'], 'what the save replaced');
 });

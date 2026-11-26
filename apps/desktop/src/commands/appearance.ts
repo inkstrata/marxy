@@ -1,4 +1,4 @@
-// Light and dark variant, text size (A-14) and the bundled themes (H-05). Each applies at once, is remembered in config.toml,
+// Light and dark variant, text size and the bundled themes. Each applies at once, is remembered in config.toml,
 // and sets the page again on the grid with the reader on the same line.
 import type { AppShell } from '../app.ts';
 import {
@@ -16,6 +16,7 @@ import { applyBundledTheme, currentThemeName } from '../theme/user-theme.ts';
 import type { BundledThemeName } from '../theme/bundled-themes.ts';
 import { appHandle } from './app-handle.ts';
 import type { AppContext, Command } from './registry.ts';
+import { openHueTest } from '../frame/hue-test.ts';
 
 /** Writes one key; false (after an error notice) when config.toml could not be updated. */
 async function remember(ctx: AppContext, key: 'variant' | 'size' | 'theme', tomlValue: string): Promise<boolean> {
@@ -56,21 +57,21 @@ async function useSize(ctx: AppContext, size: number): Promise<void> {
   await remember(ctx, 'size', String(next));
 }
 
-/** The palette's theme commands: the one in force is not offered. `name` null is Night and Paper (`theme = ""`). */
-const THEME_COMMANDS: readonly { readonly id: string; readonly title: string; readonly name: BundledThemeName | null }[] = [
-  { id: 'view.theme-default', title: 'Theme: Night and Paper', name: null },
+/** The palette's theme commands: the one in force is not offered. */
+const THEME_COMMANDS: readonly { readonly id: string; readonly title: string; readonly name: BundledThemeName }[] = [
+  { id: 'view.theme-default', title: 'Theme: Night and Paper', name: 'night-paper' },
   { id: 'view.theme-ink', title: 'Theme: Ink', name: 'ink' },
   { id: 'view.theme-warm', title: 'Theme: Dusk and Sepia', name: 'warm' },
   { id: 'view.theme-fjord', title: 'Theme: Fjord (dark only)', name: 'fjord' },
   { id: 'view.theme-high-contrast', title: 'Theme: High contrast', name: 'high-contrast' },
 ];
 
-async function useTheme(ctx: AppContext, name: BundledThemeName | null): Promise<void> {
+async function useTheme(ctx: AppContext, name: BundledThemeName): Promise<void> {
   const replaced = await themeFolderNamed();
   await applyBundledTheme(name);
   await appHandle()?.relayout();
-  const written = await remember(ctx, 'theme', `"${name ?? ''}"`);
-  // Nothing hidden silently: a `theme` line that named a folder is replaced, so say which, what is untouched, and the way back (rulings-x21 Q10).
+  const written = await remember(ctx, 'theme', `"${name}"`);
+  // Nothing hidden silently: a `theme` line that named a folder is replaced, so say which, what is untouched, and the way back.
   if (written && replaced !== null) {
     ctx.showNotice(`Theme changed. config.toml no longer names the theme folder ${replaced}; the folder is untouched. To use it again, set theme = "${replaced}" in config.toml.`, { kind: 'done' });
   }
@@ -84,7 +85,7 @@ export function appearanceCommands(): readonly Command[] {
         title: t.title,
         global: true,
         group: 'view',
-        when: () => (currentThemeName() ?? null) !== t.name,
+        when: () => currentThemeName() !== t.name,
         run: (ctx) => useTheme(ctx, t.name),
       }),
     ),
@@ -121,6 +122,14 @@ export function appearanceCommands(): readonly Command[] {
       group: 'view',
       when: () => currentTextSize() > MIN_SIZE,
       run: (ctx) => useSize(ctx, currentTextSize() - 1),
+    },
+    {
+      id: 'view.hue-test',
+      title: 'Run the hue test',
+      global: true,
+      group: 'view',
+      when: () => true,
+      run: async () => openHueTest(),
     },
     {
       id: 'view.text-default',

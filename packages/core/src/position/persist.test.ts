@@ -1,4 +1,4 @@
-// positions.json persistence: reopen, debounce, corrupt quarantine (MARXY-38).
+// positions.json persistence: reopen, debounce, corrupt quarantine.
 
 import { strict as assert } from 'node:assert';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -60,8 +60,20 @@ test('reopening a document restores the same first visible block within one line
   assert.ok(restored);
   const scrollAfter = scrollTopForPosition(blocks, restored!.byteOffset, restored!.fraction, viewport);
   assert.ok(sameFirstVisibleBlock(blocks, scrollBefore, scrollAfter, viewport));
-  // The check can fail: the same block 30 px lower is not the same place (S-05-0003).
+  // The check can fail: the same block 30 px lower is not the same place.
   assert.equal(sameFirstVisibleBlock(blocks, scrollBefore, scrollTopForPosition(blocks, 90, 0.1, viewport), viewport), false);
+});
+
+test('a place in a page made from the file stands only while the page is made the same', async () => {
+  const { io } = memoryIo();
+  const persistence = await PositionPersistence.open(io);
+  const path = '/books/the-measure.epub';
+  persistence.note(path, { path, byteOffset: 120, fraction: 0.5, mode: 'rendered' }, '4000:1a2b3c4d');
+  await persistence.flush();
+  const reopened = await PositionPersistence.open(io);
+  assert.equal(reopened.positionForOpen(path, 4000, '4000:1a2b3c4d')?.byteOffset, 120);
+  assert.equal(reopened.positionForOpen(path, 4000, '4000:ffffffff'), null, 'the book changed: its place is dropped');
+  assert.equal(reopened.positionForOpen(path, 4000), null, 'a page’s place is no text document’s');
 });
 
 test('corrupt positions.json is renamed .bad-* and the app starts at the top', async () => {
@@ -102,4 +114,16 @@ test('a newer positions.json version is not overwritten on flush', async () => {
   await persistence.flush();
   assert.deepEqual(store.get(path), newer);
   assert.ok(persistence.positionForOpen('/keep.md', 100));
+});
+
+test('a positions.json that is there but cannot be read is never written over this session', async () => {
+  const path = '/data/positions.json';
+  const kept = serializePositionsFile({ version: 1, positions: { '/r/a.md': { byteOffset: 900, fraction: 0.5, mode: 'rendered', at: 1 } } });
+  const { io, store } = memoryIo({ [path]: kept });
+  const locked = { ...io, readFile: async () => { throw Object.assign(new Error('EACCES'), { code: 'permission' }); } };
+  const persistence = await PositionPersistence.open(locked);
+  persistence.note('/r/b.md', { path: '/r/b.md', byteOffset: 1, fraction: 0, mode: 'rendered' });
+  await persistence.flush();
+  await persistence.close();
+  assert.deepEqual(store.get(path), kept);
 });

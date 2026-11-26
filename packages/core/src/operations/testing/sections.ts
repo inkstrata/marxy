@@ -1,5 +1,5 @@
 // A random Markdown document whose structure the generator chose and kept, and the reference move written from that structure
-// (not from the parse), for the tests of move-section (W-10): core's operation test and the desktop's Outline tab test run the same
+// (not from the parse), for the tests of move-section: core's operation test and the desktop's Outline tab test run the same
 // documents through the operation and through the app and compare bytes. Imported only by tests.
 import type { MoveDirection } from '../move-section.ts';
 import { seededRandom } from './test-kit.ts';

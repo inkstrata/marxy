@@ -1,4 +1,4 @@
-<pre class="language-log marxy-run" data-marxy-s="0" data-marxy-e="3377"><code class="language-log" data-marxy-s="0" data-marxy-e="3377">2026-10-12T09:30:00.104Z INFO  boot     lanternfish 2.4.1 starting (pid 4121, 8 workers)
+<pre class="language-log marxy-run" data-marxy-lang="log" data-marxy-s="0" data-marxy-e="3377"><code class="language-log" data-marxy-s="0" data-marxy-e="3377">2026-10-12T09:30:00.104Z INFO  boot     lanternfish 2.4.1 starting (pid 4121, 8 workers)
 2026-10-12T09:30:00.118Z DEBUG config   reading /etc/lanternfish/site.toml
 2026-10-12T09:30:00.121Z DEBUG config   listen=0.0.0.0:8443 tls=on cache_dir=/var/cache/lanternfish
 2026-10-12T09:30:00.390Z INFO  store    opened shard 0 (12,408 keys, 31 MB)
@@ -18,7 +18,7 @@
 2026-10-12T09:30:08.002Z DEBUG sync     merged 4 deltas, 0 conflicts
 2026-10-12T09:30:08.610Z WARN  render   [33mslow frame[0m: 48 ms (budget 16 ms)
 2026-10-12T09:30:09.221Z INFO  http     GET /v1/tide/0108 200 9 ms
-2026-10-12T09:30:09.870Z ERROR loader   gauge 0107: cannot parse reading "4,5" at column 3
+2026-10-12T09:30:09.870Z ERROR loader   gauge 0107: cannot parse reading &quot;4,5&quot; at column 3
     at parseReading (src/loader/readings.ts:88:41)
     at loadGauge (src/loader/gauges.ts:140:12)
     at async refresh (src/loader/index.ts:57:5)

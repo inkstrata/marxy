@@ -1,4 +1,4 @@
-// The palette and outline read the contract v2 edge roles (H-03.1, ADR-0059): real WebKit, the palette harness.
+// The palette reads the contract v2 edge roles: real WebKit, the palette harness.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -7,7 +7,7 @@ import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const desktopRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -51,48 +51,36 @@ async function boot(browser) {
   const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
   await page.keyboard.press(`${mod}+KeyP`);
   await page.waitForSelector('#marxy-palette[open]');
-  await page.keyboard.press('Escape');
-  await page.keyboard.press(`${mod}+Shift+KeyO`);
-  await page.waitForSelector('#marxy-outline[open]');
-  await page.keyboard.press(`${mod}+KeyP`);
-  await page.waitForSelector('#marxy-palette[open]');
   return page;
 }
 
 // Resolves each role to a distinct colour, so a repoint to the wrong role cannot pass.
 const read = (page) => page.evaluate(() => {
   const css = (sel, prop) => getComputedStyle(document.querySelector(sel))[prop];
-  const row = document.querySelector('#marxy-outline .marxy-outline-row');
-  row?.setAttribute('aria-selected', 'true');
-  const wash = row ? getComputedStyle(row).backgroundColor : null;
   return {
     paletteOutline: css('#marxy-palette', 'borderTopColor'),
     queryEdge: css('#marxy-palette .marxy-palette-field', 'borderBottomColor'),
-    outlineOutline: css('#marxy-outline', 'borderInlineStartColor'),
-    outlineWash: wash,
   };
 });
 
-test('a theme that sets the v2 roles repaints the palette and outline edges and the outline wash', async () => {
+test('a theme that sets the v2 roles repaints the palette edges', async () => {
   const browser = await launchWebkit();
   try {
     const page = await boot(browser);
     const before_ = await read(page);
     await page.evaluate(() => {
       const s = document.createElement('style');
-      s.textContent = ':root { --marxy-color-rule-strong: rgb(1, 2, 3); --marxy-color-edge: rgb(4, 5, 6); --marxy-color-accent-wash: rgb(7, 8, 9); }';
+      s.textContent = ':root { --marxy-color-rule-strong: rgb(1, 2, 3); --marxy-color-edge: rgb(4, 5, 6); }';
       document.head.append(s);
     });
     const after_ = await read(page);
     assert.equal(after_.paletteOutline, 'rgb(1, 2, 3)');
-    assert.equal(after_.outlineOutline, 'rgb(1, 2, 3)');
     assert.equal(after_.queryEdge, 'rgb(4, 5, 6)');
-    assert.equal(after_.outlineWash, 'rgb(7, 8, 9)');
     assert.notDeepEqual(before_, after_);
   } finally { await browser.close(); }
 });
 
-// H-04 made the default theme set the v2 roles itself (Night's rule-strong, edge and accent-wash are
+// The default theme was made to set the v2 roles itself (Night's rule-strong, edge and accent-wash are
 // values of their own), so the edges now resolve to those, not through tokens.css's v1 fallbacks.
 test('with no theme override the edges resolve to the v2 roles the default theme declares', async () => {
   const browser = await launchWebkit();
@@ -103,12 +91,10 @@ test('with no theme override the edges resolve to the v2 roles the default theme
       const probe = document.createElement('i');
       document.body.append(probe);
       const of = (v) => { probe.style.color = `var(${v})`; return getComputedStyle(probe).color; };
-      return { rule: of('--marxy-color-rule'), ruleStrong: of('--marxy-color-rule-strong'), edge: of('--marxy-color-edge'), wash: of('--marxy-color-accent-wash') };
+      return { rule: of('--marxy-color-rule'), ruleStrong: of('--marxy-color-rule-strong'), edge: of('--marxy-color-edge') };
     });
     assert.notEqual(roles.ruleStrong, roles.rule, 'the default declares a stronger rule of its own');
     assert.equal(got.paletteOutline, roles.ruleStrong);
-    assert.equal(got.outlineOutline, roles.ruleStrong);
     assert.equal(got.queryEdge, roles.edge);
-    assert.equal(got.outlineWash, roles.wash);
   } finally { await browser.close(); }
 });

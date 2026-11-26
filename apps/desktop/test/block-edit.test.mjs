@@ -1,4 +1,4 @@
-// Edit one block in Source, in place (E-04, ADR-0048): select a block, press the edit key, a CodeMirror editor
+// Edit one block in Source, in place: select a block, press the edit key, a CodeMirror editor
 // opens where the block was, over exactly its bytes; leaving folds the text back as one undo step. Booted on the
 // shipped skeleton over the memory shell (test/support/two-pane.mjs), so a second pane is the real one.
 import { strict as assert } from 'node:assert';
@@ -9,7 +9,8 @@ import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { DISK_CHANGED_EDITS_KEPT } from '../src/notices/disk.ts';
-import { BLOCK_EDIT_CAP, rebaseRange } from '../src/commands/block-edit.ts';
+import { BLOCK_EDIT_CAP, PUT_BACK_PASSES, putTextBack, rebaseRange } from '../src/commands/block-edit.ts';
+import { openDocumentStore } from '../src/document/store.ts';
 import { blockEditRange, createBuffer, parseMarkdown, textOf } from '../../../packages/core/src/index.ts';
 import { bootTwoPanes, closeHarness } from './support/two-pane.mjs';
 
@@ -281,10 +282,10 @@ async function withTypedBlock(fn) {
   });
 }
 
-// F-61: the reading line can fall in the margin between two blocks (below a heading, above its first paragraph). The
+// the reading line can fall in the margin between two blocks (below a heading, above its first paragraph). The
 // reading position is a block and a fraction of it, and a fraction cannot be negative, so setting the page again used
 // to put the next block's top on the line and move the text by the margin's share. Held as pixels now (`lead`).
-test('leaving the editor keeps the reader put when the reading line sits in the margin between two blocks (F-61)', async () => {
+test('leaving the editor keeps the reader put when the reading line sits in the margin between two blocks', async () => {
   const file = '01-long-technical.md';
   await withPage({ [`/c/${file}`]: read(file) }, [`/c/${file}`], async (page, mod) => {
     await page.waitForFunction(() => window.__marxyHandle.document().snapshot().buffer.bytes.length > 0);
@@ -355,7 +356,8 @@ test('Mod+E with an editor open leaves it first: Source shows the edited bytes',
 test('Mod+S with an editor open saves the edited bytes', async () => {
   await withTypedBlock(async (page, mod, { path, first, original }) => {
     await page.keyboard.press(`${mod}+s`);
-    await page.waitForFunction(() => window.__marxyHandle.document().snapshot().dirty === false);
+    // Not dirty is also how it starts (the typing is the editor's until the save folds it in): wait for the editor to go too.
+    await page.waitForFunction(() => document.querySelector('.marxy-block-editor') === null && window.__marxyHandle.document().snapshot().dirty === false);
     const saved = await page.evaluate(async (p) => [...(await window.__marxyHandle.shell.readFile(p))], path);
     assert.equal(assertOnlyInside(original, saved, first.range), `${first.text} ZZ`);
     assert.equal(await editors(page), 0, 'saving leaves the editor');
@@ -495,7 +497,10 @@ test('a click on another block of the same pane leaves the editor and selects th
   await withTwoPanes(async (page, mod, { first, original }) => {
     const third = firstBlock(A, 'paragraph', 2);
     const box = await page.evaluate((start) => {
-      const r = document.querySelector(`#doc [data-marxy-s="${start}"]`).getBoundingClientRect();
+      // The page decides how far down the block sits: it is brought on screen before it is clicked.
+      const el = document.querySelector(`#doc [data-marxy-s="${start}"]`);
+      el.scrollIntoView({ block: 'center' });
+      const r = el.getBoundingClientRect();
       return { x: r.left + 10, y: r.top + 10 };
     }, third.node.src.start + 3 * 0);
     await page.mouse.click(box.x, box.y);
@@ -524,6 +529,25 @@ test('a change to the file made in the other pane while an editor holds an edit 
     const expected = `${A.slice(0, first.range.start)}${first.text} ZZ${A.slice(first.range.end)}\nAppended elsewhere.\n`;
     assert.equal(text, expected);
     assert.equal(await page.evaluate(() => document.querySelectorAll('[hidden]:not(dialog):not(.marxy-source-mount)').length >= 0), true);
+  });
+});
+
+test('two changes queued back to back in the other pane: the reader\'s text lands in its block, not where its bytes were', async () => {
+  await withTwoPanes(async (page, mod, { first }) => {
+    // The first change ends the editor and puts its text back; the second, already queued ahead of that, moves every byte.
+    await page.evaluate(async () => {
+      const store = window.__marxyHandle.panes().panes[1].content.store();
+      const { path, buffer } = store.snapshot();
+      const end = buffer.bytes.length;
+      await Promise.all([
+        store.apply({ range: { file: path, start: end, end }, replacement: '\nAppended elsewhere.\n', label: 'append' }),
+        store.apply({ range: { file: path, start: 0, end: 0 }, replacement: 'Prefixed elsewhere.\n\n', label: 'prefix' }),
+      ]);
+    });
+    await page.waitForFunction(() => new TextDecoder().decode(window.__marxyHandle.panes().panes[0].content.store().snapshot().buffer.bytes).includes('ZZ'));
+    assert.equal(await editors(page), 0);
+    const text = Buffer.from(await bytesOf(page, 0)).toString('utf8');
+    assert.equal(text, `Prefixed elsewhere.\n\n${A.slice(0, first.range.start)}${first.text} ZZ${A.slice(first.range.end)}\nAppended elsewhere.\n`);
   });
 });
 
@@ -690,6 +714,52 @@ test('the edit key and its refusals are in the registry, and the palette can lis
   });
 });
 
+/**
+ * A store whose first `moves` applies each find another change landed just ahead of them (a line added at the top), so
+ * a put-back resolved before it is refused (`baseVersion`) and has to find its block again.
+ */
+function movingStore(text, moves) {
+  const real = openDocumentStore({ writeFileAtomic: async () => {} }, '/t/a.md', Buffer.from(text, 'utf8'));
+  const calls = { putBacks: 0 };
+  const store = {
+    snapshot: () => real.snapshot(),
+    async apply(input) {
+      calls.putBacks += 1;
+      if (moves > 0) {
+        moves -= 1;
+        await real.apply({ range: { file: '/t/a.md', start: 0, end: 0 }, replacement: 'Moved.\n\n', label: 'move' });
+      }
+      return real.apply(input);
+    },
+  };
+  return { store, calls, text: () => Buffer.from(real.snapshot().buffer.bytes).toString('utf8') };
+}
+
+test('a put-back refused because the bytes moved finds its block again, and after five refusals adds the text beside it instead', async () => {
+  const doc = `# T\n\n${para('First')}\n\n${para('Second')}\n`;
+  const first = firstBlock(doc, 'paragraph');
+  const at = { file: '/t/a.md', ...first.range };
+  const mine = `${first.text} ZZ`;
+  assert.equal(PUT_BACK_PASSES, 5);
+
+  const twice = movingStore(doc, 2);
+  assert.equal(await putTextBack(twice.store, at, false, first.text, mine), 'folded');
+  assert.equal(twice.text(), `Moved.\n\nMoved.\n\n${doc.slice(0, first.range.start)}${mine}${doc.slice(first.range.end)}`);
+  assert.equal(twice.calls.putBacks, 3);
+
+  // Five refusals: the sixth pass adds the reader's text beside the block, which stands as it was.
+  const five = movingStore(doc, 5);
+  assert.equal(await putTextBack(five.store, at, false, first.text, mine), 'beside');
+  assert.equal(five.calls.putBacks, 6);
+  assert.equal(five.text(), `${'Moved.\n\n'.repeat(5)}${doc.slice(0, first.range.start)}${mine}\n\n${doc.slice(first.range.start)}`);
+
+  // A store that never stops moving: the put-back gives up, and none of the reader's text was written anywhere.
+  const always = movingStore(doc, 1000);
+  assert.equal(await putTextBack(always.store, at, false, first.text, mine), 'failed');
+  assert.equal(always.calls.putBacks, 6);
+  assert.equal(always.text().includes('ZZ'), false);
+});
+
 test('where a block lands after another change: before it moves it, after it leaves it, across it is a conflict', () => {
   const range = { file: 'f', start: 100, end: 200 };
   assert.deepEqual(rebaseRange(range, null), { range, conflict: false });
@@ -731,7 +801,7 @@ test('closing the window over an editor with nothing typed in it closes at once'
   });
 });
 
-// F-34.2: the block's text is Source's (a byte that is not UTF-8 is a code unit of its own, shown as a marked byte), so a
+// the block's text is Source's (a byte that is not UTF-8 is a code unit of its own, shown as a marked byte), so a
 // block edit beside a stray byte, or either side of one, keeps the byte.
 const STRAY_FILE = Buffer.concat([
   Buffer.from('# Title\n\nalpha '),
@@ -749,7 +819,7 @@ function strayBlock(bytes, at = 0) {
   return { node, range: blockEditRange(ast, node) };
 }
 
-test('a block edit beside a stray byte, and either side of one, keeps the byte; the marker shows; Esc keeps the edit; one Mod+Z is exact (F-34.2)', async () => {
+test('a block edit beside a stray byte, and either side of one, keeps the byte; the marker shows; Esc keeps the edit; one Mod+Z is exact', async () => {
   const first = strayBlock(STRAY_FILE);
   await withPage({ '/c/stray.md': STRAY_FILE }, ['/c/stray.md'], async (page, mod) => {
     const original = await bytesOf(page);
@@ -781,7 +851,7 @@ test('a block edit beside a stray byte, and either side of one, keeps the byte; 
   });
 });
 
-test('a block with a stray byte that is opened and left with nothing typed, or edited beside another block\'s stray, changes no other byte (F-34.2)', async () => {
+test('a block with a stray byte that is opened and left with nothing typed, or edited beside another block\'s stray, changes no other byte', async () => {
   const second = strayBlock(STRAY_FILE, 1);
   await withPage({ '/c/stray.md': STRAY_FILE }, ['/c/stray.md'], async (page, mod) => {
     await selectBlock(page, strayBlock(STRAY_FILE).node.src.start);

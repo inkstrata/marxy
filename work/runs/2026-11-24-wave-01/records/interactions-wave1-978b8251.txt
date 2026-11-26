@@ -1,0 +1,232 @@
+  warming the dev server
+  long-reference: open 1/3
+  long-reference: open 2/3
+  long-reference: open 3/3
+  long-reference: first click
+  long-reference: cursor keys
+  long-reference: undo 1/3
+  long-reference: undo 2/3
+  long-reference: undo 3/3
+  long-reference: reload 1/3
+  long-reference: reload 2/3
+  long-reference: reload 3/3
+  long-reference: tabs
+  long-reference: Source and Read
+  long-reference-plain: open 1/3
+  long-reference-plain: open 2/3
+  long-reference-plain: open 3/3
+  long-reference-plain: undo 1/3
+  long-reference-plain: undo 2/3
+  long-reference-plain: undo 3/3
+  long-reference-plain: reload 1/3
+  long-reference-plain: reload 2/3
+  long-reference-plain: reload 3/3
+  short-document: open 1/3
+  short-document: open 2/3
+  short-document: open 3/3
+  short-document: first click
+  short-document: cursor keys
+  short-document: undo 1/3
+  short-document: undo 2/3
+  short-document: undo 3/3
+  short-document: reload 1/3
+  short-document: reload 2/3
+  short-document: reload 3/3
+  short-document: tabs
+  short-document: Source and Read
+measure-interactions: 978b8251, 2026-11-25T05:39:10.168Z, win32-x64, 16 x AMD Ryzen 7 8845HS w/ Radeon 780M Graphics, 31 GB, msedge 158.0.4370.33, 3 runs
+
+long-reference
+  open               nodes 10080  layouts 396  recalcs 675  firstContentMs 236.1  taskMs 1989.7  scriptMs 406.31  layoutMs 354.38  styleMs 281.34  longestTaskMs 242  settleMs 2315.5
+  cursor key (j)     layouts 4  recalcs 5  handlerMs 22.7  taskMs 23.58  scriptMs 6.53  layoutMs 2.11
+  first click        layouts 6  recalcs 9  handlerMs 10.2  taskMs 45.93  scriptMs 9.61  layoutMs 4.18  styleMs 9.69
+  undo               removedTop 2463  addedTop 2463  layouts 505  recalcs 865  taskMs 3227.24  scriptMs 666.13  layoutMs 479.67  styleMs 413.85  longestTaskMs 475
+  reload from disk   removedTop 2465  addedTop 2467  layouts 457  recalcs 758  taskMs 3102.54  scriptMs 620.33  layoutMs 434.94  styleMs 383.09  longestTaskMs 615
+  tab switch to it   layouts 515  recalcs 918  shownMs 643  taskMs 3208.43  scriptMs 676.51  layoutMs 472.83
+  tab switch away    layouts 59  recalcs 116  shownMs 247  taskMs 264.13  scriptMs 30.7  layoutMs 18.19
+  Source to Read     layouts 56  recalcs 58  shownMs 276.6  taskMs 359.74  scriptMs 23.63  layoutMs 97.74
+  Read to Source     layouts 9  recalcs 12  shownMs 33.2  taskMs 111.37  scriptMs 21.96  layoutMs 7.24
+
+long-reference-plain
+  open               nodes 9841  layouts 336  recalcs 589  firstContentMs 225  taskMs 1863.76  scriptMs 378  layoutMs 361.61  styleMs 269.54  longestTaskMs 231  settleMs 2208.3
+  undo               removedTop 2513  addedTop 2513  layouts 475  recalcs 822  taskMs 3692.56  scriptMs 824.84  layoutMs 599.79  styleMs 523.55  longestTaskMs 458
+  reload from disk   removedTop 0  addedTop 2  layouts 70  recalcs 74  taskMs 297.57  scriptMs 15.29  layoutMs 52.78  styleMs 33.29  longestTaskMs 54
+
+short-document
+  open               nodes 1908  layouts 84  recalcs 150  firstContentMs 85.9  taskMs 282.73  scriptMs 44.08  layoutMs 61.06  styleMs 37.21  longestTaskMs 90  settleMs 350.4
+  cursor key (j)     layouts 4  recalcs 5  handlerMs 8.25  taskMs 7.9  scriptMs 2.18  layoutMs 0.47
+  first click        layouts 6  recalcs 9  handlerMs 5.2  taskMs 16.81  scriptMs 3.99  layoutMs 2.27  styleMs 2.71
+  undo               removedTop 198  addedTop 198  layouts 79  recalcs 128  taskMs 257.66  scriptMs 51.37  layoutMs 24.76  styleMs 38.02  longestTaskMs 84
+  reload from disk   removedTop 200  addedTop 202  layouts 78  recalcs 125  taskMs 287.63  scriptMs 48.85  layoutMs 24.46  styleMs 37.31  longestTaskMs 99
+  tab switch to it   layouts 86  recalcs 164  shownMs 178  taskMs 260.88  scriptMs 50.86  layoutMs 30.33
+  tab switch away    layouts 62  recalcs 119  shownMs 134  taskMs 146.51  scriptMs 25.08  layoutMs 15.65
+  Source to Read     layouts 16  recalcs 18  shownMs 35.5  taskMs 52.22  scriptMs 4.45  layoutMs 11.82
+  Read to Source     layouts 9  recalcs 12  shownMs 17.2  taskMs 33.7  scriptMs 7.12  layoutMs 2.83
+
+Counts first; they do not depend on the machine. removedTop/addedTop: top-level nodes of the article taken out and put in.
+taskMs, scriptMs, layoutMs, styleMs and the counts run from the action until the main thread has been idle for about a second,
+  so they include typesetting that follows it: not the time until the page shows it. A cursor key: the 150 ms after each press.
+shownMs: until the tab or mode is current and two frames have painted. firstContentMs: until the article holds the text.
+handlerMs: event handlers only (a click sees handlers of 16 ms or more). longestTaskMs: tasks of 50 ms or more only.
+
+against b6f8176a (2026-11-24T23:52:31.126Z, win32-x64, 16 x AMD Ryzen 7 8845HS w/ Radeon 780M Graphics, 31 GB) from 978b8251
+number                                          saved         now      change       %
+long-reference/open/nodes                       10080       10080           0      0%
+long-reference/open/layouts                       567         396        -171    -30%
+long-reference/open/recalcs                      1034         675        -359    -35%
+long-reference/open/firstContentMs              307.8       236.1       -71.7    -23%
+long-reference/open/taskMs                    4735.23      1989.7    -2745.53    -58%
+long-reference/open/scriptMs                   719.99      406.31     -313.68    -44%
+long-reference/open/layoutMs                    979.6      354.38     -625.22    -64%
+long-reference/open/styleMs                    1217.6      281.34     -936.26    -77%
+long-reference/open/longestTaskMs                 319         242         -77    -24%
+long-reference/open/settleMs                   4923.7      2315.5     -2608.2    -53%
+long-reference/key/layouts                          4           4           0      0%
+long-reference/key/recalcs                          5           5           0      0%
+long-reference/key/handlerMs                     82.2        22.7       -59.5    -72%
+long-reference/key/taskMs                       82.88       23.58       -59.3    -72%
+long-reference/key/scriptMs                     57.25        6.53      -50.72    -89%
+long-reference/key/layoutMs                      1.11        2.11          +1    +90%
+long-reference/click/layouts                        9           6          -3    -33%
+long-reference/click/recalcs                       13           9          -4    -31%
+long-reference/click/handlerMs                  187.9        10.2      -177.7    -95%
+long-reference/click/taskMs                    397.37       45.93     -351.44    -88%
+long-reference/click/scriptMs                   62.72        9.61      -53.11    -85%
+long-reference/click/layoutMs                   19.11        4.18      -14.93    -78%
+long-reference/click/styleMs                   266.11        9.69     -256.42    -96%
+long-reference/undo/removedTop                   2763        2463        -300    -11%
+long-reference/undo/addedTop                     2763        2463        -300    -11%
+long-reference/undo/layouts                       600         505         -95    -16%
+long-reference/undo/recalcs                      1044         865        -179    -17%
+long-reference/undo/taskMs                     7157.5     3227.24    -3930.26    -55%
+long-reference/undo/scriptMs                  1116.84      666.13     -450.71    -40%
+long-reference/undo/layoutMs                  1158.27      479.67      -678.6    -59%
+long-reference/undo/styleMs                   1806.76      413.85    -1392.91    -77%
+long-reference/undo/longestTaskMs                 620         475        -145    -23%
+long-reference/reload/removedTop                 2737        2465        -272    -10%
+long-reference/reload/addedTop                   2739        2467        -272    -10%
+long-reference/reload/layouts                     670         457        -213    -32%
+long-reference/reload/recalcs                    1201         758        -443    -37%
+long-reference/reload/taskMs                  7407.96     3102.54    -4305.42    -58%
+long-reference/reload/scriptMs                1123.57      620.33     -503.24    -45%
+long-reference/reload/layoutMs                1199.22      434.94     -764.28    -64%
+long-reference/reload/styleMs                 1672.43      383.09    -1289.34    -77%
+long-reference/reload/longestTaskMs               825         615        -210    -25%
+long-reference/tabBack/layouts                    615         515        -100    -16%
+long-reference/tabBack/recalcs                   1094         918        -176    -16%
+long-reference/tabBack/shownMs                    874         643        -231    -26%
+long-reference/tabBack/taskMs                 6679.85     3208.43    -3471.42    -52%
+long-reference/tabBack/scriptMs               1112.76      676.51     -436.25    -39%
+long-reference/tabBack/layoutMs               1159.63      472.83      -686.8    -59%
+long-reference/tabAway/layouts                     63          59          -4     -6%
+long-reference/tabAway/recalcs                    123         116          -7     -6%
+long-reference/tabAway/shownMs                    315         247         -68    -22%
+long-reference/tabAway/taskMs                  346.47      264.13      -82.34    -24%
+long-reference/tabAway/scriptMs                 40.41        30.7       -9.71    -24%
+long-reference/tabAway/layoutMs                  20.8       18.19       -2.61    -13%
+long-reference/toRead/layouts                      61          56          -5     -8%
+long-reference/toRead/recalcs                      65          58          -7    -11%
+long-reference/toRead/shownMs                     519       276.6      -242.4    -47%
+long-reference/toRead/taskMs                   856.64      359.74      -496.9    -58%
+long-reference/toRead/scriptMs                  58.72       23.63      -35.09    -60%
+long-reference/toRead/layoutMs                 214.14       97.74      -116.4    -54%
+long-reference/toSource/layouts                     9           9           0      0%
+long-reference/toSource/recalcs                    13          12          -1     -8%
+long-reference/toSource/shownMs                  60.3        33.2       -27.1    -45%
+long-reference/toSource/taskMs                 162.05      111.37      -50.68    -31%
+long-reference/toSource/scriptMs                31.86       21.96        -9.9    -31%
+long-reference/toSource/layoutMs                11.85        7.24       -4.61    -39%
+long-reference-plain/open/nodes                  9841        9841           0      0%
+long-reference-plain/open/layouts                 467         336        -131    -28%
+long-reference-plain/open/recalcs                 801         589        -212    -26%
+long-reference-plain/open/firstContentMs        320.9         225       -95.9    -30%
+long-reference-plain/open/taskMs              4140.96     1863.76     -2277.2    -55%
+long-reference-plain/open/scriptMs             665.71         378     -287.71    -43%
+long-reference-plain/open/layoutMs             907.88      361.61     -546.27    -60%
+long-reference-plain/open/styleMs              612.86      269.54     -343.32    -56%
+long-reference-plain/open/longestTaskMs           330         231         -99    -30%
+long-reference-plain/open/settleMs             4335.9      2208.3     -2127.6    -49%
+long-reference-plain/undo/removedTop             2513        2513           0      0%
+long-reference-plain/undo/addedTop               2513        2513           0      0%
+long-reference-plain/undo/layouts                 604         475        -129    -21%
+long-reference-plain/undo/recalcs                1077         822        -255    -24%
+long-reference-plain/undo/taskMs              6257.72     3692.56    -2565.16    -41%
+long-reference-plain/undo/scriptMs            1313.42      824.84     -488.58    -37%
+long-reference-plain/undo/layoutMs            1123.67      599.79     -523.88    -47%
+long-reference-plain/undo/styleMs              826.11      523.55     -302.56    -37%
+long-reference-plain/undo/longestTaskMs           576         458        -118    -20%
+long-reference-plain/reload/removedTop              0           0           0       -
+long-reference-plain/reload/addedTop                2           2           0      0%
+long-reference-plain/reload/layouts                70          70           0      0%
+long-reference-plain/reload/recalcs                74          74           0      0%
+long-reference-plain/reload/taskMs             873.98      297.57     -576.41    -66%
+long-reference-plain/reload/scriptMs           150.69       15.29      -135.4    -90%
+long-reference-plain/reload/layoutMs           146.85       52.78      -94.07    -64%
+long-reference-plain/reload/styleMs             75.15       33.29      -41.86    -56%
+long-reference-plain/reload/longestTaskMs         219          54        -165    -75%
+short-document/open/nodes                        1908        1908           0      0%
+short-document/open/layouts                        89          84          -5     -6%
+short-document/open/recalcs                       155         150          -5     -3%
+short-document/open/firstContentMs              141.1        85.9       -55.2    -39%
+short-document/open/taskMs                     474.93      282.73      -192.2    -40%
+short-document/open/scriptMs                    65.36       44.08      -21.28    -33%
+short-document/open/layoutMs                   105.08       61.06      -44.02    -42%
+short-document/open/styleMs                     89.91       37.21       -52.7    -59%
+short-document/open/longestTaskMs                 148          90         -58    -39%
+short-document/open/settleMs                    518.4       350.4        -168    -32%
+short-document/key/layouts                          4           4           0      0%
+short-document/key/recalcs                          5           5           0      0%
+short-document/key/handlerMs                     13.9        8.25       -5.65    -41%
+short-document/key/taskMs                       14.51         7.9       -6.61    -46%
+short-document/key/scriptMs                      6.04        2.18       -3.86    -64%
+short-document/key/layoutMs                      0.53        0.47       -0.06    -11%
+short-document/click/layouts                        9           6          -3    -33%
+short-document/click/recalcs                       13           9          -4    -31%
+short-document/click/handlerMs                     23         5.2       -17.8    -77%
+short-document/click/taskMs                     50.55       16.81      -33.74    -67%
+short-document/click/scriptMs                    7.91        3.99       -3.92    -50%
+short-document/click/layoutMs                    4.37        2.27        -2.1    -48%
+short-document/click/styleMs                    25.82        2.71      -23.11    -90%
+short-document/undo/removedTop                    206         198          -8     -4%
+short-document/undo/addedTop                      206         198          -8     -4%
+short-document/undo/layouts                        84          79          -5     -6%
+short-document/undo/recalcs                       135         128          -7     -5%
+short-document/undo/taskMs                      415.4      257.66     -157.74    -38%
+short-document/undo/scriptMs                    71.32       51.37      -19.95    -28%
+short-document/undo/layoutMs                    39.29       24.76      -14.53    -37%
+short-document/undo/styleMs                     80.94       38.02      -42.92    -53%
+short-document/undo/longestTaskMs                 106          84         -22    -21%
+short-document/reload/removedTop                  204         200          -4     -2%
+short-document/reload/addedTop                    206         202          -4     -2%
+short-document/reload/layouts                      81          78          -3     -4%
+short-document/reload/recalcs                     130         125          -5     -4%
+short-document/reload/taskMs                   407.06      287.63     -119.43    -29%
+short-document/reload/scriptMs                  69.81       48.85      -20.96    -30%
+short-document/reload/layoutMs                  42.02       24.46      -17.56    -42%
+short-document/reload/styleMs                   69.69       37.31      -32.38    -46%
+short-document/reload/longestTaskMs               144          99         -45    -31%
+short-document/tabBack/layouts                     90          86          -4     -4%
+short-document/tabBack/recalcs                    172         164          -8     -5%
+short-document/tabBack/shownMs                    226         178         -48    -21%
+short-document/tabBack/taskMs                  390.68      260.88      -129.8    -33%
+short-document/tabBack/scriptMs                  74.1       50.86      -23.24    -31%
+short-document/tabBack/layoutMs                 43.22       30.33      -12.89    -30%
+short-document/tabAway/layouts                     66          62          -4     -6%
+short-document/tabAway/recalcs                    126         119          -7     -6%
+short-document/tabAway/shownMs                    186         134         -52    -28%
+short-document/tabAway/taskMs                  268.79      146.51     -122.28    -45%
+short-document/tabAway/scriptMs                  38.3       25.08      -13.22    -35%
+short-document/tabAway/layoutMs                 24.64       15.65       -8.99    -36%
+short-document/toRead/layouts                      19          16          -3    -16%
+short-document/toRead/recalcs                      23          18          -5    -22%
+short-document/toRead/shownMs                    60.4        35.5       -24.9    -41%
+short-document/toRead/taskMs                   103.75       52.22      -51.53    -50%
+short-document/toRead/scriptMs                   7.19        4.45       -2.74    -38%
+short-document/toRead/layoutMs                   19.6       11.82       -7.78    -40%
+short-document/toSource/layouts                     9           9           0      0%
+short-document/toSource/recalcs                    13          12          -1     -8%
+short-document/toSource/shownMs                  23.3        17.2        -6.1    -26%
+short-document/toSource/taskMs                  49.79        33.7      -16.09    -32%
+short-document/toSource/scriptMs                10.32        7.12        -3.2    -31%
+short-document/toSource/layoutMs                 4.85        2.83       -2.02    -42%
+record written to C:\Dev\reader\work\wave1\interactions-wave1-978b8251.json

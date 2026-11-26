@@ -1,4 +1,4 @@
-// Palette view: real document mount, ADR-0011 tab-bar assertion, keys, and keystroke perf (MARXY-87).
+// Palette view: real document mount, keys, and keystroke perf.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -7,7 +7,7 @@ import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { updateRecord } from '../../../scripts/lib/perf-record.mjs';
 import { togglePin, recordOpen, emptySession, goBack, goForward } from '../src/palette/session.ts';
@@ -161,19 +161,17 @@ test('bootApplication mounts dialog#marxy-palette; Mod+P summons input and list'
         open: dialog?.open === true,
         input: dialog?.querySelector('input') !== null,
         list: dialog?.querySelector('ol.marxy-palette-results') !== null,
-        tabBar: document.querySelector('[role=tablist], [role=tab], .tab-bar, #marxy-tabs'),
       };
     });
     assert.equal(summoned.open, true);
     assert.equal(summoned.input, true);
     assert.equal(summoned.list, true);
-    assert.equal(summoned.tabBar, null);
   } finally {
     await browser.close();
   }
 });
 
-test('Mod+K and Mod+P toggle the palette; Mod+Shift+P opens it on commands and Mod+/ on the transforms (W-19, W-21), from Rendered and from Source', async () => {
+test('Mod+K and Mod+P open the Line and keep it open, Esc closes it; Mod+Shift+P opens it on commands and Mod+/ on the transforms, from Rendered and from Source', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -203,9 +201,12 @@ test('Mod+K and Mod+P toggle the palette; Mod+Shift+P opens it on commands and M
         await press(chord);
         assert.equal((await state()).open, true, `${chord} opens in ${where}`);
         await press(chord);
-        assert.equal((await state()).open, false, `${chord} again closes in ${where}`);
+        assert.equal((await state()).open, true, `${chord} again keeps the Line open in ${where}, its text selected`);
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(50);
+        assert.equal((await state()).open, false, `Escape closes it in ${where}`);
       }
-      // Mod+Shift+P opens on every command; Mod+/ on the transforms (W-21).
+      // Mod+Shift+P opens on every command; Mod+/ on the transforms.
       for (const [chord, query] of [[`${mod}+Shift+KeyP`, '>'], [`${mod}+Slash`, '>Transform']]) {
         await press(chord);
         const opened = await state();
@@ -225,7 +226,7 @@ test('Mod+K and Mod+P toggle the palette; Mod+Shift+P opens it on commands and M
   }
 });
 
-test('the palette chords work from the find field and with a typed query open (W-19.1)', async () => {
+test('the palette chords work from the find field and with a typed query open', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -256,7 +257,7 @@ test('the palette chords work from the find field and with a typed query open (W
       assert.equal((await state()).open, false);
     }
 
-    // With the palette open on a typed query, Mod+/ and Mod+Shift+P reset it, and Mod+K closes it.
+    // With the palette open on a typed query, Mod+/ and Mod+Shift+P reset it, and Mod+K selects the text (Esc closes).
     await press(`${mod}+KeyK`);
     await page.keyboard.type('doc');
     await press(`${mod}+Slash`);
@@ -264,13 +265,16 @@ test('the palette chords work from the find field and with a typed query open (W
     await press(`${mod}+Shift+KeyP`);
     assert.deepEqual(await state(), { open: true, query: '>' });
     await press(`${mod}+KeyK`);
+    assert.equal((await state()).open, true);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(50);
     assert.equal((await state()).open, false);
   } finally {
     await browser.close();
   }
 });
 
-test('a row shows the kind its index entry recorded (K-05a); the path decides only for an entry that records none', async () => {
+test('a row shows the kind its index entry recorded; the path decides only for an entry that records none', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -296,7 +300,7 @@ test('a row shows the kind its index entry recorded (K-05a); the path decides on
   }
 });
 
-test('Tab toggles documents and headings; Enter on a heading scrolls to the reading line', async () => {
+test('Go lists the headings beside the files (no Tab to reach them); Enter on a heading scrolls to the reading line', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -321,7 +325,6 @@ test('Tab toggles documents and headings; Enter on a heading scrolls to the read
     const mod = modChord(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+KeyP`);
     await page.fill('#marxy-palette .marxy-palette-query', 'accept');
-    await page.keyboard.press('Tab');
     const rows = await page.$$eval('#marxy-palette .marxy-palette-row', (els) => els.map((el) => el.textContent));
     assert.ok(rows.length > 0 && rows.some((row) => row.includes('Acceptance')));
     const before = await page.evaluate(() => {
@@ -358,7 +361,8 @@ test('Mod+. with no hit selected does not pin an empty path', async () => {
     await page.goto(`${base}test/palette-boot.html`);
     await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
     await page.evaluate(async ({ doc }) => {
-      // No index entries at all: the palette's document-phase hits are always [].
+      // No index entries at all. The launch file is in Recent all the same (it is a read), so a row is selected: what
+      // matters is that no empty path is ever pinned.
       await window.marxyPaletteBoot.start({ '/docs/readme.md': doc }, ['/docs/readme.md'], []);
     }, { doc: Buffer.from(HEADING_DOC).toString('base64') });
 
@@ -366,7 +370,7 @@ test('Mod+. with no hit selected does not pin an empty path', async () => {
     await page.keyboard.press(`${mod}+KeyP`);
     await page.keyboard.press(`${mod}+Period`);
     const pinned = await page.evaluate(() => window.__marxyPalette.session.pinned);
-    assert.deepEqual(pinned, []);
+    assert.ok(pinned.every((path) => path.length > 0), `pinned: ${JSON.stringify(pinned)}`);
   } finally {
     await browser.close();
   }
@@ -421,12 +425,12 @@ test('keystroke to rows painted p95 stays under 16 ms on a 20k index', async () 
       const p95 = lat[Math.min(lat.length - 1, Math.ceil(0.95 * lat.length) - 1)];
       return { p95, lat };
     });
-    // Recorded, not a CI failure (ADR-0032): the 16 ms product budget is printed beside the number.
+    // Recorded, not a CI failure: the 16 ms product budget is printed beside the number.
     // What does fail is a measurement that did not happen — too few samples, or no number at all.
     const budget = 16 * Math.max(machineFactor(), 2.5);
     assert.equal(samples.lat.length, 50, 'every keystroke was measured');
     assert.ok(Number.isFinite(samples.p95) && samples.p95 > 0, `palette keystroke p95 was not measured (${samples.p95})`);
-    console.log(`palette keystroke p95 ${samples.p95.toFixed(1)} ms (16 ms product budget, ${budget.toFixed(1)} ms envelope here; recorded, ADR-0032)`);
+    console.log(`palette keystroke p95 ${samples.p95.toFixed(1)} ms (16 ms product budget, ${budget.toFixed(1)} ms envelope here; recorded)`);
     // Written whole (temp file, then rename): core's parse test updates the same file at the same time.
     updateRecord(join(repoRoot, 'results/perf.json'), (record) => ({
       env_class: record.env_class ?? 'reference',
@@ -437,7 +441,7 @@ test('keystroke to rows painted p95 stays under 16 ms on a 20k index', async () 
   }
 });
 
-// A-12: `>` lists every command whose `when` holds, each with its key.
+// `>` lists every command whose `when` holds, each with its key.
 const CMD_DOC = '# Title\n\nParagraph with **bold** text.\n';
 const HTML_DOC = '# Title\n\n<details><summary>More</summary>Hidden body.</details>\n';
 
@@ -536,7 +540,7 @@ test('running Toggle line numbers in Source from the palette shows the gutter', 
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
     const mod = await bootCommands(page, { '/docs/readme.md': b64Doc(CMD_DOC) }, ['/docs/readme.md']);
-    // The command reconfigures the editor the app made; it makes none of its own (F-12), so Source is entered first.
+    // The command reconfigures the editor the app made; it makes none of its own, so Source is entered first.
     await page.evaluate(async () => { await window.__b.handle.toggleMode(); });
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-content'));
     assert.equal(await page.evaluate(() => document.querySelector('#marxy-source .cm-lineNumbers') !== null), false);
@@ -549,7 +553,7 @@ test('running Toggle line numbers in Source from the palette shows the gutter', 
   }
 });
 
-test('opening a hit in root /b makes /b current, and /b hits then sort first (A-06)', async () => {
+test('opening a hit in root /b makes /b current, and /b hits then sort first', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -567,7 +571,7 @@ test('opening a hit in root /b makes /b current, and /b hits then sort first (A-
     }, { doc });
 
     const mod = modChord(await page.evaluate(() => navigator.platform));
-    const keys = () => page.$$eval('#marxy-palette .marxy-palette-row', (els) => els.map((el) => el.dataset.rowKey));
+    const keys = () => page.$$eval('#marxy-palette .marxy-palette-row[data-row-key$=":doc"]', (els) => els.map((el) => el.dataset.rowKey));
     await page.keyboard.press(`${mod}+KeyP`);
     await page.fill('#marxy-palette .marxy-palette-query', 'guide');
     assert.deepEqual(await keys(), ['/a/guide.md:doc', '/b/guide.md:doc']);
@@ -584,7 +588,8 @@ test('opening a hit in root /b makes /b current, and /b hits then sort first (A-
   }
 });
 
-// C-12: the empty palette shows Pinned, Changed since you read and Recent, each row with its age.
+// The empty palette shows Pinned and Recent, each row with its age; nothing says what
+// changed since a file was read (palette/empty-state.ts), so a file never opened is not listed however new it is.
 const EMPTY_DOC = '# Doc\n\nBody.\n';
 
 async function bootEmptyState(page) {
@@ -620,8 +625,17 @@ const listShape = (page) =>
   );
 const selectedKey = (page) =>
   page.$eval('#marxy-palette [aria-selected]', (el) => el.dataset.rowKey);
+/** Anything in the open palette that would say a file changed since it was read. */
+const changedSaid = (page) =>
+  page.evaluate(() => {
+    const dialog = document.getElementById('marxy-palette');
+    return {
+      marks: dialog.querySelectorAll('.marxy-palette-changed').length,
+      words: /changed since/i.test(dialog.textContent) || [...dialog.querySelectorAll('[aria-label]')].some((el) => /changed since/i.test(el.getAttribute('aria-label'))),
+    };
+  });
 
-test('the empty palette shows its three labels in order, arrows skip labels, and an opened changed row moves to Recent (C-12)', async () => {
+test('the empty palette shows Pinned, Recent and Suggested in order, arrows skip labels, and an opened file moves to Recent; nothing says what changed', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -641,18 +655,16 @@ test('the empty palette shows its three labels in order, arrows skip labels, and
 
     const shape = await listShape(page);
     const at = (needle) => shape.findIndex((item) => item.includes(needle));
-    assert.deepEqual(
-      shape.filter((item) => item.startsWith('label:')),
-      ['label:Pinned', 'label:Changed since you read', 'label:Recent', 'label:Suggested'],
-    );
-    assert.ok(at('label:Pinned') < at('pin-doc') && at('pin-doc') < at('label:Changed'), JSON.stringify(shape));
-    assert.deepEqual(shape.slice(at('label:Changed') + 1, at('label:Recent')), ['row:/docs/ch1.md:doc', 'row:/docs/ch2.md:doc'], 'newest change first; the unwatched /far file is not here');
-    assert.ok(shape.slice(at('label:Suggested') + 1).every((item) => item.startsWith('row:view.')), `Suggested holds commands: ${JSON.stringify(shape)}`);
+    assert.deepEqual(shape.filter((item) => item.startsWith('label:')), ['label:Pinned', 'label:Recent', 'label:Suggested', 'label:Or type']);
+    assert.ok(at('label:Pinned') < at('pin-doc') && at('pin-doc') < at('label:Recent'), JSON.stringify(shape));
     assert.ok(shape.indexOf('row:/docs/old-doc.md:doc') > at('label:Recent'), JSON.stringify(shape));
+    assert.ok(shape.slice(at('label:Suggested') + 1, at('label:Or type')).every((item) => item.startsWith('row:view.')), `Suggested holds commands: ${JSON.stringify(shape)}`);
+    assert.ok(shape.slice(at('label:Or type') + 1).every((item) => item.startsWith('row:or:')), `then what each first character does: ${JSON.stringify(shape)}`);
+    assert.ok(!shape.some((item) => item.includes('/docs/ch1.md') || item.includes('/docs/ch2.md')), 'a file never opened is not listed, however new');
     assert.ok(!shape.some((item) => item.includes('/far/far.md')), 'a file never opened in an unwatched root is not listed');
+    assert.deepEqual(await changedSaid(page), { marks: 0, words: false }, 'nothing reports what changed since a read');
 
-    // The accessible structure: the listbox holds named groups; labels are not options; every option
-    // says its age, and where it applies that it changed since you read.
+    // The accessible structure: the listbox holds named groups; labels are not options; every option says its age.
     const structure = await page.evaluate(() => ({
       listboxChildren: [...document.querySelector('#marxy-palette [role=listbox]').children].map((el) => el.getAttribute('role')),
       groups: [...document.querySelectorAll('#marxy-palette [role=listbox] [role=group]')].map((el) => document.getElementById(el.getAttribute('aria-labelledby'))?.textContent),
@@ -661,27 +673,23 @@ test('the empty palette shows its three labels in order, arrows skip labels, and
       names: Object.fromEntries([...document.querySelectorAll('#marxy-palette [role=option]')].map((el) => [el.dataset.rowKey, el.getAttribute('aria-label')])),
     }));
     assert.deepEqual(structure.listboxChildren, ['group', 'group', 'group', 'group']);
-    assert.deepEqual(structure.groups, ['Pinned', 'Changed since you read', 'Recent', 'Suggested']);
+    assert.deepEqual(structure.groups, ['Pinned', 'Recent', 'Suggested', 'Or type']);
     assert.deepEqual(structure.labels, [[null, false], [null, false], [null, false], [null, false]]);
     assert.equal(structure.optionsOutsideGroup, 0);
-    assert.equal(structure.names['/docs/ch1.md:doc'], 'ch1, 2 minutes ago, changed since you read');
-    assert.equal(structure.names['/docs/ch2.md:doc'], 'ch2, 40 minutes ago, changed since you read');
     assert.equal(structure.names['/docs/pin-doc.md:doc'], 'pin-doc, 9 days ago');
     assert.equal(await page.$$eval('#marxy-palette [role=option]', (els) => els.length), shape.filter((item) => item.startsWith('row:')).length);
 
-    // Ages are dim text; the changed rows alone carry the mark.
+    // Ages are dim text, and no row carries a mark.
     const decor = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
       Object.fromEntries(els.map((el) => [el.dataset.rowKey, {
         age: el.querySelector('.marxy-palette-age')?.textContent ?? null,
         mark: el.querySelector('.marxy-palette-changed') !== null,
       }])),
     );
-    assert.deepEqual(decor['/docs/ch1.md:doc'], { age: '2m', mark: true });
-    assert.deepEqual(decor['/docs/ch2.md:doc'], { age: '40m', mark: true });
     assert.deepEqual(decor['/docs/pin-doc.md:doc'], { age: '9d', mark: false });
-    assert.deepEqual(decor['/docs/old-doc.md:doc'], { age: '2w', mark: false });
+    assert.equal(decor['/docs/old-doc.md:doc'].mark, false);
 
-    // K-18: every document row leads with its kind's icon, hidden from a screen reader, and the icon
+    // every document row leads with its kind's icon, hidden from a screen reader, and the icon
     // does not change the row's height (measured with the icon removed from layout).
     const glyphs = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
       els.filter((el) => el.querySelector('.marxy-kind-glyph') !== null).map((el) => {
@@ -702,22 +710,23 @@ test('the empty palette shows its three labels in order, arrows skip labels, and
     assert.ok(glyphs.length > 0);
     for (const g of glyphs) assert.deepEqual({ ...g, delta: g.delta < 0.5 }, { hidden: 'true', svg: true, kind: g.kind, first: true, delta: true });
 
-    // ArrowDown from the last Pinned row lands on the first Changed row; ArrowUp goes back.
+    // ArrowDown from the last Pinned row lands on the first Recent row, over the label; ArrowUp goes back.
+    const firstRecent = shape[at('label:Recent') + 1].slice('row:'.length);
     assert.equal(await selectedKey(page), '/docs/pin-doc.md:doc');
     await page.keyboard.press('ArrowDown');
-    assert.equal(await selectedKey(page), '/docs/ch1.md:doc');
+    assert.equal(await selectedKey(page), firstRecent);
     await page.keyboard.press('ArrowUp');
     assert.equal(await selectedKey(page), '/docs/pin-doc.md:doc');
-    await page.keyboard.press('ArrowDown');
 
-    // Open the changed row: the next summons lists it under Recent, not Changed.
+    // A file opened from the typed list is at the head of Recent at the next summons.
+    await page.fill(input, 'ch1');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => !document.getElementById('marxy-palette').open);
     await page.keyboard.press(`${mod}+KeyP`);
+    // The summons keeps the last query; with nothing typed it is the empty list again.
+    await page.fill(input, '');
     const after = await listShape(page);
-    const recentAt = after.indexOf('label:Recent');
-    assert.ok(after.indexOf('row:/docs/ch1.md:doc') > recentAt, JSON.stringify(after));
-    assert.deepEqual(after.slice(after.indexOf('label:Changed since you read') + 1, recentAt), ['row:/docs/ch2.md:doc']);
+    assert.equal(after[after.indexOf('label:Recent') + 1], 'row:/docs/ch1.md:doc', JSON.stringify(after));
 
     // Command-period pins the selected row's path, and the list moves it under Pinned at once.
     const rowKeys = after.filter((item) => item.startsWith('row:'));
@@ -726,15 +735,12 @@ test('the empty palette shows its three labels in order, arrows skip labels, and
     await page.keyboard.press(`${mod}+Period`);
     const pinnedNow = await listShape(page);
     assert.deepEqual(pinnedNow.slice(0, 3), ['label:Pinned', 'row:/docs/old-doc.md:doc', 'row:/docs/pin-doc.md:doc'], JSON.stringify(pinnedNow));
-
-    // Still no tab bar anywhere in the document (ADR-0011).
-    assert.equal(await page.evaluate(() => document.querySelector('[role=tablist], [role=tab], .tab-bar, #marxy-tabs')), null);
   } finally {
     await browser.close();
   }
 });
 
-test('typed results show the age and the path; only a watched folder adds the changed mark (C-12, W-13.1)', async () => {
+test('typed results show the age and the path, and no changed mark in a watched folder or elsewhere', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -742,26 +748,27 @@ test('typed results show the age and the path; only a watched folder adds the ch
     const mod = modChord(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+KeyP`);
     await page.fill('#marxy-palette .marxy-palette-query', 'ch1');
-    const typed = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
+    const typed = await page.$$eval('#marxy-palette .marxy-palette-row[data-row-key$=":doc"]', (els) =>
       els.map((el) => [el.dataset.rowKey, el.querySelector('.marxy-palette-age')?.textContent ?? null, el.querySelector('.marxy-palette-changed') !== null]),
     );
-    assert.deepEqual(typed, [['/docs/ch1.md:doc', '2m', true]]);
-    assert.deepEqual(await page.$$eval('#marxy-palette .marxy-palette-section', (els) => els.map((el) => el.textContent)), ['Files'], 'a typed list has the one label, Files');
+    assert.deepEqual(typed, [['/docs/ch1.md:doc', '2m', false]], 'a file changed in a watched folder has its age and no mark');
+    assert.equal(await page.$$eval('#marxy-palette .marxy-palette-section', (els) => els.map((el) => el.textContent)[0]), 'Files', 'a typed list leads with Files');
+    assert.deepEqual(await changedSaid(page), { marks: 0, words: false });
     await page.fill('#marxy-palette .marxy-palette-query', 'far');
     const far = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
       els.filter((el) => el.dataset.rowKey === '/far/far.md:doc').map((el) => [el.querySelector('.marxy-palette-age')?.textContent ?? null, el.querySelector('.marxy-palette-changed')]),
     );
     assert.equal(far.length, 1);
     assert.ok(far[0][0] !== null && /^(now|\d+[mhdwy])$/.test(far[0][0]), 'an unwatched folder\'s row has its age too (mock-v2)');
-    assert.equal(far[0][1], null, 'and no changed mark: that needs a watched folder');
-    const subs = await page.$$eval('#marxy-palette .marxy-palette-row', (els) => els.map((el) => [el.dataset.rowKey, el.querySelector('.marxy-palette-sub').textContent]));
+    assert.equal(far[0][1], null, 'and no changed mark');
+    const subs = await page.$$eval('#marxy-palette .marxy-palette-row[data-row-key$=":doc"]', (els) => els.map((el) => [el.dataset.rowKey, el.querySelector('.marxy-palette-sub').textContent]));
     assert.deepEqual(subs.find(([key]) => key === '/far/far.md:doc'), ['/far/far.md:doc', 'far/far.md'], 'the path under the title, from the root\'s folder down');
   } finally {
     await browser.close();
   }
 });
 
-test('opening a file by any route, or saving it from Marxy, counts as reading it (C-12)', async () => {
+test('opening a file by any route puts it in Recent; a save from Marxy leaves the order alone and marks nothing', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -776,24 +783,25 @@ test('opening a file by any route, or saving it from Marxy, counts as reading it
     });
     const summon = async () => { await page.keyboard.press(`${mod}+KeyP`); return sections(); };
     let now = await summon();
-    assert.deepEqual(now['Changed since you read'], ['/docs/ch1.md', '/docs/ch2.md']);
+    assert.ok(!(now.Recent ?? []).includes('/docs/ch1.md'));
     await page.keyboard.press('Escape');
 
     // Opened the way the command line and the menu open: through the app, not the palette.
     await page.evaluate(async () => { await window.__b.handle.open('/docs/ch1.md'); });
     now = await summon();
-    assert.deepEqual(now['Changed since you read'], ['/docs/ch2.md'], 'an app open is a read');
-    assert.ok(now.Recent.includes('/docs/ch1.md'));
+    assert.equal(now.Recent[0], '/docs/ch1.md', 'an app open is in Recent');
+    assert.deepEqual(await changedSaid(page), { marks: 0, words: false });
     await page.keyboard.press('Escape');
 
-    // Saved from Marxy: it changes on disk after the read, and the save reads it again.
+    // It changes on disk after the open: still nothing says so, and a changed file never opened is not listed.
     await page.evaluate(async () => {
       const entry = (path, mtimeMs) => ({ path, root: '/docs', title: path.split('/').pop().replace('.md', ''), headings: [], mtimeMs, size: 1, kind: 'markdown' });
       await new Promise((r) => setTimeout(r, 30));
       window.__marxyPalette.setIndexEntries([entry('/docs/ch1.md', Date.now()), entry('/docs/ch2.md', Date.now() - 2_400_000)]);
     });
     now = await summon();
-    assert.deepEqual(now['Changed since you read'], ['/docs/ch1.md', '/docs/ch2.md'], 'modified after the read: changed again');
+    assert.deepEqual(await changedSaid(page), { marks: 0, words: false }, 'modified after the open: nothing says so');
+    assert.ok(!Object.values(now).flat().includes('/docs/ch2.md'), JSON.stringify(now));
     await page.keyboard.press('Escape');
     const order = await page.evaluate(() => window.__marxyPalette.session.mru.slice());
     await page.evaluate(async () => {
@@ -805,32 +813,34 @@ test('opening a file by any route, or saving it from Marxy, counts as reading it
       if (result !== 'saved') throw new Error(`save said ${JSON.stringify(result)}`);
     });
     await page.waitForTimeout(100);
-    now = await summon();
-    assert.ok(!(now['Changed since you read'] ?? []).includes('/docs/ch1.md'), JSON.stringify(now));
+    await summon();
+    assert.deepEqual(await changedSaid(page), { marks: 0, words: false });
     assert.deepEqual(await page.evaluate(() => window.__marxyPalette.session.mru.slice()), order, 'a save leaves the MRU order alone');
   } finally {
     await browser.close();
   }
 });
 
-test('the empty list follows an index publish while the palette is open (C-12)', async () => {
+test('the empty list follows an index publish while the palette is open', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await bootEmptyState(page);
     const mod = modChord(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+KeyP`);
-    assert.ok((await listShape(page)).includes('row:/docs/ch1.md:doc'));
+    const row = '#marxy-palette .marxy-palette-row[data-row-key="/docs/readme.md:doc"] .marxy-palette-title';
+    assert.equal(await page.$eval(row, (el) => el.textContent), 'readme', 'the launch file is Recent');
     await page.evaluate(() => {
-      window.__marxyPalette.setIndexEntries([{ path: '/docs/ch9.md', root: '/docs', title: 'ch9', headings: [], mtimeMs: Date.now() - 1000, size: 1, kind: 'markdown' }]);
+      window.__marxyPalette.setIndexEntries([{ path: '/docs/readme.md', root: '/docs', title: 'Read me first', headings: [], mtimeMs: Date.now() - 1000, size: 1, kind: 'markdown' }]);
     });
-    assert.deepEqual((await listShape(page)).slice(0, 2), ['label:Changed since you read', 'row:/docs/ch9.md:doc']);
+    await page.waitForFunction((sel) => document.querySelector(sel)?.textContent === 'Read me first', row);
+    assert.deepEqual(await changedSaid(page), { marks: 0, words: false });
   } finally {
     await browser.close();
   }
 });
 
-// U-04: the palette's field, glyphs, groups, chips and footer.
+// As the Line has it: the field with its scope word, the groups and the foot; no chips.
 async function bootDocument(page, width = 1440, height = 900) {
   await page.setViewportSize({ width, height });
   await page.goto(`${base}test/palette-boot.html`);
@@ -841,7 +851,7 @@ async function bootDocument(page, width = 1440, height = 900) {
   return modChord(await page.evaluate(() => navigator.platform));
 }
 
-test('the field has its prompt, glyph and Esc button; the chips swap the prefix and keep the query; order is field, chips, list (U-04)', async () => {
+test('the field has its scope word, prompt and Esc button; the first character picks the scope; order is field, list (the Line)', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage();
@@ -852,7 +862,7 @@ test('the field has its prompt, glyph and Esc button; the chips swap the prefix 
     const shape = await page.evaluate(() => {
       const dialog = document.getElementById('marxy-palette');
       const input = dialog.querySelector('.marxy-palette-query');
-      const modes = dialog.querySelector('.marxy-palette-modes');
+      const scope = dialog.querySelector('.marxy-palette-scope');
       const list = dialog.querySelector('[role=listbox]');
       const esc = dialog.querySelector('.marxy-palette-esc');
       const before = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
@@ -862,50 +872,38 @@ test('the field has its prompt, glyph and Esc button; the chips swap the prefix 
         name: input.getAttribute('aria-label'),
         role: input.getAttribute('role'),
         controls: input.getAttribute('aria-controls') === list.id,
-        glyph: dialog.querySelector('.marxy-palette-field .marxy-palette-glyph svg') !== null,
+        scope: scope.textContent,
+        described: input.getAttribute('aria-describedby') === scope.id,
         escTag: esc.tagName,
         escName: esc.getAttribute('aria-label'),
-        order: before(input, modes) && before(modes, list),
-        chips: [...modes.querySelectorAll('button')].map((b) => [b.textContent, b.getAttribute('aria-pressed'), b.type]),
+        order: before(scope, input) && before(input, list),
+        chips: dialog.querySelectorAll('.marxy-palette-mode').length,
         footer: dialog.querySelector('.marxy-palette-foot').textContent,
       };
     });
-    assert.equal(shape.width, 860, 'the palette is 860 px wide in a window that holds it');
-    assert.ok(/type > for commands, \/ for content, # headings, @ sections/.test(shape.placeholder), shape.placeholder);
-    assert.equal(shape.name, 'Search files, commands and content');
+    assert.equal(shape.width, 820, 'the Line is 820 px wide in a window that holds it');
+    assert.ok(/> command {3}@ here {3}\/ find {3}# everywhere {3}: line/.test(shape.placeholder), shape.placeholder);
+    assert.equal(shape.name, 'Go anywhere, or type a first character to pick a scope');
     assert.equal(shape.role, 'combobox');
-    assert.ok(shape.controls && shape.glyph && shape.order);
-    assert.deepEqual([shape.escTag, shape.escName], ['BUTTON', 'Close palette']);
-    assert.deepEqual(shape.chips, [['Everything', 'true', 'button'], ['Commands>', 'false', 'button'], ['Headings here#', 'false', 'button'], ['Sections everywhere@', 'false', 'button'], ['Content search/', 'false', 'button']]);
-    assert.ok(/open beside/.test(shape.footer) && /pin/.test(shape.footer) && /transforms/.test(shape.footer), shape.footer);
+    assert.ok(shape.controls && shape.described && shape.order);
+    assert.equal(shape.scope, 'Go');
+    assert.equal(shape.chips, 0, 'one field: no mode buttons');
+    assert.deepEqual([shape.escTag, shape.escName], ['BUTTON', 'Close the Line']);
+    assert.ok(/beside/.test(shape.footer) && /pin/.test(shape.footer) && /close/.test(shape.footer), shape.footer);
 
-    const chip = (label) => page.locator('#marxy-palette .marxy-palette-mode', { hasText: label });
-    const state = () => page.evaluate(() => ({
-      query: document.querySelector('#marxy-palette .marxy-palette-query').value,
-      pressed: [...document.querySelectorAll('#marxy-palette .marxy-palette-mode[aria-pressed=true]')].map((b) => b.firstChild.textContent),
-      focused: document.activeElement?.className,
-    }));
-    await page.fill('#marxy-palette .marxy-palette-query', 'doc');
-    await chip('Commands').click();
-    assert.deepEqual(await state(), { query: '>doc', pressed: ['Commands'], focused: 'marxy-palette-query' });
-    await chip('Content search').click();
-    assert.deepEqual((await state()).query, '/doc');
-    assert.deepEqual((await state()).pressed, ['Content search']);
-    await chip('Headings here').click();
-    assert.deepEqual(await state(), { query: '#doc', pressed: ['Headings here'], focused: 'marxy-palette-query' });
-    await chip('Sections everywhere').click();
-    assert.deepEqual(await state(), { query: '@doc', pressed: ['Sections everywhere'], focused: 'marxy-palette-query' });
-    await page.fill('#marxy-palette .marxy-palette-query', '@doc');
-    assert.deepEqual((await state()).pressed, ['Sections everywhere'], 'typing the mark lights its tab');
-    await chip('Commands').click();
-    assert.deepEqual((await state()).query, '>doc', 'a tab swaps the prefix and keeps the words');
-    await chip('Everything').click();
-    assert.deepEqual((await state()).pressed, ['Everything']);
+    const scopeNow = () => page.evaluate(() => ({ word: document.querySelector('#marxy-palette .marxy-palette-scope').textContent, scope: document.getElementById('marxy-palette').dataset.marxyScope, focused: document.activeElement?.className }));
+    for (const [q, word, scope] of [['>doc', 'Commands', 'cmd'], ['#doc', 'Search the workspace', 'grep'], ['@doc', 'In this document', 'outline'], ['/doc', 'Find', 'find'], [':4', 'Line', 'goto'], ['?', 'Help', 'help'], ['doc', 'Go', 'go']]) {
+      await page.fill('#marxy-palette .marxy-palette-query', q);
+      assert.deepEqual(await scopeNow(), { word, scope, focused: 'marxy-palette-query' }, q);
+    }
+    // Shift+Tab has nowhere to go: the keys stay in the field.
+    await page.keyboard.press('Shift+Tab');
+    assert.equal((await scopeNow()).focused, 'marxy-palette-query');
 
     await page.locator('#marxy-palette .marxy-palette-esc').click();
-    assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), false, 'the Esc button closes the palette');
+    assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), false, 'the Esc button closes the Line');
 
-    // A window narrower than the palette clamps it.
+    // A window narrower than the Line clamps it.
     await page.setViewportSize({ width: 600, height: 700 });
     await page.keyboard.press(`${mod}+KeyK`);
     assert.ok((await page.evaluate(() => document.getElementById('marxy-palette').getBoundingClientRect().width)) <= 600 - 32);
@@ -914,46 +912,7 @@ test('the field has its prompt, glyph and Esc button; the chips swap the prefix 
   }
 });
 
-test('the mode buttons are one tab stop: Shift+Tab reaches them, arrows walk them, Enter and Space choose, focus returns to the field (W-13.2)', async () => {
-  const browser = await launchWebkit();
-  try {
-    const page = await browser.newPage();
-    const mod = await bootDocument(page);
-    await page.keyboard.press(`${mod}+KeyK`);
-    await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
-    const snap = () => page.evaluate(() => ({
-      query: document.querySelector('#marxy-palette .marxy-palette-query').value,
-      pressed: [...document.querySelectorAll('#marxy-palette .marxy-palette-mode[aria-pressed=true]')].map((b) => b.firstChild.textContent),
-      stops: [...document.querySelectorAll('#marxy-palette .marxy-palette-mode')].filter((b) => b.tabIndex === 0).map((b) => b.firstChild.textContent),
-      focus: document.activeElement?.classList.contains('marxy-palette-mode') ? document.activeElement.firstChild.textContent : document.activeElement?.className,
-    }));
-    assert.deepEqual(await snap(), { query: '', pressed: ['Everything'], stops: ['Everything'], focus: 'marxy-palette-query' });
-    await page.keyboard.press('Shift+Tab');
-    assert.equal((await snap()).focus, 'Everything', 'Shift+Tab leaves the field for the chosen mode button');
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
-    assert.deepEqual(await snap(), { query: '', pressed: ['Everything'], stops: ['Headings here'], focus: 'Headings here' });
-    await page.keyboard.press('Enter');
-    assert.deepEqual(await snap(), { query: '#', pressed: ['Headings here'], stops: ['Headings here'], focus: 'marxy-palette-query' }, 'Enter chooses and the field has focus again');
-    await page.keyboard.press('Shift+Tab');
-    assert.equal((await snap()).focus, 'Headings here', 'the one tab stop follows the chosen mode');
-    await page.keyboard.press('End');
-    await page.keyboard.press('Space');
-    assert.deepEqual(await snap(), { query: '/', pressed: ['Content search'], stops: ['Content search'], focus: 'marxy-palette-query' }, 'Space chooses');
-    await page.keyboard.press('Shift+Tab');
-    await page.keyboard.press('Home');
-    await page.keyboard.press('ArrowLeft');
-    assert.equal((await snap()).focus, 'Content search', 'the arrows wrap');
-    await page.keyboard.press('Tab');
-    assert.equal((await snap()).focus, 'marxy-palette-query', 'Tab hands focus back to the field');
-    await page.keyboard.type('doc');
-    assert.equal((await snap()).query, '/doc', 'typing in the field works as before');
-  } finally {
-    await browser.close();
-  }
-});
-
-test('> lists the commands under group headers that are not options; the arrows walk the rows only; a row is 46 px (U-04)', async () => {
+test('> lists the commands under group headers that are not options; the arrows walk the rows only; a row is one 30 px line (the Line)', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage();
@@ -982,10 +941,10 @@ test('> lists the commands under group headers that are not options; the arrows 
     assert.ok(names.length >= 4, `several command groups show: ${names}`);
     assert.ok(!listing.headersAreOptions);
     assert.equal(listing.rowCount, listing.optionCount);
-    assert.deepEqual(listing.heights, [46], 'every row is 46 px');
+    assert.deepEqual(listing.heights, [30], 'every row is one 30 px line');
     assert.ok(listing.glyphs, 'every row leads with a hidden glyph');
-    const showAs = listing.groups.flatMap((g) => g.titles).filter((t) => t.startsWith('Show this file as'));
-    assert.deepEqual(showAs, ['Show this file as…'], 'the family is one row');
+    const showAs = listing.groups.flatMap((g) => g.titles).filter((t) => t.startsWith('Read this file as'));
+    assert.deepEqual(showAs, ['Read this file as…'], 'the family is one row');
     assert.ok(listing.groups.flatMap((g) => g.titles).filter((t) => t.startsWith('Always open this folder as')).length <= 1);
 
     // The arrows step through rows only, and the field names the highlighted row.
@@ -1004,9 +963,11 @@ test('> lists the commands under group headers that are not options; the arrows 
     assert.deepEqual(walked.map((w) => w.index), Array.from({ length: 40 }, (_, i) => i), 'each press lands on the next row, a header never takes one');
     assert.ok(walked.every((w) => w.role === 'option' && w.selected === 'true' && w.only === 1));
 
-    // The row that opens a list turns the query into the list.
-    await page.fill('#marxy-palette .marxy-palette-query', '>show this file');
-    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length === 1);
+    // The row that opens a list turns the query into the list. It is the first row; the r key's Read this file another
+    // way is listed after it.
+    await page.fill('#marxy-palette .marxy-palette-query', '>read this file');
+    await page.waitForFunction(() => document.querySelector('#marxy-palette .marxy-palette-row .marxy-palette-title')?.textContent === 'Read this file as…');
+    assert.deepEqual(await page.$$eval('#marxy-palette .marxy-palette-title', (els) => els.map((t) => t.textContent)), ['Read this file as…', 'Read this file another way, with Bytes always last']);
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length > 3);
     const opened = await page.evaluate(() => ({
@@ -1015,11 +976,12 @@ test('> lists the commands under group headers that are not options; the arrows 
       titles: [...document.querySelectorAll('#marxy-palette .marxy-palette-title')].map((t) => t.textContent),
     }));
     assert.equal(opened.open, true);
-    assert.equal(opened.query, '>Show this file as ');
-    assert.ok(opened.titles.length > 3 && opened.titles.every((t) => t.startsWith('Show this file as')), JSON.stringify(opened.titles));
+    assert.equal(opened.query, '>Read this file as ');
+    const kinds = opened.titles.filter((t) => t !== 'Read this file another way, with Bytes always last');
+    assert.ok(kinds.length > 3 && kinds.every((t) => t.startsWith('Read this file as')), JSON.stringify(opened.titles));
 
-    // A kind's name lists its rows directly (`>log`, `>show as log`), as main does; no drill row stands in.
-    for (const [q, want] of [['>log', ['Show this file as log', 'Always open this folder as log']], ['>show as log', ['Show this file as log']]]) {
+    // A kind's name lists its rows directly (`>log`, `>read as log`), as main does; no drill row stands in.
+    for (const [q, want] of [['>log', ['Read this file as log', 'Always open this folder as log']], ['>read as log', ['Read this file as log']]]) {
       await page.fill('#marxy-palette .marxy-palette-query', q);
       const titles = await page.$$eval('#marxy-palette .marxy-palette-title', (els) => els.map((t) => t.textContent));
       for (const t of want) assert.ok(titles.includes(t), `${q}: ${t} in ${JSON.stringify(titles)}`);

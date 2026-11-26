@@ -1,6 +1,6 @@
 import type { Kind } from './kinds.ts';
 
-/** The index contract. Reviewed contract (ADR-0012, ADR-0045): changes by pull request; limits are
+/** The index contract. Reviewed contract; limits are
  * tested in contracts.test.ts. What the palette searches; never contents. */
 export interface IndexEntry {
   readonly path: string;
@@ -10,11 +10,12 @@ export interface IndexEntry {
   readonly mtimeMs: number;
   readonly size: number;
   readonly lastReadMs?: number;
-  /** The file class the allow-list put it in (ADR-0012): what the walk and the content search decide on. */
-  readonly kind: 'markdown' | 'text' | 'source' | 'theme';
+  /** The file class the registry puts it in: what the walk and the content search decide on. Every file is
+   * listed; a `binary` one is never read by Find. */
+  readonly kind: 'markdown' | 'text' | 'source' | 'theme' | 'binary';
   /**
-   * How the file is read (ADR-0060), decided from its path alone (tiers 1 to 3), never from bytes; K-06. Not `kind`:
-   * that names the file class above. Optional so a snapshot written before K-06 still loads; absent means not yet decided.
+   * How the file is read, decided from its path alone (tiers 1 to 3), never from bytes. Not `kind`:
+   * that names the file class above. Optional so a snapshot written before it still loads; absent means not yet decided.
    */
   readonly readerKind?: Kind;
 }

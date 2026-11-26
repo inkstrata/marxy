@@ -1,15 +1,16 @@
-// Content search in the palette (C-17): `/` then a phrase searches the contents of the files in the
-// palette's scope, in one shell call (C-16). Nothing is indexed and nothing is written; only the
+// Content search in the palette: `#` then a phrase (the Line's workspace search, `/` before it) searches the contents of the files in the
+// palette's scope, in one shell call. Nothing is indexed and nothing is written; only the
 // scoped entries' own paths are read, on this machine. A pause after the last keystroke starts a
 // search (120 ms), a newer query aborts the one in flight, and an answer that arrives late is dropped,
 // so typing never waits on a scan and the fuzzy matcher is never run for this phase.
 import type { InvisibleSegment } from '@marxy/core/src/render/index.ts';
 import type { ContentHit, ContentSearchOptions, ContentSearchResult } from '@marxy/shell-api';
+import { CONTENT_SEARCH_LIMITS } from '@marxy/core/src/index-model/content-search.ts';
 
-/** The phrase after a leading `/`, or null when the query is not a content query (`foo/bar` is fuzzy). */
+/** The phrase after a leading `#`, or null when the query is not a content query (`foo#bar` is fuzzy). */
 export function contentQuery(raw: string): string | null {
   const trimmed = raw.trim();
-  if (!trimmed.startsWith('/')) return null;
+  if (!trimmed.startsWith('#')) return null;
   return trimmed.slice(1).trim();
 }
 
@@ -84,13 +85,26 @@ export interface ContentSearchOpts {
 
 export const HINT_NOTICE = 'Type to search file contents';
 
+/** The sentence for a search a budget ended early. */
+function stoppedNotice(stopped: NonNullable<ContentSearchResult['stopped']>): string {
+  if (stopped === 'bytes') return `Stopped after reading ${CONTENT_SEARCH_LIMITS.maxTotalBytes / 2 ** 30} GB`;
+  if (stopped === 'time') return `Stopped after ${CONTENT_SEARCH_LIMITS.maxSeconds} seconds`;
+  return `Stopped after ${CONTENT_SEARCH_LIMITS.maxFiles.toLocaleString('en-US')} files`;
+}
+
 export function countNotice(result: ContentSearchResult, fileCapped: boolean): string {
   const files = new Set(result.hits.map((hit) => hit.path)).size;
+  const counted = `${result.hits.length} ${result.hits.length === 1 ? 'match' : 'matches'} in ${files} ${files === 1 ? 'file' : 'files'}`;
   let line: string;
   if (result.hits.length === 0) line = 'No matches';
+  else if (result.stopped) line = counted;
   else if (result.truncated) line = `Showing the first ${result.hits.length} matches`;
-  else line = `${result.hits.length} ${result.hits.length === 1 ? 'match' : 'matches'} in ${files} ${files === 1 ? 'file' : 'files'}`;
-  return fileCapped ? `${line}. Searched the first ${CONTENT_FILE_CAP.toLocaleString('en-US')} files in scope.` : line;
+  else line = counted;
+  const notes = [line];
+  if (result.stopped) notes.push(stoppedNotice(result.stopped));
+  if (fileCapped) notes.push(`Searched the first ${CONTENT_FILE_CAP.toLocaleString('en-US')} files in scope`);
+  if (result.skippedFiles > 0) notes.push(`${result.skippedFiles.toLocaleString('en-US')} ${result.skippedFiles === 1 ? 'file' : 'files'} skipped`);
+  return notes.length === 1 ? line : `${notes.join('. ')}.`;
 }
 
 export function createContentSearch(

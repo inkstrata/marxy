@@ -1,13 +1,13 @@
-// The verb menu (C-13, ADR-0054): the one click surface for operations. Summoned by right-click (Ctrl-click
+// The verb menu: the one click surface for operations. Summoned by right-click (Ctrl-click
 // on a Mac), the context-menu key, Shift+F10, or Enter on a selection (the openers are in `bind.ts`); it
 // lists the selection's verbs in the order `verbs.ts` writes, each with its chord. Built on open and
-// removed on close: at rest nothing of it is in the DOM (ADR-0050).
+// removed on close: at rest nothing of it is in the DOM.
 
 import type { AppContext, Command } from '../commands/registry.ts';
 import { keyLabel } from '../palette/commands.ts';
-import { copyDefault, menuVerbs, verbKindIn } from './verbs.ts';
+import { BAR_VERBS, copyDefault, menuVerbs, verbKindIn } from './verbs.ts';
 
-/** At most this many verb rows; "All actions…" follows when more apply (ADR-0054 §1, §5). */
+/** At most this many verb rows; "All actions…" follows when more apply. */
 export const MENU_VERB_LIMIT = 7;
 
 export const ALL_ACTIONS_TITLE = 'All actions…';
@@ -26,12 +26,14 @@ export interface VerbMenuOptions {
   /** Opens the palette on its actions list (`'>'`): the "All actions…" row. */
   readonly allActions: () => void;
   /**
-   * Rows to show in place of the selection's verbs (Copy as, J-04): the first has focus, so Enter runs it.
+   * Rows to show in place of the selection's verbs (Copy as): the first has focus, so Enter runs it.
    * Each row's command is run with the `ctx` the menu was opened with.
    */
   readonly rows?: readonly VerbMenuRow[];
   /** What the menu is for, as a screen reader announces it, when `rows` are given ("Copy as"). */
   readonly label?: string;
+  /** List the verb bar's verbs after the operations: the menu Enter opens on a part. */
+  readonly withBarVerbs?: boolean;
 }
 
 /** One row of the menu, as built: the command it runs (null for "All actions…") and its chord. */
@@ -40,11 +42,11 @@ export interface VerbMenuRow {
   readonly title: string;
   /** The chord as a registry spec (`Mod+C`), or undefined. */
   readonly chord?: string;
-  /** Run in place of the command's `run` (K-07: a row that opens a second menu); the row's `command` is then null. */
+  /** Run in place of the command's `run` (a row that opens a second menu); the row's `command` is then null. */
   readonly run?: () => void | Promise<void>;
-  /** Text the menu tells and does nothing with (K-07: why a file is the kind it is): `aria-disabled`, never run, never first focus. */
+  /** Text the menu tells and does nothing with (why a file is the kind it is): `aria-disabled`, never run, never first focus. */
   readonly note?: boolean;
-  /** Quiet text at the row's end, where a chord goes (K-07: the tier and where a signal was seen). */
+  /** Quiet text at the row's end, where a chord goes (the tier and where a signal was seen). */
   readonly detail?: string;
   /** `data-row-key` for a row with no command. */
   readonly key?: string;
@@ -54,21 +56,45 @@ function isMac(): boolean {
   return typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 }
 
+/** A verb of the bar and the operation of the menu that does the same thing. */
+const BAR_EQUIVALENT: Readonly<Record<string, string>> = {
+  'cursor.tick': 'op.toggle-task',
+  'cursor.source': 'view.jump-to-source',
+  'cursor.copy': 'op.copy-source',
+};
+
 /**
  * The rows the menu shows for `ctx`: the selection's verbs (`menuVerbs`, the one written order), the first
  * seven, each with its chord (`Mod+C` for the default copy verb, else the command's own key; `Mod+Shift+C`
- * opens Copy as and is not a verb's, J-04); then "All actions…" when an operation applies that the rows do not show.
+ * opens Copy as and is not a verb's); then "All actions…" when an operation applies that the rows do not show.
  */
-export function verbMenuRows(ctx: AppContext, registered: readonly Command[]): VerbMenuRow[] {
+export function verbMenuRows(ctx: AppContext, registered: readonly Command[], withBarVerbs = false): VerbMenuRow[] {
   const verbs = menuVerbs(ctx, registered);
   const shown = verbs.slice(0, MENU_VERB_LIMIT);
   const copyId = copyDefault(ctx, registered)?.id;
-  const rows: VerbMenuRow[] = shown.map((command) => ({
-    command,
-    title: command.title,
-    chord: command.id === copyId ? 'Mod+C' : command.key,
-  }));
+  const rows: VerbMenuRow[] = shown.map((command) => {
+    const detail = command.detail?.(ctx) ?? null;
+    return {
+      command,
+      title: command.title,
+      chord: command.id === copyId ? 'Mod+C' : command.key,
+      ...(detail === null ? {} : { detail }),
+    };
+  });
   if (rows.length === 0) return rows;
+  // Opened from the keyboard on a part, the verb bar's own verbs follow, so the menu names every verb the bar does.
+  for (const [id, , only] of withBarVerbs ? BAR_VERBS : []) {
+    const command = registered.find((c) => c.id === id);
+    if (id === 'cursor.menu' || !command?.key || !command.when(ctx) || (only === 'section' && ctx.selection.kind !== 'section')) continue;
+    if (rows.some((r) => r.command?.id === id)) continue;
+    // The operation that does what the bar's verb does is that verb's row: it shows the bar's key.
+    const same = rows.findIndex((r) => r.command?.id === BAR_EQUIVALENT[id]);
+    if (same >= 0) {
+      if (rows[same]!.command?.id !== copyId) rows[same] = { ...rows[same]!, chord: command.key };
+      continue;
+    }
+    rows.push({ command, title: command.title, chord: command.key });
+  }
   const shownIds = new Set(shown.map((c) => c.id));
   // An operation (`op.*`, `fromOperation`'s ids) that applies and is not on a row: the palette lists it.
   const more =
@@ -142,6 +168,13 @@ interface OpenMenu {
 }
 
 let current: OpenMenu | null = null;
+let lastAnchor: MenuAnchor | null = null;
+let rowAnchor: MenuAnchor | null = null;
+
+/** While a row's command starts, where its menu was, so a command that opens a second menu opens it there; else null. */
+export function verbMenuRowAnchor(): MenuAnchor | null {
+  return rowAnchor;
+}
 
 /** Whether the menu is up (it exists in the DOM only then). */
 export function verbMenuIsOpen(): boolean {
@@ -179,7 +212,12 @@ function runRow(ctx: AppContext, opts: VerbMenuOptions, row: VerbMenuRow): void 
     opts.allActions();
     return;
   }
-  void row.command.run(ctx);
+  rowAnchor = lastAnchor;
+  try {
+    void row.command.run(ctx);
+  } finally {
+    rowAnchor = null;
+  }
 }
 
 /** Place `el` below and right of the anchor, flipped above or left when it would leave the viewport. */
@@ -206,8 +244,9 @@ function place(el: HTMLElement, at: MenuAnchor): void {
 export function openVerbMenu(at: MenuAnchor, ctx: AppContext, opts: VerbMenuOptions): boolean {
   const returnFocus = current?.returnFocus ?? document.activeElement;
   closeVerbMenu();
-  const rows = opts.rows ?? verbMenuRows(ctx, opts.registered);
+  const rows = opts.rows ?? verbMenuRows(ctx, opts.registered, opts.withBarVerbs === true);
   if (rows.length === 0) return false;
+  lastAnchor = at;
   const mac = isMac();
 
   const el = document.createElement('div');

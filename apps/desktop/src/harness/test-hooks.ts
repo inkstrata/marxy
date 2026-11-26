@@ -1,4 +1,4 @@
-// The hooks the WebKit tests drive (B-16). Only harness pages load this module (app-harness.ts and
+// The hooks the WebKit tests drive. Only harness pages load this module (app-harness.ts and
 // test/palette-boot.html), so the shipped bundle carries none of it: scripts/gate-bundle.mjs fails a
 // release build that contains `installTestHooks`. Each hook is built on the running app's handle (its
 // store, view and selection), never on module state, and `installTestHooks` again (a second `startApp`
@@ -59,7 +59,7 @@ export function installTestHooks(handle: AppHandle): void {
     resolve,
     textOf,
     parseMarkdown,
-    /** How many parses have been made so far (F-60.1): a test reads the difference around an action. */
+    /** How many parses have been made so far: a test reads the difference around an action. */
     parseCount,
     sectionRange,
     createBuffer,
@@ -113,7 +113,7 @@ export function installReadinessFlags(): void {
       const article = document.getElementById('doc');
       if (article === null) return false;
       if (article.querySelector('[data-marxy-s]') !== null && taskMarkersInstalled(article)) return true;
-      // A file that opens in Source makes no page (V-11): it is on screen once its editor is.
+      // A file that opens in Source makes no page: it is on screen once its editor is.
       return article.hidden && document.querySelector('.marxy-source-mount .cm-editor') !== null;
     },
   });

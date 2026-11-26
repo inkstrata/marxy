@@ -5,5 +5,12 @@ allowBuilds:
   esbuild: true
 onlyBuiltDependencies:
   - esbuild
-# pnpm runs `precheck` as the pre-hook of `check`, and precheck runs `pnpm check`: a loop. Nothing else uses pre/post hooks.
+# Package scripts written `VAR=value command` need a shell that understands them; cmd.exe, pnpm's default on Windows, does not.
+shellEmulator: true
+# No script relies on pnpm's pre and post hooks.
 enablePrePostScripts: false
+# pdf.js's optional @napi-rs/canvas draws pages in Node; the app draws in the webview, so the native binary is never fetched.
+ignoredOptionalDependencies:
+  - '@napi-rs/canvas'
+patchedDependencies:
+  micromark@4.0.2: patches/micromark@4.0.2.patch

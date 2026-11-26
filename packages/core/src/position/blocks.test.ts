@@ -1,4 +1,4 @@
-// Reading-line block math: compute and restore are inverses at corpus boundaries (ADR-0018).
+// Reading-line block math: compute and restore are inverses at corpus boundaries.
 
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
@@ -64,7 +64,7 @@ test('reopening within one line keeps the same first visible block', () => {
   assert.ok(sameFirstVisibleBlock(blocks, scrollBefore, scrollAfter, viewport, 24));
 });
 
-test('a pair a block apart is not "within one line" (S-05-0003)', () => {
+test('a pair a block apart is not "within one line"', () => {
   const blocks: LayoutBlock[] = [
     { start: 0, top: 0, height: 100 },
     { start: 40, top: 100, height: 100 },
@@ -79,7 +79,7 @@ test('a pair a block apart is not "within one line" (S-05-0003)', () => {
   assert.equal(sameFirstVisibleBlock(blocks, top, near, viewport, 24), true);
 });
 
-test('a byte inside a block restores to that block, not the next one (S-05-0001)', () => {
+test('a byte inside a block restores to that block, not the next one', () => {
   const blocks: LayoutBlock[] = [
     { start: 0, top: 0, height: 400 },
     { start: 500, top: 400, height: 80 },
@@ -98,7 +98,7 @@ test('a byte inside a block restores to that block, not the next one (S-05-0001)
   assert.equal(scrollTopForPosition(blocks, 500, 0, viewport), 400 - 0.4 * viewport);
 });
 
-test('a reader who has not scrolled is at byte 0 whatever block crosses the reading line (F-19.1)', () => {
+test('a reader who has not scrolled is at byte 0 whatever block crosses the reading line', () => {
   const blocks: LayoutBlock[] = [
     { start: 0, top: 0, height: 40 },
     { start: 9, top: 40, height: 600 },

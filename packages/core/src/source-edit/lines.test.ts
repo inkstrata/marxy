@@ -1,4 +1,4 @@
-// Line operations as splices over the editor's text (V-01). The file's separator is the editor's to write
+// Line operations as splices over the editor's text. The file's separator is the editor's to write
 // back; here a splice is checked for what it changes and, by a seeded property, for what it leaves.
 
 import assert from 'node:assert/strict';

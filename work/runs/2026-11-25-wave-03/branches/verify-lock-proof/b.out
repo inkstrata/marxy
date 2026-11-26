@@ -1,0 +1,16 @@
+verify quick in C:\Dev\reader\worktrees\verify-lock
+4 files changed against master; unit suites: scripts; browser files: 0
+logs in C:\Dev\reader\work\wave3\verify-lock-proof\b
+
+verify: all 1 verify places are taken: pid 26152 (verify quick in C:\Dev\reader\worktrees\verify-lock) since 2026-11-25T22:50:21.681Z; waiting
+verify: holding place 1 of 1 (--no-lock skips it)
+
+PASS    unit-typeset   54.5s     90 pass, 0 fail
+
+step          result  wall   tests
+------------  ------  -----  ---------------
+unit-typeset  pass    54.5s  90 pass, 0 fail
+------------  ------  -----  ---------------
+total                 54.5s
+
+verify quick: 1/1 steps passed

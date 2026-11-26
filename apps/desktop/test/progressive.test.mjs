@@ -1,15 +1,15 @@
-// The article mounted progressively (A-02): a 1 MB document shows its first screens at first text and
+// The article mounted progressively: a 1 MB document shows its first screens at first text and
 // appends the rest in idle chunks; a corpus document goes in whole, as before. WebKit, through
 // startApp and the memory shell on the Vite dev server, as test/live-reload.test.mjs runs it.
-// The 1 MB first-text test here is commitment 5's pull-request guard and stays in `test:lite`; the
-// three 1 MB reading-position tests are in progressive-large.test.mjs, which runs in the nightly suite.
+// The 1 MB first-text test here guards that first text never waits for the whole file; the
+// three 1 MB reading-position tests are in progressive-large.test.mjs, which is slow.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { createServer } from 'vite';
+import { createServer } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { generateLarge } from '../../../scripts/perf-harness.mjs';
 

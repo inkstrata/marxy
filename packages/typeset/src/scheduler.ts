@@ -1,14 +1,20 @@
-// Idle-time chunks for the paragraphs outside the viewport (docs/design/04-typeset.md §Scheduling).
+// Idle-time chunks for the paragraphs outside the viewport.
 // WebKitGTK has no requestIdleCallback, so the fallback is a macrotask with an 8 ms budget.
 
+/**
+ * A chunk of work: `remaining` is the milliseconds left in its chunk; `idle`, where the engine says, is what is left of the
+ * engine's own idle period (`requestIdleCallback`), which work that may run past the chunk keeps to.
+ */
+export type Work = (remaining: () => number, idle?: () => number) => void;
+
 export interface Scheduler {
-  /** Runs `work` later; `work` is given a function returning the milliseconds left in its chunk. */
-  schedule(work: (remaining: () => number) => void): void;
+  /** Runs `work` later. */
+  schedule(work: Work): void;
   /**
    * Runs `work` as `schedule` would, but no sooner than `ms` from now. Optional: the typesetter waits
    * only on a scheduler that has it, so a test's scheduler that runs work when it is told keeps doing so.
    */
-  after?(ms: number, work: (remaining: () => number) => void): void;
+  after?(ms: number, work: Work): void;
 }
 
 const CHUNK_MS = 8;
@@ -18,7 +24,7 @@ export function idleScheduler(): Scheduler {
   return {
     schedule(work) {
       if (idle !== undefined) {
-        idle((d) => work(() => Math.min(d.timeRemaining(), CHUNK_MS)));
+        idle((d) => work(() => Math.min(d.timeRemaining(), CHUNK_MS), () => d.timeRemaining()));
         return;
       }
       setTimeout(() => {

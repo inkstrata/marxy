@@ -1,4 +1,4 @@
-// K-07.1: a malformed [strip] or [[kind]] reaches the reader once, as a refusal naming the rule; a good config says nothing.
+// a malformed [strip] or [[kind]] reaches the reader once, as a refusal naming the rule; a good config says nothing.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseConfig } from '@marxy/theme/src/config.ts';

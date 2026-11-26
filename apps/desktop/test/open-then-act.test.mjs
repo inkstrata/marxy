@@ -1,4 +1,4 @@
-// What follows an open waits for the reader (F-21). Over unsaved edits `open()` shows the Save / Open without
+// What follows an open waits for the reader. Over unsaved edits `open()` shows the Save / Open without
 // saving / Dismiss notice and resolves at once, so a link's landing and its history entry, and Edit
 // collection's switch to Source, must run only once the new document is on screen, never on the old one.
 import { strict as assert } from 'node:assert';
@@ -9,7 +9,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -207,6 +207,8 @@ test('Edit collection in a split: the Jump to source it runs acts on, and stays 
   const browser = await launchWebkit();
   try {
     const page = await bootDirty(browser);
+    // 960 px holds one pane beside the frame's rail: two need 977 (pane/fit.ts), so the split is made in a wider window.
+    await page.setViewportSize({ width: 1200, height: 800 });
     await page.evaluate(() => window.__h.panes().openIn('other', '/repo/docs/c.md'));
     await page.waitForFunction(() => window.__h.panes().panes[1]?.path() === '/repo/docs/c.md');
     await page.evaluate(() => window.__h.panes().focus(window.__h.panes().panes[0]));
@@ -227,6 +229,8 @@ test('Edit collection in a split: the Jump to source it runs acts on, and stays 
     await choose(page, 'Open without saving');
     await page.waitForFunction(() => window.__h.panes().panes[0].path() === '/collection.toml');
     await page.waitForFunction(() => window.__jumped.length > 0);
+    // A .toml opens in Read (data files read as a tree), so the Jump's switch to Source lands after it starts.
+    await page.waitForFunction(() => window.__h.panes().panes[0].view.mode === 'source', null, { timeout: 10_000 }).catch(() => {});
     const got = await page.evaluate(() => {
       const panes = window.__h.panes();
       return {

@@ -1,9 +1,9 @@
-/* Fjord: a cool blue-grey dark theme (H-05). It has no light form: under the light variant it still applies as dark,
-   so the selector names both and the default's Paper never shows through. Values from mock-v2/shared/tokens.css, the
-   quiet text roles nudged toward the strong text where the gate needed it. */
+/* Fjord: Cool blue-grey, dark at any hour.
+   Written from packages/theme/src/looks/fjord.ts by packages/theme/scripts/write-theme-sheets.mjs: change that file
+   and run the script, never this one (theme-sheets.test.ts holds them equal).
+*/
 :root,
 :root[data-marxy-variant="light"] {
-  /* Dark whatever the variant: native scrollbars and controls follow it, and Source's base theme reads it. */
   color-scheme: dark;
   --marxy-weight-body: 380;
   --marxy-weight-heading: 600;

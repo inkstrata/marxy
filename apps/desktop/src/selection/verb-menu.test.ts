@@ -1,4 +1,4 @@
-// The verb menu's row limit and its "All actions…" row (C-13, ADR-0054 §1, §5; C-13.1). No DOM needed.
+// The verb menu's row limit and its "All actions…" row. No DOM needed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { AppContext, Command } from '../commands/registry.ts';

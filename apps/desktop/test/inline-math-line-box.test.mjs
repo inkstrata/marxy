@@ -1,4 +1,4 @@
-// B-02.2: inline KaTeX must not change the line box. Rendered through the real app (gate.html), so
+// inline KaTeX must not change the line box. Rendered through the real app (gate.html), so
 // KaTeX is loaded; a list item or paragraph holding `\Delta T` stays a whole number of line boxes
 // and the block after it lands on the grid unit. Playwright WebKit only.
 import { strict as assert } from 'node:assert';
@@ -9,7 +9,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -68,8 +68,8 @@ async function measure(source, opts) {
       const top0 = doc.getBoundingClientRect().top + scrollY;
       const rows = [...doc.querySelectorAll('li, p')].filter((el) => el.querySelector('.katex')).map((el) => {
         const r = el.getBoundingClientRect();
-        // The grid is the blocks' (ADR-0030): a bare inline element between two blocks (a top-level <b>) sits where its own
-        // face's ascent puts the box inside an anonymous line, which moves with the face (K-05b: Source Serif 4), so the next
+        // The grid is the blocks': a bare inline element between two blocks (a top-level <b>) sits where its own
+        // face's ascent puts the box inside an anonymous line, which moves with the face (Source Serif 4), so the next
         // block is the next one that is not inline.
         let next = el.nextElementSibling ?? el.parentElement.nextElementSibling;
         while (next && getComputedStyle(next).display.startsWith('inline')) next = next.nextElementSibling;

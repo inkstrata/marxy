@@ -1,4 +1,4 @@
-// The `delimited-table` deriver (ADR-0071, K-10b): exact byte ranges, the accounting rule, the `csv-field` decoding, the
+// The `delimited-table` deriver: exact byte ranges, the accounting rule, the `csv-field` decoding, the
 // unreadable and pending records, TSV's lack of quoting, a round trip, and a differential fuzz against an independent
 // reference parser over random files.
 import assert from 'node:assert/strict';
@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import type { Node } from '../contracts/ast.ts';
 import { DERIVED_TABLE_INVARIANTS, type DerivedCell, type DerivedNode, type DerivedRow, type DerivedTable } from '../contracts/derived.ts';
 import {
+  breaksIn,
   checkTableInvariants,
   createScan,
   decodeCsvField,
@@ -112,7 +113,7 @@ test('bytes after a closing quote make the record unreadable at its first line, 
   assert.equal(rows(t).at(-1)!.terminator, null, 'the last record has no terminator');
 });
 
-test('an unreadable row says how many lines after it its quote reached into: those are read as rows of their own and may have been part of it (F-89)', () => {
+test('an unreadable row says how many lines after it its quote reached into: those are read as rows of their own and may have been part of it', () => {
   const unreadable = (t: DerivedTable) => t.children.filter((c) => c.type === 'unreadable').map((c) => (c.type === 'unreadable' ? [c.reason, c.swallowed] : []));
   // A quote never closed runs through every line after it, to the end of the file.
   assert.deepEqual(unreadable(derive('a,b\n2,"oops,x\nmid,2\nlast,3\n')), [['unclosed-quote', 2]]);
@@ -136,7 +137,7 @@ test('an unreadable row says how many lines after it its quote reached into: tho
   assert.deepEqual(unreadable(derive('a,b\n"x\ny",1,"oops\nmid,2\n')), [['unclosed-quote', 2], ['unclosed-quote', 1]]);
 });
 
-test('delimiterHint: a one-field table whose every row holds the same count of another delimiter may use it; a real table or a mixed one gives no hint (F-89)', () => {
+test('delimiterHint: a one-field table whose every row holds the same count of another delimiter may use it; a real table or a mixed one gives no hint', () => {
   const hint = (text: string, path = '/r/t.csv'): string | null => {
     const scan = createScan(bytesOf(text), delimiterFor(path)!);
     scanSome(scan);
@@ -170,7 +171,7 @@ test('a BOM is its own range, CRLF, LF and a lone CR all end records, blank line
   assert.deepEqual(t.dropped.map((d) => [d.src.start, d.src.end]), [[8, 10], [16, 17]]);
 });
 
-test('a file whose lines end in a lone CR reads as rows: the CR is a line break for the table, and a quoted CR is still data (F-89)', () => {
+test('a file whose lines end in a lone CR reads as rows: the CR is a line break for the table, and a quoted CR is still data', () => {
   const text = 'name,age\rAda,36\r"Gil\rbert",41\r\rKit,29\r';
   const bytes = bytesOf(text);
   const t = derive(bytes);
@@ -190,7 +191,7 @@ test('a file whose lines end in a lone CR reads as rows: the CR is a line break 
   assert.deepEqual(values(derive('a\tb\rc\td\r', '/r/t.tsv')), [['a', 'b'], ['c', 'd']]);
 });
 
-test('a file still being written that ends in a CR keeps it pending, for it may yet be a CRLF (F-89)', () => {
+test('a file still being written that ends in a CR keeps it pending, for it may yet be a CRLF', () => {
   const t = derive('a,b\r\n1,2\r', '/r/t.csv', false);
   assert.deepEqual(t.children.map((c) => c.type), ['row', 'pending']);
   assert.deepEqual(derive('a,b\r\n1,2\r', '/r/t.csv', true).children.map((c) => c.type), ['row', 'row']);
@@ -296,7 +297,7 @@ function referenceCsv(text: string): string[][] | null {
         }
         continue;
       }
-      i += text.startsWith('\r\n', i) ? 2 : 1; // a lone CR ends the record too (F-89)
+      i += text.startsWith('\r\n', i) ? 2 : 1; // a lone CR ends the record too
       break;
     }
     out.push(row);
@@ -395,4 +396,19 @@ test('random bytes, valid UTF-8 or not: the invariants hold, and each cell\'s va
       }
     }
   }
+});
+
+test('breaksIn never searches past `to` (a CR scan to EOF made every slice cost the whole file)', () => {
+  const bytes = new Uint8Array(50 * 1024 * 1024).fill(0x61);
+  for (let i = 99; i < 5000; i += 100) bytes[i] = 0x0a;
+  let best = Number.POSITIVE_INFINITY;
+  for (let run = 0; run < 3; run++) {
+    const t0 = performance.now();
+    assert.equal(breaksIn(bytes, 0, 5000), 50);
+    best = Math.min(best, performance.now() - t0);
+  }
+  assert.ok(best < 2, `breaksIn(0, 5000) on 50 MB LF-only took ${best.toFixed(2)} ms`);
+  const edge = new TextEncoder().encode('a\r\nb\rc\n\r');
+  assert.equal(breaksIn(edge, 0, edge.length), 4);
+  assert.equal(breaksIn(edge, 2, 5), 2);
 });

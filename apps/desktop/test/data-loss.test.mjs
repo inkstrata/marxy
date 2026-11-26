@@ -1,4 +1,4 @@
-// Data-loss regressions in the Rendered/Source round trip and in operations (MARXY-337):
+// Data-loss regressions in the Rendered/Source round trip and in operations:
 // CRLF bytes, history after a failed write, two quick operations, and the task checkbox click.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -7,15 +7,16 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const desktopRoot = new URL('..', import.meta.url).pathname;
+const desktopRoot = fileURLToPath(new URL('..', import.meta.url));
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-data-loss-'));
 let server;
 let base;
@@ -64,7 +65,7 @@ async function boot(text, { slowWrite = 0 } = {}) {
     if (slow) {
       const sh = r.handle.shell;
       const orig = sh.writeFileAtomic;
-      sh.writeFileAtomic = async (p, b) => { await new Promise((res) => setTimeout(res, slow)); return orig(p, b); };
+      sh.writeFileAtomic = async (p, b, e) => { await new Promise((res) => setTimeout(res, slow)); return orig(p, b, e); };
     }
   }, { b64: Buffer.from(text).toString('base64'), slow: slowWrite, path: PATH });
   await page.waitForFunction(() => typeof window.marxySelection?.getSelectionState === 'function');
@@ -77,7 +78,7 @@ const disk = (page) =>
 const modOf = async (page) => ((await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control');
 const buf = (page) =>
   page.evaluate(() => new TextDecoder().decode(window.__handle.openDocument().buffer.bytes));
-// Operations change only the in-memory buffer; Mod+S writes it (MARXY-49).
+// Operations change only the in-memory buffer; Mod+S writes it.
 // The Save command's `when` needs a live selection today, so click the heading to select it first.
 const saveKey = async (page) => {
   await page.click('#doc h1');

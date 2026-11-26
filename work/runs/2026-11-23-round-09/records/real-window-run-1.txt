@@ -1,0 +1,128 @@
+﻿MARK quit 1795429731847 code=1
+stderr: [1123/022851.866:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+smoke-cli-open ok: 21 blocks, 943 chars, first_text 3 frames / 121 ms after render, signal=first-contentful-paint; no first_text with no document, no text, an unreadable file, or a hidden #doc
+node.exe : $ node scripts/tauri-check.mjs
+At C:\Users\<user>\AppData\Roaming\fnm\aliases\default\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ node scripts/tauri-check.mjs:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+PASS  the window is the Tauri app · http://tauri.localhost/
+PASS  the plan is set
+PASS  frame: rail, tab row, pane head, drawer
+PASS  drawer: at the edge (the window leaves it no room), so its panels are not checked
+PASS  paths reach the page without a Windows verbatim prefix
+PASS  j puts the cursor on a part and c copies its bytes to the clipboard · "## TL;DR\n\n- Upgrade a promoted replica w"; Copied 5 lines as written, 280 B
+PASS  x x-rays the part: its stored lines in place of it
+PASS  the tab row holds the plan as its current tab · {"tabs":1,"current":"pg16-upgrade-plan.md"}
+PASS  a folder crumb opens a menu of its folder · Read this folder as a page | .versions/folder | 2026-10-01-quarterly-database-migration-readiness-review.md | pg16-upgrade-plan.mdhere
+PASS  Alt+2 shows Metadata in the drawer
+PASS  Ctrl+K opens the Line, and > is its commands · {"scope":"Commands","rows":["Larger textCtrl+="]}
+PASS  # in the Line finds a word inside files, through the Rust side · Search the workspace: 2 rows
+PASS  Tab keeps it in Search, the panel cursor on the hit · {"cur":"h:C:/Dev/reader/worktrees/real-window/fixtures/demo/plans/pg16-upgrade-plan.md:13","said":"2 matches in 1 file"}
+PASS  A opens the Studio and Esc closes it
+PASS  a second launch opens release.json in the running app, as a data tree
+PASS  CSV: a column name sorts the rows
+PASS  Settings: the eleven proposals
+PASS  a character's Unicode name through the Rust side
+PASS  run_command refuses a command id config.toml does not name · invalid
+PASS  a plugin command the capability does not grant is refused · Command plugin:dialog|open not allowed by ACL
+PASS  the window refuses to navigate to http://localhost:1234 · http://tauri.localhost -> http://tauri.localhost
+PASS  the window answers while a read on an unreachable share stalls · 2 ms, the share failed fast, so the probe proves nothing
+PASS  a mermaid fence is drawn as a diagram
+PASS  a save by rename over the open file reloads it
+PASS  what changed on disk is a comparison page
+PASS  its patch is numbered on both sides
+PASS  a folder opens as a page listing what is on disk
+PASS  Versions lists the copy kept before the file changed
+PASS  a staged change shows the unsaved chip and writes nothing · Unsaved · 1 place
+PASS  Save writes the staged change to disk, and the chip goes · 2382 -> 2102 bytes
+PASS  an image beside the document is shown
+PASS  the image comes through marxy-file:// · http://marxy-file.localhost/C%3A%2FUsers%2F<user>
+PASS  marxy-file:// answers a Range with 206, its Content-Range and the type · {"status":206,"type":"image/png","range":"bytes 0-15/27844","length":16}
+PASS  a local SVG is drawn by an <img> with a size from its root · {"tag":"IMG","w":96,"h":60,"attrs":["96","48"],"inline":0,"ran":null}
+PASS  the SVG is not inlined and its script never ran
+PASS  marxy-file:// refuses a path outside what the reader opened (403) · 403 403 403
+PASS  a TIFF through marxy-file://...?decoded comes back a PNG the webview shows · {"status":200,"type":"image/png","magic":"137,80,78,71","shown":"6x4"}
+PASS  image_facts reads a rotated JPEG's size, orientation, EXIF and location · {"format":"jpeg","width":8,"height":4,"orientation":6,"bitDepth":8,"channels":"RGB","colorProfile":"sRGB built-in","frames":1,"show":"webview","why":null,"exif":{"camera":"Marxy Test Camera","lens":"Fixture 35mm F2","exposure":"1/250 s","aperture":"f/2.8","iso":400,"focalLength":"35 mm","taken":"2024-05-01 12:34:56","software":"fixture-maker 1.0"},"location":{"lat":51.50055555555556,"lon":-0.125}}
+PASS  image_facts refuses a file outside what the reader opened · permission
+PASS  a 2.05 GB video seeks to frames 30, 5 and 39 and shows each · 4 s; #30 12 ms rgb(128,0,255) want rgb(128,0,255), #5 30 ms rgb(255,191,1) want rgb(255,191,0), #39 11 ms rgb(254,0,38) want rgb(255,0,38)
+PASS  every video request is a Range answered 206, some past 2 GB, and what is sent is a sliver of the file · 2 requests, 1 reaching the samples at byte 2200000939, 4.03 MB of 2098 MB; bytes=0- -> 206 bytes 0-4194303/2200004703; bytes=2199977984- -> 206 bytes 2199977984-2200004702/2200004703
+PASS  an edit in Source is saved to disk
+PASS  an extension-less script opens as the Python code its shebang names · python, code
+PASS  a Ruby file shows in Source with its keyword coloured from Shiki's runs · {"word":"def","colour":"rgb(221, 216, 206)","want":"rgb(221, 216, 206)"}
+PASS  the Studio's Code tab: a Rust keyword is one line in config.toml and in force at once in Source · rgb(238, 126, 81) -> rgb(208, 31, 106); ["keyword = \"#d01f6a\""]
+PASS  the Studio closes on Esc
+PASS  the Rust keyword set in the Studio is the same colour in Read · rgb(208, 31, 106)
+PASS  a 5 MB JavaScript file opens as plain text, and its head says so · Plain text · no colour past 2 MB
+PASS  colour anyway colours what is in view, and the head says it is the reader's choice · {"ms":55,"head":"Coloured as you scroll · your choice"}
+PASS  a PNG named .txt is binary by its magic · [{"class":"binary","format":"png"}]
+PASS  a PNG opens as the image page, drawn through marxy-file://, to fit and never enlarged · {"width":128,"src":"http://marxy-file.localhost/C%3A%2FUsers%2F<user>%2FAppData%2FLocal%2FTemp%2Fmarxy-check-jjXCCu%2Fmark.png?v=1795428830322-27844","zoom":"100 %","box":128,"cards":["Reading","Facts","Image"]}
+PASS  the image page's fourth card is Image · Reading, Facts, Image
+PASS  a HEIC is drawn at its true size through the system decoder (?decoded) · {"width":64,"height":32,"left":[254,0,0],"src":"http://marxy-file.localhost/C%3A%2FUsers%2F<user>%2FAppData%2FLocal%2FTemp%2Fmarxy-check-jjXCCu%2Fhalves.heic?decoded&v=1795428830362-524"}
+PASS  a PSD draws its own flattened image through ?decoded, read by hand in Rust · {"width":8,"height":4,"left":[255,0,0],"src":"http://marxy-file.localhost/C%3A%2FUsers%2F<user>%2FAppData%2FLocal%2FTemp%2Fmarxy-check-jjXCCu%2Flayers.psd?decoded&v=1795428831291-142","title":"layers.psd — Marxy"}
+PASS  an SVGZ draws as the SVG it unpacks to, its script never run · {"width":120,"height":80,"left":[255,0,0],"src":"http://marxy-file.localhost/C%3A%2FUsers%2F<user>%2FAppData%2FLocal%2FTemp%2Fmarxy-check-jjXCCu%2Fdrawing.svgz?decoded&v=1795428831298-162","title":"drawing.svgz — Marxy"}
+PASS  a 2.05 GB video opens as the media page, its facts read from its header · {"line":"MP4 · VP9, 128 × 96, 10 frames a second · 4.0 s","facts":"size\n2.0 GB · 2,200,004,703 bytes\nbytes\nnot text · starts 00 00 00 1C 66 74 79 7"}
+PASS  the hex view scrolls to the 2 GB file's last byte at once, and reads it from disk · 83216858 (want 83216850 or 83216858), byte 00 (want 00)
+PASS  the card says when the file was made, as Windows keeps it
+PASS  a binary file written on disk is shown as it is now, the byte picked kept · {"byte":"7A","on":true,"size":true}
+PASS  a notebook reads as its cells: the figure drawn, no script in the page, nothing run · {"figure":600,"data":true,"scripts":0,"said":"HTML output, cleaned: 1 script, 1 event handler, 1 image from the network, 1 other part left out.","ran":null,"ground":""}
+PASS  a zip lists as the page of its entries, through list_archive · {"lede":"A ZIP archive: 2 files in 1 folder. 282 bytes in the file, 40 bytes unpacked. 1 entry needs a careful look.","rows":["notes/","readme.md","escaped.txt"],"note":"climbs out"}
+PASS  an entry opens into memory in a tab of its own, read as its name says, with its line · {"h1":"Packed","tabs":["pg16-upgrade-plan.md","release.json","p95-latency.csv","build-2026-10-14.log","architecture.md","plan.md","pictured.md","deploy","greeter.rb","tide.rs","tide.md","bundle.js","mark.png","halves.heic","layers.psd","drawing.svgz","long.mp4","watched.bin","tide-heights.ipynb","bundle.zip","readme.md","vectored.md"],"said":true}
+PASS  a `..` entry reads into memory and is never a path on disk · "climbed out\n"; on disk: none
+PASS  list_archive refuses an archive outside what the reader opened · permission
+PASS  an image held in memory draws from its blob: URL under the CSP · 3
+PASS  an archive opens as its page: the lede and the plan to scale · {"lede":"A ZIP archive: 25 files in 9 folders, all inside harbour-survey-2026/. 753.5 KB ","cells":22,"h1":"Harbour survey, autumn 2026","facts":"Markdown · 711 bytes · packed to 385 (54%) · 14 Oct 2026, 18:02 · checksum agrees"}
+PASS  the preview reads the README by its first bytes through read_archive_heads, its checksum checked · "Markdown · 711 bytes · packed to 385 (54%) · 14 Oct 2026, 18:02 · checksum agrees"
+PASS  walking to a picture previews it, read whole through read_archive_entry and drawn from memory · {"name":"boat-ribs.jpg","width":480,"blob":true,"facts":"An image · 24,719 bytes · stored as it is · 13 Oct 2026, 06:52 · checksum agrees"}
+PASS  previewing the archive writes nothing beside it · nothing
+PASS  Reveal draws the file as stored, every byte once, read through read_range · {"segments":37,"last":[771479,771566],"size":771566}
+PASS  x on an entry shows its local header as stored · 50 4B 03 04 14 00 00 08 00 00 80 36 4D 5D 0C D1  PK·········
+PASS  the entries as a sheet: each tile its own page drawn small, filled as it comes into view · {"tiles":4,"filled":4,"readme":"Harbour survey, autumn 2026","list":false}
+PASS  = name:.rs through the Line keeps that entry and its folder, and Esc brings every entry back · {"rows":["src/","indexer.rs"],"said":"Showing 1 of 25 files, matching “name:.rs”.","back":true}
+PASS  an archive inside the archive lists in the preview from the bytes held in memory · A tar archive, gzipped: 5 files in 2 folders, all inside notes/. 811 bytes in th
+PASS  o opens the inner archive as a page of its own, held in memory · A tar archive, gzipped: 5 files in 2 folders, all inside notes/. 811 bytes in th
+PASS  the inner archive writes nothing beside the outer one · nothing
+PASS  o on a database in the survey opens the table page, read from the entry in memory, writing nothing · {"rows":6,"said":true,"title":"gauges.sqlite — Marxy","beside":[]}
+PASS  a WOFF2 is drawn by the webview, its names and axes read natively, a glyph named · {"drawn":true,"axes":2,"glyph":"R\ncharacter\nlatin capital letter R\nglyph\nnumber 48 · no names in the file\nadvance\n680 of 1000 units, at the default axes\noutline\n5 contours, 34 points\nbox\n60, 0, 620, 700","format":"format\nWOFF2 · Brotli, 9.8 KB for 22.9 KB\noutlines\nTrueType "}
+PASS  a WAV plays in the webview through marxy-file://, never on its own, under its waveform · {"ready":4,"paused":true,"duration":5,"wave":true}
+PASS  an MP4 plays in the webview, its facts read from its boxes · {"ready":4,"noplay":false,"line":"MP4 · H.264 (AVC), 640 × 360, about 18 frames a second · AAC (mp4a), stereo, 48,000 Hz · 4.2 s"}
+PASS  ProRes is facts only, said in the head as a tier · {"noplay":"This system cannot play Apple ProRes 422 HQ video in a .mov","head":"Facts only · cannot play here"}
+PASS  a PDF opens as its pages: pdf.js draws them and lays its text over them · {"ink":6803,"text":"The case for ragged lines","bar":"Page of 3 100 % Fit width Fit page PDF 1.4 · A5","pages":"0:ct 1:ct","title":"essay.pdf — Marxy","stage":"16/2434/636"}
+PASS  a PDF's fourth card is Pages and its metadata slot Document · Reading, Facts, Document, Pages
+PASS  Find in the page reaches a PDF's text layer and marks the word · {"count":"1 of 2","marked":1}
+PASS  a 400-page PDF draws only the pages near the view, and reaches its last · 398, 399
+PASS  marxy-file:// refuses a PDF outside what the reader opened (403) · {"status":403,"type":null,"range":null,"length":0}
+PASS  the index of a folder that is gone is swept; one whose folder is there is kept
+PASS  Search stages a replace in a file found through the Rust side, writing nothing · Stage 1 place in 1 file
+PASS  a file with staged changes no pane shows is a tab marked unsaved
+PASS  quitting asks once about the file no pane shows, naming it · 1 asked: held.md has changes that are not saved, and no pane shows it.
+PASS  the window closes on WM_CLOSE once answered, the held file untouched · exit 0
+PASS  after a close and a launch, the drawer shows the panel it showed · Links -> Links
+PASS  after a close and a launch, the plan opens at the place it was left · scrollTop 1684 -> 1692, window 960x760 -> 960x760, reading line on 1625 db-prod -> 1674 The --link mode is fast becaus
+PASS  after a close and a launch, the row of tabs comes back in its order · 29 tabs -> 29 (layout.json: 1 columns, 29 tabs): C:/Dev/reader/worktrees/real-window/fixtures/demo/plans/pg16-upgrade-plan.md, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/Tidemark.woff2, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/bell-buoy.wav, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/ferry-leaving.mp4, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/interview-prores.mov, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/essay.pdf, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/long.pdf, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/held.md, C:/Dev/reader/worktrees/real-window/fixtures/demo/data/release.json, C:/Dev/reader/worktrees/real-window/fixtures/demo/data/p95-latency.csv, C:/Dev/reader/worktrees/real-window/fixtures/demo/logs/build-2026-10-14.log, C:/Dev/reader/worktrees/real-window/fixtures/demo/tidemark/docs/architecture.md, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/plan.md, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/pictured.md, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/deploy, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/greeter.rb, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/tide.rs, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/tide.md, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/bundle.js, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/mark.png, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/halves.heic, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/layers.psd, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/drawing.svgz, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/long.mp4, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/watched.bin, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/tide-heights.ipynb, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/bundle.zip, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/harbour-survey-2026.zip, C:/Users/<user>/AppData/Local/Temp/marxy-check-jjXCCu/vectored.md
+PASS  a tab dragged by the mouse moves along its row · pg16-upgrade-plan.md, Tidemark.woff2, bell-buoy.wav, ferry-leaving.mp4, interview-prores.mov, essay.pdf, long.pdf, held.md, release.json, p95-latency.csv, build-2026-10-14.log, architecture.md, plan.md, pictured.md, deploy, greeter.rb, tide.rs, tide.md, bundle.js, mark.png, halves.heic, layers.psd, drawing.svgz, long.mp4, watched.bin, tide-heights.ipynb, bundle.zip, harbour-survey-2026.zip, vectored.md -> Tidemark.woff2, pg16-upgrade-plan.md, bell-buoy.wav, ferry-leaving.mp4, interview-prores.mov, essay.pdf, long.pdf, held.md, release.json, p95-latency.csv, build-2026-10-14.log, architecture.md, plan.md, pictured.md, deploy, greeter.rb, tide.rs, tide.md, bundle.js, mark.png, halves.heic, layers.psd, drawing.svgz, long.mp4, watched.bin, tide-heights.ipynb, bundle.zip, harbour-survey-2026.zip, vectored.md
+PASS  a file dropped from Explorer opens in a tab of its own · Tidemark.woff2, pg16-upgrade-plan.md, bell-buoy.wav, ferry-leaving.mp4, interview-prores.mov, essay.pdf, long.pdf, held.md, release.json, dropped-from-explorer.log, p95-latency.csv, build-2026-10-14.log, architecture.md, plan.md, pictured.md, deploy, greeter.rb, tide.rs, tide.md, bundle.js, mark.png, halves.heic, layers.psd, drawing.svgz, long.mp4, watched.bin, tide-heights.ipynb, bundle.zip, harbour-survey-2026.zip, vectored.md
+PASS  files held over the window are said, and the cue goes when they leave · {"shown":true,"gone":true,"taken":true,"text":false}
+PASS  a dropped file is taken by the page, never typed into the document · {"shown":true,"gone":true,"taken":true,"text":false}
+PASS  a plain save writes the edit and Versions keeps the copy it replaced · identical; versions grew
+PASS  a save over a file another program changed is refused: the notice names the choices, the disk keeps the other bytes · notice true; identical
+PASS  a refused save adds nothing to Versions and the edits stay unsaved · versions same, unsaved true
+PASS  "Keep my version as a copy" writes the edits to name (mine).md and takes the disk's version · copy 39 bytes; editor "# Conflict\n\n\nwritten by another program\n\n"
+PASS  "Take the version on disk" discards the edits and writes no copy · editor "# Conflict\n\n\nwritten again\n\n", unsaved false
+PASS  UTF-16LE with a BOM: an edit and a save keep the file's bytes, BOM and line endings · identical
+PASS  CRLF UTF-8 with a BOM: an edit and a save keep the file's bytes, BOM and line endings · identical
+PASS  a file deleted from outside is written again by Save, with the buffer's bytes · notice true; identical
+FAIL  the opened file is readable and its unopened neighbour is refused by the shell · opened {"ok":true,"value":19}, sibling {"ok":true,"value":22}
+FAIL  the folder crumb lists the open file's folder and chooses it; the folder above is stat-able but listed only once chosen, as a crumb chooses it · {"crumbRows":["Read this folder as a page","opened.mdhere","sibling.md"],"readChosen":{"ok":true,"value":22},"listAbove":{"ok":true,"value":["C:\\Users\\<user>\\AppData\\Local\\Temp\\marxy-real-CGOGD0\\conflict (mine).md","C:\\Users\\<user>\\AppData\\Local\\Temp\\marxy-real-CGOGD0\\conflict.md","C:\\Users\\<user>\\AppData\\Local\\Temp\\marxy-real-CGOGD0\\crlf.md","C:\\Users\\<user>\\AppData\\Local\\Temp\\marxy-real-CGOGD0\\gone.md","C:\\Users\\<user>\\AppData\\Local\\Temp\\marxy-real-CGOGD0\\scope","C:\\Users\\<user>\\AppData\\Local\\Temp\\marxy-real-CGOGD0\\wide.md"]},"statAbove":{"ok":true,"value":{"path":"C:\\Users\\<user>\\AppData\\Local\\Temp\\marxy-real-CGOGD0","size":0,"mtimeMs":1795429817783,"isDir":true,"createdMs":1795429809494}},"listChosen":"listed"}
+PASS  an index root is read-only: its file reads and a write into it is refused, the bytes unchanged · read {"ok":true,"value":7}, write {"code":"outside"}
+FAIL  a save after the file was renamed lands on the new name and not the old · followed true; 19 bytes against 23; first difference at byte 19 (end against 45); old name absent
+PASS  F11 enters full screen and the first Esc closes an open Line, not the window · {"was":false,"entered":true,"lineShown":true,"afterLine":{"line":false,"full":true}}
+PASS  Esc with the Line in its find scope closes the Line first; the next Esc leaves full screen; F11 toggles both ways · {"findShown":true,"afterFind":{"line":false,"full":true},"left":false,"again":true,"toggled":false}
+FAIL  lines on a 20 MB log · big-api.log did not open; the title is "renamed.md — Marxy"
+FAIL  program card · minimal.exe did not open; the title is "renamed.md — Marxy"
+no page errors
+C:\Dev\reader\worktrees\real-window\apps\desktop:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @marxy/desktop@0.1.0 check:tauri: `node scripts/tauri-check.mjs`
+Exit status 5

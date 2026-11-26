@@ -1,5 +1,5 @@
 // KaTeX in a real WebKit page with the options and theme the app uses: a hostile formula stays
-// bounded (maxSize/maxExpand, MARXY-337) and a wide display formula scrolls inside its own block
+// bounded (maxSize/maxExpand) and a wide display formula scrolls inside its own block
 // instead of widening the page at narrow widths.
 
 import { strict as assert } from 'node:assert';

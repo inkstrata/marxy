@@ -1,4 +1,4 @@
-// The Source frame (V-05; the X-21 rulings Q13 and Q14, on ADR-0067's metrics): the editor in an enclosure with thin bars on its edges. A top bar says
+// The Source frame: the editor in an enclosure with thin bars on its edges. A top bar says
 // what the file is (its path, its encoding, line endings and indentation as they are, its size in bytes and lines), a
 // column ruler sits on the text's character grid, the right edge carries marks at the height of things that sit at exact
 // bytes (invisible and bidi characters, find matches), and a bottom bar says where the caret is (line, column, byte
@@ -14,9 +14,11 @@
 import { type Buffer, encodeSourceText, strayByteOf, utf16ToByte } from '@marxy/core';
 import { shouldFlagInvisible } from '@marxy/core/src/render/index.ts';
 import { getSearchQuery, searchPanelOpen, setSearchQuery } from '@codemirror/search';
+import { scanFindInSlices } from './find-scan.ts';
 import type { EditorState, Extension } from '@codemirror/state';
 import { EditorView, type ViewUpdate } from '@codemirror/view';
 import { isUntitled } from '../document/untitled.ts';
+import { fileOffset, heldEncoding } from '../document/encoding.ts';
 import { cmDocText } from './buffer-commit.ts';
 import { cmPosToUtf16 } from './cm-position.ts';
 import {
@@ -38,6 +40,7 @@ import {
 import { ByteCursor } from './frame-bytes.ts';
 import { findNotes, notesLabel, pathCheckerFor } from './notes.ts';
 import { createRuler, type Ruler } from './ruler.ts';
+import { guideColumn } from './theme-bridge.ts';
 
 /** How much of the text the indentation is read from: the first quarter megabyte is what a file's style is. */
 const INDENT_SAMPLE = 256 * 1024;
@@ -111,7 +114,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
   const readoutEl = el('span', 'marxy-source-readout');
   const selectionEl = el('span', 'marxy-source-selected');
   const characterEl = el('span', 'marxy-source-character');
-  // "2 notes", only when there are any (V-04).
+  // "2 notes", only when there are any.
   const notesEl = el('span', 'marxy-source-notes');
   notesEl.hidden = true;
   bottom.append(readoutEl, selectionEl, characterEl, notesEl);
@@ -135,8 +138,10 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
 
   const setText = (node: HTMLElement, text: string, title?: string): void => {
     if (node.textContent !== text) node.textContent = text;
-    if (title !== undefined) node.title = title;
-    node.hidden = text === '';
+    if (title !== undefined && node.title !== title) node.title = title;
+    // Written only on change: each write wakes the verb bar's observer.
+    const hide = text === '';
+    if (node.hidden !== hide) node.hidden = hide;
   };
 
   // ---- the facts of the bytes
@@ -165,7 +170,11 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
   };
 
   const renderBufferFacts = (): void => {
-    const encoding = encodingFact(buffer);
+    // Text in another encoding is said as read: its encoding, and whether a BOM or a guess or the reader said so.
+    const found = heldEncoding(buffer.path)?.found;
+    const encoding = found
+      ? { label: found.name, title: `Read as ${found.name}${found.how === 'bom' ? ', from its byte-order mark' : found.how === 'guess' ? ', guessed: no BOM, and not UTF-8' : ', your choice'}; offsets are the file's bytes` }
+      : encodingFact(buffer);
     setText(encodingEl, encoding.label, encoding.title);
   };
 
@@ -218,7 +227,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
       // A pair is one character; its low half is not counted again.
       if (!(c >= 0xdc00 && c <= 0xdfff && i > 0 && before.charCodeAt(i - 1) >= 0xd800 && before.charCodeAt(i - 1) <= 0xdbff)) column++;
     }
-    const offset = byteOffsetAt(state, main.head);
+    const offset = fileOffset(buffer.path, buffer.bytes, byteOffsetAt(state, main.head));
     readoutEl.textContent = `Ln ${formatCount(line.number)}, Col ${formatCount(column)} · byte ${formatCount(offset)}`;
     readoutEl.title = 'Line, then column counted in characters (a tab is one), then the byte offset from the start of the file';
 
@@ -381,8 +390,10 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
     setTimeout(step, 0);
   };
 
-  /** Find matches, while the find panel is open: where the query matches, at the height of each. */
+  /** Find matches, while the find panel is open: where the query matches, at the height of each. In slices. */
+  let findToken = 0;
   const scanFind = (state: EditorState): void => {
+    const token = ++findToken;
     if (!searchPanelOpen(state)) {
       if (findMarks.length > 0) {
         findMarks = [];
@@ -391,19 +402,22 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
       return;
     }
     const query = getSearchQuery(state);
-    const found: Mark[] = [];
-    if (query.valid) {
-      const cursor = query.getCursor(state);
-      for (let next = cursor.next(); !next.done && found.length < FIND_CAP; next = cursor.next()) {
-        const { from, to } = next.value;
-        if (to > from) found.push({ from, to, kind: 'find', title: `Find match at ${lineColumn(state, from)}` });
-      }
+    if (!query.valid) {
+      findMarks = [];
+      publishMarks();
+      return;
     }
-    findMarks = found;
-    publishMarks();
+    scanFindInSlices(state, query, {
+      cap: FIND_CAP,
+      cancelled: () => destroyed || token !== findToken,
+      done: (found) => {
+        findMarks = found.map(({ from, to }) => ({ from, to, kind: 'find', title: `Find match at ${lineColumn(state, from)}` }));
+        publishMarks();
+      },
+    });
   };
 
-  /** Notes (V-04): after the text is up, then again a moment after the text stops changing. */
+  /** Notes: after the text is up, then again a moment after the text stops changing. */
   let notesToken = 0;
   const scanNotes = (state: EditorState): void => {
     const token = ++notesToken;
@@ -474,7 +488,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
       bytesAt.map(u.changes, u.startState);
       scheduleIndent();
       scheduleInvisibles();
-      // A note stays on its text: its place moves with the edit (V-04.1). A scan under way was made of the old text, so it is dropped.
+      // A note stays on its text: its place moves with the edit. A scan under way was made of the old text, so it is dropped.
       notesToken++;
       if (noteMarks.length > 0) {
         noteMarks = noteMarks.map((m) => ({ ...m, from: u.changes.mapPos(m.from, 1), to: u.changes.mapPos(m.to, -1) }));
@@ -484,11 +498,21 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
       scheduleNotes(700);
     }
     schedule({ facts: u.docChanged || u.startState.tabSize !== u.state.tabSize, caret: u.docChanged || u.selectionSet });
+    if (u.startState.facet(guideColumn) !== u.state.facet(guideColumn)) showRuler(u.state);
     if (u.selectionSet || u.docChanged || u.viewportChanged || u.geometryChanged) ruler?.update();
     if (u.geometryChanged || u.docChanged) layoutMarks();
     const queryChanged = u.transactions.some((tr) => tr.effects.some((e) => e.is(setSearchQuery)));
     if (u.docChanged || queryChanged || searchPanelOpen(u.state) !== searchPanelOpen(u.startState)) scheduleFind();
   };
+
+  /** The ruler counts columns for the guide: without one it is a row of chrome over the text, so it shows only with it. */
+  function showRuler(state: EditorState): void {
+    if (!ruler) return;
+    const hidden = state.facet(guideColumn) === null;
+    if (ruler.element.hidden === hidden) return;
+    ruler.element.hidden = hidden;
+    if (!hidden) ruler.update();
+  }
 
   renderPath();
   renderBufferFacts();
@@ -504,6 +528,7 @@ export function createSourceFrame(parent: HTMLElement, initial: Buffer, opts: So
       if (!opts.wraps) {
         ruler = createRuler(editor);
         root.insertBefore(ruler.element, body);
+        showRuler(editor.state);
       }
       readIndent(editor.state);
       renderLiveFacts();

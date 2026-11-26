@@ -503,5 +503,25 @@
     "name": "--marxy-typeset",
     "kind": "keyword",
     "comment": true
+  },
+  {
+    "name": "--marxy-heading-style",
+    "kind": "keyword",
+    "comment": true
+  },
+  {
+    "name": "--marxy-heading-case",
+    "kind": "keyword",
+    "comment": true
+  },
+  {
+    "name": "--marxy-figures",
+    "kind": "keyword",
+    "comment": true
+  },
+  {
+    "name": "--marxy-paragraph-indent",
+    "kind": "length",
+    "comment": true
   }
 ]

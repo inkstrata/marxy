@@ -1,4 +1,4 @@
-// F-60.1: the Transform sheet and Copy as run on the open document's own parse, so there is one parse per buffer
+// the Transform sheet and Copy as run on the open document's own parse, so there is one parse per buffer
 // version (`parseCount()`), and never on a parse of other bytes (commitment 3). Node, no DOM: the sheet and the copy
 // commands do exactly what is done here, which is to take `store.textParse()` and hand it to `output`/`runStep` and
 // to `copyAsFromText`; test/transform-sheet.test.mjs and test/copy-as.test.mjs run the same through the real app.
@@ -153,7 +153,7 @@ test('the pair is the standard parse: what the store hands over is what parseMar
   assert.deepEqual(pair.doc, standard);
 });
 
-test('a code file hands over nothing: its AST is code blocks, not a Markdown parse of the text (V-10), and a rename follows the kind', async () => {
+test('a code file hands over nothing: its AST is code blocks, not a Markdown parse of the text, and a rename follows the kind', async () => {
   const text = '# not a heading\n\n---\n\n* a\n* b\n';
   const code = openDocumentStore({ writeFileAtomic: async () => {} }, '/t/script.py', enc.encode(text));
   assert.equal(code.textParse(), null, 'a code file is not read as Markdown');

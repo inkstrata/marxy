@@ -12,7 +12,7 @@ tag was cut. Compare links go to <code data-marxy-s="133" data-marxy-e="150">exa
 <li data-marxy-s="289" data-marxy-e="388">The watcher no longer re-indexes a file three times when an editor saves through a temporary file</li>
 <li data-marxy-s="389" data-marxy-e="464"><code data-marxy-s="391" data-marxy-e="414">index.max_file_mb = 0</code> now means “no limit” instead of “skip everything”</li>
 </ul>
-<pre class="language-text" data-marxy-s="466" data-marxy-e="538"><code class="language-text" data-marxy-s="474" data-marxy-e="535">## [9.9.9] - 2099-01-01
+<pre class="language-text" data-marxy-lang="text" data-marxy-s="466" data-marxy-e="538"><code class="language-text" data-marxy-s="474" data-marxy-e="535">## [9.9.9] - 2099-01-01
 this is a fenced line, not a release
 </code></pre>
 <h2 data-marxy-s="540" data-marxy-e="612"><a href="https://example.invalid/compare/v0.8.4...v0.9.0" class="marxy-external" data-marxy-s="543" data-marxy-e="599">0.9.0</a> - 2026-09-20</h2>

@@ -1,4 +1,4 @@
-// HTML from a chat tool, a document editor or a web page, as markdown (E-14, ADR-0065). The HTML is
+// HTML from a chat tool, a document editor or a web page, as markdown. The HTML is
 // untrusted: it goes through the core sanitiser first (so a script, an event handler, a javascript:
 // URL, a style and every remote resource are gone before anything reads it), then into an inert
 // document made by DOMParser (no script runs, no resource loads, nothing is inserted into the live

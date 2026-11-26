@@ -1,0 +1,18 @@
+diff --git a/packages/core/src/parse/reparse.test.ts b/packages/core/src/parse/reparse.test.ts
+index bb1600db..c8c262b3 100644
+--- a/packages/core/src/parse/reparse.test.ts
++++ b/packages/core/src/parse/reparse.test.ts
+@@ -396,6 +396,13 @@ test('an edit that leaves the file\'s definitions as they were parses a region,
+   assertCase('See [r].\n\n> [r]: /r\n> quoted\n', 'See [r].\n\n> [r]: /r\n> quoted, edited\n', 'text beside a definition in a quote');
+ });
+ 
++test('a definition between two blocks does not stop a region from starting or ending beside it', () => {
++  // A definition after every paragraph: if one made the next block no fresh line, no restart or witness would exist and the region would be the file.
++  const document = (middle: string): string => Array.from({ length: 60 }, (_, n) => `p${n}${n === 30 ? middle : ''}\n\n[r${n}]: /r${n}\n\n`).join('');
++  assert.equal(run(document(''), document(' edited')), 'region');
++  assert.ok(lastReparse().parsed < document('').length / 4, `parsed ${lastReparse().parsed} of ${document('').length} bytes`);
++});
++
+ /** Link reference and footnote definitions in every place one can sit, and the references that use them. */
+ const DEFINITION_BLOCKS: readonly string[] = [
+   '[foo]: http://f.example\n', '[Foo]: http://second.example "a duplicate, which loses"\n', "[ bar\tbaz ]: </b b> 't'\n",

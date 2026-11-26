@@ -1,4 +1,4 @@
-// Reading the pasteboard on a reader's paste and converting what was read (J-05, ADR-0065 §3). Nothing
+// Reading the pasteboard on a reader's paste and converting what was read. Nothing
 // here runs on its own: a command or a paste handler calls `readConverted`, which lists the types first,
 // refuses a concealed item before it reads anything, and then reads only the representations it needs.
 import { classifyClipboard, type ClipboardKind, type ClipboardPayload } from '@marxy/core/src/paste/classify.ts';
@@ -11,7 +11,7 @@ export interface Converted {
   readonly kind: ClipboardKind;
 }
 
-/** E-14's two halves as one call: classify, and convert HTML when that is what the clipboard holds. Reads nothing. */
+/** The two halves as one call: classify, and convert HTML when that is what the clipboard holds. Reads nothing. */
 export function convertClipboard(payload: ClipboardPayload): Converted {
   const got = classifyClipboard(payload);
   if (got.kind !== 'html') return { kind: got.kind, markdown: got.markdown ?? '' };
@@ -94,9 +94,9 @@ export async function readConverted(shell: PasteShell): Promise<ConvertedRead> {
 /** The notice for a paste that converted HTML. */
 export const CONVERTED_NOTICE = 'Pasted as Markdown (converted from HTML)';
 /**
- * An empty clipboard is neither a refusal nor a failure: the reader asked for nothing that could be done, and J-05's
- * card says only that the command "says Nothing to paste". So it is a Note that fades like an outcome, not a sticky
- * "Not done" (U-02's review); the document is unchanged and there is nothing to fix.
+ * An empty clipboard is neither a refusal nor a failure: the reader asked for nothing that could be done, and the
+ * command says only "Nothing to paste". So it is a Note that fades like an outcome, not a sticky
+ * "Not done"; the document is unchanged and there is nothing to fix.
  */
 export const NOTHING_TO_PASTE = 'Nothing to paste · the document is unchanged';
 
@@ -111,7 +111,7 @@ export type TransformRead =
   | { readonly refused?: undefined; readonly empty?: false; readonly text: string; readonly kind: 'text' | 'html' };
 
 /**
- * What a clipboard transform works on (J-06), read on the reader's command and not before: the types, then at most two
+ * What a clipboard transform works on, read on the reader's command and not before: the types, then at most two
  * representations. A concealed item is refused after the type list and before any read. Plain text is used as it is;
  * an item with HTML and no text is read as `convertClipboard`'s Markdown. An item with only an image, RTF or a URL is
  * refused by name. Text that is not valid UTF-8 is refused with its message (nothing is read lossily).

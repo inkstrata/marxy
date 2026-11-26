@@ -1,4 +1,4 @@
-// The mode toggle and history travel, as registry commands (A-13). The chords and the exceptions
+// The mode toggle and history travel, as registry commands. The chords and the exceptions
 // are the ones the three private listeners had: history keys belong to the editor in Source and to
 // text fields (decided in `historyAllowed`), and link history wins over the palette's session
 // history.
@@ -45,13 +45,14 @@ export function navigationCommands(): readonly Command[] {
   return [
     {
       id: 'view.toggle-mode',
-      title: 'Toggle Rendered / Source',
+      title: 'Switch between Read and Source',
       key: 'Mod+E',
       global: true,
       group: 'view',
       when: () => appHandle()?.openDocument() != null,
       run: async () => {
         await appHandle()?.toggleMode();
+        appHandle()?.focusSource();
       },
     },
     {

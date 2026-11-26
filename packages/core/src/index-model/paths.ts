@@ -1,4 +1,4 @@
-// Path helpers that do not import `node:`. The model must run in a browser (ADR-0020).
+// Path helpers that do not import `node:`. The model must run in a browser.
 
 /**
  * True for a Windows path: a drive (`C:\` or `C:/`) or a UNC share (`\\host`). Core takes no platform
@@ -14,6 +14,70 @@ export function normalizePath(path: string): string {
   const slash = isWindowsPath(path) ? path.replace(/\\/g, '/') : path;
   if (slash === '/' || slash === '') return '/';
   return slash.replace(/\/+$/, '') || '/';
+}
+
+/**
+ * `path` normalised, with Windows' verbatim prefix dropped (`\\?\UNC\s\share\x` as `//s/share/x`, `\\?\C:\x` as `C:/x`),
+ * to compare by. The watch canonicalises a share or a long path to its verbatim spelling, while a path from the open
+ * dialog or a drop is plain, so the two name one file. Only for comparing: a path handed to the shell keeps its spelling.
+ */
+export function comparablePath(path: string): string {
+  const p = normalizePath(path);
+  if (p.startsWith('//?/UNC/')) return `//${p.slice('//?/UNC/'.length)}`;
+  if (/^\/\/\?\/[A-Za-z]:(\/|$)/.test(p)) return p.slice('//?/'.length);
+  return p;
+}
+
+/**
+ * The one key every spelling of a file shares, for maps and comparisons keyed by file; never a path to hand the shell.
+ *
+ * A Windows path: slashes and the verbatim prefix as `comparablePath`, empty and `.` segments dropped and `..` taken back
+ * a segment (Windows resolves them by spelling, never through a link, and not above the drive or share), and letters
+ * folded to one case. A letter folds only when its upper case is one unit that comes back to it (`é`/`É`); one that
+ * would merge with another letter (`ı`, `ſ`) or grow (`ß`) stays exact, so two files are never taken for one.
+ *
+ * Any other absolute path: empty and `.` segments dropped; the case and `..` (which a link can send elsewhere) are kept.
+ * Anything else is its own key.
+ */
+export function fileKey(path: string): string {
+  if (!isWindowsPath(path)) {
+    if (!path.startsWith('/')) return path;
+    return `/${path.split('/').filter((s) => s !== '' && s !== '.').join('/')}`;
+  }
+  const p = comparablePath(path);
+  let root: string;
+  let rest: string[];
+  if (p.startsWith('//')) {
+    const [server = '', share = '', ...tail] = p.slice(2).split('/');
+    root = `//${server}/${share}`;
+    rest = tail;
+  } else {
+    const [drive = '', ...tail] = p.split('/');
+    root = drive;
+    rest = tail;
+  }
+  const kept: string[] = [];
+  for (const segment of rest) {
+    if (segment === '' || segment === '.') continue;
+    if (segment === '..') kept.pop();
+    else kept.push(segment);
+  }
+  return foldUnits(`${root}/${kept.join('/')}`);
+}
+
+/** Whether `a` and `b` name one file by their spelling (`fileKey`). */
+export function sameFilePath(a: string, b: string): boolean {
+  return a === b || fileKey(a) === fileKey(b);
+}
+
+function foldUnits(path: string): string {
+  let out = '';
+  for (let i = 0; i < path.length; i++) {
+    const unit = path[i]!;
+    const upper = unit.toUpperCase();
+    out += upper.length === 1 && upper.toLowerCase() === unit.toLowerCase() ? upper : unit;
+  }
+  return out;
 }
 
 /** Parent directory of `path`, or the path itself when it is already the root. */

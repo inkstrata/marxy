@@ -1,6 +1,6 @@
-// Start-up measurement: the code that makes `first_text` an honest number (ADR-0013), lifted out of
-// app.ts (B-08). Every mark keeps its name, order and detail format; scripts/perf-harness.mjs,
-// scripts/measure-startup.mjs and the nightly read them by name.
+// Start-up measurement: the code that makes `first_text` an honest number, lifted out of
+// app.ts. Every mark keeps its name, order and detail format; scripts/perf-harness.mjs,
+// scripts/measure-startup.mjs read them by name.
 import type { Shell } from '@marxy/shell-api';
 import { FRAMES_ONLY_SIGNAL, isDocVisible, waitForEnginePaint } from '../paint-signal.mjs';
 
@@ -8,13 +8,13 @@ import { FRAMES_ONLY_SIGNAL, isDocVisible, waitForEnginePaint } from '../paint-s
 export const t0 = Date.now();
 
 // The counter starts when this module is evaluated, not when startApp runs: starting it later made
-// render to painted about 15 ms slower on a 1 MB document (B-08 measurement), so the loop has to be
+// render to painted about 15 ms slower on a 1 MB document (measured), so the loop has to be
 // running before the first render. `createLaunchMeasure` restarts it for a later launch in one page.
 let observed = 0;
 let observing = false;
 /**
  * Bumped by each start: a frame callback of an earlier loop, still queued when `finish` stopped it and
- * a later launch started another, ends there instead of counting every frame a second time (B-15).
+ * a later launch started another, ends there instead of counting every frame a second time.
  */
 let generation = 0;
 function startObserving(): void {
@@ -33,7 +33,7 @@ startObserving();
 export interface RenderEvidence {
   readonly blocks: number;
   readonly chars: number;
-  /** Any character that is not white space: the newline between two image blocks is not text (F-17). */
+  /** Any character that is not white space: the newline between two image blocks is not text. */
   readonly hasText: boolean;
   readonly heading: string;
 }
@@ -109,7 +109,7 @@ export function createLaunchMeasure(
     async waitForFirstText(doc, evidence, after, renderedAt) {
       // Nothing on screen is not "first readable text": a build whose rendering silently produced nothing
       // must not be able to hand the startup measurement a number either — and it has no paint to wait for,
-      // so this runs before the wait (there is nothing to paint, so the wait would never end: F-17). The
+      // so this runs before the wait (there is nothing to paint, so the wait would never end). The
       // `no_text` mark also disarms the shell's paint deadline. The caller decides what a document with
       // blocks but no text (only images) does next; the measurement says there was no text either way.
       if (evidence.blocks === 0 || !evidence.hasText) {
@@ -117,33 +117,38 @@ export function createLaunchMeasure(
         return 'no_text';
       }
 
-      // Hidden text is still in `textContent` and frames still tick; that is not a paint (MARXY-71).
+      // Hidden text is still in `textContent` and frames still tick; that is not a paint.
       if (!isDocVisible(doc)) {
         await shell.mark('no_paint', Date.now(), 'reason=not-visible');
         return 'no_paint';
       }
 
       // Counted from here, so the number covers the wait and not the render mark's IPC round trip.
-      // Frames but no paint entry for about 2 s ends the wait as `frames_only` (F-31, ADR-0013 amended): the
-      // boot goes on, and nothing reports it as a paint. Some environments deliver no frames and no paint entries
+      // Frames but no paint entry ends the wait as `frames_only` at once when the engine's one contentful
+      // paint is already on the timeline from before the render, else after about 2 s: the
+      // boot goes on, and `first_text` is timed by the frame. Some environments deliver no frames and no paint entries
       // (a Mac in dark wake, a locked screen) and there it never resolves. A harness launch is ended
       // by the shell's deadline instead, because WebKit aligns in-page timers in a window that cannot
       // paint to about 15 s. A reader is left waiting and gets the document when the display wakes.
       const framesAtRender = observed;
-      const { signal } = await waitForEnginePaint({ after, doc });
+      const { signal, frameAt, fcpBeforeMs } = await waitForEnginePaint({ after, doc });
       // One timestamp for both marks: the paint detail costs an IPC round trip and `first_text` must not
       // be pushed later by the cost of reporting it.
-      const paintedAt = Date.now();
+      const framesOnly = signal === FRAMES_ONLY_SIGNAL;
+      const paintedAt = framesOnly ? frameAt : Date.now();
       const frames = observed - framesAtRender;
 
-      await shell.mark('painted', paintedAt, `frames=${frames} since_render_ms=${paintedAt - renderedAt} signal=${signal}`);
-      // A frames-only boot is not a paint, so it is not a cold-start sample: the line above says what happened
-      // (signal=frames-only), and there is no `first_text` for the startup harness to count.
-      if (signal === FRAMES_ONLY_SIGNAL) return 'frames_only';
-      // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
+      // WebView2 emits its one contentful paint per document, and it can precede the render. The text was
+      // on screen by its second frame, so that frame times `first_text` and `source=frame` says it was not
+      // an engine paint; `fcp_before_ms` records the earlier paint so the cause is not inferred. A frame
+      // time can be about one frame earlier than the paint it stands for.
+      const source = framesOnly ? 'frame' : 'paint';
+      const cause = framesOnly && fcpBeforeMs !== null ? ` fcp_before_ms=${Math.round(fcpBeforeMs)}` : '';
+      await shell.mark('painted', paintedAt, `frames=${frames} since_render_ms=${paintedAt - renderedAt} signal=${signal} source=${source}${cause}`);
+      // Two fields exactly: the startup check names this line, and the startup harness parses it.
       // Anything the check needs beyond the timestamp goes on the `painted` line above.
       await shell.mark('first_text', paintedAt);
-      return 'painted';
+      return framesOnly ? 'frames_only' : 'painted';
     },
     async finish(code) {
       observing = false;

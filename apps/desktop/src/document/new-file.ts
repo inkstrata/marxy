@@ -1,6 +1,6 @@
-// *New file*, *New file here* and *Fork this file* (W-14): what the commands, the + menus and the sidebar's folder menu run.
+// *New file*, *New file here* and *Fork this file*: what the commands, the + menus and the sidebar's folder menu run.
 //
-// A new file is a scratch document (E-13): empty, called "Untitled", and nothing is written until the reader's own Save As. *Here*
+// A new file is a scratch document: empty, called "Untitled", and nothing is written until the reader's own Save As. *Here*
 // only changes where that Save As opens (the folder of the open file, or the sidebar folder the menu was opened on). A fork is the
 // one thing here that writes, and `fork.ts` holds the rules it writes by.
 import { dirname } from '@marxy/core/src/index-model/paths.ts';
@@ -8,7 +8,8 @@ import { appHandle } from '../commands/app-handle.ts';
 import type { AppContext } from '../commands/registry.ts';
 import { FORK_SAYS } from '../notices/fork.ts';
 import { notify, SOURCE_HELD_APART } from '../notices/index.ts';
-import { forkPath, writeFork } from './fork.ts';
+import { fileBytesFor } from './encoding.ts';
+import { forkPath, writeFork, type ForkOutcome } from './fork.ts';
 import { openScratch } from './scratch.ts';
 import { isUntitled } from './untitled.ts';
 
@@ -38,8 +39,8 @@ export function newFileHere(ctx: Pick<AppContext, 'document'>): Promise<boolean>
 }
 
 /**
- * *Fork this file*: the open document's bytes, as on disk plus any unsaved edits (Source text is folded in first), written beside it
- * under the first free `(fork)` name and opened. The original is not touched. The notice says where the fork went, or that
+ * *Fork this file*: the open document's bytes, as on disk plus any unsaved edits (Source text is folded in first), in the file's own
+ * encoding, written beside it under the first free `(fork)` name and opened. The original is not touched. The notice says where the fork went, or that
  * nothing was written; it is the notice's job, not the open's, so a refused prompt over unsaved edits cannot hide a written file.
  */
 export async function forkOpenDocument(ctx: AppContext): Promise<void> {
@@ -54,7 +55,11 @@ export async function forkOpenDocument(ctx: AppContext): Promise<void> {
   }
   const snap = store.snapshot();
   if (snap.path !== original) return;
-  const outcome = await writeFork(app.shell, original, snap.buffer.bytes);
+  // The store holds the page's text; the fork is the file's bytes, in the encoding the file was read in.
+  const outcome: ForkOutcome = await fileBytesFor(app.shell, original, snap.buffer.bytes).then(
+    (bytes) => writeFork(app.shell, original, bytes),
+    (error: unknown) => ({ result: 'failed', error }),
+  );
   if (outcome.result === 'failed') {
     const failed = FORK_SAYS.failed(original, outcome.error, outcome.path);
     ctx.showNotice(failed.text, { kind: failed.kind });

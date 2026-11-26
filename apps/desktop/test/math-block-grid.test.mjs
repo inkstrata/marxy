@@ -1,4 +1,4 @@
-// B-02.6: a display math block must end a whole number of grid units tall, and the same on every render.
+// a display math block must end a whole number of grid units tall, and the same on every render.
 // WebKit kept a stale height for `pre.marxy-math-block` (inline <code> around a block-level
 // .katex-display); only a fresh layout, forced here by a screenshot, shows the real one.
 import { strict as assert } from 'node:assert';
@@ -9,7 +9,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'

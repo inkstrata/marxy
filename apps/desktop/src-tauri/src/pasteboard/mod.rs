@@ -1,6 +1,7 @@
-//! The native pasteboard (J-01, ADR-0065 items 2, 3 and 5): list the first item's types, read
-//! chosen representations, and write several representations as one item tagged with Marxy as its
-//! source.
+//! The native pasteboard: list the first item's types, read chosen representations, and write
+//! several representations as one item tagged with Marxy as its source. macOS uses NSPasteboard
+//! (`macos.rs`), Windows the Win32 clipboard (`win32.rs`); both answer in the macOS type names, which
+//! `win_types.rs` maps to Windows formats, so the page has one set of names everywhere.
 //!
 //! Privacy is the shape of this module. Nothing here watches the pasteboard: there is no polling and
 //! no `changeCount` observation, and the only data reads are the ones `pasteboard_read` asks for, on
@@ -13,21 +14,41 @@
 //! alone, so a copy that lands mid-command cannot be read, nor mixed with the copy that was checked.
 //! A write allows only text, HTML, RTF and URL types, and then adds the markers itself.
 //!
-//! Two limits, stated plainly. `CAP` bounds what a response carries, not memory: AppKit hands over a
-//! representation whole, so an oversized one is read and then dropped, not streamed. And a write is
+//! Two limits, stated plainly. On macOS `CAP` bounds what a response carries, not memory: AppKit
+//! hands over a representation whole, so an oversized one is read and then dropped, not streamed
+//! (Windows sizes a format before copying it, so there it bounds memory too). And a write is
 //! `clearContents` then `writeObjects`; if AppKit refuses the second, the clipboard is left empty
 //! (the item is built first, so only that refusal can do it), and the error says so.
 //! The commands are synchronous on purpose: Tauri runs those on the main thread, which AppKit's
-//! pasteboard needs. Do not make them `async`.
+//! pasteboard needs. Do not make them `async`. Windows runs the same work on a short-lived thread
+//! that owns no window (`with_general`), and gives up after three seconds if the app that copied
+//! does not answer.
+//!
+//! On Windows the rules take the clipboard's own forms. The snapshot is the clipboard held open for
+//! the whole command, so no copy can land between the check and the reads. The concealed markers are
+//! `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory` and
+//! `CanUploadToCloudClipboard`, which password managers set: a clipboard carrying any of them is
+//! refused unread, by its format list alone. A transient write sets the first, plus
+//! `CanIncludeInClipboardHistory` and `CanUploadToCloudClipboard` as 0, so it stays out of
+//! clipboard monitors, Win+V history and the cloud clipboard; Marxy then refuses to read its own
+//! transient copy back, as it would any concealed one. `SOURCE` has no Windows convention and is not
+//! written there.
 //!
 //! The trait, the types and the logic compile on every platform, so the Linux job's clippy sees them
-//! used; only `macos.rs` is `cfg(target_os = "macos")`. Elsewhere the commands return `unsupported`
-//! and Linux keeps the clipboard plugin's write path (`clipboard_write` in `main.rs`, unchanged).
+//! used; only `macos.rs` and `win32.rs` are platform-only (`cf_html.rs` and `win_types.rs` are built
+//! for Windows and for tests). On Linux the commands return `unsupported` and the clipboard plugin's
+//! write path (`clipboard_write` in `main.rs`) is used.
 
+#[cfg(any(windows, test))]
+mod cf_html;
 #[cfg(test)]
 mod fake;
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg(windows)]
+mod win32;
+#[cfg(any(windows, test))]
+mod win_types;
 
 use serde::{Deserialize, Serialize};
 
@@ -68,6 +89,22 @@ pub trait Snapshot {
     fn item_types(&self) -> Vec<Vec<String>>;
     /// The first item's bytes for `ty`, or `None` when it has none. This is the data read.
     fn read(&self, ty: &str) -> Option<Vec<u8>>;
+    /// `read`, but `Over(size)` without copying when the platform can see the bytes are over `cap`
+    /// before it reads them. AppKit hands a representation over whole, so macOS reads first.
+    fn read_capped(&self, ty: &str, cap: usize) -> Option<Taken> {
+        let _ = cap;
+        self.read(ty).map(Taken::Bytes)
+    }
+}
+
+/// What `read_capped` took.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Taken {
+    Bytes(Vec<u8>),
+    /// Held but over the cap, by this many bytes as the platform stores them; nothing was copied. Only the Windows
+    /// pasteboard (and the test fake) can see the size before copying.
+    #[cfg_attr(not(any(windows, test)), allow(dead_code))]
+    Over(usize),
 }
 
 /// One pasteboard, as the logic needs it.
@@ -86,11 +123,14 @@ pub enum PasteboardError {
     NotWritable(String),
     /// A write with no representations.
     Empty,
-    /// Not macOS: the native pasteboard is not built here.
-    #[cfg_attr(target_os = "macos", expect(dead_code))]
+    /// Neither macOS nor Windows: the native pasteboard is not built here.
+    #[cfg_attr(any(target_os = "macos", windows), expect(dead_code))]
     Unsupported,
-    /// AppKit refused the call.
-    #[cfg_attr(not(target_os = "macos"), expect(dead_code))]
+    /// AppKit or Win32 refused the call.
+    #[cfg_attr(
+        all(not(target_os = "macos"), not(windows), not(test)),
+        expect(dead_code)
+    )]
     Native(String),
 }
 
@@ -108,7 +148,7 @@ impl From<PasteboardError> for ShellError {
             PasteboardError::Empty => ("invalid", "nothing to write".to_string()),
             PasteboardError::Unsupported => (
                 "unsupported",
-                "the native pasteboard is macOS only; use clipboardWrite".to_string(),
+                "the native pasteboard is macOS and Windows only; use clipboardWrite".to_string(),
             ),
             PasteboardError::Native(m) => ("io", m),
         };
@@ -165,16 +205,19 @@ pub fn read_reps(pb: &dyn Pasteboard, wanted: &[String]) -> Result<Read, Pastebo
         if !wanted.iter().any(|w| w == ty) || !first.iter().any(|t| t == ty) {
             continue;
         }
-        if let Some(bytes) = snap.read(ty) {
-            if bytes.len() > CAP {
-                out.skipped.push(Skipped {
-                    ty: ty.to_string(),
-                    len: bytes.len(),
-                });
-            } else {
+        let len = match snap.read_capped(ty, CAP) {
+            None => continue,
+            Some(Taken::Over(len)) => len,
+            Some(Taken::Bytes(bytes)) if bytes.len() <= CAP => {
                 out.reps.push((ty.to_string(), bytes));
+                continue;
             }
-        }
+            Some(Taken::Bytes(bytes)) => bytes.len(),
+        };
+        out.skipped.push(Skipped {
+            ty: ty.to_string(),
+            len,
+        });
     }
     Ok(out)
 }
@@ -274,23 +317,66 @@ fn base64(bytes: &[u8]) -> String {
 }
 
 /// Run `f` on the general pasteboard. On macOS the command is synchronous, so Tauri runs it on the
-/// main thread, where AppKit wants NSPasteboard; `macos::General::new` checks that it is.
-fn with_general<R>(
-    f: impl FnOnce(&mut dyn Pasteboard) -> Result<R, PasteboardError>,
+/// main thread, where AppKit wants NSPasteboard; `macos::General::new` checks that it is. On Windows
+/// it runs on a thread of its own with no window, holding the clipboard open throughout (`win32.rs`).
+fn with_general<R: Send + 'static>(
+    f: impl FnOnce(&mut dyn Pasteboard) -> Result<R, PasteboardError> + Send + 'static,
 ) -> Result<R, PasteboardError> {
     #[cfg(target_os = "macos")]
     {
         let mut pb = macos::General::new()?;
         f(&mut pb)
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(windows)]
+    {
+        run_with_timeout(
+            move || {
+                let mut pb = win32::General::open()?;
+                f(&mut pb)
+            },
+            OWNER_WAIT,
+        )
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
     {
         let _ = f;
         Err(PasteboardError::Unsupported)
     }
 }
 
+/// How long the main thread waits for a clipboard command on Windows. A read of a format the copying
+/// app renders on demand waits on that app, with no timeout of its own.
+#[cfg(windows)]
+const OWNER_WAIT: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// Said when the app that owns the clipboard does not answer in time.
+#[cfg(any(windows, test))]
+const NOT_ANSWERING: &str = "The app that copied this is not answering.";
+
+/// `f` on a thread of its own, waited for at most `wait`. On a timeout the thread is left to finish
+/// or hang on its own: it is blocked on the other app, and it keeps the clipboard open only for as
+/// long as that app is hung, which is when nothing else can use the clipboard anyway.
+#[cfg(any(windows, test))]
+fn run_with_timeout<R: Send + 'static>(
+    f: impl FnOnce() -> Result<R, PasteboardError> + Send + 'static,
+    wait: std::time::Duration,
+) -> Result<R, PasteboardError> {
+    use std::sync::mpsc;
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(f());
+    });
+    match rx.recv_timeout(wait) {
+        Ok(result) => result,
+        Err(mpsc::RecvTimeoutError::Timeout) => Err(PasteboardError::Native(NOT_ANSWERING.into())),
+        Err(mpsc::RecvTimeoutError::Disconnected) => Err(PasteboardError::Native(
+            "the clipboard could not be reached".into(),
+        )),
+    }
+}
+
 // The three commands below stay synchronous: Tauri runs them on the main thread (AppKit needs it).
+// Windows moves the work off it in `with_general`.
 
 /// The first item's types, read on a reader action only. Reads no data.
 #[tauri::command]
@@ -301,7 +387,7 @@ pub fn pasteboard_types() -> Result<Vec<String>, ShellError> {
 /// The requested representations of the first item; refuses a concealed item unread.
 #[tauri::command]
 pub fn pasteboard_read(types: Vec<String>) -> Result<PasteboardRead, ShellError> {
-    with_general(|pb| read_reps(pb, &types))
+    with_general(move |pb| read_reps(pb, &types))
         .map(|read| PasteboardRead {
             reps: read
                 .reps
@@ -320,7 +406,7 @@ pub fn pasteboard_write(reps: Vec<WriteRep>, transient: bool) -> Result<(), Shel
         .into_iter()
         .map(|r| (r.ty, r.data.into_bytes()))
         .collect();
-    with_general(|pb| write_reps(pb, &reps, transient)).map_err(Into::into)
+    with_general(move |pb| write_reps(pb, &reps, transient)).map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -419,6 +505,50 @@ mod tests {
         let got = read_reps(&at_cap, &wanted).unwrap();
         assert_eq!(got.reps[0].1.len(), CAP);
         assert!(got.skipped.is_empty());
+    }
+
+    #[test]
+    fn a_huge_rep_the_platform_can_size_is_skipped_without_a_copy() {
+        let mut pb = FakePasteboard::holding(vec![vec![rep(TEXT, "small"), rep(HTML, "x")]]);
+        pb.sizes.insert(HTML.to_string(), 1 << 30);
+        let wanted = vec![TEXT.to_string(), HTML.to_string()];
+        let got = read_reps(&pb, &wanted).unwrap();
+        assert_eq!(types_of(&got.reps), vec![TEXT]);
+        assert_eq!(
+            got.skipped,
+            vec![Skipped {
+                ty: HTML.to_string(),
+                len: 1 << 30
+            }]
+        );
+        assert_eq!(pb.reads(), vec![TEXT.to_string()], "HTML was never copied");
+    }
+
+    #[test]
+    fn a_worker_that_blocks_times_out_and_is_left_behind() {
+        let (release, blocked) = std::sync::mpsc::channel::<()>();
+        let started = std::time::Instant::now();
+        let got = run_with_timeout(
+            move || {
+                let _ = blocked.recv();
+                Ok(())
+            },
+            std::time::Duration::from_millis(50),
+        );
+        assert_eq!(got, Err(PasteboardError::Native(NOT_ANSWERING.into())));
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        drop(release);
+        assert_eq!(
+            run_with_timeout(|| Ok(7), std::time::Duration::from_secs(5)),
+            Ok(7)
+        );
+        assert!(matches!(
+            run_with_timeout(
+                || -> Result<(), _> { panic!("worker") },
+                std::time::Duration::from_secs(5)
+            ),
+            Err(PasteboardError::Native(_))
+        ));
     }
 
     #[test]
@@ -530,7 +660,7 @@ mod tests {
         }
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", windows)))]
     #[test]
     fn other_platforms_say_unsupported() {
         assert_eq!(pasteboard_types().unwrap_err().code, "unsupported");

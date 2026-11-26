@@ -1,6 +1,6 @@
-// Local images, asset scope, notices and layout shift (MARXY-138).
+// Local images, asset scope, notices and layout shift.
 // The Rust half (`image_size`, `allow_asset_scope`) is #[test]s in src-tauri/src/commands/fs.rs, run by
-// `cargo test`; it used to compile a crate here, which needed a C linker in the browser container (G-04).
+// `cargo test`; it used to compile a crate here, which needed a C linker in the browser container.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { parseMarkdown } from '../../../packages/core/src/parse/parse.ts';
 import { renderDocumentSafeHtml } from '../../../packages/core/src/render/pipeline.ts';
 import { resolveImageSrc } from '../../../packages/core/src/render/images.ts';
@@ -92,7 +92,7 @@ test('post-pass 3: a refused path keeps alt text, drops src, and never calls ass
   }
 });
 
-// F-14: in a repository the image root is the repository root (ADR-0027 §5), not the document's folder.
+// in a repository the image root is the repository root, not the document's folder.
 const NESTED_SOURCE = [
   '# Nested',
   '',
@@ -132,30 +132,30 @@ async function nestedImages(files) {
   }
 }
 
-test('F-14: /x.png in a nested document loads from the repository root', async () => {
+test('/x.png in a nested document loads from the repository root', async () => {
   const { sizes, srcs } = await nestedImages(nestedFiles(true));
   assert.ok(sizes.includes('/repo/assets/logo.png'), `sized: ${sizes}`);
   assert.ok(srcs.find((i) => i.alt === 'logo')?.src, 'the logo has a src');
 });
 
-test('F-14: ../x.png in a nested document loads from inside the repository', async () => {
+test('../x.png in a nested document loads from inside the repository', async () => {
   const { sizes, srcs } = await nestedImages(nestedFiles(true));
   assert.ok(sizes.includes('/repo/diagram.png'), `sized: ${sizes}`);
   assert.ok(srcs.find((i) => i.alt === 'diagram')?.src, 'the diagram has a src');
 });
 
-test('F-14: ../../etc/x.png still leaves the repository and is refused', async () => {
+test('../../etc/x.png still leaves the repository and is refused', async () => {
   const { sizes, srcs } = await nestedImages(nestedFiles(true));
   assert.equal(sizes.some((p) => p.includes('etc')), false);
   assert.equal(srcs.find((i) => i.alt === 'escape')?.src, null);
 });
 
-test('F-14: the asset scope is the repository root, once', async () => {
+test('the asset scope is the repository root, once', async () => {
   const { scopes } = await nestedImages(nestedFiles(true));
   assert.deepEqual(scopes, ['/repo']);
 });
 
-test('F-14: a document in no repository keeps its own folder as the image root', async () => {
+test('a document in no repository keeps its own folder as the image root', async () => {
   const { sizes, scopes, srcs } = await nestedImages(nestedFiles(false));
   assert.deepEqual(scopes, ['/repo/docs']);
   assert.ok(sizes.every((p) => p.startsWith('/repo/docs/')), `sized: ${sizes}`);
@@ -298,7 +298,7 @@ nodeTest('assetUrl arguments over the corpus are never http or https URLs', () =
   }
 });
 
-// F-17: a document with no text characters (only images) is still a document that opens.
+// a document with no text characters (only images) is still a document that opens.
 const imageOnly = (n) => Array.from({ length: n }, (_, i) => `![pic${i}](a.png)`).join('\n\n') + '\n';
 const imageOnlyFiles = (n) => ({
   '/docs/only.md': Buffer.from(imageOnly(n)).toString('base64'),
@@ -320,7 +320,7 @@ async function bootBounded(page, files, argv, boundMs = 15000) {
   }, { files, argv, boundMs });
 }
 
-test('F-17: a document of one image and no text loads the image', async () => {
+test('a document of one image and no text loads the image', async () => {
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -337,7 +337,7 @@ test('F-17: a document of one image and no text loads the image', async () => {
   }
 });
 
-test('F-17: a document of two image blocks and no text starts and registers its watch', async () => {
+test('a document of two image blocks and no text starts and registers its watch', async () => {
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -349,7 +349,7 @@ test('F-17: a document of two image blocks and no text starts and registers its 
   }
 });
 
-test('F-17: an empty document still reports no text and is not watched', async () => {
+test('an empty document still reports no text and is not watched', async () => {
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -364,7 +364,7 @@ test('F-17: an empty document still reports no text and is not watched', async (
   }
 });
 
-// F-17.1: "empty" is decided by the source, not by the rendered selector.
+// "empty" is decided by the source, not by the rendered selector.
 const TEXTLESS = {
   'a lone ---': '---\n',
   'a lone ***': '***\n',
@@ -372,7 +372,7 @@ const TEXTLESS = {
   'a lone <div>': '<div>\n',
 };
 for (const [name, source] of Object.entries(TEXTLESS)) {
-  test(`F-17.1: ${name} opens and registers its watch`, async () => {
+  test(`${name} opens and registers its watch`, async () => {
     const browser = await webkit.launch();
     try {
       const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -385,7 +385,7 @@ for (const [name, source] of Object.entries(TEXTLESS)) {
   });
 }
 
-test('F-17.1: front matter alone reaches first_text and registers its watch', async () => {
+test('front matter alone reaches first_text and registers its watch', async () => {
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -401,7 +401,7 @@ test('F-17.1: front matter alone reaches first_text and registers its watch', as
   }
 });
 
-test('F-17.1: a file of only white space is empty: no_text and no watch', async () => {
+test('a file of only white space is empty: no_text and no watch', async () => {
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -409,6 +409,55 @@ test('F-17.1: a file of only white space is empty: no_text and no watch', async 
     const marks = await page.evaluate(() => window.__f17?.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]) ?? []);
     assert.ok(marks.includes('no_text'), `marks: ${marks}`);
     assert.equal(r.watches, 0, JSON.stringify(r));
+  } finally {
+    await browser.close();
+  }
+});
+
+// A local SVG shows through <img>, sized from its root, and its script never runs.
+const SVG_SCRIPT = [
+  '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60" onload="parent.__svgRan = true; top.__svgRan = true">',
+  '<script>parent.__svgRan = true; top.__svgRan = true; window.__svgRan = true;</script>',
+  '<rect width="120" height="60" fill="#c33" onclick="top.__svgRan = true"/>',
+  '</svg>',
+].join('');
+const SVG_VIEWBOX = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><rect width="80" height="40" fill="#36c"/></svg>';
+const SVG_NO_SIZE = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" fill="#393"/></svg>';
+
+test('local SVGs are drawn by <img> at their size and no script in them runs', async () => {
+  const source = '# Pictures\n\nText first.\n\n![scripted](img/scripted.svg)\n\n![boxed](img/boxed.svg)\n\n![bare](img/bare.svg)\n';
+  const files = {
+    '/docs/readme.md': Buffer.from(source).toString('base64'),
+    '/docs/img/scripted.svg': Buffer.from(SVG_SCRIPT).toString('base64'),
+    '/docs/img/boxed.svg': Buffer.from(SVG_VIEWBOX).toString('base64'),
+    '/docs/img/bare.svg': Buffer.from(SVG_NO_SIZE).toString('base64'),
+  };
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await boot(page, files, ['/docs/readme.md']);
+    await page.waitForFunction(() => {
+      const imgs = [...document.querySelectorAll('#doc img')];
+      return imgs.length === 3 && imgs.every((i) => i.complete && i.naturalWidth > 0);
+    });
+    const shown = await page.evaluate(() => ({
+      imgs: [...document.querySelectorAll('#doc img')].map((i) => ({
+        alt: i.getAttribute('alt'),
+        width: i.getAttribute('width'),
+        height: i.getAttribute('height'),
+        drawn: i.getBoundingClientRect().width,
+        src: i.getAttribute('src'),
+      })),
+      foreign: document.querySelectorAll('#doc object, #doc embed, #doc iframe, #doc svg, #doc script').length,
+      ran: [window.__svgRan, window.top.__svgRan],
+    }));
+    const by = (alt) => shown.imgs.find((i) => i.alt === alt);
+    assert.deepEqual([by('scripted').width, by('scripted').height], ['120', '60']);
+    assert.deepEqual([by('boxed').width, by('boxed').height], ['80', '40']);
+    assert.deepEqual([by('bare').width, by('bare').height], ['300', '150']);
+    assert.ok(shown.imgs.every((i) => i.src && i.drawn > 0), JSON.stringify(shown.imgs));
+    assert.equal(shown.foreign, 0, 'no SVG is inlined or embedded');
+    assert.deepEqual(shown.ran, [undefined, undefined], 'no script in an SVG ran');
   } finally {
     await browser.close();
   }

@@ -1,0 +1,268 @@
+-check('log: the page has its heading, the pauses and the escape code drawn as the warning tone, its account in the fold (D2)', await ev(() =>
++check('log: the page has its heading, the pauses and the escape code drawn as the warning tone, its account in the fold', await ev(() =>
+-  process.env.MARXY_BIN, // CI builds with `--profile ci` and names the binary
++  process.env.MARXY_BIN, // names the binary, for a build made with `--profile ci`
+-test('a Markdown page whose kind alone was guessed is quiet (H8: no "report · guessed")', () => {
++test('a Markdown page whose kind alone was guessed is quiet (no "report · guessed")', () => {
+-test('the panel and a folder say a time in the file card\'s one form (H9)', async () => {
++test('the panel and a folder say a time in the file card\'s one form', async () => {
+-  throw new Error(`MARXY-33: forbidden static imports from main.ts: ${hits.map((h) => `${h.from} → ${h.spec}`).join('; ')}`);
++  throw new Error(`forbidden static imports from main.ts: ${hits.map((h) => `${h.from} → ${h.spec}`).join('; ')}`);
+-    throw new Error(`MARXY-33: no mark('${name}') in ${files.map((f) => `apps/desktop/src/${f}`).join(', ')}`);
++    throw new Error(`no mark('${name}') in ${files.map((f) => `apps/desktop/src/${f}`).join(', ')}`);
+-  throw new Error('MARXY-33: main.rs must emit window_shown');
++  throw new Error('main.rs must emit window_shown');
+-test('D2: the languages no mode coloured, and C#, Zig, PowerShell and Terraform, colour in Source', async () => {
++test('the languages no mode coloured, and C#, Zig, PowerShell and Terraform, colour in Source', async () => {
+-test('D1: over the large-file threshold Source has no language and no colour, as before', async () => {
++test('over the large-file threshold Source has no language and no colour, as before', async () => {
+-test('D1: Lezer colours nothing in a code file; it stays for structure (folding) and Markdown', async () => {
++test('Lezer colours nothing in a code file; it stays for structure (folding) and Markdown', async () => {
+-test('D1: in Markdown, Lezer colours the marks and leaves a fence\'s body to its runs', async () => {
++test('in Markdown, Lezer colours the marks and leaves a fence\'s body to its runs', async () => {
+-test('D1: Ruby, TypeScript, PowerShell, Terraform and C# in Source take each token\'s role from Read, and carry their language', async () => {
++test('Ruby, TypeScript, PowerShell, Terraform and C# in Source take each token\'s role from Read, and carry their language', async () => {
+-test('D1: a Markdown fence in Source takes the roles Read gives the same fence, and Markdown\'s own marks keep Lezer\'s colour', async () => {
++test('a Markdown fence in Source takes the roles Read gives the same fence, and Markdown\'s own marks keep Lezer\'s colour', async () => {
+-test('D1: time to the first coloured token in Source for a 200 KB TypeScript file is recorded', async () => {
++test('time to the first coloured token in Source for a 200 KB TypeScript file is recorded', async () => {
+-test('D1: an edit is coloured again from the worker, as Read colours the edited text', async () => {
++test('an edit is coloured again from the worker, as Read colours the edited text', async () => {
+-   The paper is drawn as authored: white in Night too (decision 11). */
++   The paper is drawn as authored: white in Night too. */
+-test('the guess is said in Metadata, never drawn in the head, and is quiet where nothing was guessed (19.1, H8)', async () => {
++test('the guess is said in Metadata, never drawn in the head, and is quiet where nothing was guessed', async () => {
+-test('a narrow window keeps tab names legible in the one row (19.1, H4)', async () => {
++test('a narrow window keeps tab names legible in the one row', async () => {
+-test('the cap says which tab it closed; the door lists every tab; the current tab stays in view (H4)', async () => {
++test('the cap says which tab it closed; the door lists every tab; the current tab stays in view', async () => {
+-test('the tab row from the keys: arrows, Home and End move, Enter shows, Delete closes, Shift+F10 opens its menu (H5)', async () => {
++test('the tab row from the keys: arrows, Home and End move, Enter shows, Delete closes, Shift+F10 opens its menu', async () => {
+-test('a fold, a column that sorts and a tab show where focus is (H6)', async () => {
++test('a fold, a column that sorts and a tab show where focus is', async () => {
+-test('the palette says when nothing has that name, and a command that cannot run now is dimmed with why (H14)', async () => {
++test('the palette says when nothing has that name, and a command that cannot run now is dimmed with why', async () => {
+-test('overlays: the drawer lies over a narrow page and Escape shuts it; docked, Escape gives the keys back to the page; focus comes back (H15)', async () => {
++test('overlays: the drawer lies over a narrow page and Escape shuts it; docked, Escape gives the keys back to the page; focus comes back', async () => {
+-test('in forced colours a pressed rail icon, Read or Source and a field are drawn in system colours, not weight alone (H11)', async () => {
++test('in forced colours a pressed rail icon, Read or Source and a field are drawn in system colours, not weight alone', async () => {
+-const COLOPHON = 'Written for the MARXY-257 test and not taken from anywhere. This colophon runs long enough to fill more than one line at the caption size, so that the typesetter has a paragraph of prose to set on the page, whic
++const COLOPHON = 'Written for this test and not taken from anywhere. This colophon runs long enough to fill more than one line at the caption size, so that the typesetter has a paragraph of prose to set on the page, which shows t
+-  'Written for the MARXY-257 test.',
++  'Written for this test.',
+-  'Written for the MARXY-257 test.',
++  'Written for this test.',
+-test('C3: local SVGs are drawn by <img> at their size and no script in them runs', async () => {
++test('local SVGs are drawn by <img> at their size and no script in them runs', async () => {
+-test('P-look 01, 03: on one page each fenced part wears its own language, and it is the pane\'s palette colour', async () => {
++test('on one page each fenced part wears its own language, and it is the pane\'s palette colour', async () => {
+-test('criterion 1: readPaintSignal names an engine paint entry and ignores frames', () => {
++test('readPaintSignal names an engine paint entry and ignores frames', () => {
+-test('criterion 1: a blank-page paint before the render watermark is not first_text', () => {
++test('a blank-page paint before the render watermark is not first_text', () => {
+-test('criterion 1: waitForEnginePaint resolves only after frames and a paint entry', async () => {
++test('waitForEnginePaint resolves only after frames and a paint entry', async () => {
+-test('criterion 2: visibility hidden is not a paint, even with textContent and frames', async () => {
++test('visibility hidden is not a paint, even with textContent and frames', async () => {
+-test('criterion 3: a setTimeout rAF shim without a paint entry does not resolve', async () => {
++test('a setTimeout rAF shim without a paint entry does not resolve', async () => {
+-test('criterion 4: MARK first_text stays two fields and measure-startup still parses it', () => {
++test('MARK first_text stays two fields and measure-startup still parses it', () => {
+-async function runCriterion(doc, { neutralise = false } = {}) {
++async function runFlow(doc, { neutralise = false } = {}) {
+-    assert.equal(saved, expected, 'saved bytes: exactly the four splices of the criterion');
++    assert.equal(saved, expected, 'saved bytes: exactly the four splices of the flow');
+-test('the screen criterion on an LF file: paste, unwrap, tick, edit in place, save; only those bytes move', () => runCriterion(FIXTURE));
++test('the flow on an LF file: paste, unwrap, tick, edit in place, save; only those bytes move', () => runFlow(FIXTURE));
+-test('the screen criterion on a CRLF file: the same, and every ending in the saved file is CRLF', () => runCriterion(crlf(FIXTURE)));
++test('the flow on a CRLF file: the same, and every ending in the saved file is CRLF', () => runFlow(crlf(FIXTURE)));
+-test('the CRLF flow fails when edit in place normalises line endings (the criterion can fail)', async () => {
++test('the CRLF flow fails when edit in place normalises line endings (the flow can fail)', async () => {
+-    runCriterion(crlf(FIXTURE), { neutralise: true }),
++    runFlow(crlf(FIXTURE), { neutralise: true }),
+-  console.log(`Phase E operations with no verb-menu row (palette only): ${[...paletteOnly].join(', ')}`);
++  console.log(`Operations with no verb-menu row (palette only): ${[...paletteOnly].join(', ')}`);
+-test('B9: an edit made while a save is in flight is kept, and the document stays dirty', async () => {
++test('an edit made while a save is in flight is kept, and the document stays dirty', async () => {
+-test('B10: the notice gives the shell message; a string rejection is shown as it is', async () => {
++test('the notice gives the shell message; a string rejection is shown as it is', async () => {
+-test('B10: saving a file deleted since it was opened recreates it', async () => {
++test('saving a file deleted since it was opened recreates it', async () => {
+-test('B10: any other failure to look at the file is an Error with the message, not a bare string', async () => {
++test('any other failure to look at the file is an Error with the message, not a bare string', async () => {
+-test('B11: the truncation notice opens Source at the byte offset of its line (CJK, BOM)', async () => {
++test('the truncation notice opens Source at the byte offset of its line (CJK, BOM)', async () => {
+-test('B13: switching documents while a grant is being written announces nothing on the new document', async () => {
++test('switching documents while a grant is being written announces nothing on the new document', async () => {
+-test('B14: a trust.json from a newer Marxy says so and does not claim the grant', async () => {
++test('a trust.json from a newer Marxy says so and does not claim the grant', async () => {
+-test('B14: a failed trust write says so, shows no success and leaves the document as it was', async () => {
++test('a failed trust write says so, shows no success and leaves the document as it was', async () => {
+-test('B15: the HTML grant announces one summary; the notice offers no host list', async () => {
++test('the HTML grant announces one summary; the notice offers no host list', async () => {
+-test('B15: a protocol-relative image is not counted or offered as a blocked host', async () => {
++test('a protocol-relative image is not counted or offered as a blocked host', async () => {
+-nodeTest('B14: grant and revoke say false on a newer trust.json, and a failed write is put back', async () => {
++nodeTest('grant and revoke say false on a newer trust.json, and a failed write is put back', async () => {
+-nodeTest('B14: writes reach disk in the order the changes were made', async () => {
++nodeTest('writes reach disk in the order the changes were made', async () => {
+-nodeTest('B15: the image line agrees with its verb, and the copy skips images no grant can load', () => {
++nodeTest('the image line agrees with its verb, and the copy skips images no grant can load', () => {
+-test('#1: Rendered to Source to Rendered after 500 ms restores position and typesetting', async () => {
++test('Rendered to Source to Rendered after 500 ms restores position and typesetting', async () => {
+-test('#2: an allowAssetScope rejection leaves the rendered page and open document', async () => {
++test('an allowAssetScope rejection leaves the rendered page and open document', async () => {
+-  test(`MARXY-337 #2: a failed load of ${name} leaves the rendered page and open document`, async () => {
++  test(`a failed load of ${name} leaves the rendered page and open document`, async () => {
+-test('#3: a notice is on top of the Source overlay', async () => {
++test('a notice is on top of the Source overlay', async () => {
+-test('#4: the same notice is not stacked, and blocked content keeps the other notices', async () => {
++test('the same notice is not stacked, and blocked content keeps the other notices', async () => {
+-test('#5: a click with a pixel of pointer jitter still selects; a real drag does not', async () => {
++test('a click with a pixel of pointer jitter still selects; a real drag does not', async () => {
+-test('#6: blocks stay on the baseline grid after local images get their boxes', async () => {
++test('blocks stay on the baseline grid after local images get their boxes', async () => {
+-test('#6: blocks stay on the baseline grid after invisible-character markers are inserted', async () => {
++test('blocks stay on the baseline grid after invisible-character markers are inserted', async () => {
+-test('P-look 09: the Code tab puts a language on the canvas and its colours, measured, in the list', async () => {
++test('the Code tab puts a language on the canvas and its colours, measured, in the list', async () => {
+-test('P-look 10 (the file): the File tab shows the look as its file, says which and how much, and follows a change', async () => {
++test('the File tab shows the look as its file, says which and how much, and follows a change', async () => {
+-test('6, P-look 10: the specimen is one proof, every kind after the last at the canvas width, languages last, all coloured and following a dial', async () => {
++test('the specimen is one proof, every kind after the last at the canvas width, languages last, all coloured and following a dial', async () => {
+-test('Studio acceptance 3: dragging the tone puck repaints the canvas and the room, commits, and cannot rest in the dead band', async () => {
++test('dragging the tone puck repaints the canvas and the room, commits, and cannot rest in the dead band', async () => {
+-test('Studio acceptance 3 at night: the puck sets the night tone; named tones set the tone; the band is drawn on the pad', async () => {
++test('at night: the puck sets the night tone; named tones set the tone; the band is drawn on the pad', async () => {
+-test('Studio acceptance 4, Tone: ink and accent change the canvas and the merged look; double-click resets', async () => {
++test('Tone: ink and accent change the canvas and the merged look; double-click resets', async () => {
+-test('Studio acceptance 4, Type: face, size, leading, weights, step, heading face, style and capitals reach the canvas and the store', async () => {
++test('Type: face, size, leading, weights, step, heading face, style and capitals reach the canvas and the store', async () => {
+-test('Studio acceptance 4, Page: measure (45 to 80, its rule shown while held), paragraphs, alignment and figures', async () => {
++test('Page: measure (45 to 80, its rule shown while held), paragraphs, alignment and figures', async () => {
+-  "$comment": "B2: each fixture, the signals the shell gives for its head (src-tauri/src/detect.rs), and the registry row and reading they land on (packages/core/src/kind/content.test.ts).",
++  "$comment": "Each fixture, the signals the shell gives for its head (src-tauri/src/detect.rs), and the registry row and reading they land on (packages/core/src/kind/content.test.ts).",
+-  "note": "Installed weight only, which scripts/gate-bundle.mjs reads. Interaction times are recorded, never gated (ADR-0032): the nightly perf-harness and startup-macos jobs write them to results/perf-nightly.json and results/pe
++  "note": "Installed weight only, which scripts/gate-bundle.mjs reads. Interaction times are measured by hand with scripts/perf-harness.mjs and scripts/measure-startup.mjs and are never gated.",
+-    env: { ...process.env, MARXY_84_MUTATION: undefined },
++    env: { ...process.env, MARXY_TREE_DEPTH_MUTATION: undefined },
+-const mutation = process.env.MARXY_84_MUTATION;
++const mutation = process.env.MARXY_TREE_DEPTH_MUTATION;
+-    !gateTreeDepthMjs.includes('MARXY_84_SKIP') && !gateTreeDepthMjs.includes('process.env.SKIP'),
++    !gateTreeDepthMjs.includes('MARXY_TREE_DEPTH_SKIP') && !gateTreeDepthMjs.includes('process.env.SKIP'),
+-    env: { ...process.env, MARXY_84_MUTATION: WRITER_CLOSE_LATE_MUTATION },
++    env: { ...process.env, MARXY_TREE_DEPTH_MUTATION: WRITER_CLOSE_LATE_MUTATION },
+-test('criterion 1: the gate prints the observability report unconditionally, every run', () => {
++test('the gate prints the observability report unconditionally, every run', () => {
+-test('D2: every grammar on the allow-list loads and reads text back whole, its embedded grammars with it', async () => {
++test('every grammar on the allow-list loads and reads text back whole, its embedded grammars with it', async () => {
+-test('D2: the languages coloured by neither mode before, and C#, Zig, PowerShell and Terraform, colour a keyword, a string or a comment', async () => {
++test('the languages coloured by neither mode before, and C#, Zig, PowerShell and Terraform, colour a keyword, a string or a comment', async () => {
+-test('D2: a grammar off the allow-list is never loaded, even where a listed one embeds it (C++ and Ruby embed GLSL)', async () => {
++test('a grammar off the allow-list is never loaded, even where a listed one embeds it (C++ and Ruby embed GLSL)', async () => {
+-    assert.equal(classify(`/r/${n}`), 'text', `${n} is listed in the index (B4)`);
++    assert.equal(classify(`/r/${n}`), 'text', `${n} is listed in the index`);
+-test('D2: every language id the registry gives a file is a grammar on the allow-list, so Read and Source colour it', () => {
++test('every language id the registry gives a file is a grammar on the allow-list, so Read and Source colour it', () => {
+-test('a list item open across a blank line does not leave a stale restart or witness (review of #467)', () => {
++test('a list item open across a blank line does not leave a stale restart or witness', () => {
+-test('the witness is parsed with its line ending, as the whole file holds it (review of #467)', () => {
++test('the witness is parsed with its line ending, as the whole file holds it', () => {
+-test('criterion 1: 10-hostile.md reports two example.invalid images and one host; data: contributes none', () => {
++test('10-hostile.md reports two example.invalid images and one host; data: contributes none', () => {
+-test('criterion 2: image.png and ../x.png resolve against the document directory, not the root', () => {
++test('image.png and ../x.png resolve against the document directory, not the root', () => {
+-test('criterion 2: ../../etc/x.png is refused with a reason, not a path', () => {
++test('../../etc/x.png is refused with a reason, not a path', () => {
+-test('criterion 2: a Windows drive letter is refused with a reason, not a path', () => {
++test('a Windows drive letter is refused with a reason, not a path', () => {
+-test('criterion 2: .. at the image root is refused; collapsePath returns null', () => {
++test('.. at the image root is refused; collapsePath returns null', () => {
+-test('criterion 3: 1200x400 at 640px reserves measure width and nearest-integer height', () => {
++test('1200x400 at 640px reserves measure width and nearest-integer height', () => {
+-test('criterion 3: a source that already fits the measure is returned unchanged', () => {
++test('a source that already fits the measure is returned unchanged', () => {
+-test('criterion 3: a non-positive width, height or measure returns the input untouched', () => {
++test('a non-positive width, height or measure returns the input untouched', () => {
+-test('criterion 4: a throwing assetUrl is not called for ../../etc/x.png or https:', () => {
++test('a throwing assetUrl is not called for ../../etc/x.png or https:', () => {
+-test('criterion 4: a recorder sees reserve precede the single assetUrl call for a local source', () => {
++test('a recorder sees reserve precede the single assetUrl call for a local source', () => {
+-test('criterion 5: blockedImageNoticeText names each host once with a count; empty list is empty', () => {
++test('blockedImageNoticeText names each host once with a count; empty list is empty', () => {
+-test('criterion 5: rendered 10-hostile.md HTML contains no blocked-image host and no notice text', () => {
++test('rendered 10-hostile.md HTML contains no blocked-image host and no notice text', () => {
+-test('criterion 6: these tests do not read apps/ or assert over another package\'s source', () => {
++test('these tests do not read apps/ or assert over another package\'s source', () => {
+-test('criterion 7: imageSizeFromBytes reads a PNG header', () => {
++test('imageSizeFromBytes reads a PNG header', () => {
+-test('criterion 7: imageSizeFromBytes reads a GIF header', () => {
++test('imageSizeFromBytes reads a GIF header', () => {
+-test('criterion 7: imageSizeFromBytes reads a JPEG SOF header', () => {
++test('imageSizeFromBytes reads a JPEG SOF header', () => {
+-test('criterion 7: imageSizeFromBytes reads a WebP VP8 header', () => {
++test('imageSizeFromBytes reads a WebP VP8 header', () => {
+-test('criterion 7: imageSizeFromBytes returns null for a truncated header and a non-image', () => {
++test('imageSizeFromBytes returns null for a truncated header and a non-image', () => {
+-browserTest('MARXY-28: a document without math never requests katex', async () => {
++browserTest('a document without math never requests katex', async () => {
+-browserTest('MARXY-28: display math blocks occupy whole line boxes after KaTeX', async () => {
++browserTest('display math blocks occupy whole line boxes after KaTeX', async () => {
+-browserTest('MARXY-28: injected KaTeX CSS rewrites font URLs to bundled assets', async () => {
++browserTest('injected KaTeX CSS rewrites font URLs to bundled assets', async () => {
+-browserTest('MARXY-28: inline math baseline within 1 px of surrounding text', async () => {
++browserTest('inline math baseline within 1 px of surrounding text', async () => {
+-test('the letter of the criterion: no script, iframe, object, form, meta or link element', () => {
++test('no script, iframe, object, form, meta or link element', () => {
+-test('the letter of the criterion: no javascript: or data: href', () => {
++test('no javascript: or data: href', () => {
+-const MARXY_229_RESERVED: readonly { readonly id: string; readonly html: string; readonly assert: (out: string) => void }[] = [
++const RESERVED_VECTORS: readonly { readonly id: string; readonly html: string; readonly assert: (out: string) => void }[] = [
+-for (const vector of MARXY_229_RESERVED) {
++for (const vector of RESERVED_VECTORS) {
+-    test(`MARXY-229 ${vector.id} ${label}: sanitiser refuses it`, () => {
++    test(`${vector.id} ${label}: sanitiser refuses it`, () => {
+-    test(`MARXY-229 ${vector.id} ${label}: pipeline refuses it`, () => {
++    test(`${vector.id} ${label}: pipeline refuses it`, () => {
+-test('C1: comments before a file that is not an SVG are scanned once (21 s for 203 bytes before)', () => {
++test('comments before a file that is not an SVG are scanned once (21 s for 203 bytes before)', () => {
+-test('C2: a heading line with a long run of spaces in it is read in one pass (16 s for a 3 KB head before)', () => {
++test('a heading line with a long run of spaces in it is read in one pass (16 s for a 3 KB head before)', () => {
+-test('C3: a long space run that does not end the text is trimmed in linear time at every site', () => {
++test('a long space run that does not end the text is trimmed in linear time at every site', () => {
+-test('C3: the trims keep what the regexes kept', () => {
++test('the trims keep what the regexes kept', () => {
+-test('C4: notes find their line and column from line starts made once (7 s for 20,000 heading jumps before)', () => {
++test('notes find their line and column from line starts made once (7 s for 20,000 heading jumps before)', () => {
+-test('C10: 150,000 tasks or headings are measured in a loop, not a spread past the engine\'s argument limit', () => {
++test('150,000 tasks or headings are measured in a loop, not a spread past the engine\'s argument limit', () => {
+-test('C3: a table cell with a long run of spaces inside it is trimmed in linear time by Align table pipes', () => {
++test('a table cell with a long run of spaces inside it is trimmed in linear time by Align table pipes', () => {
+-  assert.deepEqual(testOnlyStringsIn('const a = 1; window.marxyRunCommand = f; process.env.MARXY_86_MUTATION'), ['marxyRunCommand', 'MARXY_8']);
++  assert.deepEqual(testOnlyStringsIn('const a = 1; window.marxyRunCommand = f; process.env.MARXY_8_SWITCH'), ['marxyRunCommand', 'MARXY_8']);
+-const MARXY_14_RUST_CASES = [
++const SAVE_PATH_RUST_CASES = [
+-  const missing = MARXY_14_RUST_CASES.filter((name) => !names.includes(name));
++  const missing = SAVE_PATH_RUST_CASES.filter((name) => !names.includes(name));
+-  if (names.length < MARXY_14_RUST_CASES.length) {
+-    fail(`cases: save-path tests shrank from ${MARXY_14_RUST_CASES.length} to ${names.length}`);
++  if (names.length < SAVE_PATH_RUST_CASES.length) {
++    fail(`cases: save-path tests shrank from ${SAVE_PATH_RUST_CASES.length} to ${names.length}`);
+-    console.log(`fidelity: save-path case list is ${names.length} (at least ${MARXY_14_RUST_CASES.length} required)`);
++    console.log(`fidelity: save-path case list is ${names.length} (at least ${SAVE_PATH_RUST_CASES.length} required)`);
+-over the same tree give an identical \`probe.json\` (no timestamps; numbers rounded to 0.01 px). The probe is not
+-in CI.
++over the same tree give an identical \`probe.json\` (no timestamps; numbers rounded to 0.01 px). The probe is
++run by hand.
+-The author has no list of observed errors (ruling of 2026-10-07). The ranked offenders above, per hypothesis, and
++The author has no list of observed errors (by the author's own word). The ranked offenders above, per hypothesis, and
+-  const o = parseArgs(['--tier', 'changed', '--base=agent/round4', '--logs', 'C:/x', '--from', 'lint', '--only', 'lint, check', '--list', '--jobs', '3']);
++  const o = parseArgs(['--tier', 'changed', '--base=agent/integration', '--logs', 'C:/x', '--from', 'lint', '--only', 'lint, check', '--list', '--jobs', '3']);
+-  assert.equal(o.base, 'agent/round4');
++  assert.equal(o.base, 'agent/integration');
+-  const s = parseArgs(['start', 'big-tables', '--from', 'agent/round4', '--no-install']);
+-  assert.deepEqual([s.command, s.name, s.from, s.install], ['start', 'big-tables', 'agent/round4', false]);
+-  assert.deepEqual(parseArgs(['clean', '--apply', '--keep=exe,agent/round9']).keep, ['exe', 'agent/round9']);
++  const s = parseArgs(['start', 'big-tables', '--from', 'agent/integration', '--no-install']);
++  assert.deepEqual([s.command, s.name, s.from, s.install], ['start', 'big-tables', 'agent/integration', false]);
++  assert.deepEqual(parseArgs(['clean', '--apply', '--keep=exe,agent/other']).keep, ['exe', 'agent/other']);

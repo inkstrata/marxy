@@ -1,4 +1,4 @@
-// Structural selection and line operations in Source (V-01): one registry entry per operation, so the
+// Structural selection and line operations in Source: one registry entry per operation, so the
 // palette lists them and the keys are the registry's (`global`: they run from inside the editor, where
 // every other command's key is left alone). The work is `source/structure.ts`; this file is the table.
 //
@@ -13,7 +13,7 @@ import { notify } from '../notices/index.ts';
 import { formatsPath } from '../source/formats-path.ts';
 import type { FormatOp } from '../source/format-ops.ts';
 
-/** The table tools (V-02) by name. Declared here, with the command table: `source/structure.ts` is lazy and may not be imported by it (MARXY-33), and `structure-ops.ts` lists the V-01 operations. */
+/** The table tools by name. Declared here, with the command table: `source/structure.ts` is lazy and may not be imported by it, and `structure-ops.ts` lists the operations. */
 export type TableTool = 'alignTable' | 'addTableRow' | 'addTableColumn' | 'sortTableRows';
 
 interface EntryBase {
@@ -21,7 +21,7 @@ interface EntryBase {
   readonly title: string;
 }
 
-/** A V-01 operation: the registry chord is optional (none where CodeMirror's own chord stays or the operation is palette-only). */
+/** An operation: the registry chord is optional (none where CodeMirror's own chord stays or the operation is palette-only). */
 interface OpEntry extends EntryBase {
   readonly op: StructureOp;
   readonly table?: undefined;
@@ -29,7 +29,7 @@ interface OpEntry extends EntryBase {
   readonly key?: string;
 }
 
-/** A V-02 table tool or the CSV copy: palette only, so it has no chord. */
+/** A table tool or the CSV copy: palette only, so it has no chord. */
 interface TableEntry extends EntryBase {
   readonly table: TableTool | 'copyTableCsv';
   readonly op?: undefined;
@@ -37,7 +37,7 @@ interface TableEntry extends EntryBase {
   readonly key?: undefined;
 }
 
-/** A V-08 formatting command or insert: Markdown only, so it is offered in no other file. Keys only where the card gives one. */
+/** A formatting command or insert: Markdown only, so it is offered in no other file. Keys only where one is given. */
 interface FormatEntry extends EntryBase {
   readonly format: FormatOp;
   readonly op?: undefined;
@@ -48,9 +48,9 @@ interface FormatEntry extends EntryBase {
 type SourceEditEntry = OpEntry | TableEntry | FormatEntry;
 
 /**
- * Every operation. The chords follow the Select menu in `mock-v2/09-macos.md` (`⌘L` line, `⌃⇧B` block, `⌃⇧S`
+ * Every operation. The chords follow the Select menu (`⌘L` line, `⌃⇧B` block, `⌃⇧S`
  * section, `⌃⇧→` expand, `⌘D` next, `⇧⌘L` all); the line operations add `⌃J`, `⌃⇧T`, `⌃⇧Q` and `⌃⇧C`.
- * `Mod+/` is the transforms key (06 row 2), so toggle comment is not on it. A literal Ctrl chord is a Mac's;
+ * `Mod+/` is the transforms key, so toggle comment is not on it. A literal Ctrl chord is a Mac's;
  * elsewhere those operations are in the palette.
  */
 export const SOURCE_EDIT_ENTRIES: readonly SourceEditEntry[] = [
@@ -70,13 +70,13 @@ export const SOURCE_EDIT_ENTRIES: readonly SourceEditEntry[] = [
   { op: 'toggleTask', id: 'source.toggle-task', title: 'Toggle task in Source', key: 'Ctrl+Shift+T' },
   { op: 'toggleQuote', id: 'source.toggle-quote', title: 'Toggle quote', key: 'Ctrl+Shift+Q' },
   { op: 'toggleComment', id: 'source.toggle-comment', title: 'Toggle comment', key: 'Ctrl+Shift+C' },
-  // V-02: with the caret in a table. Palette only (the mockup gives these no keys); outside a table each does nothing.
+  // with the caret in a table. Palette only (these have no keys); outside a table each does nothing.
   { table: 'alignTable', id: 'source.table-align', title: 'Align table' },
   { table: 'addTableRow', id: 'source.table-add-row', title: 'Add table row below' },
   { table: 'addTableColumn', id: 'source.table-add-column', title: 'Add table column after this one' },
   { table: 'sortTableRows', id: 'source.table-sort', title: 'Sort table rows by this column (byte order of the cell text)' },
   { table: 'copyTableCsv', id: 'source.table-copy-csv', title: 'Copy table at caret as CSV' },
-  // V-08: Markdown only. `Mod+K` is the palette, so Link has no key; the strikethrough and the inserts wait for the menu bar (W-20).
+  // Markdown only. `Mod+K` is the palette, so Link has no key; the strikethrough and the inserts wait for the menu bar.
   { format: { wrap: 'bold' }, id: 'source.format-bold', title: 'Bold', key: 'Mod+B' },
   { format: { wrap: 'italic' }, id: 'source.format-italic', title: 'Italic', key: 'Mod+I' },
   { format: { wrap: 'code' }, id: 'source.format-code', title: 'Inline code', key: 'Ctrl+`' },
@@ -126,7 +126,7 @@ export function sourceEditCommands(): readonly Command[] {
           const { runFormat } = await import('../source/format-ops.ts');
           await runFormat(entry.format, editor.view, editor.buffer.path, (notice) => notify(notice));
         } else if (entry.table === 'copyTableCsv') {
-          // The one copy path (C-07): the same text as Copy table as CSV in Rendered, one pasteboard item, one notice.
+          // The one copy path: the same text as Copy table as CSV in Rendered, one pasteboard item, one notice.
           const csv = structure.tableCsvAt(editor.view.state, editor.buffer.path);
           if (csv !== null) await writeCopy(ctx, { text: csv }, 'Copied table as CSV');
         } else if (entry.table !== undefined) structure.runTableTool(entry.table, editor.view, editor.buffer.path, (notice) => notify(notice));

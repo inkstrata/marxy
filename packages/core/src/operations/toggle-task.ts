@@ -1,4 +1,4 @@
-// Toggle a task list marker between [ ] and [x] (ADR-0004, MARXY-43).
+// Toggle a task list marker between [ ] and [x].
 import type { ListItem, Node, TaskMarker } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 import { byteToStringOffset } from './offsets.ts';

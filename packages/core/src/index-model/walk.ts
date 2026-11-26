@@ -3,7 +3,6 @@
 import { isDeniedName } from './deny.ts';
 import { type IgnoreRule, isIgnored, parseIgnore } from './ignore.ts';
 import type { IndexCandidate } from './entry.ts';
-import { classify } from './kinds.ts';
 import { joinPath, pathUnder } from './paths.ts';
 
 /** One directory listing. The host fills this from `readdir`; the model does not import `node:`. */
@@ -29,10 +28,16 @@ export interface WalkOptions {
    * list still wins over everything.
    */
   readonly extraRules?: readonly IgnoreRule[];
+  /**
+   * Filled with each folder the ignore rules or the deny globs left out, outermost only (nothing is listed under
+   * one), so the tree watch can leave the same folders out. Folders the built-in deny list skips are not added:
+   * the shell skips those by name.
+   */
+  readonly ignoredDirs?: string[];
 }
 
 /**
- * Collect allow-listed files under `root`. Never descends into `node_modules` (or the rest of
+ * Collect every file under `root`. Never descends into `node_modules` (or the rest of
  * the deny list), even when a `.gitignore` tries to un-ignore them.
  */
 export function collectFiles(root: string, reader: DirectoryReader, options: WalkOptions = {}): IndexCandidate[] {
@@ -52,17 +57,21 @@ export function collectFiles(root: string, reader: DirectoryReader, options: Wal
       continue;
     }
     for (const entry of listing) {
-      if (isDeniedName(entry.name)) continue;
+      if (entry.isDir && isDeniedName(entry.name)) continue;
       // Any `.` or `..` segment is refused, as the watch path does: `foo/../../x.md` does not start with `../`.
       const rel = pathUnder(root, entry.path);
       if (rel === undefined) continue;
       if (entry.isDir) {
         loadIgnore(reader, entry.path, rel, rules);
-        if (denied(rel, true)) continue;
+        if (denied(rel, true)) {
+          options.ignoredDirs?.push(entry.path);
+          continue;
+        }
         stack.push(entry.path);
         continue;
       }
-      if (!classify(entry.path) && !classify(rel)) continue;
+      // Every file is listed but the index's own ignore rules, which are the walk's settings, not a document.
+      if (entry.name === '.gitignore' || entry.name === '.ignore') continue;
       if (denied(rel, false)) continue;
       out.push({
         path: entry.path,

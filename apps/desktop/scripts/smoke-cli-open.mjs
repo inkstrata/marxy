@@ -1,19 +1,22 @@
 // Runs the packaged app the way a reader does — `marxy fixtures/corpus/02-readme-real-world.md` —
-// and checks the acceptance criteria that need a real window: the document renders, `MARK first_text
+// and checks what needs a real window: the document renders, `MARK first_text
 // <epoch ms>` is printed at least two animation frames after the render and only after an engine
 // paint signal, and MARXY_QUIT_AFTER_PAINT=1 exits with code 0. Also checks the launches that must
 // NOT report first_text: no document, a document with no text, an unreadable file, and `#doc` set
 // to visibility hidden.
-// MARXY_SMOKE_REQUIRED=1 (verify:cli, which CI runs as `CLI smoke check on the built binary`)
+// MARXY_SMOKE_REQUIRED=1 (set by verify:cli, run by hand after a build)
 // makes every skip a failure instead: an unbuilt binary, or an environment that delivers no
-// animation frames at all (MARXY-72). The frames >= 2 assertion (MARXY-13) is never skipped
+// animation frames at all. The frames >= 2 assertion is never skipped
 // for a build that can paint.
+// Each launch runs on a new, empty data folder (MARXY_DATA_DIR), so no case reads what the reader or an earlier
+// launch left (a restored layout would open files in the no-document case); each is removed when its launch has ended.
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FRAMES_ONLY_SIGNAL, waitForEnginePaint } from '../src/paint-signal.mjs';
+import { FRAMES_ONLY_SIGNAL, PAINT_SIGNAL_NAMES, waitForEnginePaint } from '../src/paint-signal.mjs';
+import { newDataFolder, removeDataFolder } from './data-folder.mjs';
 import { fileURLToPath } from 'node:url';
 import {
   FRAME_ASSERTION_NOT_WRONG,
@@ -56,7 +59,7 @@ if (process.argv.includes('--selftest-neutralise-after-paint')) {
 const doc = `${repoRoot}fixtures/corpus/02-readme-real-world.md`;
 const required = smokeIsRequired(process.env);
 const bin = [
-  process.env.MARXY_BIN, // CI builds with `--profile ci` and names the binary (docs/hygiene.md §CI)
+  process.env.MARXY_BIN, // names the binary, for a build made with `--profile ci`
   `${repoRoot}apps/desktop/src-tauri/target/ci/marxy`,
   `${repoRoot}apps/desktop/src-tauri/target/release/marxy`,
   `${repoRoot}apps/desktop/src-tauri/target/release/marxy.exe`,
@@ -71,18 +74,18 @@ if (!bin) {
   process.exit(0);
 }
 
-// WebKitGTK needs a display; CI runners have xvfb and no DISPLAY. On a virtual display it also needs
+// WebKitGTK needs a display; a headless Linux machine has xvfb and no DISPLAY. On a virtual display it also needs
 // 24-bit colour and its DMABUF/compositing paths turned off, or the webview window stays blank and no
 // script ever runs. Those switches are for this harness only; a real Linux desktop keeps acceleration.
 const headless = process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY;
-// NO_AT_BRIDGE stops WebKitGTK waiting on an accessibility bus that a headless runner does not have
+// NO_AT_BRIDGE stops WebKitGTK waiting on an accessibility bus that a headless machine does not have
 // (a ~30 s stall per launch); the session bus below serves the rest. Mirrors scripts/measure-startup.mjs.
 const headlessEnv = headless
   ? { WEBKIT_DISABLE_DMABUF_RENDERER: '1', WEBKIT_DISABLE_COMPOSITING_MODE: '1', LIBGL_ALWAYS_SOFTWARE: '1', NO_AT_BRIDGE: '1' }
   : {};
 const hasDbusRunSession = headless && spawnSync('sh', ['-c', 'command -v dbus-run-session'], { stdio: 'ignore' }).status === 0;
 
-// Long enough for the 30 s WebKitGTK-under-Xvfb warm-up on a CI runner, which happens before the app
+// Long enough for the 30 s WebKitGTK-under-Xvfb warm-up on a headless machine, which happens before the app
 // runs a line of script. It is a last resort: the watchdog below is what bounds a launch that renders.
 const LAUNCH_TIMEOUT_MS = 60_000;
 
@@ -104,9 +107,10 @@ async function launch(appArgs) {
   const [cmd, args] = headless
     ? ['xvfb-run', ['-a', '--server-args=-screen 0 1280x1024x24', ...(hasDbusRunSession ? ['dbus-run-session', '--'] : []), bin, ...appArgs]]
     : [bin, appArgs];
+  const dataDir = newDataFolder('marxy-smoke-data-');
   const child = spawn(cmd, args, {
     cwd: repoRoot,
-    env: { ...process.env, ...headlessEnv, MARXY_QUIT_AFTER_PAINT: '1' },
+    env: { ...process.env, ...headlessEnv, MARXY_QUIT_AFTER_PAINT: '1', MARXY_DATA_DIR: dataDir },
     stdio: ['ignore', 'pipe', 'pipe'],
     ...launchSpawnOptions(),
   });
@@ -137,6 +141,8 @@ async function launch(appArgs) {
     clearTimeout(exitWatchdog);
     resolve(c);
   }));
+  const ms = Date.now() - startedAt;
+  await removeDataFolder(dataDir);
   const lines = stdout.split('\n').map(l => l.trim()).filter(Boolean);
   return {
     code,
@@ -145,7 +151,7 @@ async function launch(appArgs) {
     watchdogFired,
     // Set when the harness had to end a launch that reported its outcome but never exited.
     stalled: killedAfterMs !== null && !watchdogFired ? stalledExitMessage(lines, killedAfterMs) : null,
-    ms: Date.now() - startedAt,
+    ms,
     mark: (name) => lines.findIndex(l => l === `MARK ${name}` || l.startsWith(`MARK ${name} `)),
   };
 }
@@ -178,7 +184,7 @@ const report = (label, run) => {
 };
 
 // 0. The paint deadline's own state machine, run inside the binary because no launch renders twice yet.
-//    Without it the first story that shows a second document would lose the deadline and nothing would
+//    Without it the first test that shows a second document would lose the deadline and nothing would
 //    notice: see `paint_deadline_selftest` in src-tauri/src/main.rs.
 const selftest = spawnSync(bin, ['--paint-deadline-selftest'], { cwd: repoRoot, encoding: 'utf8' });
 console.log(`--- paint deadline selftest (exit ${selftest.status})`);
@@ -208,13 +214,14 @@ const signal = /signal=(\S+)/.exec(painted)?.[1] ?? '';
 // is kept strictly apart from "frames arrived but too few", which is always a defect: see the verdict
 // at the bottom.
 const noPaint = open.mark('no_paint') >= 0 || open.watchdogFired;
-// F-31: frames arrived, the engine gave no paint entry, and the app went on after about 2 s. The line says
-// so (`signal=frames-only`); it is reported as that and never as a paint, and it is no first_text sample.
+// frames arrived, the engine gave no paint entry, and the app went on after about 2 s. The line says
+// so (`signal=frames-only`); it is reported as that and never as an engine paint, but first_text is timed by its frame.
 const framesOnly = !noPaint && signal === FRAMES_ONLY_SIGNAL;
 
 if (framesOnly) {
   check(open.code === 0, `a frames-only boot must still open the document and exit 0, got ${open.code}`);
-  check(firstTextIndex < 0, 'first_text was printed by a frames-only boot: that is not a paint');
+  check(firstTextIndex >= 0, 'a frames-only boot that showed text printed no first_text');
+  check(/source=frame/.test(painted), `a frames-only boot must say source=frame on MARK painted, got "${painted}"`);
   check(paintedFramesOk(frames), `a frames-only boot still needs at least 2 animation frames, got frames=${frames}`);
 } else if (noPaint) {
   // What the app owes even here is checkable, and none of it depends on a frame arriving.
@@ -235,8 +242,10 @@ if (framesOnly) {
   check(paintedIndex >= 0, 'no MARK painted line: nothing reports how many frames passed before first_text');
   check(paintedFramesOk(frames), `first_text must be at least 2 animation frames after the render, got frames=${frames}`);
   check(Number.isFinite(sinceRender), `MARK painted carries no since_render_ms, got "${painted}"`);
+  // The app's own list: WKWebView on macOS reports `largest-contentful-paint` where WebView2 reports
+  // `first-contentful-paint`, and both are engine paint times.
   check(
-    signal === 'first-contentful-paint' || signal === 'first-paint' || signal === 'paint',
+    PAINT_SIGNAL_NAMES.includes(signal),
     `MARK painted must record the engine paint signal it waited for, got "${painted}"`,
   );
 }
@@ -274,7 +283,7 @@ check(broken.lines.some(l => l.startsWith('MARK error ')), 'no MARK error line f
 check(!broken.lines.some(l => l.startsWith('MARK first_text')), 'first_text was printed for a document that could not be read');
 
 // 5. `#doc { visibility: hidden }`: textContent and frames still look like a render, but nothing
-//    was painted. Today-without-this-story that launch prints first_text and exits 0.
+//    was painted. Today, without it, that launch prints first_text and exits 0.
 const hidden = await launch([doc, '--smoke-hide-doc']);
 report('hidden document', hidden);
 check(hidden.code !== 0, `expected non-zero exit with #doc visibility hidden, got ${hidden.code}`);
@@ -288,7 +297,7 @@ if (failures.length) {
 }
 
 // An environment that paints nothing cannot answer the question this check exists to ask, so it says so
-// instead of pretending either way: strict where the answer is required (CI verify:cli, MARXY_SMOKE_REQUIRED=1),
+// instead of pretending either way: strict where the answer is required (verify:cli, MARXY_SMOKE_REQUIRED=1),
 // skipped with the reason named where it is not. The property under test is not the thing at fault.
 if (framesOnly) {
   const { status, message } = framesOnlyVerdict({

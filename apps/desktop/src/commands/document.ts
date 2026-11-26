@@ -1,4 +1,4 @@
-// Document commands: undo/redo and explicit save (MARXY-43, MARXY-49).
+// Document commands: undo/redo and explicit save.
 import type { AppContext, Command } from './registry.ts';
 import { save } from '../save.ts';
 import {
@@ -11,7 +11,7 @@ import { updateTabWidthResolver } from '../source/tab-width.ts';
 import { appHandle } from './app-handle.ts';
 import { basename } from '@marxy/core/src/index-model/paths.ts';
 import type { ShellError } from '@marxy/shell-api';
-import { CONFLICT_COPY_FAILED, CONFLICT_DISCARDED, conflictCopySaved } from '../notices/config-copy.ts';
+import { CONFLICT_COPY_FAILED, CONFLICT_COPY_NOT_IN_ENCODING, CONFLICT_DISCARDED, conflictCopySaved } from '../notices/config-copy.ts';
 import { clearDiskChangedChooseNotices } from '../notices/disk.ts';
 import { SOURCE_HELD_APART } from '../notices/index.ts';
 import { forkOpenDocument, newFile, newFileHere, openFilePath } from '../document/new-file.ts';
@@ -20,7 +20,7 @@ import { openVerbMenu, type MenuAnchor, type VerbMenuRow } from '../selection/ve
 export { attachDocumentEdits } from './edits.ts';
 
 /**
- * One article's wiring (B-13): the task click, with the context
+ * One article's wiring: the task click, with the context
  * of the view that owns `article`. Returns what undoes it, which the view calls when it is destroyed;
  * a second view, or the next app's view on the same article, wires with its own context.
  */
@@ -46,7 +46,7 @@ export function wireArticle(
     });
   };
   const wire = (): void => {
-    // The page first: reading the runtime reads the parse, which a file that opens in Source has not made (V-11).
+    // The page first: reading the runtime reads the parse, which a file that opens in Source has not made.
     if (!article.querySelector('[data-marxy-s]')) return;
     const ctx = runtime();
     if (!ctx?.article.querySelector('[data-marxy-s]')) return;
@@ -76,15 +76,15 @@ function canSaveOpenDocument(ctx: AppContext): boolean {
   return store !== null && !store.snapshot().path.startsWith('marxy:');
 }
 
-/** A change on disk is waiting over unsaved edits for the reader to choose (V-07): the store holds it. */
+/** A change on disk is waiting over unsaved edits for the reader to choose: the store holds it. */
 function hasDiskConflict(ctx: AppContext): boolean {
   return ctx.document !== null && ctx.document.conflict() !== null;
 }
 
 /**
- * The reader's choice over a changed-on-disk conflict (V-07). Source text not yet folded in is folded first, so
+ * The reader's choice over a changed-on-disk conflict. Source text not yet folded in is folded first, so
  * it counts as the reader's edits: a copy holds it, and 'theirs' discards it only because the reader said so.
- * Text this pane cannot fold (held apart from another pane's, D-11) is refused rather than guessed at.
+ * Text this pane cannot fold (held apart from another pane's) is refused rather than guessed at.
  */
 async function resolveDiskConflict(ctx: AppContext, choice: 'mine' | 'theirs'): Promise<void> {
   const store = ctx.document;
@@ -99,7 +99,8 @@ async function resolveDiskConflict(ctx: AppContext, choice: 'mine' | 'theirs'): 
   if (outcome.result === 'failed') {
     const err = outcome.error;
     const said = err && typeof err === 'object' && 'message' in err ? String((err as ShellError).message) : String(err);
-    const failed = CONFLICT_COPY_FAILED(said);
+    const encoding = err && typeof err === 'object' && (err as { code?: unknown }).code === 'encoding' ? String((err as { encoding?: unknown }).encoding) : null;
+    const failed = encoding === null ? CONFLICT_COPY_FAILED(said) : CONFLICT_COPY_NOT_IN_ENCODING(encoding, said);
     ctx.showNotice(failed.text, { kind: failed.kind });
     return;
   }
@@ -110,7 +111,7 @@ async function resolveDiskConflict(ctx: AppContext, choice: 'mine' | 'theirs'): 
 }
 
 /**
- * The rows of the New menu (W-14), in the order of the card: *New file*, *New file here*, *Fork this file*. A row whose command cannot
+ * The rows of the New menu, in the order of the card: *New file*, *New file here*, *Fork this file*. A row whose command cannot
  * run now is not drawn, so the menu never offers a door that is shut. (*Open File…* is not here: it is the native menu's, and the
  * shell has no file picker for the page to call.)
  */
@@ -146,9 +147,11 @@ export function documentCommands(): readonly Command[] {
       group: 'document',
       // A document command, not a selection operation: it needs an open document, not a selection.
       when: (ctx) => canSaveOpenDocument(ctx),
-      // Through the app, which supplies the store's save deps (the fold from Source, Save as's watch).
+      // Through the app, which supplies the store's save deps (the fold from Source, Save as's watch). The menu's Save
+      // reads the patch first as Mod+S does (changes/save-door.ts).
       run: async () => {
-        await save();
+        const { saveOrReadChanges } = await import('../changes/save-door.ts');
+        await saveOrReadChanges();
       },
     },
     {
@@ -159,6 +162,21 @@ export function documentCommands(): readonly Command[] {
       when: (ctx) => canSaveOpenDocument(ctx),
       run: async () => {
         await save({ as: true });
+      },
+    },
+    {
+      id: 'document.open',
+      title: 'Open file…',
+      key: 'Mod+O',
+      // On macOS the menu's Open File… takes Cmd+O first; this is the door on Windows and Linux, which have no menu bar.
+      global: true,
+      group: 'document',
+      when: () => appHandle()?.shell.openDialog !== undefined,
+      run: async (ctx) => {
+        ctx.closePalette();
+        const handle = appHandle();
+        const paths = (await handle?.shell.openDialog?.({ multiple: true })) ?? [];
+        for (const path of paths) await handle?.open(path);
       },
     },
     {
@@ -180,7 +198,7 @@ export function documentCommands(): readonly Command[] {
       id: 'document.new',
       title: 'New file',
       key: 'Mod+N',
-      // Runs from Source's editor too. An empty scratch document: nothing is written until the reader's Save As (E-13).
+      // Runs from Source's editor too. An empty scratch document: nothing is written until the reader's Save As.
       global: true,
       group: 'document',
       when: () => true,
@@ -214,7 +232,7 @@ export function documentCommands(): readonly Command[] {
       id: 'document.new-menu',
       title: 'New…',
       group: 'document',
-      // The toolbar's + door (W-05 draws it once this exists). Its three rows have rows of their own in the palette.
+      // The toolbar's + door (drawn once this exists). Its three rows have rows of their own in the palette.
       listed: false,
       when: () => true,
       run: async (ctx) => {

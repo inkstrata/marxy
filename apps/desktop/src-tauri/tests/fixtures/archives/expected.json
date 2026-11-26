@@ -1,0 +1,333 @@
+{
+  "_note": "Written by make-shared.mjs. Read by src/archive (Rust) and packages/core/src/viewer/archive-read.test.ts.",
+  "maxEach": 64,
+  "archives": {
+    "shared.zip": {
+      "format": "zip",
+      "directory": {
+        "at": 370,
+        "size": 414
+      },
+      "entries": [
+        {
+          "index": 0,
+          "path": "docs/",
+          "size": 0,
+          "offset": 0,
+          "crc": 0,
+          "host": "Unix",
+          "mode": 16877,
+          "flags": 0,
+          "comment": null,
+          "head": {
+            "refused": "A folder has nothing to open."
+          }
+        },
+        {
+          "index": 1,
+          "path": "docs/readme.md",
+          "size": 891,
+          "offset": 35,
+          "crc": 517659785,
+          "host": "Unix",
+          "mode": 33188,
+          "flags": 0,
+          "comment": "the first thing to read",
+          "head": {
+            "hex": "232052656164206d650a0a41206c696e65206f662074686520726561646d652e0a41206c696e65206f662074686520726561646d652e0a41206c696e65206f66",
+            "whole": false
+          }
+        },
+        {
+          "index": 2,
+          "path": "notes.txt",
+          "size": 6,
+          "offset": 121,
+          "crc": 3604533822,
+          "host": "DOS or Windows",
+          "mode": null,
+          "flags": 2048,
+          "comment": "café�notes",
+          "head": {
+            "hex": "6e6f7465730a",
+            "whole": true
+          }
+        },
+        {
+          "index": 3,
+          "path": "run.sh",
+          "size": 18,
+          "offset": 166,
+          "crc": 3923393071,
+          "host": "Unix",
+          "mode": 33261,
+          "flags": 0,
+          "comment": null,
+          "head": {
+            "hex": "23212f62696e2f73680a6563686f2068690a",
+            "whole": true
+          }
+        },
+        {
+          "index": 4,
+          "path": "locked.bin",
+          "size": 16,
+          "offset": 220,
+          "crc": 3469664904,
+          "host": "Windows NTFS",
+          "mode": null,
+          "flags": 1,
+          "comment": null,
+          "head": {
+            "refused": "This entry is encrypted. The app does not ask for archive passwords."
+          }
+        },
+        {
+          "index": 5,
+          "path": "mac.txt",
+          "size": 270,
+          "offset": 276,
+          "crc": 2960919019,
+          "host": "macOS",
+          "mode": null,
+          "flags": 0,
+          "comment": null,
+          "head": {
+            "hex": "6d6163206c696e650a6d6163206c696e650a6d6163206c696e650a6d6163206c696e650a6d6163206c696e650a6d6163206c696e650a6d6163206c696e650a6d",
+            "whole": false
+          }
+        },
+        {
+          "index": 6,
+          "path": "odd.dat",
+          "size": 4,
+          "offset": 329,
+          "crc": 3057449933,
+          "host": "system 7",
+          "mode": null,
+          "flags": 0,
+          "comment": null,
+          "head": {
+            "hex": "01020304",
+            "whole": true
+          }
+        }
+      ]
+    },
+    "shared.tar.gz": {
+      "format": "tar.gz",
+      "directory": null,
+      "entries": [
+        {
+          "index": 0,
+          "path": "src/",
+          "size": null,
+          "offset": 0,
+          "crc": null,
+          "host": null,
+          "mode": 493,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "refused": "A folder has nothing to open."
+          }
+        },
+        {
+          "index": 1,
+          "path": "src/f00.txt",
+          "size": 7,
+          "offset": 512,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "66696c6520300a",
+            "whole": true
+          }
+        },
+        {
+          "index": 2,
+          "path": "src/f01.txt",
+          "size": 70,
+          "offset": 1536,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "66696c6520310a66696c6520310a66696c6520310a66696c6520310a66696c6520310a66696c6520310a66696c6520310a66696c6520310a66696c6520310a66",
+            "whole": false
+          }
+        },
+        {
+          "index": 3,
+          "path": "src/f02.txt",
+          "size": 133,
+          "offset": 2560,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "66696c6520320a66696c6520320a66696c6520320a66696c6520320a66696c6520320a66696c6520320a66696c6520320a66696c6520320a66696c6520320a66",
+            "whole": false
+          }
+        },
+        {
+          "index": 4,
+          "path": "src/f03.txt",
+          "size": 196,
+          "offset": 3584,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "66696c6520330a66696c6520330a66696c6520330a66696c6520330a66696c6520330a66696c6520330a66696c6520330a66696c6520330a66696c6520330a66",
+            "whole": false
+          }
+        },
+        {
+          "index": 5,
+          "path": "src/f04.txt",
+          "size": 259,
+          "offset": 4608,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "66696c6520340a66696c6520340a66696c6520340a66696c6520340a66696c6520340a66696c6520340a66696c6520340a66696c6520340a66696c6520340a66",
+            "whole": false
+          }
+        },
+        {
+          "index": 6,
+          "path": "src/f05.txt",
+          "size": 322,
+          "offset": 5632,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "66696c6520350a66696c6520350a66696c6520350a66696c6520350a66696c6520350a66696c6520350a66696c6520350a66696c6520350a66696c6520350a66",
+            "whole": false
+          }
+        },
+        {
+          "index": 7,
+          "path": "src/f06.txt",
+          "size": 385,
+          "offset": 6656,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "66696c6520360a66696c6520360a66696c6520360a66696c6520360a66696c6520360a66696c6520360a66696c6520360a66696c6520360a66696c6520360a66",
+            "whole": false
+          }
+        },
+        {
+          "index": 8,
+          "path": "src/f07.txt",
+          "size": 448,
+          "offset": 7680,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "66696c6520370a66696c6520370a66696c6520370a66696c6520370a66696c6520370a66696c6520370a66696c6520370a66696c6520370a66696c6520370a66",
+            "whole": false
+          }
+        },
+        {
+          "index": 9,
+          "path": "src/f08.txt",
+          "size": 511,
+          "offset": 8704,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "66696c6520380a66696c6520380a66696c6520380a66696c6520380a66696c6520380a66696c6520380a66696c6520380a66696c6520380a66696c6520380a66",
+            "whole": false
+          }
+        },
+        {
+          "index": 10,
+          "path": "src/f09.txt",
+          "size": 574,
+          "offset": 9728,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "66696c6520390a66696c6520390a66696c6520390a66696c6520390a66696c6520390a66696c6520390a66696c6520390a66696c6520390a66696c6520390a66",
+            "whole": false
+          }
+        },
+        {
+          "index": 11,
+          "path": "src/f10.txt",
+          "size": 728,
+          "offset": 11264,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "66696c652031300a66696c652031300a66696c652031300a66696c652031300a66696c652031300a66696c652031300a66696c652031300a66696c652031300a",
+            "whole": false
+          }
+        },
+        {
+          "index": 12,
+          "path": "src/run.sh",
+          "size": 10,
+          "offset": 12800,
+          "crc": null,
+          "host": null,
+          "mode": 493,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "23212f62696e2f73680a",
+            "whole": true
+          }
+        },
+        {
+          "index": 13,
+          "path": "src/big.txt",
+          "size": 5320,
+          "offset": 13824,
+          "crc": null,
+          "host": null,
+          "mode": 420,
+          "flags": null,
+          "comment": null,
+          "head": {
+            "hex": "6120626967206c696e65206f6620746578740a6120626967206c696e65206f6620746578740a6120626967206c696e65206f6620746578740a6120626967206c",
+            "whole": false
+          }
+        }
+      ]
+    }
+  }
+}

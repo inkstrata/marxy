@@ -1,8 +1,8 @@
-// Content search over bytes (C-16, ADR-0053 §4): the semantics the shell's Rust `search_content`
+// Content search over bytes: the semantics the shell's Rust `search_content`
 // implements, written once more here for the memory shell and its tests. Both run the same cases
 // (`fixtures/content-search/cases.json`), so the two cannot drift. Nothing is indexed or written.
 //
-// Shell-free (ADR-0020): the host hands in a byte reader. The shell directory may not decode
+// Shell-free: the host hands in a byte reader. The shell directory may not decode
 // bytes (`pnpm gate:fidelity`), so the decoding a preview needs lives here.
 
 import { isIgnored, parseIgnore } from './ignore.ts';
@@ -16,14 +16,16 @@ export const CONTENT_SEARCH_LIMITS = {
   perFile: 5,
   /** The most hits any caller may ask for. */
   maxLimit: 10_000,
-  /** A larger file is skipped unread. */
-  maxFileBytes: 4 * 1024 * 1024,
+  /** A larger file is skipped unread: the app's open limit. */
+  maxFileBytes: 256 * 1024 * 1024,
   /** A NUL in this many leading bytes marks a file as binary, and it is skipped. */
   binarySniffBytes: 8 * 1024,
-  /** Paths past this many are not searched (the collection's own cap, ADR-0053 §5). */
+  /** Paths past this many are not searched (the collection's own cap). */
   maxFiles: 100_000,
+  /** The search stops after this long; the shell's own budget, here for the panel's wording. */
+  maxSeconds: 15,
   /** The search stops once it has read this many bytes in all. */
-  maxTotalBytes: 128 * 1024 * 1024,
+  maxTotalBytes: 1024 * 1024 * 1024,
   /** A preview holds at most this many characters (Unicode scalar values). */
   previewChars: 160,
 } as const;
@@ -45,8 +47,12 @@ export interface ContentSearchOutcome {
   readonly hits: readonly ContentSearchHit[];
   /** Files actually read and searched; a skipped file does not count. */
   readonly scannedFiles: number;
+  /** Files that exist, are allowed and were not searched: binary or over the size limit. */
+  readonly skippedFiles: number;
   /** More hits exist than were returned, or the search stopped before it had looked at every path. */
   readonly truncated: boolean;
+  /** The budget that ended the search early, when one did; a hit limit leaves it null. */
+  readonly stopped: 'bytes' | 'files' | null;
 }
 
 /** True when `child` lies strictly under `root`, segment-safe. Both are normalised first. */
@@ -193,12 +199,14 @@ export function searchContent(
 ): ContentSearchOutcome {
   const limit = Math.min(Math.max(0, Math.floor(opts.limit ?? CONTENT_SEARCH_LIMITS.limit)), CONTENT_SEARCH_LIMITS.maxLimit);
   const perFile = Math.max(0, Math.floor(opts.perFile ?? CONTENT_SEARCH_LIMITS.perFile));
-  if (query === '' || /[\r\n]/.test(query)) return { hits: [], scannedFiles: 0, truncated: false };
+  if (query === '' || /[\r\n]/.test(query)) return { hits: [], scannedFiles: 0, skippedFiles: 0, truncated: false, stopped: null };
   const fold = !isCaseSensitiveQuery(query);
   const needle = fold ? asciiLower(encoder.encode(query)) : encoder.encode(query);
 
   const hits: ContentSearchHit[] = [];
   let scannedFiles = 0;
+  let skippedFiles = 0;
+  let stopped: 'bytes' | 'files' | null = null;
   let totalBytes = 0;
   let truncated = false;
   const seen = new Set<string>();
@@ -208,18 +216,26 @@ export function searchContent(
     seen.add(path);
     if (considered >= CONTENT_SEARCH_LIMITS.maxFiles || opts.cancelled?.()) {
       truncated = true;
+      if (considered >= CONTENT_SEARCH_LIMITS.maxFiles) stopped = 'files';
       break;
     }
     considered++;
     const file = reader(path);
-    if (file === null || file.size > CONTENT_SEARCH_LIMITS.maxFileBytes) continue;
+    if (file === null) continue;
+    if (file.size > CONTENT_SEARCH_LIMITS.maxFileBytes) {
+      skippedFiles++;
+      continue;
+    }
     if (totalBytes + file.size > CONTENT_SEARCH_LIMITS.maxTotalBytes) {
       truncated = true;
+      stopped = 'bytes';
       break;
     }
     const bytes = file.read();
-    if (bytes.length > CONTENT_SEARCH_LIMITS.maxFileBytes) continue;
-    if (bytes.subarray(0, CONTENT_SEARCH_LIMITS.binarySniffBytes).includes(0)) continue;
+    if (bytes.length > CONTENT_SEARCH_LIMITS.maxFileBytes || bytes.subarray(0, CONTENT_SEARCH_LIMITS.binarySniffBytes).includes(0)) {
+      skippedFiles++;
+      continue;
+    }
     totalBytes += bytes.length;
     scannedFiles++;
     const hay = fold ? asciiLower(bytes) : bytes;
@@ -242,5 +258,5 @@ export function searchContent(
       inFile++;
     }
   }
-  return { hits, scannedFiles, truncated };
+  return { hits, scannedFiles, skippedFiles, truncated, stopped };
 }

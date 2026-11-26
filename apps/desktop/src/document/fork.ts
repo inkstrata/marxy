@@ -1,8 +1,8 @@
-// *Fork this file* (W-14): the open document's bytes written beside it under a name that is free, never over a file.
+// *Fork this file*: the open document's bytes written beside it under a name that is free, never over a file.
 //
-// This writes beside the reader's files, so the rules are the strict ones (AGENTS.md commitments 2 to 4): nothing leaves the
+// This writes beside the reader's files, so the rules are the strict ones: nothing leaves the
 // machine; the fork holds exactly the bytes it was given (BOM, line endings and bytes that are not text included); the original is never
-// written; and a name is taken only by a create-only write (`writeFileNew`, ADR-0074, F-85): the shell puts the bytes at the name only
+// written; and a name is taken only by a create-only write (`writeFileNew`): the shell puts the bytes at the name only
 // if nothing is there (a file, a folder, a link, a dangling link), in the same step that makes the name appear. So there is no "look,
 // then write", no window for another program to win, and no symlink to write through: when anything is at a name the write fails
 // `exists` and the next name is tried, each name once, at the moment of writing, and nothing is replaced.
@@ -21,7 +21,7 @@ export function forkPath(path: string, n: number): string {
 
 /**
  * `path` with ` (tag)` before its extension (`notes.md`, `version 14.32` → `notes (version 14.32).md`), in the path's own folder; a
- * name with no extension, or a dotfile, takes the tag last. The stem is cut to fit a file name. Restore to a copy (V-06) names its
+ * name with no extension, or a dotfile, takes the tag last. The stem is cut to fit a file name. Restore to a copy names its
  * copies with it.
  */
 export function taggedPath(path: string, tag: string): string {
@@ -59,7 +59,7 @@ function fitStem(stem: string, rest: number): string {
 
 /** What a fork needs of the shell. `AppShell` has it. */
 export interface ForkIo {
-  /** Create-only (ADR-0074): the bytes at `path` if nothing is there, else rejects `code: 'exists'` and writes nothing. */
+  /** Create-only: the bytes at `path` if nothing is there, else rejects `code: 'exists'` and writes nothing. */
   writeFileNew(path: string, bytes: Uint8Array): Promise<void>;
 }
 

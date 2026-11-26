@@ -1,4 +1,4 @@
-// Nearest ancestor with `.git`, else the opened file's directory (ADR-0012).
+// Nearest ancestor with `.git`, else the opened file's directory.
 
 import { dirname, normalizePath } from './paths.ts';
 

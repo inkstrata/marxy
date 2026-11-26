@@ -1,5 +1,5 @@
-// A launch with no document (MARXY-257): the real app in Playwright WebKit through the MARXY-95
-// harness, with Commonplace pieces injected so the test holds whatever the corpus (MARXY-256) holds.
+// A launch with no document: the real app in Playwright WebKit through the
+// harness, with Commonplace pieces injected so the test holds whatever the corpus holds.
 // The pieces below are written for this test; they are not from the corpus.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -9,11 +9,11 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { fileURLToPath } from 'node:url';
 
 /**
- * A job without Playwright's WebKit (CI's `fast` job) skips the browser cases and says why, unless
+ * A run without Playwright's WebKit skips the browser cases and says why, unless
  * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
  */
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -23,7 +23,7 @@ const test = (name, fn) => nodeTest(name, { skip }, fn);
 
 const EM = ' ';
 const LONG_LINE = 'A line written long on purpose so that it cannot fit the measure and has to turn over onto a second line, where it must hang';
-const COLOPHON = 'Written for the MARXY-257 test and not taken from anywhere. This colophon runs long enough to fill more than one line at the caption size, so that the typesetter has a paragraph of prose to set on the page, which shows that it ran over the piece while leaving the verse above alone.';
+const COLOPHON = 'Written for this test and not taken from anywhere. This colophon runs long enough to fill more than one line at the caption size, so that the typesetter has a paragraph of prose to set on the page, which shows that it ran over the piece while leaving the verse above alone.';
 
 const verse = [
   '---',
@@ -75,7 +75,7 @@ const bilingual = [
   '',
   '---',
   '',
-  'Written for the MARXY-257 test.',
+  'Written for this test.',
   '',
   'Translated for Marxy, line for line, and released with it under the MIT licence.',
   '',
@@ -98,7 +98,7 @@ const code = [
   '',
   '---',
   '',
-  'Written for the MARXY-257 test.',
+  'Written for this test.',
   '',
 ].join('\n');
 
@@ -180,12 +180,14 @@ test('a launch with no document shows a piece, emits no_document and never first
     for (const name of ['first_text', 'painted', 'render', 'file_read']) {
       assert.ok(!names.includes(name), `a launch with no document emitted ${name}: ${names.join(', ')}`);
     }
-    const reads = await page.evaluate(() => window.__handle.shell.calls.filter((c) => (c.method === 'readFile' && c.args[0] !== '/config') || c.method === 'watch').length);
-    assert.equal(reads, 0, 'the piece is not a file: nothing may be read or watched for it (config.toml aside, A-14)');
+    // The frame reads its own state from the data folder (frame.json, and history.json on an empty launch); the look
+    // reads look.toml, a setting beside config.toml.
+    const reads = await page.evaluate(() => window.__handle.shell.calls.filter((c) => (c.method === 'readFile' && c.args[0] !== '/config' && c.args[0] !== '/look.toml' && !c.args[0].startsWith('/data/')) || c.method === 'watch').map((c) => `${c.method} ${c.args[0]}`));
+    assert.deepEqual(reads, [], 'the piece is not a file: nothing may be read or watched for it (config.toml, look.toml and the data folder aside)');
     const configReads = await page.evaluate(() => window.__handle.shell.calls.filter((c) => c.method === 'readFile' && c.args[0] === '/config').length);
-    assert.equal(configReads, 1, 'config.toml is read exactly once on a launch with no document (A-14)');
+    assert.equal(configReads, 1, 'config.toml is read exactly once on a launch with no document');
     // Cmd+E has no buffer to show in Source mode.
-    await page.keyboard.press('Meta+e');
+    await page.keyboard.press('ControlOrMeta+e');
     assert.equal(await page.evaluate(() => document.body.dataset.marxyMode ?? 'rendered'), 'rendered');
   } finally {
     await page.close();
@@ -391,7 +393,7 @@ test('an open replaces the piece with the document and leaves one typesetter', a
         frontispiece: document.querySelector('.marxy-frontispiece') !== null,
         heading: document.querySelector('#doc h1')?.textContent ?? '',
         counts: h.debugCounts(),
-        // K-05b: the opened article is set by its kind's profile (Source Serif 4, 66 characters), so its column is the
+        // the opened article is set by its kind's profile (Source Serif 4, 66 characters), so its column is the
         // pane's own column for that kind, not the frontispiece's.
         columnIsTheKinds: Math.abs(parseFloat(getComputedStyle(document.getElementById('doc')).maxWidth) - 66 * 0.434 * 20) < 0.5,
       };

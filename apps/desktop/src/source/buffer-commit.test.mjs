@@ -1,4 +1,4 @@
-// Source leave / fromText / CRLF preservation (MARXY-37).
+// Source leave / fromText / CRLF preservation.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -53,7 +53,7 @@ test('an edit in a mixed-ending file changes only the edited bytes', () => {
 test('an edit leaves bytes that are not UTF-8 alone', () => {
   const bytes = new Uint8Array([0x63, 0x61, 0x66, 0xe9, 0x0a, 0x78, 0x0a]); // "caf\xe9\nx\n", Latin-1
   const buffer = createBuffer('/tmp/latin1.md', bytes);
-  // The editor's text (`cmDocText`) holds the byte as its own code unit, not as U+FFFD (F-34.1).
+  // The editor's text (`cmDocText`) holds the byte as its own code unit, not as U+FFFD.
   const out = leaveSourceMode(buffer, cmDocText(buffer).replace('x', 'y'));
   assert.deepEqual([...out.buffer.bytes], [0x63, 0x61, 0x66, 0xe9, 0x0a, 0x79, 0x0a]);
 });

@@ -1,7 +1,7 @@
-// What the palette searches (C-10): every entry the index service publishes, put in scope order
+// What the palette searches: every entry the index service publishes, put in scope order
 // (current repository, declared folders, recent roots), one per path, under the scope's cap, and
 // prepared once per change so a keystroke only matches. Moved out of view.ts, which reads from here.
-// A watch event's patch (C-11) changes only the rows it names; a change of the root set rebuilds.
+// A watch event's patch changes only the rows it names; a change of the root set rebuilds.
 import type { IndexEntry } from '@marxy/core';
 import { rootRank, SCOPE_ENTRY_CAP, scopedEntries, scopeRoots } from '../collection/scope.ts';
 import type { IndexPatch } from '../index/service.ts';
@@ -29,7 +29,7 @@ export interface IndexFeed {
   setWatchNotice(text: string | undefined): void;
   /** collection.toml's folders, in file order. */
   setDeclared(roots: readonly string[]): void;
-  /** The folders `setDeclared` was last given: what the library offers as scopes (Q-03). */
+  /** The folders `setDeclared` was last given: what the library offers as scopes. */
   declared(): readonly string[];
   /** The open document's repository root. Until set, the session's current root stands in. */
   setCurrent(root: string | undefined): void;

@@ -1,4 +1,4 @@
-// rewriteUrls security and rewriting cases (MARXY-47 task card).
+// rewriteUrls security and rewriting cases.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -63,7 +63,7 @@ test('image-set drops remote candidates', () => {
   assert.equal(warnings.length, 1);
 });
 
-// 2026-09-26 review (MARXY-246): every one of these used to pass through unchanged.
+// 2026-09-26 review: every one of these used to pass through unchanged.
 test('url(), @import and image-set() are matched in any case', () => {
   for (const sheet of [
     'a{background:URL(https://evil.example/a.png)}',
@@ -95,7 +95,7 @@ test('dropping a remote image-set candidate drops its descriptor with it', () =>
   assert.equal(css, 'a{background:image-set(url("asset:///themes/quiet/ok.png") 1x)}');
 });
 
-test('a string ends at an unescaped newline, so a url() after it is still rewritten (MARXY-337)', () => {
+test('a string ends at an unescaped newline, so a url() after it is still rewritten', () => {
   const css = 'p { content: "x\n}\nbody { background: url(https://evil.example/nl.png) }\n/* " */';
   const { css: out, warnings } = rewriteUrls(css, { base, assetUrl });
   assert.ok(!out.includes('evil.example'));
@@ -111,7 +111,7 @@ test('an escaped newline continues a string and an escaped quote does not end it
   assert.equal(rewriteUrls(css, { base, assetUrl }).css, css);
 });
 
-test('@import ends at a semicolon outside its string, so a following rule survives (MARXY-337)', () => {
+test('@import ends at a semicolon outside its string, so a following rule survives', () => {
   const { css, warnings } = rewriteUrls('@import "a;b.css" ;\nh1{color:red}', { base, assetUrl });
   assert.equal(css, '\nh1{color:red}');
   assert.equal(warnings.length, 1);
@@ -119,7 +119,7 @@ test('@import ends at a semicolon outside its string, so a following rule surviv
   assert.ok(!rewriteUrls('@import "x\n;a{background:url(http://evil.example/x.png)}', { base, assetUrl }).css.includes('evil.example'));
 });
 
-// F-16: a raster data: URL broken by a raw line break must not hide a remote rule from the scanner.
+// a raster data: URL broken by a raw line break must not hide a remote rule from the scanner.
 const EVIL = '}b{background:url(https://evil.example/p.png)}';
 
 function hidden(brk: string): Record<string, string> {
@@ -182,7 +182,7 @@ test('a parenthesis inside a quoted string does not hide a later remote url', ()
   assert.ok(warnings.length >= 1);
 });
 
-// F-16 review: removing a reference must not splice a fresh url( together.
+// Removing a reference must not splice a fresh url( together.
 test('removing an empty url() cannot splice a remote url together', () => {
   const { css, warnings } = rewriteUrls('body{background:urlurl()(https://evil.example/p.png)}', { base, assetUrl });
   assert.doesNotMatch(css, /evil\.example/);
@@ -211,7 +211,7 @@ test('an unterminated string inside image-set is dropped with a warning', () => 
   assert.ok(warnings.length >= 1);
 });
 
-// F-16 review 2: the verification pass must not depend on, or call, the caller's assetUrl.
+// The verification pass must not depend on, or call, the caller's assetUrl.
 test('a local asset loads when assetUrl returns an http://asset.localhost url', () => {
   const { css, warnings } = rewriteUrls('@font-face{font-family:Lit;src:url(fonts/lit.woff2)}', {
     base,
@@ -246,7 +246,7 @@ test('a theme cannot forge a placeholder to smuggle a path through', () => {
   assert.doesNotMatch(css, /marxy-asset-[0-9a-f]{24}/);
 });
 
-// F-16.1: the caller's assetUrl result is escaped for a double-quoted CSS string.
+// the caller's assetUrl result is escaped for a double-quoted CSS string.
 function cssUnescape(s: string): string {
   return s.replace(/\\(?:([0-9a-fA-F]{1,6}) ?|([\s\S]))/g, (_m, hex?: string, ch?: string) =>
     hex ? String.fromCodePoint(parseInt(hex, 16)) : (ch as string));

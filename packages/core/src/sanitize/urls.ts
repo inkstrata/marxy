@@ -1,9 +1,9 @@
-// The URL decision (ADR-0009). Made by resolving the value with the URL parser and inspecting the
+// The URL decision. Made by resolving the value with the URL parser and inspecting the
 // result, never by scanning the string for a scheme: `/\host`, `\\host`, `//host` and `http:\\host`
 // are the same attack written four ways, and only a parser is guaranteed to read them the way the
 // browser will.
 
-import { decodeAttributeReferences, decodeReferences } from './escape.ts';
+import { MAX_DECODING_PASSES, decodeAttributeReferences, decodeReferences, decodesFurther } from './escape.ts';
 import { RESOLUTION_BASES } from './document-origin.ts';
 import type { Policy, UrlContext } from './policy.ts';
 
@@ -17,7 +17,7 @@ export interface UrlDecision {
   readonly absolute?: boolean;
   /** Lowercase scheme when the value is absolute; present on refusals so callers need not re-parse. */
   readonly scheme?: string;
-  /** Why it was refused, for the notice that will read the removal report (MARXY-26, MARXY-44). */
+  /** Why it was refused, for the notice that will read the removal report. */
   readonly reason?: string;
 }
 
@@ -39,10 +39,14 @@ const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
  * defence in depth.
  */
 export function sanitizeUrl(raw: string, context: UrlContext, policy: Policy): UrlDecision {
-  const strict = decide(decodeReferences(raw), context, policy);
+  const decoded = decodeReferences(raw);
+  if (decodesFurther(decoded)) {
+    return { allowed: false, value: decoded, reason: `character references nested more than ${MAX_DECODING_PASSES} deep` };
+  }
+  const strict = decide(decoded, context, policy);
   if (!strict.allowed) return strict;
   const emitted = decodeAttributeReferences(raw);
-  return emitted === decodeReferences(raw) ? strict : decide(emitted, context, policy);
+  return emitted === decoded ? strict : decide(emitted, context, policy);
 }
 
 function decide(decoded: string, context: UrlContext, policy: Policy): UrlDecision {

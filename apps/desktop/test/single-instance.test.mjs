@@ -1,4 +1,4 @@
-// Single-instance routing: second launch, Finder open, and Dock drop share one open path (MARXY-183).
+// Single-instance routing: second launch, Finder open, and Dock drop share one open path.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -19,12 +19,6 @@ const firstPath = '/docs/first.md';
 const secondPath = '/docs/second.md';
 const firstBody = '# first doc\n';
 const secondBody = '# second doc\n';
-
-nodeTest('docs/design/06-shell.md credits onOpenFiles to MARXY-183', () => {
-  const design = readFileSync(join(repoRoot, 'docs', 'design', '06-shell.md'), 'utf8');
-  assert.match(design, /`onOpenFiles`[\s\S]*?\|\s*MARXY-183\s*\|/);
-  assert.doesNotMatch(design, /`onOpenFiles`[\s\S]*?\|\s*MARXY-33\s*\|/);
-});
 
 nodeTest('main.rs registers single-instance and handles RunEvent::Opened', () => {
   const main = readFileSync(join(desktopRoot, 'src-tauri', 'src', 'main.rs'), 'utf8');
@@ -50,25 +44,27 @@ nodeTest('tauri.conf.json lets Finder offer Marxy for source and text files', ()
   assert.ok(exts.includes('py'));
 });
 
-nodeTest('main.rs queues Finder opens until take_pending_opens (MARXY-252)', () => {
+nodeTest('main.rs queues Finder opens until take_pending_opens', () => {
   const main = readFileSync(join(desktopRoot, 'src-tauri', 'src', 'main.rs'), 'utf8');
   assert.match(main, /take_pending_opens/);
   assert.match(main, /OPENS_LISTENER_READY/);
   assert.match(main, /RunEvent::Opened[\s\S]*deliver_open_files/);
 });
 
-nodeTest('tauri.ts drains pending opens after listen resolves (MARXY-252)', () => {
+nodeTest('tauri.ts drains pending opens after listen resolves', () => {
   const tauri = readFileSync(join(desktopRoot, 'src', 'shell', 'tauri.ts'), 'utf8');
-  assert.match(tauri, /await listen<string\[]>\('marxy:open-files'/);
+  // hear() resolves once listen() has: the subscription is live before the queue is drained.
+  assert.match(tauri, /await hear<string\[]>\('marxy:open-files'/);
   assert.match(tauri, /take_pending_opens/);
-  const listenIdx = tauri.indexOf("await listen<string[]>('marxy:open-files'");
+  const listenIdx = tauri.indexOf("await hear<string[]>('marxy:open-files'");
   const drainIdx = tauri.indexOf('take_pending_opens');
   assert.ok(listenIdx >= 0 && drainIdx > listenIdx, 'listen must resolve before draining pending opens');
 });
 
 nodeTest('tauri.ts listens for marxy:open-files', () => {
   const tauri = readFileSync(join(desktopRoot, 'src', 'shell', 'tauri.ts'), 'utf8');
-  assert.match(tauri, /listen<string\[]>\('marxy:open-files'/);
+  assert.match(tauri, /hear<string\[]>\('marxy:open-files'/);
+  assert.match(tauri, /listen<T>\(event,/);
   assert.match(tauri, /onOpenFiles:/);
 });
 
@@ -98,7 +94,7 @@ function b64(text) {
 const earlyPath = '/docs/early.md';
 const earlyBody = '# early open\n';
 
-test('a Finder open that arrives before the listener exists is not lost (MARXY-252)', async () => {
+test('a Finder open that arrives before the listener exists is not lost', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -245,7 +241,7 @@ test('second launch, Finder open, and Dock drop replace the open document', asyn
         const afterFinder = await waitForHeading('second doc');
         simulateOpenedUrl(`file://${secondPath}`);
         const afterDock = await waitForHeading('second doc');
-        // Opens run one at a time (MARXY-198), so a reopen of the file already on screen is queued
+        // Opens run one at a time, so a reopen of the file already on screen is queued
         // behind the one before it rather than raced against it: wait for each route's read.
         for (let i = 0; i < 300 && reads.filter((p) => p === secondPath).length < 3; i++) {
           await new Promise((r) => setTimeout(r, 10));

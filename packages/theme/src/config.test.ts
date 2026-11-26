@@ -1,4 +1,4 @@
-// setTopLevelKey byte preservation (MARXY-47, docs/design/11-config-and-storage.md).
+// setTopLevelKey byte preservation.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -49,7 +49,7 @@ test('preserves bytes outside the edited line when replacing', () => {
   assert.equal(textBefore.slice(lineEnd), textAfter.slice(lineEnd));
 });
 
-// 2026-09-26 review (MARXY-246).
+// 2026-09-26 review.
 const set = (text: string, value = '"y"') => new TextDecoder().decode(setTopLevelKey(new TextEncoder().encode(text), 'theme', value));
 
 test('only the theme line changes: mixed endings, the final newline and leading blank lines stay', () => {
@@ -64,7 +64,7 @@ test('a trailing comment, a quoted key and indentation are kept', () => {
   assert.equal(set('"theme" = "x"\n'), '"theme" = "y"\n');
 });
 
-test('the spacing before a trailing comment survives an edit byte for byte (A-14.1)', () => {
+test('the spacing before a trailing comment survives an edit byte for byte', () => {
   assert.equal(set('theme = "x"   # c\n'), 'theme = "y"   # c\n');
   assert.equal(set('theme = "x"\t\t# c\n'), 'theme = "y"\t\t# c\n');
   assert.equal(set('theme = "x" \t \t# c\n'), 'theme = "y" \t \t# c\n');
@@ -78,13 +78,13 @@ test('the spacing before a trailing comment survives an edit byte for byte (A-14
   assert.equal(set('theme = [\n  "o",\n]   # end\n'), 'theme = "y"   # end\n');
 });
 
-test('the spacing around `=` and the key survive an edit (A-14.1)', () => {
+test('the spacing around `=` and the key survive an edit', () => {
   assert.equal(set('theme="x"\n'), 'theme="y"\n');
   assert.equal(set('theme   =   "x"   # c\n'), 'theme   =   "y"   # c\n');
   assert.equal(set('  theme\t=\t"x"\t# c\n'), '  theme\t=\t"y"\t# c\n');
 });
 
-test('CRLF, a BOM, a missing final newline, tables, commented-out and duplicate keys behave as before (A-14.1)', () => {
+test('CRLF, a BOM, a missing final newline, tables, commented-out and duplicate keys behave as before', () => {
   assert.equal(set('a = 1\r\ntheme = "x"  # c\r\nb = 2\r\n'), 'a = 1\r\ntheme = "y"  # c\r\nb = 2\r\n');
   const bom = new TextEncoder().encode('\ufefftheme = "x"\t# c');
   assert.equal(
@@ -94,7 +94,7 @@ test('CRLF, a BOM, a missing final newline, tables, commented-out and duplicate 
   assert.equal(set('theme = "x"   # c'), 'theme = "y"   # c');
   assert.equal(set('[t]\ntheme = "x"   # c\n'), 'theme = "y"\n[t]\ntheme = "x"   # c\n');
   assert.equal(set('# theme = "x"   # c\n'), '# theme = "x"   # c\ntheme = "y"\n');
-  // A duplicate key is not TOML: the file is refused, not guessed at (W-12).
+  // A duplicate key is not TOML: the file is refused, not guessed at.
   assert.throws(() => set('theme = "a"   # one\ntheme = "b"  # two\n'), ConfigNotReadableError);
 });
 
@@ -121,7 +121,7 @@ test('a multi-line array value is replaced whole, not just its opening line', ()
   );
 });
 
-test('non-finite numbers are rejected with a warning and the default is used (MARXY-337)', () => {
+test('non-finite numbers are rejected with a warning and the default is used', () => {
   const r = parseConfig(new TextEncoder().encode('size = nan\nmeasure = inf\n[linux]\nweight_offset = inf\n'));
   assert.equal(r.config.size, 20);
   assert.equal(r.config.measure, 66);
@@ -130,7 +130,7 @@ test('non-finite numbers are rejected with a warning and the default is used (MA
   assert.equal(parseConfig(new TextEncoder().encode('linux = { weight_offset = -inf }\n')).config.linuxWeightOffset, null);
 });
 
-test('setTopLevelKey keeps a BOM and invalid UTF-8 in untouched lines byte for byte (MARXY-337)', () => {
+test('setTopLevelKey keeps a BOM and invalid UTF-8 in untouched lines byte for byte', () => {
   const input = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode('# '), 0xff, 0xfe, 0x0a, ...new TextEncoder().encode('theme = "x"\n# é\n')]);
   const out = setTopLevelKey(input, 'theme', '"y"');
   const expected = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode('# '), 0xff, 0xfe, 0x0a, ...new TextEncoder().encode('theme = "y"\n# é\n')]);
@@ -142,13 +142,13 @@ test('setTopLevelKey keeps a BOM and invalid UTF-8 in untouched lines byte for b
   assert.equal(new TextDecoder('utf-8', { ignoreBOM: true }).decode(setTopLevelKey(new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode('theme = "x"\n')]), 'theme', '"y"')), '﻿theme = "y"\n');
 });
 
-test('setTopLevelKey refuses when a dotted key already defines the key (MARXY-337)', () => {
+test('setTopLevelKey refuses when a dotted key already defines the key', () => {
   assert.throws(() => set('theme.x = 1\n'), /dotted key/);
   assert.throws(() => set('"theme".x = 1\nsize = 2\n'), /dotted key/);
   assert.equal(set('themes.x = 1\n'), 'themes.x = 1\ntheme = "y"\n');
 });
 
-test('line_numbers is true, false or undefined: absent leaves the per-path default (L-06.1)', () => {
+test('line_numbers is true, false or undefined: absent leaves the per-path default', () => {
   const enc = (t: string) => new TextEncoder().encode(t);
   assert.equal(parseConfig(enc('')).config.lineNumbers, undefined);
   assert.equal(parseConfig(enc('size = 20\n')).config.lineNumbers, undefined);
@@ -156,13 +156,13 @@ test('line_numbers is true, false or undefined: absent leaves the per-path defau
   assert.equal(parseConfig(enc('line_numbers = false\n')).config.lineNumbers, false);
 });
 
-test('a malformed line_numbers warns and falls back to the default for the file (L-06.1)', () => {
+test('a malformed line_numbers warns and falls back to the default for the file', () => {
   const r = parseConfig(new TextEncoder().encode('line_numbers = "yes"\n'));
   assert.equal(r.config.lineNumbers, undefined);
   assert.deepEqual(r.warnings, ['line_numbers was invalid; using the default for the file']);
 });
 
-test('setTopLevelKey on line_numbers changes only the value bytes: comments, CRLF and spacing stay (L-06.1)', () => {
+test('setTopLevelKey on line_numbers changes only the value bytes: comments, CRLF and spacing stay', () => {
   const dec = new TextDecoder();
   const enc = (t: string) => new TextEncoder().encode(t);
   const before = '# mine\r\nvariant = "light"\r\n  line_numbers   =   false   # gutter\r\nsize = 22\r\n\r\n[linux]\r\nweight_offset = 75\r\n';
@@ -174,7 +174,7 @@ test('setTopLevelKey on line_numbers changes only the value bytes: comments, CRL
   );
 });
 
-test('show_whitespace and column_guide are true, false or undefined; a malformed one warns and falls back (V-08)', () => {
+test('show_whitespace and column_guide are true, false or undefined; a malformed one warns and falls back', () => {
   const read = (t: string) => parseConfig(new TextEncoder().encode(t));
   assert.equal(read('').config.showWhitespace, undefined);
   assert.equal(read('').config.columnGuide, undefined);
@@ -187,7 +187,7 @@ test('show_whitespace and column_guide are true, false or undefined; a malformed
   assert.deepEqual(read('show_whitespace = true\n').unknownKeys, [], 'both are known keys');
 });
 
-test('setTopLevelKey on show_whitespace and column_guide changes only their own lines (V-08)', () => {
+test('setTopLevelKey on show_whitespace and column_guide changes only their own lines', () => {
   const dec = new TextDecoder();
   const enc = (t: string) => new TextEncoder().encode(t);
   const before = '# mine\r\nshow_whitespace = false # marks\r\nsize = 22\r\n\r\n[linux]\r\nweight_offset = 75\r\n';
@@ -198,7 +198,7 @@ test('setTopLevelKey on show_whitespace and column_guide changes only their own 
   );
 });
 
-test('chrome_size: unset is null; 11 to 26 px is kept; outside is clamped with a warning naming the value (H-07)', () => {
+test('chrome_size: unset is null; 11 to 26 px is kept; outside is clamped with a warning naming the value', () => {
   const read = (toml: string) => parseConfig(new TextEncoder().encode(toml));
   assert.equal(read('size = 20\n').config.chromeSize, null);
   assert.deepEqual(read('size = 20\n').warnings, []);
@@ -216,7 +216,7 @@ test('chrome_size: unset is null; 11 to 26 px is kept; outside is clamped with a
   assert.match(low.warnings[0]!, /chrome_size 8 .*using 11/);
 });
 
-test('chrome_size: a non-number or non-finite value is refused (null) with a warning naming it (H-07)', () => {
+test('chrome_size: a non-number or non-finite value is refused (null) with a warning naming it', () => {
   for (const [toml, shown] of [['chrome_size = "big"', 'big'], ['chrome_size = nan', 'NaN'], ['chrome_size = true', 'true']] as const) {
     const r = parseConfig(new TextEncoder().encode(`${toml}\n`));
     assert.equal(r.config.chromeSize, null, toml);
@@ -224,12 +224,12 @@ test('chrome_size: a non-number or non-finite value is refused (null) with a war
   }
 });
 
-test('chrome_size is written with setTopLevelKey like the other reader keys (H-07)', () => {
+test('chrome_size is written with setTopLevelKey like the other reader keys', () => {
   const out = new TextDecoder().decode(setTopLevelKey(new TextEncoder().encode('size = 20 # body\n'), 'chrome_size', '16'));
   assert.equal(out, 'size = 20 # body\nchrome_size = 16\n');
 });
 
-test('contrast: system by default; more and normal are kept; anything else falls back to system with one notice (W-22)', () => {
+test('contrast: system by default; more and normal are kept; anything else falls back to system with one notice', () => {
   const read = (toml: string) => parseConfig(new TextEncoder().encode(toml));
   assert.equal(read('size = 20\n').config.contrast, 'system');
   assert.deepEqual(read('size = 20\n').warnings, []);
@@ -247,7 +247,7 @@ test('contrast: system by default; more and normal are kept; anything else falls
   }
 });
 
-test('reduce_transparency: false by default; a boolean is kept; anything else is refused with one notice (W-22)', () => {
+test('reduce_transparency: false by default; a boolean is kept; anything else is refused with one notice', () => {
   const read = (toml: string) => parseConfig(new TextEncoder().encode(toml));
   assert.equal(read('size = 20\n').config.reduceTransparency, false);
   assert.equal(read('reduce_transparency = true\n').config.reduceTransparency, true);
@@ -258,7 +258,39 @@ test('reduce_transparency: false by default; a boolean is kept; anything else is
   assert.match(bad.warnings[0]!, /reduce_transparency was invalid/);
 });
 
-test('contrast and reduce_transparency are written one line at a time, every other byte kept (W-22)', () => {
+test('verbs: on by default; a boolean is kept; anything else keeps them on with one notice', () => {
+  const read = (toml: string) => parseConfig(new TextEncoder().encode(toml));
+  assert.equal(read('size = 20\n').config.verbs, true);
+  assert.equal(read('verbs = false\n').config.verbs, false);
+  assert.deepEqual(read('verbs = false\n').unknownKeys, []);
+  const bad = read('verbs = "off"\n');
+  assert.equal(bad.config.verbs, true);
+  assert.equal(bad.warnings.length, 1);
+  assert.match(bad.warnings[0]!, /verbs was invalid/);
+});
+
+test('review_changes: off by default; a boolean is kept; anything else leaves it off with one notice', () => {
+  const read = (toml: string) => parseConfig(new TextEncoder().encode(toml));
+  assert.equal(read('size = 20\n').config.reviewChanges, false);
+  assert.equal(read('review_changes = true\n').config.reviewChanges, true);
+  assert.deepEqual(read('review_changes = true\n').unknownKeys, []);
+  const bad = read('review_changes = 1\n');
+  assert.equal(bad.config.reviewChanges, false);
+  assert.match(bad.warnings[0]!, /review_changes was invalid/);
+});
+
+test('version_copies: 20 by default; 5, 20 or 100 as a number or as the page writes it; anything else keeps 20 with one notice', () => {
+  const read = (toml: string) => parseConfig(new TextEncoder().encode(toml));
+  assert.equal(read('size = 20\n').config.versionCopies, 20);
+  assert.equal(read('version_copies = 100\n').config.versionCopies, 100);
+  assert.equal(read('version_copies = "5"\n').config.versionCopies, 5);
+  assert.deepEqual(read('version_copies = 5\n').unknownKeys, []);
+  const bad = read('version_copies = 7\n');
+  assert.equal(bad.config.versionCopies, 20);
+  assert.match(bad.warnings[0]!, /version_copies was invalid/);
+});
+
+test('contrast and reduce_transparency are written one line at a time, every other byte kept', () => {
   const enc = (t: string) => new TextEncoder().encode(t);
   const dec = new TextDecoder();
   const before = '# mine\r\nsize = 22 # body\r\ncontrast = "system" # follow\r\nreduce_transparency = false\r\n\r\n[linux]\r\nweight_offset = 75\r\n';
@@ -269,7 +301,7 @@ test('contrast and reduce_transparency are written one line at a time, every oth
   assert.equal(dec.decode(setTopLevelKey(enc('size = 20 # body\n'), 'contrast', '"normal"')), 'size = 20 # body\ncontrast = "normal"\n');
 });
 
-// ---- [[kind]] rules (K-04, ADR-0060 item 9) ----
+// ---- [[kind]] rules ----
 
 import { readFileSync } from 'node:fs';
 import { KIND_NAMES, appendKindRule, resolveKindGlob } from './config.ts';
@@ -350,7 +382,7 @@ test('a ~ glob with no home is skipped with a warning, not guessed', () => {
   assert.match(r.warnings[0]!, /not an absolute path/);
 });
 
-test('a glob is resolved lexically and composed, as P-02 resolves a path: ., .., //, NFC', () => {
+test('a glob is resolved lexically and composed, as a path is: ., .., //, NFC', () => {
   assert.equal(resolveKindGlob('/a//b/./c/../d/**', HOME), '/a/b/d/**');
   assert.equal(resolveKindGlob('~/x/../y/*.md', HOME), '/Users/ian/y/*.md');
   assert.equal(resolveKindGlob('~', HOME), '/Users/ian');
@@ -455,7 +487,7 @@ function lcg(seed: number): () => number {
 test('property: for random configs and rules, the input is an exact prefix of the output (500 cases)', () => {
   const rnd = lcg(0x4b04);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;
-  const pieces = ['size = 21', 'theme = "x"', '# comment é', '', '[linux]', 'weight_offset = 75', '[[kind]]', 'glob = "/z/**"', 'is = "log"', '  ', '# "quoted" # hash', 'resident = true'];
+  const pieces = ['size = 21', 'theme = "x"', '# comment é', '', '[linux]', 'weight_offset = 75', '[[kind]]', 'glob = "/z/**"', 'is = "log"', '  ', '# "quoted" # hash', 'versions = false'];
   const kinds = [...KIND_NAMES];
   let appended = 0;
   for (let n = 0; n < 500; n++) {
@@ -484,7 +516,7 @@ test('property: for random configs and rules, the input is an exact prefix of th
   assert.ok(appended > 150, `only ${appended} cases appended; the generator is too hostile to test anything`);
 });
 
-test('J-04: copy_format names the Copy as row that comes first; markdown is the default', () => {
+test('copy_format names the Copy as row that comes first; markdown is the default', () => {
   const parse = (toml: string) => parseConfig(new TextEncoder().encode(toml));
   assert.equal(parse('').config.copyFormat, 'markdown');
   for (const id of COPY_FORMATS) {
@@ -499,7 +531,7 @@ test('J-04: copy_format names the Copy as row that comes first; markdown is the 
   assert.equal(parse('copy_format = 3\n').config.copyFormat, 'markdown');
 });
 
-test('V-06: versions = false turns local versions off; absent or true keeps them on; anything else warns and keeps them on', () => {
+test('versions = false turns local versions off; absent or true keeps them on; anything else warns and keeps them on', () => {
   const parse = (toml: string) => parseConfig(new TextEncoder().encode(toml));
   assert.equal(parse('').config.versions, true);
   assert.equal(parse('versions = true\n').config.versions, true);
@@ -511,7 +543,7 @@ test('V-06: versions = false turns local versions off; absent or true keeps them
   assert.deepEqual(bad.warnings, ['versions was invalid; versions stay on']);
 });
 
-// --- [strip] (K-07) ---------------------------------------------------------------------------------------------
+// --- [strip] ---------------------------------------------------------------------------------------------
 
 const parseText = (text: string) => parseConfig(new TextEncoder().encode(text));
 
@@ -539,7 +571,7 @@ test('[strip] more than four tools warns and truncates; a strip that is not a ta
   assert.equal(odd.warnings.length, 1);
 });
 
-// removeTopLevelKey (W-12, ADR-0075): the Settings page's reset takes one line out and leaves every other byte.
+// removeTopLevelKey: the Settings page's reset takes one line out and leaves every other byte.
 
 test('removeTopLevelKey on a commented file removes one line and leaves every other byte', () => {
   const text = '# Marxy configuration.\n\n# the size\nsize = 22   # a comment\n\ntheme = "ink"\r\nshow_whitespace = true\n# trailing note\n\n[linux]\nweight_offset = 75\n';
@@ -584,7 +616,7 @@ test('set then remove returns the file byte for byte when the key was not there 
   }
 });
 
-// ---- the line editor reads TOML, it does not guess at lines (W-12 review: H1, H2) ----------------------------------------
+// ---- the line editor reads TOML, it does not guess at lines ----------------------------------------
 
 test('a multi-line string value is reset and replaced whole, both kinds, with [x] and key lines inside it', () => {
   for (const q of ['"""', "'''"]) {
@@ -706,4 +738,40 @@ test('fuzz: set and remove on generated valid files change only the key and prov
     }
   }
   assert.ok(checked > 1200, `the generator made ${checked} valid files; too few for the property to mean anything`);
+});
+
+// --- [[command]] -------------------------------------------------------------------------------
+
+test('[[command]] names a program and its arguments as a list, in file order', () => {
+  const { config, warnings, unknownKeys } = parseText(
+    '[[command]]\nname = "Wrap at 72 columns"\nrun = ["fold", "-s", "-w", "72"]\n\n[[command]]\nname = "Count"\nrun = ["wc"]\nprints = true\n',
+  );
+  assert.deepEqual(config.commands, [
+    { name: 'Wrap at 72 columns', run: ['fold', '-s', '-w', '72'], prints: false },
+    { name: 'Count', run: ['wc'], prints: true },
+  ]);
+  assert.deepEqual(warnings, []);
+  assert.deepEqual(unknownKeys, []);
+  assert.deepEqual(parseText('').config.commands, []);
+});
+
+test('[[command]] run as one string is refused, never split; a missing name, a repeat and an empty list warn too', () => {
+  const { config, warnings } = parseText(
+    '[[command]]\nname = "Wrap"\nrun = "fold -s -w 72"\n\n[[command]]\nrun = ["wc"]\n\n[[command]]\nname = "Sort"\nrun = []\n\n' +
+      '[[command]]\nname = "Uniq"\nrun = ["sort", "-u"]\n\n[[command]]\nname = "Uniq"\nrun = ["uniq"]\n',
+  );
+  assert.deepEqual(config.commands, [{ name: 'Uniq', run: ['sort', '-u'], prints: false }]);
+  assert.equal(warnings.length, 4, warnings.join('\n'));
+  assert.ok(warnings.some((w) => /"Wrap"\) run must be .* as a list.*not one string/.test(w)));
+  assert.ok(warnings.some((w) => /command 2 has no name/.test(w)));
+  assert.ok(warnings.some((w) => /"Uniq"\) has the name of one before it/.test(w)));
+});
+
+test('[[command]] keys it does not know are listed; command that is not a list is ignored', () => {
+  const r = parseText('[[command]]\nname = "Wrap"\nrun = ["fold"]\non = "selection"\n');
+  assert.deepEqual(r.unknownKeys, ['command.on']);
+  assert.equal(r.config.commands.length, 1);
+  const odd = parseText('command = "fold"\n');
+  assert.deepEqual(odd.config.commands, []);
+  assert.equal(odd.warnings.length, 1);
 });

@@ -1,4 +1,4 @@
-// One table across every binding (W-19): the registry's `key`/`keys`, the pane chords, the palette's own
+// One table across every binding: the registry's `key`/`keys`, the pane chords, the palette's own
 // summoning chords and the native menu's accelerators. No chord has two owners. A pane chord or a menu item
 // that replays a command's chord is that command's, not a second owner. Source's own keymap bindings (`FOLD_KEYS`)
 // are in the table too, on both platforms. CodeMirror's default keymap is checked against the registry in
@@ -13,19 +13,22 @@ import { commands } from '../src/commands/index.ts';
 import { FOLD_KEYS } from '../src/source/depth-fold.ts';
 import { registryChord, canonicalCm } from '../src/source/structure.ts';
 import { PALETTE_CHORDS } from '../src/palette/chords.ts';
-import { setAppHandle } from '../src/commands/app-handle.ts';
 import { MENU_COMMAND_IDS } from '../src/menu/menu-commands.ts';
+import { LEFT_PANELS } from '@marxy/core/src/layout/frame-storage.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MAC = true;
 const PLATFORMS = [true, false];
 
-const PHYSICAL = { Backslash: '\\', ArrowLeft: 'arrowleft', ArrowRight: 'arrowright', Slash: '/' };
+const PHYSICAL = { Backslash: '\\', ArrowLeft: 'arrowleft', ArrowRight: 'arrowright', Slash: '/', BracketLeft: '[', BracketRight: ']' };
 const physical = (code) => PHYSICAL[code] ?? code.replace(/^(Digit|Key)/, '').toLowerCase();
-const paneChord = (c, mac = MAC) => registryChord(['Mod', c.ctrl ? 'Ctrl' : null, c.alt ? 'Alt' : null, c.shift ? 'Shift' : null, physical(c.code)].filter(Boolean).join('+'), mac);
+const paneChord = (c, mac = MAC) => registryChord([c.bare ? null : 'Mod', c.ctrl ? 'Ctrl' : null, c.alt ? 'Alt' : null, c.shift ? 'Shift' : null, physical(c.code)].filter(Boolean).join('+'), mac);
 
-/** The menu item that opens a palette door is the palette's owner of that chord, not a second one. */
-const MENU_OWNERS = { 'marxy-open-quickly': 'palette' };
+/**
+ * A menu item that does a command's own act owns its chord as that command, not as a second owner: the palette's door,
+ * and Open File…, which is document.open's system picker done by the shell where there is a menu bar (main.rs).
+ */
+const MENU_OWNERS = { 'marxy-open-quickly': 'palette', 'marxy-open-file': 'document.open' };
 
 /** The OS's own items and the key each answers (AppKit), with the registry command that owns the same chord, if any. */
 const NATIVE_ITEMS = [
@@ -73,10 +76,18 @@ function table(mac = MAC) {
 }
 
 /**
- * Chords two commands may both spell because their `when`s are never both true (W-03): `Esc` clears a selection,
- * and with none folds the workspace. Each entry is the owners that share it; `shared chords` below proves the `when`s.
+ * Chords two commands may both spell because they are never both live: Mod+B is Bold while Source's editor or a text
+ * field has the keys, and the drawer everywhere else (its pane chord is `notInEditor`; the test below holds that).
  */
-const SHARED_CHORDS = new Map([['escape', ['selection.clear', 'view.fold-workspace']]]);
+const SHARED_CHORDS = new Map([
+  ['meta-b', ['source.format-bold', 'view.toggle-drawer']], ['ctrl-b', ['source.format-bold', 'view.toggle-drawer']],
+  // Alt+arrows move the part while the verbs are on and select while they are off (each `when` says which);
+  // Save reads the patch first on a changes page or with review_changes on, and saves at once otherwise.
+  ['alt-arrowdown', ['change.move-down', 'selection.next-block']], ['alt-arrowup', ['change.move-up', 'selection.prev-block']],
+  // Cmd+Alt+[ and ] fold in Source on a Mac; the pane chord for the folder's neighbours is `notInEditor`.
+  ['alt-meta-[', ['nav.beside-previous', 'source:Ctrl-Shift-[']], ['alt-meta-]', ['nav.beside-next', 'source:Ctrl-Shift-]']],
+  ['meta-s', ['changes.save', 'document.save']], ['ctrl-s', ['changes.save', 'document.save']],
+]);
 
 test('no chord has two owners across commands, pane chords, the palette, the native menu and Source\'s own keymap, on both platforms', () => {
   for (const mac of PLATFORMS) for (const [chord, claims] of table(mac)) {
@@ -103,20 +114,32 @@ test('the rulings: Mod+K, Mod+Shift+P, Mod+/ are the palette; Mod+1..3 are Read,
   assert.equal(ownerOf('Mod+E'), 'view.toggle-mode');
 });
 
-/** Keyed commands the menu does not carry, and why (W-20: the menu is cut to the commands the card names; ADR-0073). */
+/** Keyed commands the menu does not carry, and why (the menu is cut to the commands the card names). */
 const NOT_IN_MENU = [
   [/^selection\./, 'Rendered selection keys, a mode of the page'],
   [/^source\.(select|expand|delete|join|toggle-(task|quote|comment))/, "Source's own selection and line chords (the mock's Select menu is another story)"],
   [/^document\.(undo|redo)$/, "Undo and Redo are the OS's own Edit items"],
   [/^paste\./, "Paste is the OS's own Edit item"],
   [/^source\.paste-plain$/, 'a paste variant, in the palette'],
-  [/^view\.(text-|focus-|close-pane|open-beside|fold-workspace)/, 'text size, pane chords and Esc: not on the card'],
+  [/^view\.(text-|focus-|close-pane|open-beside)/, 'text size and pane chords: not on the card'],
+  [/^nav\.beside-/, "the folder's next and previous file: the page's g ] and g [, and a pane chord"],
   [/^(notices\.focus|edit\.block|document\.open-in-editor)$/, 'not on the card'],
-  [/^view\.metadata$/, 'the margin preview (W-17) is summoned by its key and the palette; the View menu carries the panels'],
+  [/^view\.full-screen$/, "F11, the window's own key; macOS keeps F11 for the system"],
+  [/^(branch|tab|left)\./, "the left section's panels and branches (Alt+1 to Alt+8, Look, Clip) and the tab keys: the frame's own, said on the rail's buttons"],
+  [/^cursor\./, "the cursor's single keys: the page's own, said on the verb bar; no accelerator is a bare letter"],
+  [/^depths\./, "the depths' single keys: x-ray, Reveal, folds, only this; the page's own, as the cursor's are"],
+  [/^(changes?|tray|note)\./, "the change, tray and note verbs: the page's own keys and the verb bar; the menu's Save is document.save"],
+  [/^read\.as$/, "Read as: the page's own r, said on the verb bar and the pane head's chip"],
+  [/^look\./, "the look's single keys: a, A, + - 0, N, B; the page's own, said in the pop-over and the Studio"],
+  [/^reading\.toggle-rendered$/, "Show rendered's g r, the page's own as g ] and g [ are, said in its notice and the Metadata panel's Reading line"],
+  [/^line\./, "the Line's scope keys: @ / # : ! % ~ & open it in a scope; the page's own, said in the Line's help (?)"],
 ];
 
+/** Menu items that show no key though their command has one, and why. */
+const KEY_SHOWN_ELSEWHERE = new Map([['view.toggle-drawer', 'Mod+B is Bold in the Format menu; the page takes it for the drawer outside Source']]);
+
 test('every keyed registry command is in the menu with its own key, or is named as not there', () => {
-  const inMenu = new Map(menuItems().filter((i) => i.command).map((i) => [i.command, i.spec]));
+  const inMenu = new Map(menuItems().flatMap((i) => (i.command ? [[i.command, i.spec]] : MENU_OWNERS[i.id] ? [[MENU_OWNERS[i.id], i.spec]] : [])));
   const missing = [];
   for (const cmd of commands()) {
     if (cmd.key === undefined || inMenu.has(cmd.id)) continue;
@@ -131,6 +154,10 @@ test('each menu item runs a registry command, shows that command\'s own key, and
   for (const item of menuItems().filter((i) => i.command)) {
     const cmd = byId.get(item.command);
     assert.ok(cmd, `${item.command} is not a registry command`);
+    if (KEY_SHOWN_ELSEWHERE.has(item.command)) {
+      assert.equal(item.spec, '', `${item.command} shows no key in the menu`);
+      continue;
+    }
     for (const mac of PLATFORMS) {
       const want = cmd.key === undefined ? null : registryChord(cmd.key, mac);
       const got = item.spec === '' ? null : registryChord(item.spec, mac);
@@ -159,7 +186,8 @@ test('no two menu items share a key, and Close Window keeps Mod+W', () => {
 });
 
 test('pane focus moved off Mod+1/Mod+2 to Mod+Alt+Left/Right', () => {
-  assert.ok(!PANE_CHORDS.some((c) => c.code === 'Digit1' || c.code === 'Digit2'));
+  // Alt+1 and Alt+2 (no Mod) are the left section's Places and Metadata; no Mod+digit is a pane chord.
+  assert.ok(!PANE_CHORDS.some((c) => (c.code === 'Digit1' || c.code === 'Digit2') && !c.bare));
   const owners = table();
   assert.equal(owners.get(registryChord('Mod+Alt+ArrowLeft', MAC))?.[0].owner, 'view.focus-left');
   assert.equal(owners.get(registryChord('Mod+Alt+ArrowRight', MAC))?.[0].owner, 'view.focus-right');
@@ -167,7 +195,7 @@ test('pane focus moved off Mod+1/Mod+2 to Mod+Alt+Left/Right', () => {
   assert.deepEqual(focus.map((c) => c.key), ['Mod+Alt+ArrowLeft', 'Mod+Alt+ArrowRight']);
 });
 
-test('W-02 and J-04 chords are in the table, unchanged', () => {
+test('the chords are in the table, unchanged', () => {
   const owners = table();
   const ownerOf = (spec) => [...new Set(owners.get(registryChord(spec, MAC))?.map((c) => c.owner))];
   assert.deepEqual(ownerOf('Mod+\\'), ['view.toggle-workspace']);
@@ -183,43 +211,52 @@ test('the native menu accelerators are all in the table', () => {
   }
 });
 
-test('shared chords: the two owners of Esc are never runnable together, in any state', () => {
-  const cmds = commands();
-  const clear = cmds.find((c) => c.id === 'selection.clear');
-  const fold = cmds.find((c) => c.id === 'view.fold-workspace');
-  assert.ok(clear && fold);
-  assert.equal(fold.global ?? false, false, 'Esc never folds from a Source editor or a text field');
-  const kinds = ['none', 'text', 'node', 'section', 'document', 'blocks'];
-  let foldable = 0;
-  for (const mode of ['folded', 'unfolded']) {
-    setAppHandle({ workspace: () => ({ mode }) });
-    for (const kind of kinds) {
-      const ctx = { selection: { kind } };
-      assert.ok(!(clear.when(ctx) && fold.when(ctx)), `${mode} with a ${kind} selection`);
-      if (fold.when(ctx)) foldable++;
+// The kept chords of the panels that replaced the branches (commands/frame.ts OLD_CHORD), by the panel that took each.
+const KEPT_CHORDS = { places: 'Mod+Shift+E', search: 'Mod+Shift+F', transforms: 'Mod+Alt+R', versions: 'Mod+Alt+V' };
+
+test('the chords are the frame\'s: the fold, the left section\'s cycle, an Alt+n and a kept chord per panel, Look, Clip, Settings and the tab keys', () => {
+  for (const mac of PLATFORMS) {
+    const owners = table(mac);
+    const ownerOf = (spec) => [...new Set(owners.get(registryChord(spec, mac))?.map((c) => c.owner))].sort();
+    const where = mac ? 'mac' : 'other';
+    assert.deepEqual(ownerOf('Mod+\\'), ['view.toggle-workspace'], where);
+    // The left section's cycle: Mod+B (Bold in Source) and the page's bare b; Mod+Alt+B is the native menu's Panel item, Metadata's.
+    assert.deepEqual(ownerOf('Mod+B'), ['source.format-bold', 'view.toggle-drawer'], where);
+    assert.deepEqual(ownerOf('b'), ['view.toggle-drawer'], where);
+    assert.deepEqual(ownerOf('Mod+Alt+B'), ['view.toggle-panel'], where);
+    // Each panel has Alt+n for its place on the rail, and the chord it kept from its branch, and each opens that panel and nothing else.
+    LEFT_PANELS.forEach((id, i) => {
+      const cmd = commands().find((c) => c.id === `left.${id}`);
+      assert.ok(cmd, `left.${id} is a command`);
+      assert.equal(cmd.key, `Alt+${i + 1}`, `${where}: ${id}`);
+      assert.deepEqual(ownerOf(`Alt+${i + 1}`), [`left.${id}`], `${where}: Alt+${i + 1}`);
+      assert.deepEqual(cmd.keys ?? [], KEPT_CHORDS[id] ? [KEPT_CHORDS[id]] : [], `${where}: ${id}'s kept chord`);
+      if (KEPT_CHORDS[id]) assert.deepEqual(ownerOf(KEPT_CHORDS[id]), [`left.${id}`], `${where}: ${KEPT_CHORDS[id]}`);
+    });
+    // Look, Clip and Settings keep their keys and toggle their branch in the drawer.
+    for (const [spec, id] of [['Mod+Alt+T', 'branch.look'], ['Mod+Alt+C', 'branch.clip'], ['Mod+,', 'view.settings']]) {
+      assert.deepEqual(ownerOf(spec), [id], `${where}: ${spec}`);
+      assert.equal(commands().find((c) => c.id === id)?.key, spec);
     }
+    assert.deepEqual(ownerOf('Alt+W'), ['tab.close'], where);
+    // Escape clears a selection and nothing else: no peek or workspace fold shares it.
+    assert.deepEqual(ownerOf('Escape'), ['selection.clear'], where);
   }
-  assert.equal(foldable, 1, 'Esc folds only an unfolded window with no selection');
-  // W-03.1: an open peek is closed by the same Esc, after a selection and not before it.
-  setAppHandle({ workspace: () => ({ mode: 'folded', peeked: 'toolbar' }) });
-  assert.ok(fold.when({ selection: { kind: 'none' } }), 'a peek is closed by Esc');
-  assert.ok(!fold.when({ selection: { kind: 'node' } }), 'a selection goes first');
-  assert.ok(clear.when({ selection: { kind: 'node' } }));
-  setAppHandle(null);
+  // Ctrl+Tab is Control on a Mac, a chord of its own there.
+  const mac = table(true);
+  assert.deepEqual(mac.get(registryChord('Ctrl+Tab', true))?.map((c) => c.owner), ['tab.next']);
+  assert.deepEqual(mac.get(registryChord('Ctrl+Shift+Tab', true))?.map((c) => c.owner), ['tab.previous']);
+  // The cycle's key leaves a text field and Source's editor alone; the panel and branch keys work from both.
+  assert.equal(PANE_CHORDS.find((c) => c.command === 'view.toggle-drawer')?.notInEditor, true);
+  for (const [command, spec] of [...LEFT_PANELS.map((id, i) => [`left.${id}`, `Alt+${i + 1}`]), ...Object.entries(KEPT_CHORDS).map(([id, k]) => [`left.${id}`, k]), ['branch.look', 'Mod+Alt+T'], ['branch.clip', 'Mod+Alt+C']]) {
+    const chord = PANE_CHORDS.find((c) => c.command === command && paneChord(c, true) === registryChord(spec, true));
+    assert.ok(chord && !chord.notInEditor, `${command} answers ${spec} from the physical key`);
+    for (const on of PLATFORMS) assert.equal(paneChord(chord, on), registryChord(spec, on), `${command} ${spec}`);
+  }
+  // Nothing is left of the retired chrome, nor of its rail of branches.
+  const ids = new Set(commands().map((c) => c.id));
+  for (const gone of ['view.toggle-sidebar', 'view.toggle-inspector', 'view.toggle-toolbar', 'view.toggle-status-bar', 'view.fold-workspace', 'view.metadata', 'branch.library', 'branch.find', 'branch.transform', 'branch.versions']) assert.ok(!ids.has(gone), gone);
 });
-
-test('W-03 chords are in the table: the panel keys and the fold key', () => {
-  const owners = table();
-  const ownerOf = (spec) => [...new Set(owners.get(registryChord(spec, MAC))?.map((c) => c.owner))];
-  assert.deepEqual(ownerOf('Ctrl+Mod+S'), ['view.toggle-sidebar']);
-  assert.deepEqual(ownerOf('Mod+Alt+I'), ['view.toggle-inspector']);
-  // W-17: the metadata chord is owned once, by its command, and is not the inspector's or italic's.
-  assert.deepEqual(ownerOf('Ctrl+Mod+I'), ['view.metadata']);
-  assert.ok(!ownerOf('Mod+I').includes('view.metadata'), 'Control+Command+I is not italic');
-  assert.deepEqual(ownerOf('Escape').sort(), ['selection.clear', 'view.fold-workspace']);
-  assert.ok(!ownerOf('Mod+S').includes('view.toggle-sidebar'), 'Control+Command+S is not save');
-});
-
 test('Source\'s fold keys are in the table, with the chords CodeMirror reads on each platform', () => {
   assert.ok(FOLD_KEYS.length >= 2);
   const sourceOwners = (mac) => [...table(mac)].filter(([, claims]) => claims.some((c) => c.source === 'source')).map(([chord]) => chord).sort();

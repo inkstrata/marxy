@@ -1,0 +1,48 @@
+/* A font's specimen: the line, the faces of a collection, a slider per axis and the named instances, the
+   specimen in the font's own face, the waterfall, every character it maps; and the Glyph card's large glyph. */
+.marxy-fontpage { height: 100%; overflow-y: auto; outline: none; }
+.marxy-font { max-width: 1080px; margin: 0 auto; padding: 56px 32px 64px; font-family: var(--marxy-face-chrome); font-size: calc(14 * var(--marxy-c)); line-height: 20px; color: var(--marxy-color-text); }
+.marxy-font-line { margin: 0 0 14px; font-size: calc(13.5 * var(--marxy-c)); color: var(--marxy-color-text-faint); }
+.marxy-font-label { font-size: calc(10 * var(--marxy-c)); font-weight: 600; line-height: 1; letter-spacing: 0.09em; text-transform: uppercase; color: var(--marxy-color-text-faint); font-family: var(--marxy-face-chrome); }
+.marxy-font-faces, .marxy-font-named { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 14px; }
+.marxy-font-faces .marxy-font-label, .marxy-font-named .marxy-font-label { margin-right: 6px; }
+.marxy-font-face { padding: 5px 11px; border-radius: 6px; box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); color: var(--marxy-color-text-secondary); font-size: calc(13 * var(--marxy-c)); }
+.marxy-font-face[aria-selected="true"] { color: var(--marxy-color-text-strong); box-shadow: inset 0 0 0 1.5px var(--marxy-color-text-strong); font-weight: 600; }
+.marxy-font-axes { margin: 0 0 18px; padding: 14px 16px 4px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--marxy-frame-hair); }
+.marxy-font-axis { display: grid; grid-template-columns: 150px 1fr 52px 96px; align-items: center; gap: 12px; margin: 0 0 10px; font-size: calc(13 * var(--marxy-c)); color: var(--marxy-color-text); }
+.marxy-font-axis-name code { margin-left: 2px; font: 400 calc(11.5 * var(--marxy-c)) var(--marxy-font-mono); color: var(--marxy-color-text-faint); }
+.marxy-font-axis input[type="range"] { width: 100%; accent-color: var(--marxy-color-text-strong); }
+.marxy-font-axis-value { text-align: right; font-variant-numeric: tabular-nums; color: var(--marxy-color-text-strong); }
+.marxy-font-axis-range { font-size: calc(12 * var(--marxy-c)); color: var(--marxy-color-text-faint); }
+.marxy-font-named { margin: 4px 0 10px; }
+.marxy-font-named .marxy-chip { font-size: calc(12 * var(--marxy-c)); padding: 3px 9px; border-radius: 6px; }
+.marxy-font-spec { color: var(--marxy-color-text-strong); }
+.marxy-font-name { margin: 6px 0 22px; font-size: 64px; line-height: 1.1; overflow-wrap: anywhere; }
+.marxy-font-style { color: var(--marxy-color-text-secondary); }
+.marxy-font-row, .marxy-font-wr { display: grid; grid-template-columns: 96px 1fr; align-items: baseline; gap: 16px; margin: 0 0 8px; }
+.marxy-font-set { margin: 0; font-size: 38px; line-height: 1.25; letter-spacing: 0.01em; overflow-wrap: anywhere; }
+.marxy-font-marks { font-size: 30px; }
+.marxy-font-sample {
+  width: 100%; height: 34px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--marxy-frame-chrome);
+  box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); color: var(--marxy-color-text-strong); font: 400 calc(15 * var(--marxy-c)) var(--marxy-face-chrome);
+}
+.marxy-font-water { margin: 16px 0 8px; }
+.marxy-font-wr { margin: 0; }
+.marxy-font-wr .marxy-font-label { font-variant-numeric: tabular-nums; }
+.marxy-font-wf { margin: 0 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+.marxy-font-gh { margin: 26px 0 10px; font: 600 calc(11.5 * var(--marxy-c)) / 1 var(--marxy-face-chrome); letter-spacing: 0.08em; text-transform: uppercase; color: var(--marxy-color-text-faint); }
+.marxy-font-gh span { margin-left: 8px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.marxy-font-glyphs { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.marxy-font-glyphs button {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 6px; border-radius: 6px;
+  background: var(--marxy-frame-chrome); box-shadow: inset 0 0 0 1px var(--marxy-frame-hair); color: var(--marxy-color-text-strong); font-family: inherit;
+}
+.marxy-font-glyphs button:hover { box-shadow: inset 0 0 0 1px var(--marxy-color-rule-strong); }
+.marxy-font-glyphs button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--marxy-color-text-strong); }
+.marxy-font-g { height: 38px; font-size: 30px; line-height: 38px; }
+.marxy-font-c { font: 400 calc(10.5 * var(--marxy-c)) / 1 var(--marxy-font-mono); color: var(--marxy-color-text-faint); }
+.marxy-font-note, .marxy-font-foot { max-width: 860px; margin: 16px 0 0; font-size: calc(13.5 * var(--marxy-c)); line-height: 20px; color: var(--marxy-color-text-secondary); }
+.marxy-font-big {
+  display: grid; place-items: center; height: 120px; margin: 0 0 8px; border-radius: 6px; font-size: 104px; line-height: 1; color: var(--marxy-color-text-strong);
+  background: repeating-linear-gradient(transparent 0 59px, var(--marxy-frame-hair) 59px 60px);
+}

@@ -1,5 +1,5 @@
-// W-13.1: `@` answers from the heading index in memory. The proof is a count of what was looked at and scored,
-// never a time (ADR-0032): 50,000 files, 100,000 headings, and a query that must not score most of them.
+// `@` answers from the heading index in memory. The proof is a count of what was looked at and scored,
+// never a time: 50,000 files, 100,000 headings, and a query that must not score most of them.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -74,7 +74,7 @@ test('replacing the same files over and over does not grow what @ walks', () => 
   assert.ok(visited <= 2000 * 2 * 2, `walked ${visited} refs for ${2000 * 2} live headings`);
 });
 
-test('the heading index holds flat typed arrays, not an object per heading (W-13.2)', () => {
+test('the heading index holds flat typed arrays, not an object per heading', () => {
   const entries = Array.from({ length: 5000 }, (_, i) => make(i));
   const prepared = prepareIndex(entries);
   const shape = headingIndexShape(prepared);

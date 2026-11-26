@@ -1,4 +1,4 @@
-// Bytes that are not UTF-8 in the running app (F-34.1, commitment 3 and 4): Source marks each one, two edits around
+// Bytes that are not UTF-8 in the running app (commitment 3 and 4): Source marks each one, two edits around
 // them write exactly those bytes back, and no lone surrogate (the editor's code unit for such a byte) reaches the page
 // outside the editor's own text or the clipboard through Copy as. Palette harness (memory shell), WebKit.
 import { strict as assert } from 'node:assert';
@@ -8,15 +8,16 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const desktopRoot = new URL('..', import.meta.url).pathname;
+const desktopRoot = fileURLToPath(new URL('..', import.meta.url));
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-stray-bytes-'));
 let server;
 let base;
@@ -141,15 +142,44 @@ test('Copy as from Source writes U+FFFD for a stray byte, never a lone surrogate
   }
 });
 
-test('in the app: the find panel on a stray byte, and a copy and paste of a stray line through the real pasteboard', async () => {
+/** Opens the file and goes to Source from its first paragraph. */
+async function inSource(page) {
+  await open(page);
+  await page.click('#doc p');
+  await page.waitForFunction(() => window.marxySelection?.getSelectionState().selection.kind !== 'none');
+  await page.evaluate(() => window.marxyRunCommand?.('view.jump-to-source'));
+  await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-line'));
+}
+
+/**
+ * Whether this WebKit's pasteboard keeps what a page's copy handler puts on it, as the editor's copy does. WebKit for
+ * Windows does not: a copy handler's data never reaches the pasteboard, and every paste lists text/html.
+ */
+async function pasteboardKeepsCopies(browser) {
+  const page = await browser.newPage();
+  try {
+    await page.setContent('<textarea id="a">x</textarea><textarea id="b"></textarea>');
+    await page.evaluate(() => document.addEventListener('copy', (e) => {
+      e.clipboardData.setData('text/plain', 'kept by the handler');
+      e.preventDefault();
+    }));
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    await page.focus('#a');
+    await page.keyboard.press(`${mod}+a`);
+    await page.keyboard.press(`${mod}+c`);
+    await page.focus('#b');
+    await page.keyboard.press(`${mod}+v`);
+    return (await page.inputValue('#b')) === 'kept by the handler';
+  } finally {
+    await page.close();
+  }
+}
+
+test('in the app: the find panel on a stray byte puts no lone surrogate on the page', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
-    await open(page);
-    await page.click('#doc p');
-    await page.waitForFunction(() => window.marxySelection?.getSelectionState().selection.kind !== 'none');
-    await page.evaluate(() => window.marxyRunCommand?.('view.jump-to-source'));
-    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-line'));
+    await inSource(page);
     // Select "e \xFF h" on the middle line and open find (Mod+F), then find next (Enter).
     const line = page.locator('#marxy-source .cm-line').nth(4);
     await line.click();
@@ -162,7 +192,21 @@ test('in the app: the find panel on a stray byte, and a copy and paste of a stra
     await page.keyboard.press('Enter');
     await page.waitForTimeout(100);
     assert.equal(await pageHasLone(page), false, 'after find next, the announcement too');
-    await page.keyboard.press('Escape');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('in the app: a copy and paste of a stray line through the real pasteboard', async (t) => {
+  const browser = await launchWebkit();
+  try {
+    if (!(await pasteboardKeepsCopies(browser))) {
+      t.skip('this WebKit\'s pasteboard drops what a copy handler writes (WebKit for Windows), so the round trip cannot be made');
+      return;
+    }
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await inSource(page);
+    const line = page.locator('#marxy-source .cm-line').nth(4);
     // Copy the whole middle line and paste it at the end of the file, with the keys.
     await line.click();
     await page.keyboard.press('Home');

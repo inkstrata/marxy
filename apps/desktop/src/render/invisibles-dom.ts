@@ -1,4 +1,4 @@
-// Trusted-DOM markers for invisible characters after sanitise and after highlight (MARXY-236).
+// Trusted-DOM markers for invisible characters after sanitise and after highlight.
 
 import {
   invisibleLabel,
@@ -100,7 +100,7 @@ export function appendInvisibleSegments(parent: Element, segments: readonly Invi
 
 /**
  * Source bytes of a code element, omitting display-only text: the glyph labels of the markers, the words that stand for
- * a run of lines the log filter hides (K-08), and the note that says how much of a long line is not shown (F-84). None of
+ * a run of lines the log filter hides, and the note that says how much of a long line is not shown. None of
  * them is in the file; a note read back as source made the line 24 characters longer on the page than in the bytes, and
  * every copy offset after it was late by as much.
  */
@@ -136,7 +136,7 @@ export function applyInvisibleMarkers(root: ParentNode): void {
     const parent = current.parentElement;
     // Text of printable ASCII, tab and line endings holds nothing the rule table flags (it flags controls,
     // U+007F to U+009F and what lies beyond U+00A0), so it is neither walked up from nor segmented: nearly
-    // all of a page, and the pass runs over the whole page after each reload (B-24).
+    // all of a page, and the pass runs over the whole page after each reload.
     if (PLAIN_ASCII.test((current as Text).data)) {
       current = walker.nextNode();
       continue;

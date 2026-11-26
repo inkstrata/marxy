@@ -1,4 +1,4 @@
-// dedupe-lines (E-05): a run of top-level blocks is a raw span (no node). Rows run as written, CRLF, CR, without the trailing
+// dedupe-lines: a run of top-level blocks is a raw span (no node). Rows run as written, CRLF, CR, without the trailing
 // newline and behind a BOM through the kit's variants; the kit's byte properties are asserted on every one, and over the corpus.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';

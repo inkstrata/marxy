@@ -1,6 +1,6 @@
-// The document buffer: the only place a document's bytes change (ADR-0003, ADR-0004). Story MARXY-93.
+// The document buffer: the only place a document's bytes change.
 
-export type { Buffer } from './buffer.ts';
+export type { Buffer, Edit } from './buffer.ts';
 export {
   createBuffer,
   bytesOf,
@@ -28,5 +28,3 @@ export {
   byteToSourceOffset,
   sourceTextOfRange,
 } from './source-text.ts';
-export type { Edit } from './history.ts';
-export { History } from './history.ts';

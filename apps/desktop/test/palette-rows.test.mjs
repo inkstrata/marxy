@@ -1,4 +1,4 @@
-// F-97: the palette's footer, results and preview keep to their own rows. The panel is a column (field, chips, body,
+// the palette's footer, results and preview keep to their own rows. The panel is a column (field, chips, body,
 // footer); the body takes what is left and its results and preview scroll inside it, so the footer never draws over them.
 import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
@@ -75,7 +75,17 @@ const measure = (page) =>
       results: box(q('.marxy-palette-results')),
       aside: aside && getComputedStyle(aside).display !== 'none' ? box(aside) : null,
       chips: [...document.querySelectorAll('#marxy-palette .marxy-palette-prev-chip')].map(box),
-      sections: [...document.querySelectorAll('#marxy-palette .marxy-palette-section')].map(box),
+      // A label the body's clip cuts off may have a box that reaches the footer's row; what matters is what is drawn there.
+      sections: [...document.querySelectorAll('#marxy-palette .marxy-palette-section')].map((el) => {
+        const b = box(el);
+        const f = q('.marxy-palette-foot').getBoundingClientRect();
+        const top = Math.max(b.top, f.top);
+        const bottom = Math.min(b.bottom, f.bottom);
+        const left = Math.max(b.left, f.left);
+        const right = Math.min(b.right, f.right);
+        const drawnOverFoot = bottom > top + 0.5 && right > left + 0.5 && el.contains(document.elementFromPoint((left + right) / 2, (top + bottom) / 2));
+        return { ...b, drawnOverFoot };
+      }),
       rows: [...document.querySelectorAll('#marxy-palette .marxy-palette-row')].map(box),
       query: (() => { const el = q('.marxy-palette-query'); return { pad: parseFloat(getComputedStyle(el).paddingLeft), outline: getComputedStyle(el).outlineStyle, outlineW: parseFloat(getComputedStyle(el).outlineWidth) }; })(),
       viewport: innerHeight,
@@ -92,7 +102,7 @@ for (const height of [600, 720, 900]) {
       try {
         const page = await browser.newPage({ viewport: { width: 1400, height } });
         await boot(page, 'dark');
-        await page.keyboard.press('Meta+KeyP');
+        await page.keyboard.press('ControlOrMeta+KeyP');
         await page.waitForSelector('#marxy-palette[open]');
         const text = await STATES[state]();
         if (text) await page.locator('#marxy-palette .marxy-palette-query').fill(text);
@@ -107,7 +117,7 @@ for (const height of [600, 720, 900]) {
           assert.ok(m.aside.bottom <= m.foot.top + 0.5, 'the divider (the aside border) stops above the footer');
           for (const chip of m.chips) assert.ok(within(chip, m.aside) && chip.bottom <= m.foot.top, 'preview chips whole inside the aside');
         }
-        for (const s of m.sections) assert.ok(disjoint(m.foot, s), 'footer meets a group label');
+        for (const s of m.sections) assert.ok(!s.drawnOverFoot, 'a group label is drawn over the footer');
         assert.ok(m.dlg.bottom <= m.viewport + 0.5, 'the panel stays in the window');
         assert.ok(m.query.pad > 0, `query has a left inset, got ${m.query.pad}`);
         assert.ok(m.foot.h < 60, `footer is one row (height ${m.foot.h})`);
@@ -123,7 +133,7 @@ test('the shortest supported window (400 px) keeps at least three result rows vi
   try {
     const page = await browser.newPage({ viewport: { width: 1400, height: 400 } });
     await boot(page, 'dark');
-    await page.keyboard.press('Meta+KeyP');
+    await page.keyboard.press('ControlOrMeta+KeyP');
     await page.waitForSelector('#marxy-palette[open]');
     await page.locator('#marxy-palette .marxy-palette-query').fill('note');
     await page.waitForSelector('#marxy-palette .marxy-palette-row');
@@ -142,7 +152,7 @@ test('one focus frame: the focused query draws no outline of its own, the field 
   try {
     const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
     await boot(page, 'dark');
-    await page.keyboard.press('Meta+KeyP');
+    await page.keyboard.press('ControlOrMeta+KeyP');
     await page.waitForSelector('#marxy-palette[open]');
     const frames = await page.evaluate(() => {
       const q = document.querySelector('#marxy-palette .marxy-palette-query');
@@ -164,7 +174,7 @@ test('a window shorter than the floor (220 px): the body shrinks and scrolls, th
   try {
     const page = await browser.newPage({ viewport: { width: 1400, height: 220 } });
     await boot(page, 'dark');
-    await page.keyboard.press('Meta+KeyP');
+    await page.keyboard.press('ControlOrMeta+KeyP');
     await page.waitForSelector('#marxy-palette[open]');
     await page.waitForTimeout(500);
     const m = await measure(page);

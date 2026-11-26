@@ -1,5 +1,5 @@
 document [0,1843)
-  frontmatter [0,53) value="title: Every GFM feature\ntags: [fixture, gfm]"
+  frontmatter [0,53) content=[4,49) value="title: Every GFM feature\ntags: [fixture, gfm]"
   heading [55,66) level=1
     text [57,66) value="Heading 1"
   heading [67,79) level=2

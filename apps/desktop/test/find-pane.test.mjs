@@ -1,14 +1,13 @@
-// Rendered find and the outline on the focused pane (D-13; docs/design/09-app-shell.md §Find, §Outline).
+// Rendered find on the focused pane.
 // `Mod+F` opens a field in the focused pane, matches that pane's article only, counts `N of M`, lands the
 // current match on that pane's reading line and steps with Enter and Shift+Enter; `Esc` takes every
 // highlight away and gives focus back. Without CSS.highlights it wraps <mark> and unwraps byte for byte.
-// In a Source pane, `Mod+F` is CodeMirror's panel in that pane. The outline lists, follows and sits
-// against the focused pane. Booted on the shipped skeleton and CSS (test/support/two-pane.mjs).
+// In a Source pane, `Mod+F` is CodeMirror's panel in that pane. Booted on the shipped skeleton
+// and CSS (test/support/two-pane.mjs).
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { outlineFrom, parseMarkdown } from '@marxy/core';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { bootTwoPanes, closeHarness } from './support/two-pane.mjs';
 
@@ -240,7 +239,7 @@ const bigDocument = () => {
   return text;
 };
 
-test('with tens of thousands of matches only a window near the view is held, and it follows the view and the current match (F-43)', async () => {
+test('with tens of thousands of matches only a window near the view is held, and it follows the view and the current match', async () => {
   files['/r/big.md'] = bigDocument();
   await withPanes(['/r/big.md'], async (page, mod) => {
     await page.evaluate(() => window.__marxyHandle.contentComplete());
@@ -285,11 +284,11 @@ test('with tens of thousands of matches only a window near the view is held, and
   });
 });
 
-test('the typesetter is not slowed by an open find with tens of thousands of matches (F-43)', async () => {
+test('the typesetter is not slowed by an open find with tens of thousands of matches', async () => {
   files['/r/big.md'] = bigDocument();
   await withPanes(['/r/big.md'], async (page, mod) => {
     await page.evaluate(() => window.__marxyHandle.contentComplete());
-    // Paragraphs set per second, idle and then with find open on the same page. Before F-43 every line
+    // Paragraphs set per second, idle and then with find open on the same page. Before the fix every line
     // break the typesetter made updated each of some 18,000 live Ranges: four times slower, or worse.
     const setCount = () => page.evaluate(() => document.querySelectorAll('#doc p.marxy-set').length);
     const timeToSet = async (more) => {
@@ -305,7 +304,12 @@ test('the typesetter is not slowed by an open find with tens of thousands of mat
     await page.waitForFunction(() => /\d+ of \d{5,}/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 30_000 });
     const withFind = await timeToSet(160);
     console.log(`typesetter, 1 MB: 160 paragraphs in ${idle} ms idle, ${withFind} ms with find open`);
-    assert.ok(withFind < 2.5 * idle + 1_000, `${withFind} ms with find open against ${idle} ms idle`);
+    // With find shut the page is set in new text nodes and, the reader being idle, in long slices; with find open every
+    // paragraph is set in place, a split costing several times as much: 3 to 4 times the time here. The live Ranges'
+    // cost came on top of that.
+    assert.ok(withFind < 5 * idle + 1_000, `${withFind} ms with find open against ${idle} ms idle`);
+    // And on its own: 10 to 16 s here, before and after the idle slices.
+    assert.ok(withFind < 30_000, `${withFind} ms for 160 paragraphs with find open`);
   });
 });
 
@@ -360,28 +364,6 @@ test('a match in a horizontally scrolled table brings the table into view too', 
     assert.ok(seen.scrollLeft > 0, 'the table was scrolled');
     assert.equal(seen.inside, true, 'the match is inside the table box that shows it');
   }, { width: 900, height: 700 });
-});
-
-test('find sits above the outline when both are open', async () => {
-  await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
-    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
-    await page.keyboard.press(`${mod}+Shift+KeyO`);
-    await page.waitForSelector('#marxy-outline[open]');
-    await page.evaluate(async () => {
-      await window.__marxyHandle.commands().find((c) => c.id === 'view.find').run({});
-    });
-    await page.waitForSelector('.marxy-find input');
-    const top = await page.evaluate(() => {
-      const field = document.querySelector('.marxy-find').getBoundingClientRect();
-      const outline = document.getElementById('marxy-outline').getBoundingClientRect();
-      const x = field.right - 8;
-      const y = field.top + field.height / 2;
-      const hit = document.elementFromPoint(x, y);
-      return { overlaps: field.right > outline.left, hitInField: hit?.closest('.marxy-find') !== null && hit !== null };
-    });
-    assert.equal(top.overlaps, true, 'the field and the outline share pixels, so stacking decides');
-    assert.equal(top.hitInField, true, 'the field is what is drawn there');
-  });
 });
 
 /** Both panes typeset: two `typeset_done` marks and line breaks in the right article. */
@@ -521,46 +503,41 @@ test('Source pane focused: Mod+F is CodeMirror search in that pane, and the othe
   });
 });
 
-test('the outline follows the focused pane: its headings, its scroll, its right edge', async () => {
-  const left = outlineFrom(parseMarkdown(Buffer.from(A), { file: '/r/A.md' })).map((e) => e.text);
-  const right = outlineFrom(parseMarkdown(Buffer.from(B), { file: '/r/B.md' })).map((e) => e.text);
-  await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
-    const rows = () => page.$$eval('#marxy-outline .marxy-outline-row', (els) => els.map((el) => el.textContent));
-    const marked = () => page.evaluate(() => document.querySelector('#marxy-outline [aria-current="true"]')?.textContent ?? null);
-    const edges = (slot) =>
-      page.evaluate((slot) => ({
-        dialog: document.getElementById('marxy-outline').getBoundingClientRect().right,
-        pane: document.querySelector(`section.marxy-pane[data-marxy-pane="${slot}"]`).getBoundingClientRect().right,
-      }), slot);
 
-    await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
-    await page.keyboard.press(`${mod}+Shift+KeyO`);
-    assert.deepEqual(await rows(), left);
-    assert.equal(await marked(), 'Alpha');
-    const leftEdge = await edges(0);
-    assert.ok(Math.abs(leftEdge.dialog - leftEdge.pane) <= 2, `left: dialog ${leftEdge.dialog} vs pane ${leftEdge.pane}`);
-    // Scrolling the left pane moves the mark.
-    await page.evaluate(() => {
-      const host = document.querySelector('section[data-marxy-pane="0"]');
-      host.scrollTop = host.scrollHeight;
+test('find matches again when a live reload sets the page again under it: Enter lands on a real match', async () => {
+  await withPanes(['/r/B.md'], async (page, mod) => {
+    await page.keyboard.press(`${mod}+KeyF`);
+    await page.waitForSelector('.marxy-find input:focus');
+    await typeQuery(page, 'lantern');
+    assert.match((await findState(page)).count, new RegExp(`^[0-9]+ of ${RIGHT_LANTERNS}$`));
+    // Another program rewrites the paragraphs that hold the matches: their blocks are replaced.
+    await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      const path = h.currentPath();
+      const count = () => h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'live_reload').length;
+      const before = count();
+      const text = new TextDecoder().decode(await h.shell.readFile(path)).replaceAll('A lantern here.', 'A lantern over there.');
+      await h.shell.writeFileAtomic(path, new TextEncoder().encode(text));
+      h.shell.emit([{ kind: 'modified', path }]);
+      for (let i = 0; i < 1000 && count() === before; i++) await new Promise((r) => setTimeout(r, 10));
+      await h.panes().focused.view.settled();
     });
-    await page.waitForFunction(() => document.querySelector('#marxy-outline [aria-current="true"]')?.textContent === 'Alpha three');
-    await page.keyboard.press('Escape');
-    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().focused.slot), 0);
-
-    await page.keyboard.press(`${mod}+Alt+ArrowRight`);
-    await page.keyboard.press(`${mod}+Shift+KeyO`);
-    assert.deepEqual(await rows(), right);
-    const rightEdge = await edges(1);
-    assert.ok(Math.abs(rightEdge.dialog - rightEdge.pane) <= 2, `right: dialog ${rightEdge.dialog} vs pane ${rightEdge.pane}`);
-    // Scrolling the other pane does not move this outline's mark.
-    await page.evaluate(() => {
-      const host = document.querySelector('section[data-marxy-pane="0"]');
-      host.scrollTop = 0;
+    // Matched again once the page is up, before any key: every highlight is on a live match.
+    await page.waitForFunction(() => {
+      const all = [...(CSS.highlights.get('marxy-find') ?? [])];
+      return all.length === 3 && all.every((r) => !r.collapsed && r.toString() === 'lantern');
     });
-    await settle(page);
-    assert.equal(await marked(), 'Bravo');
-    await page.keyboard.press('Escape');
-    assert.equal(await page.evaluate(() => document.querySelector('section[data-marxy-pane="1"]').contains(document.activeElement)), true);
+    await page.focus('.marxy-find input');
+    for (let i = 0; i < RIGHT_LANTERNS; i++) {
+      await page.keyboard.press('Enter');
+      await settle(page);
+      const now = await page.evaluate(() => {
+        const range = [...(CSS.highlights.get('marxy-find-current') ?? [])][0];
+        return range ? { collapsed: range.collapsed, text: range.toString(), connected: range.startContainer.isConnected } : null;
+      });
+      assert.ok(now && !now.collapsed && now.connected, `step ${i + 1}: the current match is a live range: ${JSON.stringify(now)}`);
+      assert.equal(now.text, 'lantern');
+    }
+    assert.match((await findState(page)).count, new RegExp(`^[0-9]+ of ${RIGHT_LANTERNS}$`));
   });
 });

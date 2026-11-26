@@ -1,5 +1,5 @@
-// Runs the tree-depth harness in WebKit and Chromium (MARXY-84). Invoked from the no-network gate
-// via `gate-assertions.test.ts`, so a PR cannot delete the check without the gate failing.
+// Runs the tree-depth harness in WebKit and Chromium. Invoked from the no-network gate
+// via `gate-assertions.test.ts`, so a change cannot delete the check without the gate failing.
 import { chromium, webkit } from 'playwright';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +13,7 @@ import {
 import { sanitizeHtml } from '../src/sanitize/sanitize-html.ts';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
-const mutation = process.env.MARXY_84_MUTATION;
+const mutation = process.env.MARXY_TREE_DEPTH_MUTATION;
 const failures = [];
 const enginesRun = new Set();
 

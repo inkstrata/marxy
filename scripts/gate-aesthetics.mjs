@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Mechanical aesthetics gate (ADR-0014, docs/design/10-gates-and-testing.md §10). Token checks stay
+// Mechanical aesthetics gate. Token checks stay
 // as the floor; the app harness (apps/desktop/gate.html) renders each corpus page through the real app
 // and the ten page checks run over it in Playwright WebKit.
 import { createServer } from 'node:http';
@@ -32,23 +32,23 @@ const corpusDir = join(root, 'fixtures/corpus');
 const ragRoot = join(root, 'fixtures/baselines/rag');
 const UPDATE = process.argv.includes('--update');
 const SELFTEST_ONLY = process.argv.includes('--selftest');
-// --mechanical is the pull-request gate (ADR-0047, A-10): every check that cannot be argued with (grid,
+// --mechanical is the pull-request gate: every check that cannot be argued with (grid,
 // measure, contrast, layout shift, heading colour, overflow, the room, the selftest) and no comparison
 // with a stored baseline. It takes no screenshot and reads no rag baseline under fixtures/baselines/rag;
 // the selftest still proves checkRag fails on a crafted page. The full gate, with the screenshot and
-// rag comparisons, runs nightly (aesthetics-determinism in nightly.yml).
+// rag comparisons, is the default run.
 const MECHANICAL = process.argv.includes('--mechanical');
 if (MECHANICAL && UPDATE) {
   console.error('aesthetics gate failed:\n - --mechanical compares no baseline, so it cannot --update one');
   process.exit(1);
 }
 // --files a.md,b.md narrows the corpus (a quick look at one document); --emit-expected prints the geometry
-// failures as expected-failure rows (L-02) and compares nothing. Neither is a way to pass: a run that
+// failures as expected-failure rows and compares nothing. Neither is a way to pass: a run that
 // narrows the corpus judges only the cases it ran.
 const filesIdx = process.argv.indexOf('--files');
 const FILES_FILTER = filesIdx === -1 ? null : process.argv[filesIdx + 1].split(',').filter(Boolean);
 const EMIT_EXPECTED = process.argv.includes('--emit-expected');
-// --split-only runs the two-pane split case alone, before any selftest (D-14): the quick look at a split page.
+// --split-only runs the two-pane split case alone, before any selftest: the quick look at a split page.
 const SPLIT_ONLY = process.argv.includes('--split-only');
 const variantIdx = process.argv.indexOf('--variant');
 const VARIANT_FILTER = variantIdx === -1 ? null : process.argv[variantIdx + 1];
@@ -59,9 +59,8 @@ if (VARIANT_FILTER && !['dark', 'light'].includes(VARIANT_FILTER)) {
 const repeatIdx = process.argv.indexOf('--repeat');
 // The CLS repeat pass re-renders the whole corpus to prove the font/image window is deterministic.
 // It is a flake detector, not an assertion: the single pass below already measures fontWindow on
-// every file × combo and fails on it. Three more full passes cost 266s of the browser job's 356s,
-// which is the pull-request critical path, so nothing implies --repeat any more. The nightly
-// workflow runs `--repeat 3` and keeps the signal off the path we iterate on (MARXY-153).
+// every file × combo and fails on it. Three more full passes cost 266s of a 356s run,
+// so nothing implies --repeat; `--repeat 3` is run by hand to look for flakes.
 const REPEAT = repeatIdx === -1 ? 0 : Math.max(1, Number.parseInt(process.argv[repeatIdx + 1] ?? '', 10) || 0);
 // Every corpus render is an independent page against a static harness, and nothing in the checks is
 // wall-clock: snapshots are taken after document.fonts.ready and rAF pairs, rag and grid read
@@ -75,7 +74,7 @@ const WORKERS = Math.max(
 );
 
 /**
- * Where the gate's time goes (B-02): wall seconds per phase, and summed page-seconds per step inside the
+ * Where the gate's time goes: wall seconds per phase, and summed page-seconds per step inside the
  * corpus pass (render, the checks, the screenshot settle), printed with the notes. Measured, never judged.
  */
 const spent = { render: 0, checks: 0, shots: 0 };
@@ -113,8 +112,8 @@ const measureChars = parseFloat(get('--marxy-measure-chars'));
 const fails = [];
 const notes = [];
 
-if (!(measureChars >= 45 && measureChars <= 80)) fails.push(`measure ${measureChars} characters outside 45–80 (constraint 1, ADR-0033)`);
-if (!(lineBox / body >= 1.5 && lineBox / body <= 1.75)) fails.push(`line box ${lineBox}/${body} outside 1.5–1.75 (constraint 2)`);
+if (!(measureChars >= 45 && measureChars <= 80)) fails.push(`measure ${measureChars} characters outside 45–80`);
+if (!(lineBox / body >= 1.5 && lineBox / body <= 1.75)) fails.push(`line box ${lineBox}/${body} outside 1.5–1.75`);
 const lum = (hex) => {
   const c = hex.slice(1).match(/../g).map((x) => parseInt(x, 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
   return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -124,7 +123,7 @@ const contrast = (a, b) => {
   return (l1 + 0.05) / (l2 + 0.05);
 };
 const cr = contrast(get('--marxy-color-text').trim(), get('--marxy-color-bg').trim());
-if (cr < 7) fails.push(`body contrast ${cr.toFixed(2)} < 7:1 (constraint 4)`);
+if (cr < 7) fails.push(`body contrast ${cr.toFixed(2)} < 7:1`);
 
 function engineName() {
   if (process.platform === 'darwin') return 'webkit-macos';
@@ -153,7 +152,7 @@ function matrix() {
 }
 
 /**
- * Builds the app harness (B-01, B-02): `apps/desktop/gate.html` boots the real app over a memory shell,
+ * Builds the app harness: `apps/desktop/gate.html` boots the real app over a memory shell,
  * so every page the gate measures is the one a reader sees, highlighting, KaTeX, notices and the user
  * theme loader included. The desktop Vite config supplies the bundled fonts and the inlined default
  * theme; only the input is replaced, so the window and index pages are not built here.
@@ -210,7 +209,7 @@ function startHarness() {
   });
 }
 
-/** §10 check 1. Same remainder test as offGrid in packages/theme/test/grid.test.mjs. */
+/** Grid check. Same remainder test as offGrid in packages/theme/test/grid.test.mjs. */
 async function checkGrid(page) {
   return page.evaluate(() => {
     const article = document.getElementById('doc');
@@ -229,7 +228,7 @@ async function checkGrid(page) {
 }
 
 /**
- * §10 check 2, in average characters rather than ch (ADR-0033): the column divided by the mean advance
+ * The measure check, in average characters rather than ch: the column divided by the mean advance
  * of English prose in the article's own face, within 10 % of `--marxy-measure-chars` (66 by default).
  * Skipped when the window is narrower than the column: then the window, not the measure, sets it.
  */
@@ -266,7 +265,7 @@ function contrastRgb(a, b) {
   return (x + 0.05) / (y + 0.05);
 }
 
-/** Background tokens whose foreground pairs are checked against declared theme values (MARXY-241). */
+/** Background tokens whose foreground pairs are checked against declared theme values. */
 const TINT_BACKGROUNDS = [
   '--marxy-color-bg',
   '--marxy-color-code-bg',
@@ -329,7 +328,7 @@ function tintPairRules() {
 
 const TINT_PAIR_RULES = tintPairRules();
 
-/** §10 check 3 — every text-bearing computed pair and every declared text-on-tint (MARXY-241). */
+/** Contrast check: every text-bearing computed pair and every declared text-on-tint. */
 async function checkContrast(page) {
   return page.evaluate(({ tintRules }) => {
     const article = document.getElementById('doc');
@@ -410,7 +409,7 @@ async function checkContrast(page) {
   }, { tintRules: TINT_PAIR_RULES });
 }
 
-/** WCAG 1.4.10 reflow: no page-level horizontal scroll (MARXY-241). */
+/** WCAG 1.4.10 reflow: no page-level horizontal scroll. */
 async function checkNoHorizontalPageScroll(page) {
   return page.evaluate(() => {
     const doc = document.documentElement;
@@ -420,12 +419,12 @@ async function checkNoHorizontalPageScroll(page) {
   });
 }
 
-// ---- L-02: the geometry of the page (docs/aesthetics-acceptance.md, the six rules of the screen criterion) ----
+// ---- the geometry of the page (six rules) ----
 //
 // The rules live in scripts/probe-layout.mjs and are read from there: one implementation of "where the
 // column, the blocks and the marks sit". Each check below takes a measured cell and names what fails; a
 // failure is a *case* (check, sub-check, document, cell). Where today's page fails a rule, the case is
-// listed in EXPECTED_FAILURES with the story that clears it; the gate fails on a case that is not listed
+// listed in EXPECTED_FAILURES; the gate fails on a case that is not listed
 // and on a listed case that passes, so the list can neither hide a new fault nor go stale.
 
 /** The check names a geometry failure can carry, and the in-page pass that measures each. */
@@ -437,7 +436,7 @@ const checkRoom = geometryCheck('room');
 const checkMarks = geometryCheck('marks');
 const checkNoClip = geometryCheck('noClip');
 
-/** Rule 5 (U-02) on the app's own `#marxy-notices` region: a pill that moves nothing, centred on its pane and in view. */
+/** Rule 5 on the app's own `#marxy-notices` region: a pill that moves nothing, centred on its pane and in view. */
 async function checkNoticeColumn(page) {
   return noticeFailures(await page.evaluate(measureNoticeInPage, {}));
 }
@@ -531,7 +530,7 @@ async function awaitRelayout(page) {
 }
 
 /**
- * Expected failures: where today's page fails a rule, the story that clears it. That story deletes the row.
+ * Expected failures: where today's page fails a rule.
  * A row is `{ check, document, cells, story }`: `check` is `check/sub-check`, and the row stands for the case in
  * each of its cells, so a row whose case passes in any measured cell fails the gate.
  */
@@ -543,21 +542,21 @@ const CODE_BOX_CELLS = ["320x20-dark", "480x20-dark-classic", "720x20-dark", "72
 // A wide block grows to the right only (H1): every cell with room to grow (720 px and up) in every document that has one.
 const WIDE_BLOCK_CELLS = ["720x20-dark", "720x20-light", "960x16-dark", "960x16-light", "960x20-dark", "960x20-dark-classic", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
 
-/** One row per document for each check, each naming the cells it fails in and the story that clears it. */
+/** One row per document for each check, each naming the cells it fails in. */
 const EXPECTED_FAILURES = [
   ...rowsFor('blockEdges/code', 'L-04', CODE_BOX_CELLS, ["02-readme-real-world.md", "03-ai-plan.md", "06-math.md", "09-gfm-everything.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "27-alerts.md", "28-artifact-fences.md", "28-llm-answer.md", "29-hidden-characters.md", "30-notebook-export.md", "32-long-reference.md", "34-chat-transcript.md", "39-changelog.md"]),
-  // U-02 cleared the three L-05 rows (a notice is off the column, a whole number of grid units high, and over Source text): a notice is
+  // The three notice rows are cleared (a notice is off the column, a whole number of grid units high, and over Source text): a notice is
   // a pill at its pane's foot now, and noticeColumn measures that it moves nothing, is centred and in view, and clears Source's text.
   ...rowsFor('room/even', 'L-04', WIDE_BLOCK_CELLS, ["01-long-technical.md", "02-readme-real-world.md", "03-ai-plan.md", "05-pathological-table-and-nesting.md", "06-math.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "28-artifact-fences.md", "28-llm-answer.md", "30-notebook-export.md", "31-essay.md", "32-long-reference.md"]),
-  // A transcript's speaker labels hang in the padding left of the text column, on purpose (K-11): the heading's text
+  // A transcript's speaker labels hang in the padding left of the text column, on purpose: the heading's text
   // starts left of the column edge and its box overhangs the column. Held by the transcript's own geometry test.
   ...rowsFor('blockEdges/h2', 'K-11', WIDE_BLOCK_CELLS, ['34-chat-transcript.md']),
   ...rowsFor('blockEdges/h3', 'K-11', WIDE_BLOCK_CELLS, ['34-chat-transcript.md']),
   ...rowsFor('room/even', 'K-11', WIDE_BLOCK_CELLS, ['34-chat-transcript.md']),
-  // K-05b: the article profile's column is narrower (Source Serif 4 is a narrower face than Literata at the same character
+  // the article profile's column is narrower (Source Serif 4 is a narrower face than Literata at the same character
   // count), so this fence's fixed width passes the column by 1.03 px at 960 px and 16 px text. The same cause as the rows above (a
-  // wide block grows to the right only, H1): L-04 clears it with the rest, and the row is held both ways like them.
-  // The fence passes the column by 1.03 px with CoreText's metrics only: on Linux (FreeType) it fits, so the row is macOS's (F-69).
+  // wide block grows to the right only, H1): that is cleared with the rest, and the row is held both ways like them.
+  // The fence passes the column by 1.03 px with CoreText's metrics only: on Linux (FreeType) it fits, so the row is macOS's.
   ...rowsFor('room/even', 'L-04', ["960x16-dark", "960x16-light"], ["29-hidden-characters.md"]).map((row) => ({ ...row, platforms: ['darwin'] })),
 ];
 
@@ -620,7 +619,7 @@ function themeFixtureNames() {
 }
 
 /**
- * §10 check 4. WebKit does not implement PerformanceObserver `layout-shift`, so a missing
+ * Layout-shift check. WebKit does not implement PerformanceObserver `layout-shift`, so a missing
  * measurement is a failure, not cls: 0. The number itself comes from in-page block rects.
  * `snapshots >= 2` is the floor the crafted --selftest report uses (two rects around a late
  * image). finishShift never returns fewer than 3; tightening this to 3 would make that
@@ -642,7 +641,7 @@ function checkCls(reported) {
   return [];
 }
 
-/** Line widths per p.marxy-set, via Range per break, matching measure-rendered.mjs grouping. */
+/** Line widths per p.marxy-set, via Range per break. */
 async function readSetLines(page) {
   return page.evaluate(() => {
     const article = document.getElementById('doc');
@@ -677,7 +676,7 @@ function ragOf(lines) {
   return { cv: m.cv ?? 0, shortLineRate: m.shortLineRate ?? 0 };
 }
 
-/** §10 check 5. */
+/** Rag check against the baseline. */
 function checkRag(metrics, baseline, file) {
   if (!baseline) return [`rag baseline missing for ${file}`];
   const out = [];
@@ -706,7 +705,7 @@ async function checkHangingPreFix(page) {
   });
 }
 
-/** §10 check 6 — full quote hangs (hangFraction 1) use the 40 % floor; optical protrusion matches margin. */
+/** Hanging check: full quote hangs (hangFraction 1) use the 40 % floor; optical protrusion matches margin. */
 async function checkHanging(page) {
   return page.evaluate(() => {
     const out = [];
@@ -732,7 +731,6 @@ async function checkHanging(page) {
   });
 }
 
-/** §10 check 7. */
 async function checkHierarchy(page) {
   return page.evaluate(() => {
     const article = document.getElementById('doc');
@@ -753,7 +751,6 @@ async function checkHierarchy(page) {
   });
 }
 
-/** §10 check 8. */
 async function checkCodeVoice(page, { xHeight = false } = {}) {
   return page.evaluate((strict) => {
     const article = document.getElementById('doc');
@@ -765,7 +762,7 @@ async function checkCodeVoice(page, { xHeight = false } = {}) {
     const out = [];
     if (pf === cf) out.push(`code font-family equals body (${cf})`);
     // The 5 % x-height probe is the selftest (same size, a crafted miss). The shipped
-    // pair at a shared size is ~108 %, and at 18/20 (the tokens, ADR-0033) ~97 %.
+    // pair at a shared size is ~108 %, and at 18/20 (the tokens) ~97 %.
     const xHeightAt = (el, size) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -785,28 +782,26 @@ async function checkCodeVoice(page, { xHeight = false } = {}) {
 }
 
 /**
- * The unfolded window's vocabulary (ADR-0058, 02-fold-up-workspace.md). W-02 confirmed W-01's provisional
- * names, which are the app's: `data-marxy-workspace` on `<body>` and `data-marxy-workspace-region` on each of
- * the six regions (`WORKSPACE_REGIONS` in packages/core/src/layout/workspace-storage.ts; a test in
- * apps/desktop/src/workspace/workspace.test.mjs pins this list to it). This file runs on import, so the
- * constant cannot be exported.
+ * The unfolded window's vocabulary.
+ * Its names are the app's: `data-marxy-workspace` on `<body>` and `data-marxy-workspace-region` on each of
+ * the six regions. This file runs on import, so the constant cannot be exported.
  */
 const WORKSPACE = {
   attribute: 'data-marxy-workspace', // on <body>: 'unfolded'; absent (or anything else) is folded
   regionAttribute: 'data-marxy-workspace-region',
   peekAttribute: 'data-marxy-peek', // on <body>, folded only: the one region the window is peeking
-  libraryAttribute: 'data-marxy-library', // on the library view (Q-03), unfolded only: it stands where #marxy-main stands
+  libraryAttribute: 'data-marxy-library', // on the library view, unfolded only: it stands where #marxy-main stands
   regions: ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar'],
 };
 
 /**
- * §10 check 9. The state is read from the page, never passed in: `<body data-marxy-workspace="unfolded">` is
+ * The state is read from the page, never passed in: `<body data-marxy-workspace="unfolded">` is
  * the unfolded window and every other page is the folded one, a page with no attribute included (a window
- * opens folded, ADR-0058 item 4, and a page that forgot to say is judged at its strictest).
+ * opens folded, and a page that forgot to say is judged at its strictest).
  * html/body and the main landmark itself are the page, not chrome. Folded (what the corpus run sees) is the
  * at-rest window: nothing visible outside #marxy-main, whatever its name. Unfolded additionally allows the
  * workspace's named regions and their contents; any other visible element outside #marxy-main, and any
- * region with a name outside the list, still fails. Folded and peeking (W-03: `data-marxy-peek` on <body>) shows
+ * region with a name outside the list, still fails. Folded and peeking (`data-marxy-peek` on <body>) shows
  * exactly the one region the attribute names, once, and its contents; a second region, a region it does not
  * name, a name outside the list and any stray element fail.
  */
@@ -822,7 +817,7 @@ async function checkChrome(page) {
     for (const el of document.querySelectorAll('*')) {
       if (el === document.documentElement || el === document.body || el === main) continue;
       if (main && main.contains(el)) continue;
-      // The library view (Q-03) takes the panes' place while they are hidden: it and what is in it are not chrome.
+      // The library view takes the panes' place while they are hidden: it and what is in it are not chrome.
       if (state === 'unfolded' && el.closest(`[${ws.libraryAttribute}]`)) continue;
       if (state === 'unfolded') {
         const region = el.closest(regionSel);
@@ -862,7 +857,7 @@ function shotName(file, width, variant, where) {
   return `${stem}-${width}-${variant}${where === 'last' ? '-last' : ''}.png`;
 }
 
-/** §10 check 10: 960 px dark/light only; same threshold and 0.1 % budget as `pixelmatch` (MIT). */
+/** Screenshot check: 960 px dark/light only; same threshold and 0.1 % budget as `pixelmatch` (MIT). */
 function screenshotCombo(opts) {
   return opts.width === 960 && opts.size === 20 && (opts.variant === 'dark' || opts.variant === 'light');
 }
@@ -1076,7 +1071,7 @@ function craftedWorkspace(state, { stray = '', extraRegion = '' } = {}) {
 }
 
 /**
- * A folded window that peeks (W-03): `data-marxy-peek="<peek>"` on <body> and one visible element per name in
+ * A folded window that peeks: `data-marxy-peek="<peek>"` on <body> and one visible element per name in
  * `names`, each as a region outside #marxy-main. A page that names one region and shows exactly it passes.
  */
 function craftedPeek(peek, names, { stray = '' } = {}) {
@@ -1110,7 +1105,7 @@ async function craftedClsShift(page, origin) {
 }
 
 /**
- * B-03: wide code runs into the margin of the box the article sits in, not the window. A 735 px
+ * Wide code runs into the margin of the box the article sits in, not the window. A 735 px
  * `#marxy-main` in a 1,470 px viewport (a half-width pane) holds a 140-character code line; the
  * `pre` must not end past the container. `css` is injectable so the selftest can prove the check
  * fails against the pre-fix `100vw` rule.
@@ -1134,13 +1129,13 @@ async function checkRoomInNarrowContainer(browser, css = defaultThemeCss()) {
 }
 
 /**
- * The split page (D-14; ADR-0057; docs/aesthetics-acceptance.md): two panes, judged per pane by the same
+ * The split page: two panes, judged per pane by the same
  * kind of rule as a one-pane page, rendered through the app harness over the shipped skeleton
  * (apps/desktop/test/support/two-pane.mjs), so the page measured is the one a reader sees at that width.
  * Measure in average characters stays between 45 and 80 (`articleWidth / (avgChar * bodyPx)`), no `pre`
  * or `table` ends past its own pane (the `--marxy-room` regression: a room taken from the window, not the
  * pane, spilled code 343 px at 1,470 px), nothing is visible outside #marxy-main, the divider is one pixel
- * wide, and body text keeps its 7:1. `--mechanical` runs these; the nightly full gate adds screenshots.
+ * wide, and body text keeps its 7:1. `--mechanical` runs these; the full gate adds screenshots.
  */
 const SPLIT_CASES = [
   { width: 1470, variant: 'dark' },
@@ -1331,8 +1326,8 @@ async function splitCase(browser, twoPane) {
 }
 
 /**
- * Crafted pages for the L-02 checks, each with one fault the rule must catch and a twin without it that must
- * pass. The faults are written in inline style, so they hold whatever the theme does: a story that clears an
+ * Crafted pages for the geometry checks, each with one fault the rule must catch and a twin without it that must
+ * pass. The faults are written in inline style, so they hold whatever the theme does: a change that clears an
  * expected failure cannot make a control pass.
  */
 function geometrySelftestCases() {
@@ -1398,7 +1393,7 @@ function geometrySelftestCases() {
       run: async (page) => details(checkNoClip(await measured(page))),
     },
     {
-      // A notice in the column's flow, above the article, pushes the text down: the fault U-02 removed.
+      // A notice in the column's flow, above the article, pushes the text down: a fault since removed.
       name: 'noticeColumn (displaces)',
       html: themed(PROSE, '', REGION),
       ok: themed(PROSE, FOOT_NOTICES, '', REGION),
@@ -1470,7 +1465,7 @@ function geometrySelftestCases() {
       run: checkText200,
     },
     {
-      // K-05b: a report's body is 0.85 of the reader's size, so 200 % of it is 34 px. 40 px on a report is the profile not applied.
+      // a report's body is 0.85 of the reader's size, so 200 % of it is 34 px. 40 px on a report is the profile not applied.
       name: 'text200 (a report is held to its profile)',
       html: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX}px}`).replace('<article ', '<article data-marxy-kind="report" '),
       ok: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX * KIND_BODY_RATIO.report}px}`).replace('<article ', '<article data-marxy-kind="report" '),
@@ -1748,7 +1743,7 @@ async function renderCorpus(page, origin, source, opts) {
   return result;
 }
 
-/** Slowness stays visible and never fails (F-74; ADR-0032): the wait inside the render is a cap, not a budget. */
+/** Slowness stays visible and never fails: the wait inside the render is a cap, not a budget. */
 function reportRender(ms, source, opts, log = console.log) {
   const line = slowRenderLine(ms, corpusNameOf(source), Buffer.byteLength(source), opts);
   if (line !== null) log(line);
@@ -1769,7 +1764,7 @@ function slowRenderLine(ms, name, bytes, opts) {
 
 /**
  * A real break (the typesetter never finishing) would cost the whole cap for every remaining page, so the run stops
- * at the third render that hit it, naming them (F-74). `onTrip` is the exit; the selftest passes its own.
+ * at the third render that hit it, naming them. `onTrip` is the exit; the selftest passes its own.
  */
 const MARK_TIMEOUT_LIMIT = 3;
 function makeMarkTimeouts(limit, onTrip) {

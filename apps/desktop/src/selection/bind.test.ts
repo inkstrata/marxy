@@ -1,5 +1,5 @@
 // The registry's context reads the open document from the store, and its edits carry the version the
-// selection was read at (B-12, from the B-11 review): an edit resolved before another change is refused.
+// selection was read at: an edit resolved before another change is refused.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { AppHandle } from '../app.ts';

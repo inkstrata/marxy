@@ -1,4 +1,4 @@
-// The stale-write baseline is the store's, not the shell's last look (D-10 review): Marxy's own reads and
+// The stale-write baseline is the store's, not the shell's last look: Marxy's own reads and
 // writes of a file the reader has open in Source (a config key written, a tab width read from
 // .editorconfig) must not move what a save is checked against. With unsaved edits and another program's
 // write on disk, Mod+S is refused, whatever else Marxy did to the file meanwhile.

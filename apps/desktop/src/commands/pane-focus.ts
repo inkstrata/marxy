@@ -1,8 +1,8 @@
-// "Focus left pane" and "Focus right pane" (D-06). Each holds only while its pane exists, so with one
+// "Focus left pane" and "Focus right pane". Each holds only while its pane exists, so with one
 // document neither is listed. `when` says only that: the palette, itself a dialog, lists and runs both
-// (P8, the fallback for every chord); holding a chord under an open dialog is pane/keys.ts's. The `key`
+// (it is the fallback for every chord); holding a chord under an open dialog is pane/keys.ts's. The `key`
 // documents the chord for the palette; the chords themselves (`Mod+Alt+Left`/`Mod+Alt+Right`; `Mod+1`
-// and `Mod+2` are Read and Split since W-19) are run by pane/keys.ts, on physical keys.
+// and `Mod+2` are Read and Split) are run by pane/keys.ts, on physical keys.
 import { appHandle } from './app-handle.ts';
 import type { Command } from './registry.ts';
 

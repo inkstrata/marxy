@@ -1,13 +1,13 @@
-// The shape of a transform definition (J-03). A definition is the body only; the registry wraps it so every
-// transform keeps the file's line endings and byte-order mark (ADR-0004, fidelity).
+// The shape of a transform definition. A definition is the body only; the registry wraps it so every
+// transform keeps the file's line endings and byte-order mark (fidelity).
 import type { Document } from '../contracts/ast.ts';
 
 /**
- * A parse the caller already holds: `doc` is `parseMarkdown` of exactly the bytes of `text` (F-60). A cache and
+ * A parse the caller already holds: `doc` is `parseMarkdown` of exactly the bytes of `text`. A cache and
  * nothing more: it is used only when `text` is the very string the transform body is about to read, and then
  * gives the same result the body would have got by parsing. With any other text it is ignored.
  *
- * The default-options contract (F-60.1): `doc` must have been made with the standard parse options, as
+ * The default-options contract: `doc` must have been made with the standard parse options, as
  * `parseMarkdown(bytes)` or `parseMarkdown(bytes, { file })` makes it, never with `gfm`, `frontmatter` or `math`
  * turned off, because the transform bodies parse with the defaults and a parse made otherwise would read
  * differently. Core cannot see the options a parse was made with, so this is the caller's promise, and the one
@@ -22,7 +22,7 @@ export interface ParsedText {
 /** Optional facts a caller knows and the text does not (the fence's language, for `fence`). */
 export interface TransformContext {
   readonly lang?: string;
-  /** An optional, already-made parse of the text (F-60). Never changes the result; see `ParsedText`. */
+  /** An optional, already-made parse of the text. Never changes the result; see `ParsedText`. */
   readonly parsed?: ParsedText;
 }
 

@@ -1,4 +1,4 @@
-// move-section-up / move-section-down (W-10). The table rows run as written, in CRLF, in lone CR, without the final line
+// move-section-up / move-section-down. The table rows run as written, in CRLF, in lone CR, without the final line
 // ending and (where they say so) behind a BOM. Below them: the bytes of the card's own examples, a differential test against a
 // reference written from the generator's model rather than from the parse, the round trip, and the corpus sweep.
 import assert from 'node:assert/strict';

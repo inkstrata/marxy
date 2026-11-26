@@ -1,4 +1,4 @@
-// Folding Source mode edits back into the buffer (§01 fromText, §09 unchanged → keep bytes).
+// Folding Source mode edits back into the buffer (fromText; unchanged text keeps its bytes).
 
 import { type Buffer, type Edit, contentHash, foldText, sourceTextOf, splice } from '@marxy/core';
 
@@ -22,7 +22,7 @@ export function cmDocText(buffer: Buffer): string {
  * The line separator CM6 gets for `buffer`: the file's own when every ending is the same (CRLF, or a lone
  * CR: a classic-Mac file). A mixed-ending file keeps `\n`: its `\r\n` lines keep the CR as a character at
  * the end of the line, and a lone CR is a character inside a line, so no byte changes on an unchanged
- * save (F-24). One rule for the editor and its tests (F-25); it lives here because a node test can import
+ * save. One rule for the editor and its tests; it lives here because a node test can import
  * this file and not `editor.ts`, which pulls in the app.
  */
 export function lineSeparatorFor(buffer: Buffer): '\n' | '\r\n' | '\r' {

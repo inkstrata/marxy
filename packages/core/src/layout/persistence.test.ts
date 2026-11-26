@@ -1,4 +1,4 @@
-// layout.json persistence: debounce, quarantine, a newer version left byte for byte (D-12).
+// layout.json persistence: debounce, quarantine, a newer version left byte for byte.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -37,6 +37,7 @@ const two = {
   ],
   ratio: 0.4,
   focused: 1,
+  tabs: ['/a.md', '/b.md'],
 };
 
 test('a burst of notes is one write after the debounce, of the last one', async () => {
@@ -127,4 +128,18 @@ test('a layout.json over the cap is read only to the cap, quarantined once, and 
   // A second launch finds the small file: no second copy.
   await LayoutPersistence.open(bounded);
   assert.equal(writes.filter((w) => w.startsWith('/data/layout.json.bad-')).length, 1);
+});
+
+test('a layout.json that is there but cannot be read is never written over this session', async () => {
+  const kept = enc(JSON.stringify(two));
+  const { io, store, writes } = memoryIo({ '/data/layout.json': kept });
+  const locked = { ...io, readHead: async () => { throw Object.assign(new Error('EACCES'), { code: 'permission' }); } };
+  const layout = await LayoutPersistence.open(locked);
+  assert.equal(layout.readOnly, true);
+  assert.deepEqual(layout.saved(), emptyLayoutEnvelope());
+  layout.note({ ...two, ratio: 0.7 });
+  await layout.flush();
+  await layout.close();
+  assert.deepEqual(writes, []);
+  assert.deepEqual(store.get('/data/layout.json'), kept);
 });

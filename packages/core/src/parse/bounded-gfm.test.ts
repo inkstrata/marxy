@@ -1,30 +1,30 @@
-// F-90: a long paragraph after an unclosed `[` opens in time in proportion to its length.
+// a long paragraph after an unclosed `[` opens in time in proportion to its length.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { performance } from 'node:perf_hooks';
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { gfm } from 'micromark-extension-gfm';
 import { boundedGfm } from './bounded-gfm.ts';
 import { parseMarkdown } from './parse.ts';
+import { cpuNow } from '../testing/cpu-clock.ts';
 
 const unit = 'the reader opens a file and sees exactly what it holds ';
 const words = (n: number): string => unit.repeat(Math.ceil(n / unit.length)).slice(0, n);
 const ms = (text: string): number => {
-  const t0 = performance.now();
+  const t0 = cpuNow();
   parseMarkdown(text, { file: '/bracket.md' });
-  return performance.now() - t0;
+  return cpuNow() - t0;
 };
 
 test('80,000 characters after an unclosed [ parse in bounded time', () => {
   const text = words(80_000);
   ms(text);
-  // Best of three each, so one slow scheduler tick is not a verdict.
-  const plain = Math.min(ms(text), ms(text), ms(text));
-  const bracket = Math.min(ms('[' + text), ms('[' + text), ms('[' + text));
+  const plain = ms(text);
+  const bracket = ms('[' + text);
   assert.ok(bracket < 400, `after an unclosed [: ${bracket.toFixed(0)} ms`);
-  assert.ok(bracket < plain * 4, `after an unclosed [: ${bracket.toFixed(0)} ms, plain ${plain.toFixed(0)} ms`);
+  // CPU time comes in ticks of about 16 ms, so a quick plain parse can read 0: the ratio has a floor.
+  assert.ok(bracket < Math.max(plain * 4, 100), `after an unclosed [: ${bracket.toFixed(0)} ms, plain ${plain.toFixed(0)} ms`);
 });
 
 const tree = (text: string, extension: ReturnType<typeof gfm>): string =>

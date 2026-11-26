@@ -1,6 +1,6 @@
 // The plain text of blocks: what a reader would read, with the structure that carries meaning
 // (list markers, task boxes, table rows) kept and the markup dropped. Conventions are a reasoned
-// default (08 §4, grade D), not a studied one.
+// default, not a studied one.
 import type { Block, List, ListItem, Table } from '../contracts/ast.ts';
 import type { OperationInput } from '../contracts/operation.ts';
 import { sectionOf } from './html-clean.ts';

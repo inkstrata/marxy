@@ -1,8 +1,17 @@
-// A log's lines (K-08): what a head is, its runs, and the rank each line takes. The pattern is detection's (`TIMESTAMP`).
+// A log's lines: what a head is, its runs, and the rank each line takes. The shapes are detection's (`log/head.ts`).
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { TIMESTAMP } from '../kind/detect.ts';
-import { highlight, lineMetaForHighlight, plainTextFromTokens, LOG_ERROR_LINE_CLASS, LOG_LEVEL_CLASS, LOG_TIME_CLASS } from './index.ts';
+import { detectKind } from '../kind/detect.ts';
+import {
+  highlight,
+  lineMetaForHighlight,
+  plainTextFromTokens,
+  LOG_ERROR_LINE_CLASS,
+  LOG_ESC_CLASS,
+  LOG_LEVEL_CLASS,
+  LOG_SPACE_CLASS,
+  LOG_TIME_CLASS,
+} from './grammar.ts';
 import { logHead, logRanks } from './line-classes.ts';
 
 test('a head has its timestamp, separator and level word located; a continuation line is no head', () => {
@@ -14,10 +23,13 @@ test('a head has its timestamp, separator and level word located; a continuation
   for (const gone of ['    at foo (bar.ts:12:3)', '', 'ERROR: no timestamp', 'caused by: 2026-10-08T09:14:05Z ERROR x', '2026-10-08T09:14:05Z']) assert.equal(logHead(gone), null, JSON.stringify(gone));
 });
 
-test('detection and the runs read one pattern: whatever TIMESTAMP matches is a head, and nothing else is', () => {
-  for (const line of ['2026-10-08T09:14:02.118Z INFO  [build] x', '2026-10-08 09:14:05,002 WARNING y', '[09:14:05] FATAL z', '12:00:00.5 | TRACE t', 'plain line', '  2026-10-08T09:14:05Z ERROR indented']) {
-    assert.equal(logHead(line) !== null, TIMESTAMP.test(line), line);
-  }
+test('detection and the runs read one pattern: a file of heads is a log, and the lines that are none are not', () => {
+  const heads = ['2026-10-08T09:14:02.118Z INFO  [build] x', '2026-10-08 09:14:05,002 WARNING y', '[09:14:05] FATAL z', '12:00:00.5 | TRACE t'];
+  for (const line of heads) assert.notEqual(logHead(line), null, line);
+  for (const line of ['plain line', '  2026-10-08T09:14:05Z ERROR indented']) assert.equal(logHead(line), null, line);
+  const head = new TextEncoder().encode(`${heads.join('\n')}\n`);
+  assert.equal(detectKind({ path: 'notes.txt', head }).kind, 'log');
+  assert.equal(detectKind({ path: 'notes.txt', head: new TextEncoder().encode('plain line\nanother\nand a third\n') }).kind, 'article');
 });
 
 test('the ranks: trace and debug 0, info and notice 1, warn 2, error, fatal and critical 3; a continuation line takes its head\'s', () => {
@@ -39,20 +51,48 @@ test('the ranks: trace and debug 0, info and notice 1, warn 2, error, fatal and 
   assert.deepEqual([...logRanks(lines)], [1, 0, 1, 1, 1, 2, 2, 3, 3, 3, 1, 3, 3]);
 });
 
-test('a log line is its text in three runs: timestamp, level word, the rest; a level word in a message is not a level', async () => {
+test('a log line is its text in runs: timestamp, level word, the spacing around them, the rest; a level word in a message is not a level', async () => {
   const text = '2026-10-08T09:14:05.002Z ERROR [compile] no ERROR here\n    at foo\n\n[09:14:06] INFO ok\n';
   const lines = (await highlight(text, 'log'))!;
   assert.equal(plainTextFromTokens(lines), text.replace(/\n$/, '\n'), 'the runs are the text, byte for byte');
   assert.deepEqual(lines[0]!.map((t) => [t.text, t.className ?? null]), [
     ['2026-10-08T09:14:05.002Z', LOG_TIME_CLASS],
-    [' ', null],
+    [' ', LOG_SPACE_CLASS],
     ['ERROR', LOG_LEVEL_CLASS],
-    [' [compile] no ERROR here', null],
+    [' ', LOG_SPACE_CLASS],
+    ['[compile] no ERROR here', null],
   ]);
   assert.deepEqual(lines[1]!.map((t) => t.className ?? null), [null], 'a frame is plain');
   assert.deepEqual(lines[2], [], 'a blank line has no runs');
-  assert.deepEqual(lines[3]!.map((t) => [t.text, t.className ?? null]), [['[', null], ['09:14:06', LOG_TIME_CLASS], ['] ', null], ['INFO', LOG_LEVEL_CLASS], [' ok', null]]);
+  assert.deepEqual(lines[3]!.map((t) => [t.text, t.className ?? null]), [
+    ['[', LOG_SPACE_CLASS], ['09:14:06', LOG_TIME_CLASS], ['] ', LOG_SPACE_CLASS], ['INFO', LOG_LEVEL_CLASS], [' ', LOG_SPACE_CLASS], ['ok', null],
+  ]);
   assert.ok(lines.flat().every((t) => t.scope === undefined), 'no token hue: the level is weight, the timestamp the comment colour');
+});
+
+test('only spacing around a head is marked: a [thread] or a logger name stays, and a bracketed level keeps its words', async () => {
+  const runs = async (line: string) => (await highlight(line, 'log'))![0]!.map((t) => [t.text, t.className ?? null]);
+  assert.deepEqual(await runs('2026-10-08 09:14:05,002 [main] ERROR app: down'), [
+    ['2026-10-08 09:14:05,002', LOG_TIME_CLASS], [' ', LOG_SPACE_CLASS], ['[main] ', null], ['ERROR', LOG_LEVEL_CLASS], [' ', LOG_SPACE_CLASS], ['app: down', null],
+  ]);
+  assert.deepEqual(await runs('[2026-10-08 09:14:05] local.ERROR: down'), [
+    ['[', LOG_SPACE_CLASS], ['2026-10-08 09:14:05', LOG_TIME_CLASS], ['] ', LOG_SPACE_CLASS], ['local.', null], ['ERROR', LOG_LEVEL_CLASS], [': ', LOG_SPACE_CLASS], ['down', null],
+  ]);
+  assert.deepEqual(await runs('2026-10-08T09:14:05Z [WARN] slow'), [
+    ['2026-10-08T09:14:05Z', LOG_TIME_CLASS], [' ', LOG_SPACE_CLASS], ['[', LOG_SPACE_CLASS], ['WARN', LOG_LEVEL_CLASS], ['] ', LOG_SPACE_CLASS], ['slow', null],
+  ]);
+});
+
+test('an escape sequence is a run of its own, and what an SGR sequence styles takes its tone until one turns it off', async () => {
+  const text = '2026-10-08T09:14:05Z WARN  \u001b[33mslow frame\u001b[0m: 48 ms\n\u001b[2Kprogress \u001b[1;31mred\n';
+  const lines = (await highlight(text, 'log'))!;
+  assert.equal(plainTextFromTokens(lines), text, 'the runs are the text, byte for byte');
+  assert.deepEqual(lines[0]!.slice(4).map((t) => [t.text, t.className ?? null]), [
+    ['\u001b[33m', LOG_ESC_CLASS], ['slow frame', 'marxy-ansi-warn'], ['\u001b[0m', LOG_ESC_CLASS], [': 48 ms', null],
+  ]);
+  assert.deepEqual(lines[1]!.map((t) => [t.text, t.className ?? null]), [
+    ['\u001b[2K', LOG_ESC_CLASS], ['progress ', null], ['\u001b[1;31m', LOG_ESC_CLASS], ['red', 'marxy-ansi-err marxy-ansi-bold'],
+  ], 'a control that styles nothing starts no style; one left on runs to the end of its line');
 });
 
 test('the line at ERROR or above and its continuation lines carry the rule class; nothing else does', async () => {
@@ -67,7 +107,7 @@ test('a log with no heads has no rule and no weight: an .out that is not a log r
   assert.ok(lineMetaForHighlight('log', lines).every((m) => m.lineClass === undefined));
 });
 
-test('log4j and Laravel heads are read: a [thread] between the timestamp and the level, a `local.` before it (K-08)', () => {
+test('log4j and Laravel heads are read: a [thread] between the timestamp and the level, a `local.` before it', () => {
   const log4j = '2026-10-12 12:00:00,123 [http-nio-8080-exec-1] ERROR com.example.Service - boom';
   assert.equal(logHead(log4j)?.rank, 3);
   assert.deepEqual(logHead(log4j)?.level, [log4j.indexOf('ERROR'), log4j.indexOf('ERROR') + 5]);

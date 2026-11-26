@@ -1,4 +1,4 @@
-// The parse of a large document in slices (D-15): the same Document `parseMarkdown` gives the same bytes,
+// The parse of a large document in slices: the same Document `parseMarkdown` gives the same bytes,
 // built a few milliseconds at a time with the event loop given back between slices, so a window that is
 // showing something else keeps painting while this one is read. A 1 MB document takes most of a second
 // to parse whole; no one slice here takes more than a frame's share of it.
@@ -12,9 +12,12 @@
 // line joins) moves the slice on to a later line, and a file the proof cannot split at all is one slice.
 //
 // A link reference or footnote definition applies across the whole file, and so does the state of
-// frontmatter that never closes; a file that may hold either (`]:` anywhere) is parsed whole.
+// frontmatter that never closes; a file that may hold either is parsed whole. A definition is looked for
+// as a line that opens with a label closing in `]:` (holdsDefinitionMark), not as any `]:`, which a
+// log line or a time in a paragraph holds; each slice's own parse would find one the scan let through.
 
 import type { Block, Document } from '../contracts/ast.ts';
+import { NO_DEFINITIONS } from './from-mdast.ts';
 import { parseBlocksIn, parseMarkdown, type ParseOptions } from './parse.ts';
 import { documentOf, fresh, holdsDefinitionMark, lineEndAfter, opensLikeFrontmatter } from './reparse.ts';
 
@@ -39,7 +42,7 @@ export interface ChunkedParseStats {
   readonly refused: number;
 }
 
-/** Thrown by a job done in slices when its `aborted()` says the work is no longer wanted (D-15). */
+/** Thrown by a job done in slices when its `aborted()` says the work is no longer wanted. */
 export class Abandoned extends Error {
   constructor() {
     super('the work in slices was abandoned');
@@ -85,7 +88,7 @@ export async function parseMarkdownChunked(bytes: Uint8Array, options: ChunkedPa
       const prior = region.blocks.at(-2);
       const opened = !frontmatter || restart > 0 || region.blocks[0]?.type === 'frontmatter';
       if (opened && tail !== undefined && prior !== undefined && tail.src.start === at && fresh(bytes, prior, at)) {
-        blocks.push(...region.blocks.slice(0, -1));
+        for (let b = 0; b < region.blocks.length - 1; b++) blocks.push(region.blocks[b]!);
         slices++;
         size = sliceBytes ?? nextSize(at - restart, spent, budgetMs);
         restart = at;
@@ -105,9 +108,11 @@ export async function parseMarkdownChunked(bytes: Uint8Array, options: ChunkedPa
   if (region === null) return whole('a region could not be parsed on its own');
   if (region.definitions) return whole('a definition applies across the file');
   if (frontmatter && restart === 0 && region.blocks[0]?.type !== 'frontmatter') return whole('frontmatter that never closes');
-  blocks.push(...region.blocks);
+  // A loop, not a spread: a last region of 65k+ blocks overflows the argument limit in WebKit.
+  for (const b of region.blocks) blocks.push(b);
   last = { kind: 'slices', slices: slices + 1, refused };
-  return documentOf(file, bytes, blocks);
+  // No slice held a definition, and the scan found no line that could open one: the file holds none.
+  return documentOf(file, bytes, blocks, NO_DEFINITIONS);
 }
 
 /** The size of the next slice: what the budget buys at the rate the last one parsed. */

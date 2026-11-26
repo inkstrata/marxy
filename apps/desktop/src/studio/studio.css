@@ -1,0 +1,244 @@
+/* The Studio: a place, not a form. The room is drawn from the look being edited (the dialog
+   is painted with it), so the whole room changes tone with the look; the canvas is a sheet standing on that desk.
+   Colours only from tokens. The pieces (tabs, Compare, Fit, the sheet) add their own sheets. */
+
+.marxy-studio {
+  /* The frame's chrome mixed again here, from the look the dialog is painted with, not the window's. */
+  --marxy-c: calc(var(--marxy-size-chrome) / 13);
+  --marxy-frame-chrome: color-mix(in srgb, var(--marxy-color-bg) 77%, var(--marxy-color-rule));
+  --marxy-frame-chrome-2: color-mix(in srgb, var(--marxy-color-bg) 60%, var(--marxy-color-rule-strong));
+  --marxy-frame-hair: var(--marxy-color-rule);
+  --marxy-frame-hair-2: var(--marxy-color-rule-strong);
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 212px;
+  background: var(--marxy-frame-chrome);
+  color: var(--marxy-color-text);
+  font-family: var(--marxy-face-chrome);
+  font-size: var(--marxy-size-chrome);
+  line-height: 1.4;
+}
+.marxy-studio::backdrop { background: transparent; }
+.marxy-studio button { font: inherit; color: inherit; border: 0; cursor: default; }
+.marxy-studio button:not(.marxy-switch) { background: none; }
+.marxy-studio .marxy-btn { color: var(--marxy-color-text); }
+.marxy-studio .marxy-btn[data-marxy-primary] { color: var(--marxy-color-bg); background: var(--marxy-color-text-strong); }
+.marxy-studio .marxy-btn[aria-pressed="true"] { background: var(--marxy-frame-chrome-2); box-shadow: inset 0 0 0 1px var(--marxy-color-accent); }
+.marxy-studio-h {
+  font-size: calc(10.5 * var(--marxy-c));
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--marxy-color-text-faint);
+}
+
+/* The top bar: the name, what the canvas shows (wrapping onto more lines in a narrow window), and Compare, Fit and
+   Done held at the right of the first line, so a window of any width reaches them. */
+.marxy-studio-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 16px;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--marxy-frame-hair);
+  white-space: nowrap;
+}
+.marxy-studio-name { font-weight: 700; color: var(--marxy-color-text-strong); line-height: 28px; }
+.marxy-studio-see { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; min-height: 28px; }
+.marxy-studio-see > .marxy-seg { flex-wrap: wrap; max-width: 100%; }
+.marxy-studio-acts { grid-column: 3; display: flex; align-items: center; gap: 10px; }
+.marxy-studio-sp { flex: 1 1 0; min-width: 4px; }
+@media (max-width: 640px) {
+  .marxy-studio-name { display: none; }
+}
+
+/* The middle: shelf, stage, why. */
+.marxy-studio-middle { display: grid; grid-template-columns: 236px minmax(0, 1fr) 244px; min-height: 0; }
+@media (max-width: 1100px) {
+  .marxy-studio-middle { grid-template-columns: 210px minmax(0, 1fr) 200px; }
+}
+@media (max-width: 900px) {
+  .marxy-studio-middle { grid-template-columns: 180px minmax(0, 1fr) 160px; }
+}
+.marxy-studio-shelf, .marxy-studio-why { overflow: auto; padding: 12px; min-height: 0; }
+.marxy-studio-shelf { border-right: 1px solid var(--marxy-frame-hair); }
+.marxy-studio-why { border-left: 1px solid var(--marxy-frame-hair); }
+.marxy-studio-stagewrap { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 26px; min-width: 0; min-height: 0; }
+.marxy-studio-stage { position: relative; min-height: 0; overflow: hidden; display: grid; place-items: start center; padding-top: 12px; }
+@media (prefers-reduced-motion: no-preference) {
+  .marxy-studio-stage { animation: marxy-studio-enter 0.22s ease-out; }
+}
+@keyframes marxy-studio-enter { from { transform: scale(1.04); opacity: 0.6; } to { transform: none; opacity: 1; } }
+.marxy-studio-cap { display: flex; justify-content: space-between; align-items: center; padding: 0 18px; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); }
+.marxy-studio-cap b { color: var(--marxy-color-text-secondary); font-weight: 600; }
+.marxy-studio-caphint { margin-left: 10px; }
+
+/* A page: a box at its logical width, scaled to fit; the article inside is the app's own. */
+.marxy-studio-paper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px var(--marxy-frame-hair-2), var(--marxy-shadow-surface);
+}
+.marxy-studio-leaf {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  overflow: hidden;
+  container-type: inline-size;
+  background: var(--marxy-color-bg);
+  color: var(--marxy-color-text);
+  font-family: var(--marxy-font-text);
+  font-size: var(--marxy-size-body);
+  line-height: var(--marxy-line-box);
+}
+.marxy-studio-scroll { position: absolute; inset: 0; overflow: auto; padding: 56px 0 64px; box-sizing: border-box; }
+.marxy-studio-leaf .marxy-article { margin-inline: auto; }
+
+/* The measure's rule and its handle. */
+.marxy-studio-measure { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--marxy-color-accent); opacity: 0.35; pointer-events: none; }
+.marxy-studio-paper:hover .marxy-studio-measure, .marxy-studio-measure[data-marxy-held] { opacity: 1; }
+.marxy-studio-measure[hidden] { display: none; }
+.marxy-studio-measure-n {
+  position: absolute;
+  top: 10px;
+  left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--marxy-color-surface);
+  color: var(--marxy-color-text-secondary);
+  font-family: var(--marxy-face-chrome);
+  font-size: calc(11 * var(--marxy-c));
+  white-space: nowrap;
+}
+.marxy-studio-measure-handle {
+  position: absolute;
+  top: 50%;
+  left: -7px;
+  width: 13px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 7px;
+  background: var(--marxy-color-surface);
+  box-shadow: 0 0 0 1px var(--marxy-color-accent);
+  pointer-events: auto;
+  cursor: ew-resize;
+}
+
+/* The shelf of themes (shelf.ts): two-line rows, each drawn in its own look and appearance from the few values the row
+   is given (--marxy-row-*): the name in its heading face, what it is in its body face. The chosen row carries a bar in
+   its own accent; the one shown on the canvas is ringed. */
+.marxy-studio-shelfbody { display: flex; flex-direction: column; gap: 10px; }
+.marxy-studio-rows { display: flex; flex-direction: column; gap: 14px; outline: none; }
+.marxy-studio-group { display: flex; flex-direction: column; gap: 4px; }
+.marxy-studio-group-h { color: var(--marxy-color-text-faint); font-size: calc(10.5 * var(--marxy-c)); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; padding: 0 2px 2px; }
+.marxy-studio-themerow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 10px 8px 12px;
+  border-radius: 6px;
+  background: var(--marxy-row-bg);
+  box-shadow: 0 0 0 1px var(--marxy-frame-hair-2);
+  cursor: default;
+  outline: none;
+  transition: box-shadow 0.12s ease;
+}
+.marxy-studio-row-name {
+  font-family: var(--marxy-row-head);
+  font-weight: var(--marxy-row-head-weight);
+  letter-spacing: var(--marxy-row-track);
+  font-size: calc(13.5 * var(--marxy-c));
+  line-height: 1.25;
+  color: var(--marxy-row-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.marxy-studio-row-line {
+  font-family: var(--marxy-row-face);
+  font-weight: var(--marxy-row-weight);
+  font-size: calc(11.5 * var(--marxy-c));
+  line-height: 1.35;
+  color: var(--marxy-row-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.marxy-studio-themerow:hover, .marxy-studio-themerow[data-marxy-shown] { box-shadow: 0 0 0 1px var(--marxy-frame-hair-2), 0 0 0 3px color-mix(in srgb, var(--marxy-color-text) 20%, transparent); }
+.marxy-studio-themerow:focus-visible { box-shadow: 0 0 0 2px var(--marxy-color-accent); }
+.marxy-studio-themerow[data-marxy-on] { box-shadow: 0 0 0 1px var(--marxy-row-accent); }
+.marxy-studio-themerow[data-marxy-on]::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 0 3px 3px 0; background: var(--marxy-row-accent); }
+.marxy-studio-row-acts { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; padding: 4px 2px 2px 12px; font-size: calc(11.5 * var(--marxy-c)); }
+.marxy-studio-row-acts[hidden] { display: none; }
+.marxy-studio-link { padding: 0; color: var(--marxy-color-link); text-decoration: underline; text-underline-offset: 0.2em; margin-right: 6px; }
+.marxy-studio-shelf-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0 8px; border-top: 1px solid var(--marxy-frame-hair); }
+.marxy-studio-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--marxy-color-edge);
+  border-radius: 5px;
+  background: var(--marxy-color-bg);
+  color: var(--marxy-color-text);
+  font: inherit;
+}
+.marxy-studio-credit { margin: -8px 0 16px; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); line-height: 1.4; }
+
+/* Why this page. */
+.marxy-studio-whylist { list-style: none; margin: 8px 0 18px; padding: 0; }
+.marxy-studio-whylist li { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--marxy-frame-hair); }
+.marxy-studio-why-head { color: var(--marxy-color-text-strong); font-weight: 600; }
+.marxy-studio-why-then { color: var(--marxy-color-text-faint); }
+.marxy-studio-facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 8px 0 0; }
+.marxy-studio-facts dt { color: var(--marxy-color-text-faint); }
+.marxy-studio-facts dd { margin: 0; color: var(--marxy-color-text); font-variant-numeric: tabular-nums; }
+.marxy-studio-facts small { color: var(--marxy-color-text-faint); font-size: inherit; }
+
+/* The dock. */
+.marxy-studio-dock { display: grid; grid-template-rows: 34px minmax(0, 1fr); border-top: 1px solid var(--marxy-frame-hair); min-height: 0; }
+.marxy-studio-tabs { display: flex; gap: 2px; align-items: end; padding: 0 14px; }
+.marxy-studio-tab { padding: 6px 12px 7px; border-radius: 6px 6px 0 0; color: var(--marxy-color-text-faint); }
+.marxy-studio-tab[aria-selected="true"] { color: var(--marxy-color-text-strong); background: var(--marxy-frame-chrome-2); font-weight: 620; }
+.marxy-studio-dockbody { overflow: auto; padding: 12px 18px; background: var(--marxy-frame-chrome-2); min-height: 0; }
+
+/* Dials (dials.ts): slim sliders with their value in words, in columns across the dock. */
+.marxy-studio-dockbody { display: flex; gap: 28px; align-items: flex-start; }
+.marxy-studio-col { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
+.marxy-studio-dial, .marxy-studio-row { display: grid; grid-template-columns: 7.5em minmax(90px, 1fr) auto; align-items: center; gap: 10px; min-height: 26px; }
+.marxy-studio-row { grid-template-columns: 7.5em auto; }
+.marxy-studio-dial-k { color: var(--marxy-color-text-secondary); }
+.marxy-studio-dial-v { min-width: 6.5em; color: var(--marxy-color-text-strong); font-variant-numeric: tabular-nums; }
+.marxy-studio-dial-note { grid-column: 2 / -1; color: var(--marxy-color-text-faint); font-size: calc(11 * var(--marxy-c)); }
+.marxy-studio-range { width: 100%; height: 16px; margin: 0; accent-color: var(--marxy-color-accent); }
+
+/* The Studio's own line: a copy done, a look kept. */
+.marxy-studio-say {
+  position: fixed;
+  left: 50%;
+  bottom: 226px;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--marxy-color-surface);
+  color: var(--marxy-color-text);
+  box-shadow: var(--marxy-shadow-surface);
+}
+.marxy-studio-say[hidden] { display: none; }
+
+/* While Fit runs, the shelf, the column and the dock stand back. */
+.marxy-studio[data-marxy-fit] :is(.marxy-studio-shelf, .marxy-studio-why, .marxy-studio-dock, .marxy-studio-top) { opacity: 0.35; pointer-events: none; }

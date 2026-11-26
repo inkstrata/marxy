@@ -1,4 +1,4 @@
-// The aesthetics gate's render entry (B-01): the real app, started with startApp over a memory shell,
+// The aesthetics gate's render entry: the real app, started with startApp over a memory shell,
 // renders one corpus file at a given width, variant and text size, and reports layout shift on the page
 // a reader sees (highlighting, KaTeX, notices and all). Loaded only by gate.html, never by main.ts.
 import { LANGUAGE_TO_GRAMMAR } from '@marxy/core/src/highlight/index.ts';
@@ -27,7 +27,7 @@ export interface GateRenderOpts {
   /**
    * A second document, opened as soon as the first has shown its first text, while a large first
    * document's later chunks are still pending; the render then measures this one. Tests use it to
-   * see that a stale document's typesetter never marks `typeset_done` (B-02).
+   * see that a stale document's typesetter never marks `typeset_done`.
    */
   readonly reopen?: string;
 }
@@ -43,9 +43,15 @@ const SECOND = '/corpus/second.md';
 /** The memory shell's `configPaths().config`. */
 const CONFIG = '/config';
 /**
+ * The frame, folded: the gate scores the reading page at `opts.width`, and the unfolded frame's rail and panel stand beside
+ * `#marxy-main`, so a main of the window's width ran past the window (368 px at 320).
+ */
+const FRAME = '/data/frame.json';
+const FOLDED = JSON.stringify({ version: 1, frame: { folded: true } });
+/**
  * How long the render waits for the typesetter to consider every paragraph before it is refused. A wait, not a
- * performance budget (ADR-0032: speed is measured in the nightly perf job), so a slow runner does not fail the gate;
- * the gate prints a line for each render that took over 10 s (F-74).
+ * performance budget (speed is measured by `pnpm perf`), so a slow runner does not fail the gate;
+ * the gate prints a line for each render that took over 10 s.
  */
 const TYPESET_DONE_CAP_MS = 60_000;
 /** Past app.ts's SNAP_INTERVAL_MS (250), so the last coalesced grid snap is scheduled before this fires. */
@@ -69,7 +75,8 @@ async function imageBytes(opts: GateRenderOpts): Promise<Uint8Array | null> {
 }
 
 function configToml(opts: GateRenderOpts): string {
-  const lines = [`variant = "${opts.variant}"`];
+  // The gate measures the designed default theme, Night and Paper (palettes.json); with no theme line the app wears Ink.
+  const lines = [`variant = "${opts.variant}"`, 'theme = "night-paper"'];
   if (opts.size !== undefined) lines.push(`size = ${opts.size}`);
   return `${lines.join('\n')}\n`;
 }
@@ -129,6 +136,7 @@ async function render(source: string, opts: GateRenderOpts): Promise<GateRenderR
   const files: Record<string, Uint8Array> = {
     [DOCUMENT]: new TextEncoder().encode(source),
     [CONFIG]: new TextEncoder().encode(configToml(opts)),
+    [FRAME]: new TextEncoder().encode(FOLDED),
   };
   if (opts.reopen !== undefined) files[SECOND] = new TextEncoder().encode(opts.reopen);
   const image = await imageBytes(opts);
@@ -144,7 +152,7 @@ async function render(source: string, opts: GateRenderOpts): Promise<GateRenderR
   const handle = await startApp(shell, { argv: [DOCUMENT] });
   await handle.ready;
   if (opts.reopen !== undefined) await handle.open(SECOND);
-  // A large document is appended in idle chunks after first text (A-02); measure the whole article.
+  // A large document is appended in idle chunks after first text; measure the whole article.
   await handle.contentComplete();
 
   const article = document.getElementById('doc');

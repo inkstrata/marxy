@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// Layout probe (L-00, docs/plan/roadmap-2026-10/07-layout-and-reading.md). Measures the page the
+// Layout probe. Measures the page the
 // reader gets: for every corpus document and every cell of a width x size x variant x scrollbar
 // matrix it records where the column, its gutters and every block sit, and writes numbers, not
-// verdicts. L-01 reads probe.json and decides which of H1-H7 hold.
+// verdicts. probe.json is read to decide which layout hypotheses hold.
 //
 //   node scripts/probe-layout.mjs [--ref origin/main] [--out DIR] [--files a.md,b.md]
 //        [--widths 320,960] [--sizes 20] [--variants dark] [--scrollbars overlay,classic]
 //        [--workers N] [--no-png] [--overlays-dir DIR] [--readme-only]
 //
 // It renders through the same entry as scripts/gate-aesthetics.mjs: the real app, built from
-// apps/desktop/gate.html and driven by window.marxyGate (B-02). The gate cannot be imported (it runs its
+// apps/desktop/gate.html and driven by window.marxyGate. The gate cannot be imported (it runs its
 // own main on load and does not export the builder), so `buildRenderEntry` below is a read-only copy of
-// it; the gate, the baselines, base.css and every src/ file are untouched. Not part of CI (that is L-02).
+// it; the gate, the baselines, base.css and every src/ file are untouched. Run by hand.
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
@@ -347,7 +347,7 @@ export function measureInPage(args) {
       })()
     : null;
 
-  // Notice region, as the app had it until U-02: #marxy-notices above the article, in the main, in the page's flow. The app's notices
+  // Notice region, as the app once had it: #marxy-notices above the article, in the main, in the page's flow. The app's notices
   // are pills at the pane's foot now (measureNoticeInPage below); this model is kept so the layout audit can be rerun on an earlier ref.
   let notice = null;
   if (args.notice) {
@@ -450,7 +450,7 @@ export function measureInPage(args) {
     cell.blocks = blocks.map((b) => [b.k, b.tag, b.depth, r2(b.l), r2(b.r), r2(b.dL), r2(b.dR), b.iL === null ? null : r2(b.iL), b.iR === null ? null : r2(b.iR), b.idL === null ? null : r2(b.idL), b.scroll ? 1 : 0, r2(b.hBar)]);
   }
   if (args.blocks) {
-    // The right edge of body text (L-02.1): for each top-level paragraph, how far its set lines' box (the
+    // The right edge of body text: for each top-level paragraph, how far its set lines' box (the
     // content box the typesetter measures and sets them to) ends short of the column's right edge. Ragged
     // lines are not a fault; a paragraph whose lines cannot reach the edge, because a padding, a border or a
     // margin holds them in, is. The box is geometry, not the words' ink, so no renderer's line ends are read.
@@ -470,16 +470,16 @@ export function measureInPage(args) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The rules, as the aesthetics gate holds them (L-02). Each reads what measureInPage returned (with
+// The rules, as the aesthetics gate holds them. Each reads what measureInPage returned (with
 // `blocks: true`) and names what fails; the gate imports these and keeps no copy of them.
 // ---------------------------------------------------------------------------------------------
 
-/** Top-level blocks whose text is held to the column's left edge (the screen criterion's "Edges"). */
+/** Top-level blocks whose text is held to the column's left edge (the "Edges" rule). */
 export const EDGE_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'table', 'blockquote', 'ul', 'ol', 'dl', 'dl.front', 'p>img', 'figure', 'footnotes']);
 const BLOCK_AT = { tag: 1, depth: 2, l: 3, r: 4, dL: 5, dR: 6, iL: 7, iR: 8, idL: 9, scroll: 10 };
 
 /**
- * Judge one measured cell against rules 1 to 4 of the screen criterion. Returns `{ check, sub, detail }`
+ * Judge one measured cell against the first four geometry rules. Returns `{ check, sub, detail }`
  * for every failure; `check` is the gate's check (centred, blockEdges, room, marks, noClip) and `sub` the
  * kind of block or mark at fault, so an expected failure can name exactly the case it defers.
  */
@@ -495,7 +495,7 @@ export function geometryFailures(cell, { classic: _classic = false } = {}) {
   const off = cell.centre.offsetFromClient;
   if (Math.abs(off) > 0.5) add('centred', 'axis', `the column's axis is ${off}px from the visible area's axis`);
   // The ink half of this rule is gone: it applied only when the longest ragged line ended within 1px of
-  // the column's right edge, which depends on the font renderer (L-02 return). The axis above and the
+  // the column's right edge, which depends on the font renderer. The axis above and the
   // blockEdges check (ink against the column's left edge) hold what it was meant to.
 
   for (const b of cell.blocks ?? []) {
@@ -546,7 +546,7 @@ export function geometryFailures(cell, { classic: _classic = false } = {}) {
 }
 
 /**
- * Rule 5 (U-02), measured on the app's own `#marxy-notices` region: a notice is a pill off the column. One is built the
+ * Rule 5, measured on the app's own `#marxy-notices` region: a notice is a pill off the column. One is built the
  * way notify() builds it and put in the region; this reads whether it moved the page (the article's top and the
  * document's height), where it sits against its pane (centred, inside it), whether it is in view at the top of the page
  * and three screens down, and, in Source, whether it covers the first line of text. Serialised into the page. The pill is
@@ -667,7 +667,7 @@ export function surveyInPage() {
   // Block-level children only: an inline element of raw HTML (a badge, a link) sits on a line of its own.
   const BLOCKS = ['block', 'table', 'list-item', 'flow-root', 'grid', 'flex'];
   const kids = [...a.children].filter((e) => e.getBoundingClientRect().height > 0 && BLOCKS.includes(getComputedStyle(e).display));
-  // Overlap needs the boxes to share some width: a transcript's speaker label hangs beside its turn, not on it (K-11).
+  // Overlap needs the boxes to share some width: a transcript's speaker label hangs beside its turn, not on it.
   for (let i = 1; i < kids.length; i++) {
     const b = kids[i].getBoundingClientRect();
     const above = kids[i - 1].getBoundingClientRect();
@@ -747,7 +747,7 @@ export function spacingAppliedFailures(s) {
 }
 
 /**
- * The body size a kind's profile sets as a multiple of the reader's own text size (K-05b, theme.css: a README is 16 px
+ * The body size a kind's profile sets as a multiple of the reader's own text size (theme.css: a README is 16 px
  * at the reader's 20, a report 17 px). The reader still gets twice the profile's size at 200 %, so that is what the check
  * expects. Written out here, not read from the stylesheet, so a profile whose ratio moves fails the gate until someone
  * says so; a kind with no entry (every other kind, and a page with no kind) is held to the reader's size as before.
@@ -1044,7 +1044,7 @@ function parseArgs(argv) {
   };
   return {
     ref: get('--ref') ?? 'origin/main',
-    out: get('--out') ?? join(root, 'docs/taste-review/2026-10-layout-audit'),
+    out: get('--out') ?? join(root, 'results/probe-layout'),
     files: list('--files', null, false),
     widths: list('--widths', DEFAULTS.widths, true),
     sizes: list('--sizes', DEFAULTS.sizes, true),
@@ -1123,7 +1123,7 @@ export function rankByKind(results, perKind = 3) {
   return out;
 }
 
-/** Per-hypothesis headline numbers: the keys L-01 reads to confirm or kill each hypothesis. */
+/** Per-hypothesis headline numbers: the keys read to confirm or kill each hypothesis. */
 export function headlines(results, statics) {
   const refs = results.filter((r) => r.cell && r.size === 20 && r.variant === 'dark');
   const maxBy = (arr, f) => arr.reduce((m, x) => Math.max(m, f(x) ?? 0), 0);
@@ -1212,7 +1212,7 @@ export function headlines(results, statics) {
     adHocNoticeBuilderLines: statics.H6.adHocBuilders.length,
   };
   out.H7 = {
-    note: 'Source mode is CodeMirror, not part of the render entry: these are static facts with file:line (see static.H7), measured by L-01 where it needs a render.',
+    note: 'Source mode is CodeMirror, not part of the render entry: these are static facts with file:line (see static.H7).',
     syntaxHighlightingReferences: statics.H7.syntaxHighlighting.length,
     contentPaddingRules: statics.H7.contentPadding.length,
     foldGutterAlwaysOn: statics.H7.foldGutter.length > 0,
@@ -1239,7 +1239,8 @@ function leftEdges(cells) {
 }
 
 export async function run(opts) {
-  await buildRenderEntry();
+  // `opts.entryBuilt`: the caller already ran buildRenderEntry() in this process and the source has not changed since.
+  if (!opts.entryBuilt) await buildRenderEntry();
   // `opts.browser`: a browser the caller owns and shares between runs (the determinism test); not closed here.
   const shared = Boolean(opts.browser);
   const browser = opts.browser ?? (await launchWebkit());
@@ -1414,11 +1415,10 @@ export function readmeOf(probe, dir) {
     H6: 'H6. Notices are off the column and out of sight',
   };
   const out = [];
-  out.push(`# Layout audit, October 2026 (L-00)
+  out.push(`# Layout audit
 
-A geometry probe over the corpus. It measures the page and states facts; it does not judge them. L-01
-reads \`probe.json\`, confirms or kills H1 to H7 from it, and writes the findings. Hypotheses are in
-\`docs/plan/roadmap-2026-10/07-layout-and-reading.md\`.
+A geometry probe over the corpus. It measures the page and states facts; it does not judge them: read
+\`probe.json\` to confirm or rule out each of H1 to H7.
 
 - Measured: the working tree at \`${probe.tree.head}\` (\`--ref\` is only a label and selects nothing; this run's label was \`${probe.ref.name}\`, which was \`${probe.ref.sha}\`), ${probe.engine}, ${probe.matrix.documents} documents x ${probe.matrix.cells} cells = ${probe.matrix.documents * probe.matrix.cells} renders.
 - Matrix: widths ${probe.matrix.widths.join(', ')} px; sizes ${probe.matrix.sizes.join(', ')} px; ${probe.matrix.variants.join(' and ')}; scrollbars ${probe.matrix.scrollbars.join(' and ')} (classic is ${probe.matrix.classicScrollbarPx} px, forced with \`::-webkit-scrollbar\` to model WebKitGTK).
@@ -1434,8 +1434,8 @@ node --test scripts/probe-layout.test.mjs                       # the negative c
 \`\`\`
 
 The probe renders through the app harness the aesthetics gate uses (\`apps/desktop/gate.html\`). Two runs
-over the same tree give an identical \`probe.json\` (no timestamps; numbers rounded to 0.01 px). The probe is not
-in CI; L-02 promotes its rules into the gate.
+over the same tree give an identical \`probe.json\` (no timestamps; numbers rounded to 0.01 px). The probe is
+run by hand.
 
 ## How to read it
 
@@ -1499,8 +1499,8 @@ Taken over the size-20, dark cells (both scrollbar modes where the key says so).
 
   out.push(`## The cases
 
-The author has no list of observed errors (ruling of 2026-10-07). The ranked offenders above, per hypothesis, and
-the worst-per-kind tables are the cases L-01 works from; each row names a document, a cell and a byte range, so it can be
+The author has no list of observed errors (by the author's own word). The ranked offenders above, per hypothesis, and
+the worst-per-kind tables are the cases to work from; each row names a document, a cell and a byte range, so it can be
 reproduced with \`--files\`, \`--widths\` and \`--sizes\`.
 `);
 
@@ -1528,13 +1528,13 @@ reproduced with \`--files\`, \`--widths\` and \`--sizes\`.
 ## What the probe does not do, and caveats
 
 - It does not judge. A \`reaches: false\` margin means the document has no ink at the column's right edge, so that asymmetry says nothing.
-- The harness fixes \`#marxy-main\` to the window width; the probe releases it after the render so the main fills the window as it does in the app. A classic scrollbar is injected after the page is set (a scrollbar that appears after first text), which is the H4 case; \`lines\` is read as that reflow leaves it, before the app's own relayout (100 ms after \`clientWidth\` changes, \`apps/desktop/src/app.ts\`). The probe reads two frames after the scrollbar shows, so it cannot say how long an overflow shows; L-01 must not read it as "relayout does not help". Hung hyphens and punctuation are not line overflow and are left out.
-- H5 is untested for nested tables: the corpus has no table inside a list or blockquote, so \`nestedOffenders 0\` means no sample. L-01 should add one synthetic nested-table page.
+- The harness fixes \`#marxy-main\` to the window width; the probe releases it after the render so the main fills the window as it does in the app. A classic scrollbar is injected after the page is set (a scrollbar that appears after first text), which is the H4 case; \`lines\` is read as that reflow leaves it, before the app's own relayout (100 ms after \`clientWidth\` changes, \`apps/desktop/src/app.ts\`). The probe reads two frames after the scrollbar shows, so it cannot say how long an overflow shows; do not read it as "relayout does not help". Hung hyphens and punctuation are not line overflow and are left out.
+- H5 is untested for nested tables: the corpus has no table inside a list or blockquote, so \`nestedOffenders 0\` means no sample. A synthetic nested-table page should be added.
 - The classic-scrollbar column shift and centre offset from the window are what a classic scrollbar is; the visible area stays centred (\`offsetFromClient\` 0). They are not errors.
 - \`--ref\` is a label only. The probe renders whatever tree it runs in; the Measured line says which.
 - The notice is a synthetic region built the way \`apps/desktop/index.html\` builds it; the harness page has none.
 - Light and dark can differ by sub-pixel type weight, so both are kept.
-- Source mode, the palette and the outline are not rendered. H7 is static facts until L-01 probes it.
+- Source mode, the palette and the outline are not rendered. H7 is static facts only.
 `);
   return out.join('\n');
 }

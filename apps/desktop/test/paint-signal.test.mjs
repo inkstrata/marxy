@@ -1,4 +1,4 @@
-// Named checks for MARXY-71: first_text rests on an engine paint signal, not a frame count.
+// Named checks: first_text rests on an engine paint signal, not a frame count.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -33,11 +33,11 @@ function waitOrTimeout(promise, ms) {
   ]);
 }
 
-test('FRAMES_BEFORE_PAINT is still 2, the MARXY-13 requirement this story adds to', () => {
+test('FRAMES_BEFORE_PAINT is still 2, the floor', () => {
   assert.equal(FRAMES_BEFORE_PAINT, 2);
 });
 
-test('criterion 1: readPaintSignal names an engine paint entry and ignores frames', () => {
+test('readPaintSignal names an engine paint entry and ignores frames', () => {
   assert.equal(readPaintSignal({ getEntriesByType: () => [] }), null);
   assert.equal(readPaintSignal({ getEntriesByType: () => [{ name: 'first-contentful-paint', startTime: 12 }] }), 'first-contentful-paint');
   assert.equal(readPaintSignal({ getEntriesByType: () => [{ name: 'first-paint', startTime: 8 }] }), 'first-paint');
@@ -45,7 +45,7 @@ test('criterion 1: readPaintSignal names an engine paint entry and ignores frame
   assert.ok(PAINT_SIGNAL_NAMES.includes('first-paint'));
 });
 
-test('criterion 1: a blank-page paint before the render watermark is not first_text', () => {
+test('a blank-page paint before the render watermark is not first_text', () => {
   const perf = {
     getEntriesByType: () => [
       { name: 'first-paint', startTime: 3 },
@@ -56,7 +56,7 @@ test('criterion 1: a blank-page paint before the render watermark is not first_t
   assert.equal(readPaintSignal(perf, 50), null);
 });
 
-test('criterion 1: waitForEnginePaint resolves only after frames and a paint entry', async () => {
+test('waitForEnginePaint resolves only after frames and a paint entry', async () => {
   const result = await waitForEnginePaint({
     performance: { getEntriesByType: () => [{ name: 'first-contentful-paint', startTime: 1 }] },
     PerformanceObserver: silentObserver,
@@ -68,7 +68,7 @@ test('criterion 1: waitForEnginePaint resolves only after frames and a paint ent
   assert.equal(result.signal, 'first-contentful-paint');
 });
 
-test('criterion 2: visibility hidden is not a paint, even with textContent and frames', async () => {
+test('visibility hidden is not a paint, even with textContent and frames', async () => {
   assert.equal(isDocVisible({}, hidden), false);
   const raced = await waitOrTimeout(waitForEnginePaint({
     performance: { getEntriesByType: () => [{ name: 'first-contentful-paint', startTime: 1 }] },
@@ -81,7 +81,7 @@ test('criterion 2: visibility hidden is not a paint, even with textContent and f
   assert.equal(raced.ok, false, 'a hidden #doc must not resolve the paint wait');
 });
 
-test('criterion 3: a setTimeout rAF shim without a paint entry does not resolve', async () => {
+test('a setTimeout rAF shim without a paint entry does not resolve', async () => {
   const raced = await waitOrTimeout(waitForEnginePaint({
     performance: { getEntriesByType: () => [] },
     PerformanceObserver: silentObserver,
@@ -93,7 +93,7 @@ test('criterion 3: a setTimeout rAF shim without a paint entry does not resolve'
   assert.equal(raced.ok, false, 'frames ticking via setTimeout must not mint first_text');
 });
 
-test('criterion 4: MARK first_text stays two fields and measure-startup still parses it', () => {
+test('MARK first_text stays two fields and measure-startup still parses it', () => {
   const measure = readFileSync(join(repoRoot, 'scripts', 'measure-startup.mjs'), 'utf8');
   const parser = /const m = \/\^MARK \(\\S\+\) \(\\S\+\)\/\.exec\(line\)/;
   assert.match(measure, parser, 'measure-startup.mjs parser changed; this story must not require that');
@@ -105,7 +105,7 @@ test('criterion 4: MARK first_text stays two fields and measure-startup still pa
   assert.equal(Number(m[2]), 1710000000123);
 
   // Read through stripComments (scripts/lib/repo.mjs) so a comment reciting these strings —
-  // rather than the live code — cannot satisfy this pin (MARXY-95 review, criterion 8).
+  // rather than the live code — cannot satisfy this pin.
   const app = stripComments(readFileSync(join(desktop, 'src', 'startup', 'measure.ts'), 'utf8'));
   assert.match(app, /await shell\.mark\('first_text', paintedAt\);/);
   assert.doesNotMatch(app, /mark\('first_text',\s*paintedAt,/);
@@ -114,13 +114,13 @@ test('criterion 4: MARK first_text stays two fields and measure-startup still pa
   assert.match(rust, /writeln!\(out, "MARK \{\} \{\}", name, ms\)/);
 });
 
-test('criterion 5: paint-signal contract and the MARXY-72 frames verdict stay wired', () => {
+test('paint-signal contract and the frames verdict stay wired', () => {
   const measureSrc = stripComments(readFileSync(join(desktop, 'src', 'startup', 'measure.ts'), 'utf8'));
   assert.match(measureSrc, /waitForEnginePaint/);
   assert.match(measureSrc, /signal=\$\{signal\}/);
   assert.match(measureSrc, /frames=\$\{frames\}/);
 
-  // B-08: the measurement lives in startup/measure.ts, not in app.ts.
+  // the measurement lives in startup/measure.ts, not in app.ts.
   const appSrc = stripComments(readFileSync(join(desktop, 'src', 'app.ts'), 'utf8'));
   for (const gone of ['framesObserved', 'observing', 'observeFrame', 'settleReady', 'inHarness']) {
     assert.doesNotMatch(appSrc, new RegExp(`\\b${gone}\\b`), `app.ts must not hold ${gone}`);
@@ -142,7 +142,7 @@ test('criterion 5: paint-signal contract and the MARXY-72 frames verdict stay wi
   assert.match(verdict, /if \(!paintedFramesOk\(frames\)\)/);
 });
 
-test('F-31 paint path: an engine paint entry resolves with its own name, never frames-only', async () => {
+test('paint path: an engine paint entry resolves with its own name, never frames-only', async () => {
   const result = await waitForEnginePaint({
     performance: { getEntriesByType: () => [{ name: 'first-paint', startTime: 1 }] },
     PerformanceObserver: silentObserver,
@@ -156,7 +156,7 @@ test('F-31 paint path: an engine paint entry resolves with its own name, never f
   assert.notEqual(result.signal, FRAMES_ONLY_SIGNAL);
 });
 
-test('F-31 fallback path: frames but no paint entry resolve as frames-only instead of hanging', async () => {
+test('fallback path: frames but no paint entry resolve as frames-only instead of hanging', async () => {
   assert.equal(PAINT_FALLBACK_MS, 2000, 'about 2 s, below the shell deadline of 2.5 s');
   const raced = await waitOrTimeout(waitForEnginePaint({
     performance: { getEntriesByType: () => [] },
@@ -172,7 +172,7 @@ test('F-31 fallback path: frames but no paint entry resolve as frames-only inste
   assert.equal(FRAMES_ONLY_SIGNAL, 'frames-only');
 });
 
-test('F-31 fallback path: a late paint entry inside the window still wins, and the fallback needs two frames', async () => {
+test('fallback path: a late paint entry inside the window still wins, and the fallback needs two frames', async () => {
   let entries = [];
   setTimeout(() => { entries = [{ name: 'first-contentful-paint', startTime: 1 }]; }, 10);
   const late = await waitForEnginePaint({
@@ -199,7 +199,7 @@ test('F-31 fallback path: a late paint entry inside the window still wins, and t
   assert.equal(raced.ok, false, 'no frames, no result');
 });
 
-test('F-31 fallback path: a hidden #doc never falls back to a result', async () => {
+test('fallback path: a hidden #doc never falls back to a result', async () => {
   const raced = await waitOrTimeout(waitForEnginePaint({
     performance: { getEntriesByType: () => [] },
     PerformanceObserver: silentObserver,
@@ -212,11 +212,89 @@ test('F-31 fallback path: a hidden #doc never falls back to a result', async () 
   assert.equal(raced.ok, false);
 });
 
-test('F-31 marker: a frames-only boot says so on MARK painted and prints no first_text', () => {
-  const measureSrc = stripComments(readFileSync(join(desktop, 'src', 'startup', 'measure.ts'), 'utf8'));
-  assert.match(measureSrc, /signal === FRAMES_ONLY_SIGNAL\) return 'frames_only';/);
-  const painted = measureSrc.indexOf("shell.mark('painted'");
-  const guard = measureSrc.indexOf("signal === FRAMES_ONLY_SIGNAL");
-  const firstText = measureSrc.indexOf("shell.mark('first_text'");
-  assert.ok(painted > 0 && painted < guard && guard < firstText, 'the frames-only return sits between painted and first_text');
+test('an FCP from before the watermark resolves frames-only at once, without waiting out the fallback', async () => {
+  const started = Date.now();
+  const result = await waitForEnginePaint({
+    performance: { getEntriesByType: () => [{ name: 'first-contentful-paint', startTime: 40 }] },
+    PerformanceObserver: silentObserver,
+    requestAnimationFrame: rafShim,
+    getComputedStyle: visible,
+    doc: {},
+    after: 100,
+    fallbackMs: 5_000,
+    timeoutMs: 500,
+  });
+  assert.equal(result.signal, FRAMES_ONLY_SIGNAL);
+  assert.equal(result.fcpBeforeMs, 40);
+  assert.ok(Date.now() - started < 300, `waited ${Date.now() - started} ms with the fallback at 5000`);
+});
+
+test('an FCP from before the watermark still needs two frames over a visible doc', async () => {
+  const raced = await waitOrTimeout(waitForEnginePaint({
+    performance: { getEntriesByType: () => [{ name: 'first-contentful-paint', startTime: 40 }] },
+    PerformanceObserver: silentObserver,
+    requestAnimationFrame: rafShim,
+    getComputedStyle: hidden,
+    doc: {},
+    after: 100,
+    fallbackMs: 5_000,
+    timeoutMs: 100,
+  }), 150);
+  assert.equal(raced.ok, false);
+});
+
+test('a largest-contentful-paint entry after the watermark is the engine time and wins over the frame', async () => {
+  const lcp = { name: '', startTime: 150 };
+  class LcpObserver {
+    constructor(cb) { this.cb = cb; }
+    observe({ type }) { if (type === 'largest-contentful-paint') setTimeout(() => this.cb({ getEntries: () => [lcp] }), 5); }
+    disconnect() {}
+  }
+  const result = await waitForEnginePaint({
+    performance: { getEntriesByType: () => [{ name: 'first-contentful-paint', startTime: 40 }] },
+    PerformanceObserver: LcpObserver,
+    requestAnimationFrame: (cb) => setTimeout(() => cb(Date.now()), 20),
+    getComputedStyle: visible,
+    doc: {},
+    after: 100,
+    fallbackMs: 5_000,
+    timeoutMs: 500,
+  });
+  assert.equal(result.signal, 'largest-contentful-paint');
+  assert.equal(result.fcpBeforeMs, null);
+});
+
+test('an LCP from before the watermark is not first_text', async () => {
+  class OldLcp {
+    constructor(cb) { this.cb = cb; }
+    observe({ type }) { if (type === 'largest-contentful-paint') setTimeout(() => this.cb({ getEntries: () => [{ startTime: 10 }] }), 5); }
+    disconnect() {}
+  }
+  const result = await waitForEnginePaint({
+    performance: { getEntriesByType: () => [{ name: 'first-contentful-paint', startTime: 40 }] },
+    PerformanceObserver: OldLcp,
+    requestAnimationFrame: rafShim,
+    getComputedStyle: visible,
+    doc: {},
+    after: 100,
+    fallbackMs: 5_000,
+    timeoutMs: 500,
+  });
+  assert.equal(result.signal, FRAMES_ONLY_SIGNAL);
+});
+
+test('fallback path: a frames-only result carries the time of its frame, not the fallback timer', async () => {
+  const before = Date.now();
+  const result = await waitForEnginePaint({
+    performance: { getEntriesByType: () => [] },
+    PerformanceObserver: silentObserver,
+    requestAnimationFrame: rafShim,
+    getComputedStyle: visible,
+    doc: {},
+    fallbackMs: 150,
+    timeoutMs: 500,
+  });
+  const after = Date.now();
+  assert.equal(result.signal, FRAMES_ONLY_SIGNAL);
+  assert.ok(result.frameAt >= before && result.frameAt <= after - 100, `frameAt ${result.frameAt - before} ms in, resolved ${after - before} ms in`);
 });

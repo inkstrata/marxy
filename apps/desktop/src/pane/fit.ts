@@ -1,4 +1,4 @@
-// Whether the window holds two columns at the typography floor (D-07; ADR-0033's 45 characters, D-02's
+// Whether the window holds two columns at the typography floor (45 characters, the
 // arithmetic). The numbers are read from the page, the same ones the divider clamps with; the refusal
 // names the width worked out from them, never a typed one.
 
@@ -11,29 +11,30 @@ export function readSplitMetrics(main: HTMLElement): SplitMetrics {
   return splitMetrics(main);
 }
 
+/**
+ * How wide the panes' grid would be with two panes, where something lays the window out around them (the frame lets
+ * its panel step aside, then lays the drawer over the page, before two columns are refused). Null: `main` as it is.
+ */
+let splitRoom: (() => number | null) | null = null;
+
+export function setSplitRoom(room: (() => number | null) | null): void {
+  splitRoom = room;
+}
+
+const roomFor = (main: HTMLElement): number => splitRoom?.() ?? main.clientWidth;
+
 /** Whether `main` is wide enough to show two panes side by side. */
 export function canShowTwoColumns(main: HTMLElement): boolean {
-  return fitsTwoColumns(main.clientWidth, readSplitMetrics(main));
+  return fitsTwoColumns(roomFor(main), readSplitMetrics(main));
 }
 
 /**
- * What the unfolded workspace takes from the window on each side of the panes: its wider panel, read from the
- * page (`--marxy-ws-left` and `--marxy-ws-right`, base.css). Zero folded, where `main` is the window.
- */
-function workspaceSides(): number {
-  const body = document.body;
-  if (!body.hasAttribute('data-marxy-workspace')) return 0;
-  const style = getComputedStyle(body);
-  const side = (name: string): number => parseFloat(style.getPropertyValue(name)) || 0;
-  return 2 * Math.max(side('--marxy-ws-left'), side('--marxy-ws-right'));
-}
-
-/**
- * What the reader is told when a second pane would not fit: the narrowest window, in whole pixels. Unfolded,
- * the panels beside the panes are part of the window the panes must fit in.
+ * What the reader is told when a second pane would not fit: the narrowest window, in whole pixels, counting what the
+ * window holds beside the panes.
  */
 export function splitFitNotice(main: HTMLElement): string {
-  const width = Math.floor(minSplitWidth(readSplitMetrics(main)) + workspaceSides());
+  const beside = Math.max(0, window.innerWidth - roomFor(main));
+  const width = Math.floor(minSplitWidth(readSplitMetrics(main)) + beside);
   return `Marxy needs a window at least ${width} px wide to show two documents side by side.`;
 }
 

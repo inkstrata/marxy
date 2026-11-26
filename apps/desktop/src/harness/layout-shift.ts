@@ -1,6 +1,6 @@
-// Layout-shift measurement for the aesthetics gate (B-01): block snapshots keyed by provenance, the
+// Layout-shift measurement for the aesthetics gate: block snapshots keyed by provenance, the
 // moved area between two of them, and the report the gate reads. Copied unchanged from
-// the headless render entry B-02 deleted once the gate rendered through the app (gate-entry.ts).
+// the headless render entry deleted once the gate rendered through the app (gate-entry.ts).
 
 /** In-page layout-shift report. `observed` is never implied by `cls === 0`. */
 export interface LayoutShift {
@@ -187,7 +187,7 @@ export function finishShift(snaps: readonly BlockRect[][]): LayoutShift {
     );
   }
   // Counted intervals, in order:
-  //   snaps[0]→[1]  font/image window (ADR-0014). Size tokens, content fonts, and the grid
+  //   snaps[0]→[1]  font/image window. Size tokens, content fonts, and the grid
   //                 have already settled; snapToGrid is not run again in this interval, so a
   //                 non-idempotent grid pass cannot masquerade as shift. A swap here is a
   //                 face that loaded after we thought fonts were ready, or a late image
@@ -196,7 +196,7 @@ export function finishShift(snaps: readonly BlockRect[][]): LayoutShift {
   //                 fails. If this interval is often 0 on the corpus, that is the page a
   //                 reader of an already-sized document sees, not a dead check.
   //   typeset       excluded. The breaker may change a line count (14-marxy-plan at 960/1280);
-  //                 ADR-0014's window is fonts and images, not Knuth–Plass. That paint is
+  //                 the window is fonts and images, not Knuth–Plass. That paint is
   //                 flushed before the post-typeset snapshot so it does not leak into settle.
   //   last two      settle frame after the set page. A late image after typeset still fails.
   const fontSwap = movedFraction(snaps[0], snaps[1]);

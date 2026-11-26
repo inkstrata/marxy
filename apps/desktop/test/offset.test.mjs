@@ -1,4 +1,4 @@
-// The Linux weight offset (B-07): one documented constant, `0` elsewhere, config override.
+// The Linux weight offset: one documented constant, `0` elsewhere, config override.
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';

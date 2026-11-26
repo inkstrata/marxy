@@ -1,5 +1,5 @@
-// Paste in the Source editor (J-05, ADR-0065 §3). A `paste` event that carries HTML is taken: the pasteboard
-// is read through the shell on that reader action, HTML becomes Markdown (E-14) and goes in at every selection
+// Paste in the Source editor. A `paste` event that carries HTML is taken: the pasteboard
+// is read through the shell on that reader action, HTML becomes Markdown and goes in at every selection
 // as one transaction, one undo step, in the buffer's own line break. A paste with no HTML is left to the
 // editor, byte for byte. `Mod+Alt+Shift+V` inserts the plain text unconverted. Lazy-loaded with the editor.
 import { isolateHistory } from '@codemirror/commands';
@@ -12,7 +12,7 @@ import { readableText } from '@marxy/core';
 
 /**
  * What `text` becomes in `state`: no U+FEFF, every line break (LF, CRLF, CR) written as the document's own, and no
- * lone surrogate (a paste read through the shell never names a byte that is not UTF-8, F-34.1).
+ * lone surrogate (a paste read through the shell never names a byte that is not UTF-8).
  */
 export function pastedText(text: string, state: Pick<EditorState, 'lineBreak'>): string {
   return readableText(text).replace(/﻿/g, '').replace(/\r\n?|\n/g, state.lineBreak);
@@ -116,7 +116,7 @@ export function pasteExtension(): Extension {
       // A shell that has said it has no pasteboard leaves the paste to the editor, from the second paste on.
       if (!shell || unsupportedShells.has(shell)) return false;
       // Until the shell has answered once, keep the text this paste carries, so that a shell with no pasteboard
-      // (not macOS) still pastes it: it is the reader's own paste, held in memory and used only for that.
+      // (Linux) still pastes it: it is the reader's own paste, held in memory and used only for that.
       const fallback = answered.has(shell) ? null : (event.clipboardData?.getData('text/plain') ?? null);
       event.preventDefault();
       void pasteFromClipboard(view, shell, fallback);

@@ -1,4 +1,4 @@
-// Which checkout a file belongs to, and which repository that checkout is a copy of (C-15).
+// Which checkout a file belongs to, and which repository that checkout is a copy of.
 // A repository can be checked out many times (`git worktree`): every copy holds the same documents.
 // These two functions name the checkout and the repository; the palette folds copies by them.
 // Pure and host-injected, like the rest of the index model: the host says where `.git` is.

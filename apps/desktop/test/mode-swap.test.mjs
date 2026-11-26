@@ -6,7 +6,7 @@ import { extname, join } from 'node:path';
 import { after, test as nodeTest } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1' ? 'no webkit' : false;
@@ -98,6 +98,16 @@ const sourceAtReadingLine = (page) => page.evaluate((y) => {
   });
   return line?.textContent ?? null;
 }, READING_LINE);
+/**
+ * Scrolls Source so that line `n` (0-based) sits on the reading line. The frame fixes Source's mount under the head
+ * and the editor scrolls in it: the window does not move in Source.
+ */
+const scrollSourceToLine = (page, n) => page.evaluate(({ n, y }) => {
+  const scroller = document.querySelector('#marxy-source .cm-scroller');
+  const lineH = document.querySelector('#marxy-source .cm-line').getBoundingClientRect().height;
+  const contentTop = document.querySelector('#marxy-source .cm-content').getBoundingClientRect().top + scroller.scrollTop;
+  scroller.scrollTop = Math.round(contentTop + n * lineH + lineH / 2 - y);
+}, { n, y: READING_LINE });
 async function withPage(fn) {
   const browser = await launchWebkit();
   try {
@@ -115,7 +125,7 @@ async function typeAtStart(page, text) {
   await page.keyboard.type(text);
 }
 
-// V-15 acceptance, as the card words it.
+// Acceptance checks.
 
 test('an edit in Source, a scroll far away and Mod+E: the block under the reading line stays, and the page is typeset', async () => {
   await withPage(async (page) => {
@@ -126,15 +136,18 @@ test('an edit in Source, a scroll far away and Mod+E: the block under the readin
     await toSource(page);
     await page.waitForTimeout(300);
     await typeAtStart(page, ' E');
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight * 0.8));
+    await scrollSourceToLine(page, Math.floor(wrappedMd.split('\n').length * 0.8));
     await page.waitForTimeout(300);
     const inSource = await sourceAtReadingLine(page);
     await toRendered(page);
     const first = await renderedAtReadingLine(page);
     assert.ok(first?.text?.startsWith(inSource.slice(0, 4)), `Rendered is at ${first?.text}, Source was at ${inSource}`);
-    await page.waitForTimeout(1000);
+    // The typesetter sets the page around the reader for a while yet: until it has set every paragraph, not a fixed time.
+    await page
+      .waitForFunction(() => [...document.querySelectorAll('#doc > p')].every((p) => p.classList.contains('marxy-set')), null, { timeout: 15_000 })
+      .catch(() => {});
     const later = await renderedAtReadingLine(page);
-    assert.equal(later?.s, first.s, 'the same block one second later');
+    assert.equal(later?.s, first.s, 'the same block once the page is typeset');
     assert.ok(Math.abs(later.top - first.top) <= 1, `moved ${later.top - first.top}px`);
     const unset = await page.evaluate(() => [...document.querySelectorAll('#doc > p')].filter((p) => !p.classList.contains('marxy-set')).length);
     assert.equal(unset, 0, `${unset} paragraphs are not typeset`);
@@ -264,8 +277,7 @@ for (const [name, path, text] of [['inventory.py', '/d/inventory.py', inventoryP
       await page.waitForFunction(() => document.querySelector('#marxy-source .cm-line') || document.querySelector('#doc [data-marxy-s]'));
       if (await mode(page) !== 'source') await toSource(page);
       await page.waitForTimeout(300);
-      const lineH = await page.evaluate(() => document.querySelector('#marxy-source .cm-line').getBoundingClientRect().height);
-      await page.evaluate((y) => window.scrollTo(0, y), Math.round(45 * lineH - READING_LINE + lineH / 2));
+      await scrollSourceToLine(page, 45);
       await page.waitForTimeout(400);
       const before = await readingByte(page);
       const bytes = Buffer.from(text);
@@ -309,9 +321,6 @@ for (const [ext, body] of [['md', MD_BODY], ['py', PY_BODY]]) {
         await boot(page, { [path]: original.toString('base64') }, [path]);
         if (await mode(page) !== 'source') await toSource(page);
         await page.waitForSelector('#marxy-source .cm-line');
-        // Read before anything is typed: a code file's Markdown parse waits for the first ask for Rendered (V-11.1).
-        const deferred = ext === 'py' ? await page.evaluate(() => window.__marxyHandle.document().parsed()) === false : null;
-        if (ext === 'py') assert.equal(deferred, true, 'the parse of a code file is still deferred');
         // No edit: there and back, the same bytes and nothing to save.
         await toRendered(page);
         assert.deepEqual(await bufferBytes(page), [...original]);
@@ -331,10 +340,11 @@ for (const [ext, body] of [['md', MD_BODY], ['py', PY_BODY]]) {
   }
 }
 
-test('a .py edited in Source and left at once, before its Markdown parse was ever made, shows the edit in Rendered', async () => {
+// Text no reading knows (`.rst`) still opens in Source with its parse deferred; code lands in Read.
+test('a .rst edited in Source and left at once, before its Markdown parse was ever made, shows the edit in Rendered', async () => {
   await withPage(async (page) => {
     const original = Buffer.from(PY_BODY);
-    await boot(page, { '/d/file.py': original.toString('base64') }, ['/d/file.py']);
+    await boot(page, { '/d/file.rst': original.toString('base64') }, ['/d/file.rst']);
     await page.waitForSelector('#marxy-source .cm-line');
     assert.equal(await page.evaluate(() => window.__marxyHandle.document().parsed()), false);
     await typeAtStart(page, 'ZZ');
@@ -376,8 +386,10 @@ test('Rendered after an edit is current whichever way Source was left: Read, Mod
  * What a cause does while Source shows (`cause`, run with the page in Source): the hidden article is left alone (no
  * mutation, no repaint), and the first frame Rendered is visible again shows a page set after the cause, not the old
  * one. Each cause is its own test, so that one `pageStale = true` removed fails its own and no other cause covers it.
+ * A change to the bytes of a long page replaces only the blocks it touched (`replaced`, a selector for them): those are
+ * new, and the rest of the page may be kept.
  */
-async function staleCase({ files, path, cause, setup, wanted, typeset = true }) {
+async function staleCase({ files, path, cause, setup, wanted, typeset = true, replaced = null }) {
   await withPage(async (page) => {
     await boot(page, files, [path]);
     await settle(page);
@@ -401,7 +413,7 @@ async function staleCase({ files, path, cause, setup, wanted, typeset = true }) 
     }));
     assert.deepEqual(quiet, { mutations: 0, repaints: 0 }, 'the hidden article was set while Source showed');
     // The first moment the article is visible again.
-    await page.evaluate(() => {
+    await page.evaluate((replaced) => {
       const article = document.getElementById('doc');
       window.__first = null;
       window.__observer.disconnect();
@@ -410,19 +422,30 @@ async function staleCase({ files, path, cause, setup, wanted, typeset = true }) 
         const ps = [...article.querySelectorAll(':scope > p')];
         window.__first = {
           text: article.textContent,
+          kept: [...article.children].filter((el) => el.__old === true).length,
+          top: article.childElementCount,
+          replacedOld: replaced === null ? null : [...article.querySelectorAll(replaced)].some((el) => el.__old === true || [...el.querySelectorAll('*')].some((c) => c.__old === true)),
           details: article.querySelector('details') !== null,
           old: [...article.querySelectorAll('*')].some((el) => el.__old === true),
           fontSize: ps[0] ? getComputedStyle(ps[0]).fontSize : null,
         };
       }).observe(article, { attributes: true, attributeFilter: ['hidden'] });
-    });
+    }, replaced);
     await toRendered(page);
     await settle(page);
     const first = await page.evaluate(() => window.__first);
     assert.ok(first, 'Rendered was never visible');
-    assert.equal(first.old, false, 'Rendered came back showing the page it had before the cause');
+    if (replaced === null) assert.equal(first.old, false, 'Rendered came back showing the page it had before the cause');
+    else {
+      assert.equal(first.replacedOld, false, 'Rendered came back showing the changed block as it was before the cause');
+      assert.equal(first.kept, first.top - 1, `${first.kept} of ${first.top} top-level blocks kept: only the changed one is new`);
+    }
     wanted(first);
     if (typeset) {
+      // Paragraphs are set in budgeted chunks around the reader: wait for the typesetter to finish, not a fixed time.
+      await page
+        .waitForFunction(() => [...document.querySelectorAll('#doc > p')].every((p) => p.classList.contains('marxy-set')), null, { timeout: 15_000 })
+        .catch(() => {});
       const unset = await page.evaluate(() => [...document.querySelectorAll('#doc > p')].filter((p) => !p.classList.contains('marxy-set')).length);
       assert.equal(unset, 0, `${unset} paragraphs are not typeset`);
     }
@@ -442,6 +465,8 @@ test('while Source shows, a reload from disk leaves the hidden page alone, and R
       }, wrappedMd.replace('# Wrapped', '# Wrapped by disk'));
       await page.waitForFunction(() => document.querySelector('#marxy-source .cm-content').textContent.includes('by disk'));
     },
+    // Over the size the page is patched at: the heading the reload changed is replaced, every paragraph kept.
+    replaced: '#doc > h1',
     wanted: (first) => assert.ok(first.text.includes('Wrapped by disk'), 'the first frame of Rendered is not the file as it now is'),
   });
 });

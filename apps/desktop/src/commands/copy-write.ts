@@ -1,4 +1,4 @@
-// The one path a copy takes to the pasteboard (J-04, ADR-0065 §2): one item holding every representation
+// The one path a copy takes to the pasteboard: one item holding every representation
 // the copy has (plain text always, HTML when it has any), written through `clipboardWriteItem`, and one quiet
 // notice that says the format and the size. Where the shell has no native pasteboard (it answers `unsupported`)
 // the same copy goes through `clipboardWrite`, and the notice is unchanged. Nothing is read from the pasteboard.
@@ -30,7 +30,7 @@ const unsupported = (err: unknown): boolean => (err as { code?: string } | null)
  * shell refuses says so instead, and returns false.
  */
 export async function writeCopy(ctx: AppContext, rep: CopyRep, label: string): Promise<boolean> {
-  // A log being filtered (K-08) is not yet what the reader will have: a copy now would take lines the filter is about to hide.
+  // A log being filtered is not yet what the reader will have: a copy now would take lines the filter is about to hide.
   if (ctx.renderedPage?.()?.article.classList.contains('marxy-log-filter-busy')) {
     ctx.closePalette();
     ctx.showNotice('Still filtering this log · nothing was copied · try again when the filter is done', { kind: 'refused' });

@@ -1,9 +1,9 @@
-// F-45: a "no displacement" guard. Chrome that appears on a command (a sheet, a popup, a menu, a picker) floats over the
+// a "no displacement" guard. Chrome that appears on a command (a sheet, a popup, a menu, a picker) floats over the
 // page or sits in the chrome; the reading column and the text under it do not move by a pixel. For each surface in
 // SURFACES below: scroll the article partway, record the first visible line's rect and the scroll position, open the
 // surface, check both are unchanged, close it, check again. The real app over the memory shell, in WebKit.
 //
-// Notices are covered (F-46, U-02): a notice is a pill floated at the foot of its pane, off the column's flow, so raising or
+// Notices are covered: a notice is a pill floated at the foot of its pane, off the column's flow, so raising or
 // dismissing one (an outcome, a refusal, a decision that takes focus, three stacked) moves nothing. A floating notice can
 // cover a line of text while it is up; the guard measures the rect and the scroll, not the cover. Notices over Source are
 // measured in test/notices-pill.test.mjs, where the editor's own lines are the text.
@@ -34,8 +34,6 @@ const B = '/r/other.md';
 const DOC = skip ? '' : readFileSync(join(corpus, '01-long-technical.md'), 'utf8');
 const TEXT = 'public.utf8-plain-text';
 const FIRST_TRANSFORM = TRANSFORMS[0].name;
-// The skill file with front matter (W-17): its head is the first thing on the page, and the metadata preview sits beside it.
-const SKILL = skip ? '' : readFileSync(join(corpus, '26-skill-front-matter.md'), 'utf8');
 
 const escapeKey = (page) => page.keyboard.press('Escape');
 const gone = (page, selector) => page.waitForFunction((sel) => !document.querySelector(sel), selector);
@@ -51,17 +49,6 @@ export const SURFACES = [
     close: async (page) => {
       await escapeKey(page);
       await page.waitForFunction(() => !document.getElementById('marxy-palette')?.open);
-    },
-  },
-  {
-    name: 'outline',
-    open: async (page, s) => {
-      await page.keyboard.press(`${s.mod}+Shift+KeyO`);
-      await page.waitForSelector('#marxy-outline[open]');
-    },
-    close: async (page) => {
-      await escapeKey(page);
-      await page.waitForFunction(() => !document.getElementById('marxy-outline')?.open);
     },
   },
   {
@@ -189,7 +176,7 @@ export const SURFACES = [
     },
   },
   {
-    // The Source frame (V-05) is chrome that arrives with a mode: Source in the other pane brings its bars and ruler, and the
+    // The Source frame is chrome that arrives with a mode: Source in the other pane brings its bars and ruler, and the
     // reading column beside it does not move. It needs a second pane, so it runs split only.
     name: 'Source in the other pane (opened, then left)',
     splitOnly: true,
@@ -205,7 +192,7 @@ export const SURFACES = [
     },
   },
   {
-    // The replace preview (V-03) is Source's: it opens over the other pane's editor, and the reading column beside it
+    // The replace preview is Source's: it opens over the other pane's editor, and the reading column beside it
     // does not move while it is up or when it goes. Split only, as above.
     name: 'replace preview (Replace all… in Source in the other pane)',
     splitOnly: true,
@@ -230,7 +217,7 @@ export const SURFACES = [
     },
   },
   {
-    // The New menu (W-14): the toolbar's + when the window is unfolded, else the same menu opened by its command at the window's
+    // The New menu: the toolbar's + when the window is unfolded, else the same menu opened by its command at the window's
     // corner. It floats over the page and is gone when closed; the reading column does not move for it.
     name: 'New menu (opened, then closed)',
     open: async (page) => {
@@ -248,29 +235,6 @@ export const SURFACES = [
     close: async (page) => {
       await escapeKey(page);
       await gone(page, '.marxy-verb-menu');
-    },
-  },
-  {
-    // The metadata preview (W-17) is a zero-height sticky layer in the pane's margin, so it takes no room in the column. It needs
-    // a margin: unfolded at this width the same command docks the inspector instead, a region, which has its own guard
-    // (test/metadata.test.mjs, src/workspace/inspector.test.mjs). So it runs folded only.
-    name: 'metadata preview (⌃⌘I, then off)',
-    foldedOnly: true,
-    open: async (page) => {
-      await page.evaluate(async () => {
-        const { buildAppContext } = await import('/src/selection/bind.ts');
-        const handle = window.__marxyHandle;
-        await handle.commands().find((c) => c.id === 'view.metadata').run(buildAppContext(handle));
-      });
-      await page.waitForSelector('.marxy-metadata-preview');
-    },
-    close: async (page) => {
-      await page.evaluate(async () => {
-        const { buildAppContext } = await import('/src/selection/bind.ts');
-        const handle = window.__marxyHandle;
-        await handle.commands().find((c) => c.id === 'view.metadata').run(buildAppContext(handle));
-      });
-      await gone(page, '.marxy-metadata-preview');
     },
   },
   {
@@ -342,6 +306,25 @@ async function withApp(fn, { split = false, doc = DOC } = {}) {
 
 const settle = (page) => page.evaluate(() => new Promise((r) => setTimeout(r, 250)));
 
+/**
+ * Idle typesetting goes on re-setting paragraphs below the screen after the page is shown (test/settle.mjs), and in a
+ * split the window does not scroll, so the article's own height is what is waited on: still across ten 100 ms samples.
+ */
+const settled = (page) =>
+  page.evaluate(async () => {
+    let last = -1;
+    let still = 0;
+    while (still < 10) {
+      await new Promise((r) => setTimeout(r, 100));
+      const h = document.getElementById('doc').getBoundingClientRect().height;
+      if (h === last) still++;
+      else {
+        still = 0;
+        last = h;
+      }
+    }
+  });
+
 /** The window as the reader has it: folded (the column alone), or unfolded (the workspace around it). */
 const WINDOWS = ['folded', 'unfolded', 'split'];
 
@@ -352,10 +335,10 @@ for (const windowState of WINDOWS) {
     if (windowState !== 'folded' && surface.foldedOnly) continue;
     test(`${windowState}: ${surface.name}: opening and closing it moves neither the first visible line nor the scroll position`, async () => {
       await withApp(async (page, s) => {
-        if (windowState === 'unfolded') await page.evaluate(() => window.__marxyHandle.workspace().unfold());
+        if (windowState === 'unfolded') await page.evaluate(() => window.__marxyHandle.frame().unfold());
         // Split: each pane scrolls on its own; the window does not.
         await page.evaluate(() => (document.querySelector('#marxy-main[data-marxy-split]') ? document.querySelector('.marxy-pane').scrollTo(0, 1500) : window.scrollTo(0, 1500)));
-        await settle(page);
+        await settled(page);
         const before = await measure(page);
         assert.ok(before.line, 'a line of text is visible');
         assert.ok(before.scrollY > 0 || before.paneScrollTop > 0, 'the article is scrolled');
@@ -369,23 +352,3 @@ for (const windowState of WINDOWS) {
     });
   }
 }
-
-// W-17: on the skill file, whose front matter is the first thing on the page, `⌃⌘I` shows the preview beside it and moves no line.
-test('folded: ⌃⌘I on the skill front-matter file puts its keys in the margin and moves neither the first visible line nor the scroll position', async () => {
-  const surface = SURFACES.find((s) => s.name.startsWith('metadata preview'));
-  await withApp(async (page, s) => {
-    for (const scroll of [0, 1500]) {
-      await page.evaluate((y) => window.scrollTo(0, y), scroll);
-      await settle(page);
-      const before = await measure(page);
-      assert.ok(before.line, 'a line of text is visible');
-      await surface.open(page, s);
-      await settle(page);
-      assert.deepEqual(await measure(page), before, `at ${scroll}: open`);
-      assert.ok((await page.locator('.marxy-metadata-preview-list > dt').allTextContents()).includes('name'), 'the front matter is in the margin');
-      await surface.close(page, s);
-      await settle(page);
-      assert.deepEqual(await measure(page), before, `at ${scroll}: closed`);
-    }
-  }, { doc: SKILL });
-});

@@ -1,4 +1,4 @@
-// A cheap look at the text for a document that nests past doubt, so that it is never handed to micromark (F-54).
+// A cheap look at the text for a document that nests past doubt, so that it is never handed to micromark.
 //
 // micromark's own time grows faster than the square of the nesting: a 12,000-level list takes twelve seconds
 // before `from-mdast.ts` sees a node. So a source that is deep past doubt is judged on its text. The scan is
@@ -12,6 +12,12 @@ import { nextLineEnding } from './line-endings.ts';
 
 /** A line must open with more markers than this to be judged without a parse: four times the real cap. */
 export const SCAN_MARKERS = MAX_NESTING_DEPTH * 4;
+
+/**
+ * More list levels than this open by indentation, one item a line, and the document is judged without a parse
+ * (an 800-level staircase took micromark 10 s). Twice the cap: each level counted is a certain one.
+ */
+export const SCAN_INDENTED_LEVELS = MAX_NESTING_DEPTH * 2;
 
 const isSpace = (c: number): boolean => c === 32 || c === 9;
 const isDigit = (c: number): boolean => c >= 48 && c <= 57;
@@ -180,8 +186,9 @@ function endsSkipping(skip: Skipping, text: string, at: number, end: number, lin
 /**
  * Whether some line opens with more than `SCAN_MARKERS` container markers in a row (`> > > …`, `- - - …`,
  * `1. 1. 1. …`), where those markers can only be containers: not in a fenced or indented code block, raw
- * HTML, a math block or frontmatter, and not a thematic break. A document that fails this still gets the
- * exact count from the parsed tree; a document that passes it is deeper than the cap by construction.
+ * HTML, a math block or frontmatter, and not a thematic break. Or whether more than `SCAN_INDENTED_LEVELS`
+ * lists are open by indentation, one item a line. A document that fails this still gets the exact count from
+ * the parsed tree; a document that passes it is deeper than the cap by construction.
  */
 export function opensWithTooManyMarkers(text: string): boolean {
   const n = text.length;
@@ -192,11 +199,17 @@ export function opensWithTooManyMarkers(text: string): boolean {
   const head = text.slice(0, first).trimEnd();
   if (head === '---' || head === '+++') skip = { kind: 'frontmatter', line: head };
   let firstLine = skip !== null;
+  // The content column of each list item a staircase has open, innermost last.
+  const items: number[] = [];
+  // Where a fence, raw HTML or math in an item or a quote ends depends on columns the item count does not
+  // follow, and a line it takes for content could be inside one. From the first such block it counts no more.
+  let blind = false;
   while (at < n) {
     const ending = nextLineEnding(text, at);
     const end = ending?.start ?? n;
     const line = opening(text, at, end);
     const { markers, content } = line;
+    const indent = blind ? null : closeItems(items, text, at, end);
     if (skip !== null) {
       // The opening line of the frontmatter is not its own closer.
       if (firstLine) firstLine = false;
@@ -204,8 +217,66 @@ export function opensWithTooManyMarkers(text: string): boolean {
     } else {
       if (markers > SCAN_MARKERS) return true;
       skip = startsSkipping(text, content, end, line.quotes);
+      if (indent !== null) {
+        const inner = openItems(items, text, indent, end);
+        if (items.length > SCAN_INDENTED_LEVELS) return true;
+        // One that starts past the three spaces `opening` looks through is in an item, or is code.
+        const nested = skip !== null
+          ? items.length > 0 || line.quotes > 0 || inner.quotes > 0 || indent.tabbed
+          : inner.content !== content && startsSkipping(text, inner.content, end, inner.quotes) !== null;
+        if (nested) blind = true;
+      }
     }
     at = ending?.end ?? n;
   }
   return false;
+}
+
+/** A line's indentation: how many spaces, where its text starts, and whether a tab made its columns unknown. */
+interface Indent {
+  readonly spaces: number;
+  readonly first: number;
+  readonly tabbed: boolean;
+}
+
+/**
+ * Closes the open items that the line `[at, end)` is not indented into, and returns its indentation, or `null`
+ * for a blank line (which closes nothing). Closing too much only undercounts, so a line indented with a tab
+ * closes them all, as a lazy continuation line does by its indentation.
+ */
+function closeItems(items: number[], text: string, at: number, end: number): Indent | null {
+  let i = at;
+  while (i < end && text.charCodeAt(i) === 32) i++;
+  let first = i;
+  while (first < end && isSpace(text.charCodeAt(first))) first++;
+  if (first === end) return null;
+  const tabbed = first !== i;
+  if (tabbed) items.length = 0;
+  const spaces = i - at;
+  while (items.length > 0 && items[items.length - 1]! > spaces) items.pop();
+  return { spaces, first, tabbed };
+}
+
+/**
+ * Opens the items the line begins inside the innermost open item, and returns how the line opens. Only a
+ * certain nesting counts: the markers must sit less than four columns into that item (more is code or a
+ * paragraph's continuation), carry content (an empty item can end at a blank line) and have only spaces after
+ * them (a tab's width depends on its column). A quote marker leaves columns the count does not follow, so it
+ * starts the count again.
+ */
+function openItems(items: number[], text: string, indent: Indent, end: number): Opening {
+  const line = opening(text, indent.first, end);
+  if (indent.tabbed || indent.spaces - (items[items.length - 1] ?? 0) >= 4) return line;
+  const { markers, quotes, content } = line;
+  if (quotes > 0) {
+    items.length = 0;
+    return line;
+  }
+  if (markers === 0) return line;
+  for (let i = indent.first; i < content; i++) if (text.charCodeAt(i) === 9) return line;
+  let rest = content;
+  while (rest < end && isSpace(text.charCodeAt(rest))) rest++;
+  if (rest === end) return line;
+  for (let k = 0; k < markers; k++) items.push(indent.spaces + content - indent.first);
+  return line;
 }

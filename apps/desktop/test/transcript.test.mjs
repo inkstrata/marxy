@@ -1,4 +1,4 @@
-// A Markdown transcript (K-11; ADR-0060, Reader Artifacts 10-spec "Speaker labels"): each speaker heading is an
+// A Markdown transcript (Reader Artifacts 10-spec "Speaker labels"): each speaker heading is an
 // outdented small-capitals label left of its turn, the text column keeps its own left edge, exchanges are 30 px
 // apart and paragraphs within a turn 15. The labels are still headings with their own text. The app boots on the
 // shipped skeleton and its inline default theme over the memory shell, so these are the rules the app ships.
@@ -63,8 +63,15 @@ const geometry = (page) =>
       paragraphGap: box(second).top - box(text).bottom,
       exchangeGap: box(next).top - box(next.previousElementSibling).bottom,
       caps: labelCs.fontVariantCaps,
-      color: labelCs.color,
-      bodyColor: getComputedStyle(text).color,
+      colors: labels.map((l) => getComputedStyle(l).color),
+      strongInk: (() => {
+        const probe = document.createElement('i');
+        probe.style.color = 'var(--marxy-color-text-strong)';
+        article.append(probe);
+        const c = getComputedStyle(probe).color;
+        probe.remove();
+        return c;
+      })(),
       labelWeights: labels.map((l) => getComputedStyle(l).fontWeight),
     };
   });
@@ -79,7 +86,8 @@ test('a transcript hangs each speaker label left of its turn, and the text colum
     assert.ok(Math.abs(g.textLeft - g.contentLeft) < 0.5, `the text starts at the article's own content edge (${g.textLeft} vs ${g.contentLeft}), as an article's paragraph does`);
     assert.ok(Math.abs(g.labelTop - g.textTop) < 1, 'the label is on the first line of its turn');
     assert.equal(g.caps, 'all-small-caps');
-    assert.equal(g.color, g.bodyColor, 'colour never carries the speaker');
+    // Headings, and so the labels, are set in the strong ink: one ink for every speaker, never a colour per speaker.
+    assert.deepEqual(new Set(g.colors), new Set([g.strongInk]), 'colour never carries the speaker');
   }));
 
 test('the labels are still headings with their own text, and exchanges and paragraphs are spaced 30 and 15', () =>

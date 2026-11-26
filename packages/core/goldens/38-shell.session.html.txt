@@ -1,4 +1,4 @@
-<pre class="language-terminal marxy-run" data-marxy-s="0" data-marxy-e="613"><code class="language-terminal" data-marxy-s="0" data-marxy-e="613">ian@eris ~/Code/tidemark % git status --short
+<pre class="language-terminal marxy-run" data-marxy-lang="terminal" data-marxy-s="0" data-marxy-e="613"><code class="language-terminal" data-marxy-s="0" data-marxy-e="613">ian@eris ~/Code/tidemark % git status --short
  M Cargo.toml
  M src/harmonics/tables/loader.rs
 ?? logs/build-2026-10-09.log

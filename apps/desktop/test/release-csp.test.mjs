@@ -1,4 +1,4 @@
-// Built renderer under the release CSP (configured policy + style nonce): palette, KaTeX, hyphen, theme (MARXY-250).
+// Built renderer under the release CSP (configured policy + style nonce): palette, KaTeX, hyphen, theme.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import {
   injectStyleNonces,
   loadConfiguredCsp,
@@ -16,13 +16,14 @@ import {
   runtimeStyleProblems,
 } from '../../../scripts/check-csp.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const desktopRoot = join(repoRoot, 'apps', 'desktop');
 const mathMd = readFileSync(join(repoRoot, 'fixtures', 'corpus', '06-math.md'));
 const longTechnical = readFileSync(join(repoRoot, 'fixtures', 'corpus', '01-long-technical.md'));

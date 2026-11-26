@@ -1,4 +1,4 @@
-// Each pane its own scroller (D-05): with two panes each section scrolls on its own and its view reads
+// Each pane its own scroller: with two panes each section scrolls on its own and its view reads
 // and holds its place there; with one pane the window scrolls as it always has, and splitting and
 // closing keep the reader on the same block. Booted on the shipped skeleton and CSS
 // (test/support/two-pane.mjs), over the memory shell.
@@ -106,7 +106,9 @@ test('the mouse wheel over a pane scrolls only that pane, and its view follows',
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
     await settle(page);
-    await page.mouse.move(1100, 350);
+    // The middle of each pane: a fixed x now falls in the left section.
+    const [leftX, rightX] = await page.evaluate(() => window.__marxyHandle.panes().panes.map((p) => { const r = p.host.getBoundingClientRect(); return Math.round(r.left + r.width / 2); }));
+    await page.mouse.move(rightX, 350);
     await page.mouse.wheel(0, 500);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].host.scrollTop > 0);
     await scrollsSettled(page);
@@ -116,7 +118,7 @@ test('the mouse wheel over a pane scrolls only that pane, and its view follows',
     assert.equal(right.panes[0].byteOffset, 0);
     assert.ok(right.panes[1].byteOffset > 0);
     // And over the left pane: the left one, and its view reads it.
-    await page.mouse.move(350, 350);
+    await page.mouse.move(leftX, 350);
     await page.mouse.wheel(0, 500);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].host.scrollTop > 0);
     await scrollsSettled(page);
@@ -291,7 +293,7 @@ test('one pane: the window scrolls and the view is on it, as before', async () =
   });
 });
 
-test("two panes: each pane's scroll writes the place of its own file (D-12)", async () => {
+test("two panes: each pane's scroll writes the place of its own file", async () => {
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
     await settle(page);
@@ -315,15 +317,15 @@ test("two panes: each pane's scroll writes the place of its own file (D-12)", as
     const entries = JSON.stringify(stored);
     assert.match(entries, /\/r\/A\.md/, `positions.json: ${entries.slice(0, 300)}`);
     assert.match(entries, new RegExp(`"byteOffset":\\s*${seen.left}\\b`), `positions.json: ${entries.slice(0, 300)}`);
-    // D-12 retired the temporary slot-0 rule: the second pane writes the place of its own file.
+    // The temporary slot-0 rule is retired: the second pane writes the place of its own file.
     assert.match(entries, /\/r\/B\.md/, `the second pane wrote its file's place: ${entries.slice(0, 300)}`);
   });
 });
 
-// B-26: the typesetter holds the reader's place on the view's own scroller. A paragraph above a pane's
+// the typesetter holds the reader's place on the view's own scroller. A paragraph above a pane's
 // reading line that gains lines (text written into it, which the typesetter sets again, the way a
 // post-pass or a late re-set does) must leave the block under that pane's reading line where it was.
-// Before B-26 the typesetter read the window's scroller, at 0 while two panes are shown, so it held
+// Before, the typesetter read the window's scroller, at 0 while two panes are shown, so it held
 // nothing and the pane's reading block moved down by the growth.
 test('two panes: a paragraph above a pane\'s reading line that the typesetter sets again with more lines leaves its reading block in place', async () => {
   await withPage(async (page) => {
@@ -377,8 +379,8 @@ test('two panes: a paragraph above a pane\'s reading line that the typesetter se
   });
 });
 
-// B-26, the card's case: a pane scrolled to its end, whose paragraphs above are then set again taller,
-// keeps its last paragraph where it was, in view. Before B-26 nothing compensated inside a pane, so the
+// The case: a pane scrolled to its end, whose paragraphs above are then set again taller,
+// keeps its last paragraph where it was, in view. Before, nothing compensated inside a pane, so the
 // growth pushed the last paragraph down and partly out of the pane.
 test('two panes: a pane scrolled to its end keeps its last paragraph in view when paragraphs above it are set again taller', async () => {
   await withPage(async (page) => {
@@ -435,7 +437,7 @@ test('two panes: a pane scrolled to its end keeps its last paragraph in view whe
   });
 });
 
-test("two panes: wheeling one pane while the other is set again leaves the other's reading block in place (B-26.2)", async () => {
+test("two panes: wheeling one pane while the other is set again leaves the other's reading block in place", async () => {
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
     await settle(page);
@@ -473,8 +475,8 @@ test("two panes: wheeling one pane while the other is set again leaves the other
   });
 });
 
-// F-27: a resize or a divider move keeps each pane's block under the reading line where it was.
-// The reading line is 40% down the scroller (ADR-0018). The reader's place is the block on it and how far
+// a resize or a divider move keeps each pane's block under the reading line where it was.
+// The reading line is 40% down the scroller. The reader's place is the block on it and how far
 // through that block the line is (a block that re-breaks at a new width changes height, so its top may
 // move; the point of it under the line may not). After the move, the same block must be under the line
 // and the line within 1 px of the same fraction of it.
@@ -523,7 +525,7 @@ const assertHeld = async (page, what) => {
     assert.ok(typeof d === 'number' && Math.abs(d) <= 1, `${what}: pane ${i}'s reading line is on ${typeof d === 'number' ? `the same block, ${d.toFixed(1)} px off` : d}`));
 };
 
-test('F-27: a divider moved by the keyboard keeps each pane on its block', async () => {
+test('a divider moved by the keyboard keeps each pane on its block', async () => {
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
     await settle(page);
@@ -537,7 +539,7 @@ test('F-27: a divider moved by the keyboard keeps each pane on its block', async
   });
 });
 
-test('F-27: a divider moved through setRatio keeps each pane on its block', async () => {
+test('a divider moved through setRatio keeps each pane on its block', async () => {
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
     await settle(page);
@@ -550,7 +552,7 @@ test('F-27: a divider moved through setRatio keeps each pane on its block', asyn
   });
 });
 
-test('F-27: a divider dragged with the pointer keeps each pane on its block', async () => {
+test('a divider dragged with the pointer keeps each pane on its block', async () => {
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
     await settle(page);
@@ -567,7 +569,7 @@ test('F-27: a divider dragged with the pointer keeps each pane on its block', as
   });
 });
 
-test('F-27: a window resize keeps one pane, and each of two, on its block', async () => {
+test('a window resize keeps one pane, and each of two, on its block', async () => {
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md'] });
     await settle(page);
@@ -588,10 +590,10 @@ test('F-27: a window resize keeps one pane, and each of two, on its block', asyn
   });
 });
 
-// D-13's finding: in a split, a scroll made while the first pane was still being laid out at its new width
+// The finding: in a split, a scroll made while the first pane was still being laid out at its new width
 // was reset to the top by the late relayout, which put back the place read before the scroll. The relayout of
 // a long document runs for a second or more after the split, so the reader has time to scroll in it.
-test('F-27: a scroll made just after the second pane opens is not reset by the late relayout', async () => {
+test('a scroll made just after the second pane opens is not reset by the late relayout', async () => {
   await withPage(async (page) => {
     const long = (word) => `# ${word}\n\n${Array.from({ length: 150 }, (_, i) => para(`${word} ${i + 1}`).repeat(2).trim()).join('\n\n')}\n`;
     const pages = { '/r/L.md': long('Long'), '/r/M.md': long('More') };

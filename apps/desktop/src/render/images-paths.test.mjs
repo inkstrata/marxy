@@ -1,4 +1,4 @@
-// An image beside a document in a folder named a\b resolves into that folder (C-03.1).
+// An image beside a document in a folder named a\b resolves into that folder.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

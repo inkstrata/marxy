@@ -1,5 +1,5 @@
 // A selection wholly inside one Markdown code fence copies that fence's source bytes exactly, line endings and
-// all; a selection that takes any prose copies the page's text (F-68). The mechanism is V-10's (a copy listener
+// all; a selection that takes any prose copies the page's text. The mechanism (a copy listener
 // and `codeRunSourceText`); here it is Markdown's fences, with real key presses in WebKit. The tests of what is copied
 // from a fence fail with the fence path off; those of prose, a quoted fence and the fields hold behaviour that must not
 // change, and pass with it off too.
@@ -11,7 +11,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -64,16 +64,12 @@ async function open(text = DOC, path = '/repo/f.md') {
     const r = await window.marxyPaletteBoot.start(f, a);
     window.__h = r.handle;
   }, { f: b64(files(text, path)), a: [path] });
-  if (path.endsWith('.py')) {
-    // A code file opens in Source; Rendered shows its pieces (V-10).
-    await page.waitForSelector('.cm-editor');
-    await page.keyboard.press(`${await modifier(page)}+KeyE`);
-    await drained(page);
-  }
-  // A code file's Rendered is its pieces (`pre.marxy-run`), drawn plain and then swapped for their highlighted lines, which
-  // replaces the code's children and drops a selection made before it (`data-marxy-done`). Wait for the swap: under load it
-  // lands after a test has selected, and the copy is then of an empty selection (V-10).
-  const code = path.endsWith('.py') ? '#doc pre.marxy-run > code[data-marxy-done]' : '#doc pre > code';
+  // A code file lands in Read, its pieces.
+  if (path.endsWith('.py')) await page.waitForSelector('#doc pre code');
+  // A code file's Rendered is its pieces (`pre.marxy-run`), split into plain lines (`data-marxy-done="lines"`) and then
+  // swapped for their highlighted lines (`"highlight"`). Each swap replaces the code's children and drops a selection made
+  // before it, so wait for the last: under load it lands after a test has selected, and the copy is then the page's text.
+  const code = path.endsWith('.py') ? '#doc pre.marxy-run > code[data-marxy-done="highlight"]' : '#doc pre > code';
   await page.waitForFunction((sel) => document.querySelectorAll(sel).length >= 1, code);
   await page.evaluate(() => {
     window.__copies = [];
@@ -117,9 +113,12 @@ async function select(page, [fromEl, from], [toEl, to]) {
 const pageText = (source) => source.replaceAll('\r\n', '\n');
 /** What the last Mod+C put on the clipboard: the shell's pasteboard write, else the page's own copy event. */
 const copiedAfter = async (page, key) => {
-  const before = await page.evaluate(() => window.__h.shell.calls.filter((c) => c.method === 'clipboardWriteItem').length);
+  const writes = () => window.__h.shell.calls.filter((c) => c.method === 'clipboardWriteItem').length;
+  const before = await page.evaluate(`(${writes})()`);
+  const copies = await page.evaluate(() => window.__copies.length);
   await page.keyboard.press(key);
-  await page.waitForTimeout(150);
+  // The command's write reaches the shell after an await; a key the page leaves alone is the native copy event.
+  await page.waitForFunction(([w, before, copies]) => new Function(`return (${w})()`)() > before || window.__copies.length > copies, [writes.toString(), before, copies]);
   return page.evaluate((before) => {
     const calls = window.__h.shell.calls.filter((c) => c.method === 'clipboardWriteItem');
     if (calls.length > before) {
@@ -137,7 +136,7 @@ const same = (actual, expected, what) => {
   assert.fail(`${what}: ${JSON.stringify(actual)} against ${JSON.stringify(expected)} (first difference at ${i})`);
 };
 
-test('a partial selection inside a CRLF fence copies the source bytes, CRLF kept (F-68)', async () => {
+test('a partial selection inside a CRLF fence copies the source bytes, CRLF kept', async () => {
   const page = await open();
   const norm = pageText(FENCE_ONE);
   const from = norm.indexOf('a = 1;');
@@ -149,14 +148,14 @@ test('a partial selection inside a CRLF fence copies the source bytes, CRLF kept
   await page.close();
 });
 
-test('a selection of a whole CRLF fence copies every byte of it, the last line ending too (F-68)', async () => {
+test('a selection of a whole CRLF fence copies every byte of it, the last line ending too', async () => {
   const page = await open();
   await select(page, ['code0', null], ['code0', null]);
   same(await copiedAfter(page, `${await modifier(page)}+KeyC`), FENCE_ONE, 'whole fence');
   await page.close();
 });
 
-test('a multi-byte line, a tab and trailing spaces copy as they are (F-68)', async () => {
+test('a multi-byte line, a tab and trailing spaces copy as they are', async () => {
   const page = await open();
   const norm = pageText(FENCE_ONE);
   const from = norm.indexOf('\tindented');
@@ -167,7 +166,7 @@ test('a multi-byte line, a tab and trailing spaces copy as they are (F-68)', asy
   await page.close();
 });
 
-test('the second fence copies its own bytes, not the first\'s (F-68)', async () => {
+test('the second fence copies its own bytes, not the first\'s', async () => {
   const page = await open();
   await select(page, ['code1', 3], ['code1', 'second one\nof two'.length]);
   same(await copiedAfter(page, `${await modifier(page)}+KeyC`), 'ond one\r\nof two', 'second fence');
@@ -178,7 +177,7 @@ test('the second fence copies its own bytes, not the first\'s (F-68)', async () 
 const lastLineDoc = (eol) => `# T${eol}${eol}\`\`\`${eol}echo one${eol}npm install foo${eol}\`\`\`${eol}${eol}After.${eol}`;
 
 for (const [name, eol] of [['LF', '\n'], ['CRLF', '\r\n']]) {
-  test(`the last line of a ${name} fence copies without its line ending (F-68)`, async () => {
+  test(`the last line of a ${name} fence copies without its line ending`, async () => {
     const page = await open(lastLineDoc(eol));
     await select(page, ['code0', 'echo one\n'.length], ['code0', 'echo one\nnpm install foo'.length]);
     same(await copiedAfter(page, `${await modifier(page)}+KeyC`), 'npm install foo', 'last line');
@@ -188,7 +187,7 @@ for (const [name, eol] of [['LF', '\n'], ['CRLF', '\r\n']]) {
     await page.close();
   });
 
-  test(`a selection through the last line's ending to the next block copies the ending, nothing more (${name}, F-68)`, async () => {
+  test(`a selection through the last line's ending to the next block copies the ending, nothing more (${name})`, async () => {
     const page = await open(lastLineDoc(eol));
     // The page has no closing fence line to select: the fence ends after its last newline and the prose follows. A
     // selection that runs on into the prose takes the prose, so it is the page's text; one that stops at the fence's end
@@ -201,7 +200,7 @@ for (const [name, eol] of [['LF', '\n'], ['CRLF', '\r\n']]) {
   });
 }
 
-test('a CRLF code file copies whole line endings at a selection\'s start and end (V-10, F-68)', async () => {
+test('a CRLF code file copies whole line endings at a selection\'s start and end', async () => {
   const py = 'a = 1\r\nb = 2\r\nc = 3\r\n';
   const page = await open(py, '/repo/f.py');
   const mod = await modifier(page);
@@ -214,7 +213,7 @@ test('a CRLF code file copies whole line endings at a selection\'s start and end
   await page.close();
 });
 
-test('a native copy event over a fence carries the same bytes (F-68)', async () => {
+test('a native copy event over a fence carries the same bytes', async () => {
   const page = await open();
   const norm = pageText(FENCE_ONE);
   await select(page, ['code0', norm.indexOf('trailing')], ['code0', norm.indexOf('naïve') + 'naïve'.length]);
@@ -226,7 +225,7 @@ test('a native copy event over a fence carries the same bytes (F-68)', async () 
   await page.close();
 });
 
-test('a selection from prose into a fence copies the page text, as before (F-68)', async () => {
+test('a selection from prose into a fence copies the page text, as before', async () => {
   const page = await open();
   await select(page, ['prose0', 6], ['code0', 'const a'.length]);
   const text = await copiedAfter(page, `${await modifier(page)}+KeyC`);
@@ -236,7 +235,7 @@ test('a selection from prose into a fence copies the page text, as before (F-68)
   await page.close();
 });
 
-test('a selection across two fences copies the page text, as before (F-68)', async () => {
+test('a selection across two fences copies the page text, as before', async () => {
   const page = await open();
   await select(page, ['code0', 'const'.length], ['code1', 'second'.length]);
   const text = await copiedAfter(page, `${await modifier(page)}+KeyC`);
@@ -245,7 +244,7 @@ test('a selection across two fences copies the page text, as before (F-68)', asy
   await page.close();
 });
 
-test('a fence in a quote is left to the page text, never half its bytes (F-68)', async () => {
+test('a fence in a quote is left to the page text, never half its bytes', async () => {
   const page = await open('# Q\r\n\r\n> ```\r\n> quoted one\r\n> quoted two\r\n> ```\r\n');
   await select(page, ['code0', 'quoted'.length + 1], ['code0', 'quoted one\nquoted'.length]);
   const text = await copiedAfter(page, `${await modifier(page)}+KeyC`);
@@ -259,7 +258,7 @@ async function fenceChosen(page) {
   await page.evaluate(() => { window.__copies = []; });
 }
 
-test('a copy in the find field is the field\'s own after a fence was selected (F-68)', async () => {
+test('a copy in the find field is the field\'s own after a fence was selected', async () => {
   const page = await open();
   await fenceChosen(page);
   const mod = await modifier(page);
@@ -274,7 +273,7 @@ test('a copy in the find field is the field\'s own after a fence was selected (F
   await page.close();
 });
 
-test('a copy in the palette field is the palette\'s own after a fence was selected (F-68)', async () => {
+test('a copy in the palette field is the palette\'s own after a fence was selected', async () => {
   const page = await open();
   await fenceChosen(page);
   const mod = await modifier(page);
@@ -290,7 +289,7 @@ test('a copy in the palette field is the palette\'s own after a fence was select
   await page.close();
 });
 
-test('a copy in Source is the editor\'s own selection after a fence was selected in Rendered (F-68)', async () => {
+test('a copy in Source is the editor\'s own selection after a fence was selected in Rendered', async () => {
   const page = await open();
   await fenceChosen(page);
   const mod = await modifier(page);
@@ -298,7 +297,7 @@ test('a copy in Source is the editor\'s own selection after a fence was selected
   await page.waitForSelector('.cm-editor');
   await drained(page);
   await page.locator('.cm-content').click();
-  await page.keyboard.press(`${mod}+ArrowUp`);
+  await page.keyboard.press(`${mod}+Home`);
   await page.keyboard.press('Shift+End');
   await page.keyboard.press(`${mod}+KeyC`);
   const seen = await page.evaluate(() => window.__copies);

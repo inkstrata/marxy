@@ -1,6 +1,6 @@
-// The clipboard contract (J-02): one set of cases over the memory shell and over the Tauri shell's
+// The clipboard contract: one set of cases over the memory shell and over the Tauri shell's
 // adapter, the latter against a fake of the `pasteboard_*` commands that obeys the rules the Rust
-// module tests (J-01.1): one snapshot, concealed refused unread, the 16 MB cap, an allowlisted write.
+// module tests: one snapshot, concealed refused unread, the 16 MB cap, an allowlisted write.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { ClipboardRep, Shell } from '@marxy/shell-api';
@@ -216,7 +216,7 @@ for (const [name, make] of rigs) {
 
 test('tauri adapter: a native error keeps its code', async () => {
   const shell = tauriClipboard(async () => {
-    throw { code: 'unsupported', message: 'the native pasteboard is macOS only' };
+    throw { code: 'unsupported', message: 'the native pasteboard is macOS and Windows only' };
   });
   await rejects(shell.clipboardTypes(), 'unsupported');
 });
@@ -231,7 +231,7 @@ test('tauri adapter: text that is not UTF-8 is refused before the native call', 
   assert.equal(called, 0);
 });
 
-test('tauri adapter: a write sends the argument shape J-01 expects', async () => {
+test('tauri adapter: a write sends the argument shape the command expects', async () => {
   const seen: unknown[] = [];
   const shell = tauriClipboard(async (command, args) => {
     seen.push([command, args]);

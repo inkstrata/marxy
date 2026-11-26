@@ -1,4 +1,4 @@
-// The grid pass (docs/design/04-typeset.md §Grid, ADR-0030). Text blocks sit on the grid by CSS
+// The grid pass. Text blocks sit on the grid by CSS
 // construction (packages/theme/src/base.css); this pads what cannot be constructed — code on its own
 // line box, images, math, a line an inline image made taller — so the next block starts on the grid
 // again and a long document never drifts. The unit is half the body line box.
@@ -9,7 +9,7 @@ const ISLANDS = 'pre, table, img, .marxy-math-block, .marxy-math';
 /** Per article, the elements whose padding the last pass set, so the next can undo it before measuring. */
 const snapped = new WeakMap<HTMLElement, Set<HTMLElement>>();
 
-/** Per article, every island's height as a pass measured it, before any padding (A-02). */
+/** Per article, every island's height as a pass measured it, before any padding. */
 const measured = new WeakMap<HTMLElement, Map<HTMLElement, number>>();
 
 /**
@@ -31,7 +31,7 @@ const themePadding = new WeakMap<HTMLElement, number>();
  * fonts load, after images decode and after a resize. At most five layouts in all (one for the islands,
  * at most four rounds of step 2), however long the document.
  *
- * `from` (A-02) is the first of the blocks just appended below the rest: only the block before it and
+ * `from` is the first of the blocks just appended below the rest: only the block before it and
  * the blocks from it on are undone, padded and read, so a document mounted in chunks pays for each
  * chunk and not for the whole article again. Without it the pass covers the whole article. A pass
  * `from` a block first reads the islands above it that earlier passes measured (one more layout), and
@@ -46,7 +46,7 @@ export function snapToGrid(
   if (!(unit > 0)) return 0;
   const heights = measured.get(article) ?? new Map<HTMLElement, number>();
   measured.set(article, heights);
-  // `through` bounds the pass (F-80): the block before `from`, `from` and the blocks to `through` are undone, padded and read,
+  // `through` bounds the pass: the block before `from`, `from` and the blocks to `through` are undone, padded and read,
   // and the one block after `through` is read, and nothing below it.
   // The article itself is pushable when the window starts at the first block.
   const bounded = opts?.from !== undefined && opts.through !== undefined;
@@ -68,7 +68,7 @@ export function snapToGrid(
   if (tail === null) heights.clear();
   // The pass writes padding and reads layout several times over; the engine's own scroll anchoring would
   // answer each intermediate layout by moving the page, and the reader would land off where they were.
-  // Scroll position is the app's to keep (reading position, ADR-0018), so the article opts out.
+  // Scroll position is the app's to keep (reading position), so the article opts out.
   article.style.setProperty('overflow-anchor', 'none');
   const mine = snapped.get(article) ?? new Set<HTMLElement>();
   snapped.set(article, mine);
@@ -100,14 +100,13 @@ export function snapToGrid(
   // difference. A round reads every top at once, plans every push, and writes them all at once: one
   // layout per round however long the document, where pushing and re-reading one child at a time
   // cost a layout of the whole article per push, quadratic in its length
-  // (docs/research/audit-2026-10/05-performance-audit.md §9.2).
   //
   // A push is planned from where its child would sit with every earlier push made: the child's top
   // before any push, moved as far as the block before it has really moved. The first round has only
   // the prediction (the pushes planned so far, summed); later rounds read the real movement. The two
   // differ only where a push changes how margins collapse: a new padding-bottom stops the pushed
-  // block's bottom margin, or its last child's, collapsing with its neighbour's (MARXY-282,
-  // docs/design/04-typeset.md §Grid). That happens once per element, when its padding goes from
+  // block's bottom margin, or its last child's, collapsing with its neighbour's.
+  // That happens once per element, when its padding goes from
   // none to some, so the second round reads where those blocks really landed and corrects what the
   // first round's prediction missed, and a third finds nothing to change. The fourth is headroom; a
   // round that plans nothing ends the pass. Every push ends up what pushing and re-reading one block
@@ -214,7 +213,7 @@ function driftedAbove(article: HTMLElement, after: ReadonlySet<Element>, heights
 
 /**
  * The article's children from `first` on: "at or after `first`" is then one set lookup on the child
- * an element is in (B-25). `compareDocumentPosition` answered it before, but WebKit walks the siblings
+ * an element is in. `compareDocumentPosition` answered it before, but WebKit walks the siblings
  * between two children of one parent to order them, so a pass `from` the last chunk paid for every
  * block above it once per element it asked about: quadratic per pass, cubic over a document mounted
  * in chunks.
@@ -236,7 +235,7 @@ function blockOf(article: HTMLElement, el: Element): Element | null {
 }
 
 /**
- * Puts back on the grid the blocks that changed height, and only them (F-80): for each top-level block holding an
+ * Puts back on the grid the blocks that changed height, and only them: for each top-level block holding an
  * element of `changed`, the pass `snapToGrid` makes over the block before it, it, and the block after it (blocks that follow one another make one window). A block that
  * changes height is padded back to a whole number of units by this pass, and a whole number of units is all it
  * moves what is below it by, so nothing below is read, let alone padded again. For a highlight batch on a page of
@@ -271,7 +270,7 @@ export function snapBlocks(article: HTMLElement, lineBox: number, changed: reado
 }
 
 /**
- * The whole-article pass, in windows of `size` blocks with the event loop given back between them (F-80): the same
+ * The whole-article pass, in windows of `size` blocks with the event loop given back between them: the same
  * result as `snapToGrid(article, lineBox)`, top to bottom, each window over the block before it and its own blocks, so
  * no single task holds the page for the layout of the whole article. `aborted` is asked before each window; a pass that
  * is abandoned leaves the windows it has made as they are, each of which is on the grid by itself.

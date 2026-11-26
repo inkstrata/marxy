@@ -1,4 +1,4 @@
-// A terminal session in Read (K-17): a `.session` opens as Read with a group for each command, the prompt dimmed
+// A terminal session in Read: a `.session` opens as Read with a group for each command, the prompt dimmed
 // colour, the command strong at weight 600, the output plain, half a line between groups, blank lines and ESC kept; Copy commands
 // and Copy output write what the card says, a selection copies the file's bytes, a `console` fence in Markdown reads the same,
 // and Source shows the file exactly. WebKit, over the shipped skeleton and the memory shell, as log.test.mjs runs.
@@ -17,7 +17,7 @@ after(() => closeHarness());
 
 const fixture = readFileSync(new URL('../../../fixtures/corpus/38-shell.session', import.meta.url), 'utf8');
 const fenced = `# Notes\n\nRun it:\n\n\`\`\`console\n$ ls\na b\n$ pwd\n/r\n$ echo done\ndone\n\`\`\`\n\nThen read on.\n`;
-const files = { '/r/shell.session': fixture, '/r/notes.md': fenced, '/r/plain.txt': '$ ls\na b\n$ pwd\n/r\n', '/r/a.term': '$ ls\na b\n', '/r/bare.term': 'just output\nmore output\n' };
+const files = { '/r/shell.session': fixture, '/r/notes.md': fenced, '/r/plain.txt': '$ ls\na b\n$ pwd\n/r\n', '/r/quoted.txt': 'To list the folder, type this:\n$ ls\nand it prints\n$ pwd\nthen the folder.\n', '/r/2026-10-13-deploy.txt': 'Last login: Mon Oct 13 21:02:44 on ttys004\nWelcome to deploy-box\n\nops@deploy-box ~/api % git pull --ff-only\nUpdating 4c1e9a2..b7d03f1\nops@deploy-box ~/api % make deploy ENV=staging\n==> building api:b7d03f1\n', '/r/a.term': '$ ls\na b\n', '/r/bare.term': 'just output\nmore output\n' };
 
 async function withPage(fn) {
   const browser = await launchWebkit();
@@ -116,11 +116,9 @@ test('ESC is shown as a picture and never run: a colour code in output stays tex
     const seen = await page.evaluate(() => {
       const marks = [...document.querySelectorAll('#doc .marxy-invisible-esc')];
       const line = marks[0].closest('.marxy-line');
-      const probe = document.createElement('i');
-      probe.style.color = 'var(--marxy-color-text)';
-      document.querySelector('#doc').append(probe);
-      const text = getComputedStyle(probe).color;
-      probe.remove();
+      // An ordinary output line's colour: the page sets a code block's ink apart from the prose's (the look).
+      const plain = [...document.querySelectorAll('#doc pre > code > .marxy-line')].find((l) => l.textContent.startsWith(' M Cargo'));
+      const text = getComputedStyle(plain).color;
       return {
         count: marks.length,
         label: marks[0].querySelector('.marxy-invisible-glyph').textContent,
@@ -205,9 +203,10 @@ test('Source shows the file exactly, and nothing was written: the bytes are the 
     assert.deepEqual(writes, [], 'no write reached the file');
   }));
 
-test('the two tools are offered for a terminal, a .term as well, and not for a .txt that merely looks like a session', () =>
+test('the two tools are offered for a terminal, a .term as well, and a .txt whose shape is a session reads as one; one that quotes a prompt does not', () =>
   withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/plain.txt'] });
+    await coloured(page);
     const offered = () =>
       page.evaluate(async () => {
         const { buildAppContext } = await import('/src/selection/bind.ts');
@@ -220,7 +219,18 @@ test('the two tools are offered for a terminal, a .term as well, and not for a .
         };
       });
     const txt = await offered();
-    assert.equal(txt.grouped, 0, 'a .txt is not read as a terminal by detection (question 2)');
+    assert.equal(txt.kind, 'terminal', 'a .txt that opens at a prompt with output after each is a session by its shape');
+    assert.ok(txt.grouped > 0, 'and gets the session page');
+    assert.deepEqual(txt.tools, [true, true]);
+    await page.evaluate((p) => window.__marxyHandle.open(p), '/r/2026-10-13-deploy.txt');
+    await page.waitForFunction(() => document.querySelector('section.marxy-pane').getAttribute('data-marxy-kind') === 'terminal');
+    await coloured(page);
+    const dated = await offered();
+    assert.ok(dated.grouped > 0, 'a session with a login banner and a dated name is a session: its prompts outrank the name');
+    await page.evaluate((p) => window.__marxyHandle.open(p), '/r/quoted.txt');
+    await page.waitForFunction(() => document.querySelector('section.marxy-pane').getAttribute('data-marxy-kind') !== 'terminal');
+    const quoted = await offered();
+    assert.equal(quoted.grouped, 0, 'prose that quotes a `$ ` line is not a session');
     await page.evaluate((p) => window.__marxyHandle.open(p), '/r/a.term');
     await page.waitForFunction(() => document.querySelector('section.marxy-pane').getAttribute('data-marxy-kind') === 'terminal');
     const term = await offered();

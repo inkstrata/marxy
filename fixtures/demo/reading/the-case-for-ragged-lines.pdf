@@ -1,0 +1,107 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Outlines 12 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [7 0 R 9 0 R 11 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Times-Italic /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Length 699 >>
+stream
+BT
+/F1 22 Tf 1 0 0 1 54 514.0 Tm (The case for ragged lines) Tj
+/F2 11 Tf 1 0 0 1 54 482.3 Tm (M. Okafor - 2 March 2025) Tj
+/F1 11 Tf 1 0 0 1 54 457.5 Tm (A ragged right edge is easier to read than a line forced) Tj
+/F1 11 Tf 1 0 0 1 54 442.0 Tm (to both margins. Justified text has to put the spare) Tj
+/F1 11 Tf 1 0 0 1 54 426.5 Tm (space somewhere, and a browser puts it between words,) Tj
+/F1 11 Tf 1 0 0 1 54 411.0 Tm (one line at a time, without looking ahead. The result is) Tj
+/F1 11 Tf 1 0 0 1 54 395.5 Tm (a column with loose lines and, where several loose lines) Tj
+/F1 11 Tf 1 0 0 1 54 380.0 Tm (stack up, rivers of white running down the page.) Tj
+/F1 9 Tf 1 0 0 1 207.0 30 Tm (1) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 420 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 509 >>
+stream
+BT
+/F3 13 Tf 1 0 0 1 54 523.0 Tm (Looking ahead) Tj
+/F1 11 Tf 1 0 0 1 54 496.7 Tm (Book typesetters avoided this by looking at the whole) Tj
+/F1 11 Tf 1 0 0 1 54 481.2 Tm (paragraph before breaking any line, and by hyphenating.) Tj
+/F1 11 Tf 1 0 0 1 54 465.7 Tm (On a screen, where the measure changes with the window,) Tj
+/F1 11 Tf 1 0 0 1 54 450.2 Tm (ragged text with hyphenation gets most of the benefit) Tj
+/F1 11 Tf 1 0 0 1 54 434.7 Tm (and none of the rivers.) Tj
+/F1 9 Tf 1 0 0 1 207.0 30 Tm (2) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 420 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 315 >>
+stream
+BT
+/F3 13 Tf 1 0 0 1 54 523.0 Tm (Losing the place) Tj
+/F1 11 Tf 1 0 0 1 54 496.7 Tm (The reader does not notice good line breaks. They notice) Tj
+/F1 11 Tf 1 0 0 1 54 481.2 Tm (bad ones, and they blame themselves for losing their) Tj
+/F1 11 Tf 1 0 0 1 54 465.7 Tm (place.) Tj
+/F1 9 Tf 1 0 0 1 207.0 30 Tm (3) Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 420 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Type /Outlines /First 13 0 R /Last 15 0 R /Count 3 >>
+endobj
+13 0 obj
+<< /Title (The case for ragged lines) /Parent 12 0 R  /Next 14 0 R /Dest [7 0 R /XYZ null null null] >>
+endobj
+14 0 obj
+<< /Title (Looking ahead) /Parent 12 0 R /Prev 13 0 R /Next 15 0 R /Dest [9 0 R /XYZ null null null] >>
+endobj
+15 0 obj
+<< /Title (Losing the place) /Parent 12 0 R /Prev 14 0 R  /Dest [11 0 R /XYZ null null null] >>
+endobj
+16 0 obj
+<< /Title (The case for ragged lines) /Creator (Marxy's demo, set by hand) /Producer (pdf-fixture.mjs) /CreationDate (D:20250302180000+00'00') >>
+endobj
+xref
+0 17
+0000000000 65535 f 
+0000000015 00000 n 
+0000000081 00000 n 
+0000000151 00000 n 
+0000000250 00000 n 
+0000000350 00000 n 
+0000000448 00000 n 
+0000001198 00000 n 
+0000001344 00000 n 
+0000001904 00000 n 
+0000002050 00000 n 
+0000002417 00000 n 
+0000002565 00000 n 
+0000002639 00000 n 
+0000002759 00000 n 
+0000002879 00000 n 
+0000002991 00000 n 
+trailer
+<< /Size 17 /Root 1 0 R /Info 16 0 R >>
+startxref
+3153
+%%EOF

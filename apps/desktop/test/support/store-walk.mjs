@@ -1,4 +1,4 @@
-// A standing data-safety walk over the document store (F-33).
+// A standing data-safety walk over the document store.
 //
 // One seeded, model-based walk drives the REAL `DocumentStore`, the real `save()` (save.ts), the store
 // registry and the real `watchDocument` (live-reload.ts: the rules a `reload` is called under) through the
@@ -8,7 +8,7 @@
 //
 // A failure prints its seed and its step list; `MARXY_WALK_SEED=<n>` replays that seed alone.
 //
-// WHERE LATER STORIES PLUG IN. `OPS` and `INVARIANTS` are plain objects, keyed by name. A story adds
+// WHERE LATER TESTS PLUG IN. `OPS` and `INVARIANTS` are plain objects, keyed by name. A test adds
 //   OPS.myOp = { name, weight, applicable(model), run(driver, model, rand) }   // run returns a one-line step label
 //   INVARIANTS.Ix = { name, check(model, world) }                              // returns a message to fail, else nothing
 // `driver` is the `World` below (real store, registry, shell, helpers); `model` is the walk's own picture
@@ -37,10 +37,10 @@ import { createStoreRegistry } from '../../src/document/registry.ts';
 import { guardSaveAsDialog } from '../../src/document/save-as-guard.ts';
 import { oneWatchPerStore, watchDocument } from '../../src/document/live-reload.ts';
 import { save } from '../../src/save.ts';
-import { applyOutlineAction } from '../../src/workspace/outline-tab.ts';
+import { applyOutlineAction } from '../../src/frame/model/outline.ts';
 import { CONCEALED_REFUSAL, readConverted, readForPaste } from '../../src/paste/read-clipboard.ts';
 import { pastedText } from '../../src/source/paste.ts';
-import { TabList } from '../../src/workspace/tabs.ts';
+import { WINDOW_TAB_CAP, WindowTabs } from '../../src/frame/window-tabs.ts';
 import { createMemoryShell } from '../../src/shell/memory.ts';
 import { clearNotices, SOURCE_HELD_APART } from '../../src/notices/index.ts';
 import { DISK_CHANGED_CHOOSE, FILE_REMOVED_ON_DISK } from '../../src/notices/disk.ts';
@@ -81,7 +81,7 @@ const MARKDOWN = [
   '|---|---|',
   '| 1 | 2 |',
   '',
-  // V-02: wide characters, an escaped pipe, a code span, a row with fewer cells, an alignment row with colons.
+  // wide characters, an escaped pipe, a code span, a row with fewer cells, an alignment row with colons.
   '| name | note |',
   '|:-----|-----:|',
   '| 漢字 | a \\| b |',
@@ -149,11 +149,11 @@ export function fixtures() {
       new Uint8Array([0xe2, 0x82]),
       enc.encode('\n'),
     ),
-    // A code file (V-10): read as code blocks, never as Markdown. A rename to a Markdown name or a Save as changes what it is read as.
+    // A code file: read as code blocks, never as Markdown. A rename to a Markdown name or a Save as changes what it is read as.
     [`${ROOT}/e.py`]: enc.encode('# not a heading\n\ndef f():\n\t# tab *star* _under_\n    return "é"\n'),
     // Short, and no ending after the last line.
     [`${ROOT}/d.md`]: enc.encode('# Tiny\n\nno trailing newline'),
-    // W-10: sections to move. Sibling sections at two levels, an ATX heading and a setext one, a `#` line in a fence, and no
+    // sections to move. Sibling sections at two levels, an ATX heading and a setext one, a `#` line in a fence, and no
     // ending after the last line; then the same with CRLF behind a byte-order mark.
     [`${ROOT}/f.md`]: enc.encode(SECTIONS.join('\n')),
     [`${ROOT}/g.md`]: cat(new Uint8Array([0xef, 0xbb, 0xbf]), enc.encode(SECTIONS.join('\r\n'))),
@@ -217,7 +217,7 @@ class El {
   get classList() {
     return { contains: (name) => this.className.split(' ').includes(name) };
   }
-  /** The notices (U-02) ask where focus is and whether a pill holds it; nothing here has focus. */
+  /** The notices ask where focus is and whether a pill holds it; nothing here has focus. */
   contains(node) {
     for (let n = node; n; n = n.parentElement) if (n === this) return true;
     return false;
@@ -259,7 +259,7 @@ function installDom() {
       log.length = 0;
     },
   };
-  // A notice is an `HTMLElement` with an SVG glyph (notices/index.ts, U-02); this stub stands for both.
+  // A notice is an `HTMLElement` with an SVG glyph (notices/index.ts); this stub stands for both.
   globalThis.HTMLElement ??= El;
   globalThis.Element ??= El;
   globalThis.document = {
@@ -280,7 +280,7 @@ function installDom() {
 /**
  * `disk`: path to the bytes the model believes are there (null: no file). `docs`: one per open store, with the
  * model's own `buf` (buffer), `base` (the store's disk baseline), `past`/`future` (history, as byte states),
- * `pending` (the changed-on-disk bytes a reload kept, V-07), `path`. `views`: the two panes, each null or
+ * `pending` (the changed-on-disk bytes a reload kept), `path`. `views`: the two panes, each null or
  * `{ slot, doc, mode, draft, typed, heldApart }`; `draft` is the text typed in Source and not yet folded
  * (null: the editor reads as the store), `typed` the tokens in it. `tokens`: the unique strings the walk types.
  */
@@ -294,8 +294,10 @@ export function createModel(seed, rand) {
     disk: new Map(Object.entries(files).map(([path, bytes]) => [path, bytes.slice()])),
     docs: [],
     views: [null, null],
-    // W-06: the unfolded window's tab row (the real `TabList`) and the pane the reader is in. A tab is a path and holds no buffer.
-    tabs: new TabList(),
+    // The window's one row of tabs (the real `WindowTabs`, as the tab row keeps it), what each pane last showed, and the pane
+    // the reader is in. A tab is a path and holds no buffer.
+    tabs: new WindowTabs(),
+    shownBy: [null, null],
     focus: 0,
     tokens: [],
     allowed: new Set(),
@@ -314,7 +316,7 @@ export class WalkFailure extends Error {
   }
 }
 
-/** A file that opens in Source gets a store that parses when first asked (V-11.1): half the paths, by name, so the walk goes both ways. */
+/** A file that opens in Source gets a store that parses when first asked: half the paths, by name, so the walk goes both ways. */
 const opensLazily = (path) => [...path].reduce((n, c) => n + c.charCodeAt(0), 0) % 2 === 0;
 /** The parse the store holds, as text, and the parse of its bytes under its name: what a late-made parse must equal. */
 const parseDisagreement = (doc) => {
@@ -340,7 +342,7 @@ export class World {
     this.dom = installDom();
     this.dom.reset();
     this.shell = createMemoryShell(model.originals);
-    // F-33.1: every peek the APP makes (the store's stale-write comparison, a live reload's read) is logged with the step it
+    // every peek the APP makes (the store's stale-write comparison, a live reload's read) is logged with the step it
     // ran in, so a failing seed shows what the code looked at. The walk's own reads go through `look`, which logs nothing.
     this.peeks = [];
     const peek = this.shell.peekFile.bind(this.shell);
@@ -425,7 +427,7 @@ export class World {
   ioFor(holder) {
     const { shell } = this;
     return {
-      writeFileAtomic: async (path, bytes) => {
+      writeFileAtomic: async (path, bytes, expected) => {
         const store = holder.store;
         const doc = store ? docOf(this.model, store) : undefined;
         let before = null;
@@ -434,7 +436,7 @@ export class World {
         } catch {
           // no file there
         }
-        this.writes.push({
+        const write = {
           path,
           before,
           storePath: store?.snapshot().path ?? null,
@@ -442,11 +444,13 @@ export class World {
           modelBaseline: doc ? copy(doc.base) : null,
           picked: this.pick === path,
           step: this.model.trace.length,
-        });
-        await shell.writeFileAtomic(path, bytes);
+        };
+        // The shell checks the store's baseline (`expected`) itself; a write it refuses wrote nothing, so it is not one for I1.
+        await shell.writeFileAtomic(path, bytes, expected);
+        this.writes.push(write);
       },
       peekFile: (path) => shell.peekFile(path),
-      // Create-only (F-85, ADR-0074): a refused write (something is at the name) wrote nothing and is not a write for I1 to judge; one
+      // Create-only: a refused write (something is at the name) wrote nothing and is not a write for I1 to judge; one
       // that was made found nothing there, which is what `before: null` says. A copy beside the file is the only caller.
       writeFileNew: async (path, bytes) => {
         const store = holder.store;
@@ -502,26 +506,36 @@ export class World {
   }
 
   /**
-   * The tab row follows the panes after every step (tabs-view.ts `reconcile`, through the same `TabList.sync`), and
-   * the structure a reader would see is checked: a tab for every document a pane shows, none twice, none past the cap.
+   * The window's row follows what each pane lands on after every step, as the tab row does (the same store under a new path
+   * is the document moved, not another one), and the structure a reader would see is checked: what each pane shows has its
+   * tab, no path has two tabs, and the row holds no more than the cap.
    */
   syncTabs() {
     const { model } = this;
     if (!model.views[model.focus]) model.focus = [0, 1].find((slot) => model.views[slot]) ?? 0;
-    const view = model.views[model.focus];
-    model.tabs.sync(
-      [0, 1].map((slot) => ({ key: slot, path: model.views[slot]?.doc.path ?? null, store: model.views[slot]?.doc.store ?? null })),
-      view?.doc.path ?? null,
-    );
-    const { tabs, active } = model.tabs.snapshot();
-    if (new Set(tabs).size !== tabs.length) this.fail('tabs', `a path has two tabs: ${tabs.join(', ')}`);
-    if (tabs.length > 24) this.fail('tabs', `${tabs.length} tabs, past the cap`);
-    for (const v of model.views) {
-      if (v && !tabs.includes(v.doc.path)) this.fail('tabs', `${v.doc.path} is shown in pane ${v.slot} and has no tab`);
+    const tabs = model.tabs;
+    for (const slot of [0, 1]) {
+      const view = model.views[slot];
+      if (!view) {
+        // A pane that closed leaves its tabs in the row; its history goes with it.
+        if (slot === 1 && model.shownBy[1]) {
+          tabs.paneClosed(1);
+          model.shownBy[1] = null;
+        }
+        continue;
+      }
+      const was = model.shownBy[slot];
+      if (was && was.store === view.doc.store && was.path !== view.doc.path) tabs.renamed(was.path, view.doc.path);
+      if (tabs.shownIn(slot) !== view.doc.path) tabs.landed(slot, view.doc.path, 'new');
+      model.shownBy[slot] = { path: view.doc.path, store: view.doc.store };
+      if (tabs.shownIn(slot) !== view.doc.path) this.fail('tabs', `pane ${slot} shows ${view.doc.path} and its tab is ${tabs.shownIn(slot) ?? 'none'}`);
     }
-    if (view && active !== view.doc.path) this.fail('tabs', `the focused pane shows ${view.doc.path} and the active tab is ${active}`);
+    tabs.focus(model.focus);
+    const paths = tabs.tabs.map((t) => t.path);
+    if (new Set(paths).size !== paths.length) this.fail('tabs', `the row has a path twice: ${paths.join(', ')}`);
+    if (paths.length > WINDOW_TAB_CAP) this.fail('tabs', `the row has ${paths.length} tabs, past the cap`);
+    for (const slot of [0, 1]) if (model.views[slot] && !tabs.byPath(model.views[slot].doc.path)) this.fail('tabs', `pane ${slot} shows ${model.views[slot].doc.path}, which has no tab`);
   }
-
   /** The pane lets its store go; the last holder closes it (and its watch). */
   detach(slot) {
     const view = this.model.views[slot];
@@ -617,7 +631,7 @@ export class World {
   /**
    * Delivers watch batches to every store's watch (the memory shell delivers to all, as a folder's watch fires
    * for every file in it) and waits for each to be handled. The model predicts first, from `model.disk`, by the
-   * rules in the ADR-0018 classifier (the real `effectForOpenDocument`) and live-reload.ts: gone: a notice;
+   * rules in the classifier (the real `effectForOpenDocument`) and live-reload.ts: gone: a notice;
    * reload: the file is read and offered to the store, kept when the buffer is dirty or any view holds Source
    * text. Callers keep the file present for a batch that reads it (an unreadable file is retried, with sleeps).
    */
@@ -684,7 +698,7 @@ export class World {
       holdsUnfoldedSource: () => viewsOf(model, doc).some((v) => v.heldApart && unfolded(v)),
       onSaveAs: async () => {
         await (await this.watches.of(doc.store))?.moved();
-        // Another pane showing the path through its own (clean) store now shows this one (D-10.1).
+        // Another pane showing the path through its own (clean) store now shows this one.
         const path = doc.store.snapshot().path;
         for (const other of [...model.views]) {
           if (other && other.doc !== doc && other.doc.path === path) {
@@ -763,7 +777,7 @@ function insertIntoText(world, text, token, piece, typed) {
   }
   const places = [];
   for (let i = 0; i <= text.length; i++) {
-    // Not between an astral character's two halves. A lone low surrogate is a byte that is not UTF-8 (F-34.1):
+    // Not between an astral character's two halves. A lone low surrogate is a byte that is not UTF-8:
     // typing just before it is fine, and the walk does.
     if (i > 0 && i < text.length && isHigh(text.charCodeAt(i - 1)) && isLow(text.charCodeAt(i))) continue;
     if (i > 0 && i < text.length && text[i - 1] === '\r' && text[i] === '\n') continue;
@@ -805,7 +819,7 @@ function outsideBytes(model, path) {
   return cat(cur, enc.encode(`\nOUTSIDE ${n}\n`));
 }
 
-// ---- V-02: the table tools ----------------------------------------------------------------------------------------
+// ---- the table tools ----------------------------------------------------------------------------------------
 
 /** Where each UTF-16 unit of `text` starts, in UTF-8 bytes (a surrogate pair is four bytes, counted at its first unit). */
 function unitStarts(text) {
@@ -847,7 +861,7 @@ function tableByteSpans(bytes) {
 const endingKinds = (bytes) => new Set(latin1(bytes).match(/\r\n|\r|\n/g) ?? []);
 const TABLE_TOOLS = ['alignTable', 'addTableRow', 'addTableColumn', 'sortTableRows'];
 
-/** A pane the table tools may act on: a Markdown file with a table, nothing held apart (stray bytes too: F-34.1). */
+/** A pane the table tools may act on: a Markdown file with a table, nothing held apart (stray bytes too). */
 const tableToolSlots = (model) =>
   slotsWith(
     model,
@@ -916,34 +930,27 @@ export const OPS = {
     },
   },
 
-  // W-06: a click on a tab shows its document in the focused pane, asking first over unsaved edits as any open does.
+  // A click on a tab of the row shows its document in the focused pane, asking first over unsaved edits as any open does.
   tabSwitch: {
     name: 'tabSwitch',
     weight: 4,
-    applicable: (model) => model.views[model.focus] != null && model.tabs.snapshot().tabs.some((p) => p !== model.views[model.focus].doc.path),
+    applicable: (model) => model.views[model.focus] != null && model.tabs.tabs.some((t) => t.path !== model.views[model.focus].doc.path),
     async run(world, model) {
       const d = model.d;
       const slot = model.focus;
       const view = model.views[slot];
       // A file another program deleted cannot be opened again from its tab: the walk clicks the others.
-      const { tabs } = model.tabs.snapshot();
-      const choices = tabs.filter((p) => p !== view.doc.path && (model.disk.get(p) != null || model.views.some((v) => v?.doc.path === p)));
+      const choices = model.tabs.tabs.map((t) => t.path).filter((p) => p !== view.doc.path && (model.disk.get(p) != null || model.views.some((v) => v?.doc.path === p)));
       if (choices.length === 0) return 'tab: every other tab is a deleted file';
       const target = d.pick(choices);
-      const beside = model.views.findIndex((v, i) => i !== slot && v?.doc.path === target);
-      if (beside >= 0) {
-        // The other pane already shows it: the click moves focus there and shows nothing twice.
-        model.focus = beside;
-        world.syncTabs();
-        return `click tab ${target}: focus moves to pane ${beside}`;
-      }
-      const before = JSON.stringify([model.tabs.snapshot(), model.views.map((v) => v?.doc.path ?? null)]);
+      const snapshot = () => JSON.stringify([model.tabs.tabs.map((t) => t.path), model.views.map((v) => v?.doc.path ?? null)]);
+      const before = snapshot();
       let how = '';
       if (asks(model, view)) {
         if (d.chance(0.5)) {
           // Dismiss: the pane, its buffer, its draft and the row are as they were.
           world.syncTabs();
-          if (JSON.stringify([model.tabs.snapshot(), model.views.map((v) => v?.doc.path ?? null)]) !== before) world.fail('tabs', 'Dismiss changed the row or a pane');
+          if (snapshot() !== before) world.fail('tabs', 'Dismiss changed the tabs or a pane');
           return `click tab ${target} over unsaved edits in pane ${slot}: Dismiss`;
         }
         world.mayDrop(model, view.typed.map((t) => t.id));
@@ -957,41 +964,42 @@ export const OPS = {
     },
   },
 
-  // W-06: the close button removes a tab; on the document a pane shows it opens the next tab there first (asking the same way).
+  // A tab's close button takes it out of the row; the one pane showing it shows the tab beside it first (asking the same way).
   tabClose: {
     name: 'tabClose',
     weight: 3,
-    applicable: (model) => model.tabs.snapshot().tabs.length >= 2,
+    applicable: (model) => model.views.some(Boolean) && model.tabs.tabs.length >= 2,
     async run(world, model) {
       const d = model.d;
-      const { tabs } = model.tabs.snapshot();
-      const target = d.pick(tabs);
-      const slot = model.views.findIndex((v) => v?.doc.path === target);
-      if (slot < 0) {
-        model.tabs.close(target);
+      const tabs = model.tabs;
+      const target = d.pick(tabs.tabs);
+      const path = target.path;
+      const showing = [0, 1].filter((s) => model.views[s]?.doc.path === path);
+      if (showing.length === 0) {
+        tabs.remove(target.id);
         world.syncTabs();
-        return `close tab ${target}: no pane shows it, nothing else moves`;
+        return `close tab ${path}: not shown, nothing else moves`;
       }
+      if (showing.length > 1) return `close tab ${path}: both panes show it`;
+      const slot = showing[0];
+      const next = tabs.nextAfterClose(target.id);
+      if (next === null || (model.disk.get(next) == null && !model.views.some((v) => v?.doc.path === next))) return `close tab ${path}: no tab to show instead`;
       const view = model.views[slot];
-      const elsewhere = new Set(model.views.flatMap((v, i) => (v && i !== slot ? [v.doc.path] : [])));
-      const next = model.tabs.neighbour(target, elsewhere);
-      if (next === null || (model.disk.get(next) == null && !elsewhere.has(next))) return `close tab ${target}: no tab to show instead`;
       const keep = model.focus;
       let how = '';
       if (asks(model, view)) {
-        if (d.chance(0.5)) return `close tab ${target} over unsaved edits in pane ${slot}: Dismiss`;
+        if (d.chance(0.5)) return `close tab ${path} over unsaved edits in pane ${slot}: Dismiss`;
         world.mayDrop(model, view.typed.map((t) => t.id));
         if (lastHolder(model, view)) world.mayDrop(model, tokensIn(model, latin1(view.doc.buf)));
         how = ', discarding what is unsaved';
       }
       await world.open(slot, next);
-      model.tabs.close(target);
+      tabs.remove(target.id);
       model.focus = keep;
       world.syncTabs();
-      return `close tab ${target} in pane ${slot}: ${next} shown there${how}`;
+      return `close tab ${path} in pane ${slot}: ${next} shown there${how}`;
     },
   },
-
   edit: {
     name: 'edit',
     weight: 10,
@@ -1044,7 +1052,7 @@ export const OPS = {
   },
 
   /**
-   * F-33.1: a paste in Source, through `shell-api` (J-05, ADR-0065 §3), not the DOM. (Plain text and Markdown only: converting HTML needs
+   * A paste in Source, through `shell-api`, not the DOM. (Plain text and Markdown only: converting HTML needs
    * a DOMParser, which the node layer lacks; paste-source.test.mjs covers it in WebKit.) The pasteboard is the memory shell's;
    * the app's own `readConverted` / `readForPaste` read it and `pastedText` shapes it for the document's line break; the text
    * goes into the unfolded Source text like typing does and reaches the buffer on a fold. A concealed item must be refused
@@ -1214,7 +1222,7 @@ export const OPS = {
   },
 
   /**
-   * V-02: a table tool run in Source at a caret in a table, and folded. The walk takes the tool's Source text from
+   * A table tool run in Source at a caret in a table, and folded. The walk takes the tool's Source text from
    * the store's bytes (what an editor over the folded buffer holds), runs the real command function over a real
    * CodeMirror state in the file's own line separator, and commits it through the Source fold (`commitSource`).
    * The oracle is the promise, not the tool's arithmetic: the bytes that changed lie inside one table of the
@@ -1274,7 +1282,7 @@ export const OPS = {
   },
 
   /**
-   * V-03: Replace all in Source, through the preview's own two functions: `planFor` (what the preview shows) and
+   * Replace all in Source, through the preview's own two functions: `planFor` (what the preview shows) and
    * `applyReplacePlan` (Apply: one CodeMirror transaction), over a real editor state in the file's own line separator,
    * committed through the Source fold (`commitSource`). The query is a word of the file, a regular expression with a
    * group, an empty match (`^`, `$`) or a run of spaces; the replacement may hold `$1`, `$&` or a line break. The oracle
@@ -1379,7 +1387,7 @@ export const OPS = {
   },
 
   /**
-   * W-10: a Move up, Move down, Promote or Demote from the Outline tab, on a heading of a folded Markdown document. The
+   * A Move up, Move down, Promote or Demote from the Outline tab, on a heading of a folded Markdown document. The
    * oracle is the promise, written from the bytes and the parse of them and not from the operation: a move changes the two
    * sections it trades and nothing else (the bytes before them and after them are as they were), adds and loses no byte,
    * keeps the byte-order mark and the kinds of line ending, leaves the file ending as it did (with a line ending or without
@@ -1419,7 +1427,7 @@ export const OPS = {
       const withSibling = [...tops.keys()].filter(sibling);
       const i = withSibling.length > 0 && d.chance(0.85) ? d.pick(withSibling) : d.int(tops.length);
       const at = `${action} of section ${i} of ${tops.length} in ${doc.path} (pane ${slot})`;
-      // The byte-order mark belongs to the file, not to a section: the first section begins after it (F-112), so a move
+      // The byte-order mark belongs to the file, not to a section: the first section begins after it, so a move
       // down of section 0 leaves the three bytes where they were.
       const lineStart = (byte) => {
         let p = byte;
@@ -1452,7 +1460,7 @@ export const OPS = {
         }
       })();
       const version = doc.store.snapshot().version;
-      // A store that opens lazily and has not been parsed is never parsed for the tab (V-11.1): the action says so and does nothing.
+      // A store that opens lazily and has not been parsed is never parsed for the tab: the action says so and does nothing.
       const unparsed = !doc.store.parsed();
       const result = await applyOutlineAction(doc.store, tops[i].src.start, action);
       const store = copy(doc.store.snapshot().buffer.bytes);
@@ -1532,7 +1540,7 @@ export const OPS = {
   },
 
   /**
-   * W-21: Apply on the result sheet. The walk drives the real chain (`createChain`, `addStep`, `output`) and the real
+   * Apply on the result sheet. The walk drives the real chain (`createChain`, `addStep`, `output`) and the real
    * store write (`applyToStore`, the function the sheet's Apply calls) over a Rendered pane's range: the whole buffer
    * or a stretch of it, one or two `edit` transforms. The oracle is the promise, not the transform's arithmetic: the
    * bytes outside the range are the ones that were there (a byte diff, before and after), the range holds the output,
@@ -1746,7 +1754,7 @@ export const OPS = {
         if (target !== doc.path) {
           doc.path = target;
           doc.pending = null; // saved under a new name: the old file's pending change is not this document's
-          // The other pane's clean store let go and the pane shows this one (D-10.1): onSaveAs moved the model's views.
+          // The other pane's clean store let go and the pane shows this one: onSaveAs moved the model's views.
           if (other && model.docs.includes(other)) world.fail('I5', `${target} still has two stores after a Save As onto it`);
         }
       }
@@ -1755,7 +1763,7 @@ export const OPS = {
   },
 
   /**
-   * F-33.1: Save As onto a path that is open, and has changes that are not saved, in another document (D-10.1). The plain
+   * Save As onto a path that is open, and has changes that are not saved, in another document. The plain
    * `saveAs` op reaches this by luck (3 seeds in 40); this one builds it: the other document is made unsaved first (a token
    * typed in its Source, not folded) when it is not already, then the reader picks its path. The save runs through the real
    * dialog guard (document/save-as-guard.ts). Nothing may be written, nothing may be allowed to drop, and the other
@@ -1818,7 +1826,7 @@ export const OPS = {
     weight: 4,
     applicable: (model) => model.docs.length > 0,
     async run(world, model) {
-      // Rendered asked for: the first read of a lazily opened store's parse, after whatever came before it (V-11.1).
+      // Rendered asked for: the first read of a lazily opened store's parse, after whatever came before it.
       const doc = model.d.pick(model.docs);
       const made = doc.store.parsed();
       const problem = parseDisagreement(doc);
@@ -2097,7 +2105,7 @@ export function describeFailure(seed, failure, trace, peeks = []) {
     `replay: MARXY_WALK_SEED=${seed} node --test --experimental-strip-types apps/desktop/test/store-walk.test.mjs`,
     'steps:',
     ...trace.map((line, i) => `  ${i + 1}. ${line}`),
-    // F-33.1: what the app peeked at, newest last. A failure from a stale-write comparison shows which bytes it compared.
+    // what the app peeked at, newest last. A failure from a stale-write comparison shows which bytes it compared.
     ...(peeks.length ? [`peeks (the last ${Math.min(peeks.length, PEEKS_SHOWN)} of ${peeks.length}):`, ...peeks.slice(-PEEKS_SHOWN).map((line) => `  ${line}`)] : []),
   ].join('\n');
 }
@@ -2140,7 +2148,7 @@ export async function runWalk(seed, { steps } = {}) {
       model.allowed.clear();
       model.dropped.clear();
     }
-    // Whatever was never read is read now: a parse made this late is the parse of the bytes the walk ended with (V-11.1).
+    // Whatever was never read is read now: a parse made this late is the parse of the bytes the walk ended with.
     for (const doc of model.docs) {
       const problem = parseDisagreement(doc);
       if (problem) throw new Error(describeFailure(seed, { invariant: 'I8 (a late parse is the parse of the bytes)', message: problem }, model.trace, world.peeks));

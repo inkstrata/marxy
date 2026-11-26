@@ -1,4 +1,4 @@
-// Rule table for invisible-character markers (handbook ch.7, MARXY-236).
+// Rule table for invisible-character markers (handbook ch.7).
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -78,8 +78,8 @@ test('👩‍💻 is not marked', () => {
   assert.ok(!html.includes('marxy-invisible'));
 });
 
-// K-08: ESC is shown, never interpreted, as the control picture; every other control keeps its hex label.
-test('ESC is drawn as the control picture, marked for the theme, over its own byte; other controls keep their hex label (K-08)', () => {
+// ESC is shown, never interpreted, as the control picture; every other control keeps its hex label.
+test('ESC is drawn as the control picture, marked for the theme, over its own byte; other controls keep their hex label', () => {
   const html = markInvisibles('a\u001b[31mred\u001b[0m\u0007', code);
   assert.equal((html.match(/marxy-invisible-esc/g) ?? []).length, 2, 'both ESC bytes');
   assert.equal((html.match(/marxy-invisible-glyph[^>]*>␛</g) ?? []).length, 2);

@@ -1,4 +1,4 @@
-// Which bytes "this block" means for a selected node: the unit the in-place editor shows (ADR-0048).
+// Which bytes "this block" means for a selected node: the unit the in-place editor shows.
 
 import type { Document, Node, Source } from '../contracts/ast.ts';
 import { lineStartAt } from './line-starts.ts';

@@ -1,4 +1,4 @@
-// The aesthetics gate's app entry (B-01): gate.html boots the real app over a memory shell, renders a
+// The aesthetics gate's app entry: gate.html boots the real app over a memory shell, renders a
 // corpus file at a width, variant and size from the config file, and returns the layout-shift report.
 // The app's `typeset_done` mark is checked here too. Playwright WebKit only.
 import { strict as assert } from 'node:assert';
@@ -9,7 +9,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -22,7 +22,7 @@ const corpus = fileURLToPath(new URL('../../../fixtures/corpus/', import.meta.ur
 const technical = readFileSync(join(corpus, '01-long-technical.md'), 'utf8');
 const prose = 'A paragraph long enough to take several lines at any width the gate renders, so the typesetter has a real paragraph to break and sets it rather than leaving a single short line to the engine. '.repeat(4).trim();
 /**
- * Over A-02's 64 KiB threshold, so it is mounted in idle chunks after first text. Its paragraphs are
+ * Over the 64 KiB threshold, so it is mounted in idle chunks after first text. Its paragraphs are
  * at the two ends and only headings lie between, so the typesetter runs out of work on the first
  * screens long before the last chunk brings the closing paragraph: a mark on the first `done` would
  * come before `content_complete` and before that paragraph is set.
@@ -134,7 +134,7 @@ test('a 24 px size from the config file reaches the page', async () => {
   assert.equal(r.fontSize, '24px');
   assert.equal(r.stats.observed, true);
   assertTypesetDoneOrder(r.marks);
-  // Phase A applies size before first text, so no 20 → 24 reflow lands in a measured window.
+  // Size is applied before first text, so no 20 → 24 reflow lands in a measured window.
   console.log(`# 01-long-technical 960 dark 24: cls=${r.stats.cls} font=${r.stats.fontWindow} settle=${r.stats.settleWindow}`);
 });
 
@@ -148,7 +148,7 @@ test('a progressive document marks typeset_done only once its last chunk is in a
   const names = markNames(r.marks);
   const done = assertTypesetDoneOrder(r.marks);
   const complete = names.indexOf('content_complete');
-  assert.ok(complete >= 0, `the document is mounted in chunks (A-02); marks: ${names.join(' ')}`);
+  assert.ok(complete >= 0, `the document is mounted in chunks; marks: ${names.join(' ')}`);
   assert.ok(complete < done, `typeset_done comes after content_complete; marks: ${names.join(' ')}`);
   assert.equal(r.lastParagraphSet, true, 'the closing paragraph, in the last chunk, is set by typeset_done');
   assert.equal(r.stats.observed, true);
@@ -156,7 +156,7 @@ test('a progressive document marks typeset_done only once its last chunk is in a
 });
 
 /**
- * B-02, from B-01's review: the stale-document guards in app.ts's typesetDocument. A large first
+ * The stale-document guards in app.ts's typesetDocument. A large first
  * document is still being mounted in idle chunks when a second is opened over it; only the second, the
  * live document, may mark `typeset_done`, once. A cancelled mount or a replaced typesetter emits nothing.
  */

@@ -1,0 +1,77 @@
+{
+  "tier": "full",
+  "base": "master",
+  "root": "C:\\Dev\\reader\\worktrees\\round9",
+  "rows": [
+    {
+      "name": "unit-core",
+      "status": "pass",
+      "seconds": 192.833,
+      "tests": "4292 pass, 0 fail, 3 skip",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs-2\\01-unit-core.log"
+    },
+    {
+      "name": "unit-theme",
+      "status": "pass",
+      "seconds": 45.355,
+      "tests": "305 pass, 0 fail",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs-2\\02-unit-theme.log"
+    },
+    {
+      "name": "unit-typeset",
+      "status": "pass",
+      "seconds": 45.832,
+      "tests": "80 pass, 0 fail",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs-2\\03-unit-typeset.log"
+    },
+    {
+      "name": "unit-scripts",
+      "status": "pass",
+      "seconds": 82.446,
+      "tests": "251 pass, 0 fail",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs-2\\04-unit-scripts.log"
+    },
+    {
+      "name": "unit-desktop",
+      "status": "pass",
+      "seconds": 328.313,
+      "tests": "1315 pass, 0 fail, 1 skip",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs-2\\05-unit-desktop.log"
+    },
+    {
+      "name": "lint-rust",
+      "status": "pass",
+      "seconds": 4.183,
+      "tests": "",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs-2\\06-lint-rust.log"
+    },
+    {
+      "name": "browser",
+      "status": "FAIL",
+      "seconds": 2222.537,
+      "tests": "2460 pass, 4 fail, 4 skip",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs-2\\07-browser.log"
+    },
+    {
+      "name": "cargo",
+      "status": "pass",
+      "seconds": 14.156,
+      "tests": "597 pass, 0 fail, 5 skip",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs-2\\08-cargo.log"
+    },
+    {
+      "name": "build",
+      "status": "pass",
+      "seconds": 255.73,
+      "tests": "",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs-2\\09-build.log"
+    },
+    {
+      "name": "tauri",
+      "status": "pass",
+      "seconds": 94.985,
+      "tests": "117 pass, 0 fail",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs-2\\10-tauri.log"
+    }
+  ]
+}

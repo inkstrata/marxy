@@ -1,6 +1,6 @@
-// What the open document may show (docs/design/13-trust.md): trust.json, the HTML grant and its
+// What the open document may show: trust.json, the HTML grant and its
 // revoke, the blocked-content and truncation notices, and the one late re-render when trust.json
-// arrives after first text. One instance per app (B-10); app.ts owns the page it re-renders.
+// arrives after first text. One instance per app; app.ts owns the page it re-renders.
 
 import type { Buffer } from '@marxy/core';
 import type { Shell } from '@marxy/shell-api';
@@ -26,25 +26,31 @@ import {
 } from '../notices/trust-copy.ts';
 import { loadTrust, type TrustStore } from './trust.ts';
 
-/** Where the reader is: a byte in the source and how far into its block (ADR-0018). */
+/** Where the reader is: a byte in the source and how far into its block. */
 export interface TrustPosition {
   readonly byteOffset: number;
   readonly fraction: number;
 }
 
+/**
+ * Each pane-taking dep acts on the pane whose host is `pane` (a notice's own pane), or on the focused pane when
+ * `pane` is unset. A pane that has gone shows nothing: its path is null.
+ */
 export interface TrustControllerDeps {
   /** A shell without `configPaths` has nowhere to keep trust.json: nothing is granted, ever. */
   readonly shell: Pick<Shell, 'readFile' | 'writeFileAtomic'> & { configPaths?: Shell['configPaths'] };
   /** The open document's path, or null with none open. */
-  currentPath(): string | null;
+  currentPath(pane?: HTMLElement): string | null;
   /** The open document's bytes, read when a notice needs them (the truncation line's offset). */
-  buffer(): Buffer | null;
+  buffer(pane?: HTMLElement): Buffer | null;
   /** The reader's position in the open document, read before a trust change is written. */
-  position(path: string): TrustPosition;
+  position(path: string, pane?: HTMLElement): TrustPosition;
   /** The page again from the open buffer under the new grants, landing on and restoring `at`. */
-  rerender(at: TrustPosition): void;
+  rerender(at: TrustPosition, pane?: HTMLElement): void;
+  /** Every pane and the file it shows, so a grant reaches each pane showing the same file; unset, only the pane acted on. */
+  panes?(): readonly { readonly host: HTMLElement; readonly path: string | null }[];
   /** Source mode at a byte: the truncation notice's "show source" action. */
-  showSource(byteOffset: number): Promise<void>;
+  showSource(byteOffset: number, pane?: HTMLElement): Promise<void>;
   /** Where notices go; the page's notice line unless a test supplies its own. */
   notify?(input: NoticeInput): void;
 }
@@ -61,7 +67,8 @@ export interface TrustController {
     blockedImages: readonly BlockedImage[],
     at?: { readonly path: string; readonly buffer: Buffer; readonly pane?: HTMLElement },
   ): void;
-  grantHtml(): Promise<void>;
+  /** Grants `at.path` HTML and re-renders `at.pane` (a notice's own file and pane); unset, the focused pane's. */
+  grantHtml(at?: { readonly path: string; readonly pane?: HTMLElement }): Promise<void>;
   revokeHtml(): Promise<void>;
   /** After first text: once trust.json is in, re-render if it grants the open document HTML. */
   maybeRerenderForLateTrust(): Promise<void>;
@@ -121,7 +128,7 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
 
   /**
    * The notices for one render. A view says which document and pane it rendered (`at`), so a render in an
-   * unfocused pane speaks in that pane about its own file (D-10); unset, the focused pane's.
+   * unfocused pane speaks in that pane about its own file; unset, the focused pane's.
    */
   function showNotices(
     removed: readonly RenderRemoval[],
@@ -144,7 +151,8 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
         removed,
         blockedImages,
         grants: grantsFor(path),
-        onGrantHtml: () => { void grantHtml(); },
+        // Bound to this render's file and pane: a click lands after focus may have moved to the other pane.
+        onGrantHtml: () => { void grantHtml({ path, pane }); },
       });
     }
     truncationNotices({
@@ -152,7 +160,8 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
       removed,
       pane,
       showSource: (line) => {
-        void byteOffsetForLine(line, buffer).then((b) => deps.showSource(b));
+        if (deps.currentPath(pane) !== path) return;
+        void byteOffsetForLine(line, buffer).then((b) => deps.showSource(b, pane));
       },
     });
   }
@@ -177,7 +186,7 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
    * Waits for the one read in flight and says whether a store resulted. A read that failed earlier may have
    * been transient (EMFILE, EAGAIN), so a change that follows it (`mayRetry`) reads again, once for all the
    * changes waiting on that failure: the first of them to see it reset starts the retry and the rest join
-   * it, so every change lands in the one store that results, in the order it was made (F-64.1). A second
+   * it, so every change lands in the one store that results, in the order it was made. A second
    * failure notifies again inside load() and the changes are dropped with nothing written.
    */
   async function storeReady(mayRetry: boolean): Promise<boolean> {
@@ -190,42 +199,60 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
     return store !== null;
   }
 
-  async function grantHtml(): Promise<void> {
-    const path = deps.currentPath();
-    if (!path || !deps.buffer()) return;
-    // A grant is kept by file path, and a scratch document has none: it stays blocked until it is saved (E-13).
+  /** The panes showing `path` (just `origin` when the app does not list its panes). */
+  function showing(path: string, origin?: HTMLElement): { readonly host?: HTMLElement }[] {
+    const all = deps.panes?.();
+    return all ? all.filter((p) => p.path === path) : [{ host: origin }];
+  }
+
+  /** Re-renders each pane showing `path` from the position it had before the change, then drops panes that moved on meanwhile. */
+  function rerenderShowing(path: string, origin: HTMLElement | undefined, before: ReadonlyMap<HTMLElement | undefined, TrustPosition>): void {
+    for (const { host } of showing(path, origin)) {
+      if (deps.currentPath(host) !== path) continue;
+      deps.rerender(before.get(host) ?? deps.position(path, host), host);
+    }
+  }
+
+  const positions = (path: string, origin?: HTMLElement): Map<HTMLElement | undefined, TrustPosition> =>
+    new Map(showing(path, origin).map(({ host }) => [host, deps.position(path, host)]));
+
+  async function grantHtml(at?: { readonly path: string; readonly pane?: HTMLElement }): Promise<void> {
+    const pane = at?.pane;
+    const path = at?.path ?? deps.currentPath();
+    if (!path || deps.currentPath(pane) !== path || !deps.buffer(pane)) return;
+    // A grant is kept by file path, and a scratch document has none: it stays blocked until it is saved.
     if (isUntitled(path)) {
       notify({ kind: 'refused', text: 'Raw HTML in a document that is not saved yet stays blocked. Save it first, then allow it.' });
       return;
     }
     // The read starts a task after first text, so a click on the offer can land before it settles: wait for
-    // it rather than dropping the grant with nothing shown (F-64).
+    // it rather than dropping the grant with nothing shown.
     if (!(await storeReady(loading !== null))) return;
-    const pos = deps.position(path);
+    const before = positions(path, pane);
     const granted = await applyTrustChange((s) => s.grant(path, { html: true }));
     // The reader may have opened another document while the write ran; the grant is theirs to keep
     // for `path`, but nothing here may re-render or announce over the document now open.
-    if (!granted || deps.currentPath() !== path) return;
-    deps.rerender(pos);
-    grantSummaryNotice(path, true);
+    if (!granted) return;
+    rerenderShowing(path, pane, before);
+    if (deps.currentPath(pane) === path) grantSummaryNotice(path, true);
   }
 
   async function revokeHtml(): Promise<void> {
     const path = deps.currentPath();
     if (!path) return;
     if (!(await storeReady(loading !== null))) return;
-    const pos = deps.position(path);
+    const before = positions(path);
     if (!(await applyTrustChange((s) => s.revoke(path, 'html')))) return;
-    if (deps.currentPath() !== path) return;
-    clearGrantSummaryNotices();
-    deps.rerender(pos);
+    if (deps.currentPath() === path) clearGrantSummaryNotices();
+    rerenderShowing(path, undefined, before);
   }
 
   async function maybeRerenderForLateTrust(): Promise<void> {
     await load();
     const path = deps.currentPath();
     if (!path || !store || !grantsFor(path).html) return;
-    deps.rerender(deps.position(path));
+    const before = positions(path);
+    rerenderShowing(path, undefined, before);
   }
 
   return {

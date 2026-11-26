@@ -1,10 +1,10 @@
 // The split's arithmetic: how wide a window must be for two panes at the typography floor, and how far
 // the divider may move. Pure numbers in, numbers out: the desktop measures the page and passes
-// `SplitMetrics` (07 §5). Nothing here reads the DOM, the window or CSS.
+// `SplitMetrics`. Nothing here reads the DOM, the window or CSS.
 
 /** The most columns the split holds. */
 export const MAX_COLUMNS = 2;
-/** The narrowest a column may be, in characters (ADR-0033 floor). */
+/** The narrowest a column may be, in characters. */
 export const MIN_COLUMN_CHARS = 45;
 /** Where the divider sits when nothing says otherwise. */
 export const DEFAULT_RATIO = 0.5;

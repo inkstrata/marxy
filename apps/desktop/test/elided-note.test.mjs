@@ -1,4 +1,4 @@
-// F-84: the note that says how much of a long line is not shown ("… 1,340 more characters") is the page's words, not the
+// the note that says how much of a long line is not shown ("… 1,340 more characters") is the page's words, not the
 // file's. A piece split into lines (the level filter does it to a piece that holds a marker, before its colour has
 // arrived) and then coloured was read back from the page, note and all, and the note became text of the line: the page held
 // 24 characters the bytes do not, and a filtered copy took the head of a hidden line. WebKit, over the shipped skeleton and

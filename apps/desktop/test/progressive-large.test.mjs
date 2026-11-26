@@ -1,7 +1,6 @@
-// The reading position of a 1 MB document (A-02, split out of progressive.test.mjs by G-04): opened
+// The reading position of a 1 MB document (split out of progressive.test.mjs): opened
 // at 80 % of the bytes, kept across a live reload, kept across a one-byte commitEdit. They are slow
-// (about 100 s together, each mounting 1 MB and letting its grid passes settle), so they run in the
-// nightly `browser-full` suite and are not in `test:lite`; the pull-request guard for "first text
+// (about 100 s together, each mounting 1 MB and letting its grid passes settle); the guard for "first text
 // never waits for the whole file" is the 1 MB first-text test that stays in progressive.test.mjs.
 // WebKit, through startApp and the memory shell on the Vite dev server, as that file runs it.
 import { strict as assert } from 'node:assert';
@@ -10,14 +9,14 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { createServer } from 'vite';
+import { createServer } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { generateLarge } from '../../../scripts/perf-harness.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
-const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
+const test = (name, fn, timeout = 120_000) => nodeTest(name, { skip, timeout }, fn);
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const BIG = Buffer.from(generateLarge(1024 * 1024));
@@ -121,6 +120,17 @@ async function settle(page) {
 
 const markNames = (page) => page.evaluate(() => window.__h.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]));
 
+/**
+ * The reader takes the page to `frac` of its height: a wheel turn first, as their scroll begins, so a place the view still
+ * holds from before (the last case's, on this shared page, until its typesetting is done) is let go as a reader's scroll
+ * lets it go. A scripted scroll alone is not the reader's, and a pass put the held place back over it in batch runs.
+ */
+async function readerScroll(page, frac) {
+  await page.mouse.move(640, 450);
+  await page.mouse.wheel(0, 40);
+  await page.evaluate((frac) => window.scrollTo(0, document.documentElement.scrollHeight * frac), frac);
+}
+
 /** The index in the block list of the block the reading position names, and that block's byte range. */
 function readingBlock(page) {
   return page.evaluate(() => {
@@ -170,7 +180,7 @@ test('a live reload at 1 MB keeps the reading byte within one block', async () =
   const { page } = await bigPage();
   await page.evaluate(() => window.__h.contentComplete());
   await settle(page);
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight * 0.5));
+  await readerScroll(page, 0.5);
   await page.waitForFunction(() => window.scrollY > 1000);
   const before = await readingBlock(page);
   const next = Buffer.concat([BIG, Buffer.from('\n\nAppended after an external write.\n')]);
@@ -200,7 +210,7 @@ test('commitEdit of a one-byte change at 1 MB keeps the reading position', async
   const { page } = await bigPage();
   await page.evaluate(() => window.__h.contentComplete());
   await settle(page);
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight * 0.6));
+  await readerScroll(page, 0.6);
   await page.waitForFunction(() => window.scrollY > 1000);
   const before = await readingBlock(page);
   // One byte of the document's first paragraph, well above the reading position, changes case.
@@ -213,7 +223,7 @@ test('commitEdit of a one-byte change at 1 MB keeps the reading position', async
     bytes[at] = 0x74; /* t */
     await h.commitEdit(createBuffer(open.path, bytes));
     return at;
-  }, `/@fs${repoRoot}packages/core/src/buffer/buffer.ts`);
+  }, `/@fs${repoRoot.replaceAll('\\', '/').replace(/^(?!\/)/, '/')}packages/core/src/buffer/buffer.ts`);
   assert.ok(edited < before.at);
   const after = await readingBlock(page);
   assert.equal(after.at, before.at, `reading byte ${before.at} → ${after.at}`);
@@ -221,3 +231,92 @@ test('commitEdit of a one-byte change at 1 MB keeps the reading position', async
   await settle(page);
   assert.equal((await readingBlock(page)).at, before.at);
 });
+
+// Found tracing the case above: a resize burst that starts while a repaint holds the place read the place off the page
+// still being set under the hold, and its relayout held that one instead.
+test('a resize while a repaint holds the reading position does not put another in its place', async () => {
+  const { page } = await bigPage();
+  await page.evaluate(() => window.__h.contentComplete());
+  await settle(page);
+  await readerScroll(page, 0.4);
+  await page.waitForFunction(() => window.scrollY > 1000);
+  const before = await readingBlock(page);
+  await page.evaluate(async () => {
+    const h = window.__h;
+    const doc = document.getElementById('doc');
+    // Once the repaint holds the place, the page moves off it, as a chunk mounted above it moves it, and the article narrows.
+    const seen = new PerformanceObserver((list) => {
+      if (!list.getEntries().some((e) => e.name === 'marxy:repaint')) return;
+      seen.disconnect();
+      window.scrollTo(0, 0);
+      doc.style.width = `${doc.clientWidth - 80}px`;
+    });
+    seen.observe({ entryTypes: ['measure'] });
+    await h.commitEdit(h.openDocument().buffer);
+  });
+  try {
+    await page.evaluate(() => window.__h.contentComplete());
+    await settle(page);
+    const after = await readingBlock(page);
+    assert.equal(after.index, before.index, `reading block ${before.index} (byte ${before.at}) -> ${after.index} (byte ${after.at})`);
+  } finally {
+    await page.evaluate(() => { document.getElementById('doc').style.width = ''; });
+    await settle(page);
+  }
+  // The narrowed article sets every paragraph again, and the held place waits for the last: on 1 MB most of a minute.
+});
+
+/** The worst gap between frames, in ms, from the article's own width given back until `ms` after, and how many paragraphs were set before. */
+function worstFrameWidening(page, ms) {
+  return page.evaluate(async (ms) => {
+    const set = document.querySelectorAll('#doc .marxy-set').length;
+    const gaps = [];
+    let last = performance.now();
+    let on = true;
+    const tick = () => {
+      const now = performance.now();
+      gaps.push(now - last);
+      last = now;
+      if (on) requestAnimationFrame(tick);
+    };
+    await new Promise((r) => requestAnimationFrame(r));
+    last = performance.now();
+    requestAnimationFrame(tick);
+    document.getElementById('doc').style.width = '';
+    await new Promise((r) => setTimeout(r, ms));
+    on = false;
+    return { set, worst: Math.max(...gaps) };
+  }, ms);
+}
+
+/**
+ * The longest any frame may wait while a widened 1 MB page un-sets and sets its screen again, in ms: 1.2 to 1.5 s in WebKit,
+ * most of it the new width's own layout and paint, against 31 to 40 s before.
+ */
+const WIDEN_FRAME_MS = 3_000;
+
+// A new width takes every set paragraph back to native wrapping in one task before setting them again. In WebKit a theme
+// rule made each node taken out of a paragraph restyle the blocks after it, and on 1 MB that task held the reader for
+// half a minute.
+test('widening a 1 MB page set throughout holds no frame long', async () => {
+  const { page } = await bigPage();
+  await page.evaluate(() => window.__h.contentComplete());
+  await settle(page);
+  await readerScroll(page, 0.5);
+  await page.waitForFunction(() => window.scrollY > 1000);
+  try {
+    await page.evaluate(() => {
+      const doc = document.getElementById('doc');
+      doc.style.width = `${doc.clientWidth - 80}px`;
+    });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => window.__h.contentComplete());
+    await settle(page);
+    const { set, worst } = await worstFrameWidening(page, 3_000);
+    console.log(`widened with ${set} paragraphs set: worst frame ${worst.toFixed(0)} ms`);
+    assert.ok(set > 2_000, `${set} paragraphs set before the widen`);
+    assert.ok(worst < WIDEN_FRAME_MS, `a frame waited ${worst.toFixed(0)} ms; the bound is ${WIDEN_FRAME_MS} ms`);
+  } finally {
+    await page.evaluate(() => { document.getElementById('doc').style.width = ''; });
+  }
+}, 180_000);

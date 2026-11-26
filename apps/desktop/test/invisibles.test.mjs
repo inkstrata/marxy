@@ -1,4 +1,4 @@
-// Invisible-character markers in WebKit: bidi isolation and contrast (MARXY-236).
+// Invisible-character markers in WebKit: bidi isolation and contrast.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -6,15 +6,16 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-invisibles-'));
 let server;
@@ -22,7 +23,7 @@ let base;
 
 before(async () => {
   if (skip) return;
-  await build({ root: new URL('..', import.meta.url).pathname, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
+  await build({ root: fileURLToPath(new URL('..', import.meta.url)), logLevel: 'silent', build: { outDir, emptyOutDir: true } });
   const types = { '.html': 'text/html', '.ttf': 'font/ttf', '.js': 'text/javascript', '.css': 'text/css' };
   server = createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -187,7 +188,7 @@ test('invisible marker contrast is at least 4.5:1 on code and page grounds', asy
   }
 });
 
-test('06-math.md: no invisible marker inside KaTeX output (MARXY-337)', async () => {
+test('06-math.md: no invisible marker inside KaTeX output', async () => {
   const docPath = '/corpus/06-math.md';
   const browser = await webkit.launch();
   try {
@@ -207,7 +208,7 @@ test('06-math.md: no invisible marker inside KaTeX output (MARXY-337)', async ()
   }
 });
 
-test('hidden and bidi characters the document puts inside math are still marked (MARXY-337)', async () => {
+test('hidden and bidi characters the document puts inside math are still marked', async () => {
   const docPath = '/inline/math-hostile.md';
   const md = 'Inline $a\u202eb$ and $x\u200by$.\n\n$$\nq\u2066r\n$$\n';
   const browser = await webkit.launch();

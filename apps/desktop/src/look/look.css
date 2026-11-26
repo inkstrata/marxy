@@ -1,0 +1,82 @@
+/* The look on the page and the look at hand. Colours only from tokens. */
+
+/* A pane a rule gave a look of its own stands on that look's ground. */
+.marxy-pane[data-marxy-look] { background-color: var(--marxy-color-bg); color: var(--marxy-color-text); }
+:root[data-marxy-look] { transition: background-color 0.2s ease; }
+
+/* The pop-over: below the head, at the window's right. */
+.marxy-look-pop {
+  position: fixed;
+  inset: 44px 14px auto auto;
+  margin: 0;
+  z-index: 60;
+  width: 380px;
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 12px 14px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--marxy-color-surface);
+  color: var(--marxy-color-text);
+  box-shadow: var(--marxy-frame-float);
+  font-family: var(--marxy-face-chrome);
+  font-size: var(--marxy-size-chrome);
+  line-height: 1.4;
+}
+.marxy-look-pop button { border: 0; font: inherit; color: inherit; }
+.marxy-look-pop-h {
+  font-family: inherit;
+  font-style: normal;
+  margin: 0 0 8px;
+  font-size: 0.85em;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--marxy-color-text-faint);
+}
+.marxy-look-pop-looks { display: flex; flex-direction: column; gap: 1px; max-height: 214px; overflow: auto; margin-bottom: 10px; padding-right: 2px; }
+.marxy-look-pop-group { padding: 6px 4px 2px; color: var(--marxy-color-text-faint); font-size: 0.78em; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; }
+.marxy-look-pop-look {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  padding: 3px 6px 3px 3px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--marxy-color-text-secondary);
+  font: inherit;
+  font-size: 0.85em;
+  cursor: default;
+}
+.marxy-look-pop-look:hover { background: var(--marxy-frame-chrome-2); }
+.marxy-look-pop-look[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px var(--marxy-color-accent); color: var(--marxy-color-text-strong); }
+.marxy-look-pop-sw {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 22px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2);
+  font-size: 13px;
+}
+.marxy-look-pop-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.marxy-look-pop-row { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.marxy-look-pop-k { flex: 1 1 auto; color: var(--marxy-color-text-secondary); }
+.marxy-look-pop-v { min-width: 7.5em; text-align: center; font-weight: 600; color: var(--marxy-color-text-strong); font-variant-numeric: tabular-nums; }
+.marxy-look-pop-step {
+  width: 24px;
+  height: 22px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--marxy-frame-chrome-2);
+  color: var(--marxy-color-text);
+  font: inherit;
+}
+.marxy-look-pop-buttons { flex-wrap: wrap; margin-top: 8px; }
+.marxy-look-pop-why { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--marxy-frame-hair); }
+.marxy-look-pop-why ul { margin: 0; padding-left: 1.1em; color: var(--marxy-color-text); }
+.marxy-look-pop-facts { margin: 6px 0 0; color: var(--marxy-color-text-faint); }

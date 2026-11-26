@@ -1,5 +1,5 @@
 // What `scripts/gate-no-network.mjs` can see a sanitised document attempt, and what it structurally
-// cannot (ADR-0009, MARXY-83). Playwright's interception sees a request; it never fires for a
+// cannot. Playwright's interception sees a request; it never fires for a
 // WebSocket handshake, a `dns-prefetch` hint or a service worker registration, because those are
 // not requests the network layer makes on the page's behalf — they need a `<script>` or `<link>`
 // element to exist first. The allow-list (`policy.ts`) is what stops that today, but a gate silent

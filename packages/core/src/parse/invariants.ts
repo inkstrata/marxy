@@ -1,6 +1,6 @@
-// Checks a parsed document against AST_INVARIANTS from the reviewed contract (ADR-0045), one check per entry.
+// Checks a parsed document against AST_INVARIANTS from the reviewed contract, one check per entry.
 // Every gate that touches the parser runs this: the invariants are what make byte provenance a
-// promise rather than a hope (ADR-0003).
+// promise rather than a hope.
 
 import { AST_INVARIANTS } from '../contracts/ast.ts';
 import type { Node } from '../contracts/ast.ts';
@@ -29,7 +29,7 @@ export function checkInvariants(root: Node, bytes: Uint8Array): Violation[] {
     violations.push({ invariant: DOCUMENT_COVERS, detail: `document.src is [${root.src.start},${root.src.end}) but the file is ${bytes.byteLength} bytes` });
   }
 
-  // A document nested too deep to typeset (F-54) is one code block over all of its bytes, shown as the source it
+  // A document nested too deep to typeset is one code block over all of its bytes, shown as the source it
   // is: its `content` is the whole text, line endings and all, and not the content of a fence or an indent.
   const asSource = root.type === 'document' && nestedTooDeepText(root) !== undefined;
 
@@ -86,12 +86,12 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
  * of its own: content that swallowed it would have one line more than the block's value.
  *
  * One indented block has a first line that looks like a fence: after `>` and a tab the block's range
- * starts past the tab, whose leftover columns make `   ```` indented code (F-20). Its value's first
+ * starts past the tab, whose leftover columns make `   ```` indented code. Its value's first
  * line is that line less some of its indentation, so the check stands down only for that shape: no
  * info string, a tab just before the block, the same line once spaces and tabs are stripped, and no
  * more indentation in the value than in the source. A fenced block whose code repeats its fence line
  * (`` ```js `` twice, or ```` ``` ```` then an indented ```` ``` ````) is still held to the fence, so a
- * range moved up onto the fence is caught (F-20 review, mutation `offset = 0`). The offset is counted
+ * range moved up onto the fence is caught (mutation `offset = 0`). The offset is counted
  * in the file's bytes, never re-encoded, so a byte that is not UTF-8 on the fence line counts once.
  */
 function openingFenceLineEnd(bytes: Uint8Array, start: number, end: number, value: string, info: string | undefined): number | undefined {
@@ -141,7 +141,7 @@ function isJustTheCode(content: string, value: string): boolean {
   }
   if (lines.at(-1) === '') lines.pop();
   // The value keeps the source's endings, one for one, so it is split on the content's: split on its
-  // own, a CR, then a line of indentation alone, then an LF would read as one CRLF (F-20.1).
+  // own, a CR, then a line of indentation alone, then an LF would read as one CRLF.
   const valueLines: string[] = [];
   for (let at = 0, line = 0; value !== ''; line++) {
     const ending = nextLineEnding(value, at);
@@ -166,7 +166,7 @@ function isJustTheCode(content: string, value: string): boolean {
  * What follows a code block's content inside the block is its closing fence line and nothing else, or,
  * for indented code, the blank lines micromark's range holds. A content range that stops a line short,
  * or partway through a line, leaves code there: a line of spaces in a fence, which `isJustTheCode`
- * reads as the value's empty last line, is caught only here (`- ~~~` then lines of spaces, F-20.2).
+ * reads as the value's empty last line, is caught only here (`- ~~~` then lines of spaces).
  * Nor may content end between the CR and the LF of one line ending.
  */
 function endsTheCode(bytes: Uint8Array, end: number, blockEnd: number, fenced: boolean): boolean {

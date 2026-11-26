@@ -1,6 +1,6 @@
-// `checkDerivedInvariants` (ADR-0061 item 4): what every transcript tree satisfies, checked against the bytes it was
-// derived from with the standard decoders, not the deriver's own: item 5's decoding is `JSON.parse` over `TextDecoder`'s
-// UTF-8 (U+FFFD for each invalid sequence), and item 6's inner documents are parsed by the ordinary parser and held to
+// `checkDerivedInvariants`: what every transcript tree satisfies, checked against the bytes it was
+// derived from with the standard decoders, not the deriver's own: the decoding is `JSON.parse` over `TextDecoder`'s
+// UTF-8 (U+FFFD for each invalid sequence), and the inner documents are parsed by the ordinary parser and held to
 // `checkInvariants`. Run by the deriver's tests, their differential over generated sessions, and `pnpm gate:golden`.
 import type { Source } from '../contracts/ast.ts';
 import { DERIVED_INVARIANTS, type DerivedText, type DerivedTranscript, type TranscriptNode } from '../contracts/derived.ts';
@@ -17,7 +17,7 @@ export interface DerivedViolation {
 const decoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: false });
 const encoder = new TextEncoder();
 
-/** The file name an inner document of `leaf` is parsed under: never the file's own path (ADR-0061 item 4.6). */
+/** The file name an inner document of `leaf` is parsed under: never the file's own path. */
 export const innerFileOf = (path: string, leaf: Pick<DerivedText, 'src'>): string => `${path}#derived@${leaf.src.start}`;
 
 /** The inner document of a `markdown` leaf: the ordinary parser over the UTF-8 bytes of its value. */
@@ -31,7 +31,7 @@ const childrenOf = (node: TranscriptNode): readonly TranscriptNode[] =>
 const inside = (inner: Source, outer: readonly Source[]): boolean => outer.some((o) => o.start <= inner.start && inner.end <= o.end);
 
 /**
- * Every violation of `DERIVED_INVARIANTS` in `tree` over `bytes`; empty when it holds. `opts.markdown` false skips item 6's
+ * Every violation of `DERIVED_INVARIANTS` in `tree` over `bytes`; empty when it holds. `opts.markdown` false skips the
  * parse (the differential runs it on a sample; the gate and the fixture tests run it on every leaf).
  */
 export function checkDerivedInvariants(tree: DerivedTranscript, bytes: Uint8Array, opts: { readonly markdown?: boolean } = {}): DerivedViolation[] {

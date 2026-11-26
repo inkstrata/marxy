@@ -1,4 +1,4 @@
-// The transform chain and Apply's store write (W-21). Pure: no DOM. The sheet and the commands are in
+// The transform chain and Apply's store write. Pure: no DOM. The sheet and the commands are in
 // test/transform-sheet.test.mjs; the data-safety walk drives `applyToStore` too (test/support/store-walk.mjs).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -186,7 +186,7 @@ test('a chain grown a step at a time (each step run once, on the step before) gi
   }
 });
 
-// Source holds a byte that is not UTF-8 as a lone U+DC80..U+DCFF (F-34.1), and Apply writes the transform's text back as
+// Source holds a byte that is not UTF-8 as a lone U+DC80..U+DCFF, and Apply writes the transform's text back as
 // bytes. A transform that dropped or rewrote such a code unit would change a byte nobody asked to change, silently.
 test('every edit transform keeps each stray-byte code unit of its input (Source text), and a derive result never holds one', () => {
   const strays = ['\udcff', '\udcfe', '\udcfd', '\udcfc', '\udcfb'];

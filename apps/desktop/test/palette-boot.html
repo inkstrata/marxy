@@ -32,9 +32,9 @@
     }
 
     window.marxyPaletteBoot = {
-      /** C-04's row counter, so a test can tell a patch (one row) from a rebuild. */
+      /** The row counter, so a test can tell a patch (one row) from a rebuild. */
       prepareStats,
-      /** `opts.refuseTreeWatch`: the shell rejects every recursive watch, as it does past its limit (C-11). */
+      /** `opts.refuseTreeWatch`: the shell rejects every recursive watch, as it does past its limit. */
       async start(files, argv, indexEntries, opts) {
         const bytes = {};
         for (const [path, b64] of Object.entries(files)) bytes[path] = decodeBase64(b64);

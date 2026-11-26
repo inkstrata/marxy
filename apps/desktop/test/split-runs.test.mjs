@@ -1,7 +1,7 @@
-// F-79: a run of text with no space in it is cut into pieces by `<wbr>` (render/long-runs.ts) so that WebKit can lay it
+// a run of text with no space in it is cut into pieces by `<wbr>` (render/long-runs.ts) so that WebKit can lay it
 // out; the cut must move no byte. A page whose one paragraph is 20,000 letters (four cuts, at 4096, 8192, 12288 and 16384
 // characters) is checked against the same page with the cuts taken out and the text nodes joined again (the page as it was
-// before F-79), and against the source bytes: what Mod+A and a drag across a cut copy, what a click or a drag selects (the
+// before the cuts), and against the source bytes: what Mod+A and a drag across a cut copy, what a click or a drag selects (the
 // bytes of its blocks), what find matches and highlights, and what a transform applied to the paragraph writes. The real app
 // over the memory shell, in WebKit, with real keys (test/support/two-pane.mjs).
 import { strict as assert } from 'node:assert';
@@ -68,7 +68,7 @@ async function withApp(fn, doc = DOC) {
         const p = document.querySelectorAll('#doc p')[1];
         return { wbr: p.querySelectorAll('wbr').length, texts: [...p.childNodes].filter((n) => n.nodeType === 3).length, chars: p.textContent.length };
       }),
-      /** The page as it was before F-79: no break, one text node. */
+      /** The page unsplit: no break, one text node. */
       unsplit: () => page.evaluate(() => {
         for (const w of document.querySelectorAll('#doc wbr')) w.remove();
         document.getElementById('doc').normalize();
@@ -177,7 +177,7 @@ test('every provenance pair is what the page has without the breaks, and each is
     assert.deepEqual(split, ['H1 0-12', 'P 14-21', `P ${RUN_START}-${RUN_START + RUN.length}`, `P ${RUN_START + RUN.length + 2}-${RUN_START + RUN.length + 8}`]);
     assert.equal(await page.evaluate(() => document.querySelectorAll('#doc wbr[data-marxy-s]').length), 0);
     await s.unsplit();
-    assert.deepEqual(await s.provenance(), split, 'the same pairs, in the same order, as the page before F-79');
+    assert.deepEqual(await s.provenance(), split, 'the same pairs, in the same order, once the breaks are gone');
   });
 });
 
@@ -199,7 +199,7 @@ test('Mod+A then Mod+C copies the page\'s text, and a drag across a break copies
       assert.equal(copied.text, DOC.slice(RUN_START + from, RUN_START + to), `and it is the file's bytes ${from}-${to}`);
       copies.push(copied.text);
     }
-    // And the page before F-79 copies the same.
+    // And the unsplit page copies the same.
     await s.unsplit();
     assert.equal((await s.shape()).wbr, 0);
     await page.keyboard.press(`${s.mod}+KeyA`);
@@ -232,7 +232,7 @@ test('a drag across a break selects the same bytes as on the page without breaks
     const clicked = await s.selection();
     assert.equal(clicked.kind, 'node');
     assert.deepEqual(clicked.src, { start: RUN_START, end: RUN_START + RUN.length });
-    // The page before F-79 resolves every one of them to the same thing.
+    // The unsplit page resolves every one of them to the same thing.
     await s.unsplit();
     for (const [i, [from, to]] of cases.entries()) {
       await s.drag(from, to);
@@ -487,7 +487,7 @@ for (const [name, { cluster, tagged = false, run = false }] of Object.entries(CL
             width: widthIn(p),
             text: cleanText(p),
           });
-          // The same paragraph with the cuts taken out and the text nodes joined: the page before F-79.
+          // The same paragraph with the cuts taken out and the text nodes joined: the unsplit page.
           for (const w of p.querySelectorAll('wbr')) w.remove();
           p.normalize();
           out.at(-1).widthUnsplit = widthIn(p);

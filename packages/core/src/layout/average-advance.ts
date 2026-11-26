@@ -1,4 +1,4 @@
-// The average character advance of a face (ADR-0033, H-06): the mean width of one character of English
+// The average character advance of a face: the mean width of one character of English
 // prose, in em. `--marxy-avg-char` is this number; the measure is counted in these, never in `ch`.
 // Pure: the caller supplies the advances (a canvas in the app, `hmtx` at build time), so the same
 // sample and the same mean serve both and the two can be checked against each other.

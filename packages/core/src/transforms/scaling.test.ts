@@ -1,6 +1,6 @@
-// Every transform's cost grows with the text, not with its square (J-03). The result sheet runs a transform on the
+// Every transform's cost grows with the text, not with its square. The result sheet runs a transform on the
 // whole document at once, so a step that rescans the text per list, table or heading freezes the window on a large file.
-// The check is a ratio, not a time budget, so a slow machine does not fail it (ADR-0032): ten times the text may take
+// The check is a ratio, not a time budget, so a slow machine does not fail it: ten times the text may take
 // at most thirty times as long. A quadratic step takes about a hundred times as long.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -77,7 +77,7 @@ test('ten times as many list items take at most twenty times as long to parse', 
   // cost hides some of the curve at these sizes.
   const enc = new TextEncoder();
   const lists = (bytes: number): Uint8Array => enc.encode('* one\n* two\n\npara\n\n'.repeat(bytes / 20));
-  // The fastest of five runs on each side (F-50), as the transform check below does: a load spike only ever makes a run
+  // The fastest of five runs on each side, as the transform check below does: a load spike only ever makes a run
   // slower, while the quadratic parse is slow on every run, so the minimum still shows it. The input is built outside the
   // clock, and one untimed parse warms the code first.
   const [smallIn, largeIn] = [lists(40_000), lists(400_000)];
@@ -94,8 +94,8 @@ test('ten times the text takes at most thirty times as long, for every transform
   const time = (id: string, text: string, runs: number): number =>
     best(runs, () => runTransform(id, text, { lang: 'sh' }), () => parseText(text));
   // The fastest of several runs on each side, because a load spike only ever makes a run slower: a quadratic step is
-  // slow on every run, so the minimum still shows it, while one unlucky run no longer fails the check (F-39). The small side
-  // is cheap, so it gets fifteen runs: a step under a millisecond there makes the ratio hinge on one lucky or unlucky run (F-50).
+  // slow on every run, so the minimum still shows it, while one unlucky run no longer fails the check. The small side
+  // is cheap, so it gets fifteen runs: a step under a millisecond there makes the ratio hinge on one lucky or unlucky run.
   const small = new Map(TRANSFORMS.map(({ id }) => [id, time(id, SMALL, 15)]));
   const rows = TRANSFORMS.map(({ id }) => ({ id, small: small.get(id)!, large: time(id, LARGE, 5) }));
   // Under 20 ms the ratio is mostly noise, and nothing that fast freezes a window.

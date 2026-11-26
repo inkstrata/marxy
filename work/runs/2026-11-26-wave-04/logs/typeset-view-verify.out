@@ -1,0 +1,55 @@
+verify-turn: slot a, typeset-view, pnpm verify --tier changed --base agent/drop-floor (2026-11-25T22:03:11-08:00)
+$ node scripts/verify.mjs "--tier" "changed" "--base" "agent/drop-floor"
+verify changed in C:\Dev\reader\worktrees\typeset-view
+11 files changed against agent/drop-floor; unit suites: desktop, core, scripts; browser files: 76
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\typeset-view-2026-11-26T06-03-12
+
+PASS    install        0.4s      
+PASS    typecheck      11.1s     
+PASS    lint           2.2s      
+PASS    check          11.2s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       13.6s     
+PASS    licences       1.1s      
+verify: holding place 1 of 2 (--no-lock skips it)
+
+PASS    unit-core      194.7s    4238 pass, 0 fail, 3 skip
+PASS    unit-scripts   25.4s     271 pass, 0 fail
+PASS    unit-desktop   45.3s     1258 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 87.8s     44 pass, 0 fail, 1 skip
+FAIL    browser        823.8s    520 pass, 1 fail
+
+step                  result  wall    tests
+--------------------  ------  ------  -------------------------
+install               pass    0.4s
+typecheck             pass    11.1s
+lint                  pass    2.2s
+check                 pass    11.2s   10 pass, 0 fail
+golden                pass    1.6s
+fidelity              pass    13.6s
+licences              pass    1.1s
+unit-core             pass    194.7s  4238 pass, 0 fail, 3 skip
+unit-scripts          pass    25.4s   271 pass, 0 fail
+unit-desktop          pass    45.3s   1258 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    87.8s   44 pass, 0 fail, 1 skip
+browser               FAIL    823.8s  520 pass, 1 fail
+--------------------  ------  ------  -------------------------
+total                         1218.2s
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\typeset-view-2026-11-26T06-03-12\12-browser.log)
+  'Title\nA changed paragraph.'
+  
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/typeset-view/apps/desktop/test/selection.test.mjs:306:12)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Title\nA changed paragraph.',
+    expected: /render failed/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+verify changed: 11/12 steps passed; failed: browser; rerun with --from browser
+[ELIFECYCLE] Command failed with exit code 1.
+verify-turn: exit 1 (2026-11-25T22:23:30-08:00)

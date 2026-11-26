@@ -1,4 +1,4 @@
-// Copy operations: Mod+C, palette, and clipboard shape (MARXY-42).
+// Copy operations: Mod+C, palette, and clipboard shape.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { createBuffer, parseMarkdown, sectionRange, textOf } from '../../../packages/core/src/index.ts';
 import { DEFAULT_POLICY, sanitizeHtml } from '../../../packages/core/src/sanitize/index.ts';
@@ -64,6 +64,9 @@ async function bootPalette(page, files, argv) {
     window.__marxyOpsBoot = await window.marxyPaletteBoot.start(files, argv, []);
   }, { files, argv });
   await page.waitForFunction(() => typeof window.marxySelection?.getSelectionState === 'function');
+  // The page set and still: a relayout after the frame mounts sets its paragraphs again, and a drag made before it ends
+  // is a drag over text that is gone.
+  await page.evaluate(() => window.__marxyOpsBoot.handle.contentComplete());
 }
 
 function modKey(platform) {
@@ -79,7 +82,7 @@ test('Mod+C on the Install section copies markdown source and sanitised html', a
   const installHeading = ast.children.find((n) => n.type === 'heading' && n.children?.[0]?.type === 'text' && n.children[0].value === 'Install');
   assert.ok(installHeading);
   const range = sectionRange(ast, installHeading);
-  // The clipboard is the source slice less its trailing blank lines (MARXY-230, MARXY-337): the last
+  // The clipboard is the source slice less its trailing blank lines: the last
   // content line keeps its own ending and no byte is added.
   const expectedText = textOf(buffer, range).replace(/(?:\r?\n[ \t]*)+$/, (m) => (/\n[ \t]*\n/.test(m) ? m.slice(0, m.indexOf('\n') + 1) : m));
 
@@ -134,7 +137,7 @@ test('Mod+C on a code block copies plain source without fences or highlight mark
 });
 
 for (const [name, len] of [['a line over 1,000 characters', 1508], ['a line of 1,000 characters or fewer', 400]]) {
-  test(`F-01: drag-select and Mod+C over ${name} copies exactly the file's characters`, async () => {
+  test(`drag-select and Mod+C over ${name} copies exactly the file's characters`, async () => {
     const line = Array.from({ length: len }, (_, i) => 'abcdefghij'[i % 10]).join('');
     const docPath = '/long-line.md';
     const body = `# T\n\n\`\`\`text\n${line}\n\`\`\`\n`;
@@ -246,7 +249,7 @@ test('palette Copy code runs on Enter, closes, and says what it copied', async (
       { timeout: 5000 },
     );
     const notice = await page.locator('#marxy-notices .marxy-notice-text').textContent();
-    assert.match(notice?.trim() ?? '', /^Copied code, \d+(\.\d)? (B|KB)$/); // the notice carries the size (J-04)
+    assert.match(notice?.trim() ?? '', /^Copied code, \d+(\.\d)? (B|KB)$/); // the notice carries the size
     const copies = await page.evaluate(() =>
       window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').map((c) => ({ method: 'clipboardWrite', args: [(({ d = new TextDecoder(), t = c.args[0].find((r) => r.type === 'public.utf8-plain-text'), h = c.args[0].find((r) => r.type === 'public.html') } = {}) => (h ? { text: d.decode(t.bytes), html: d.decode(h.bytes) } : { text: d.decode(t.bytes) }))()] })),
     );
@@ -276,7 +279,7 @@ async function dragSelect(page, from, to) {
   assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'text');
 }
 
-test('C-06: Mod+C on a drag across bold text and a link copies sanitised rich text and plain text in one write', async () => {
+test('Mod+C on a drag across bold text and a link copies sanitised rich text and plain text in one write', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const browser = await launchWebkit();
@@ -309,7 +312,7 @@ test('C-06: Mod+C on a drag across bold text and a link copies sanitised rich te
   }
 });
 
-test('C-06: Mod+Shift+C on a drag inside one paragraph copies its exact source bytes', async () => {
+test('Mod+Shift+C on a drag inside one paragraph copies its exact source bytes', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const bytes = readFileSync(join(corpusDir, file));
@@ -333,7 +336,7 @@ test('C-06: Mod+Shift+C on a drag inside one paragraph copies its exact source b
     assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'text');
     const mod = modKey(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+Shift+KeyC`);
-    // ⇧⌘C opens Copy as (J-04) with Markdown first and focused: Return is the old copy of the exact bytes.
+    // ⇧⌘C opens Copy as with Markdown first and focused: Return is the old copy of the exact bytes.
     await page.waitForSelector('.marxy-verb-menu');
     await page.keyboard.press('Enter');
     const copies = await page.evaluate(() =>
@@ -347,7 +350,7 @@ test('C-06: Mod+Shift+C on a drag inside one paragraph copies its exact source b
   }
 });
 
-test('C-06: the drag\'s rich copy drops display marks, soft hyphens, image sources and every attribute but the allowed ones', async () => {
+test('the drag\'s rich copy drops display marks, soft hyphens, image sources and every attribute but the allowed ones', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const browser = await launchWebkit();
@@ -407,7 +410,7 @@ test('C-06: the drag\'s rich copy drops display marks, soft hyphens, image sourc
   }
 });
 
-test('C-06: the palette shows Mod+C on the selection\'s default verb and no chord on its markdown copy (Mod+Shift+C is Copy as, J-04), and opens on a given query', async () => {
+test('the palette shows Mod+C on the selection\'s default verb and no chord on its markdown copy (Mod+Shift+C is Copy as), and opens on a given query', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const browser = await launchWebkit();
@@ -433,14 +436,14 @@ test('C-06: the palette shows Mod+C on the selection\'s default verb and no chor
     );
     const mac = (await page.evaluate(() => navigator.platform)) === 'MacIntel';
     assert.equal(keys['op.copy-rich'], mac ? '⌘C' : 'Ctrl+C');
-    assert.equal(keys['op.copy-source'], null, 'Mod+Shift+C no longer copies markdown directly (J-04)');
+    assert.equal(keys['op.copy-source'], null, 'Mod+Shift+C does not copy markdown directly');
     assert.equal(keys['op.copy-plain'], null, 'only the default verbs carry a chord');
   } finally {
     await browser.close();
   }
 });
 
-test('E-11: typing "strip" after > in the palette finds Copy as plain text (strip markdown) for a paragraph selection', async () => {
+test('typing "strip" after > in the palette finds Copy as plain text (strip markdown) for a paragraph selection', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const browser = await launchWebkit();
@@ -470,6 +473,8 @@ async function clipboardWrites(page) {
 async function runFromPalette(page, rowKey) {
   const mod = modKey(await page.evaluate(() => navigator.platform));
   await page.keyboard.press(`${mod}+KeyP`);
+  // The Line drawn with its first rows: a query typed before it has opened is taken back by its opening.
+  await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
   await page.locator('#marxy-palette .marxy-palette-query').fill('> copy');
   const row = page.locator(`#marxy-palette .marxy-palette-row[data-row-key="${rowKey}"]`);
   await row.waitFor();
@@ -493,7 +498,7 @@ for (const [rowKey, check] of [
     assert.equal(w.html, undefined);
   }],
 ]) {
-  test(`C-06 review: ${rowKey} from the palette copies the drag recorded before the palette opened`, async () => {
+  test(`${rowKey} from the palette copies the drag recorded before the palette opened`, async () => {
     const file = '02-readme-real-world.md';
     const docPath = `/corpus/${file}`;
     const browser = await launchWebkit();
@@ -511,7 +516,7 @@ for (const [rowKey, check] of [
   });
 }
 
-test('C-06 review: Copy as markdown from the palette copies the dragged paragraph\'s bytes', async () => {
+test('Copy as markdown from the palette copies the dragged paragraph\'s bytes', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const buffer = createBuffer(file, readFileSync(join(corpusDir, file)));
@@ -529,13 +534,13 @@ test('C-06 review: Copy as markdown from the palette copies the dragged paragrap
     await page.mouse.up();
     await runFromPalette(page, 'selection.copy-markdown');
     assert.deepEqual(await clipboardWrites(page), [{ text: textOf(buffer, range) }]);
-    assert.equal((await page.locator('#marxy-notices .marxy-notice-text').last().textContent())?.trim(), 'Copied as markdown, 28 B'); // the notice carries the size (J-04)
+    assert.equal((await page.locator('#marxy-notices .marxy-notice-text').last().textContent())?.trim(), 'Copied as markdown, 28 B'); // the notice carries the size
   } finally {
     await browser.close();
   }
 });
 
-test('C-06 review: Mod+A then Mod+Shift+C copies the bytes of every block of the file', async () => {
+test('Mod+A then Mod+Shift+C copies the bytes of every block of the file', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const bytes = readFileSync(join(corpusDir, file));
@@ -550,7 +555,7 @@ test('C-06 review: Mod+A then Mod+Shift+C copies the bytes of every block of the
     await page.keyboard.press(`${mod}+KeyA`);
     await page.waitForFunction(() => window.marxySelection.getSelectionState().selection.kind === 'text');
     await page.keyboard.press(`${mod}+Shift+KeyC`);
-    // ⇧⌘C opens Copy as (J-04) with Markdown first and focused: Return is the old copy of the exact bytes.
+    // ⇧⌘C opens Copy as with Markdown first and focused: Return is the old copy of the exact bytes.
     await page.waitForSelector('.marxy-verb-menu');
     await page.keyboard.press('Enter');
     assert.deepEqual(await clipboardWrites(page), [{ text: textOf(buffer, whole) }]);
@@ -560,7 +565,7 @@ test('C-06 review: Mod+A then Mod+Shift+C copies the bytes of every block of the
   }
 });
 
-test('C-06 review: a drag that starts in the space between blocks copies from the next block', async () => {
+test('a drag that starts in the space between blocks copies from the next block', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const buffer = createBuffer(file, readFileSync(join(corpusDir, file)));
@@ -586,7 +591,7 @@ test('C-06 review: a drag that starts in the space between blocks copies from th
     await page.waitForFunction(() => window.marxySelection.getSelectionState().selection.kind === 'text');
     const mod = modKey(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+Shift+KeyC`);
-    // ⇧⌘C opens Copy as (J-04) with Markdown first and focused: Return is the old copy of the exact bytes.
+    // ⇧⌘C opens Copy as with Markdown first and focused: Return is the old copy of the exact bytes.
     await page.waitForSelector('.marxy-verb-menu');
     await page.keyboard.press('Enter');
     assert.deepEqual(await clipboardWrites(page), [{ text: textOf(buffer, { file, ...expected }) }]);
@@ -595,13 +600,15 @@ test('C-06 review: a drag that starts in the space between blocks copies from th
   }
 });
 
-test('C-06 review: a drag over the hostile fixture copies html the sanitiser would not change, and fetches nothing', async () => {
+test('a drag over the hostile fixture copies html the sanitiser would not change, and fetches nothing', async () => {
   const file = '10-hostile.md';
   const docPath = `/corpus/${file}`;
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    // The idle highlighter loads the html fence's grammars (html, javascript, css); that is not the copy's doing.
+    await page.waitForFunction(() => [...document.querySelectorAll('#doc pre code')].every((c) => c.dataset.marxyDone !== undefined), undefined, { timeout: 15_000 });
     await page.evaluate(() => {
       const r = document.createRange();
       r.selectNodeContents(document.querySelector('#doc'));
@@ -629,7 +636,7 @@ test('C-06 review: a drag over the hostile fixture copies html the sanitiser wou
   }
 });
 
-test('C-06 review: recording and copying a drag over an image fetches nothing', async () => {
+test('recording and copying a drag over an image fetches nothing', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const browser = await launchWebkit();
@@ -671,7 +678,7 @@ test('C-06 review: recording and copying a drag over an image fetches nothing', 
   }
 });
 
-test('C-06 review: in Source, Mod+C and Mod+Shift+C do not copy the hidden Rendered selection', async () => {
+test('in Source, Mod+C and Mod+Shift+C do not copy the hidden Rendered selection', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const browser = await launchWebkit();
@@ -693,7 +700,7 @@ test('C-06 review: in Source, Mod+C and Mod+Shift+C do not copy the hidden Rende
 
 
 for (const [chord, label, wantHtml] of [['KeyC', 'Mod+C', true], ['Shift+KeyC', 'Mod+Shift+C', false]]) {
-  test(`C-06 review: a drag that ends outside the article is the selection ${label} copies, not the last clicked block`, async () => {
+  test(`a drag that ends outside the article is the selection ${label} copies, not the last clicked block`, async () => {
     const file = '02-readme-real-world.md';
     const docPath = `/corpus/${file}`;
     const browser = await launchWebkit();
@@ -716,7 +723,7 @@ for (const [chord, label, wantHtml] of [['KeyC', 'Mod+C', true], ['Shift+KeyC', 
       const mod = modKey(await page.evaluate(() => navigator.platform));
       await page.keyboard.press(`${mod}+${chord}`);
       if (chord.startsWith('Shift')) {
-        // ⇧⌘C opens Copy as (J-04); Markdown is first and focused, so Return is the exact bytes.
+        // ⇧⌘C opens Copy as; Markdown is first and focused, so Return is the exact bytes.
         await page.waitForSelector('.marxy-verb-menu');
         await page.keyboard.press('Enter');
       }

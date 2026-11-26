@@ -1,7 +1,7 @@
-// List marker operations (E-08): renumber a list, turn bullets into numbers and back, and turn a paragraph of glyph
+// List marker operations: renumber a list, turn bullets into numbers and back, and turn a paragraph of glyph
 // bullets (`•`, `–`, as chat tools emit) into a real list. Pure string to string; only marker bytes change.
 // A marker's width sets the indent its continuation lines and nested blocks need. An item whose marker would change width
-// is rewritten when it is one line with nothing under it; list-to-bullets (E-08.1) also narrows a multi-line or nested item
+// is rewritten when it is one line with nothing under it; list-to-bullets also narrows a multi-line or nested item
 // of a top-level list, moving its continuation lines left by the width the marker lost and checking the result re-parses to
 // the same structure. Everything else that would change width is declined.
 import type { Document, List, ListItem, Node, Paragraph, Source } from '../contracts/ast.ts';

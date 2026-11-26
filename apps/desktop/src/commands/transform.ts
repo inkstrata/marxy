@@ -1,6 +1,6 @@
-// Transform (W-21, ADR-0065 item 4, mock-v2 01-workspace "Transform"): one command per transform in core's
+// Transform: one command per transform in core's
 // `TRANSFORMS` (`transform.run.<id>`, titled `Transform: <name>`, group `transform`), and `transform.open`, the
-// toolbar's door (W-05), which opens the palette on `>Transform`. A transform runs on the selection, else the whole
+// toolbar's door, which opens the palette on `>Transform`. A transform runs on the selection, else the whole
 // document, and opens the result sheet (`transform/sheet.ts`): the sheet decides what happens to the result.
 //
 // This file resolves the INPUT: what the transform is run on, the range of the document that text came from, and the
@@ -8,10 +8,13 @@
 // Source: the editor's selection, or the whole document. It writes nothing; Apply is the sheet's action, and the
 // reader saves.
 import { TRANSFORMS, readableText, textOf } from '@marxy/core';
-import { fileTypeOf } from '@marxy/core/src/index-model/file-types.ts';
+import { fileTypeOf } from '@marxy/core/src/kind/registry.ts';
+import type { ReaderCommand } from '@marxy/theme';
+import type { CommandRun, CommandRunCode } from '../app-types.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { focusOrigin } from '../pane/focus.ts';
-import { applyToStore, eolOf, openedOf, replacesExactly, type Eol } from '../transform/chain.ts';
+import { addStep, applyToStore, canApply, createChain, eolOf, openedOf, output, replacesExactly, withoutBom, type Eol } from '../transform/chain.ts';
+import { fenceAt } from './fence-at.ts';
 import type { SheetTarget } from '../transform/sheet.ts';
 import { appHandle, palette } from './app-handle.ts';
 import type { AppContext, Command } from './registry.ts';
@@ -35,8 +38,17 @@ export const NOT_UTF8 =
 const SELECTION_LOST = 'That selection could not be matched to the document. Select it again, or clear it to transform the whole document.';
 const PAGE_OLD = 'The page was out of date with the document. Nothing was changed; try again.';
 
-/** Rendered: the selection's source range, else the whole buffer, read from the store (the bytes Apply will splice). */
-async function renderedTarget(ctx: AppContext): Promise<SheetTarget | string> {
+/** How many lines `text` holds before `at`, plus one: the line `at` is on. */
+const lineAt = (text: string, at: number): number => text.slice(0, at).split(/\r\n|\r|\n/).length;
+
+const partLabel = (first: number, last: number): string =>
+  first === last ? `the fenced part, line ${first}` : `the fenced part, lines ${first} to ${last}`;
+
+/**
+ * Rendered: the selection's source range, else the whole buffer, read from the store (the bytes Apply will splice). With
+ * `part`, a selected fenced block is narrowed to its content, the fence lines left out (what a command runs over).
+ */
+async function renderedTarget(ctx: AppContext, opts: { readonly part?: boolean } = {}): Promise<SheetTarget | string> {
   const handle = appHandle();
   const store = ctx.document ?? handle?.document() ?? null;
   if (!handle || !store) return 'No document is open.';
@@ -80,6 +92,16 @@ async function renderedTarget(ctx: AppContext): Promise<SheetTarget | string> {
     return PAGE_OLD;
   }
   if (seen !== null && seen !== text) return PAGE_OLD;
+  let part: string | undefined;
+  if (opts.part && sel.kind === 'node' && sel.node.type === 'codeBlock') {
+    const content = sel.node.content;
+    if (content.start < range.start || content.end > range.end || content.end < content.start) return PAGE_OLD;
+    range = { file: snap.path, start: content.start, end: content.end };
+    text = textOf(snap.buffer, range);
+    const before = textOf(snap.buffer, { file: snap.path, start: 0, end: range.start });
+    const first = lineAt(before, before.length);
+    part = partLabel(first, first + Math.max(0, text.replace(/(\r\n|\r|\n)$/, '').split(/\r\n|\r|\n/).length - 1));
+  }
   const exact = replacesExactly(text, bytes.subarray(range.start, range.end));
   const opened = openedOf(store);
   const origin = focusOrigin(handle.panes());
@@ -93,13 +115,17 @@ async function renderedTarget(ctx: AppContext): Promise<SheetTarget | string> {
     eol: eolOf(snap.buffer.eol),
     markdown: isMarkdown(snap.path),
     ...(exact ? {} : { applyRefusal: NOT_UTF8 }),
+    ...(part === undefined ? {} : { part }),
     apply: (output, label) => applyToStore(store, opened, range, output, label),
     restoreFocus: () => origin.restore(),
   };
 }
 
-/** Source: the editor's one selection, else its whole document. Apply is one CodeMirror transaction. */
-async function sourceTarget(): Promise<SheetTarget | string> {
+/**
+ * Source: the editor's one selection, else its whole document. Apply is one CodeMirror transaction. With `part` and
+ * nothing selected, the fenced block the cursor is in, its content only.
+ */
+async function sourceTarget(opts: { readonly part?: boolean } = {}): Promise<SheetTarget | string> {
   const [{ activeSourceEditor }, structure] = await Promise.all([import('../source/editor.ts'), import('../source/structure.ts')]);
   const editor = activeSourceEditor();
   if (!editor) return 'The Source editor is not showing.';
@@ -108,8 +134,10 @@ async function sourceTarget(): Promise<SheetTarget | string> {
   const filled = state.selection.ranges.filter((r) => !r.empty);
   if (filled.length > 1) return 'Transform works on one selection at a time. Keep one, or clear them to transform the whole document.';
   const main = filled[0];
-  const from = main ? main.from : 0;
-  const to = main ? main.to : state.doc.length;
+  // CodeMirror's positions are offsets into the doc joined with "\n", which is what `fenceAt` reads.
+  const fence = !main && opts.part ? fenceAt(state.doc.toString(), state.selection.main.head) : null;
+  const from = main ? main.from : (fence?.from ?? 0);
+  const to = main ? main.to : (fence?.to ?? state.doc.length);
   // As the file holds it: the editor's own line separator between lines, so a transform keeps the endings (a mixed
   // file's lone CRs are characters of its lines).
   const text = state.doc.sliceString(from, to, state.lineBreak);
@@ -117,14 +145,16 @@ async function sourceTarget(): Promise<SheetTarget | string> {
   const path = editor.buffer.path;
   // With nothing selected, the editor's whole text. The store's parse is offered when it is that text exactly (it is not
   // while typing has not been folded in, or for a file with CRLF or a byte-order mark): the steps compare the text.
-  const held = main ? null : (appHandle()?.document()?.textParse() ?? null);
+  const held = main || fence ? null : (appHandle()?.document()?.textParse() ?? null);
+  const part = fence ? partLabel(doc.lineAt(fence.from).number, doc.lineAt(Math.max(fence.from, fence.to - 1)).number) : undefined;
   return {
     text,
-    scope: main ? 'selection' : 'document',
+    scope: main || fence ? 'selection' : 'document',
+    ...(part === undefined ? {} : { part }),
     ...(held === null ? {} : { parsed: held }),
     eol: state.lineBreak === '\r\n' || state.lineBreak === '\r' ? (state.lineBreak as Eol) : null,
     markdown: isMarkdown(path),
-    // The editor's text holds a byte that is not UTF-8 as a lone surrogate and writes it back as that byte (F-34.1), so
+    // The editor's text holds a byte that is not UTF-8 as a lone surrogate and writes it back as that byte, so
     // Apply keeps it: there is no refusal to make, whether the file was read that way or the byte was pasted in since.
     // What is shown, copied or opened reads such a byte as U+FFFD.
     readable: readableText,
@@ -141,7 +171,7 @@ async function sourceTarget(): Promise<SheetTarget | string> {
 const PREVIEW_DOCUMENT_BYTES = 8 * 1024;
 
 /**
- * What the palette's preview (W-13) runs a transform on: the selection, else the document's first characters. Read only:
+ * What the palette's preview runs a transform on: the selection, else the document's first characters. Read only:
  * it folds nothing, resolves no range for Apply and writes nothing. null when there is nothing to run on, or when the
  * selection cannot be matched to the page (the command itself would refuse it).
  */
@@ -190,6 +220,100 @@ export async function openTransform(ctx: AppContext, id: string): Promise<void> 
     // A transform that throws leaves the document alone: it only ever read the text.
     ctx.showNotice(`Could not run ${id}: ${error instanceof Error ? error.message : String(error)}. The document is unchanged.`, { kind: 'error' });
   }
+}
+
+/**
+ * The Line's `!`: transform `id` run on the selection, else the document, and its result staged as one
+ * undoable change with no sheet. A transform that makes new text rather than changing this text opens the sheet instead.
+ */
+export async function stageTransform(ctx: AppContext, id: string): Promise<void> {
+  const target = inSourceMode() ? await sourceTarget() : await renderedTarget(ctx);
+  if (typeof target === 'string') {
+    ctx.showNotice(target, { kind: 'refused' });
+    return;
+  }
+  const chain = addStep(createChain(target.text, [], target.eol), id);
+  if (chain.steps.length === 0) return;
+  if (!canApply(chain) || target.applyRefusal !== undefined) {
+    await openTransform(ctx, id);
+    return;
+  }
+  let result: string;
+  try {
+    result = output(chain, target.parsed);
+  } catch (error) {
+    ctx.showNotice(`Could not run ${id}: ${error instanceof Error ? error.message : String(error)}. The document is unchanged.`, { kind: 'error' });
+    return;
+  }
+  const name = TRANSFORMS.find((t) => t.id === id)?.name ?? id;
+  if (result === target.text) {
+    ctx.showNotice(`${name} would change nothing here.`, { kind: 'info', fades: true });
+    return;
+  }
+  const outcome = await target.apply(result, name);
+  if (outcome === 'applied') ctx.showNotice(`${name}: staged. Undo puts it back; nothing is written until you save.`, { kind: 'done' });
+  else if (outcome === 'stale') ctx.showNotice('The document changed while that ran. Nothing was staged; try again.', { kind: 'refused' });
+}
+
+export const COMMANDS_APP_ONLY = 'Your commands run only in the app: this build cannot start a program.';
+
+const folderOf = (path: string): string | null => {
+  const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  return cut > 0 ? path.slice(0, cut) : null;
+};
+
+/**
+ * Runs a `[[command]]` of config.toml over the selection, else the fenced part under the cursor in Source (or a
+ * selected fence in Read), else the file, in the file's folder, and opens the sheet on its output. Nothing is applied
+ * until the reader's Apply, which is one undo step as a built-in transform's is.
+ */
+export async function openReaderCommand(ctx: AppContext, command: ReaderCommand): Promise<void> {
+  const handle = appHandle();
+  if (!handle?.shell.runCommand) {
+    ctx.showNotice(COMMANDS_APP_ONLY, { kind: 'refused' });
+    return;
+  }
+  const sheet = await import('../transform/sheet.ts');
+  const target = inSourceMode() ? await sourceTarget({ part: true }) : await renderedTarget(ctx, { part: true });
+  if (typeof target === 'string') {
+    ctx.showNotice(target, { kind: 'refused' });
+    return;
+  }
+  const plain = withoutBom(target.text);
+  const eol = target.eol ?? '\n';
+  // A part that ends mid-line is given its line break, as a file would be, and the one the program prints is taken off.
+  const open = plain !== '' && !/[\r\n]$/.test(plain);
+  const input = new TextEncoder().encode(open ? plain + eol : plain);
+  const path = handle.currentPath();
+  const cwd = path !== null && !isUntitled(path) ? folderOf(path) : null;
+  const [program] = command.run;
+  let run: CommandRun;
+  try {
+    run = await handle.shell.runCommand(command.name, input, cwd);
+  } catch (error) {
+    const code = (error as { code?: CommandRunCode }).code;
+    const why = error instanceof Error ? error.message : String(error);
+    const said = code === 'not-found' ? `${program} was not found on the PATH` : why;
+    ctx.showNotice(`${command.name} did not run: ${said}. The document is unchanged.`, { kind: 'error' });
+    return;
+  }
+  let out: string;
+  let refusal: string | null = null;
+  try {
+    out = new TextDecoder('utf-8', { fatal: true }).decode(run.stdout);
+  } catch {
+    out = new TextDecoder().decode(run.stdout);
+    refusal = 'It printed bytes that are not UTF-8, shown here as �, so Apply is not offered.';
+  }
+  if (run.status !== 0) {
+    refusal = `It ${run.status === null ? 'was stopped by a signal' : `exited with status ${run.status}`}, so Apply is not offered; its output is as it printed it.`;
+  }
+  // Written in the document's line ending: a program on Windows may print CRLF over an LF file.
+  if (target.eol === '\r\n') out = out.replace(/\r?\n/g, '\r\n');
+  else if (target.eol === null && !plain.includes('\r\n')) out = out.replace(/\r\n/g, '\n');
+  if (open) out = out.replace(/(\r\n|\r|\n)$/, '');
+  if (!command.prints && plain !== target.text) out = `﻿${out}`;
+  sheet.openCommandSheet(ctx, target, { name: command.name, argv: command.run, prints: command.prints, refusal, stderr: run.stderr.trimEnd() }, out);
 }
 
 export function transformCommands(): readonly Command[] {

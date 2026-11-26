@@ -1,0 +1,9 @@
+﻿verify changed in C:\Dev\reader\worktrees\verify-defaults
+1 files changed against HEAD; unit suites: none; browser files: 0
+  install        pnpm install --offline   (., timeout 600 s)
+  typecheck      pnpm typecheck   (., timeout 900 s)
+  lint           pnpm lint   (., timeout 900 s)
+  check          pnpm check   (., timeout 900 s)
+  golden         pnpm gate:golden   (., timeout 900 s)
+  fidelity       pnpm gate:fidelity   (., timeout 900 s)
+  licences       pnpm gate:licences   (., timeout 900 s)

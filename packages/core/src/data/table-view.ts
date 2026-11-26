@@ -1,4 +1,4 @@
-// What the table lens does with a scan that is the view's and never the file's (K-10b, ADR-0071 items 6 and 7): the
+// What the table lens does with a scan that is the view's and never the file's: the
 // order of its rows, the stats of a column, a column's type for alignment. Pure, no DOM. The two slow ones (an order of
 // half a million rows, a column's stats) work a time budget at a time and give the event loop back between slices, so
 // the window is never held for the whole of the work (commitment 5).
@@ -74,7 +74,7 @@ export async function sortSliced(order: Int32Array, compare: (a: number, b: numb
   return src;
 }
 
-/** What a column is, for alignment and sort only (ADR-0071 item 6): numbers right-aligned, identifiers in the code face. */
+/** What a column is, for alignment and sort only: numbers right-aligned, identifiers in the code face. */
 export type ColumnType = 'number' | 'ident' | 'text' | 'empty';
 
 /** Per column, how many of its fields over `records` are numbers, identifiers, empty, or anything else. */
@@ -108,7 +108,7 @@ export function columnType(p: ColumnProfile | undefined): ColumnType {
   return 'text';
 }
 
-/** Min, max, mean, count, empty for one column (ADR-0071 item 6: from decoded values). */
+/** Min, max, mean, count, empty for one column (from decoded values). */
 export interface ColumnStats {
   /** Fields with a value. */
   readonly count: number;

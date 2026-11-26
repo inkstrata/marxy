@@ -1,4 +1,4 @@
-// The node map and the block list (MARXY-75, docs/design/02-render.md §App-side post-passes), in a real
+// The node map and the block list, in a real
 // WebKit page over a corpus render: every provenance-bearing element resolves to the node of its own
 // range, a forged range resolves to nothing, and the blocks are innermost, in order and non-overlapping.
 
@@ -10,7 +10,7 @@ import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 /**
- * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+ * A run without Playwright's WebKit skips these tests and says why, unless
  * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
  */
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'

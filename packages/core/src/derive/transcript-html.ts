@@ -1,11 +1,11 @@
-// What a reader sees of a `jsonl-transcript` tree (ADR-0061 items 5 and 7, K-12): the sanitised HTML of each row, the
+// What a reader sees of a `jsonl-transcript` tree: the sanitised HTML of each row, the
 // header line that says what the view left out, and the text each copy verb takes. Pure string building, so the app's
 // view and the derived goldens are one render (`packages/core/goldens/<fixture>.derived.html.txt`).
 //
-// - A turn is a `section` with an outdented speaker label (K-11's `data-marxy-speaker`), then its leaves. The agent's text is
+// - A turn is a `section` with an outdented speaker label (`data-marxy-speaker`), then its leaves. The agent's text is
 //   Markdown, parsed over its own value into an inner document (`derive/invariants.ts` `innerDocument`) and rendered by the
 //   ordinary safe pipeline under the default allow-list, with its file provenance, ids and speaker marks taken out (its
-//   offsets index the derived text, never the file, ADR-0061 item 7) and its images shown as their words, never loaded.
+//   offsets index the derived text, never the file) and its images shown as their words, never loaded.
 //   A prompt is plain text with its line breaks kept; tool input and output are plain, in the code face.
 // - Each derived element carries `data-marxy-s` and `data-marxy-e` from its node's `src`, a file offset; the view's root
 //   carries `data-marxy-derived`.
@@ -17,12 +17,13 @@ import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
 import { invisibleHexLabel, invisibleSegments, markInvisibles } from '../render/invisibles.ts';
 import { renderDocumentSafeHtml } from '../render/pipeline.ts';
 import { innerDocument } from './invariants.ts';
+import { own } from '../util/text.ts';
 
 export type TranscriptRow = DerivedTurn | TranscriptUnreadable | TranscriptPending;
 
 /** The speaker's label: the strip's words (*Only you*, *Only assistant*), so the view and its tools name one speaker one way. */
 export const SPEAKER_LABEL = { you: 'You', agent: 'Assistant' } as const;
-/** The speaker as K-11's `data-marxy-speaker` names it, so a Markdown transcript's label styling is this view's. */
+/** The speaker as `data-marxy-speaker` names it, so a Markdown transcript's label styling is this view's. */
 export const SPEAKER_ATTR = { you: 'you', agent: 'assistant' } as const;
 
 /** Lines of output past which a tool's body shows its first and last few, with the count between as text. */
@@ -84,7 +85,7 @@ export function plainTextHtml(value: string, replaced: readonly number[] = [], o
  * An inner document's safe HTML with the file's marks taken out: its provenance indexes the derived text, so it is
  * dropped (a click resolves to the enclosing leaf); ids would collide between turns; a heading called *You* is not a
  * speaker here; and an image is shown as its words, never loaded (no request leaves the machine, commitment 2).
- * The allow-list has run, so `="` occurs only inside a tag and these patterns reach no text.
+ * The sanitiser writes `"` and `>` in text as references, so `="` occurs only inside a tag and these patterns reach no text.
  */
 function innerMarkdownHtml(path: string, leaf: DerivedText, policy: Policy): string {
   const html = renderDocumentSafeHtml(innerDocument(path, leaf), policy)
@@ -113,8 +114,8 @@ export function labelInvisibles(text: string): string {
 /**
  * The invisibles pass over sanitised HTML: each text run that holds a character outside printable ASCII goes through
  * `markInvisibles` (in code inside `pre`, `code` or `kbd`), so a bidi control or a zero-width character in an agent's
- * Markdown is its marker in this render, as it is in Read's DOM pass. The allow-list's text is escaped with `&amp;`,
- * `&lt;` and `&gt;` only, so those three are read back before the run is marked and escaped again.
+ * Markdown is its marker in this render, as it is in Read's DOM pass. The text of an HTML block keeps the references the
+ * file wrote (`&nbsp;`, `&#x200B;`), so a run is read back reference by reference before it is marked and escaped again.
  */
 export function markInvisiblesInHtml(html: string): string {
   const parts = html.split(/(<[^>]*>)/);
@@ -126,11 +127,42 @@ export function markInvisiblesInHtml(html: string): string {
       if (tag) code += tag[1] === '/' ? -1 : part.endsWith('/>') ? 0 : 1;
       continue;
     }
-    if (part === '' || /^[\x20-\x7e\t\n\r]*$/.test(part)) continue;
-    const text = part.replace(/&(amp|lt|gt);/g, (_m, name: string) => (name === 'amp' ? '&' : name === 'lt' ? '<' : '>'));
-    parts[k] = markInvisibles(text, { inCode: code > 0, sourceStart: 1 });
+    if (part === '' || /^[\x20-\x25\x27-\x7e\t\n\r]*$/.test(part)) continue;
+    parts[k] = markRun(part, code > 0);
   }
   return parts.join('');
+}
+
+/** The named references read back before marking: the escapes, and the ones that write a space or an invisible. */
+const TEXT_REFERENCES: Readonly<Record<string, string>> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0', shy: '\u00ad', zwnj: '\u200c', zwj: '\u200d',
+  lrm: '\u200e', rlm: '\u200f', ZeroWidthSpace: '\u200b', NoBreak: '\u2060',
+};
+
+/** One text run of sanitised HTML, marked: a reference this does not read back stays as written, for the page to read. */
+function markRun(run: string, inCode: boolean): string {
+  const pieces = run.split(/(&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});)/);
+  let out = '';
+  let text = '';
+  for (let i = 0; i < pieces.length; i++) {
+    const piece = pieces[i]!;
+    if (i % 2 === 0) {
+      text += piece;
+      continue;
+    }
+    const body = piece.slice(1, -1);
+    let read: string | undefined;
+    if (body[0] === '#') {
+      const cp = body[1] === 'x' || body[1] === 'X' ? Number.parseInt(body.slice(2), 16) : Number.parseInt(body.slice(1), 10);
+      if (cp > 0 && cp <= 0x10ffff && (cp < 0xd800 || cp > 0xdfff)) read = String.fromCodePoint(cp);
+    } else read = own(TEXT_REFERENCES, body);
+    if (read !== undefined) text += read;
+    else {
+      out += markInvisibles(text, { inCode, sourceStart: 1 }) + piece;
+      text = '';
+    }
+  }
+  return out + markInvisibles(text, { inCode, sourceStart: 1 });
 }
 
 export interface RowOptions {
@@ -341,7 +373,7 @@ export function countsOf(tree: DerivedTranscript): TranscriptCounts {
 export const GROUP_LINES = 40;
 
 /**
- * The view's opening line, in the dek's style (ADR-0061 item 7): what it was derived from and what it left out, each count
+ * The view's opening line, in the dek's style: what it was derived from and what it left out, each count
  * a button that unfolds its lines by record type, each line a Jump to source. `done` false: the file is still being read.
  */
 export function headHtml(counts: TranscriptCounts, opts: { readonly done?: boolean; readonly sourceKey?: string } = {}): string {
@@ -394,7 +426,7 @@ function childText(child: DerivedTurn['children'][number], isOpen: (node: Derive
   return isOpen(child) ? [line, ...child.children.map((c) => c.value)].join('\n') : line;
 }
 
-/** `copy-turn`: a turn's text as shown, without its label (ADR-0061 item 5). */
+/** `copy-turn`: a turn's text as shown, without its label. */
 export function turnText(turn: DerivedTurn, isOpen: (node: DerivedTool | DerivedThinking) => boolean = () => false): string {
   const parts = turn.children.map((c) => childText(c, isOpen));
   if (turn.unshown.length > 0) parts.push(unshownNote(turn.unshown));

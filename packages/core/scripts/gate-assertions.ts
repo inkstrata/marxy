@@ -1,4 +1,4 @@
-// The no-network gate's own checklist (ADR-0009, MARXY-83). Every id here is one thing
+// The no-network gate's own checklist. Every id here is one thing
 // `scripts/gate-no-network.mjs` asserts, by name, before it will pass; the gate builds a `Set` of
 // which ids it actually ran in a given execution and fails if that set is not exactly this one, so
 // deleting a `check(id, ...)` call without also editing this list fails the gate itself the next

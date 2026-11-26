@@ -1,4 +1,4 @@
-// The level filter's table (K-08): which lines each level keeps in the corpus log, how the hidden lines group into runs,
+// The level filter's table: which lines each level keeps in the corpus log, how the hidden lines group into runs,
 // what a run says, the count the notice gives, and where the first error is. Pure: no DOM.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

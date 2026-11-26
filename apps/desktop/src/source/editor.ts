@@ -1,4 +1,4 @@
-// CodeMirror 6 Source editor: lazy-loaded, byte-faithful doc, marxy theme (§09).
+// CodeMirror 6 Source editor: lazy-loaded, byte-faithful doc, marxy theme.
 
 import type { Buffer } from '@marxy/core';
 import type { EditorView } from '@codemirror/view';
@@ -7,10 +7,9 @@ import { cmDocText, lineSeparatorFor } from './buffer-commit.ts';
 import { pageStyleNonce } from './csp-nonce.ts';
 import { LARGE_FILE_BYTES } from './language.ts';
 import { setLineNumbersChoice } from './line-numbers.ts';
-import { marxyHighlighting } from './highlight-style.ts';
 import { columnGuideLook, liveMarxyTheme, NO_GUIDE, NO_MARKS, sourceHang, whitespaceMarks, type SourceLook } from './theme-bridge.ts';
 import { resolveColumnGuide, resolveShowWhitespace } from './view-aids.ts';
-import { fileTypeOf } from '@marxy/core/src/index-model/file-types.ts';
+import { fileTypeOf } from '@marxy/core/src/kind/registry.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
 import { save } from '../save.ts';
@@ -28,7 +27,7 @@ export interface SourceEditorOptions {
   /**
    * Called synchronously, just before the editor's first DOM is made and its style sheet joins the page. The
    * caller that is about to hide a long page behind the editor hides it here: a new style sheet restyles every
-   * element that is not hidden, and a long page of paragraphs costs seconds to restyle (F-94).
+   * element that is not hidden, and a long page of paragraphs costs seconds to restyle.
    */
   readonly beforeMount?: () => void;
 }
@@ -41,12 +40,12 @@ export interface SourceEditor {
   scrollToByte(byteOffset: number): void;
   docText(): string;
   setLineNumbers(on: boolean): void;
-  /** The notes about the file (V-04), in order; empty for an editor with no frame. */
+  /** The notes about the file, in order; empty for an editor with no frame. */
   notes(): readonly { readonly from: number; readonly words: string }[];
 }
 
 const lineNumbersCompartment = new Compartment();
-/** Show whitespace and the column guide (V-08): a Source editor has both, the block editor inside Rendered neither. */
+/** Show whitespace and the column guide: a Source editor has both, the block editor inside Rendered neither. */
 const whitespaceCompartment = new Compartment();
 const columnGuideCompartment = new Compartment();
 const tabSizeCompartment = new Compartment();
@@ -60,8 +59,8 @@ const historyCompartment = new Compartment();
  * Forgets everything the editor can undo or redo. The history is a list of changes in the positions of the text they
  * were made in, and mapping them through a change from outside (the document replaced, the line separator swapped, a
  * Rendered undo) does not make them mean the same thing: an undo then inserts or deletes at a place the reader never
- * edited, and the bytes it writes are bytes nobody asked for (F-40, ADR-0069). The store's history is the one that
- * survives such a change (ADR-0037); the editor starts a new one.
+ * edited, and the bytes it writes are bytes nobody asked for. The store's history is the one that
+ * survives such a change; the editor starts a new one.
  */
 export function clearHistory(view: EditorView): void {
   const held = historyCompartment.get(view.state);
@@ -71,18 +70,18 @@ export function clearHistory(view: EditorView): void {
 }
 
 /**
- * The live editor in each Source mount, newest last (D-01). One per mount, not one per page: two panes
- * each have a mount, and one view clearing its own editor must not destroy the other's (the B-13 review).
+ * The live editor in each Source mount, newest last. One per mount, not one per page: two panes
+ * each have a mount, and one view clearing its own editor must not destroy the other's.
  */
 const editors = new Map<HTMLElement, SourceEditor>();
 
-/** Dynamic import boundary: CM6 stays off the startup path (MARXY-33). */
+/** Dynamic import boundary: CM6 stays off the startup path. */
 export async function loadCodeMirror(): Promise<typeof import('./editor-cm6.ts')> {
   return import('./editor-cm6.ts');
 }
 
 /**
- * The editor mounted in `parent`; without one, the focused pane's (D-11): the running app's focused pane
+ * The editor mounted in `parent`; without one, the focused pane's: the running app's focused pane
  * names its mount, and that mount's editor is the one keys and commands mean, or null when that pane has
  * none (it shows Rendered). With no app in the page (the editor's own harness), the one mounted last.
  */
@@ -102,7 +101,7 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
   const existing = editors.get(opts.parent);
   if (existing) {
     existing.replaceBuffer(opts.buffer);
-    // The mount takes another file: its kind and `.editorconfig` say where the guide is (V-08).
+    // The mount takes another file: its kind and `.editorconfig` say where the guide is.
     void refreshColumnGuide(existing.view, opts.buffer.path);
     return existing;
   }
@@ -111,7 +110,7 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
   const rawDestroy = built.destroy.bind(built);
   // `wrapper` is only read inside its own `destroy`, which runs after this literal is fully built and
   // registered; comparing against `built` (the pre-wrap object) would never match the registered
-  // wrapper, so a torn-down editor would look reusable to the next mount (MARXY-239 fix).
+  // wrapper, so a torn-down editor would look reusable to the next mount.
   const wrapper: SourceEditor = {
     ...built,
     // A spread copies a getter's value once; read through so `buffer` follows replaceBuffer.
@@ -128,7 +127,7 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
 }
 
 /**
- * Whether Source wraps this file's lines (K-R3 (a), V-12): Markdown and the text family do, with a hang; a code
+ * Whether Source wraps this file's lines: Markdown and the text family do, with a hang; a code
  * file scrolls sideways, because a wrapped Python or YAML line reads as another statement
  * (06-code.md, "Wrap or scroll?"). A scratch document is Markdown until it is named.
  */
@@ -143,7 +142,7 @@ export function isLargeSourceFile(buffer: Buffer): boolean {
   return buffer.bytes.length > LARGE_FILE_BYTES;
 }
 
-/** Initial doc string and line separator for CM6 (the separator rule is `lineSeparatorFor`, F-24, F-25). */
+/** Initial doc string and line separator for CM6 (the separator rule is `lineSeparatorFor`). */
 export function editorDocConfig(buffer: Buffer): { doc: string; lineSeparator: '\n' | '\r\n' | '\r' } {
   return {
     doc: cmDocText(buffer),
@@ -152,7 +151,7 @@ export function editorDocConfig(buffer: Buffer): { doc: string; lineSeparator: '
 }
 
 async function foldingExtensions(): Promise<Extension[]> {
-  // Every fold counts the lines it hides (K-10a); the placeholder is text in the flow, and a click on it unfolds.
+  // Every fold counts the lines it hides; the placeholder is text in the flow, and a click on it unfolds.
   const { countedFolding } = await import('./depth-fold.ts');
   return countedFolding();
 }
@@ -192,7 +191,7 @@ export async function baseExtensions(
   const { EditorView, drawSelection, highlightActiveLine, keymap } = await import('@codemirror/view');
   const { search, searchKeymap } = await import('@codemirror/search');
   // The find panel is CodeMirror's, with Replace and Replace all Marxy's: Replace all opens a preview and changes nothing
-  // until Apply (V-03).
+  // until Apply.
   const { createReplacePanel } = await import('./replace-sheet.ts');
   const { withoutRegistryChords } = await import('./structure.ts');
   const { pasteExtension } = await import('./paste.ts');
@@ -206,32 +205,33 @@ export async function baseExtensions(
   const tabComp = compartments?.tabSizeCompartment ?? tabSizeCompartment;
 
   // The in-place block editor is the one caller that passes `island`: an island inside Rendered's page, which keeps
-  // Rendered's code metrics. Every other mount is Source and wears its own (V-12, ADR-0067).
+  // Rendered's code metrics. Every other mount is Source and wears its own.
   const wraps = sourceWraps(buffer.path) && !isLargeSourceFile(buffer);
   const look: SourceLook = island ? 'island' : wraps ? 'prose' : 'code';
   const exts: Extension[] = [
-    // CodeMirror styles itself with runtime <style> elements; the release CSP refuses any without its nonce (F-98).
+    // CodeMirror styles itself with runtime <style> elements; the release CSP refuses any without its nonce.
     EditorView.cspNonce.of(pageStyleNonce()),
     // The read-back of a save joins the edit before it (stray-bytes.ts `readBack`); every other join is the default's.
     historyCompartment.of(history({ joinToEvent: (tr, adjacent) => adjacent || tr.annotation(readBack) === true })),
-    // Several selections: next and all occurrences (V-01) add ranges, which a single-selection state drops.
+    // Several selections: next and all occurrences add ranges, which a single-selection state drops.
     EditorState.allowMultipleSelections.of(true),
-    // Paste with HTML on the pasteboard becomes Markdown (J-05); any other paste is the editor's own.
+    // Paste with HTML on the pasteboard becomes Markdown; any other paste is the editor's own.
     pasteExtension(),
     search({ createPanel: createReplacePanel }),
     drawSelection(),
     highlightActiveLine(),
     // Special characters marked as before, and a byte that is not UTF-8 shown as its value; no lone surrogate
-    // the editor holds for one leaves it on a copy, a cut or a drag (F-34.1). The block editor has the same (F-34.2).
+    // the editor holds for one leaves it on a copy, a cut or a drag. The block editor has the same.
     strayBytes(),
-    // Save and Save as work from either mode (§01). The document-level chord handler leaves editable
+    // Save and Save as work from either mode. The document-level chord handler leaves editable
     // targets alone, so the editor answers these two itself and nothing else of Rendered mode leaks in.
     keymap.of([
       {
         key: 'Mod-s',
         preventDefault: true,
         run: () => {
-          void save();
+          // With review_changes on, the patch is read before saving, as in Rendered (changes/save-door.ts).
+          void import('../changes/save-door.ts').then((m) => m.saveOrReadChanges());
           return true;
         },
       },
@@ -243,9 +243,9 @@ export async function baseExtensions(
           return true;
         },
       },
-      // The chords the command registry binds in Source (V-01) are its alone, so a press runs one thing.
+      // The chords the command registry binds in Source are its alone, so a press runs one thing.
       ...withoutRegistryChords([...defaultKeymap, ...historyKeymap, ...searchKeymap], sourceEditChords(), isMacPlatform()),
-      // `Mod+I` is Italic in a Markdown file (the registry's, V-08) and CodeMirror's select-parent-syntax in every other file: the
+      // `Mod+I` is Italic in a Markdown file (the registry's) and CodeMirror's select-parent-syntax in every other file: the
       // file the editor holds now decides, so a mount that takes another file follows it.
       {
         key: 'Mod-i',
@@ -255,24 +255,24 @@ export async function baseExtensions(
         },
       },
     ]),
-    // A compartment: a reload that changes the file's line-ending class swaps it (F-25).
+    // A compartment: a reload that changes the file's line-ending class swaps it.
     sepComp.of(EditorState.lineSeparator.of(lineSeparator)),
     tabComp.of(EditorState.tabSize.of(tabSize)),
     liveMarxyTheme(themeCompartment, look),
-    marxyHighlighting(),
-    // View only (V-08): decorations and a pseudo-element, never a byte. The block editor in Rendered's page has neither.
+    // View only: decorations and a pseudo-element, never a byte. The block editor in Rendered's page has neither.
     whitespaceCompartment.of(!island && resolveShowWhitespace() ? whitespaceMarks() : NO_MARKS),
     columnGuideCompartment.of(island ? [] : columnGuideLook(resolveColumnGuide(buffer.path, await maxLineLengthForFile(buffer.path)))),
     lnComp.of(lnOn ? await gutterExtensions(!isLargeSourceFile(buffer)) : []),
   ];
   if (!isLargeSourceFile(buffer)) {
-    // The island wraps as it always has; Source wraps Markdown with a hang and scrolls code (K-R3 (a)).
+    // The island wraps as it always has; Source wraps Markdown with a hang and scrolls code.
     if (look === 'island' || wraps) exts.push(EditorView.lineWrapping);
     if (wraps && look === 'prose') exts.push(sourceHang());
     exts.push(...(await foldingExtensions()));
-    // The language is attached after the mount (`attachLanguage`): the text never waits on a grammar (commitment 5).
-    exts.push((compartments?.languageCompartment ?? languageCompartment).of([]));
   }
+  // The language is attached after the mount (`attachLanguage`): the text never waits on a grammar (commitment 5). A large
+  // file's holds only colour, and only when the reader asks for it anyway.
+  exts.push((compartments?.languageCompartment ?? languageCompartment).of([]));
   return exts;
 }
 
@@ -298,7 +298,7 @@ export function hasWhitespaceMarks(view: EditorView): boolean {
   return held !== undefined && held !== NO_MARKS;
 }
 
-/** Show whitespace on or off in `view` (V-08); the choice itself is `view-aids.ts`'s and the command's. */
+/** Show whitespace on or off in `view`; the choice itself is `view-aids.ts`'s and the command's. */
 export function setShowWhitespaceInView(view: EditorView, on: boolean): void {
   view.dispatch({ effects: whitespaceCompartment.reconfigure(on ? whitespaceMarks() : NO_MARKS) });
 }

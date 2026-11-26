@@ -1,9 +1,8 @@
-// [[capture]] rules: parse, refusals, and the Privacy line (P-02, ADR-0063).
+// [[capture]] rules: parse, refusals, and the Privacy line.
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { CAPTURE_PRIVACY_LINE, MAX_CAPTURES, capturePrivacyLines, parseCaptures } from './capture.ts';
+import { MAX_CAPTURES, capturePrivacyLines, parseCaptures } from './capture.ts';
 import { parseCollection } from './collection.ts';
 
 const home = '/Users/ian';
@@ -85,11 +84,6 @@ test('rules beyond the cap of 32 warn and are dropped', () => {
 test('parseCaptures with nothing declared yields nothing', () => {
   const r = parseCaptures(undefined, { home, ownFolders: [], denyGlobs: [], resolvePath: () => null });
   assert.deepEqual(r, { captures: [], warnings: [], unknownKeys: [] });
-});
-
-test('CAPTURE_PRIVACY_LINE equals the sentence in ADR-0063', () => {
-  const adr = readFileSync(new URL('../../../../docs/adr/0063-capture-rules.md', import.meta.url), 'utf8').replace(/\s+/g, ' ');
-  assert.ok(adr.includes(`"${CAPTURE_PRIVACY_LINE}"`), 'ADR-0063 item 6 no longer holds the constant');
 });
 
 test('capturePrivacyLines fills each rule in', () => {

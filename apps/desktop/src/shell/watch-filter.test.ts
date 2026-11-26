@@ -1,4 +1,4 @@
-// `fs-watch` payloads reach only the watch whose key they carry (C-05).
+// `fs-watch` payloads reach only the watch whose key they carry.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -62,7 +62,7 @@ test('a refusal payload for this key gives its reason; no other payload does', (
   assert.deepEqual(eventsForWatch({ key: TREE, events: [], refused: 'too many files' }, TREE), [], 'and it carries no events');
 });
 
-test('the early buffer replays what it kept once, then is empty (C-11.2)', () => {
+test('the early buffer replays what it kept once, then is empty', () => {
   const buffer = createEarlyBuffer();
   buffer.add({ key: TREE, events: [{ kind: 'created', path: '/notes/a.md' }] });
   buffer.add({ key: TREE, events: [], refused: 'too many files' });
@@ -70,7 +70,7 @@ test('the early buffer replays what it kept once, then is empty (C-11.2)', () =>
   assert.deepEqual(buffer.drain(), [], 'a second drain finds nothing: the payloads are not held for the life of the watch');
 });
 
-test('the early buffer drops batches past its limit but keeps a refusal that comes after them (C-11.2)', () => {
+test('the early buffer drops batches past its limit but keeps a refusal that comes after them', () => {
   const buffer = createEarlyBuffer(3);
   for (let i = 0; i < 10; i++) buffer.add({ key: TREE, events: [{ kind: 'modified', path: `/notes/${i}.md` }] });
   buffer.add({ key: TREE, events: [], refused: 'too many files' });
@@ -83,13 +83,13 @@ test('the early buffer drops batches past its limit but keeps a refusal that com
   );
 });
 
-test('the early buffer bounds refusals too, so other watches cannot fill it (C-11.2)', () => {
+test('the early buffer bounds refusals too, so other watches cannot fill it', () => {
   const buffer = createEarlyBuffer(2);
   for (let i = 0; i < 9; i++) buffer.add({ key: `/other${i}`, events: [], refused: 'x' });
   assert.equal(buffer.drain().length, 2);
 });
 
-test('only the shell\'s "not watching" is a benign unwatch error (C-11.2)', () => {
+test('only the shell\'s "not watching" is a benign unwatch error', () => {
   assert.equal(isNotWatching('not watching /notes'), true);
   assert.equal(isNotWatching(new Error('not watching /notes')), true);
   assert.equal(isNotWatching('/notes: Permission denied (os error 13)'), false);

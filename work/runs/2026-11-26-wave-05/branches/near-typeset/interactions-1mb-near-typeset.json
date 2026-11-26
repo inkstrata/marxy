@@ -1,0 +1,113 @@
+{
+  "version": 2,
+  "meta": {
+    "commit": "f428f4f3",
+    "dirty": true,
+    "code": {
+      "apps": "b197032c",
+      "packages": "cece2d45",
+      "fixtures": "1acbf355",
+      "dirty": true
+    },
+    "date": "2026-11-26T14:28:52.888Z",
+    "machine": "win32-x64, 16 x AMD Ryzen 7 8845HS w/ Radeon 780M Graphics, 31 GB",
+    "edge": "msedge 158.0.4370.33",
+    "node": "v24.14.1",
+    "runs": 1,
+    "keys": 20
+  },
+  "documents": {
+    "big-1mb.md": {
+      "open": {
+        "taskMs": 78619.59,
+        "scriptMs": 13283.68,
+        "layoutMs": 10709.67,
+        "styleMs": 13584.73,
+        "layouts": 2667,
+        "recalcs": 2757,
+        "firstContentMs": 909.7,
+        "longestTaskMs": 917,
+        "settleMs": 78827.1,
+        "nodes": 38573
+      },
+      "key": {
+        "taskMs": 165.44,
+        "scriptMs": 29.6,
+        "layoutMs": 17.87,
+        "styleMs": 25.75,
+        "layouts": 6,
+        "recalcs": 9,
+        "handlerMs": 105.9
+      },
+      "click": {
+        "taskMs": 240.07,
+        "scriptMs": 48.05,
+        "layoutMs": 15.5,
+        "styleMs": 40.54,
+        "layouts": 6,
+        "recalcs": 9,
+        "longestTaskMs": 97,
+        "handlerMs": 33.5
+      },
+      "undo": {
+        "taskMs": 5276.96,
+        "scriptMs": 90.21,
+        "layoutMs": 1401.75,
+        "styleMs": 797.49,
+        "layouts": 200,
+        "recalcs": 211,
+        "longestTaskMs": 483,
+        "removedTop": 153,
+        "addedTop": 153
+      },
+      "reload": {
+        "taskMs": 5385.83,
+        "scriptMs": 106.76,
+        "layoutMs": 1416.76,
+        "styleMs": 845.44,
+        "layouts": 206,
+        "recalcs": 213,
+        "longestTaskMs": 513,
+        "removedTop": 151,
+        "addedTop": 153
+      },
+      "tabBack": {
+        "taskMs": 97289.42,
+        "scriptMs": 15490.68,
+        "layoutMs": 13907.77,
+        "styleMs": 16554.33,
+        "layouts": 3525,
+        "recalcs": 3756,
+        "shownMs": 2772
+      },
+      "tabAway": {
+        "taskMs": 273.88,
+        "scriptMs": 48.59,
+        "layoutMs": 17.55,
+        "styleMs": 37.23,
+        "layouts": 67,
+        "recalcs": 126,
+        "shownMs": 225
+      },
+      "toRead": {
+        "taskMs": 3250.34,
+        "scriptMs": 117.42,
+        "layoutMs": 1568.21,
+        "styleMs": 1186,
+        "layouts": 242,
+        "recalcs": 250,
+        "shownMs": 2495
+      },
+      "toSource": {
+        "taskMs": 1877.62,
+        "scriptMs": 212.35,
+        "layoutMs": 16.39,
+        "styleMs": 146.57,
+        "layouts": 18,
+        "recalcs": 55,
+        "shownMs": 230.5
+      }
+    }
+  },
+  "missing": []
+}

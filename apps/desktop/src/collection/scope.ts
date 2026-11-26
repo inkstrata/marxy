@@ -1,4 +1,4 @@
-// The palette's scope (C-10, ADR-0053): the current repository first, then the folders declared in
+// The palette's scope: the current repository first, then the folders declared in
 // collection.toml in file order, then the twelve recent roots. One entry per path; the earliest root
 // in scope wins, so a folder nested in a repository is not listed twice.
 import type { IndexEntry } from '@marxy/core';
@@ -6,7 +6,7 @@ import type { RootRank } from '../palette/search.ts';
 
 /**
  * Entries across the whole scope. A placeholder held in app code, not in `INDEX_LIMITS`, so no
- * contract changes (ADR-0053 §5); each root keeps its own 50,000 (`INDEX_LIMITS.entriesPerRoot`).
+ * contract changes; each root keeps its own 50,000 (`INDEX_LIMITS.entriesPerRoot`).
  */
 export const SCOPE_ENTRY_CAP = 100_000;
 

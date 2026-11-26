@@ -1,4 +1,4 @@
-// "Show what changed on disk" and "Show unsaved changes" (E-17), end to end in WebKit over the memory shell:
+// "Show what changed on disk" and "Show unsaved changes", end to end in WebKit over the memory shell:
 // the commands are listed only when they mean something, the diff opens as a scratch document with the
 // expected lines and counts, the document it was made from is not touched, nothing is written, the "before"
 // is what Marxy had loaded (not a second read), and a 1 MB regenerated file does not stall the page.
@@ -77,7 +77,7 @@ test('after the file is rewritten on disk, "Show what changed on disk" opens the
     await run(page, 'compare.since-reload');
     await page.waitForFunction(() => window.__marxyHandle.currentPath() === 'untitled');
     const doc = await textOf(page, 0);
-    assert.match(doc, /^# Changes in a\.md\n\n3 lines added, 1 removed since the file last changed on disk\.\n\n```diff\n--- before\n\+\+\+ after\n@@ /);
+    assert.match(doc, /^# a\.md\n\nThe comparison you asked for: the file before it last changed on disk \(the − lines\) against the file on disk now \(the \+ lines\)\. 3 lines added, 1 removed\. It is made now and not kept\.\n\n```diff\n--- before\n\+\+\+ after\n@@ /);
     assert.ok(doc.includes('\n-line two\n+line TWO\n'), doc);
     assert.ok(doc.includes('\n+line four\n'), doc);
     assert.ok(doc.endsWith('```\n'));
@@ -116,7 +116,7 @@ test('"Show unsaved changes" shows exactly the toggled line, beside an untouched
     await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 2 && window.__marxyHandle.panes().panes[1].path() === 'untitled');
     const doc = await textOf(page, 1);
     assert.ok(doc.includes('```diff\n--- before\n+++ after\n@@ -1,5 +1,5 @@\n # Hi\n \n-- [ ] a\n+- [x] a\n \n last\n```\n'), doc);
-    assert.match(doc, /1 line added, 1 removed compared with the file on disk\./);
+    assert.match(doc, /the file on disk \(the − lines\) against your unsaved edits \(the \+ lines\)\. 1 line added, 1 removed\./);
     // The original document: same bytes, still unsaved, in the focused pane, at its place.
     assert.equal(await textOf(page, 0), bytesBefore);
     assert.equal(await pathOf(page, 0), A);
@@ -165,9 +165,13 @@ test('the previous version is dropped when another document opens, and a kept ed
     await page.evaluate(() => { window.__old = window.__marxyHandle.panes().panes[0].content.store(); });
     await page.evaluate(() => window.__marxyHandle.open('/d/b.md'));
     await page.waitForFunction(() => window.__marxyHandle.currentPath() === '/d/b.md');
-    assert.equal(await page.evaluate(() => window.__old.snapshot().previousDisk), null, 'the closed store holds nothing');
+    // B never offers A's previous version. A's store, left clean, is kept warm for its tab with its history, and the
+    // previous version is part of that history: it is A's alone, and goes when A's tab does.
     assert.equal(await prev(page), false);
     assert.deepEqual(await listed(page), []);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().stores.warm().includes(window.__old)), true);
+    await page.evaluate(() => window.__marxyHandle.panes().stores.retain(['/d/b.md']));
+    assert.equal(await page.evaluate(() => window.__old.snapshot().previousDisk), null, 'the closed store holds nothing');
 
   }, { files: { [A]: BODY, [B]: '# B\n\nbee\n' } }));
 
@@ -187,7 +191,7 @@ test('identical content, line endings only, a coarse diff and a fence in the tex
     const out = await page.evaluate(async () => {
       const { changesDocument, fenceFor } = await import('/src/commands/compare.ts');
       const enc = (s) => new TextEncoder().encode(s);
-      const doc = (a, b) => changesDocument('f.md', enc(a), enc(b), 'since the file last changed on disk');
+      const doc = (a, b) => changesDocument('f.md', enc(a), enc(b), 'the file before (the − lines) against the file now (the + lines)');
       const lines = (n, f) => Array.from({ length: n }, (_, i) => f(i)).join('\n') + '\n';
       return {
         same: doc('a\nb\n', 'a\nb\n'),
@@ -202,7 +206,7 @@ test('identical content, line endings only, a coarse diff and a fence in the tex
     assert.deepEqual(out.same, { kind: 'none' });
     assert.deepEqual(out.huge, { kind: 'too-large' });
     assert.equal(out.eol.kind, 'document');
-    assert.match(out.eol.text, /Only the line endings differ \(CRLF before, LF after\) since the file last changed on disk\./);
+    assert.match(out.eol.text, /now \(the \+ lines\)\. Only the line endings differ \(CRLF before, LF after\)\./);
     assert.ok(out.eol.text.includes('-a\r\n-b\r\n+a\n+b\n'), 'the endings are shown, not hidden');
     assert.ok(out.fence.text.includes('`````diff\n') && out.fence.text.endsWith('\n`````\n'), out.fence.text);
     assert.equal(out.coarse.kind, 'document');
@@ -233,7 +237,7 @@ test('a regenerated 1 MB file: the diff does not block the page, and the time is
       clearInterval(beat);
       return { total, worst };
     });
-    console.log(`# E-17 1 MB regenerated file: command ${m.total.toFixed(0)} ms, longest main-thread gap ${m.worst.toFixed(0)} ms`);
+    console.log(`# 1 MB regenerated file: command ${m.total.toFixed(0)} ms, longest main-thread gap ${m.worst.toFixed(0)} ms`);
     await page.waitForFunction(() => window.__marxyHandle.currentPath() === 'untitled');
     const doc = await textOf(page, 0);
     assert.ok(doc.includes('-## Item 7000\n+## Item 7000 (revised)\n'), doc.slice(0, 400));

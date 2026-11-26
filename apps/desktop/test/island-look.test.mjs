@@ -1,5 +1,5 @@
-// The island look (V-12.1): the in-place block editor inside Rendered keeps Rendered's code metrics, grid padding,
-// and ground, not Source's own (V-12, ADR-0067). Values are read from the token contract in the page.
+// The island look: the in-place block editor inside Rendered keeps Rendered's code metrics, grid padding,
+// and ground, not Source's own. Values are read from the token contract in the page.
 import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';

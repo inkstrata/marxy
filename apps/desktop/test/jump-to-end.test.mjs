@@ -1,4 +1,4 @@
-// A jump to the end of a huge page in Read (F-80). A 10 MB diff is 2,000 pieces of 200 lines (V-10); landing on the last of them
+// A jump to the end of a huge page in Read. A 10 MB diff is 2,000 pieces of 200 lines; landing on the last of them
 // split it into lines and set the whole article on the grid again, which took the padding off every piece and laid out every
 // line of every one of them, twice, and again as the colour arrived: seconds each, 10 to 19 s of a held window at 10 MB, and
 // the page was left short of the end besides. Now a piece is laid out only when it is near the screen (base.css), the grid pass
@@ -65,7 +65,7 @@ const GENERATORS = `
   };
 `;
 
-/** Boots the app on a generated file of about `mb` MB and waits until it is wholly in the page (and, for a .py, in Read). */
+/** Boots the app on a generated file of about `mb` MB and waits until it is wholly in the page (for a .py, in Read). */
 async function openLarge(page, kind, mb) {
   const base = await harnessBase();
   await routeSkeleton(page, base);
@@ -92,7 +92,7 @@ async function openLarge(page, kind, mb) {
     return { bytes: bytes.length };
   }, { kind, mb });
   await page.waitForFunction(() => window.__firstText !== null, null, { timeout: 120_000 });
-  // A code file opens in Source (V-11): Read is what Mod+1 asks for.
+  // A code file opens in Source: Read is what Mod+1 asks for.
   if (kind === 'py') await page.evaluate(() => window.__marxyHandle.panes().focused.view.setMode('rendered'));
   await page.evaluate(() => window.__marxyHandle.contentComplete());
   const pieces = await page.evaluate(() => document.querySelector('#doc').childElementCount);
@@ -250,4 +250,36 @@ test('select all and copy after a jump to the end are the file, and find reaches
       }
       return false;
     }, null, { timeout: 30_000 });
+  }));
+
+test('a restore clamped on a page briefly short of its height does not pin the end: the page grows and the reader stays', () =>
+  withPage(async (page) => {
+    const base = await harnessBase();
+    await routeSkeleton(page, base);
+    await page.goto(`${base}app.html`);
+    await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+    const result = await page.evaluate(async () => {
+      const path = '/r/plan.md';
+      const text = Array.from({ length: 80 }, (_, i) => `Paragraph ${i} has words enough to fill a line or two of the page, and then a few more words.`).join('\n\n');
+      const { createMemoryShell } = await import('/src/shell/memory.ts');
+      const { startApp } = await import('/src/app.ts');
+      const handle = await startApp(createMemoryShell({ [path]: new TextEncoder().encode(text) }), { argv: [path] });
+      await handle.ready;
+      await handle.contentComplete();
+      const d = document.documentElement;
+      const frames = (n) => new Promise((r) => { const step = () => (n-- <= 0 ? r() : requestAnimationFrame(step)); step(); });
+      const later = [...document.querySelector('#doc').children].slice(40);
+      // The page short of its height for a moment (pieces not yet at their real height), as on a relaunch.
+      for (const el of later) el.style.display = 'none';
+      await frames(3);
+      // The place lies past where the short page can scroll to: the restore is clamped at its end.
+      handle.panes().focused.view.restore({ path, byteOffset: text.indexOf('Paragraph 39 '), fraction: 0, mode: 'rendered' });
+      await frames(3);
+      const restored = { top: d.scrollTop, distance: d.scrollHeight - d.clientHeight - d.scrollTop };
+      for (const el of later) el.style.display = '';
+      await frames(6);
+      return { restored, top: d.scrollTop, max: d.scrollHeight - d.clientHeight };
+    });
+    assert.ok(result.restored.distance <= 2, `the restore was clamped at the end of the short page (${result.restored.distance} px from it)`);
+    assert.ok(Math.abs(result.top - result.restored.top) < 40, `the reader stayed where the restore put them: ${result.restored.top} then ${result.top} (the end is ${result.max})`);
   }));

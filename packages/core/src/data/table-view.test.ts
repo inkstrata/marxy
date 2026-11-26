@@ -1,4 +1,4 @@
-// The table lens's view work (K-10b): a sliced, stable sort that matches a plain one; column types read from flags; the
+// The table lens's view work: a sliced, stable sort that matches a plain one; column types read from flags; the
 // stats of a column from decoded values; keys with missing fields last either way.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';

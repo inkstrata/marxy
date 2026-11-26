@@ -1,16 +1,17 @@
 // AST → HTML, structure and escaping only. This module makes no security decision: raw HTML from
 // the file goes out verbatim and a link's URL goes out as written, because the allow-list is the one
-// boundary (ADR-0009) and a second, weaker check here would only make it harder to see where the
-// boundary is. Its output is never for the DOM — `renderSafeHtml` is (ADR-0007, ADR-0020).
+// boundary and a second, weaker check here would only make it harder to see where the
+// boundary is. Its output is never for the DOM — `renderSafeHtml` is.
 
 import type { Block, Blockquote, Document, FootnoteDefinition, Inline, List, ListItem, Source, Table, TableRow, Text } from '../contracts/ast.ts';
 import type { ParsedAlert } from './alerts.ts';
+import { langOfFence } from '../kind/registry.ts';
 import { speakerOf } from '../kind/detect.ts';
 import { PROVENANCE_ATTRIBUTES, type ProvenanceNames } from '../sanitize/policy.ts';
 import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
 import { parseAlert } from './alerts.ts';
 import { headingIdsForDocument } from './heading-ids.ts';
-import { renderFrontmatterHead } from './frontmatter.ts';
+import { renderFrontmatterHead, titleFirst } from './frontmatter.ts';
 import { linkHostMismatchLabel } from './link-host.ts';
 import {
   advanceSiblingRun,
@@ -42,30 +43,36 @@ const NBSP = '\u00a0';
 
 const WIDONT_TRAILING = new Set<Inline['type']>(['code', 'mathInline', 'image', 'footnoteReference']);
 
-/** Inline kinds that end a paragraph prose run without a following text node (MARXY-296). */
+/** Inline kinds that end a paragraph prose run without a following text node. */
 const WIDONT_TRAILING_BIND = new Set<Inline['type']>(['code', 'mathInline', 'image']);
 
 /** What every function below needs to know about the document as a whole. */
 interface Context {
   /** Footnote labels in definition order, so every id and back-reference is a number we chose. */
-  readonly footnotes: Map<string, number>;
+  readonly footnotes: ReadonlyMap<string, number>;
   readonly names: ProvenanceNames;
-  /** Heading element ids in document order (GitHub slugger; docs/design/02-render.md). */
-  readonly headingIds: Map<string, string>;
+  /** Heading element ids in document order (GitHub slugger). */
+  readonly headingIds: ReadonlyMap<string, string>;
 }
 
 export interface UnsanitisedRenderOptions {
   /**
-   * The attribute names byte provenance is written under (ADR-0023). The pipeline passes names only
+   * The attribute names byte provenance is written under. The pipeline passes names only
    * it knows, so that nothing a document wrote can be mistaken for provenance; the default is the
    * public pair, for tests that look at the render before the boundary.
    */
   readonly provenance?: ProvenanceNames;
   /**
-   * The heading ids of the whole document, when `document` is a run of its blocks rendered on their own
-   * (D-15): the slugger numbers a repeated heading by what came before it, which a run alone does not know.
+   * The heading ids of the whole document, when `document` is a run of its blocks rendered on their own:
+   * the slugger numbers a repeated heading by what came before it, which a run alone does not know.
    */
-  readonly headingIds?: Map<string, string>;
+  readonly headingIds?: ReadonlyMap<string, string>;
+  /**
+   * The footnote numbers of the whole document (`footnoteNumbers`), when `document` is a run of its blocks: the
+   * references in the run take the document's numbers, and the run draws no list of notes, which the document draws
+   * once, at its end, from all its definitions.
+   */
+  readonly footnotes?: ReadonlyMap<string, number>;
 }
 
 /** ` s="…" e="…"` for a node's own bytes: the attributes every element made for a node carries. */
@@ -82,28 +89,40 @@ function prov(src: Source, ctx: Context): string {
  */
 export function renderToUnsanitisedHtml(document: Document, options: UnsanitisedRenderOptions = {}): string {
   const ctx: Context = {
-    footnotes: collectFootnotes(document),
+    footnotes: options.footnotes ?? footnoteNumbers(document),
     names: options.provenance ?? PROVENANCE_ATTRIBUTES,
     headingIds: options.headingIds ?? headingIdsForDocument(document),
   };
   const parts: string[] = [];
-  for (const child of document.children) {
+  // The title is the first thing on the page and the byline is under it: the two are drawn out of byte order.
+  const children = titleFirst(document.children) ? [document.children[1]!, document.children[0]!, ...document.children.slice(2)] : document.children;
+  for (const child of children) {
     if (child.type === 'footnoteDefinition') continue;
     parts.push(block(child, false, ctx));
   }
-  parts.push(footnoteList(document, ctx));
+  if (options.footnotes === undefined) parts.push(footnoteList(document, ctx));
   return parts.filter((part) => part.length > 0).join('\n');
 }
 
-/** Footnote labels in definition order, so every id and back-reference is a number we chose. */
-function collectFootnotes(document: Document): Map<string, number> {
+/**
+ * Footnote labels in definition order, so every id and back-reference is a number we chose: the label of the first
+ * top-level definition of each, folded as references match it, to its number.
+ */
+export function footnoteNumbers(document: Document): Map<string, number> {
   const labels = new Map<string, number>();
-  for (const child of document.children) {
-    if (child.type === 'footnoteDefinition' && !labels.has(footnoteKey(child.label))) {
-      labels.set(footnoteKey(child.label), labels.size + 1);
-    }
-  }
+  for (const definition of listedFootnotes(document)) labels.set(footnoteKey(definition.label), labels.size + 1);
   return labels;
+}
+
+/** The definitions the list of notes draws, in its order: the first top-level definition of each label. */
+export function listedFootnotes(document: Document): FootnoteDefinition[] {
+  // The first definition of a label is the one references reach; a duplicate would repeat its id.
+  const seen = new Set<string>();
+  return document.children.filter((child): child is FootnoteDefinition => {
+    if (child.type !== 'footnoteDefinition' || seen.has(footnoteKey(child.label))) return false;
+    seen.add(footnoteKey(child.label));
+    return true;
+  });
 }
 
 /** GFM matches a footnote reference to its definition as it matches link labels: case and runs of whitespace do not count. */
@@ -112,13 +131,7 @@ function footnoteKey(label: string): string {
 }
 
 function footnoteList(document: Document, ctx: Context): string {
-  // The first definition of a label is the one references reach; a duplicate would repeat its id.
-  const seen = new Set<string>();
-  const definitions = document.children.filter((child): child is FootnoteDefinition => {
-    if (child.type !== 'footnoteDefinition' || seen.has(footnoteKey(child.label))) return false;
-    seen.add(footnoteKey(child.label));
-    return true;
-  });
+  const definitions = listedFootnotes(document);
   if (definitions.length === 0) return '';
   const items = definitions.map((definition) => {
     const number = ctx.footnotes.get(footnoteKey(definition.label)) ?? 0;
@@ -142,7 +155,7 @@ function block(node: Block, tight: boolean, ctx: Context): string {
     case 'heading': {
       const id = ctx.headingIds.get(`${node.src.start}-${node.src.end}`);
       const idAttr = id === undefined ? '' : ` id="${escapeAttribute(id)}"`;
-      // A heading that names a speaker says so in every kind; only the transcript profile styles it (K-11).
+      // A heading that names a speaker says so in every kind; only the transcript profile styles it.
       const speaker = ctx.names.speaker === undefined ? null : speakerOf(plainInlineText(node.children));
       const speakerAttr = speaker === null ? '' : ` ${ctx.names.speaker}="${speaker.role}"`;
       return `<h${node.level}${idAttr}${speakerAttr}${prov(node.src, ctx)}>${inlines(node.children, ctx)}</h${node.level}>`;
@@ -159,7 +172,7 @@ function block(node: Block, tight: boolean, ctx: Context): string {
     case 'codeBlock': {
       // A language is a class only when it is one plain token. Entity decoding can put whitespace
       // in an info string (`&#32;`), and the sanitiser splits `class` on whitespace and trusts a
-      // `marxy-*` token, so a fence must not be able to add the renderer's own classes (B-25.1).
+      // `marxy-*` token, so a fence must not be able to add the renderer's own classes.
       const lang = asciiLower(node.lang ?? '');
       const safeLang = LANGUAGE_TOKEN.test(lang);
       const language = safeLang ? ` class="language-${escapeAttribute(node.lang ?? '')}"` : '';
@@ -169,12 +182,16 @@ function block(node: Block, tight: boolean, ctx: Context): string {
           ? `<p class="marxy-diagram-caption">${escapeText(lang)} · diagram source</p>\n`
           : '';
       // The caption carries `marxy-diagram-caption` so the theme needs no `p:has(+ pre…)` sibling rule: that
-      // restyled every paragraph of a long run, quadratically (F-96; B-25.1 tuned the same selector before).
+      // restyled every paragraph of a long run, quadratically.
       // The `<pre>` still takes the lowercased language for highlighting and the diagram renderers.
       const preClasses = [...(safeLang ? [`language-${escapeAttribute(lang)}`] : []), ...(node.run ? ['marxy-run'] : [])];
       const preLanguage = preClasses.length === 0 ? '' : ` class="${preClasses.join(' ')}"`;
+      // The registry's id for the fence's word (`rs` is `rust`), so a theme's `[data-marxy-lang]` scope meets a
+      // fence and a file of one language alike.
+      const langId = safeLang ? langOfFence(lang) : '';
+      const preLangAttr = ctx.names.lang !== undefined && LANGUAGE_TOKEN.test(langId) ? ` ${ctx.names.lang}="${escapeAttribute(langId)}"` : '';
       // The `<pre>` is the whole fence; the `<code>` is the content between the fence lines.
-      return `${caption}<pre${preLanguage}${prov(node.src, ctx)}><code${language}${prov(node.content, ctx)}>${value}</code></pre>`;
+      return `${caption}<pre${preLanguage}${preLangAttr}${prov(node.src, ctx)}><code${language}${prov(node.content, ctx)}>${value}</code></pre>`;
     }
     case 'htmlBlock':
       return node.value;
@@ -189,7 +206,7 @@ function block(node: Block, tight: boolean, ctx: Context): string {
     case 'tableCell':
       return `<td${prov(node.src, ctx)}>${inlines(node.children, ctx)}</td>`;
     case 'mathBlock':
-      // Set as code until KaTeX loads on first use (MARXY-28); the source is what a reader has now.
+      // Set as code until KaTeX loads on first use; the source is what a reader has now.
       return `<pre class="marxy-math-block"${prov(node.src, ctx)}><code>${escapeText(node.value)}\n</code></pre>`;
     case 'footnoteDefinition':
       return blocks(node.children, false, ctx);
@@ -201,9 +218,9 @@ function block(node: Block, tight: boolean, ctx: Context): string {
 }
 
 /**
- * ` emphasis="whole"` on a paragraph that is one emphasis and nothing else (K-20): a fact about the paragraph alone, in
+ * ` emphasis="whole"` on a paragraph that is one emphasis and nothing else: a fact about the paragraph alone, in
  * every kind, so a block re-rendered on its own carries it too. Only the article profile reads it, as the dek when it
- * directly follows the title under a byline with no dek key (theme.css).
+ * directly follows the title and its byline (theme.css).
  */
 function emphasisAttr(children: readonly Inline[], ctx: Context): string {
   if (ctx.names.emphasis === undefined) return '';
@@ -282,7 +299,7 @@ function paragraphEndsWithWidontTrailingBind(nodes: readonly Inline[]): boolean 
   return end < nodes.length;
 }
 
-/** Last prose text run that may receive paragraph-end smartening (D-A13 widont). */
+/** Last prose text run that may receive paragraph-end smartening (widont). */
 function widontTargetTextNode(nodes: readonly Inline[]): Text | undefined {
   return lastTextNodeIn(stripTopLevelWidontTrailing(nodes));
 }
@@ -308,7 +325,7 @@ function lastTextNodeIn(nodes: readonly Inline[]): Text | undefined {
 
 /** Keeps the last word of a text run on the same line as a trailing code/math/image/footnote inline. */
 function bindLastWordToTrailingInline(text: string): string {
-  const trimmed = text.replace(/\s+$/, '');
+  const trimmed = text.trimEnd();
   if (trimmed.length === 0) return text;
   if (trimmed.endsWith(NBSP)) return `${trimmed}${NBSP}`;
   return `${trimmed}${NBSP}`;
@@ -402,7 +419,7 @@ function inline(node: Inline, run: SiblingRun, ctx: Context, typo: RenderTypo): 
       return `<code${prov(node.src, ctx)}>${escapeText(node.value.replace(/\r?\n/g, ' '))}</code>`;
     case 'link': {
       // Class sits on the `<a>` (it already has provenance) so the sanitiser keeps it; dest-on-summon
-      // is a CSS ::after / app child, never extra unmarked classes (ADR-0023).
+      // is a CSS ::after / app child, never extra unmarked classes.
       const mismatch = linkHostMismatchLabel(plainInlineText(node.children), node.url);
       const title =
         node.title !== undefined
@@ -419,7 +436,7 @@ function inline(node: Inline, run: SiblingRun, ctx: Context, typo: RenderTypo): 
     }
     case 'image': {
       // The URL is written out as it stands; whether it may load is the sanitiser's decision, and by
-      // default a remote one loses its `src` and the reader sees the alt text (MARXY-26 names the host).
+      // default a remote one loses its `src` and the reader sees the alt text.
       const title = node.title === undefined ? '' : ` title="${escapeAttribute(node.title)}"`;
       return `<img src="${escapeAttribute(node.url)}" alt="${escapeAttribute(node.alt)}"${title}${prov(node.src, ctx)} />`;
     }

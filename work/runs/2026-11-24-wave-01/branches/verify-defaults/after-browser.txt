@@ -1,0 +1,13 @@
+﻿verify quick in C:\Dev\reader\worktrees\verify-defaults
+17 files changed against master; unit suites: desktop, core, theme, typeset, scripts; browser files: 41; unmapped: AGENTS.md, apps/desktop/README.md, apps/desktop/package.json, pnpm-workspace.yaml
+logs in C:\Dev\reader\work\wave1\verify-defaults\after-browser
+
+PASS    unit-desktop-browser 195.0s    44 pass, 0 fail, 1 skip
+
+step                  result  wall    tests
+--------------------  ------  ------  -----------------------
+unit-desktop-browser  pass    195.0s  44 pass, 0 fail, 1 skip
+--------------------  ------  ------  -----------------------
+total                         195.0s
+
+verify quick: 1/1 steps passed

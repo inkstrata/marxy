@@ -1,14 +1,15 @@
-// KaTeX on first use (docs/design/02-render.md post-pass 6, MARXY-28): dynamic import, bundled OFL fonts, grid snap after render.
+// KaTeX on first use: dynamic import, bundled OFL fonts, grid snap after render.
 /// <reference types="vite/client" />
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import { snapToGrid } from '@marxy/typeset';
+import { peekFormula, rememberFormula } from './block-cache.ts';
 
 let cssInjected = false;
 
 /**
  * Inline math sits 0.085em below the text baseline by a relative offset, not `vertical-align`: a
- * shifted inline box grew the line box by the shift (48.98 px for a 48 px list item, MARXY-28's
- * 1.53 px) and pushed every later block off the baseline grid (B-02.2). Painting only,
+ * shifted inline box grew the line box by the shift (48.98 px for a 48 px list item)
+ * and pushed every later block off the baseline grid. Painting only,
  * so the line box stays a whole number of grid units; the grid is handbook ch.4 (04-spacing-layout).
  */
 export const INLINE_MATH_RULE = 'code.marxy-math .katex{font-size:1em;line-height:inherit;vertical-align:baseline;position:relative;top:0.085em;}';
@@ -19,12 +20,14 @@ async function injectKatexCss(): Promise<void> {
   cssInjected = true;
   const [{ default: css }, fonts] = await Promise.all([
     import('katex/dist/katex.min.css?raw'),
-    import.meta.glob('../../node_modules/katex/dist/fonts/*.{woff2,woff,ttf}', {
+    import.meta.glob('../../node_modules/katex/dist/fonts/*.woff2', {
       query: '?url',
       import: 'default',
     }),
   ]);
-  let out = css as string;
+  // Only the woff2 files ship (every engine Marxy runs in reads them); the stylesheet's woff and ttf fallbacks would
+  // name files that are not there, so they are cut from each face's source list.
+  let out = (css as string).replace(/,url\(fonts\/[\w-]+\.(?:woff|ttf)\) format\("(?:woff|truetype)"\)/g, '');
   for (const [path, load] of Object.entries(fonts)) {
     const name = path.split('/').pop()!;
     const url = await load();
@@ -59,12 +62,23 @@ function sourceLineCount(text: string): number {
   return Math.max(1, lines.length);
 }
 
+/** Sets one formula: from the markup KaTeX made for the same text before, else by KaTeX, whose markup is kept. */
+function setFormula(katex: typeof import('katex').default, src: string, target: HTMLElement, display: boolean): void {
+  const known = peekFormula(display, src);
+  if (known !== undefined) {
+    target.innerHTML = known;
+    return;
+  }
+  katex.render(src, target, katexOptions(display));
+  rememberFormula(display, src, target.innerHTML);
+}
+
 /**
  * When the article has math placeholders, load KaTeX once, render every block and inline span, and
  * snap block heights back onto the grid. Skips entirely when there is no math — no chunk fetch.
  */
 export async function applyMath(article: HTMLElement): Promise<void> {
-  // Formulas already set stay as they are: a reload that kept blocks (B-24) runs this again over a page
+  // Formulas already set stay as they are: a reload that kept blocks runs this again over a page
   // whose old blocks hold KaTeX's output, whose text is no longer the formula.
   const blocks = [...article.querySelectorAll<HTMLElement>('pre.marxy-math-block:not([data-marxy-done="math"])')];
   const inlines = [...article.querySelectorAll<HTMLElement>('code.marxy-math:not([data-marxy-done="math"])')];
@@ -85,13 +99,13 @@ export async function applyMath(article: HTMLElement): Promise<void> {
     if (pre.dataset.marxyDone === 'math') continue;
     const target = pre.querySelector('code') ?? pre;
     const src = (target.textContent ?? '').replace(/\n$/, '');
-    katex.render(src, target, katexOptions(true));
+    setFormula(katex, src, target as HTMLElement, true);
     pre.dataset.marxyDone = 'math';
   }
   for (const el of inlines) {
     if (el.dataset.marxyDone === 'math') continue;
     const src = el.textContent ?? '';
-    katex.render(src, el, katexOptions(false));
+    setFormula(katex, src, el, false);
     el.dataset.marxyDone = 'math';
   }
 

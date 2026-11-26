@@ -1,4 +1,4 @@
-// The depth lens in Source (K-10a): fold a JSON or YAML file to a depth, and say on every fold how many lines it hides.
+// The depth lens in Source: fold a JSON or YAML file to a depth, and say on every fold how many lines it hides.
 //
 // A fold is a view: CodeMirror keeps it as a decoration over the text, and the text, a copy of it, a save and the file's
 // bytes are the same with it as without (commitment 3). Nothing is folded at rest and no fold is remembered. A fold
@@ -11,7 +11,7 @@
 // item for YAML), so the gutter's own chevron and the placeholder's click undo them one at a time.
 //
 // The ranges are pure over an `EditorState` and its syntax tree; only `foldToDepth` and `unfoldEverything` touch a view.
-// Loaded with the editor, never at start-up (MARXY-33).
+// Loaded with the editor, never at start-up.
 
 import { ensureSyntaxTree, foldCode, foldEffect, foldInside, foldedRanges, codeFolding, language, unfoldCode, unfoldEffect } from '@codemirror/language';
 import { EditorState, type Extension, type StateEffect, type Text } from '@codemirror/state';

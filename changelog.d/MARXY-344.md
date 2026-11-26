@@ -1,1 +1,0 @@
-A launch with nothing to read shows the passage only: the front matter, the language names and the "Translated for Marxy" line are gone from the page, and the translation licence now lives in `commonplace/INFO.md` (MARXY-344)

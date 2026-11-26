@@ -1,0 +1,15 @@
+verify quick in C:\Dev\reader\worktrees\verify-lock
+4 files changed against master; unit suites: scripts; browser files: 0
+logs in C:\Dev\reader\work\wave3\verify-lock-proof\a
+
+verify: holding place 1 of 1 (--no-lock skips it)
+
+PASS    unit-typeset   78.9s     90 pass, 0 fail
+
+step          result  wall   tests
+------------  ------  -----  ---------------
+unit-typeset  pass    78.9s  90 pass, 0 fail
+------------  ------  -----  ---------------
+total                 78.9s
+
+verify quick: 1/1 steps passed

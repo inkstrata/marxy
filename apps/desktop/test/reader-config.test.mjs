@@ -1,4 +1,4 @@
-// A-14: the light variant and text size from config.toml, applied before first text, and changed by
+// the light variant and text size from config.toml, applied before first text, and changed by
 // command with every other byte of the file kept.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -8,7 +8,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { settle } from './settle.mjs';
 
@@ -72,12 +72,15 @@ async function boot(browser, config, doc = { path: DOC, bytes: fixture.toString(
     window.__variantAt = [];
     new MutationObserver(() => window.__variantAt.push([document.documentElement.dataset.marxyVariant, Date.now()]))
       .observe(document, { attributes: true, subtree: true, attributeFilter: ['data-marxy-variant'] });
-    // H-05: the ground in force each time the theme sheet's marker in the head changes, on the same clock.
+    // the ground in force each time the theme sheet's marker in the head changes, on the same clock.
     window.__bgAt = [];
     document.addEventListener('DOMContentLoaded', () => {
-      new MutationObserver(() =>
-        window.__bgAt.push([getComputedStyle(document.documentElement).getPropertyValue('--marxy-color-bg').trim(), Date.now()]),
-      ).observe(document.head, { childList: true, subtree: true, characterData: true });
+      // A <template> styles nothing (the look keeps its sheet in one until it is used): only a change that can restyle counts.
+      const inert = (n) => n.nodeName === 'TEMPLATE' || n.parentNode?.nodeName === 'TEMPLATE' || n.parentNode instanceof DocumentFragment;
+      new MutationObserver((records) => {
+        if (records.every((r) => (r.type === 'childList' ? [...r.addedNodes, ...r.removedNodes] : [r.target]).every(inert))) return;
+        window.__bgAt.push([getComputedStyle(document.documentElement).getPropertyValue('--marxy-color-bg').trim(), Date.now()]);
+      }).observe(document.head, { childList: true, subtree: true, characterData: true });
     });
   });
   await page.goto(`${base}test/palette-boot.html`);
@@ -141,7 +144,7 @@ test('variant = "light" in config is on the root before the file_read mark', asy
   }
 });
 
-test('H-05: theme = "warm" paints the first text in Dusk: the ground is Dusk when file_read happens, and never Night before it', async () => {
+test('theme = "warm" paints the first text in Dusk: the ground is Dusk when file_read happens, and never Night before it', async () => {
   const browser = await launchWebkit();
   try {
     const { page } = await boot(browser, '# mine\ntheme = "warm"\n');
@@ -160,13 +163,14 @@ test('H-05: theme = "warm" paints the first text in Dusk: the ground is Dusk whe
   }
 });
 
-test('H-05: Theme: Dusk and Sepia applies Sepia on the light variant and writes only the theme line', async () => {
+test('Theme: Dusk and Sepia applies Sepia on the light variant and writes only the theme line', async () => {
   const browser = await launchWebkit();
   try {
     const before = '# keep me\nvariant = "light" # paper\nsize = 20\n\n[linux]\nweight_offset = 75\n';
     const { page, mod } = await boot(browser, before);
     const bg = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--marxy-color-bg').trim());
-    assert.equal(await bg(), '#fbfaf8');
+    // Ink's light, the default theme.
+    assert.equal(await bg(), '#faf8f4');
     await runPaletteCommand(page, mod, '>Dusk and Sepia');
     assert.equal(await bg(), '#f6efe0');
     const after = await configOf(page);
@@ -201,8 +205,9 @@ test('Use dark variant from the palette switches at once and rewrites only the v
     // It holds only when it is not the current variant: now the other one is offered.
     await page.keyboard.press(`${mod}+KeyP`);
     await page.fill('#marxy-palette .marxy-palette-query', '>variant');
+    // The Line matches loosely, so a command whose title merely holds the letters in order (Reveal's) may be listed too.
     const titles = await page.$$eval('#marxy-palette .marxy-palette-title', (els) => els.map((el) => el.textContent));
-    assert.deepEqual(titles, ['Use light variant']);
+    assert.deepEqual(titles.filter((t) => /variant/i.test(t)), ['Use light variant']);
   } finally {
     await browser.close();
   }
@@ -281,13 +286,15 @@ test('a missing config launches dark at 20 px; a command then creates the file',
   }
 });
 
-test('an unparsable config launches dark at 20 px with only the existing config warnings', async () => {
+test('an unparsable config launches dark at 20 px and says once that config.toml is not valid TOML', async () => {
   const browser = await launchWebkit();
   try {
     const { page } = await boot(browser, 'variant = = light\n[[[\n');
     assert.equal(await variantOf(page), 'dark');
     assert.equal(await lineHeightOf(page), 30);
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#marxy-notices > *').length), 0);
+    const notices = await page.evaluate(() => [...document.querySelectorAll('#marxy-notices > *')].map((n) => n.textContent ?? ''));
+    assert.equal(notices.length, 1, notices.join(' | '));
+    assert.match(notices[0], /config\.toml is not valid TOML/);
     assert.equal(await writesOf(page), 0);
   } finally {
     await browser.close();
@@ -314,7 +321,7 @@ test('a config that exists but cannot be read is never overwritten: the command 
   }
 });
 
-test('H-05: Fjord is dark whatever the variant: the page color-scheme is dark under the light variant', async () => {
+test('Fjord is dark whatever the variant: the page color-scheme is dark under the light variant', async () => {
   const browser = await launchWebkit();
   try {
     const { page } = await boot(browser, 'variant = "light"\ntheme = "fjord"\n');
@@ -329,7 +336,7 @@ test('H-05: Fjord is dark whatever the variant: the page color-scheme is dark un
   }
 });
 
-test('H-05: a theme command that replaces a theme folder says which folder, that it is untouched, and the way back', async () => {
+test('a theme command that replaces a theme folder says which folder, that it is untouched, and the way back', async () => {
   const browser = await launchWebkit();
   try {
     const { page, mod } = await boot(browser, 'theme = "~/themes/mine"\nsize = 20\n');
@@ -348,7 +355,7 @@ test('H-05: a theme command that replaces a theme folder says which folder, that
   }
 });
 
-test('H-05: a theme command whose config write fails says so and leaves config.toml unchanged', async () => {
+test('a theme command whose config write fails says so and leaves config.toml unchanged', async () => {
   const browser = await launchWebkit();
   try {
     const config = '# keep\ntheme = "~/themes/mine"\n';
@@ -384,7 +391,7 @@ test('size 20, and returning to 20 from another size, sets none of the size prop
   }
 });
 
-// L-06.1: the Source line-number choice lives in config.toml.
+// the Source line-number choice lives in config.toml.
 const RS = { path: '/src/main.rs', bytes: b64('fn main() {\n    println!("hi");\n}\n') };
 const gutter = (page) => page.evaluate(() => document.querySelector('#marxy-source .cm-lineNumbers') !== null);
 const toggleNumbers = async (page) => {
@@ -472,7 +479,7 @@ test('the toggle changes only the value bytes of line_numbers: comments, CRLF an
   }
 });
 
-// V-08: show whitespace and the column guide are remembered the way line numbers are, and write nothing else.
+// show whitespace and the column guide are remembered the way line numbers are, and write nothing else.
 const marks = (page) => page.evaluate(() => document.querySelectorAll('#marxy-source .cm-highlightTab').length);
 const guideOn = (page) => page.evaluate(() => {
   const after = getComputedStyle(document.querySelector('#marxy-source .cm-content'), '::after').content;
@@ -484,7 +491,7 @@ const toggle = async (page, id) => {
 };
 const TABBED = { path: '/src/tab.rs', bytes: b64('fn main() {\n\tlet x = 1;\n}\n') };
 
-test('V-08: Show whitespace writes only the show_whitespace line of a commented config.toml, and a relaunch keeps it', async () => {
+test('Show whitespace writes only the show_whitespace line of a commented config.toml, and a relaunch keeps it', async () => {
   const browser = await launchWebkit();
   try {
     const first = await boot(browser, CONFIG, TABBED);
@@ -506,7 +513,7 @@ test('V-08: Show whitespace writes only the show_whitespace line of a commented 
   }
 });
 
-test('V-08: the column guide follows the file kind until the reader chooses; the choice writes only column_guide', async () => {
+test('the column guide follows the file kind until the reader chooses; the choice writes only column_guide', async () => {
   const browser = await launchWebkit();
   try {
     const rs = await boot(browser, CONFIG, RS);
@@ -534,7 +541,7 @@ test('V-08: the column guide follows the file kind until the reader chooses; the
   }
 });
 
-test('V-08: a failed config write says so, leaves config.toml unchanged, and the toggle holds until quit', async () => {
+test('a failed config write says so, leaves config.toml unchanged, and the toggle holds until quit', async () => {
   const browser = await launchWebkit();
   try {
     const { page } = await boot(browser, CONFIG, TABBED);
@@ -561,7 +568,7 @@ const chromeSizeOf = (page) => page.evaluate(() => ({
   notices: document.getElementById('marxy-notices')?.textContent ?? '',
 }));
 
-test('chrome_size unset leaves --marxy-size-chrome to the stylesheet (13px), with no notice (H-07)', async () => {
+test('chrome_size unset leaves --marxy-size-chrome to the stylesheet (13px), with no notice', async () => {
   const browser = await launchWebkit();
   try {
     const { page } = await boot(browser, CONFIG);
@@ -574,7 +581,7 @@ test('chrome_size unset leaves --marxy-size-chrome to the stylesheet (13px), wit
   }
 });
 
-test('chrome_size = 18 sets --marxy-size-chrome on the root (H-07)', async () => {
+test('chrome_size = 18 sets --marxy-size-chrome on the root', async () => {
   const browser = await launchWebkit();
   try {
     const { page } = await boot(browser, 'chrome_size = 18\n');
@@ -586,7 +593,7 @@ test('chrome_size = 18 sets --marxy-size-chrome on the root (H-07)', async () =>
   }
 });
 
-test('chrome_size = 40 is clamped to 26px and a notice names the value (H-07)', async () => {
+test('chrome_size = 40 is clamped to 26px and a notice names the value', async () => {
   const browser = await launchWebkit();
   try {
     const { page } = await boot(browser, 'chrome_size = 40\n');
@@ -598,7 +605,7 @@ test('chrome_size = 40 is clamped to 26px and a notice names the value (H-07)', 
   }
 });
 
-test('chrome_size = "big" is refused: the stylesheet value stands and a notice names it (H-07)', async () => {
+test('chrome_size = "big" is refused: the stylesheet value stands and a notice names it', async () => {
   const browser = await launchWebkit();
   try {
     const { page } = await boot(browser, 'chrome_size = "big"\n');
@@ -609,3 +616,17 @@ test('chrome_size = "big" is refused: the stylesheet value stands and a notice n
     await browser.close();
   }
 });
+
+for (const [line, said] of [['size = "huge"', /size was invalid; using 20/], ['variant = "sepia"', /variant was invalid; using dark/], ['measure = "wide"', /measure was invalid; using 66/]]) {
+  test(`${line} is refused: the default stands and a notice says so`, async () => {
+    const browser = await launchWebkit();
+    try {
+      const { page } = await boot(browser, `${line}
+`);
+      const r = await chromeSizeOf(page);
+      assert.match(r.notices, said);
+    } finally {
+      await browser.close();
+    }
+  });
+}

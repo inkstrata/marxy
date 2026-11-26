@@ -1,10 +1,11 @@
-// News as pills off the reading column (U-02; docs/design/09-app-shell.md §Notices; the X-21 rulings 1 to 10).
+// News as pills off the reading column.
 // Each pane has one region, `[role=status]`, a zero-height layer at the pane's foot (index.html places it); a notice is a
 // pill in it with a glyph, a word for its kind and its text. Nothing here enters the column's flow.
+// The region is not atomic: a new pill is read alone, not with the pills already there.
 import { glyphFor, KIND_WORDS } from './glyphs.ts';
 
 /**
- * What a pane says when its Source text and the other pane's fold of the same file meet (D-11), and when a
+ * What a pane says when its Source text and the other pane's fold of the same file meet, and when a
  * save is refused for it. Opening the same file again does nothing over unsaved changes, so it names ways out
  * that work.
  */
@@ -55,7 +56,7 @@ let textIds = 0;
 const open = new Map<number, HTMLElement>();
 
 /**
- * The pane a notice is about, or the focused one when none is named (D-10): `section.marxy-pane`. A
+ * The pane a notice is about, or the focused one when none is named: `section.marxy-pane`. A
  * notice about a file goes in the pane that shows it and in no other; one about the app has no pane.
  */
 export interface NoticeTarget {
@@ -77,7 +78,7 @@ export function focusedPane(): HTMLElement | undefined {
 }
 
 /**
- * Ensures `#marxy-notices` exists, empty and zero-height at rest. Given a pane (`section.marxy-pane`, D-01), that
+ * Ensures `#marxy-notices` exists, empty and zero-height at rest. Given a pane (`section.marxy-pane`), that
  * pane's own region instead: the `[role=status]` child it was built with, or one made at its foot (the last child:
  * the region pins to the pane's bottom edge, which only works after the content).
  */
@@ -87,6 +88,7 @@ export function ensureNoticesRegion(pane?: HTMLElement): HTMLElement {
     if (own) return own;
     const made = document.createElement('div');
     made.setAttribute('role', 'status');
+    made.setAttribute('aria-atomic', 'false');
     pane.append(made);
     return made;
   }
@@ -96,6 +98,7 @@ export function ensureNoticesRegion(pane?: HTMLElement): HTMLElement {
     region = document.createElement('div');
     region.id = 'marxy-notices';
     region.setAttribute('role', 'status');
+    region.setAttribute('aria-atomic', 'false');
     if (doc?.parentElement) doc.parentElement.insertBefore(region, doc);
     else document.body.insertBefore(region, document.body.firstChild);
   }
@@ -343,7 +346,7 @@ export function focusNewestNotice(pane?: HTMLElement): boolean {
 }
 
 /**
- * Says `input` in `target.pane`'s region, else the focused pane's (D-10): a split window has one region
+ * Says `input` in `target.pane`'s region, else the focused pane's: a split window has one region
  * per pane, and a notice shows where the file it is about is shown.
  */
 export function notify(input: NoticeInput, target: NoticeTarget = {}): number {
@@ -380,10 +383,12 @@ function dismissNotice(id: number): void {
 
 /**
  * Empties `pane`'s region (the first pane's when none is named): opening a document in a pane clears that
- * pane's notices, never another pane's (D-10).
+ * pane's notices, never another pane's.
  */
 export function clearNotices(pane?: HTMLElement): void {
   const region = ensureNoticesRegion(pane);
   for (const el of pillsOf(region)) removeNotice(el);
   region.replaceChildren();
+  // The file it showed not being on disk is that file's state, not the next one's (notices/disk.ts).
+  pane?.removeAttribute('data-marxy-gone');
 }

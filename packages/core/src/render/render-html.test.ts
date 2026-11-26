@@ -1,4 +1,4 @@
-// Paragraph widont when inline code, math, images, or footnote refs end the paragraph (MARXY-296).
+// Paragraph widont when inline code, math, images, or footnote refs end the paragraph.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';

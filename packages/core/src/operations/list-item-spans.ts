@@ -1,4 +1,4 @@
-// The marker and content spans of a list's top-level items, shared by sort-list-items (E-09) and list-markers (E-08.1).
+// The marker and content spans of a list's top-level items, shared by sort-list-items and list-markers.
 import type { List, ListItem, Source } from '../contracts/ast.ts';
 import { textIndex } from './text-helpers.ts';
 

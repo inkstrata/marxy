@@ -1,9 +1,9 @@
-// Maps TextMate scopes to the marxy token classes and builds the internal Shiki theme (MARXY-27, V-13).
-// The scope lists live in the one role table (roles.ts, ADR-0068), shared with Source's Lezer style.
+// Maps TextMate scopes to the marxy token classes and builds the internal Shiki theme.
+// The scope lists live in the one role table (roles.ts), shared with Source's Lezer style.
 import { normalizeTheme, type ThemeRegistration } from '@shikijs/core';
 import { RENDERED_ROLES, ROLES, type MarxyRole } from './roles.ts';
 
-/** The syntax classes the renderer may paint: every role that has TextMate scopes (docs/design/02-render.md §Code highlighting). */
+/** The syntax classes the renderer may paint: every role that has TextMate scopes. */
 export type MarxyTokenScope = Extract<
   MarxyRole,
   | 'comment' | 'string' | 'escape' | 'number' | 'constant' | 'keyword' | 'operator' | 'function' | 'builtin' | 'type'
@@ -39,7 +39,7 @@ const PREFIXES = SCOPES.flatMap((scope) =>
 
 /**
  * `markup.inserted` and `markup.deleted` intentionally map to no token hue; diff lines use
- * `marxy-diff-add` / `marxy-diff-del` on `.marxy-line` instead (MARXY-235, ADR-0036).
+ * `marxy-diff-add` / `marxy-diff-del` on `.marxy-line` instead.
  * The most specific (longest) prefix wins, as in a TextMate theme.
  */
 export function marxyScopeForTextMateScope(scope: string): MarxyTokenScope | undefined {

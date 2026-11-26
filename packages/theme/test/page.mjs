@@ -1,5 +1,5 @@
 // Shared Playwright page for theme taste checks: the inlined default stylesheet, vendored faces,
-// and the same grid pass the app runs (MARXY-128).
+// and the same grid pass the app runs.
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { renderSafeHtml } from '../../core/src/render/pipeline.ts';

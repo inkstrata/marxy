@@ -1,8 +1,8 @@
-// Close a pane, and save, the title and quit with two documents (D-08). `Mod+Shift+\` closes the focused
+// Close a pane, and save, the title and quit with two documents. `Mod+Shift+\` closes the focused
 // pane; a document with unsaved changes is never lost by closing or replacing its pane: the notice names
 // it, sits in its pane and saves it. Quitting asks about each unsaved document in turn. `Mod+S` saves the
 // focused pane's document and the window title follows it with its dirty dot. Also the three ways the
-// D-01 review found to lose edits with two panes: an open into a dirty unfocused pane, both panes dirty
+// Found to lose edits with two panes: an open into a dirty unfocused pane, both panes dirty
 // with the prompt naming the focused one, and `close()` of a dirty pane.
 // Booted on the shipped skeleton over the memory shell (test/support/two-pane.mjs).
 import { strict as assert } from 'node:assert';
@@ -84,7 +84,7 @@ test('Mod+Shift+\\ closes the focused clean pane: one pane remains, #doc is its 
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
     // The left pane is left alone: its page is not set again and its store is the same. (Its scroll place
-    // across the split's end is per-pane scrolling's, D-05, which moves the scroller back to the window.)
+    // across the split's end is per-pane scrolling's, which moves the scroller back to the window.)
     const place = () =>
       page.evaluate(() => {
         const left = window.__marxyHandle.panes().panes[0];
@@ -304,6 +304,7 @@ test('quit: Save and close on the left writes it, then asks about the right; a s
     assert.equal(await calls(page, 'writeFileAtomic', '/r/B.md'), 0);
     assert.equal(await calls(page, 'confirmClose'), 0);
     await page.evaluate(() => window.__marxyHandle.shell.emitCloseRequested());
+    await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'confirmClose'));
     assert.equal(await calls(page, 'confirmClose'), 1);
   });
 });
@@ -329,17 +330,16 @@ test('Mod+S with the right pane focused writes the right file only; the title is
   });
 });
 
-test('a refused close says why in the pane (an empty right pane), and a dismissed one says nothing', async () => {
+test('a right pane whose file could not be opened shows that file, so closing the left one moves it over and asks nothing', async () => {
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md'] });
     await page.evaluate(() => window.__marxyHandle.panes().openIn('other', '/r/missing.md'));
     await focus(page, 0);
     await closeKey(page);
-    await page.waitForTimeout(300);
-    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes.length), 2);
-    assert.deepEqual(await notices(page, 0), [
-      { text: 'This pane stays open: the other pane has no document to take its place.', buttons: ['Dismiss'] },
-    ]);
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 1);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[0].path()), '/r/missing.md');
+    await page.waitForSelector('section.marxy-pane [data-marxy-failed]');
+    assert.deepEqual(await notices(page, 0), []);
   });
 });
 
@@ -438,7 +438,7 @@ test('the title is the focused document\'s: an edit in the unfocused pane does n
     await focus(page, 1);
     assert.equal(await lastTitle(page), 'B.md — marxy');
     // An edit to the left document through its own pane's open path, focus staying on the right (a task
-    // click would move focus first, D-06).
+    // click would move focus first).
     await page.evaluate(async () => {
       const left = window.__marxyHandle.panes().panes[0].content;
       const { buffer } = left.store().snapshot();

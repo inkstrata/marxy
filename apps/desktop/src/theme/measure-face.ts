@@ -1,4 +1,4 @@
-// Measures a face's average character advance in the running app (H-06; ADR-0033 item 1, ADR-0059 item 7).
+// Measures a face's average character advance in the running app.
 // `--marxy-avg-char` is a number a theme author sets for their text face; this is the instrument that
 // says what it is: the loaded face, a fixed English sample, one canvas `measureText`, as a ratio of the
 // size (so two sizes agree). It never runs on the first-text path (commitment 5): call it after first

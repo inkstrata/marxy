@@ -1,4 +1,4 @@
-// copy-code-clean: fenced code content without markup (ADR-0004, MARXY-42).
+// copy-code-clean: fenced code content without markup.
 import type { CodeBlock } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 

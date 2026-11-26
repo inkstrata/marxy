@@ -1,8 +1,8 @@
-// Palette commands for how a file is read (K-04, ADR-0060 item 9): *Show as* for the open file, kept in
+// Palette commands for how a file is read: *Show as* for the open file, kept in
 // `kinds.json` in Marxy's data directory, and *Always open this folder as*, a `[[kind]]` table appended to
 // `config.toml` without touching another byte. No dialog, no settings page, no key. Neither writes to the
-// document. A file's kind is decided once when it opens (item 6), so a choice that was written reopens the open file
-// at once (K-07) and it takes effect now: `AppHandle.open` is the same path an ordinary open takes, so unsaved
+// document. A file's kind is decided once when it opens, so a choice that was written reopens the open file
+// at once and it takes effect now: `AppHandle.open` is the same path an ordinary open takes, so unsaved
 // edits meet its own prompt and the chip adds none. A choice that could not be written reopens nothing.
 import { isUntitled, NO_FOLDER_YET } from '../document/untitled.ts';
 import { KINDS } from '@marxy/core/src/contracts/kinds.ts';
@@ -23,8 +23,10 @@ import { appendKindRule } from '@marxy/theme/src/config.ts';
 import { KIND_SAYS, type Said } from '../notices/config-copy.ts';
 import { notify } from '../notices/index.ts';
 import { kindChipCommands } from './kind-chip.ts';
+import { editConfig } from '../theme/reader-config.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
 import { appHandle } from './app-handle.ts';
+import { readReaderKinds } from '../index/reader-kinds.ts';
 import type { Command } from './registry.ts';
 
 const say = (said: Said | string): void => {
@@ -47,7 +49,7 @@ async function loadKinds(
   }
   const loaded = parseKindsFile(bytes);
   if (loaded.kind === 'quarantined') {
-    // Keep the bad bytes beside it, start empty: the app opens (design 11).
+    // Keep the bad bytes beside it, start empty: the app opens.
     await shell.writeFileAtomic(quarantinePathFor(file), loaded.quarantineBytes);
     await shell.writeFileAtomic(file, serializeKindsFile(loaded.envelope));
     say(KIND_SAYS.quarantined());
@@ -104,10 +106,19 @@ async function showAs(kind: Kind | undefined): Promise<void> {
   await reopen(handle, path);
 }
 
-/** The kind is decided at open, so a choice takes effect by opening the file again (the same path as any open). */
+/**
+ * The kind is decided at open, so a choice takes effect by opening the file again (the same path as any open). Show as is
+ * the file's, not a pane's: every pane showing it opens it again, so two panes on one file read it alike (their shared
+ * store is parsed again under the choice, `DocumentStore.rechoose`).
+ */
 async function reopen(handle: NonNullable<ReturnType<typeof appHandle>>, path: string): Promise<void> {
+  // The index decides kinds as Open does: it hears of the choice too, without a walk.
+  void readReaderKinds(handle.shell).then((kinds) => handle.index.setKinds(kinds));
+  const { panes, focused } = handle.panes();
+  const others = panes.filter((pane) => pane !== focused && pane.path() === path);
   try {
     await handle.open(path);
+    for (const pane of others) if (pane.path() === path) await pane.content.open(path);
   } catch (e) {
     say(KIND_SAYS.reopenFailed(path, e));
   }
@@ -130,33 +141,38 @@ async function alwaysOpenFolderAs(kind: Kind): Promise<void> {
     return;
   }
   const home = inferHomeFromConfig(config);
-  let bytes: Uint8Array;
-  try {
-    bytes = await shell.readFile(config);
-  } catch (e) {
-    if (!notFound(e)) {
-      say(KIND_SAYS.configReadFailed(e));
-      return;
-    }
-    bytes = new Uint8Array(0);
-  }
   const folder = dirname(path);
-  let next: Uint8Array;
+  // One read-modify-write on editConfig's queue, so a Settings change made at the same moment is not lost to this one.
+  let refusal: unknown;
+  let changed = false;
+  let edited = false;
   try {
-    next = appendKindRule(bytes, { glob: folderKindGlob(folder, home), is: kind }, { home });
+    await editConfig(
+      shell,
+      (bytes) => {
+        edited = true;
+        try {
+          const next = appendKindRule(bytes, { glob: folderKindGlob(folder, home), is: kind }, { home });
+          changed = next !== bytes;
+          return next;
+        } catch (e) {
+          // Unparseable, not a list of tables, or a rule already there: the file is the reader's, left as it is.
+          refusal = e;
+          return bytes;
+        }
+      },
+      {},
+    );
   } catch (e) {
-    // Unparseable, not a list of tables, or a rule already there: the file is the reader's, left as it is.
-    say(KIND_SAYS.configNotChanged(e));
+    say(edited ? KIND_SAYS.configWriteFailed(e) : KIND_SAYS.configReadFailed(e));
     return;
   }
-  if (next === bytes) {
+  if (refusal !== undefined) {
+    say(KIND_SAYS.configNotChanged(refusal));
+    return;
+  }
+  if (!changed) {
     say(KIND_SAYS.folderAlready(kind));
-    return;
-  }
-  try {
-    await shell.writeFileAtomic(config, next);
-  } catch (e) {
-    say(KIND_SAYS.configWriteFailed(e));
     return;
   }
   say(KIND_SAYS.folderRule(kind));
@@ -170,7 +186,7 @@ export function kindCommands(): readonly Command[] {
     ...kindChipCommands(),
     ...KINDS.map((kind): Command => ({
       id: `kind.show-as.${kind}`,
-      title: `Show this file as ${kind}`,
+      title: `Read this file as ${kind}`,
       group: 'document',
       when: hasDocument,
       run: async (ctx) => {
@@ -180,7 +196,7 @@ export function kindCommands(): readonly Command[] {
     })),
     {
       id: 'kind.show-as.detected',
-      title: 'Show this file as detected',
+      title: 'Read this file as Marxy would',
       group: 'document',
       when: hasDocument,
       run: async (ctx) => {

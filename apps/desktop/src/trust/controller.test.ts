@@ -1,4 +1,4 @@
-// The trust controller's load failure: told once, retried on a grant, never trusting what is not on disk (F-13).
+// The trust controller's load failure: told once, retried on a grant, never trusting what is not on disk.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -20,7 +20,7 @@ function fakeElement(): any {
   getElementById: () => fakeElement(),
   querySelector: () => null,
   createElement: () => fakeElement(),
-  createElementNS: () => fakeElement(), // a notice's glyph is an SVG element (U-02)
+  createElementNS: () => fakeElement(), // a notice's glyph is an SVG element
   body: fakeElement(),
 };
 
@@ -96,7 +96,7 @@ test('a grant after a second failure writes nothing and tells the reader again',
   assert.equal(notices.filter((n) => n.text === TRUST_UNREADABLE_TEXT).length, 2);
 });
 
-test('a grant made while the first read is still in flight waits for it and is kept (F-64)', async () => {
+test('a grant made while the first read is still in flight waits for it and is kept', async () => {
   let release!: () => void;
   const gate = new Promise<void>((r) => { release = r; });
   const { controller, writes, renders } = rig(async () => { await gate; throw err('not-found'); });
@@ -112,7 +112,7 @@ test('a grant made while the first read is still in flight waits for it and is k
   assert.equal(renders(), 1);
 });
 
-test('a grant with no read started yet starts it, waits, and tells a failure once (F-64)', async () => {
+test('a grant with no read started yet starts it, waits, and tells a failure once', async () => {
   const { controller, writes, notices } = rig(async () => { throw err('io'); });
   await controller.grantHtml();
   assert.equal(writes.length, 0);
@@ -153,7 +153,7 @@ function diskRig(opts: { failReads: number; failWith?: string; failWrites?: bool
   return { controller, saved, on, notices, reads: () => reads, writes: () => writeCalls, renders: () => renders };
 }
 
-test('two grants on different documents during a failed-then-retried read both reach trust.json (F-64.1)', async () => {
+test('two grants on different documents during a failed-then-retried read both reach trust.json', async () => {
   const r = diskRig({ failReads: 1 });
   await r.controller.load(); // the first read fails and the reader is told
   r.on('/A.md');
@@ -171,7 +171,7 @@ test('two grants on different documents during a failed-then-retried read both r
   assert.equal(r.notices.filter((n) => n.text === TRUST_UNREADABLE_TEXT).length, 1);
 });
 
-test('a grant on A then a revoke on B during a failed-then-retried read leave the right state (F-64.1)', async () => {
+test('a grant on A then a revoke on B during a failed-then-retried read leave the right state', async () => {
   const r = diskRig({ failReads: 1 });
   await r.controller.load();
   r.on('/A.md');
@@ -187,7 +187,7 @@ test('a grant on A then a revoke on B during a failed-then-retried read leave th
   assert.equal(saved['/other.md'], undefined, 'the revoke is applied, not lost to the retry');
 });
 
-test('a read that keeps failing writes nothing, tells the reader, and applies no grant (F-64.1)', async () => {
+test('a read that keeps failing writes nothing, tells the reader, and applies no grant', async () => {
   const r = diskRig({ failReads: 99 });
   await r.controller.load();
   r.on('/A.md');
@@ -203,7 +203,7 @@ test('a read that keeps failing writes nothing, tells the reader, and applies no
   assert.equal(r.notices.filter((n) => n.text === TRUST_UNREADABLE_TEXT).length, 2, 'the failed read and the failed retry');
 });
 
-test('a grant whose write fails tells the reader and does not stay granted (F-64.1)', async () => {
+test('a grant whose write fails tells the reader and does not stay granted', async () => {
   const r = diskRig({ failReads: 1, failWrites: true });
   await r.controller.load();
   r.on('/A.md');
@@ -211,4 +211,76 @@ test('a grant whose write fails tells the reader and does not stay granted (F-64
   assert.equal(r.controller.grantsFor('/A.md').html, false);
   assert.equal(r.renders(), 0);
   assert.equal(r.notices.filter((n) => n.kind === 'error' && n.text !== TRUST_UNREADABLE_TEXT).length, 1);
+});
+
+// Two panes: a grant or a revoke made in one reaches every pane showing the file, and no pane showing another file.
+function twoPaneRig(paths: [string, string]) {
+  const left = { name: 'left' } as unknown as HTMLElement;
+  const right = { name: 'right' } as unknown as HTMLElement;
+  const hosts = [left, right];
+  const rendered: string[] = [];
+  const controller = createTrustController({
+    shell: {
+      readFile: async () => { throw err('not-found'); },
+      writeFileAtomic: async () => {},
+      configPaths: async () => ({ config: '/config', data: '/data' }) as never,
+    },
+    currentPath: (host) => paths[hosts.indexOf(host ?? left)] ?? null,
+    buffer: () => ({ bytes: new Uint8Array(0) }) as never,
+    position: (_p, host) => ({ byteOffset: hosts.indexOf(host ?? left), fraction: 0 }),
+    rerender: (at, host) => { rendered.push(`${hosts.indexOf(host ?? left) === 0 ? 'left' : 'right'}@${at.byteOffset}`); },
+    panes: () => hosts.map((host, i) => ({ host, path: paths[i]! })),
+    showSource: async () => {},
+    notify: () => {},
+  });
+  return { controller, rendered, left, right };
+}
+
+test('a grant in one pane re-renders the other pane showing the same file, each where it was', async () => {
+  const { controller, rendered, right } = twoPaneRig([DOC, DOC]);
+  await controller.grantHtml({ path: DOC, pane: right });
+  assert.deepEqual(rendered.sort(), ['left@0', 'right@1']);
+});
+
+test('a grant leaves a pane showing another file alone', async () => {
+  const { controller, rendered } = twoPaneRig([DOC, '/docs/b.md']);
+  await controller.grantHtml();
+  assert.deepEqual(rendered, ['left@0']);
+});
+
+test('a revoke still reaches the other pane when the acting pane moved on during the write', async () => {
+  const paths: [string, string] = [DOC, DOC];
+  const left = { name: 'left' } as unknown as HTMLElement;
+  const right = { name: 'right' } as unknown as HTMLElement;
+  const hosts = [left, right];
+  const rendered: string[] = [];
+  let moveOnWrite = false;
+  const controller = createTrustController({
+    shell: {
+      readFile: async () => { throw err('not-found'); },
+      writeFileAtomic: async () => { if (moveOnWrite) paths[0] = '/docs/b.md'; },
+      configPaths: async () => ({ config: '/config', data: '/data' }) as never,
+    },
+    currentPath: (host) => paths[hosts.indexOf(host ?? left)] ?? null,
+    buffer: () => ({ bytes: new Uint8Array(0) }) as never,
+    position: () => ({ byteOffset: 0, fraction: 0 }),
+    rerender: (_at, host) => { rendered.push(hosts.indexOf(host ?? left) === 0 ? 'left' : 'right'); },
+    panes: () => hosts.map((host, i) => ({ host, path: paths[i]! })),
+    showSource: async () => {},
+    notify: () => {},
+  });
+  await controller.grantHtml();
+  rendered.length = 0;
+  moveOnWrite = true;
+  await controller.revokeHtml();
+  assert.deepEqual(rendered, ['right'], 'the pane that moved is left alone, the other one drops the HTML');
+  assert.equal(controller.grantsFor(DOC).html, false);
+});
+
+test('a revoke re-renders both panes showing the file', async () => {
+  const { controller, rendered } = twoPaneRig([DOC, DOC]);
+  await controller.grantHtml();
+  rendered.length = 0;
+  await controller.revokeHtml();
+  assert.deepEqual(rendered.sort(), ['left@0', 'right@1']);
 });

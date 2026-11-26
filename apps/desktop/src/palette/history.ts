@@ -1,10 +1,10 @@
-// history.json load/save for palette MRU, pins, and recent roots (design §07, §11).
+// history.json load/save for palette MRU, pins, and recent roots.
 
 import { INDEX_LIMITS } from '@marxy/core';
-import { dirname } from '@marxy/core/src/index-model/paths.ts';
-import { quarantinePathFor } from '@marxy/core/src/position/storage.ts';
+import { dirname, normalizePath } from '@marxy/core/src/index-model/paths.ts';
+import { isNotFound, quarantinePathFor } from '@marxy/core/src/position/storage.ts';
 import type { AppShell } from '../app.ts';
-import { recordOpen, setPaletteHydration, togglePin, type PaletteSession } from './session.ts';
+import { adoptHistory, recordOpen, setPaletteHydration, togglePin, type PaletteSession } from './session.ts';
 
 export const HISTORY_FILE_VERSION = 1;
 export const HISTORY_OPENS_CAP = 500;
@@ -60,15 +60,14 @@ export function parseHistoryFile(bytes: Uint8Array): {
       if (typeof item !== 'object' || item === null) continue;
       const path = (item as { path?: unknown }).path;
       const at = (item as { at?: unknown }).at;
-      if (typeof path === 'string' && typeof at === 'number') opens.push({ path, at });
+      // Normalised here and below: builds before the shell spelled Windows paths with slashes kept backslashes.
+      if (typeof path === 'string' && typeof at === 'number') opens.push({ path: normalizePath(path), at });
     }
   }
-  const pins = Array.isArray(pinsRaw)
-    ? pinsRaw.filter((p): p is string => typeof p === 'string')
-    : [];
-  const recentRoots = Array.isArray(rootsRaw)
-    ? rootsRaw.filter((p): p is string => typeof p === 'string')
-    : [];
+  const paths = (raw: unknown): string[] =>
+    Array.isArray(raw) ? [...new Set(raw.filter((p): p is string => typeof p === 'string').map((p) => (p === '' ? p : normalizePath(p))))] : [];
+  const pins = paths(pinsRaw);
+  const recentRoots = paths(rootsRaw);
   const cappedOpens = opens.slice(-HISTORY_OPENS_CAP);
   const cappedRoots = recentRoots.slice(0, INDEX_LIMITS.recentRoots);
   const envelopeVersion = version > HISTORY_FILE_VERSION ? version : HISTORY_FILE_VERSION;
@@ -181,13 +180,17 @@ function scheduleWrite(): void {
   writeTimer = timer;
 }
 
-let historyNewerVersion = false;
+/** history.json was read, or found missing: until then it is never written, so a file not yet read is never replaced. */
+let historyRead = false;
+/** Written by a newer Marxy, or there but not readable: never written this session. */
+let historyReadOnly = false;
 let sessionMirror: PaletteSession | null = null;
 const pendingPinPaths: string[] = [];
 
 export function resetPaletteHistoryMirror(): void {
   sessionMirror = null;
-  historyNewerVersion = false;
+  historyRead = false;
+  historyReadOnly = false;
   historyIo = null;
   inFlight = null;
   cancelScheduledWrite();
@@ -203,7 +206,7 @@ export function pinDocumentOnPaletteSession(session: PaletteSession, path: strin
 
 let openListener: ((path: string, root: string) => void) | undefined;
 
-/** The palette's ear for every open the app records, whatever route it came by (C-12). One listener. */
+/** The palette's ear for every open the app records, whatever route it came by. One listener. */
 export function setOpenListener(cb: ((path: string, root: string) => void) | undefined): void {
   openListener = cb;
 }
@@ -243,9 +246,15 @@ export async function loadPaletteHistory(shell: HistoryIo, fallbackRoot: string)
   let bytes: Uint8Array;
   try {
     bytes = await shell.readFile(filePath);
-  } catch {
+  } catch (e) {
+    // Only a missing file starts empty: one that is there and could not be read is the reader's still.
+    historyReadOnly = !isNotFound(e);
+    historyRead = true;
+    // No file to merge into, but the launch's own open may already be tracked: the palette is told of it.
+    if (sessionMirror) setPaletteHydration(sessionMirror);
     return;
   }
+  historyRead = true;
   const loaded = parseHistoryFile(bytes);
   if (loaded.quarantine) {
     const bad = quarantinePathFor(filePath);
@@ -255,15 +264,20 @@ export async function loadPaletteHistory(shell: HistoryIo, fallbackRoot: string)
     setPaletteHydration(sessionFromHistory(fresh, fallbackRoot));
     return;
   }
-  historyNewerVersion = loaded.envelope.version > HISTORY_FILE_VERSION;
-  if (historyNewerVersion) return;
-  const session = sessionFromHistory(loaded.envelope, fallbackRoot);
+  historyReadOnly = loaded.envelope.version > HISTORY_FILE_VERSION;
+  if (historyReadOnly) {
+    if (sessionMirror) setPaletteHydration(sessionMirror);
+    return;
+  }
+  // The launch's own open may be tracked before the file is read: it goes on top, not under.
+  const disk = sessionFromHistory(loaded.envelope, fallbackRoot);
+  const session = sessionMirror ? adoptHistory(disk, sessionMirror) : disk;
   sessionMirror = session;
   setPaletteHydration(session);
 }
 
 export async function savePaletteHistory(shell: HistoryIo, session: PaletteSession): Promise<void> {
-  if (historyNewerVersion) return;
+  if (!historyRead || historyReadOnly) return;
   const filePath = await historyPath(shell);
   await shell.writeFileAtomic(filePath, serializeHistoryFile(historyFromSession(session)));
 }

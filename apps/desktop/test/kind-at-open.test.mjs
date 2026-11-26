@@ -1,4 +1,4 @@
-// The kind, decided once at open (K-05a, ADR-0060 items 6 to 9): every pane root carries
+// The kind, decided once at open: every pane root carries
 // `data-marxy-kind`, decided from the file's own first bytes with the reader's `[[kind]]` rules and
 // *show as*; kept through live reloads; decided again only when the file is opened again. The app boots
 // on the shipped skeleton over the memory shell (config.toml is `/config`, kinds.json `/data/kinds.json`).
@@ -147,7 +147,8 @@ test('an extension-less README family opens Rendered; other extension-less files
       ['/r/CHANGELOG', 'rendered', 'changelog'],
       ['/r/CHANGES', 'rendered', 'changelog'],
       ['/r/HISTORY', 'rendered', 'changelog'],
-      ['/r/LICENSE', 'source', 'code'],
+      // A licence is prose with no extension, read as text.
+      ['/r/LICENSE', 'rendered', 'article'],
       ['/r/README.rst', 'source', 'code'],
     ];
     for (const [path, mode, kind] of expected) {

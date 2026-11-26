@@ -1,4 +1,4 @@
-// Fuzzy covers path, title and headings; a heading hit jumps to its byte offset (ADR-0012).
+// Fuzzy covers path, title and headings; a heading hit jumps to its byte offset.
 
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
@@ -12,7 +12,7 @@ import { judge, MUTATIONS, SEARCH_PREPARED_BODY_MUTATION } from '../../scripts/m
 const MODEL_FILES = ['session.ts', 'search.ts', 'keys.ts'] as const;
 const MODEL_FORBIDDEN = [/MiniNode/i, /\bview\.ts\b/, /querySelector\s*\(/, /createElement\s*\(/];
 
-// The mutation run left `test` for `test:mutations` (A-10): `test` only runs the suite, and
+// The mutation run left `test` for `test:mutations`: `test` only runs the suite, and
 // scripts/mutations.mjs passes only when the named tests fail and nothing else does. Status 1 alone, the
 // old `test $? -eq 1`, was also what a crash or an unrelated failure gave.
 test('desktop test scripts run the palette model tests and the named mutation', () => {
@@ -68,7 +68,7 @@ test(`mutation ${SEARCH_PREPARED_BODY_MUTATION}: its patch still matches searchP
   const spec = MUTATIONS.find((m) => m.name === SEARCH_PREPARED_BODY_MUTATION)!;
   const searchSource = readFileSync(new URL('./search.ts', import.meta.url), 'utf8');
   assert.equal(searchSource.split(spec.patch.find).length - 1, 1, 'the patch must match exactly one place in search.ts');
-  assert.doesNotMatch(searchSource, /process\.env/, 'search.ts carries no environment switch (B-16)');
+  assert.doesNotMatch(searchSource, /process\.env/, 'search.ts carries no environment switch');
 });
 
 function doc(partial: Partial<IndexEntry> & Pick<IndexEntry, 'path' | 'title'>): IndexEntry {
@@ -244,7 +244,7 @@ test('two hits with equal score and equal last read: the newer file comes first,
   assert.deepEqual(reversed.map((hit) => hit.entry.path), ['/repo/b.md', '/repo/a.md']);
 });
 
-// `@` finds a heading in any document, `#` in this one (W-13).
+// `@` finds a heading in any document, `#` in this one.
 const INSTALL_ENTRIES = [
   doc({
     path: '/repo/guide.md',

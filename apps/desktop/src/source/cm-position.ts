@@ -1,10 +1,10 @@
-// CodeMirror positions against a buffer's UTF-16 offsets (F-23).
+// CodeMirror positions against a buffer's UTF-16 offsets.
 //
 // A CodeMirror position counts every line break as one unit, and the editor's document leaves the BOM
 // out; a buffer offset counts the BOM and both characters of a `\r\n`. Anywhere one meets the other it
 // goes through this pair, so a CRLF file or one with a BOM does not drift a position per line above it.
 // The editor holds the Source text, where a stray sequence of several bytes is several code units and the
-// buffer's text has one U+FFFD for it (F-34.1): the pair crosses that too, through the bytes.
+// buffer's text has one U+FFFD for it: the pair crosses that too, through the bytes.
 
 import { type Buffer, sourceToTextOffset, textToSourceOffset } from '@marxy/core';
 

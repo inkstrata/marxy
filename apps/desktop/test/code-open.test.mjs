@@ -1,6 +1,7 @@
-// A code file opens straight into Source (V-11). Nothing Markdown-shaped is painted for it, a Mod+E is never
-// lost, reordered or applied to a document it was not pressed on, an empty file still gets Source, and a Source
-// whose grammar will not load stays Source, uncoloured (V-14 round 1). Each test fails on the commit before V-11.
+// A file that opens in Source (text no reading knows, as `.rst`, and code the reader left in Source) opens straight
+// into it. Nothing Markdown-shaped is painted for it, a Mod+E is never lost, reordered or applied to a document it was not
+// pressed on, and an empty file still gets Source. A code file lands in Read as its code, one coloured block with no
+// heading, and a grammar that will not load costs the colour and nothing else.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -9,7 +10,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -56,9 +57,10 @@ after(async () => {
 const PY = '# a comment that Markdown would call a heading\n\ndef main():\n    # another\n    return 1\n';
 const FILES = {
   '/repo/.git/HEAD': 'ref: refs/heads/main\n',
-  '/repo/x.py': PY,
-  '/repo/y.py': `# y\n${PY}`,
-  '/repo/empty.py': '',
+  '/repo/x.rst': PY,
+  '/repo/y.rst': `# y\n${PY}`,
+  '/repo/empty.rst': '',
+  '/repo/app.py': PY,
   '/repo/note.md': '# Note\n\nSome words to read.\n',
   '/repo/other.md': '# Other\n\nMore words to read.\n',
 };
@@ -137,9 +139,9 @@ const notices = (page) => page.evaluate(() => [...document.querySelectorAll('.ma
 /** Waits until nothing the mode toggles queued is left to do. */
 const drained = (page) => page.evaluate(() => window.__h.panes().focused.view.serially(async () => {}));
 
-test('opening a .py at launch never paints a Markdown heading before Source mounts', async () => {
+test('opening a .rst at launch never paints a Markdown heading before Source mounts', async () => {
   const page = await freshPage();
-  await startSampled(page, FILES, ['/repo/x.py']);
+  await startSampled(page, FILES, ['/repo/x.rst']);
   await started(page);
   await page.waitForSelector('.cm-editor');
   await page.waitForTimeout(100);
@@ -149,34 +151,34 @@ test('opening a .py at launch never paints a Markdown heading before Source moun
   assert.equal(await mode(page), 'source');
   assert.equal(await editorShown(page), true);
   assert.equal(await page.evaluate(() => document.querySelector('#doc').children.length), 0, 'the article holds no page');
-  assert.equal(await page.evaluate(() => window.__h.document().parsed()), false, 'the Markdown parse of a code file waits for the first ask for Rendered');
-  assert.equal(await page.evaluate(() => window.__h.openDocument().path), '/repo/x.py');
+  assert.equal(await page.evaluate(() => window.__h.document().parsed()), false, 'the Markdown parse of a file opened in Source waits for the first ask for Rendered');
+  assert.equal(await page.evaluate(() => window.__h.openDocument().path), '/repo/x.rst');
   assert.equal(await page.evaluate(() => window.__h.document().parsed()), false, 'asking what is open does not parse it');
   await page.close();
 });
 
-test('opening a .py over a Markdown page never paints a heading before Source mounts', async () => {
+test('opening a .rst over a Markdown page never paints a heading before Source mounts', async () => {
   const page = await freshPage();
   await startSampled(page, FILES, ['/repo/note.md']);
   await started(page);
   await page.waitForSelector('#doc h1');
-  await page.evaluate(() => { window.__frames = []; window.__opened = window.__h.open('/repo/x.py'); });
+  await page.evaluate(() => { window.__frames = []; window.__opened = window.__h.open('/repo/x.rst'); });
   await page.evaluate(() => window.__opened);
   await page.waitForSelector('.cm-editor');
   await page.waitForTimeout(100);
   const all = await frames(page);
   assert.ok(all.length > 0);
-  assert.equal(paintedBeforeEditor(all), 0, 'an h1 was painted while x.py opened');
+  assert.equal(paintedBeforeEditor(all), 0, 'an h1 was painted while x.rst opened');
   assert.equal(await mode(page), 'source');
   assert.equal(await page.evaluate(() => document.querySelector('.cm-content').textContent.includes('def main')), true);
-  assert.equal(await page.evaluate(() => window.__h.document().parsed()), false, 'an open parses a code file no more than a launch does');
+  assert.equal(await page.evaluate(() => window.__h.document().parsed()), false, 'an open parses it no more than a launch does');
   await page.close();
 });
 
-test('Mod+E pressed while a .py is still opening does not flip it to Rendered afterwards', async () => {
+test('Mod+E pressed while a .rst is still opening does not flip it to Rendered afterwards', async () => {
   const page = await freshPage();
   page.hold();
-  await startSampled(page, FILES, ['/repo/x.py']);
+  await startSampled(page, FILES, ['/repo/x.rst']);
   await page.held();
   assert.equal(await page.evaluate(() => document.querySelector('.cm-editor') !== null), false, 'Source had not mounted yet');
   await page.keyboard.press(`${await modifier(page)}+KeyE`);
@@ -196,7 +198,7 @@ test('Mod+E pressed while another file is opening is not applied to it', async (
   await started(page);
   await page.waitForSelector('#doc h1');
   page.hold();
-  await page.evaluate(() => { window.__opened = window.__h.open('/repo/y.py'); });
+  await page.evaluate(() => { window.__opened = window.__h.open('/repo/y.rst'); });
   await page.held();
   await page.keyboard.press(`${await modifier(page)}+KeyE`);
   page.release();
@@ -228,7 +230,7 @@ test('two Mod+E presses before Source has mounted end in Rendered', async () => 
   await page.close();
 });
 
-for (const [name, file, expected] of [['.md', '/repo/note.md', 'rendered'], ['.py', '/repo/x.py', 'source']]) {
+for (const [name, file, expected] of [['.md', '/repo/note.md', 'rendered'], ['.py', '/repo/app.py', 'rendered'], ['.rst', '/repo/x.rst', 'source']]) {
   test(`ten Mod+E presses on a ${name} end where ten flips end`, async () => {
     const page = await freshPage();
     await startSampled(page, FILES, [file]);
@@ -245,7 +247,7 @@ for (const [name, file, expected] of [['.md', '/repo/note.md', 'rendered'], ['.p
         return commit(text);
       };
     });
-    // A Markdown file's first Source needs its code, which is held while the presses arrive.
+    // A file read first needs Source's code for its first Source, which is held while the presses arrive.
     if (expected === 'rendered') page.hold();
     for (let i = 0; i < 10; i++) await page.keyboard.press(`${mod}+KeyE`);
     if (expected === 'rendered') {
@@ -282,9 +284,9 @@ test('Mod+3 pressed twice before Source has mounted still ends in Source', async
   await page.close();
 });
 
-test('an odd number of presses on a .py ends in Rendered, and Rendered is made then', async () => {
+test('an odd number of presses on a .rst ends in Rendered, and Rendered is made then', async () => {
   const page = await freshPage();
-  await startSampled(page, FILES, ['/repo/x.py']);
+  await startSampled(page, FILES, ['/repo/x.rst']);
   await started(page);
   const mod = await modifier(page);
   assert.equal(await page.evaluate(() => document.querySelector('#doc').children.length), 0);
@@ -298,14 +300,14 @@ test('an odd number of presses on a .py ends in Rendered, and Rendered is made t
   await page.close();
 });
 
-test('a .py changed on disk while Source shows is reloaded without making a page', async () => {
+test('a .rst changed on disk while Source shows is reloaded without making a page', async () => {
   const page = await freshPage();
-  await startSampled(page, FILES, ['/repo/x.py']);
+  await startSampled(page, FILES, ['/repo/x.rst']);
   await started(page);
   await page.evaluate(async () => {
     const shell = window.__h.shell;
-    await shell.writeFileAtomic('/repo/x.py', new TextEncoder().encode('# changed on disk\nvalue = 2\n'));
-    shell.emit([{ kind: 'modified', path: '/repo/x.py' }]);
+    await shell.writeFileAtomic('/repo/x.rst', new TextEncoder().encode('# changed on disk\nvalue = 2\n'));
+    shell.emit([{ kind: 'modified', path: '/repo/x.rst' }]);
   });
   await page.waitForFunction(() => document.querySelector('.cm-content')?.textContent.includes('value = 2'));
   await page.waitForTimeout(200);
@@ -318,9 +320,9 @@ test('a .py changed on disk while Source shows is reloaded without making a page
   await page.close();
 });
 
-test('an empty .py mounts Source, at launch and by open', async () => {
+test('an empty .rst mounts Source, at launch and by open', async () => {
   const launch = await freshPage();
-  await startSampled(launch, FILES, ['/repo/empty.py']);
+  await startSampled(launch, FILES, ['/repo/empty.rst']);
   await started(launch);
   await launch.waitForSelector('.cm-editor');
   assert.equal(await mode(launch), 'source');
@@ -330,16 +332,16 @@ test('an empty .py mounts Source, at launch and by open', async () => {
   const opened = await freshPage();
   await startSampled(opened, FILES, ['/repo/note.md']);
   await started(opened);
-  await opened.evaluate(() => window.__h.open('/repo/empty.py'));
+  await opened.evaluate(() => window.__h.open('/repo/empty.rst'));
   await opened.waitForSelector('.cm-editor');
   assert.equal(await mode(opened), 'source');
   assert.equal(await editorShown(opened), true);
   await opened.close();
 });
 
-test('a .py launch reports first text from Source', async () => {
+test('a .rst launch reports first text from Source', async () => {
   const page = await freshPage();
-  await startSampled(page, FILES, ['/repo/x.py']);
+  await startSampled(page, FILES, ['/repo/x.rst']);
   await started(page);
   const names = await page.evaluate(() => window.__marks.map((m) => m.args[0]));
   assert.ok(names.includes('painted'), `marks: ${names.join(', ')}`);
@@ -348,49 +350,54 @@ test('a .py launch reports first text from Source', async () => {
   await page.close();
 });
 
-// V-14 round 1: a grammar that will not load costs the colour and nothing else. Source mounts with the exact text.
+// A grammar that will not load costs the colour and nothing else: Read and Source show the exact text.
 const editorText = (page) =>
   page.evaluate(() => [...document.querySelectorAll('.cm-content .cm-line')].map((l) => l.textContent).join('\n'));
+const readText = (page) => page.evaluate(() => document.querySelector('#doc pre code')?.textContent ?? null);
 
-test('when a grammar will not load, opening a .py still opens Source with the exact text and no notice', async () => {
+test('a .py lands in Read as its code: one block, no heading, the Markdown page never painted', async () => {
+  const page = await freshPage();
+  await startSampled(page, FILES, ['/repo/app.py']);
+  await started(page);
+  await page.waitForSelector('#doc pre code');
+  await page.waitForTimeout(100);
+  assert.equal(paintedBeforeEditor(await frames(page)), 0, 'a # comment was painted as a heading');
+  assert.equal(await mode(page), 'rendered');
+  assert.equal(await editorShown(page), false);
+  assert.equal(await readText(page), PY);
+  await page.close();
+});
+
+test('when a grammar will not load, opening a .py still lands in Read with the exact text and no notice', async () => {
   const page = await freshPage({ failPython: true });
   await startSampled(page, FILES, ['/repo/note.md']);
   await started(page);
-  await page.evaluate(() => window.__h.open('/repo/x.py'));
-  await page.waitForSelector('.cm-editor');
-  assert.equal(await mode(page), 'source');
-  assert.equal(await editorText(page), PY.replace(/\n$/, '\n'));
-  assert.equal(await page.evaluate(() => document.querySelector('#doc pre code')), null, 'not the plain-text fallback');
-  assert.ok(!(await notices(page)).some((n) => n.includes('Source could not open')), 'no failure notice');
+  await page.evaluate(() => window.__h.open('/repo/app.py'));
+  await page.waitForSelector('#doc pre code');
+  assert.equal(await mode(page), 'rendered');
+  assert.equal(await readText(page), PY);
+  assert.ok(!(await notices(page)).some((n) => n.includes('could not')), 'no failure notice');
   await page.close();
 });
 
-test('when a grammar will not load, a .py launch shows Source with the exact text', async () => {
+test('when a grammar will not load, Mod+E still moves between Read and Source with the exact text, with no unhandled rejection', async () => {
   const page = await freshPage({ failPython: true });
-  await startSampled(page, FILES, ['/repo/x.py']);
+  await startSampled(page, FILES, ['/repo/app.py']);
   await started(page);
-  await page.waitForSelector('.cm-editor');
-  assert.equal(await mode(page), 'source');
-  assert.equal(await editorText(page), PY);
-  assert.ok(!(await notices(page)).some((n) => n.includes('Source could not open')), 'no failure notice');
-  await page.close();
-});
-
-test('when a grammar will not load, Mod+E still moves between Source and Rendered, with no unhandled rejection', async () => {
-  const page = await freshPage({ failPython: true });
-  await startSampled(page, FILES, ['/repo/x.py']);
-  await started(page);
-  await page.waitForSelector('.cm-editor');
+  await page.waitForSelector('#doc pre code');
   const rejections = [];
   await page.exposeFunction('__rejection', (m) => rejections.push(m));
   await page.evaluate(() => window.addEventListener('unhandledrejection', (e) => window.__rejection(String(e.reason))));
   await page.keyboard.press(`${await modifier(page)}+KeyE`);
-  await drained(page);
-  assert.equal(await mode(page), 'rendered');
-  await page.keyboard.press(`${await modifier(page)}+KeyE`);
+  await page.waitForSelector('.cm-editor');
   await drained(page);
   assert.equal(await mode(page), 'source');
   assert.equal(await editorText(page), PY);
+  assert.ok(!(await notices(page)).some((n) => n.includes('Source could not open')), 'no failure notice');
+  await page.keyboard.press(`${await modifier(page)}+KeyE`);
+  await drained(page);
+  assert.equal(await mode(page), 'rendered');
+  assert.equal(await readText(page), PY);
   assert.deepEqual(rejections, []);
   await page.close();
 });
@@ -407,10 +414,10 @@ for (const [what, breakIt] of [
     await started(page);
     await page.waitForFunction(() => window.__h.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'user_theme'));
     await page.evaluate(`(${breakIt.toString()})(window.__h.shell)`);
-    await page.evaluate(() => window.__h.open('/repo/y.py'));
+    await page.evaluate(() => window.__h.open('/repo/y.rst'));
     await page.waitForSelector('.cm-editor');
     assert.equal(await mode(page), 'source');
-    assert.equal(await page.evaluate(() => window.__h.openDocument()?.path), '/repo/y.py');
+    assert.equal(await page.evaluate(() => window.__h.openDocument()?.path), '/repo/y.rst');
     const shown = await page.evaluate(() => document.querySelector('#doc').textContent);
     assert.ok(!/Error|no config directory|too many watchers/.test(shown), `the page says: ${shown}`);
     assert.equal(await editorShown(page), true);
@@ -418,12 +425,11 @@ for (const [what, breakIt] of [
   });
 }
 
-test('Rendered of a .py is the code, byte for byte, in one highlighted block with no heading (V-10)', async () => {
+test('Rendered of a .py is the code, byte for byte, in one highlighted block with no heading', async () => {
   const page = await freshPage();
   const py = '# Inventory\n\n## section one\ndef f():\n\t# tab comment *not emphasis*\n    return 1  # _x_\n';
   await startSampled(page, { ...FILES, '/repo/inv.py': py }, ['/repo/inv.py']);
   await started(page);
-  for (let i = 0; i < 3; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);
   await drained(page);
   assert.equal(await mode(page), 'rendered');
   await page.waitForFunction(() => document.querySelector('#doc pre > code')?.dataset.marxyDone === 'highlight', null, { timeout: 15000 });
@@ -443,14 +449,14 @@ test('Rendered of a .py is the code, byte for byte, in one highlighted block wit
   assert.match(seen.lang, /language-python/);
   assert.deepEqual(seen.ranges, ['0', String(new TextEncoder().encode(py).length)]);
   assert.ok(seen.coloured > 0, 'the code is coloured by role');
-  assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-outline-item, #outline li').length), 0, 'a code file has no outline yet (K-13)');
+  assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-outline-item, #outline li').length), 0, 'a code file has no outline yet');
   await page.close();
 });
 
 /** The article's top-level elements, by tag. */
 const pageTags = (page) => page.evaluate(() => [...document.querySelector('#doc').children].map((c) => c.tagName));
 
-test('Save As that makes a Markdown page a code file, or the reverse, sets the page again (V-10)', async () => {
+test('Save As that makes a Markdown page a code file, or the reverse, sets the page again', async () => {
   const page = await freshPage();
   await startSampled(page, FILES, ['/repo/note.md']);
   await started(page);
@@ -472,13 +478,12 @@ test('Save As that makes a Markdown page a code file, or the reverse, sets the p
   await page.close();
 });
 
-test('a long .py is pieces of 200 lines drawn as one block, and .html stays as it was (V-10; a .log is read as a log since K-08, test/log.test.mjs)', async () => {
+test('a long .py is pieces of 200 lines drawn as one block, and an .html is not read as code (a .log is read as a log, test/log.test.mjs)', async () => {
   const page = await freshPage();
   const long = Array.from({ length: 450 }, (_, i) => `x${i} = ${i}  # line`).join('\n') + '\n';
   const files = { ...FILES, '/repo/long.py': long, '/repo/a.log': '# not a heading\nline\n', '/repo/a.html': '<h2>Hello</h2>\n' };
   await startSampled(page, files, ['/repo/long.py']);
   await started(page);
-  for (let i = 0; i < 3; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);
   await drained(page);
   await page.waitForSelector('#doc pre.marxy-run');
   const seen = await page.evaluate(() => {
@@ -513,16 +518,15 @@ const sameText = (actual, expected, what) => {
   while (i < Math.min(actual?.length ?? 0, expected.length) && actual[i] === expected[i]) i++;
   assert.fail(`${what}: ${actual?.length} characters against ${expected.length}, first difference at ${i}: ${JSON.stringify((actual ?? '').slice(i - 10, i + 20))} against ${JSON.stringify(expected.slice(i - 10, i + 20))}`);
 };
-const openRendered = async (page, path) => {
+const openRendered = async (page) => {
   await started(page);
-  for (let i = 0; i < 3; i++) await page.keyboard.press(`${await modifier(page)}+KeyE`);
   await drained(page);
   await page.waitForSelector('#doc pre.marxy-run');
   await page.waitForFunction(() => document.querySelectorAll('#doc pre.marxy-run').length === 4);
 };
 const LONG = Array.from({ length: 700 }, (_, i) => `v_${i} = ${i}  # line *s* _u_`).join('\n') + '\n';
 
-test('Mod+A, Mod+C on a 700-line .py copies the file, not a blank line more at each piece (V-10)', async () => {
+test('Mod+A, Mod+C on a 700-line .py copies the file, not a blank line more at each piece', async () => {
   const page = await freshPage();
   await startSampled(page, { ...FILES, '/repo/big.py': LONG }, ['/repo/big.py']);
   await openRendered(page);
@@ -534,7 +538,7 @@ test('Mod+A, Mod+C on a 700-line .py copies the file, not a blank line more at e
   await page.close();
 });
 
-test('a shift-click selection across a piece boundary copies the file bytes between its ends (V-10)', async () => {
+test('a shift-click selection across a piece boundary copies the file bytes between its ends', async () => {
   const page = await freshPage();
   await startSampled(page, { ...FILES, '/repo/big.py': LONG }, ['/repo/big.py']);
   await openRendered(page);
@@ -566,7 +570,7 @@ async function piecesChosen(page) {
   });
 }
 
-test('a copy in the find field is the find field\'s, with pieces chosen in the page (V-10)', async () => {
+test('a copy in the find field is the find field\'s, with pieces chosen in the page', async () => {
   const page = await freshPage();
   await piecesChosen(page);
   const mod = await modifier(page);
@@ -581,7 +585,7 @@ test('a copy in the find field is the find field\'s, with pieces chosen in the p
   await page.close();
 });
 
-test('a copy in the palette field is the palette\'s, with pieces chosen in the page (V-10)', async () => {
+test('a copy in the palette field is the palette\'s, with pieces chosen in the page', async () => {
   const page = await freshPage();
   await piecesChosen(page);
   const mod = await modifier(page);
@@ -597,7 +601,7 @@ test('a copy in the palette field is the palette\'s, with pieces chosen in the p
   await page.close();
 });
 
-test('a copy in Source is the editor\'s selection, with pieces chosen in Rendered before (V-10)', async () => {
+test('a copy in Source is the editor\'s selection, with pieces chosen in Rendered before', async () => {
   const page = await freshPage();
   await piecesChosen(page);
   const mod = await modifier(page);
@@ -605,7 +609,7 @@ test('a copy in Source is the editor\'s selection, with pieces chosen in Rendere
   await page.waitForSelector('.cm-editor');
   await drained(page);
   await page.locator('.cm-content').click();
-  await page.keyboard.press(`${mod}+ArrowUp`);
+  await page.keyboard.press(`${mod}+Home`);
   await page.keyboard.press('Shift+End');
   await page.keyboard.press(`${mod}+KeyC`);
   const seen = await page.evaluate(() => window.__copies);
@@ -614,7 +618,7 @@ test('a copy in Source is the editor\'s selection, with pieces chosen in Rendere
   await page.close();
 });
 
-test('a CRLF .py copies with its CRLF (V-10)', async () => {
+test('a CRLF .py copies with its CRLF', async () => {
   const page = await freshPage();
   const crlf = LONG.replaceAll('\n', '\r\n');
   await startSampled(page, { ...FILES, '/repo/crlf.py': crlf }, ['/repo/crlf.py']);
@@ -627,12 +631,12 @@ test('a CRLF .py copies with its CRLF (V-10)', async () => {
   await page.close();
 });
 
-test('text typed in a .py before the parse was ever made is saved as typed, and Rendered parses it', async () => {
+test('text typed in a .rst before the parse was ever made is saved as typed, and Rendered parses it', async () => {
   const page = await freshPage();
-  await startSampled(page, FILES, ['/repo/x.py']);
+  await startSampled(page, FILES, ['/repo/x.rst']);
   await started(page);
   await page.locator('.cm-content').click();
-  await page.keyboard.press(`${await modifier(page)}+ArrowUp`);
+  await page.keyboard.press(`${await modifier(page)}+Home`);
   await page.keyboard.type('# typed\n');
   await page.keyboard.press(`${await modifier(page)}+KeyE`);
   await drained(page);

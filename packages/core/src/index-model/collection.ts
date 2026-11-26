@@ -1,5 +1,5 @@
-// `collection.toml`: the folders a reader declared (06 §4.2). Parse, and append one folder without
-// touching another byte. Shell-free: the host passes bytes and the home directory (ADR-0020).
+// `collection.toml`: the folders a reader declared. Parse, and append one folder without
+// touching another byte. Shell-free: the host passes bytes and the home directory.
 
 import { parse } from 'smol-toml';
 import { type CaptureRule, parseCaptures } from './capture.ts';
@@ -12,7 +12,7 @@ export interface CollectionRoot {
   readonly watch: boolean;
 }
 
-/** A saved query (a Smart collection): `q` is stored as the reader wrote it; Q-02 parses it. */
+/** A saved query (a Smart collection): `q` is stored as the reader wrote it; it is parsed elsewhere. */
 export interface SavedQuery {
   readonly name: string;
   readonly q: string;
@@ -47,7 +47,7 @@ const UNPARSEABLE = 'collection.toml could not be parsed; no extra folders';
 
 const EMPTY: Collection = { roots: [], denyGlobs: [], queries: [], captures: [] };
 
-/** Header comment of a fresh file (06 §4.2). Ends in a blank line. */
+/** Header comment of a fresh file. Ends in a blank line. */
 export const COLLECTION_TEMPLATE: string = [
   '# Folders Marxy searches. Edit freely; Marxy re-reads this file when it changes.',
   '#',
@@ -305,6 +305,7 @@ export interface ByteRange {
 
 const ANY_HEADER = /^[ \t]*\[\[?[^\]\n]*\]\]?[ \t]*(#.*)?\r?$/;
 const QUERY_HEADER = /^[ \t]*\[\[[ \t]*query[ \t]*\]\][ \t]*(#.*)?\r?$/;
+const ROOT_HEADER = /^[ \t]*\[\[[ \t]*root[ \t]*\]\][ \t]*(#.*)?\r?$/;
 
 /**
  * Where the `[[query]]` table named `name` lies in `bytes`: from its header line to its last line of keys, in bytes,
@@ -317,7 +318,37 @@ export function queryRange(bytes: Uint8Array, name: string): ByteRange | null {
   const parsed = parseCollection(bytes, { home: '/' });
   if (parsed.warnings.includes(UNPARSEABLE)) return null;
   if (!parsed.collection.queries.some((x) => x.name.trim().toLowerCase() === key)) return null;
+  return tableRange(bytes, QUERY_HEADER, 'query', (entry) => typeof entry.name === 'string' && entry.name.trim().toLowerCase() === key);
+}
 
+/** The bytes of the one `[[root]]` table whose path is `path` (as `~` and the rest resolve), or null when there is none. */
+export function rootRange(bytes: Uint8Array, path: string, ctx: { readonly home: string }): ByteRange | null {
+  const wanted = resolveRootPath(path, ctx.home);
+  if (wanted === null) return null;
+  const parsed = parseCollection(bytes, ctx);
+  if (parsed.warnings.includes(UNPARSEABLE)) return null;
+  return tableRange(bytes, ROOT_HEADER, 'root', (entry) => typeof entry.path === 'string' && resolveRootPath(entry.path, ctx.home) === wanted);
+}
+
+/**
+ * collection.toml without the `[[root]]` table of `path`, and the line end after it: every other byte as it was. The bytes
+ * themselves when no table names it. Throws when what is left no longer reads, so a hand-made file is never broken.
+ */
+export function removeRoot(bytes: Uint8Array, path: string, ctx: { readonly home: string }): Uint8Array {
+  const range = rootRange(bytes, path, ctx);
+  if (range === null) return bytes;
+  let end = range.end;
+  if (bytes[end] === 0x0d && bytes[end + 1] === 0x0a) end += 2;
+  else if (bytes[end] === 0x0a) end += 1;
+  const out = new Uint8Array(bytes.length - (end - range.start));
+  out.set(bytes.subarray(0, range.start), 0);
+  out.set(bytes.subarray(end), range.start);
+  if (parseCollection(out, ctx).warnings.includes(UNPARSEABLE)) throw new Error('collection.toml would not read without that table; edit it by hand');
+  return out;
+}
+
+/** The byte range of the first `[[key]]` table, its header a line `header` matches, whose one entry `match` takes. */
+function tableRange(bytes: Uint8Array, header: RegExp, key: string, match: (entry: Record<string, unknown>) => boolean): ByteRange | null {
   const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
   // Lines with their character offsets; a table runs from its header to the line before the next header.
   const lines: { readonly at: number; readonly text: string }[] = [];
@@ -328,7 +359,7 @@ export function queryRange(bytes: Uint8Array, name: string): ByteRange | null {
     at = end;
   }
   const headers = lines.flatMap((l, i) => (ANY_HEADER.test(l.text) ? [i] : []));
-  for (const first of lines.flatMap((l, i) => (QUERY_HEADER.test(l.text) ? [i] : []))) {
+  for (const first of lines.flatMap((l, i) => (header.test(l.text) ? [i] : []))) {
     // The next header may be a line of a multi-line value that only looks like one: the chunk is extended until it parses.
     for (const next of [...headers.filter((h) => h > first), lines.length].slice(0, 8)) {
       const from = lines[first]!.at;
@@ -336,12 +367,12 @@ export function queryRange(bytes: Uint8Array, name: string): ByteRange | null {
       const chunk = text.slice(from, to);
       let table: unknown;
       try {
-        table = (parse(chunk) as { query?: unknown }).query;
+        table = (parse(chunk) as Record<string, unknown>)[key];
       } catch {
         continue;
       }
       const entry = Array.isArray(table) && table.length === 1 ? table[0] : undefined;
-      if (isRecord(entry) && typeof entry.name === 'string' && entry.name.trim().toLowerCase() === key) {
+      if (isRecord(entry) && match(entry)) {
         // Blank lines and comments after the last value belong to what follows (a note above the next table).
         const trimmed = chunk.replace(/(?:\r?\n[ \t]*(?:#.*)?)+$/, '').replace(/[ \t\r\n]+$/, '');
         const byteAt = (chars: number): number => new TextEncoder().encode(text.slice(0, chars)).length;

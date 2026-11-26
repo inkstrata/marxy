@@ -1,0 +1,113 @@
+{
+  "version": 2,
+  "meta": {
+    "commit": "84a815dd",
+    "dirty": true,
+    "code": {
+      "apps": "5b989f69",
+      "packages": "abd77aca",
+      "fixtures": "1acbf355",
+      "dirty": true
+    },
+    "date": "2026-11-25T23:29:21.313Z",
+    "machine": "win32-x64, 16 x AMD Ryzen 7 8845HS w/ Radeon 780M Graphics, 31 GB",
+    "edge": "msedge 158.0.4370.33",
+    "node": "v24.14.1",
+    "runs": 3,
+    "keys": 20
+  },
+  "documents": {
+    "long-reference": {
+      "open": {
+        "taskMs": 3659.36,
+        "scriptMs": 634.29,
+        "layoutMs": 784.92,
+        "styleMs": 534.25,
+        "layouts": 492,
+        "recalcs": 865,
+        "firstContentMs": 322.8,
+        "longestTaskMs": 332,
+        "settleMs": 3891.5,
+        "nodes": 10080
+      },
+      "key": {
+        "taskMs": 37.47,
+        "scriptMs": 9.6,
+        "layoutMs": 3.3,
+        "styleMs": 9.67,
+        "layouts": 4,
+        "recalcs": 5,
+        "handlerMs": 36.85
+      },
+      "click": {
+        "taskMs": 80.73,
+        "scriptMs": 17.12,
+        "layoutMs": 6.65,
+        "styleMs": 15.54,
+        "layouts": 6,
+        "recalcs": 9,
+        "longestTaskMs": 0,
+        "handlerMs": 17.3
+      },
+      "undo": {
+        "taskMs": 7074.5,
+        "scriptMs": 1218.46,
+        "layoutMs": 1352.69,
+        "styleMs": 952.09,
+        "layouts": 661,
+        "recalcs": 1160,
+        "longestTaskMs": 591,
+        "removedTop": 2463,
+        "addedTop": 2463
+      },
+      "reload": {
+        "taskMs": 7338.27,
+        "scriptMs": 1243.79,
+        "layoutMs": 1514.22,
+        "styleMs": 1030.8,
+        "layouts": 678,
+        "recalcs": 1187,
+        "longestTaskMs": 377,
+        "removedTop": 2465,
+        "addedTop": 2467
+      },
+      "tabBack": {
+        "taskMs": 7326.46,
+        "scriptMs": 1276.02,
+        "layoutMs": 1400.28,
+        "styleMs": 1079.79,
+        "layouts": 696,
+        "recalcs": 1261,
+        "shownMs": 896
+      },
+      "tabAway": {
+        "taskMs": 340.28,
+        "scriptMs": 41.08,
+        "layoutMs": 23.73,
+        "styleMs": 133.31,
+        "layouts": 56,
+        "recalcs": 110,
+        "shownMs": 310
+      },
+      "toRead": {
+        "taskMs": 678.41,
+        "scriptMs": 41.08,
+        "layoutMs": 200.96,
+        "styleMs": 305.01,
+        "layouts": 58,
+        "recalcs": 60,
+        "shownMs": 542.1
+      },
+      "toSource": {
+        "taskMs": 163.81,
+        "scriptMs": 26.99,
+        "layoutMs": 13.69,
+        "styleMs": 65.83,
+        "layouts": 9,
+        "recalcs": 12,
+        "shownMs": 60.2
+      }
+    }
+  },
+  "missing": []
+}

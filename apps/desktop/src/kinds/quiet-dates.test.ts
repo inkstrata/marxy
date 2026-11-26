@@ -1,4 +1,4 @@
-// The quiet date's pure half (K-22): which characters of a heading or a first line are the date.
+// The quiet date's pure half: which characters of a heading or a first line are the date.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { bareDateSpan, versionDateSpan } from './quiet-dates.ts';

@@ -1,27 +1,27 @@
-// Maps --marxy-* custom properties to a CodeMirror 6 theme (§09, L-06, V-12).
+// Maps --marxy-* custom properties to a CodeMirror 6 theme.
 //
 // Colours, sizes and spacing are written as `var(--marxy-*)` so Source reads the same contrast-audited
 // tokens as Rendered and follows a variant or size change without a rebuild. What a stylesheet cannot
 // carry (CodeMirror's light/dark base theme) is re-applied through a compartment the moment the root
 // changes, on the same editor: no remount, so selection and undo stay.
 //
-// Source has metrics of its own (ADR-0067): it holds no prose, so it leaves the prose grid for a tighter
+// Source has metrics of its own: it holds no prose, so it leaves the prose grid for a tighter
 // type and line (`--marxy-size-source` on `--marxy-line-box-source`), an exact gutter at the editor's left edge,
-// and, for a code file, lines that scroll instead of wrap. Source fills its pane (F-100): the gutter is at the edge and
-// the text runs to the other, or wraps at it; the reader's measure is Rendered's, not Source's. The in-place block editor (ADR-0048) is an
+// and, for a code file, lines that scroll instead of wrap. Source fills its pane: the gutter is at the edge and
+// the text runs to the other, or wraps at it; the reader's measure is Rendered's, not Source's. The in-place block editor is an
 // island inside Rendered's page and keeps Rendered's code metrics, which is the `island` look below.
 
-import { Compartment, RangeSetBuilder, type Extension } from '@codemirror/state';
+import { Compartment, Facet, RangeSetBuilder, type Extension } from '@codemirror/state';
 import { isLightVariant } from './page-scheme.ts';
 import { Decoration, EditorView, MatchDecorator, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 
-/** Which look the editor wears: a code file or prose in Source (V-12), or the block editor inside Rendered's page. */
+/** Which look the editor wears: a code file or prose in Source, or the block editor inside Rendered's page. */
 export type SourceLook = 'code' | 'prose' | 'island';
 
-// The grid unit is half a line box (ADR-0030). The island pads in these, never in raw px.
+// The grid unit is half a line box. The island pads in these, never in raw px.
 const UNIT = 'calc(var(--marxy-line-box, 30px) / 2)';
 
-// Source's own metrics (ADR-0067), the tokens with their default values as the fallback.
+// Source's own metrics, the tokens with their default values as the fallback.
 const SIZE = 'var(--marxy-size-source, 14px)';
 const LINE = 'var(--marxy-line-box-source, 21px)';
 
@@ -46,7 +46,7 @@ function sharedRules(): Record<string, Record<string, string>> {
       backgroundColor: `${selection} !important`,
     },
     // A pale fill cannot be 3:1 against the ground and keep every token readable, so a 2 px edge in
-    // --marxy-color-find-edge carries the 3:1 (L-11); the current match adds a 2 px text-colour outline.
+    // --marxy-color-find-edge carries the 3:1; the current match adds a 2 px text-colour outline.
     '.cm-searchMatch': {
       backgroundColor: 'var(--marxy-color-find, #3a3010)',
       borderBottom: '2px solid var(--marxy-color-find-edge, #94701a)',
@@ -55,7 +55,7 @@ function sharedRules(): Record<string, Record<string, string>> {
       backgroundColor: 'var(--marxy-color-find-current, #403510)',
       outline: '2px solid var(--marxy-color-code-text, #e3dfd6)',
     },
-    // A fold's placeholder ("… 42 lines", K-10a) is text in the flow, set quietly: the secondary text colour on a faint tint of
+    // A fold's placeholder ("… 42 lines") is text in the flow, set quietly: the secondary text colour on a faint tint of
     // itself, with no border or fixed grey, so it follows the variant and reads as an aside, not as a button.
     '.marxy-fold-placeholder': {
       backgroundColor: `color-mix(in srgb, ${secondary} 16%, transparent)`,
@@ -91,7 +91,7 @@ function sharedRules(): Record<string, Record<string, string>> {
   };
 }
 
-/** The look of a Source editor for a file (V-12): its own type, an exact gutter, the page ground; it fills its pane (F-100). */
+/** The look of a Source editor for a file: its own type, an exact gutter, the page ground; it fills its pane. */
 function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, string>> {
   const text = 'var(--marxy-color-code-text, #e3dfd6)';
   const bg = 'var(--marxy-color-bg, #151412)';
@@ -99,10 +99,10 @@ function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, stri
   const mono = 'var(--marxy-font-mono, "JetBrains Mono", ui-monospace, monospace)';
   const selection = 'var(--marxy-color-selection, #1f3651)';
   const activeLine = `color-mix(in srgb, ${selection} 40%, transparent)`;
-  // Source fills its pane (F-100, the author's "fill the window with our editor"): the gutter is the editor's first column,
+  // Source fills its pane (the author's "fill the window with our editor"): the gutter is the editor's first column,
   // at its left edge, and the text runs from there to the right edge, or wraps at it. The text starts a gutter's width in
-  // whether the numbers are on or off, so turning them on or off never moves it (ADR-0067); when they are on they fill
-  // that space. The old rule centred a column on the window (`max(GUTTER, (100% - column) / 2)`, L-07, V-12), which put
+  // whether the numbers are on or off, so turning them on or off never moves it; when they are on they fill
+  // that space. The old rule centred a column on the window (`max(GUTTER, (100% - column) / 2)`), which put
   // the gutter 130 to 590 px from the edge of a folded window. It is margins, not scroller padding, because a sticky
   // gutter stops at the scroller's content box and padding would push the numbers over the text.
   const start = GUTTER;
@@ -116,7 +116,7 @@ function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, stri
           boxSizing: 'content-box',
           padding: `${LINE} ${LINE} ${LINE} 0`,
           // CodeMirror's `min-height: 100%` counts the padding in its own border box; this one is a content box, so the
-          // padding comes off, or a scroller with a height (the Source frame's, V-05) would scroll by the padding at rest.
+          // padding comes off, or a scroller with a height (the Source frame's) would scroll by the padding at rest.
           minHeight: `calc(100% - 2 * ${LINE})`,
         };
   return {
@@ -130,7 +130,7 @@ function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, stri
       fontWeight: 'var(--marxy-wght)',
       fontVariationSettings: "'wght' var(--marxy-wght)",
     },
-    // The frame's edge is the editor's edge (V-05); the caret is the focus mark, as it is in the block editor.
+    // The frame's edge is the editor's edge; the caret is the focus mark, as it is in the block editor.
     '&.cm-focused': { outline: 'none' },
     '.cm-scroller': { fontFamily: 'inherit', lineHeight: LINE },
     '.cm-content': {
@@ -141,12 +141,12 @@ function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, stri
     },
     // With the gutter before it the text follows the gutter, which carries the margin.
     '.cm-gutters + .cm-content': { marginInlineStart: '0' },
-    // One line box a row, whatever face a run is drawn in: the number and its row share a top (V-12).
+    // One line box a row, whatever face a run is drawn in: the number and its row share a top.
     '.cm-line': { lineHeight: LINE, padding: '0' },
     // Each run holds the same line box (the way `base.css` holds prose runs), so a run in a fallback face (emoji, CJK,
     // box drawing) cannot make its row taller. A marked special character keeps the line height of its own box.
     '.cm-line span:not(.cm-specialChar)': { lineHeight: LINE },
-    // Nothing at rest (ADR-0011): the active line is tinted only while the editor has the caret.
+    // Nothing at rest: the active line is tinted only while the editor has the caret.
     '.cm-activeLine': { backgroundColor: 'transparent' },
     '.cm-activeLineGutter': { backgroundColor: 'transparent' },
     '&.cm-focused .cm-activeLine': { backgroundColor: activeLine },
@@ -183,7 +183,7 @@ function sourceRules(look: 'code' | 'prose'): Record<string, Record<string, stri
   };
 }
 
-/** The block editor inside Rendered's page: Rendered's code metrics, on the prose grid, as it was before V-12. */
+/** The block editor inside Rendered's page: Rendered's code metrics, on the prose grid. */
 function islandRules(): Record<string, Record<string, string>> {
   const text = 'var(--marxy-color-code-text, #e3dfd6)';
   const bg = 'var(--marxy-color-code-bg, #1d1c19)';
@@ -224,7 +224,7 @@ function islandRules(): Record<string, Record<string, string>> {
 /** Theme extension reading marxy tokens from the document root. */
 export function marxyCodeMirrorTheme(look: SourceLook = 'code'): Extension {
   if (look === 'island') return EditorView.theme(islandRules(), { dark: !isLightVariant() });
-  // A caret scrolled into view is kept 16 px from the edge (the marks strip is 8 px at the default chrome size, F-100), where
+  // A caret scrolled into view is kept 16 px from the edge (the marks strip is 8 px at the default chrome size), where
   // CodeMirror's own 5 px would leave it and the last glyph of the widest line under the strip.
   return [EditorView.theme(sourceRules(look), { dark: !isLightVariant() }), EditorView.scrollMargins.of(() => ({ right: 16 }))];
 }
@@ -303,7 +303,7 @@ export function liveMarxyTheme(compartment: Compartment, look: SourceLook = 'cod
         this.observer = hasObserver ? new MutationObserver(() => this.schedule(true)) : null;
         this.observer?.observe(document.documentElement, { attributes: true, attributeFilter: ['data-marxy-variant', 'style'] });
         // A theme applied or changed rewrites the `#marxy-theme` marker in the head, and its color-scheme may differ (Fjord is
-        // dark under the light variant, H-05). Only that marker is watched, never the head's subtree: CodeMirror injects its own
+        // dark under the light variant). Only that marker is watched, never the head's subtree: CodeMirror injects its own
         // styles there on every reconfigure, and watching them would loop. The reconfigure runs only when light/dark changed.
         this.themeObserver = hasObserver ? new MutationObserver(() => { this.watchMarker(); this.schedule(false); }) : null;
         this.themeObserver?.observe(document.head, { childList: true });
@@ -341,7 +341,7 @@ export function liveMarxyTheme(compartment: Compartment, look: SourceLook = 'cod
 const faint = (percent: number): string => `color-mix(in srgb, var(--marxy-color-text-secondary, #a39e94) ${percent}%, transparent)`;
 
 /**
- * Show whitespace (V-08): a tab gets a faint line through its width and trailing spaces a faint tint, as decorations on
+ * Show whitespace: a tab gets a faint line through its width and trailing spaces a faint tint, as decorations on
  * CodeMirror's own classes. The text, the clipboard and the file's bytes are untouched: a mark is a style on the
  * characters, not a character. The theme rules sit with the extension, because the mark is the only thing that wears them.
  */
@@ -375,16 +375,19 @@ export function whitespaceMarks(): Extension {
 }
 
 /**
- * The column guide (V-08): a hairline at the right edge of character `column`, drawn as a pseudo-element of the content
+ * The column guide: a hairline at the right edge of character `column`, drawn as a pseudo-element of the content
  * and so on the same character grid as the ruler (every position is a number of `ch` from where the text begins). It
  * takes no space and no pointer, adds no node, and is not text. `null` draws nothing.
  */
 /** What the guide's compartment holds when there is none: one object, so "is there a guide" is an identity check. */
 export const NO_GUIDE: Extension = [];
 
+/** The column the guide is drawn at, read by the frame: its ruler shows only beside a guide. */
+export const guideColumn = Facet.define<number, number | null>({ combine: (values) => values[0] ?? null });
+
 export function columnGuideLook(column: number | null): Extension {
   if (column === null) return NO_GUIDE;
-  return EditorView.theme({
+  return [guideColumn.of(column), EditorView.theme({
     '.cm-content': { position: 'relative' },
     '.cm-content::after': {
       content: '""',
@@ -396,5 +399,5 @@ export function columnGuideLook(column: number | null): Extension {
       backgroundColor: faint(30),
       pointerEvents: 'none',
     },
-  });
+  })];
 }

@@ -1,4 +1,4 @@
-// The hostile fixture is the corpus the gates sweep (MARXY-73, ADR-0009). Families that lived only
+// The hostile fixture is the corpus the gates sweep. Families that lived only
 // as probe strings inside the unit suite are appended here, and every check below is written so it
 // fails if the sanitiser is taken out of the pipeline — a suite that passes against a sanitiser
 // that does nothing is the dangerous artifact.
@@ -13,7 +13,7 @@ import { renderToUnsanitisedHtml } from '../render/render-html.ts';
 import { REMOTE_IMAGE_ATTR } from './policy.ts';
 import { attributesOf, elementsOf, VECTORS } from './testing/vectors.ts';
 
-/** MARXY-96: a deferred image may name a host on the inert attribute only; links may still href it. */
+/** a deferred image may name a host on the inert attribute only; links may still href it. */
 function assertNoLiveFetch(html: string, host: string): void {
   for (const attribute of attributesOf(html)) {
     if (attribute.name === REMOTE_IMAGE_ATTR || attribute.name === 'href') continue;
@@ -28,7 +28,7 @@ const goldenPath = new URL('../../goldens/10-hostile.ast.txt', import.meta.url);
 const hostileBytes = readFileSync(hostilePath);
 const hostile = hostileBytes.toString('utf8');
 
-/** Length and digest of the fixture as it stood on main before this story appended anything. */
+/** Length and digest of the fixture as it stood on main before anything was appended. */
 const ORIGINAL_PREFIX_BYTES = 263291;
 const ORIGINAL_PREFIX_SHA256 = '79b42b997624e17844f07ab71f51832fcb2e53043c4300ce7777a48ad4311223';
 
@@ -212,7 +212,7 @@ test('the regenerated golden only adds nodes; existing ranges stay put', () => {
   assert.ok(lines.length > ORIGINAL_GOLDEN_LINE_COUNT, 'the golden must have grown by the new sections');
 });
 
-test('the fixture labels every family the story named', () => {
+test('the fixture labels every family named', () => {
   for (const family of FAMILIES) {
     assert.ok(hostile.includes(`\n## ${family.heading}\n`), `missing labelled section: ${family.heading}`);
   }
@@ -236,7 +236,7 @@ for (const family of FAMILIES) {
   });
 }
 
-test('the two MARXY-12 review exploits are their own sections and the regression for them', () => {
+test('the two review exploits are their own sections and the regression for them', () => {
   const backslash = sectionOf(hostile, 'backslash-authority image');
   assert.match(backslash, /src="\/\\evil\.example\/pixel\.png"/);
   const { safe: safeSlash, unsafe: unsafeSlash } = render(backslash, 'hostile/exploit-backslash.md');

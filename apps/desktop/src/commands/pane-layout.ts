@@ -1,4 +1,4 @@
-// The divider by keyboard (D-04): the palette's way to do what dragging and double-clicking do. Palette
+// The divider by keyboard: the palette's way to do what dragging and double-clicking do. Palette
 // only, no keys; each is offered only while two panes are open.
 import { DEFAULT_RATIO } from '@marxy/core/src/layout/index.ts';
 import { RATIO_STEP, clampToMain } from '../pane/divider.ts';

@@ -1,4 +1,4 @@
-// A fold from a Source pane does not rebuild a page nobody can see (B-27). Folding Source text into the
+// A fold from a Source pane does not rebuild a page nobody can see. Folding Source text into the
 // store used to set the hidden Rendered article of every view of the document from the new bytes (seconds
 // per view at 1 MB); now a view in Source marks its page stale and sets it when Rendered next shows. The
 // page that then shows must be the whole render of the store's current bytes. Booted on the shipped
@@ -84,7 +84,7 @@ async function wholeRender(page, slot) {
 
 const markup = (page, slot) => page.evaluate((slot) => window.__marxyHandle.panes().panes[slot].article.innerHTML, slot);
 
-test('folds with both panes in Source set no page; each pane then shows the whole render of the current bytes (B-27)', async () => {
+test('folds with both panes in Source set no page; each pane then shows the whole render of the current bytes', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     await toSource(page, mod, 0);
     await toSource(page, mod, 1);
@@ -119,7 +119,7 @@ test('folds with both panes in Source set no page; each pane then shows the whol
   });
 });
 
-test('a fold from the Source pane reaches the other pane showing Rendered, and nothing else changed for one pane (B-27)', async () => {
+test('a fold from the Source pane reaches the other pane showing Rendered, and nothing else changed for one pane', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     await toSource(page, mod, 1);
     await typeAndFold(page, 1, 1, 'Qz');

@@ -1,4 +1,4 @@
-// Notes about a Markdown file (V-04): what Marxy notices without touching the text. Two are found here, from the source
+// Notes about a Markdown file: what Marxy notices without touching the text. Two are found here, from the source
 // and its AST: a fence that is never closed (so everything after it is code) and a heading that skips a level. A path
 // that does not exist needs the file system, so the desktop adds it (`resolveMentioned`). Pure: no DOM, no Node built-ins.
 //
@@ -6,6 +6,7 @@
 // nothing here reads the words of a paragraph.
 import type { CodeBlock, Document, Heading } from '../contracts/ast.ts';
 import { nodesOf, parseText, utf8Length } from '../transforms/prose.ts';
+import { lineOfOffset, lineStartsOf, trimEndOf } from '../util/text.ts';
 
 export type NoteKind = 'fence' | 'heading' | 'path';
 
@@ -26,13 +27,13 @@ export interface Note {
 
 /** The line and column (both 1-based) of a UTF-16 offset in `lf`. */
 export function lineColumnAt(lf: string, offset: number): { line: number; column: number } {
-  let line = 1;
-  let from = 0;
-  for (let at = lf.indexOf('\n'); at !== -1 && at < offset; at = lf.indexOf('\n', at + 1)) {
-    line++;
-    from = at + 1;
-  }
-  return { line, column: offset - from + 1 };
+  return lineColumnIn(lineStartsOf(lf), offset);
+}
+
+/** `lineColumnAt` over the line starts of the text (`lineStartsOf`), made once for every place asked about. */
+export function lineColumnIn(starts: readonly number[], offset: number): { line: number; column: number } {
+  const line = lineOfOffset(starts, offset);
+  return { line: line + 1, column: offset - starts[line]! + 1 };
 }
 
 /** The container marks a fence line may sit behind: indentation and block-quote markers. */
@@ -49,8 +50,9 @@ function closes(last: string, opener: string): boolean {
 /** The notes in `lf` that come from the AST, in document order. `doc` is the parse of `lf` (parsed here when omitted). */
 export function notesOf(lf: string, doc: Document = parseText(lf)): Note[] {
   const out: Note[] = [];
+  let starts: number[] | null = null;
   const at = (start: number, end: number, byteStart: number, byteEnd: number, kind: NoteKind, words: (l: number, c: number) => string): void => {
-    const { line, column } = lineColumnAt(lf, start);
+    const { line, column } = lineColumnIn((starts ??= lineStartsOf(lf)), start);
     out.push({ kind, start, end, byteStart, byteEnd, line, column, words: words(line, column) });
   };
 
@@ -64,7 +66,7 @@ export function notesOf(lf: string, doc: Document = parseText(lf)): Note[] {
       continue;
     }
     if (node.run === true) continue; // a code file read as code has no fences
-    const text = lf.slice(span.start, span.end).replace(/\n+$/, '');
+    const text = trimEndOf(lf.slice(span.start, span.end), '\n');
     const firstEnd = text.indexOf('\n');
     const firstRaw = firstEnd === -1 ? text : text.slice(0, firstEnd);
     // A fence may be indented at most three spaces; four (or a tab) make the block indented code, which has no fence to close.

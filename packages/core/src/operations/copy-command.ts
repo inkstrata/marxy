@@ -1,10 +1,13 @@
-// copy-command: the commands of a shell or console block, prompts removed (C-09; rules in
-// docs/research/reader-artifacts/06-readmes.md §8). Clipboard only: the buffer is never touched.
+// copy-command: the commands of a shell or console block, prompts removed.
+// Clipboard only: the buffer is never touched.
 import type { CodeBlock } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
+import { trimEndOf } from '../util/text.ts';
 
-const CONSOLE_LANGS: ReadonlySet<string> = new Set(['console', 'shell-session', 'shellsession', 'terminal', '']);
-const SHELL_LANGS: ReadonlySet<string> = new Set(['sh', 'bash', 'zsh', 'shell']);
+// A block with no language (an untagged fence, a plain-text file) is not offered: only a shell or console language says
+// its `$ ` lines are prompts.
+const CONSOLE_LANGS: ReadonlySet<string> = new Set(['console', 'shell-session', 'shellsession', 'terminal']);
+const SHELL_LANGS: ReadonlySet<string> = new Set(['sh', 'bash', 'zsh', 'shell', 'shellscript']);
 const POWERSHELL_LANGS: ReadonlySet<string> = new Set(['powershell', 'ps1', 'pwsh']);
 
 type Mode = 'console' | 'shell' | 'powershell';
@@ -193,7 +196,7 @@ export const copyCommand: Operation = {
     if (mode === null) return { replacement: input.text };
     const parsed = parseCommands(block.value, mode);
     if (!usable(parsed)) return { replacement: input.text };
-    const text = parsed.commands.join('\n').replace(/[\r\n]+$/, '');
+    const text = trimEndOf(parsed.commands.join('\n'), '\r\n');
     const left = parsed.outputCount > 0 ? `; ${count(parsed.outputCount, 'output line', 'output lines')} left out` : '';
     return {
       replacement: input.text,

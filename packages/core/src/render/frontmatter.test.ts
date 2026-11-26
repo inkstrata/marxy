@@ -1,11 +1,12 @@
-// Front matter renders as a quiet key/value head with provenance and copy fidelity (MARXY-234).
+// Front matter renders as a head with provenance: every row in the bytes' order, the byline's marked with their own bytes.
 
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { parseMarkdown } from '../parse/parse.ts';
-import { FRONTMATTER_HEAD_MAX_ROWS, frontmatterRows, headRows, outerQuotes, webUrlParts } from './frontmatter.ts';
+import { FRONTMATTER_HEAD_MAX_ROWS, bylineDate, frontmatterRows, headRows, outerQuotes, titleFirst } from './frontmatter.ts';
 import { renderSafeHtml } from './pipeline.ts';
+import { cpuNow } from '../testing/cpu-clock.ts';
 
 const decode = (bytes: Uint8Array, start: number, end: number): string =>
   new TextDecoder().decode(bytes.slice(start, end));
@@ -19,10 +20,10 @@ test('YAML front matter lists every key, truncates at twelve rows, and carries p
   assert.ok(matter);
   assert.equal(frontmatterRows(matter.value).length, 15);
   const { html } = renderSafeHtml(bytes, { file: 'skill.md' });
-  assert.match(html, /<dl data-marxy-s="/);
+  assert.match(html, /<dl data-marxy-fm-part="head" data-marxy-s="/);
   assert.equal([...html.matchAll(/<dt data-marxy-fm-key="key[0-9]+">/g)].length, FRONTMATTER_HEAD_MAX_ROWS);
   assert.match(html, /<dd>3 more<\/dd>/);
-  const range = html.match(/<dl data-marxy-s="([0-9]+)" data-marxy-e="([0-9]+)"/);
+  const range = html.match(/<dl data-marxy-fm-part="head" data-marxy-s="([0-9]+)" data-marxy-e="([0-9]+)"/);
   assert.ok(range);
   assert.equal(decode(bytes, Number(range[1]), Number(range[2])), source.slice(0, source.indexOf('\n\n# Title')));
 });
@@ -32,7 +33,7 @@ test('TOML front matter uses the same head shape', () => {
   const bytes = new TextEncoder().encode(source);
   const { html } = renderSafeHtml(bytes, { file: 'skill.toml.md' });
   assert.match(html, /<dt data-marxy-fm-key="title">title<\/dt>/);
-  assert.match(html, /<dd data-marxy-fm-key="title">"Skill"<\/dd>/);
+  assert.match(html, /<dd data-marxy-fm-key="title">&quot;Skill&quot;<\/dd>/);
   assert.match(html, /<dt data-marxy-fm-key="license">license<\/dt>/);
   const matter = parseMarkdown(bytes, { file: 'skill.toml.md' }).children.find((c) => c.type === 'frontmatter');
   assert.ok(matter);
@@ -88,7 +89,7 @@ test('the overflow line sits in a valid dt/dd group and stays escaped', () => {
   assert.doesNotMatch(html, /<b>/);
 });
 
-test('a TOML value holding ": " stays one row with its whole value (MARXY-337)', () => {
+test('a TOML value holding ": " stays one row with its whole value', () => {
   assert.deepEqual(frontmatterRows('title = "Foo: Bar"\nauthor = "x"').map(r => [r.key, r.lines]), [
     ['title', ['"Foo: Bar"']],
     ['author', ['"x"']],
@@ -97,46 +98,106 @@ test('a TOML value holding ": " stays one row with its whole value (MARXY-337)',
   assert.match(html, /<dt data-marxy-fm-key="title">title<\/dt>/);
 });
 
-test('a TOML multi-line array is not cut at a column-0 bracket line (MARXY-337)', () => {
+test('a TOML multi-line array is not cut at a column-0 bracket line', () => {
   assert.deepEqual(frontmatterRows('m = [\n[1,2]\n]\nz = 1').map(r => r.key), ['m', 'z']);
   assert.deepEqual(frontmatterRows('m = ["]"]\n[t]\nz = 1').map(r => r.key), ['m']);
 });
 
-// K-20: an article's byline and dek. The renderer marks them in every kind, in the bytes' order; only the article
-// profile styles them, and only the app makes the source a link, in an article (render/byline-link.ts).
+// The byline: the author and the first date, marked in every kind, each value carrying the range of its own bytes.
 const keysOf = (html: string): string[] => [...html.matchAll(/<dt data-marxy-fm-key="([^"]*)"/g)].map((m) => m[1]!);
-const sourceOf = (html: string): string => /<dd data-marxy-fm-key="source"[^>]*>(.*?)<\/dd>/.exec(html)?.[1] ?? '';
+const ddOf = (html: string, key: string): RegExpExecArray | null =>
+  new RegExp(`<dd data-marxy-fm-key="${key}" data-marxy-fm-part="byline" data-marxy-s="([0-9]+)" data-marxy-e="([0-9]+)">(.*?)</dd>`).exec(html);
 
-test('corpus 33: every row names its key, in the bytes\' order, and the byline\'s rows are marked (K-20)', () => {
+test('corpus 33: every row names its key, in the bytes\' order, and the author and the date are the byline', () => {
   const file = new URL('../../../../fixtures/corpus/33-article-byline.md', import.meta.url);
-  const { html } = renderSafeHtml(readFileSync(file), { file: '33-article-byline.md' });
+  const bytes = readFileSync(file);
+  const { html } = renderSafeHtml(bytes, { file: '33-article-byline.md' });
   assert.deepEqual(keysOf(html), ['title', 'description', 'tags', 'author', 'published', 'source']);
   assert.equal((html.match(/<dd data-marxy-fm-key="/g) ?? []).length, 6, 'the value of every row names its key too');
-  assert.equal((html.match(/data-marxy-fm-part="byline"/g) ?? []).length, 6, 'three rows, dt and dd');
-  assert.match(html, /<dd data-marxy-fm-key="description" data-marxy-fm-part="dek">Why the space/);
-  assert.doesNotMatch(html, /<a /, 'the core makes no link: the app does, in an article');
+  assert.equal((html.match(/data-marxy-fm-part="byline"/g) ?? []).length, 4, 'two rows, dt and dd');
+  const author = ddOf(html, 'author');
+  const date = ddOf(html, 'published');
+  assert.ok(author && date, html);
+  assert.equal(decode(bytes, Number(author[1]), Number(author[2])), '"M. Ellery"');
+  assert.equal(decode(bytes, Number(date[1]), Number(date[2])), '2026-09-12');
+  assert.equal(date[3], '12 September 2026');
+  assert.doesNotMatch(html, /<a /);
 });
 
-test('a head with no author keeps the bytes\' order and marks no part (K-20)', () => {
-  const html = head('---\ntitle: a\nsource: https://example.org/x\npublished: 2026\ndescription: d\n---\n');
+test('the title is drawn first, then the head; the head\'s own bytes are the whole front matter', () => {
+  const source = '---\ntitle: T\nauthor: A\n---\n\n# T\n\nText\n';
+  const { html } = renderSafeHtml(source, { file: 't.md' });
+  assert.ok(html.indexOf('<h1') < html.indexOf('<dl'), html);
+  assert.ok(html.indexOf('<dl') < html.indexOf('<p'), html);
+  const doc = parseMarkdown(new TextEncoder().encode(source), { file: 't.md' });
+  assert.equal(titleFirst(doc.children), true);
+  // A title that is not a level-one heading, or no heading at all: the bytes' order.
+  assert.equal(titleFirst(parseMarkdown(new TextEncoder().encode('---\na: 1\n---\n\n## T\n'), { file: 't.md' }).children), false);
+  assert.ok(head('---\nauthor: A\n---\n\nText\n').indexOf('<dl') < head('---\nauthor: A\n---\n\nText\n').indexOf('<p'));
+});
+
+test('a byline value names its bytes through CRLF, quotes and characters past ASCII', () => {
+  const source = '---\r\ntítulo: x\r\nauthor: \'Zoë Ó\'  \r\ndate: "2026-02-29"\r\ncreated: 2026-01-02\r\n---\r\n\r\n# H\r\n';
+  const bytes = new TextEncoder().encode(source);
+  const html = renderSafeHtml(bytes, { file: 't.md' }).html;
+  const author = ddOf(html, 'author');
+  assert.ok(author, html);
+  assert.equal(decode(bytes, Number(author[1]), Number(author[2])), "'Zoë Ó'");
+  assert.equal(author[3], '<span data-marxy-fm-part="quote">\'</span>Zoë Ó<span data-marxy-fm-part="quote">\'</span>');
+  // Not a calendar day (2026 is no leap year): shown as written, and the first date key is the byline's still.
+  const date = ddOf(html, 'date');
+  assert.ok(date, html);
+  assert.equal(decode(bytes, Number(date[1]), Number(date[2])), '"2026-02-29"');
+  assert.match(date[3]!, /2026-02-29/);
+  assert.doesNotMatch(html, /data-marxy-fm-key="created" data-marxy-fm-part/);
+});
+
+test('a head with a date and no author marks the date alone; one with neither marks nothing', () => {
+  const html = head('---\ntitle: a\nsource: https://example.org/x\npublished: 2026-10-01\ndescription: d\n---\n');
   assert.deepEqual(keysOf(html), ['title', 'source', 'published', 'description']);
-  assert.doesNotMatch(html, /data-marxy-fm-part|<a |<span/);
+  assert.equal((html.match(/data-marxy-fm-part="byline"/g) ?? []).length, 2);
   assert.match(html, /<dd data-marxy-fm-key="source">https:\/\/example.org\/x<\/dd>/);
+  assert.doesNotMatch(head('---\ntitle: a\ntags: [x]\n---\n'), /data-marxy-fm-part="byline"|<span/);
 });
 
-test('an author on more than one line is no byline (K-20)', () => {
+test('an author on more than one line is no byline', () => {
   const rows = headRows(frontmatterRows('title: t\nauthor:\n  - A\n  - B\npublished: 1\n'));
-  assert.deepEqual(rows.map((r) => [r.row.key, r.part]), [['title', null], ['author', null], ['published', null]]);
+  assert.deepEqual(rows.map((r) => [r.row.key, r.part]), [['title', null], ['author', null], ['published', 'byline']]);
 });
 
-test('the byline marks author, published and source where they are; the first one-line dek key is the dek (K-20)', () => {
-  const rows = headRows(frontmatterRows('subtitle:\n  long\n  text\ndek: d\nsource: s\ndescription: x\nauthor: a\n'));
+test('the byline is the author and a date, date before published before created, wherever they are; nothing else', () => {
+  const rows = headRows(frontmatterRows('subtitle:\n  long\n  text\ncreated: c\ndek: d\nsource: s\ndate: x\nauthor: a\n'));
   assert.deepEqual(rows.map((r) => [r.row.key, r.part]), [
-    ['subtitle', null], ['dek', 'dek'], ['source', 'byline'], ['description', null], ['author', 'byline'],
+    ['subtitle', null], ['created', null], ['dek', null], ['source', null], ['date', 'byline'], ['author', 'byline'],
   ]);
+  const later = headRows(frontmatterRows('created: c\npublished: p\n'));
+  assert.deepEqual(later.map((r) => [r.row.key, r.part]), [['created', null], ['published', 'byline']]);
+  // A date key of several lines, or of none, is no byline's: the next date key that has one line is.
+  const long = headRows(frontmatterRows('date:\n  - a\n  - b\npublished: 2026-01-01\n'));
+  assert.deepEqual(long.map((r) => [r.row.key, r.part]), [['date', null], ['published', 'byline']]);
+  const nested = headRows(frontmatterRows('date:\n  day: 1\ncreated: c\n'));
+  assert.deepEqual(nested.map((r) => [r.row.key, r.part]), [['date', null], ['created', 'byline']]);
+  const empty = headRows(frontmatterRows('date:\npublished: 2026-01-01\n'));
+  assert.deepEqual(empty.map((r) => [r.row.key, r.part]), [['date', null], ['published', 'byline']]);
+  assert.match(renderSafeHtml('---\ndate:\n  - a\npublished: 2026-01-01\n---\n\n# T\n', { file: 't.md' }).html, /data-marxy-fm-key="published" data-marxy-fm-part="byline"[^>]*>1 January 2026</);
 });
 
-test('one pair of matching outer quotes, and only a matching pair (K-20, question 3)', () => {
+test('of two author keys the last of one line is the byline\'s', () => {
+  const rows = headRows(frontmatterRows('author: First\ntitle: t\nauthor: Second\n'));
+  assert.deepEqual(rows.map((r) => [r.row.key, r.row.lines[0], r.part]), [['author', 'First', null], ['title', 't', null], ['author', 'Second', 'byline']]);
+  const listed = headRows(frontmatterRows('author: First\nauthor:\n  - A\n  - B\n'));
+  assert.deepEqual(listed.map((r) => [r.row.key, r.part]), [['author', 'byline'], ['author', null]]);
+});
+
+test('a calendar day in words, and nothing else', () => {
+  assert.equal(bylineDate('2026-09-14'), '14 September 2026');
+  assert.equal(bylineDate('2024-02-29'), '29 February 2024');
+  assert.equal(bylineDate('2000-02-29'), '29 February 2000');
+  assert.equal(bylineDate('0001-01-01'), '1 January 1');
+  for (const not of ['2026-02-29', '1900-02-29', '0000-01-01', '2026-13-01', '2026-00-10', '2026-04-31', '2026-9-14', '14 September 2026', '2026-09-14T10:00']) assert.equal(bylineDate(not), null, not);
+});
+
+test('one pair of matching outer quotes, and only a matching pair', () => {
   assert.deepEqual(outerQuotes('"M. Ellery"'), { open: '"', inner: 'M. Ellery', close: '"' });
   assert.deepEqual(outerQuotes("'x'"), { open: "'", inner: 'x', close: "'" });
   assert.deepEqual(outerQuotes('""a""'), { open: '"', inner: '"a"', close: '"' });
@@ -147,33 +208,19 @@ test('one pair of matching outer quotes, and only a matching pair (K-20, questio
   assert.match(html, /<span data-marxy-fm-part="quote">'<\/span>O''Brien<span data-marxy-fm-part="quote">'<\/span>/);
 });
 
-test('a web source is marked url, shortened to its host only when the host shown is the host it goes to (K-20)', () => {
-  assert.deepEqual(webUrlParts('https://example.org/a?b#c'), { scheme: 'https://', host: 'example.org', path: '/a?b#c', short: true });
-  const short = head('---\nauthor: a\nsource: https://example.org\n---\n');
-  assert.equal(sourceOf(short), '<span data-marxy-fm-part="url"><span data-marxy-fm-part="scheme">https://</span>example.org</span>');
-  // Userinfo, a backslash (the parser ends the host there), a port, a percent-escape, capitals and IDN: shown whole.
-  for (const url of ['https://good.com@evil.com/x', 'https://evil.com\\.good.com/x', 'https://example.org:8080/x', 'https://exa%6Dple.org/', 'https://Example.org/', 'https://bücher.de/']) {
-    const parts = webUrlParts(url);
-    assert.ok(parts !== null && !parts.short, url);
-    const html = head(`---\nauthor: a\nsource: ${url}\n---\n`);
-    assert.doesNotMatch(sourceOf(html), /scheme|path/, `${url} is shown whole`);
-    assert.match(sourceOf(html), /^<span data-marxy-fm-part="url">/, `${url} is still a web URL`);
-  }
-});
-
-test('a source holding a control character or space, or not a web URL, is plain text as written (K-20)', () => {
-  for (const value of ['https://example.org/\u0001x', 'https://example.org/x\u007f', 'https://example.org/?q=\u0085', 'https://example.org/a b', 'example.org/a', 'javascript:alert(1)', 'https://', 'The Quarterly']) {
-    assert.equal(webUrlParts(value), null, JSON.stringify(value));
-    const html = head(`---\nauthor: a\nsource: ${value}\n---\n`);
-    assert.doesNotMatch(sourceOf(html), /<span|<a /, JSON.stringify(value));
-  }
-  const hostile = head('---\nauthor: a\nsource: "https://example.org/\\"><script>x</script>"\n---\n');
-  assert.doesNotMatch(hostile, /<script/);
-});
-
-test('the byline\'s rows stay where the bytes put them, so past twelve they are counted, not shown (K-20)', () => {
+test('past twelve rows the rest are counted, and a byline row among them is still the byline', () => {
   const keys = Array.from({ length: 14 }, (_, i) => `k${i}: v`).join('\n');
   const html = head(`---\n${keys}\nauthor: a\n---\n`);
-  assert.deepEqual(keysOf(html), Array.from({ length: 12 }, (_, i) => `k${i}`));
-  assert.match(html, /<dd>3 more<\/dd>/);
+  assert.deepEqual(keysOf(html), [...Array.from({ length: 12 }, (_, i) => `k${i}`), 'author']);
+  assert.match(html, /<dd>2 more<\/dd>/, 'the two not drawn, not the byline drawn after them');
+  assert.match(html, /<dd data-marxy-fm-key="author" data-marxy-fm-part="byline"[^>]*>a<\/dd>/);
+});
+
+test('a front matter line of a key and 80,000 spaces or tabs reads in time', () => {
+  for (const line of [`a${' '.repeat(80_000)}`, `a${'\t '.repeat(40_000)}b`, `-a${' '.repeat(80_000)}`]) {
+    const t0 = cpuNow();
+    assert.deepEqual(frontmatterRows(line), []);
+    assert.ok(cpuNow() - t0 < 200, `${JSON.stringify(line.slice(0, 3))}: ${(cpuNow() - t0).toFixed(0)} ms`);
+  }
+  assert.deepEqual(frontmatterRows(`title ${' '.repeat(10_000)}: Tide tables`).map((r) => [r.key, r.lines]), [['title', ['Tide tables']]]);
 });

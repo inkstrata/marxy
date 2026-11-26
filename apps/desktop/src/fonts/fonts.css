@@ -1,6 +1,6 @@
-/* The bundled faces (ADR-0015): Literata for text, Source Serif 4 for articles (the default theme's article role, H-04), Atkinson Hyperlegible Next for reports and notes and Inter for READMEs (the sans roles, H-04.1), JetBrains Mono for code. Inlined into index.html
+/* The bundled faces: Literata for text, Source Serif 4 for articles (the default theme's article role), Atkinson Hyperlegible Next for reports and notes and Inter for READMEs (the sans roles), JetBrains Mono for code. Inlined into index.html
    by vite.config.ts ahead of the theme, with the files emitted beside it under fonts/. `block`: a
-   reader never sees the fallback face and a reflow when the real one arrives (MARXY-21); the roman
+   reader never sees the fallback face and a reflow when the real one arrives; the roman
    and mono faces are preloaded, so the block is the time to read them from the app bundle. */
 @font-face {
   font-family: "Literata";

@@ -1,24 +1,25 @@
-// The palette index has one owner: a service keyed by repository root (A-04).
-// A root's last walk is kept on disk (A-05): the next session publishes it at once, then walks to check it.
+// The palette index has one owner: a service keyed by repository root.
+// A root's last walk is kept on disk: the next session publishes it at once, then walks to check it.
 // Each root is walked once per session; every root opened so far is published to subscribers, most
 // recently ensured first; a change in the open document's directory re-walks its root on the idle queue.
-// Declared folders (`collection.toml`, C-10) are held with `ensureRoot` and let go with `dropRoot`; every
+// Declared folders (`collection.toml`) are held with `ensureRoot` and let go with `dropRoot`; every
 // root remembers when Marxy first indexed it (`baselineMs`). The reader's deny globs join the built-in
 // deny list for every root held: read from collection.toml before the first walk, replaced by `setDeny`.
-// A watched root stays fresh from its tree watch (C-11, `collection/watch.ts`): a batch of events is
+// A watched root stays fresh from its tree watch (`collection/watch.ts`): a batch of events is
 // planned against the root (`planEvents`), each changed file is stat'ed and its head read again, and
 // subscribers get the patch `{ root, upserted, removed }` rather than a rebuild.
-// A home-sized root (`home-sized.ts`, C-10.1) is walked under a directory budget with one notice when it is hit,
+// A home-sized root (`home-sized.ts`) is walked under a directory budget with one notice when it is hit,
 // never lists the home folders macOS guards, and a recent one is served from its snapshot only.
 import type { IndexEntry } from '@marxy/core';
 import { INDEX_LIMITS } from '@marxy/core/src/contracts/index-entry.ts';
 import { KINDS as KIND_NAMES } from '@marxy/core/src/contracts/kinds.ts';
 import { planEvents, type FileEvent } from '@marxy/core/src/index-model/apply-events.ts';
-import { entryFromCandidate } from '@marxy/core/src/index-model/entry.ts';
+import { entryFromCandidate, withReaderKinds, type ReaderKinds } from '@marxy/core/src/index-model/entry.ts';
 import { classify } from '@marxy/core/src/index-model/kinds.ts';
 import { isIgnored, type IgnoreRule } from '@marxy/core/src/index-model/ignore.ts';
 import { denyRulesFor } from '@marxy/core/src/index-model/collection.ts';
 import { loadCollection } from '../collection/load.ts';
+import { isArchiveEntry } from '../document/entries.ts';
 import { basename, dirname, isUnderRoot, joinPath, normalizePath, pathUnder } from '@marxy/core/src/index-model/paths.ts';
 import { checkoutOf, gitGroupKey } from '@marxy/core/src/index-model/checkout.ts';
 import type { CheckoutKey } from '../palette/fold.ts';
@@ -57,9 +58,9 @@ export interface IndexService {
   ensureFor(path: string, openedBytes?: Uint8Array): Promise<void>;
   /**
    * Hold `root` itself (not its repository): serve its snapshot at once, walk it at idle, publish.
-   * Idempotent. `watch` is what `collection.toml` declared (C-11 starts the watches; nothing is
+   * Idempotent. `watch` is what `collection.toml` declared (the watches start elsewhere; nothing is
    * watched here). `recent` marks a root nobody declared: if it is home-sized it is served from its
-   * snapshot and not walked (C-10.1); declaring it later walks it.
+   * snapshot and not walked; declaring it later walks it.
    */
   ensureRoot(root: string, opts?: { readonly watch?: boolean; readonly recent?: boolean }): Promise<void>;
   /**
@@ -67,8 +68,19 @@ export interface IndexService {
    * folders and recent roots alike. Rules that differ from the last ones re-walk every root held.
    */
   setDeny(rules: readonly IgnoreRule[]): void;
-  /** Let go of `root`: its entries leave the published set. Its snapshot stays on disk. */
+  /**
+   * The reader's `[[kind]]` rules and Show as choices, for every entry's reader kind as Open decides it. Entries
+   * held are decided again at once; nothing is walked.
+   */
+  setKinds(kinds: ReaderKinds): void;
+  /** Let go of `root`: a walk under way stops, its entries leave the published set, and the shell stops reading it. Its snapshot stays on disk. */
   dropRoot(root: string): void;
+  /**
+   * Let go of every root nothing uses: not declared, not recent, not the open document's, and with no document from
+   * `inUse` under it, judged by the root that holds each document (canonical), not by its spelling. The app calls it
+   * when a tab closes; `ensureFor` calls it for the root the front left.
+   */
+  sweep(): Promise<void>;
   /**
    * `root` is no longer declared but stays held (it is the current repository or a recent root): it
    * keeps its entries and loses the watch its declaration gave it.
@@ -76,7 +88,7 @@ export interface IndexService {
   undeclare(root: string): void;
   /**
    * Which repository, and which checkout of it, holds `path`, as the walks of the roots held saw
-   * `.git` (C-15); undefined where no `.git` was seen above it. Two checkouts of one repository
+   * `.git`; undefined where no `.git` was seen above it. Two checkouts of one repository
    * (git worktrees) answer with the same `group`. App state: `IndexEntry` is unchanged.
    */
   checkoutKey(path: string): CheckoutKey | undefined;
@@ -94,6 +106,14 @@ export interface IndexService {
   /** `cb` is called whenever `watchedRoots()` changes; returns the unsubscribe. */
   onWatchedRootsChange(cb: () => void): () => void;
   /**
+   * The folders a tree watch of `tree` may leave out: those every watched root under it left out of its walk by an
+   * ignore file or deny glob. A root not walked yet, or one that sits inside a folder, vetoes it: nothing is left out
+   * that a root might still read.
+   */
+  ignoredFolders(tree: string): readonly string[];
+  /** `cb` is called when a walk changes which folders it left out; returns the unsubscribe. */
+  onIgnoredChange(cb: () => void): () => void;
+  /**
    * The open document's folder changed: re-walk `root` on the idle queue, unless a live tree watch
    * covers it (its patches already keep it fresh). Calls made while a walk is pending coalesce into it.
    */
@@ -104,7 +124,7 @@ export interface IndexService {
    */
   applyEvents(events: readonly FileEvent[]): void;
   /**
-   * Whether `tree` is home-sized (C-10.1): a recursive watch on it would descend into the folders its
+   * Whether `tree` is home-sized: a recursive watch on it would descend into the folders its
    * walk leaves out, so the tree watch is not opened and the tree is rescanned on summon instead.
    */
   homeSized(tree: string): Promise<boolean>;
@@ -118,7 +138,7 @@ export interface IndexService {
   /** The palette's notice line for refused watches, or undefined when every watch is open. */
   watchNotice(): string | undefined;
   /**
-   * What the tree watches really are, not what was declared (U-06): `refused` when any was refused (home-sized, over the
+   * What the tree watches really are, not what was declared: `refused` when any was refused (home-sized, over the
    * shell's limit), else `live` when one is open, else `none`.
    */
   watchState(): 'live' | 'refused' | 'none';
@@ -142,7 +162,7 @@ export interface IndexService {
  * such walk, so a reader who opens the palette in a loop does not walk a large tree each time.
  */
 export const REVALIDATE_MIN_MS = 30_000;
-/** The same, for a home-sized root (C-10.1): its walk lists thousands of folders, so a summon asks for it less often. */
+/** The same, for a home-sized root: its walk lists thousands of folders, so a summon asks for it less often. */
 export const HOME_REVALIDATE_MIN_MS = 300_000;
 
 /** A root's snapshot is written at most once in this many ms while watch events patch it. */
@@ -163,13 +183,17 @@ const isUnder = isUnderRoot;
 /** `configPaths` and `writeFileAtomic` are optional: a shell without them keeps no snapshot. */
 export type IndexServiceShell = IndexLoadShell &
   MarkShell & {
-    /** The patch path's two narrow reads (C-11.2): one file's stat, and at most the head of a markdown file. */
+    /** The patch path's two narrow reads: one file's stat, and at most the head of a markdown file. */
     stat(path: string): Promise<{ path: string; size: number; mtimeMs: number; isDir: boolean } | null>;
     readHead(path: string, maxBytes: number): Promise<Uint8Array>;
-    /** A path with every symlink and `..` resolved by the OS (F-37.1); a shell without it keeps the spelling it was given. */
+    /** A path with every symlink and `..` resolved by the OS; a shell without it keeps the spelling it was given. */
     realPath?(path: string): Promise<string>;
     configPaths?(): Promise<{ config: string; data: string }>;
     writeFileAtomic?(path: string, bytes: Uint8Array): Promise<void>;
+    /** Tells the shell a folder is one the reader chose for the index, so its commands read it (`AppShell.markOpened`). */
+    markOpened?(path: string, as?: 'file' | 'root' | 'indexRoot'): Promise<void>;
+    /** The reverse of `markOpened(path, 'root')`: the shell stops answering for the folder as a root. */
+    forgetRoot?(path: string): Promise<void>;
   };
 
 /**
@@ -235,7 +259,7 @@ async function checkoutTable(
   return table;
 }
 
-const KINDS = new Set(['markdown', 'text', 'source', 'theme']);
+const KINDS = new Set(['markdown', 'text', 'source', 'theme', 'binary']);
 const READER_KINDS = new Set<string>(KIND_NAMES);
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isStr = (v: unknown): v is string => typeof v === 'string';
@@ -274,6 +298,8 @@ async function readSnapshot(shell: IndexServiceShell, path: string, root: string
 }
 
 interface RootState {
+  /** Stops this root's walk under way: the root is let go, or a newer walk replaces it. */
+  abort?: AbortController;
   entries: readonly IndexEntry[];
   /** The walk under way or queued, if any; later walks chain behind it. */
   pending: Promise<void>;
@@ -285,11 +311,13 @@ interface RootState {
   baselineMs?: number;
   /** The root's own ignore rules as its last walk read them; undefined until a walk this session. */
   rules?: IndexWalkRules;
-  /** Each directory under the root that holds a `.git` (C-15) -> its repository's key; undefined until a walk this session. */
+  /** The folders that walk left out by ignore rule or deny glob (outermost); undefined until a walk this session. */
+  ignored?: readonly string[];
+  /** Each directory under the root that holds a `.git` -> its repository's key; undefined until a walk this session. */
   checkouts?: ReadonlyMap<string, string>;
-  /** A recent home-sized root: its snapshot is all it has, and nothing walks it (C-10.1). */
+  /** A recent home-sized root: its snapshot is all it has, and nothing walks it. */
   snapshotOnly?: boolean;
-  /** Holds the home folder (C-10.1): a summon rescans it at `HOME_REVALIDATE_MIN_MS`, not `REVALIDATE_MIN_MS`. */
+  /** Holds the home folder: a summon rescans it at `HOME_REVALIDATE_MIN_MS`, not `REVALIDATE_MIN_MS`. */
   homeSized?: boolean;
   /** Watch events waiting for the next patch. */
   events: FileEvent[];
@@ -350,10 +378,14 @@ export interface IndexServiceOptions {
   readonly now?: () => number;
   /** Run `fn` after `ms`; `setTimeout` by default (tests pass their own, to step time). */
   readonly later?: (ms: number, fn: () => void) => void;
-  /** Directories a home-sized root's walk may list (C-10.1); `HOME_WALK_BUDGET` by default (tests pass a small one). */
+  /** Directories a home-sized root's walk may list; `HOME_WALK_BUDGET` by default (tests pass a small one). */
   readonly walkBudget?: number;
   /** Where the one notice of a stopped walk goes; the notices region by default. */
   readonly notify?: (input: { readonly kind: 'refused'; readonly text: string }) => unknown;
+  /** The reader's kind rules and choices, read before the first walk unless `setKinds` came first; none by default. */
+  readonly readerKinds?: () => Promise<ReaderKinds>;
+  /** The paths of the documents on screen, in every pane; a root with one under it is in use. */
+  readonly inUse?: () => readonly string[];
 }
 
 export function createIndexService(shell: IndexServiceShell, opts: IndexServiceOptions = {}): IndexService {
@@ -389,6 +421,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
   let published: readonly IndexEntry[] = [];
   const subscribers = new Set<(entries: readonly IndexEntry[], patch?: IndexPatch) => void>();
   const watchedListeners = new Set<() => void>();
+  const ignoredListeners = new Set<() => void>();
   /** Tree watches by tree root, as `collection/watch.ts` reports them. */
   const treeWatches = new Map<string, TreeWatchState>();
   const statusListeners = new Set<() => void>();
@@ -413,10 +446,13 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
   const revalidatedAt = new Map<string, number>();
   let watchedKey = '';
   const rootCache = new Map<string, Promise<string>>();
+  /** Roots a declaration or the recent list asked for: held until dropped, whatever the panes show. */
+  const pinned = new Set<string>();
   /** `watch` as `collection.toml` declared it, per declared root; a recent root has none. */
   const declaredWatch = new Map<string, boolean>();
   /** The open document's repository root: the last root `ensureFor` held. */
   let currentRoot: string | undefined;
+  let ensureCalls = 0;
   /** The reader's deny globs; undefined until collection.toml is read or `setDeny` sets them. */
   let globalDeny: readonly IgnoreRule[] | undefined;
   let denyRead: Promise<readonly IgnoreRule[]> | undefined;
@@ -433,6 +469,18 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     return denyRead;
   };
 
+  /** The reader's kind rules and choices; undefined until read for the first walk or set by `setKinds`. */
+  let kinds: ReaderKinds | undefined;
+  let kindsRead: Promise<ReaderKinds> | undefined;
+  const readerKinds = (): Promise<ReaderKinds> => {
+    if (kinds !== undefined) return Promise.resolve(kinds);
+    kindsRead ??= (opts.readerKinds?.() ?? Promise.resolve({}))
+      .catch(() => ({}))
+      .then((read) => (kinds ??= read));
+    return kindsRead;
+  };
+  const anyKinds = (k: ReaderKinds): boolean => (k.rules?.length ?? 0) > 0 || Object.keys(k.choices?.kinds ?? {}).length > 0;
+
   const publish = (patch?: IndexPatch) => {
     published = order.flatMap((root) => roots.get(root)?.entries ?? []);
     for (const cb of subscribers) cb(published, patch);
@@ -440,6 +488,24 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
 
   const isWatched = (root: string) => root === currentRoot || declaredWatch.get(root) === true;
   const watchedRoots = () => order.filter((root) => roots.has(root) && isWatched(root));
+  const ignoredFolders = (tree: string): readonly string[] => {
+    const held = order
+      .filter((root) => roots.has(root))
+      .filter((root) => isUnder(root, tree))
+      .map((root) => ({ root, ignored: roots.get(root)?.ignored }));
+    const candidates = new Set<string>();
+    for (const { ignored } of held) for (const dir of ignored ?? []) if (isUnder(dir, tree) && dir !== tree) candidates.add(dir);
+    const usable = [...candidates].filter((dir) =>
+      held.every(({ root, ignored }) => {
+        // A root inside the folder would go blind; a root that is the folder itself likewise.
+        if (isUnder(root, dir)) return false;
+        // A root holding the folder must have left it (or a folder around it) out itself.
+        if (isUnder(dir, root)) return ignored !== undefined && ignored.some((d) => isUnder(dir, d));
+        return true;
+      }),
+    );
+    return usable.filter((dir) => !usable.some((other) => other !== dir && isUnder(dir, other))).sort();
+  };
   /** Tell the watch lifecycle when the watched set changed; cheap enough to call after any change. */
   const watchedChanged = () => {
     const key = watchedRoots().join('\n');
@@ -453,6 +519,8 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
 
   /** Resolves true when the walk published, false when it failed (the root keeps what it had). */
   const walk = async (root: string, state: RootState, openedPath?: string, openedBytes?: Uint8Array): Promise<boolean> => {
+    state.abort?.abort();
+    const abort = (state.abort = new AbortController());
     try {
       const previous: IndexSnapshot | undefined =
         state.snapshot ??
@@ -461,10 +529,12 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
           : undefined);
       const deny = await denyRules();
       const policy = await policyFor(root);
-      const { entries, notice, calls, ignoreRules, stoppedAt, skipped } = await walkRoot(shell, root, openedPath, openedBytes, previous, deny, {
+      const readKinds = await readerKinds();
+      const { entries, notice, calls, ignoreRules, stoppedAt, skipped, ignoredDirs } = await walkRoot(shell, root, openedPath, openedBytes, previous, deny, {
         budget: policy.budget,
         skip: policy.skip,
-      });
+        signal: abort.signal,
+      }, readKinds);
       const unchanged =
         state.snapshot !== undefined &&
         state.snapshot.baselineMs !== undefined &&
@@ -475,6 +545,9 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       if (roots.get(root) !== state) return true;
       state.entries = entries;
       state.rules = ignoreRules;
+      const ignoredBefore = state.ignored?.join('\n');
+      state.ignored = ignoredDirs ?? [];
+      if (ignoredBefore !== state.ignored.join('\n')) for (const cb of ignoredListeners) cb();
       publish();
       if (notice) {
         notify({
@@ -502,6 +575,8 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       state.snapshot = undefined;
       return true;
     } catch (e) {
+      // A walk stopped on purpose (the root is let go, or a newer walk replaced it) is not a failure to report.
+      if (abort.signal.aborted) return true;
       console.warn(`marxy: index walk of ${root} failed: ${String(e)}`);
       return false;
     }
@@ -524,7 +599,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
   };
 
   /**
-   * Every root is keyed by its canonical path (F-37.1): the shell lists and watches canonical paths, so a root kept under a
+   * Every root is keyed by its canonical path: the shell lists and watches canonical paths, so a root kept under a
    * symlink's spelling would index nothing, never match a watch event, and appear twice beside its real path. `spelled`
    * remembers which spelling the reader used, so `dropRoot(link)` still finds the root `ensureRoot(link)` made.
    */
@@ -545,6 +620,8 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
 
   const rootFor = (path: string): Promise<string> => {
     const key = dirname(normalizePath(path));
+    // An archive's entry is held in memory: its folder is no place on disk, and is never named to the shell.
+    if (isArchiveEntry(path)) return Promise.resolve(key);
     let cached = rootCache.get(key);
     if (!cached) {
       cached = detectRoot(shell, path).then(canonical).catch(() => {
@@ -565,18 +642,24 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     const state: RootState = { entries: [], pending: Promise.resolve(), queued: false, events: [], patchQueued: false, lastRead: new Map(), held: new Set() };
     roots.set(root, state);
     state.pending = track((async () => {
+      // A root the index holds is one the reader chose (the open document's repository, a declared or recent folder):
+      // the shell reads in it only once told. What the walk reads is never thereby opened.
+      await shell.markOpened?.(root, 'indexRoot').catch(() => undefined);
       // The last session's index, published before the walk lists anything, less what today's deny
       // globs cover (the reader may have added one while Marxy was closed).
       const file = await snapshotPath(shell, root);
       const snapshot = file ? await readSnapshot(shell, file, root) : undefined;
       const policy = await policyFor(root);
       const deny = snapshot ? await denyRules() : [];
+      const snapshotKinds = snapshot ? await readerKinds() : {};
       state.snapshotOnly = recent && policy.snapshotOnlyWhenRecent;
       state.homeSized = policy.skip.length > 0;
       if (snapshot && roots.get(root) === state) {
         state.snapshot = snapshot;
         state.baselineMs = snapshot.baselineMs;
-        state.entries = allowed(root, snapshot.entries, deny, policy.skip);
+        const kept = allowed(root, snapshot.entries, deny, policy.skip);
+        // A snapshot holds the kinds decided when it was written; the reader's rules may have changed since.
+        state.entries = anyKinds(snapshotKinds) ? withReaderKinds(kept, snapshotKinds) : kept;
         publish();
         await shell.mark('index_loaded', Date.now(), `entries=${state.entries.length} root=${root} source=snapshot`);
       }
@@ -641,7 +724,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
             // Unreadable now: listed by name, as the walk lists it.
           }
         }
-        out.set(path, entryFromCandidate(root, { path, relativePath: rel, mtimeMs: stat.mtimeMs, size: stat.size, bytes }));
+        out.set(path, entryFromCandidate(root, { path, relativePath: rel, mtimeMs: stat.mtimeMs, size: stat.size, bytes }, kinds ?? {}));
       }),
     );
     return out;
@@ -675,7 +758,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       rewalk(root);
       return;
     }
-    // A folder the walk leaves out is left out here too, whoever's watch reported the event (C-10.1).
+    // A folder the walk leaves out is left out here too, whoever's watch reported the event.
     const { skip } = await policyFor(root);
     const plan =
       skip.length === 0
@@ -743,6 +826,43 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     persistSoon(root, state);
   };
 
+  /** Lets go of `root`: its walk stops, its entries leave the published set, and the shell no longer reads it. */
+  const release = (root: string): void => {
+    pinned.delete(root);
+    rootCache.clear();
+    declaredWatch.delete(root);
+    revalidatedAt.delete(root);
+    const state = roots.get(root);
+    state?.abort?.abort();
+    if (roots.delete(root)) {
+      order = order.filter((r) => r !== root);
+      void shell.forgetRoot?.(root).catch(() => undefined);
+      publish();
+    }
+    watchedChanged();
+  };
+
+  /** Releases the roots nothing uses, or only `only` when given. */
+  const sweep = async (only?: string): Promise<void> => {
+    // Without a view of the panes nothing can be called unused.
+    const inUse = opts.inUse;
+    if (!inUse) return;
+    // By the root that holds each document: a path spelled through a link or in another case is still under its root.
+    const seen = new Map<string, string>();
+    const resolve = async (): Promise<void> => {
+      for (const p of inUse().filter((q) => !isArchiveEntry(q))) if (!seen.has(p)) seen.set(p, await rootFor(p));
+    };
+    // Twice: a tab that opened while the first pass awaited is counted too.
+    await resolve();
+    await resolve();
+    const shown = new Set(inUse().flatMap((p) => seen.get(p) ?? []));
+    for (const root of only === undefined ? [...order] : [only]) {
+      if (root === currentRoot || pinned.has(root) || !roots.has(root)) continue;
+      if (shown.has(root)) continue;
+      release(root);
+    }
+  };
+
   const applyEvents = (events: readonly FileEvent[]) => {
     for (const root of order) {
       const state = roots.get(root);
@@ -765,10 +885,18 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
   return {
     rootFor,
     async ensureFor(path, openedBytes) {
+      if (isArchiveEntry(path)) return;
+      const call = ++ensureCalls;
       const root = await rootFor(path);
-      currentRoot = root;
-      const moved = order[0] !== root;
-      order = [root, ...order.filter((r) => r !== root)];
+      // A later open is the document now: a call it overtook still holds its root, but does not take the front.
+      const latest = call === ensureCalls;
+      const left = currentRoot;
+      if (latest) currentRoot = root;
+      const moved = latest && order[0] !== root;
+      if (latest) order = [root, ...order.filter((r) => r !== root)];
+      else if (!order.includes(root)) order = [...order, root];
+      // Only the root the front just left is weighed: a document still opening is not yet in any pane.
+      if (latest && left !== undefined && left !== root) void sweep(left).catch(() => undefined);
       const existing = roots.get(root);
       if (existing) {
         // The reader opened a document here: whatever held it as a recent root, it is walked now.
@@ -786,7 +914,10 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       await state.pending;
     },
     async ensureRoot(spelling, opts) {
+      // Told by the reader's spelling first: the canonical path is asked of the shell, which answers only inside scope.
+      await shell.markOpened?.(spelling, 'indexRoot').catch(() => undefined);
       const root = await canonical(spelling, true);
+      pinned.add(root);
       if (opts?.watch !== undefined) declaredWatch.set(root, opts.watch);
       const existing = roots.get(root);
       if (existing) {
@@ -804,6 +935,14 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       watchedChanged();
       await state.pending;
     },
+    setKinds(next) {
+      kinds = next;
+      for (const root of order) {
+        const state = roots.get(root);
+        if (state) state.entries = withReaderKinds(state.entries, next);
+      }
+      publish();
+    },
     setDeny(rules) {
       const changed = denyKey(rules) !== denyKey(globalDeny ?? []);
       globalDeny = rules;
@@ -817,17 +956,10 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       for (const root of order) rewalk(root);
     },
     dropRoot(spelling) {
-      const root = keyOf(spelling);
+      release(keyOf(spelling));
       spelled.delete(spelling);
-      rootCache.clear();
-      declaredWatch.delete(root);
-      revalidatedAt.delete(root);
-      if (roots.delete(root)) {
-        order = order.filter((r) => r !== root);
-        publish();
-      }
-      watchedChanged();
     },
+    sweep: () => sweep(),
     undeclare(spelling) {
       const root = keyOf(spelling);
       rootCache.clear();
@@ -849,6 +981,13 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     baselineMs: (root) => roots.get(keyOf(root))?.baselineMs,
     isWatched: (root) => isWatched(keyOf(root)),
     watchedRoots,
+    ignoredFolders,
+    onIgnoredChange(cb) {
+      ignoredListeners.add(cb);
+      return () => {
+        ignoredListeners.delete(cb);
+      };
+    },
     onWatchedRootsChange(cb) {
       watchedListeners.add(cb);
       return () => {
@@ -893,7 +1032,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     },
     async homeSized(tree) {
       // Only a root that holds the home folder skips anything; a declared ~/Documents or a volume is
-      // budgeted but watched, as before (C-10.1).
+      // budgeted but watched, as before.
       const policy = await policyFor(tree);
       return policy.skip.length > 0;
     },

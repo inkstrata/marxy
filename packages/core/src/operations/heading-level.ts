@@ -1,4 +1,4 @@
-// Promote and demote headings (E-07): the `#` run of a heading and of every sub-heading in its section moves one level.
+// Promote and demote headings: the `#` run of a heading and of every sub-heading in its section moves one level.
 // Pure string to string. Closing `#` runs, text and every other byte are untouched; setext headings are declined.
 import type { Heading, Node } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';

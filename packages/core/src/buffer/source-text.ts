@@ -1,4 +1,4 @@
-// The Source editor's text for a buffer, which holds every byte of the file (F-34.1, ADR-0069).
+// The Source editor's text for a buffer, which holds every byte of the file.
 //
 // `Buffer.text` is the reading decode: a byte that is not UTF-8 is U+FFFD (WHATWG), so every stray byte reads the
 // same and text equality is not byte equality. The Source text is the same decode except there: each byte of an
@@ -9,8 +9,8 @@
 // through `readableText`, which shows each stray as U+FFFD, the way Rendered and the index read the file.
 
 import type { Source } from '../contracts/ast.ts';
-import type { ByteOffsets } from '../parse/byte-offsets.ts';
-import { byteToUtf16, type Buffer } from './buffer.ts';
+import { byteToUtf16, type ByteOffsets } from '../parse/byte-offsets.ts';
+import type { Buffer } from './buffer.ts';
 
 const encoder = new TextEncoder();
 

@@ -1,4 +1,4 @@
-// The shared test kit for transforms (E-01). Lives in testing/, not beside the operations as the card said, so
+// The shared test kit for transforms. Lives in testing/, not beside the operations as the card said, so
 // the dependency guard that keeps node: imports out of production code treats it as test support. Imported only by tests; never exported from the package
 // index, because it imports node:test and node:assert and core must run in a browser.
 //
@@ -361,7 +361,7 @@ export function corpusProperties(op: Operation, opts: CorpusOptions): CorpusStat
 }
 
 /**
- * Documents with code nested in lists and quotes (F-51): indented and fenced blocks after a container's indent or `> `,
+ * Documents with code nested in lists and quotes: indented and fenced blocks after a container's indent or `> `,
  * each with prose and blank runs around it. LF text; for the property that a prose transform hands code back as it was.
  */
 export function nestedCodeDocuments(): string[] {
@@ -386,7 +386,7 @@ export function nestedCodeDocuments(): string[] {
 }
 
 /**
- * Lines that carry more than one list marker (F-55): `- 1. x`, `* - [ ] x`, a task box inside a numbered item. LF text;
+ * Lines that carry more than one list marker: `- 1. x`, `* - [ ] x`, a task box inside a numbered item. LF text;
  * for the idempotence property, which a transform that strips one marker per line can never claim.
  */
 export function stackedMarkerDocuments(): string[] {
@@ -400,7 +400,7 @@ export function stackedMarkerDocuments(): string[] {
 }
 
 // -------------------------------------------------------------------------------------------------
-// A parse handed in is only a cache (F-60)
+// A parse handed in is only a cache
 
 /** `text` with its last character changed: a string that differs by exactly one character (`x` for the empty text). */
 export function oneCharOff(text: string): string {

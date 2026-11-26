@@ -1,5 +1,5 @@
-// The result sheet (W-21, ADR-0065 item 4, mock-v2 01-workspace "Transform"): Before and After side by side with
-// their character counts, and the actions on the result. Built on demand like the outline (`outline/view.ts`), a
+// The result sheet: Before and After side by side with
+// their character counts, and the actions on the result. Built on demand, a
 // modal dialog on the shared chrome classes, and nothing is in the page until a transform is chosen.
 //
 //   Copy result (Return)       one pasteboard item through `writeCopy`; nothing in the document changes
@@ -9,7 +9,7 @@
 //   Add another step           the same list of transforms, run on the result
 //   Esc                        closes; nothing changed, nothing copied
 //
-// An input of scope `clipboard` (J-06) is the pasteboard's text, read once when the reader ran the command. Its primary
+// An input of scope `clipboard` is the pasteboard's text, read once when the reader ran the command. Its primary
 // action is Write back (Return; one plain-text pasteboard item through `writeCopy`); Apply is not offered, the document
 // is never touched; Open as new document and Add another step stay. Esc writes nothing.
 //
@@ -35,7 +35,7 @@ export interface SheetTarget {
   /** Set when this input cannot take a replacement (bytes that are not UTF-8 in the range): Apply is then not offered, and this says why. */
   readonly applyRefusal?: string;
   /**
-   * Set where `text` is Source text, which holds a byte that is not UTF-8 as a lone surrogate (F-34.1): the text as it
+   * Set where `text` is Source text, which holds a byte that is not UTF-8 as a lone surrogate: the text as it
    * may be shown, copied or opened (each such byte as U+FFFD, `readableText`). Apply writes the raw result, so the
    * bytes are kept; nothing else leaves the sheet in the raw form, and a result that is new text (derive, literal) is
    * made from the readable input, so a conversion never spells a lone surrogate (`\udcff`).
@@ -43,7 +43,7 @@ export interface SheetTarget {
   readonly readable?: (text: string) => string;
   /**
    * The store's parse of the document's text, set only where `text` is the whole document and the store holds a parse
-   * that is exactly this text's (F-60.1; `DocumentStore.textParse`). Handed to the steps, which use it only for a step
+   * that is exactly this text's (`DocumentStore.textParse`). Handed to the steps, which use it only for a step
    * that reads exactly this text. A target made at one version and run after an edit holds that version's pair, whose
    * text no longer matches what a step reads, so the step parses.
    */
@@ -52,6 +52,19 @@ export interface SheetTarget {
   apply(output: string, label: string): Promise<ApplyOutcome>;
   /** Hands focus back to where the reader was. */
   restoreFocus(): void;
+  /** What the input is when it is neither the selection nor the document as such ("the fenced part, lines 20 to 27"). */
+  readonly part?: string;
+}
+
+/** A command of the reader's own as the sheet shows it: run once, when the reader asked, before the sheet opened. */
+export interface SheetCommand {
+  readonly name: string;
+  readonly argv: readonly string[];
+  /** Its output is to read (`wc`): shown alone, with nothing to apply. */
+  readonly prints: boolean;
+  /** Why Apply is not offered for this run (it exited with a status, it printed bytes that are not UTF-8), or null. */
+  readonly refusal: string | null;
+  readonly stderr: string;
 }
 
 /** Characters of each side painted at most; counts, Copy, Open and Apply always use all of it. */
@@ -69,9 +82,14 @@ interface Live {
   picker: { filter: string; selected: number } | null;
   status: string;
   busy: boolean;
+  /** Set when the result is a command's output; its chain then has no steps and no step is added. */
+  readonly command: SheetCommand | null;
 }
 
 let live: Live | null = null;
+
+const appliable = (l: Live): boolean => (l.command ? !l.command.prints && l.command.refusal === null : canApply(l.chain));
+const namesOf = (l: Live): string[] => (l.command ? [l.command.name] : stepNames(l.chain));
 
 export function transformSheetIsOpen(): boolean {
   return live !== null;
@@ -105,19 +123,7 @@ function injectStyles(doc: Document): void {
     #marxy-transform .marxy-transform-title { font-size: 1.15em; font-weight: 600; }
     #marxy-transform .marxy-transform-scope { color: var(--marxy-color-text-secondary); font-weight: 400; }
     #marxy-transform .marxy-transform-counts { margin-inline-start: auto; color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
-    #marxy-transform .marxy-transform-close {
-      flex: none;
-      align-self: center;
-      font: inherit;
-      line-height: 1;
-      color: var(--marxy-color-text-secondary);
-      padding: 0.25rem 0.5rem;
-      background: transparent;
-      border: 0;
-      border-radius: calc(var(--marxy-size-chrome) * 6 / 13);
-      cursor: default;
-    }
-    #marxy-transform .marxy-transform-close:hover { color: var(--marxy-color-text); background: var(--marxy-color-accent-wash); }
+    #marxy-transform .marxy-transform-close { flex: none; align-self: center; }
     #marxy-transform .marxy-transform-steps { margin: 0.35rem 0 0; padding-inline-start: 1.5rem; color: var(--marxy-color-text-secondary); }
     #marxy-transform .marxy-transform-note { margin: 0; padding: 0.25rem 1.25rem; color: var(--marxy-color-text-secondary); }
     #marxy-transform .marxy-transform-body {
@@ -132,6 +138,10 @@ function injectStyles(doc: Document): void {
     #marxy-transform .marxy-transform-side { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding-inline: 0.75rem; }
     #marxy-transform .marxy-transform-side:first-child { padding-inline-start: 0; border-inline-end: 1px solid var(--marxy-color-rule); }
     #marxy-transform .marxy-transform-side:last-child { padding-inline-end: 0; }
+    #marxy-transform .marxy-transform-body.marxy-transform-one { grid-template-columns: 1fr; }
+    #marxy-transform .marxy-transform-one .marxy-transform-side { padding-inline: 0; border-inline-end: 0; }
+    #marxy-transform .marxy-transform-argv { margin-inline-start: 0.5em; font-family: var(--marxy-face-mono); font-size: 0.9em; }
+    #marxy-transform .marxy-transform-stderr { margin: 0.25rem 1.25rem 0; max-height: 6rem; overflow: auto; white-space: pre-wrap; font-family: var(--marxy-face-mono); font-size: 0.9em; color: var(--marxy-color-text-secondary); }
     #marxy-transform .marxy-transform-label { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 0.25rem; }
     #marxy-transform .marxy-transform-label h3 { font-size: 1em; font-weight: 600; }
     #marxy-transform .marxy-transform-count { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
@@ -290,17 +300,29 @@ function paint(l: Live): void {
   const unchanged = after === before;
 
   const clipboard = target.scope === 'clipboard';
-  const editable = !clipboard && canApply(chain) && target.applyRefusal === undefined;
+  const command = l.command;
+  const prints = command?.prints === true;
+  const editable = !clipboard && appliable(l) && target.applyRefusal === undefined;
 
   const head = el('div', 'marxy-transform-head');
-  const title = el('h2', 'marxy-transform-title', 'Transform ');
+  const title = el('h2', 'marxy-transform-title', prints ? 'Run on ' : 'Transform ');
   title.id = 'marxy-transform-title';
-  title.append(el('span', 'marxy-transform-scope', target.scope === 'selection' ? 'the selection' : target.scope === 'clipboard' ? 'the clipboard' : 'the document'));
+  title.append(el('span', 'marxy-transform-scope', target.part ?? (target.scope === 'selection' ? 'the selection' : target.scope === 'clipboard' ? 'the clipboard' : 'the document')));
   const steps = el('ol', 'marxy-transform-steps');
   steps.setAttribute('aria-label', 'Steps');
-  for (const name of stepNames(chain)) steps.append(el('li', undefined, name));
+  if (command) {
+    const li = el('li', undefined, command.name);
+    // Shown as the reader wrote the list: each argument is passed as it is, nothing here is split or quoted for a shell.
+    li.append(el('code', 'marxy-transform-argv', command.argv.join(' ')));
+    steps.append(li);
+  } else for (const name of stepNames(chain)) steps.append(el('li', undefined, name));
   const counts = el('span', 'marxy-transform-counts', `${countLabel(characterCount(before)).replace(/ characters?$/, '')} \u2192 ${countLabel(characterCount(after))}`);
   counts.setAttribute('aria-label', `${countLabel(characterCount(before))} to ${countLabel(characterCount(after))}`);
+  // Emptied rather than hidden: it is what holds the close button at the right.
+  if (prints) {
+    counts.textContent = '';
+    counts.removeAttribute('aria-label');
+  }
   const close = el('button', 'marxy-transform-close', '\u00d7');
   close.type = 'button';
   close.id = 'marxy-transform-close';
@@ -312,7 +334,12 @@ function paint(l: Live): void {
   head.append(headline, steps);
 
   const notes: string[] = [];
-  if (clipboard) {
+  if (command) {
+    if (prints) notes.push('This command prints; it changes nothing. Its output is below.');
+    else if (command.refusal !== null) notes.push(command.refusal);
+    else if (target.applyRefusal !== undefined) notes.push(target.applyRefusal);
+    notes.push('It ran once, when you asked, as the program it names: it can do whatever that program does.');
+  } else if (clipboard) {
     notes.push('Write back replaces the clipboard with the After text as plain text; nothing else on it is kept. Esc writes nothing.');
   } else if (!canApply(chain)) {
     notes.push('This result is new text, not an edit of the input, so it can be copied or opened as a document but not applied.');
@@ -321,11 +348,13 @@ function paint(l: Live): void {
   }
   const caution = markdownCaution(chain, target.markdown);
   if (caution !== null) notes.push(caution);
-  if (unchanged) notes.push('This leaves the text as it is.');
+  if (unchanged && !prints) notes.push('This leaves the text as it is.');
   const note = el('p', 'marxy-transform-note', notes.join(' '));
   note.hidden = notes.length === 0;
+  const stderr = el('pre', 'marxy-transform-stderr', command?.stderr ? `It wrote to stderr:\n${command.stderr}` : '');
+  stderr.hidden = !command?.stderr;
 
-  const side = (name: 'Before' | 'After', text: string): { root: HTMLElement; pre: HTMLElement } => {
+  const side = (name: 'Before' | 'After' | 'Output', text: string): { root: HTMLElement; pre: HTMLElement } => {
     const n = characterCount(text);
     const { shown, cut } = previewOf(readableIn(target, text));
     const root = el('section', 'marxy-transform-side');
@@ -342,8 +371,9 @@ function paint(l: Live): void {
     if (cut) root.append(el('p', 'marxy-transform-clip', `Showing the first ${PREVIEW_LIMIT.toLocaleString('en-US')} characters. Copy, Open and Apply use all of it.`));
     return { root, pre };
   };
-  const body = el('div', 'marxy-transform-body');
-  body.append(side('Before', before).root, side('After', after).root);
+  const body = el('div', prints ? 'marxy-transform-body marxy-transform-one' : 'marxy-transform-body');
+  if (prints) body.append(side('Output', after).root);
+  else body.append(side('Before', before).root, side('After', after).root);
 
   const status = el('p', 'marxy-transform-status', l.status);
   status.setAttribute('role', 'status');
@@ -368,6 +398,8 @@ function paint(l: Live): void {
   more.id = 'marxy-transform-more';
   more.setAttribute('aria-haspopup', 'listbox');
   more.setAttribute('aria-expanded', String(l.picker !== null));
+  // A command's run is not a chain step: the picker's steps would run on its output with no command to name.
+  more.hidden = command !== null;
   actions.append(open, more);
   if (editable) {
     const apply = button('Apply', keyLabel('Mod+Enter', mac), () => void applyResult(l));
@@ -376,13 +408,13 @@ function paint(l: Live): void {
     if (unchanged) apply.setAttribute('aria-disabled', 'true');
     actions.append(apply);
   }
-  const copy = button(clipboard ? 'Write back' : 'Copy result', keyLabel('Enter', mac), () => void copyResult(l), 'marxy-transform-primary');
+  const copy = button(clipboard ? 'Write back' : prints ? 'Copy the output' : 'Copy result', keyLabel('Enter', mac), () => void copyResult(l), 'marxy-transform-primary');
   if (clipboard) copy.title = 'Replace what is on the clipboard with the result, as plain text';
   copy.id = 'marxy-transform-copy';
   actions.append(copy);
 
   dialog.setAttribute('aria-labelledby', 'marxy-transform-title');
-  dialog.replaceChildren(head, note, body, status, picker, actions);
+  dialog.replaceChildren(head, note, stderr, body, status, picker, actions);
 }
 
 function buildPicker(l: Live): HTMLElement {
@@ -503,15 +535,15 @@ async function copyResult(l: Live): Promise<void> {
 }
 
 async function applyResult(l: Live): Promise<void> {
-  if (l.busy || l.target.scope === 'clipboard' || !canApply(l.chain) || l.target.applyRefusal !== undefined) return;
+  if (l.busy || l.target.scope === 'clipboard' || !appliable(l) || l.target.applyRefusal !== undefined) return;
   if (l.result === l.target.text) {
     say(l, 'The result is the text as it is. Nothing to apply.');
     return;
   }
   l.busy = true;
   try {
-    const names = stepNames(l.chain).join(', then ');
-    const outcome = await l.target.apply(l.result, applyLabel(l.chain));
+    const names = namesOf(l).join(', then ');
+    const outcome = await l.target.apply(l.result, l.command ? `command: ${l.command.name}` : applyLabel(l.chain));
     if (live !== l) return;
     if (outcome === 'applied') {
       closeTransformSheet();
@@ -596,11 +628,20 @@ export function closeTransformSheet(opts?: { restoreFocus?: boolean }): void {
 export function openTransformSheet(ctx: AppContext, target: SheetTarget, firstStep: string): boolean {
   const chain = addStep(createChain(target.text, [], target.eol), firstStep);
   if (chain.steps.length === 0) return false;
-  const result = runChain(target, chain);
+  show(ctx, target, chain, runChain(target, chain), null);
+  return true;
+}
+
+/** Opens the sheet on a command's `result`, already run over `target`'s text: before and after, Apply one undo step. */
+export function openCommandSheet(ctx: AppContext, target: SheetTarget, command: SheetCommand, result: string): void {
+  show(ctx, target, createChain(target.text, [], target.eol), result, command);
+}
+
+function show(ctx: AppContext, target: SheetTarget, chain: Chain, result: string, command: SheetCommand | null): void {
   closeTransformSheet({ restoreFocus: false });
   injectStyles(document);
   const dialog = dialogElement();
-  const l: Live = { dialog, ctx, target, chain, result, picker: null, status: '', busy: false };
+  const l: Live = { dialog, ctx, target, chain, result, picker: null, status: '', busy: false, command };
   live = l;
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
@@ -615,10 +656,10 @@ export function openTransformSheet(ctx: AppContext, target: SheetTarget, firstSt
     else closeTransformSheet();
   };
   dialog.onclose = () => {
-    // Closed from outside (the page navigated, the dialog was closed natively): let go of the sheet.
-    if (live === l) closeTransformSheet();
+    // Closed from outside (the page navigated, the dialog was closed natively): let go of the sheet. The close event is
+    // queued, so the one a replaced sheet's close fires arrives here once this sheet is open: that one is not ours.
+    if (live === l && !dialog.open) closeTransformSheet();
   };
   if (!dialog.open) dialog.showModal();
   dialog.querySelector<HTMLButtonElement>('#marxy-transform-copy')?.focus({ preventScroll: true });
-  return true;
 }

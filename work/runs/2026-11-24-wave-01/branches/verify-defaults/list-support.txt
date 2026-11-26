@@ -1,0 +1,10 @@
+﻿verify changed in C:\Dev\reader\worktrees\verify-defaults
+1 files changed against HEAD; unit suites: none; browser files: 30
+  install        pnpm install --offline   (., timeout 600 s)
+  typecheck      pnpm typecheck   (., timeout 900 s)
+  lint           pnpm lint   (., timeout 900 s)
+  check          pnpm check   (., timeout 900 s)
+  golden         pnpm gate:golden   (., timeout 900 s)
+  fidelity       pnpm gate:fidelity   (., timeout 900 s)
+  licences       pnpm gate:licences   (., timeout 900 s)
+  browser        node scripts/browser-tests.mjs --jobs 2 test/app-harness.test.mjs test/archive-page.test.mjs test/close-guard.test.mjs test/code-open.test.mjs test/find-pane.test.mjs test/frame-panel.test.mjs test/frame-tables.test.mjs test/frame-tabs.test.mjs test/frame-viewers.test.mjs test/kinds-rest.test.mjs test/left-frame.test.mjs test/live-reload.test.mjs test/log.test.mjs test/look.test.mjs test/open-path.test.mjs test/paint-signal.test.mjs test/palette.test.mjs test/pane-focus.test.mjs test/release-csp.test.mjs test/save.test.mjs test/selection.test.mjs test/settings.test.mjs test/source-structure.test.mjs test/split-same-file.test.mjs test/store-walk.test.mjs test/transcript.test.mjs test/two-pane-skeleton.test.mjs test/typing.test.mjs test/view-lifecycle.test.mjs test/view-modes.test.mjs   (., timeout 3600 s)

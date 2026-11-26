@@ -1,4 +1,4 @@
-// In-document, relative and external links in Rendered mode (MARXY-240).
+// In-document, relative and external links in Rendered mode.
 
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -7,15 +7,16 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const appRoot = new URL('..', import.meta.url).pathname;
+const appRoot = fileURLToPath(new URL('..', import.meta.url));
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-links-'));
 let server;
 let base;
@@ -72,7 +73,7 @@ async function boot(page, files, argv) {
   await page.waitForFunction(() => document.querySelector('#doc h2#target-section'));
 }
 
-test('hash link scrolls; relative opens; external calls openExternal; back returns; outside the repository is refused; one folder up inside it opens (F-14)', async () => {
+test('hash link scrolls; relative opens; external calls openExternal; back returns; outside the repository is refused; one folder up inside it opens', async () => {
   const root = '/repo/docs';
   const files = {
     [`${root}/index.md`]: Buffer.from(INDEX, 'utf8').toString('base64'),
@@ -93,17 +94,16 @@ test('hash link scrolls; relative opens; external calls openExternal; back retur
 
     await page.locator('#doc a[href="./other.md"]').click();
     await page.waitForFunction(() => window.__marxyTestHandle.currentPath().endsWith('/other.md'));
-    assert.match(await page.textContent('#doc'), /Other doc/);
+    // The path moves when the open commits, before the page flips: the page is waited for on its own.
+    await page.waitForFunction(() => /Other doc/.test(document.querySelector('#doc')?.textContent ?? ''));
 
     const isMac = await page.evaluate(() => navigator.platform.toUpperCase().includes('MAC'));
     await page.keyboard.press(isMac ? 'Meta+[' : 'Control+[');
     await page.waitForFunction(() => window.__marxyTestHandle.currentPath().endsWith('/index.md'));
+    await page.waitForFunction(() => document.querySelector('#doc h2#target-section'));
 
     await page.locator('#doc a[href="https://example.invalid/"]').click();
-    const external = await page.evaluate(() =>
-      window.__marxyTestHandle.shell.calls.filter((c) => c.method === 'openExternal'),
-    );
-    assert.ok(external.length >= 1);
+    await page.waitForFunction(() => window.__marxyTestHandle.shell.calls.some((c) => c.method === 'openExternal'));
 
     await page.locator('#doc a[href="../../elsewhere.md"]').click();
     await page.waitForFunction(() =>
@@ -112,7 +112,7 @@ test('hash link scrolls; relative opens; external calls openExternal; back retur
     );
     assert.match(await page.evaluate(() => window.__marxyTestHandle.currentPath()), /index\.md$/);
 
-    // F-14: ../outside.md leaves the folder but not the repository, so it opens.
+    // ../outside.md leaves the folder but not the repository, so it opens.
     await page.locator('#doc a[href="../outside.md"]').click();
     await page.waitForFunction(() => window.__marxyTestHandle.currentPath() === '/repo/outside.md');
   } finally {
@@ -120,7 +120,7 @@ test('hash link scrolls; relative opens; external calls openExternal; back retur
   }
 });
 
-// F-05: a heading far down a long document is not mounted when the link is followed (the document
+// a heading far down a long document is not mounted when the link is followed (the document
 // mounts progressively); the link must still land it, at the same reading line as a mounted one.
 const BIG = [
   '# Top',
@@ -148,7 +148,7 @@ const landed = (id = 'late-heading') => {
   return top !== undefined && top > 200 && top < 420;
 };
 
-test('F-05: a same-page link to a heading not yet mounted lands it at the reading line', async () => {
+test('a same-page link to a heading not yet mounted lands it at the reading line', async () => {
   const files = { '/d/big.md': Buffer.from(BIG, 'utf8').toString('base64') };
   const browser = await launchWebkit();
   try {
@@ -169,7 +169,7 @@ test('F-05: a same-page link to a heading not yet mounted lands it at the readin
   }
 });
 
-test('F-05: a cross-document link to a late heading lands it at the reading line', async () => {
+test('a cross-document link to a late heading lands it at the reading line', async () => {
   const files = {
     '/d/from.md': Buffer.from(FROM, 'utf8').toString('base64'),
     '/d/big.md': Buffer.from(BIG, 'utf8').toString('base64'),
@@ -205,7 +205,7 @@ async function bootBig(page) {
   }, { files });
 }
 
-test('F-05: a link to a heading halfway down lands before the document has finished mounting', async () => {
+test('a link to a heading halfway down lands before the document has finished mounting', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
@@ -219,7 +219,7 @@ test('F-05: a link to a heading halfway down lands before the document has finis
   }
 });
 
-test('F-05: a landing never pulls the page after the reader has scrolled on', async () => {
+test('a landing never pulls the page after the reader has scrolled on', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
@@ -240,7 +240,7 @@ test('F-05: a landing never pulls the page after the reader has scrolled on', as
   }
 });
 
-test('F-05: a link to an id the document has no heading for does nothing', async () => {
+test('a link to an id the document has no heading for does nothing', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });

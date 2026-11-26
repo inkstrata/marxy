@@ -3,7 +3,7 @@
 // and the paragraph minimises the sum over its lines of (linePenalty + badness)², badness being
 // 100·(shortfall / S)³. The last line is free (parfillskip).
 //
-// Why not justif/core here: justif is a justification engine and has no right-skip. The MARXY-19
+// Why not justif/core here: justif is a justification engine and has no right-skip. The earlier
 // harness approximated one by giving every word space a little stretch, which prices a line's
 // shortfall by how many spaces it has. A line holding a long code span has few spaces, so its
 // shortfall looks expensive, and the breaker shortens the lines around it instead: on
@@ -11,7 +11,7 @@
 // "Rendered"). TeX's trick for a per-line stretch needs negative glue, which justif forbids. This
 // breaker is that trick without the trick: the stretch belongs to the line. Pure; runs in Node.
 //
-// Hyphenation follows TeX (docs/research/reader-typography/05-line-breaking.md, ADR-0033): a first
+// Hyphenation follows TeX: a first
 // pass with no hyphens is kept when every line is within \pretolerance, so text that sets well is
 // never hyphenated; two hyphenated lines in a row cost \doublehyphendemerits and a hyphen that
 // leaves only a fragment on the last line costs \finalhyphendemerits.

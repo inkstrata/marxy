@@ -1,7 +1,7 @@
-// One watch per store, and notices in their own pane (D-10). The file open in two panes is one store and
+// One watch per store, and notices in their own pane. The file open in two panes is one store and
 // one watch; a change on disk reaches every view of it once, at each view's own place; a file in the same
 // folder as another is not re-read for it; a notice about a file is said in the pane that shows it and in
-// no other. And the problems the D-08 and D-11 reviews recorded for this story: after an outside write a
+// no other. And these problems: after an outside write a
 // save writes over it with no conflict, a rename on disk splits the panes onto two stores at one path, a
 // split Source pane's mount covers its own notices.
 // Booted on the shipped skeleton over the memory shell with the Tauri stale-write guard emulated
@@ -33,10 +33,11 @@ test('the same file in two panes is watched once; closing one pane leaves the wa
     await page.evaluate(() => window.__marxyHandle.panes().openIn('other', '/r/B.md'));
     await page.evaluate(() => window.__marxyHandle.panes().close(window.__marxyHandle.panes().panes[0]));
     assert.deepEqual(await paths(page), ['/r/B.md']);
-    assert.equal(await liveWatches(page), 1, 'one store left, one watch');
+    // A moved off the left pane clean: it stays open, with its watch, for the tab (a closed tab's store is `stores.retain`'s).
+    assert.equal(await liveWatches(page), 2, 'B shown, A warm: a watch each');
     await page.evaluate(() => window.__marxyHandle.open('/r/C.md'));
     await page.waitForFunction(() => window.__marxyHandle.currentPath() === '/r/C.md');
-    assert.equal(await liveWatches(page), 1, 'the last pane opened another document: the old store and its watch went, the new one is watched');
+    assert.equal(await liveWatches(page), 3, 'C is watched, and A and B left behind stay watched while warm');
   });
 });
 
@@ -119,7 +120,7 @@ test('the same notice in two panes is one line each, and again in one pane repla
   });
 });
 
-// ---- the problems the D-08 and D-11 reviews recorded for this story ----------------------------------
+// ---- these problems ----------------------------------------------------------------------------
 
 test('recorded P4: after an outside write, a save from the other pane does not write over it', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
@@ -258,7 +259,7 @@ test('recorded: unsaved is read across every pane of the document: a save from t
   });
 });
 
-// ---- F-47: a file another program deletes and writes again ---------------------------------------------------
+// ---- a file another program deletes and writes again ---------------------------------------------------
 // The panes walk (seed 90) reached a clean buffer whose file was deleted and written again by another program. A clean
 // buffer adopts the new bytes, as it does for an overwrite in place; a buffer with unsaved edits keeps them and holds the
 // change for a choice. These pin both, through the real watch.
@@ -272,7 +273,7 @@ const gone = (page, path) =>
     window.__marxyHandle.shell.emit([{ kind: 'removed', path: p }]);
   }, path);
 
-test('F-47: unsaved edits survive the file being deleted and written again, and the change is held, not taken', async () => {
+test('unsaved edits survive the file being deleted and written again, and the change is held, not taken', async () => {
   await withPanes(['/r/A.md'], async (page, mod) => {
     await toSource(page, 0);
     await typeAtLineEnd(page, 0, 1, 'Qz');
@@ -291,7 +292,7 @@ test('F-47: unsaved edits survive the file being deleted and written again, and 
   });
 });
 
-test('F-47: a clean buffer adopts the file written again after a delete, as it adopts an overwrite', async () => {
+test('a clean buffer adopts the file written again after a delete, as it adopts an overwrite', async () => {
   await withPanes(['/r/A.md'], async (page, mod) => {
     await toSource(page, 0);
     await typeAtLineEnd(page, 0, 1, 'Qz');

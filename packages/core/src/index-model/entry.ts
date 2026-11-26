@@ -1,10 +1,12 @@
-// Turns a walked file into an IndexEntry. Title is the first h1, or the filename (ADR-0012).
+// Turns a walked file into an IndexEntry. Title is the first h1, or the filename.
 
 import type { IndexEntry } from '../contracts/index-entry.ts';
 import { detectKind } from '../kind/detect.ts';
 import type { KindRule } from '../kind/detect.ts';
+import { detectFileKind, type KindsEnvelope } from '../kind/show-as.ts';
 import { classify } from './kinds.ts';
 import { basename } from './paths.ts';
+import { trimEndOf, withoutClosingHashes } from '../util/text.ts';
 
 export interface IndexCandidate {
   readonly path: string;
@@ -22,13 +24,37 @@ export interface IndexHeading {
   readonly byteOffset: number;
 }
 
+/** What the reader decided about kinds: the `[[kind]]` rules of config.toml and the Show as choices of kinds.json. */
+export interface ReaderKinds {
+  readonly rules?: readonly KindRule[];
+  readonly choices?: KindsEnvelope;
+}
+
+/**
+ * The kind Open would give `path` before it reads a byte (tiers 1 to 3): Show as beats a rule, a rule beats the
+ * name. An empty head runs no shape tier, so the walk reads nothing more.
+ */
+export function readerKindOf(path: string, kinds: ReaderKinds = {}): IndexEntry['readerKind'] {
+  const head = new Uint8Array();
+  const chosen = kinds.choices !== undefined && Object.keys(kinds.choices.kinds).length > 0;
+  if (!chosen && (kinds.rules ?? []).length === 0) return detectKind({ path, head }).kind;
+  return detectFileKind({ path, head, rules: kinds.rules ?? [], ...(kinds.choices ? { choices: kinds.choices } : {}) }).kind;
+}
+
+/** `entries` with each reader kind decided again under `kinds` (a rule or a Show as changed); unchanged entries are kept. */
+export function withReaderKinds<E extends IndexEntry>(entries: readonly E[], kinds: ReaderKinds): E[] {
+  return entries.map((entry) => {
+    const readerKind = readerKindOf(entry.path, kinds);
+    return readerKind === entry.readerKind ? entry : { ...entry, readerKind };
+  });
+}
+
 /** Build an entry. Headings are filled only when `bytes` are provided — the 20k walk stays metadata. */
-export function entryFromCandidate(root: string, candidate: IndexCandidate, rules: readonly KindRule[] = []): IndexEntry {
-  const kind = classify(candidate.relativePath) ?? classify(candidate.path) ?? 'text';
+export function entryFromCandidate(root: string, candidate: IndexCandidate, kinds: ReaderKinds = {}): IndexEntry {
+  // The absolute path first: content detection records corrections by it.
+  const kind = classify(candidate.path) ?? classify(candidate.relativePath) ?? 'text';
   const name = basename(candidate.path);
-  // ADR-0060 tiers 1 to 3 from the path alone: an empty `head` runs no shape tier, so the walk reads nothing more.
-  // Seam for K-04: the reader's `[[kind]]` rules arrive through `rules` (none today).
-  const readerKind = detectKind({ path: candidate.path, head: new Uint8Array(), rules }).kind;
+  const readerKind = readerKindOf(candidate.path, kinds);
   const headings = candidate.bytes ? headingsFromMarkdown(candidate.bytes) : [];
   const h1 = headings.find((heading) => heading.level === 1);
   return {
@@ -106,7 +132,7 @@ export function headingsFromMarkdown(bytes: Uint8Array): IndexHeading[] {
       const match = /^( {0,3})(#{1,6})(?:[ \t]+(.*))?$/.exec(line);
       if (match) {
         // The closing `#` run counts only when a space or tab precedes it (or it is the whole content).
-        const text = (match[3] ?? '').replace(/[ \t]+$/, '').replace(/(?:^|[ \t]+)#+$/, '').trim();
+        const text = withoutClosingHashes(trimEndOf(match[3] ?? '', ' \t'), true).trim();
         if (text !== '') headings.push({ level: match[2]!.length, text, byteOffset: start + match[1]!.length });
       }
       paragraph = match === null && endsInParagraph(line, paragraph, paragraphInContainer);

@@ -1,4 +1,4 @@
-// J-04: the Copy as targets. The list is whatever the transform registry can run; each target's bytes are checked.
+// the Copy as targets. The list is whatever the transform registry can run; each target's bytes are checked.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createBuffer, textOf } from '../buffer/buffer.ts';
@@ -18,7 +18,7 @@ function wholeDocument(source: string): OperationInput {
 
 const byId = (targets = COPY_TARGETS) => new Map(targets.map((t) => [t.id, t]));
 
-test('the targets are the eight the registry can run, in menu order (Slack and Jira since J-03.1)', () => {
+test('the targets are the eight the registry can run, in menu order (Slack and Jira included)', () => {
   assert.deepEqual(COPY_TARGETS.map((t) => t.id), ['markdown', 'plain', 'rich', 'html', 'slack', 'jira', 'json-string', 'quote']);
   assert.deepEqual(Object.keys(NOT_YET), []);
 });

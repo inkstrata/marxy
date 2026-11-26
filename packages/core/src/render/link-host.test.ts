@@ -1,4 +1,4 @@
-// Host mismatch labels on links (handbook ch.7, MARXY-236).
+// Host mismatch labels on links (handbook ch.7).
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -70,7 +70,7 @@ test('non-web destinations get no label, class or empty title', () => {
   assert.ok(!html.includes('title='));
 });
 
-test('an address-shaped link text to its own host is not a mismatch (MARXY-337)', () => {
+test('an address-shaped link text to its own host is not a mismatch', () => {
   assert.equal(linkHostMismatchLabel('user@example.com', 'https://example.com'), null);
   assert.notEqual(linkHostMismatchLabel('paypal.com@evil.com', 'https://evil.com'), null);
   assert.notEqual(linkHostMismatchLabel('https://paypal.com@evil.com', 'https://evil.com'), null);

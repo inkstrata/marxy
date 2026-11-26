@@ -1,4 +1,4 @@
-// The Rust watcher is the privileged implementation (ADR-0010). These cases compile that
+// The Rust watcher is the privileged implementation. These cases compile that
 // exact file with rustc --test so a copy cannot drift past a red run.
 
 import { strict as assert } from 'node:assert';
@@ -27,7 +27,8 @@ test('the shipped Rust watcher covers in-place, atomic rename, delete and move',
   try {
     const crate = join(dir, 'watch.rs');
     writeFileSync(crate, source);
-    const binary = join(dir, 'watch-tests');
+    // Windows starts a program only by its .exe name.
+    const binary = join(dir, process.platform === 'win32' ? 'watch-tests.exe' : 'watch-tests');
     const built = spawnSync('rustc', ['--edition', '2021', '--test', '-o', binary, crate], {
       encoding: 'utf8',
     });

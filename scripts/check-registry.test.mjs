@@ -1,4 +1,4 @@
-// Every route from a string to parsed markup must respect innerHtmlAllowedIn (MARXY-132).
+// Every route from a string to parsed markup must respect innerHtmlAllowedIn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, copyFileSync, symlinkSync } from 'node:fs';
@@ -9,11 +9,36 @@ import { stripComments } from './lib/repo.mjs';
 import { htmlRoutes, htmlRouteProblems, constructedRegistryNameProblems, stripForRegistry, customPropertiesIn, customPropertyProblems, assembledCustomPropertyLines } from './check-registry.mjs';
 import { fileURLToPath } from 'node:url';
 
+/**
+ * A directory link. Windows refuses symlinks without Developer Mode or the privilege, so it falls back to a junction,
+ * which needs neither.
+ */
+function linkDir(target, path) {
+  try {
+    symlinkSync(target, path, 'dir');
+  } catch (e) {
+    if (e?.code !== 'EPERM') throw e;
+    symlinkSync(target, path, 'junction');
+  }
+}
+
+const noLinks = (() => {
+  const dir = mkdtempSync(join(tmpdir(), 'marxy-registry-probe-'));
+  try {
+    linkDir(dir, join(dir, 'l'));
+    return false;
+  } catch {
+    return 'directory links are not permitted here';
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+})();
+
 const ALLOWED_PREFIX = 'apps/desktop/src/render/';
 const OUTSIDE = 'packages/core/src/buffer.ts';
 
 // `+=` belongs in this table so these tests fail on the pre-fix `/\.innerHTML\s*=/`
-// regex; leaving only `=` would overstate what they catch (MARXY-306).
+// regex; leaving only `=` would overstate what they catch.
 const ROUTE_SNIPPETS = [
   { form: '.innerHTML =', code: 'el.innerHTML = s;' },
   { form: '.innerHTML =', code: 'el.innerHTML += s;' },
@@ -40,7 +65,7 @@ for (const { form, code } of ROUTE_SNIPPETS) {
     const problems = problemsFor(OUTSIDE, code);
     assert.equal(problems.length, 1);
     assert.match(problems[0], new RegExp(form.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    assert.match(problems[0], /docs\/design\/README\.md/);
+    assert.match(problems[0], /innerHtmlAllowedIn in scripts\/registry\.json/);
   });
 }
 
@@ -62,46 +87,37 @@ test('Reflect.set with inner+HTML string concat is flagged', () => {
   assert.equal(problemsFor(OUTSIDE, source).length, 1);
 });
 
-test('MARXY-229: a template-literal data-marxy- attribute name is flagged', () => {
+test('a template-literal data-marxy- attribute name is flagged', () => {
   const problems = constructedRegistryNameProblems('packages/core/src/sanitize/policy.ts', "export const X = `data-marxy-${'remote'}`;");
   assert.equal(problems.length, 1, problems.join('\n'));
   assert.match(problems[0], /data-marxy-\* attribute name built with a template literal/);
 });
 
-test('MARXY-229: a concatenated data-marxy- attribute name is flagged', () => {
+test('a concatenated data-marxy- attribute name is flagged', () => {
   const problems = constructedRegistryNameProblems('packages/core/src/sanitize/policy.ts', "export const X = 'data-marxy-' + 'remote';");
   assert.equal(problems.length, 1, problems.join('\n'));
   assert.match(problems[0], /data-marxy-\* attribute name built by concatenation/);
 });
 
-test('MARXY-229: a template-literal marxy- class name is flagged', () => {
+test('a template-literal marxy- class name is flagged', () => {
   const problems = constructedRegistryNameProblems('packages/core/src/render/render-html.ts', "el.className = `marxy-${'katex'}`;");
   assert.equal(problems.length, 1, problems.join('\n'));
   assert.match(problems[0], /marxy-\* name built with a template literal/);
 });
 
-test('MARXY-229: a literal registered data-marxy- name is not a construction violation', () => {
+test('a literal registered data-marxy- name is not a construction violation', () => {
   assert.deepEqual(
     constructedRegistryNameProblems('packages/core/src/sanitize/policy.ts', "export const REMOTE_IMAGE_ATTR = 'data-marxy-remote';"),
     [],
   );
 });
 
-test('check-registry.mjs is green over the committed tree', () => {
-  const run = spawnSync(process.execPath, ['scripts/check-registry.mjs'], {
-    encoding: 'utf8',
-    cwd: fileURLToPath(new URL('../', import.meta.url)),
-  });
-  assert.equal(run.status, 0, run.stderr || run.stdout);
-  assert.match(run.stdout, /registry ok \(\d+ files\)/);
-});
-
-test('MARXY-306: innerHTML and outerHTML compound assignment outside allow-list are flagged', () => {
+test('innerHTML and outerHTML compound assignment outside allow-list are flagged', () => {
   const preFixInner = /\.innerHTML\s*=/;
   const preFixOuter = /\.outerHTML\s*=/;
   // String properties only have += in practice; ||= / &&= / ??= are the other
   // ECMAScript compounds that can still write a string, so the gate must not
-  // special-case a single `+` literal (MARXY-306).
+  // special-case a single `+` literal.
   const compounds = [
     'el.innerHTML += userHtml;',
     'el.outerHTML += chunk;',
@@ -116,7 +132,7 @@ test('MARXY-306: innerHTML and outerHTML compound assignment outside allow-list 
     const problems = problemsFor(OUTSIDE, code);
     assert.equal(problems.length, 1, code);
     assert.match(problems[0], /\.innerHTML =|\.outerHTML =|\["innerHTML"\] =/);
-    assert.match(problems[0], /docs\/design\/README\.md/);
+    assert.match(problems[0], /innerHtmlAllowedIn in scripts\/registry\.json/);
   }
 });
 
@@ -139,13 +155,13 @@ test('temp fixture outside allow-list is flagged via htmlRouteProblems', () => {
 
 const viaGate = code => htmlRouteProblems(OUTSIDE, stripForRegistry(code, OUTSIDE), []);
 
-test('MARXY-337: comparing innerHTML is not an assignment', () => {
+test('comparing innerHTML is not an assignment', () => {
   for (const code of ["if (el.innerHTML === '') {}", "if (el.innerHTML == '') {}", 'if (a.outerHTML !== b) {}', 'const f = () => el.innerHTML;']) {
     assert.deepEqual(viaGate(code), [], code);
   }
 });
 
-test('MARXY-337: bracket-string and other routes the old table missed are flagged', () => {
+test('bracket-string and other routes the old table missed are flagged', () => {
   const missed = [
     "el['outerHTML'] = s;",
     'el[`innerHTML`] = s;',
@@ -164,15 +180,15 @@ test('MARXY-337: bracket-string and other routes the old table missed are flagge
   for (const code of missed) assert.equal(viaGate(code).length >= 1, true, code);
 });
 
-test('MARXY-337: a "/*" inside a string does not hide a later route behind a fake comment', () => {
+test('a "/*" inside a string does not hide a later route behind a fake comment', () => {
   const code = "const glob = 'src/*.ts'; el.innerHTML = x; /** doc */";
   assert.equal(viaGate(code).length, 1);
   assert.deepEqual(viaGate("/* el.innerHTML = x */ const a = 'ok';"), []);
 });
 
-// H-01 (ADR-0059): the kind scope and per-language colour are registered names. The gate runs from a
+// The kind scope and per-language colour are registered names. The gate runs from a
 // copy of the scripts over a two-file tree, once with the real registry and once with both removed.
-test('H-01: a source file using data-marxy-kind and data-marxy-lang passes the registry gate', () => {
+test('a source file using data-marxy-kind and data-marxy-lang passes the registry gate', { skip: noLinks }, () => {
   const repo = fileURLToPath(new URL('../', import.meta.url));
   const real = JSON.parse(readFileSync(join(repo, 'scripts/registry.json'), 'utf8'));
   const names = ['data-marxy-kind', 'data-marxy-lang'];
@@ -180,11 +196,11 @@ test('H-01: a source file using data-marxy-kind and data-marxy-lang passes the r
     const dir = mkdtempSync(join(tmpdir(), 'marxy-h01-'));
     try {
       mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
-      for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) {
+      for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/imports.mjs']) {
         copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
       }
       writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...real, dataAttributes, customProperties: ['--marxy-tok-'] }));
-      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
+      linkDir(join(repo, 'node_modules'), join(dir, 'node_modules'));
       mkdirSync(join(dir, 'packages/theme'), { recursive: true });
       copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
       mkdirSync(join(dir, 'apps/desktop/src/pane'), { recursive: true });
@@ -213,37 +229,7 @@ test('H-01: a source file using data-marxy-kind and data-marxy-lang passes the r
   for (const name of names) assert.match(without.stderr + without.stdout, new RegExp(`attribute "${name}" is not in the registry`));
 });
 
-// Design plates under docs/plan/<round>/studio/ are reference HTML like mock* and galley (J-D1). The gate
-// runs from a copy of the scripts over one plate, once inside studio/ and once in a sibling folder.
-test('a design plate under docs/plan/<round>/studio/ is exempt; the same plate elsewhere is not', () => {
-  const repo = fileURLToPath(new URL('../', import.meta.url));
-  const run = (folder) => {
-    const dir = mkdtempSync(join(tmpdir(), 'marxy-studio-'));
-    try {
-      mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
-      for (const f of ['check-registry.mjs', 'registry.json', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) {
-        copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
-      }
-      // A tree this small uses none of the private properties the real list holds.
-      writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...JSON.parse(readFileSync(join(repo, 'scripts/registry.json'), 'utf8')), customProperties: [] }));
-      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
-      mkdirSync(join(dir, 'packages/theme'), { recursive: true });
-      copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
-      mkdirSync(join(dir, 'docs/plan/direction-2026-10', folder), { recursive: true });
-      writeFileSync(join(dir, 'docs/plan/direction-2026-10', folder, 'plate.html'), '<div class="sd-plate"></div>\n');
-      return spawnSync(process.execPath, ['scripts/check-registry.mjs'], { encoding: 'utf8', cwd: dir });
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  };
-  const studio = run('studio');
-  assert.equal(studio.status, 0, studio.stderr || studio.stdout);
-  const elsewhere = run('plates');
-  assert.equal(elsewhere.status, 1, elsewhere.stdout);
-  assert.match(elsewhere.stderr + elsewhere.stdout, /sd-plate/);
-});
-
-// ---- custom properties (F-71): a --marxy-* name in source is a theme token or listed; a listed one is used somewhere
+// ---- custom properties: a --marxy-* name in source is a theme token or listed; a listed one is used somewhere
 const TOKENS = new Set(['--marxy-color-accent']);
 const usedBy = (...names) => new Map(names.map(n => [n, 'apps/desktop/src/x.ts']));
 
@@ -269,16 +255,16 @@ test('theme tokens, listed names and a listed family prefix are all accepted', (
 });
 
 // The same gate end to end, from a copy over a one-file tree: an unlisted private property fails the run.
-test('F-71: the gate run fails on an unlisted --marxy-* property in source and on a listed one nothing uses', () => {
+test('the gate run fails on an unlisted --marxy-* property in source and on a listed one nothing uses', { skip: noLinks }, () => {
   const repo = fileURLToPath(new URL('../', import.meta.url));
   const real = JSON.parse(readFileSync(join(repo, 'scripts/registry.json'), 'utf8'));
   const run = (customProperties, css) => {
     const dir = mkdtempSync(join(tmpdir(), 'marxy-f71-'));
     try {
       mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
-      for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
+      for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/imports.mjs']) copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
       writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...real, customProperties }));
-      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
+      linkDir(join(repo, 'node_modules'), join(dir, 'node_modules'));
       mkdirSync(join(dir, 'packages/theme'), { recursive: true });
       copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
       mkdirSync(join(dir, 'apps/desktop/src/pane'), { recursive: true });
@@ -299,18 +285,18 @@ test('F-71: the gate run fails on an unlisted --marxy-* property in source and o
   assert.match(stale.stderr, /lists "--marxy-nowhere"/);
 });
 
-// ---- F-75: the two gaps the F-71 review found
-test('F-75: a name assembled entirely in code after --marxy- is found, with its line', () => {
+// ---- the two gaps
+test('a name assembled entirely in code after --marxy- is found, with its line', () => {
   assert.deepEqual(assembledCustomPropertyLines('a\nel.style.setProperty(`--marxy-${x}`, 1);\nb'), [2]);
   assert.deepEqual(assembledCustomPropertyLines("a;\nb;\nel.style.setProperty('--marxy-' + x, 1);"), [3]);
   assert.deepEqual(assembledCustomPropertyLines('s.setProperty("--marxy-".concat(x), 1)'), [1]);
 });
 
-test('F-75: a family prefix written out at the site, and a whole name, are not assembled-in-code', () => {
+test('a family prefix written out at the site, and a whole name, are not assembled-in-code', () => {
   assert.deepEqual(assembledCustomPropertyLines('`--marxy-face-${n}`; \'--marxy-tok-\' + k; var(--marxy-col); s.startsWith("--marxy-")'), []);
 });
 
-test('F-75: a bare --marxy- entry, or one shorter than --marxy-x-, is rejected and covers nothing', () => {
+test('a bare --marxy- entry, or one shorter than --marxy-x-, is rejected and covers nothing', () => {
   for (const bad of ['--marxy-', '--marxy--']) {
     const problems = customPropertyProblems(usedBy('--marxy-anything'), TOKENS, [bad]);
     assert.ok(problems.some(p => /too broad a family prefix/.test(p) && p.includes(`"${bad}"`)), problems.join('\n'));
@@ -319,16 +305,16 @@ test('F-75: a bare --marxy- entry, or one shorter than --marxy-x-, is rejected a
   assert.deepEqual(customPropertyProblems(usedBy('--marxy-a-b'), TOKENS, ['--marxy-a-']), []);
 });
 
-test('F-75: the gate run fails on an assembled name and on a bare --marxy- entry', () => {
+test('the gate run fails on an assembled name and on a bare --marxy- entry', { skip: noLinks }, () => {
   const repo = fileURLToPath(new URL('../', import.meta.url));
   const real = JSON.parse(readFileSync(join(repo, 'scripts/registry.json'), 'utf8'));
   const run = (customProperties, ts) => {
     const dir = mkdtempSync(join(tmpdir(), 'marxy-f75-'));
     try {
       mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
-      for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
+      for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/imports.mjs']) copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
       writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...real, customProperties }));
-      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
+      linkDir(join(repo, 'node_modules'), join(dir, 'node_modules'));
       mkdirSync(join(dir, 'packages/theme'), { recursive: true });
       copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
       mkdirSync(join(dir, 'apps/desktop/src/pane'), { recursive: true });

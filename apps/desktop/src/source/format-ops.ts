@@ -1,4 +1,4 @@
-// Formatting commands and inserts for Markdown in Source (V-08): wrap the selection or the word at the caret in bold,
+// Formatting commands and inserts for Markdown in Source: wrap the selection or the word at the caret in bold,
 // italic, inline code, strikethrough or a link, and put a table, a fenced block, a rule, a details block or a footnote
 // at the caret. Pure over the editor's text: a function takes the text, the selection and the file's line break and
 // returns the splices to make (or why it will not). It reads nothing but those, so the bytes it asks to change are the
@@ -8,7 +8,7 @@
 // Offsets are CodeMirror positions in the editor's text, in which a line break of any kind is one character; `text`
 // joins lines with "\n" (`doc.toString()`), and `eol` is only what an insert writes where it starts a new line.
 //
-// Nothing here imports CodeMirror, so the command table can name it without the editor's code (MARXY-33); the glue that
+// Nothing here imports CodeMirror, so the command table can name it without the editor's code; the glue that
 // dispatches an outcome (`runFormat`) loads CodeMirror when it runs.
 
 import { formatsPath } from './formats-path.ts';
@@ -106,14 +106,14 @@ export function inlineCodeSpans(text: string): readonly { readonly from: number;
   return spans;
 }
 
-/** Whether `[from, to]` touches a fenced block or the front matter: inside it, on a fence line, or across one. */
+/** Whether `[from]` touches a fenced block or the front matter: inside it, on a fence line, or across one. */
 function touchesFence(text: string, from: number, to: number): boolean {
   const fm = frontMatterEnd(text);
   if (fm !== null && from <= fm) return true;
   return fenceSpans(text).some((s) => from <= s.to && to >= s.from);
 }
 
-/** The inline code span that `[from, to]` lies in or overlaps, or null. */
+/** The inline code span that `[from]` lies in or overlaps, or null. */
 function codeSpanAt(text: string, from: number, to: number): { from: number; to: number } | null {
   for (const s of inlineCodeSpans(text)) {
     if (from === to ? from > s.from && from < s.to : from < s.to && to > s.from) return s;
@@ -122,7 +122,7 @@ function codeSpanAt(text: string, from: number, to: number): { from: number; to:
 }
 
 /**
- * How `[from, to]` meets inline code: not at all (or it holds whole spans, which is fine to wrap), inside one span, or
+ * How `[from]` meets inline code: not at all (or it holds whole spans, which is fine to wrap), inside one span, or
  * cutting across the edge of one, where `span` is the first such span.
  */
 function codeMeeting(text: string, from: number, to: number, kind: WrapKind): { how: 'inside' | 'cuts'; span: { from: number; to: number } } | null {
@@ -169,7 +169,7 @@ function markOn(kind: keyof typeof MARKS, n: number): boolean {
 
 const BLOCK_START = /^[ \t]*([-*+][ \t]|\d+[.)][ \t]|>|#{1,6}[ \t])/;
 
-/** A link `[text](url)` on one line that holds `[from, to]`, or null. */
+/** A link `[text](url)` on one line that holds `[from]`, or null. */
 function linkAround(text: string, from: number, to: number): { from: number; to: number; label: string } | null {
   const lineFrom = text.lastIndexOf('\n', from - 1) + 1;
   const nl = text.indexOf('\n', from);
@@ -277,7 +277,7 @@ function wrapCode(body: string, from: number, to: number): FormatOutcome {
 /** Whether a `_` run spanning `[a, b)` is a delimiter: `snake_case` has no emphasis, so a word character beside it is not one. */
 const wordChar = (ch: string | undefined): boolean => ch !== undefined && /[\p{L}\p{N}]/u.test(ch);
 
-/** Takes `mark` off the text `[from, to]`, whether the selection holds the markers or they sit just outside it; null when they are not there. */
+/** Takes `mark` off the text `[from]`, whether the selection holds the markers or they sit just outside it; null when they are not there. */
 function unwrapMarks(text: string, from: number, to: number, kind: Exclude<WrapKind, 'link'>, mark: string): FormatOutcome | null {
   const c = mark[0]!;
   const len = mark.length;
@@ -438,7 +438,7 @@ function insertFootnote(text: string, caret: number, eol: string): FormatOutcome
   };
 }
 
-/** The refusal for a declined command, in the X-21 template: what happened, what is unchanged, what to do (rulings, question 10). */
+/** The refusal for a declined command, in the notice template: what happened, what is unchanged, what to do. */
 export function formatRefusalText(op: FormatOp, why: Decline): string {
   if (why === 'cuts') return 'Not formatted · the text is unchanged · the selection cuts across code';
   if (why === 'code') return `${'wrap' in op ? 'Not formatted' : 'Not inserted'} · the text is unchanged · it's inside code`;

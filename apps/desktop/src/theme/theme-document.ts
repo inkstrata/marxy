@@ -1,7 +1,8 @@
-// Notice and config write when a theme file is opened as a document (docs/design/05-theme.md §App side). MARXY-177.
+// Notice and config write when a theme file is opened as a document.
 import { basename, dirname, joinPath } from '@marxy/core/src/index-model/paths.ts';
 import { setTopLevelKey } from '@marxy/theme';
 import { ensureNoticesRegion, noticeLine, placeNotice, removeNotice } from '../notices/index.ts';
+import { editConfig } from './reader-config.ts';
 import { startUserTheme, type UserThemeContext, type UserThemeShell } from './user-theme.ts';
 
 function isThemeFileName(path: string): boolean {
@@ -62,17 +63,8 @@ export function tomlBasicString(value: string): string {
 }
 
 export async function writeThemeToConfig(shell: UserThemeShell, dir: string): Promise<void> {
-  if (shell.configPaths === undefined) return;
-  const { config } = await shell.configPaths();
-  let bytes: Uint8Array;
-  try {
-    bytes = await shell.readFile(config);
-  } catch {
-    bytes = new Uint8Array();
-  }
   const quoted = tomlBasicString(dir);
-  const next = setTopLevelKey(bytes, 'theme', quoted);
-  await shell.writeFileAtomic(config, next);
+  await editConfig(shell, (bytes) => setTopLevelKey(bytes, 'theme', quoted), {});
 }
 
 export async function adoptThemeDirectory(

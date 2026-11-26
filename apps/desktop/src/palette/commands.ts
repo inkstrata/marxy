@@ -1,9 +1,9 @@
 // What the palette's `>` mode lists, how a chord is spelled, and which command a key press runs.
-// Pure: no DOM, so Node tests cover it (A-12).
+// Pure: no DOM, so Node tests cover it.
 import type { AppContext, Command } from '../commands/registry.ts';
 import { fuzzyScore } from './search.ts';
 
-/** The palette's command groups (U-04), in the order the `>` list shows them (mock-v2 `04-palette.md`). */
+/** The palette's command groups, in the order the `>` list shows them. */
 export const PALETTE_GROUPS = ['Navigate', 'File', 'View', 'Copy', 'Source', 'Extract', 'Transform'] as const;
 export type PaletteGroup = (typeof PALETTE_GROUPS)[number];
 
@@ -19,29 +19,32 @@ export function paletteGroupOf(cmd: Pick<Command, 'id'>): PaletteGroup {
   const id = cmd.id;
   if (id.startsWith('transform.') || id.startsWith('outline.move-section-')) return 'Transform';
   if (id.startsWith('op.extract-')) return 'Extract';
-  if (id.startsWith('op.copy-') || id.startsWith('selection.copy-') || id.startsWith('copy-as.') || id.startsWith('paste.') || id === 'source.paste-plain' || id === 'source.table-copy-csv') return 'Copy';
+  if (id.startsWith('op.copy-') || id.startsWith('selection.copy-') || id.startsWith('cursor.copy') || id.startsWith('copy-as.') || id.startsWith('paste.') || id === 'source.paste-plain' || id === 'source.table-copy-csv') return 'Copy';
+  if (id === 'cursor.tick') return 'Transform';
+  if (id === 'cursor.edit' || id === 'cursor.source') return 'Source';
+  if (id.startsWith('cursor.')) return 'Navigate';
   if (id.startsWith('op.')) return TRANSFORM_OPS.has(id.slice(3)) ? 'Transform' : 'View';
   if (id.startsWith('source.') || id === 'edit.block' || id === 'view.jump-to-source' || id === 'view.toggle-line-numbers') return 'Source';
-  if (id.startsWith('nav.') || id.startsWith('tab.') || id.startsWith('selection.') || id.startsWith('view.focus-') || id === 'view.outline' || id === 'view.find' || id === 'library.open') return 'Navigate';
+  if (id.startsWith('nav.') || id.startsWith('tab.') || id.startsWith('selection.') || id.startsWith('view.focus-') || id === 'view.find' || id === 'library.open') return 'Navigate';
   if (id.startsWith('document.') || id.startsWith('trust.') || id.startsWith('collection.') || id.startsWith('kind.') || id.startsWith('compare.') || id.startsWith('palette.drill.')) return 'File';
   return 'View';
 }
 
 /**
- * Families of commands that differ by one word (U-04): thirteen "Show this file as <kind>" rows would fill the
+ * Families of commands that differ by one word: thirteen "Read this file as <kind>" rows would fill the
  * first screen, so the list holds one row that opens the family. Typing the family's phrase lists its members.
  */
 const DRILLS: readonly { readonly id: string; readonly idPrefix: string; readonly phrase: string }[] = [
-  { id: 'palette.drill.show-as', idPrefix: 'kind.show-as.', phrase: 'Show this file as' },
+  { id: 'palette.drill.show-as', idPrefix: 'kind.show-as.', phrase: 'Read this file as' },
   { id: 'palette.drill.folder-as', idPrefix: 'kind.folder.', phrase: 'Always open this folder as' },
 ];
 
-/** A word of a family's phrase, or the start of one (`sho`, `as`): typing it names the family, not a member. */
+/** A word of a family's phrase, or the start of one (`rea`, `as`): typing it names the family, not a member. */
 function isPhraseWord(token: string, phrase: string): boolean {
   return phrase.toLowerCase().split(' ').some((word) => word.startsWith(token));
 }
 
-/** What the reader typed beyond the family's own words: `log` in `>show as log`. */
+/** What the reader typed beyond the family's own words: `log` in `>read as log`. */
 function remainderOf(needle: string, phrase: string): string {
   return needle.split(/\s+/).filter((t) => t !== '' && !isPhraseWord(t, phrase)).join(' ');
 }
@@ -54,7 +57,7 @@ export function drillText(id: string, query = ''): string | undefined {
   return `${drill.phrase} ${rest === '' ? '' : `${rest}`}`;
 }
 
-/** A family collapses only while the query names no member: `>show` collapses, `>log` and `>show as log` list. */
+/** A family collapses only while the query names no member: `>read` collapses, `>log` and `>read as log` list. */
 function collapseFamilies(kept: readonly Command[], needle: string): readonly Command[] {
   let out = kept;
   for (const drill of DRILLS) {
@@ -81,14 +84,37 @@ export function paletteCommands(
   query: string,
 ): readonly Command[] {
   const needle = query.trim().toLowerCase();
-  const kept = all.filter(
-    (c) => c.listed !== false && c.when(ctx) && (needle === '' || fuzzyScore(c.title.toLowerCase(), needle) > 0),
-  );
+  const kept: Command[] = [];
+  for (const c of all) {
+    if (c.listed === false || (needle !== '' && fuzzyScore(c.title.toLowerCase(), needle) <= 0)) continue;
+    if (c.when(ctx)) {
+      kept.push(c);
+      continue;
+    }
+    // Asked for by name but not offered now: listed dimmed with why, so it does not vanish unexplained.
+    const why = needle === '' ? null : (c.unavailable?.(ctx) ?? null);
+    if (why !== null) kept.push(unavailableRow(c, why));
+  }
   return collapseFamilies(kept, needle).slice().sort((a, b) => {
     const g = PALETTE_GROUPS.indexOf(paletteGroupOf(a)) - PALETTE_GROUPS.indexOf(paletteGroupOf(b));
     if (g !== 0) return g;
+    const u = Number(a.unavailableNow !== undefined) - Number(b.unavailableNow !== undefined);
+    if (u !== 0) return u;
     return a.title < b.title ? -1 : a.title > b.title ? 1 : 0;
   });
+}
+
+/** A command that cannot run now, as a row: choosing it says why and does nothing else. */
+function unavailableRow(c: Command, why: string): Command {
+  return {
+    ...c,
+    unavailableNow: why,
+    when: () => true,
+    run: async (ctx) => {
+      ctx.closePalette();
+      ctx.showNotice(why, { kind: 'refused' });
+    },
+  };
 }
 
 const MAC_KEYS: Readonly<Record<string, string>> = {
@@ -108,7 +134,7 @@ export function keyLabel(spec: string, mac: boolean): string {
   const parts = spec.split('+');
   const key = parts[parts.length - 1]!;
   const mods = new Set(parts.slice(0, -1));
-  const shown = key.length === 1 ? key.toUpperCase() : key;
+  const shown = key === 'Plus' ? '+' : key.length === 1 ? key.toUpperCase() : key;
   if (mac) {
     return (
       (mods.has('Ctrl') ? '⌃' : '') +
@@ -132,11 +158,14 @@ export interface ChordEvent {
   readonly ctrlKey: boolean;
   readonly shiftKey: boolean;
   readonly altKey: boolean;
+  readonly code?: string;
 }
 
 export function chordMatches(event: ChordEvent, spec: string, mac: boolean): boolean {
   const parts = spec.split('+');
   const key = parts[parts.length - 1]!;
+  // `Plus` is the + key, typed with Shift on some layouts and without on others: Shift is not asked about.
+  if (key === 'Plus') return event.key === '+' && !(mac ? event.metaKey : event.ctrlKey) && !event.altKey;
   const needMod = parts.includes('Mod');
   const needShift = parts.includes('Shift');
   const needAlt = parts.includes('Alt');
@@ -149,23 +178,67 @@ export function chordMatches(event: ChordEvent, spec: string, mac: boolean): boo
   if (needShift !== event.shiftKey) return false;
   if (needAlt !== event.altKey) return false;
   // A letter arrives as `z` without Shift and `Z` with it: `Mod+Z` spells the key, not its case.
-  return key.length === 1 ? event.key.toLowerCase() === key.toLowerCase() : event.key === key;
+  if (key.length !== 1) return event.key === key;
+  if (event.key.toLowerCase() === key.toLowerCase()) return true;
+  // A Cyrillic or Greek layout types `о` on the J key: a letter that is no ASCII is matched by where it sits.
+  return /^[a-z]$/i.test(key) && !event.altKey && [...event.key].length === 1 && event.key.charCodeAt(0) > 0x7f && event.code === `Key${key.toUpperCase()}`;
+}
+
+const specsOf = (cmd: Command): readonly string[] => (cmd.key === undefined ? (cmd.keys ?? []) : [cmd.key, ...(cmd.keys ?? [])]);
+
+/**
+ * A key of the page: one character with no Mod, Ctrl or Alt (`j`, `Shift+J`, `]`), or a sequence of
+ * them (`g g`). It types a character anywhere else, so it runs only where the dispatcher says the page has the keys.
+ */
+export function isPageKey(spec: string): boolean {
+  return spec.split(' ').every((step) => {
+    const parts = step.split('+');
+    const key = parts[parts.length - 1]!;
+    return (key.length === 1 || key === 'Plus') && parts.slice(0, -1).every((m) => m === 'Shift');
+  });
+}
+
+export interface KeyOptions {
+  readonly inEditable: boolean;
+  readonly mac?: boolean;
+  /** Focus is on the page and the `verbs` setting is on: a page key may run. Absent, none does. */
+  readonly pageKeys?: boolean;
 }
 
 /** The command a key press runs: first whose `key` or `keys` match, that may run here, and whose `when` holds. */
-export function commandForKey(
-  event: ChordEvent,
-  cmds: readonly Command[],
-  ctx: AppContext,
-  opts: { inEditable: boolean; mac?: boolean },
-): Command | undefined {
+export function commandForKey(event: ChordEvent, cmds: readonly Command[], ctx: AppContext, opts: KeyOptions): Command | undefined {
   const mac = opts.mac ?? (typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC'));
   for (const cmd of cmds) {
     if (opts.inEditable && cmd.global !== true) continue;
-    const specs = cmd.key === undefined ? (cmd.keys ?? []) : [cmd.key, ...(cmd.keys ?? [])];
+    const specs = specsOf(cmd).filter((spec) => opts.pageKeys === true || !isPageKey(spec));
     if (!specs.some((spec) => chordMatches(event, spec, mac))) continue;
     if (!cmd.when(ctx)) continue;
     return cmd;
   }
   return undefined;
+}
+
+/**
+ * A two-key sequence of the page (`g g`): with `pending` (the first key, pressed just before), the command this key
+ * completes; with none, the first key this press is of a sequence whose command holds now. Null for neither.
+ */
+export function sequenceFor(
+  event: ChordEvent,
+  cmds: readonly Command[],
+  ctx: AppContext,
+  pending: string | null,
+  mac: boolean,
+): { readonly command: Command } | { readonly prefix: string } | null {
+  for (const cmd of cmds) {
+    for (const spec of specsOf(cmd)) {
+      const steps = spec.split(' ');
+      if (steps.length !== 2) continue;
+      const [first, second] = steps as [string, string];
+      if (pending !== null ? first === pending && chordMatches(event, second, mac) : chordMatches(event, first, mac)) {
+        if (!cmd.when(ctx)) continue;
+        return pending !== null ? { command: cmd } : { prefix: first };
+      }
+    }
+  }
+  return null;
 }

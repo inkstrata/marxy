@@ -1,4 +1,4 @@
-<pre class="language-diff marxy-run" data-marxy-s="0" data-marxy-e="1125"><code class="language-diff" data-marxy-s="0" data-marxy-e="1125">diff --git a/src/greet.ts b/src/greet.ts
+<pre class="language-diff marxy-run" data-marxy-lang="diff" data-marxy-s="0" data-marxy-e="1125"><code class="language-diff" data-marxy-s="0" data-marxy-e="1125">diff --git a/src/greet.ts b/src/greet.ts
 index 3f1c2aa..9b7d0e4 100644
 --- a/src/greet.ts
 +++ b/src/greet.ts

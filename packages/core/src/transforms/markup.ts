@@ -1,4 +1,4 @@
-// Markdown to Slack mrkdwn and to Jira wiki (J-03.1). Both walk the AST the parser made, never the text with regexes,
+// Markdown to Slack mrkdwn and to Jira wiki. Both walk the AST the parser made, never the text with regexes,
 // so a `*` inside a code span or a `|` in a table cell is read for what it is. The two share one walker; a `Dialect`
 // says how each construct is written. Pure: no DOM, no Node built-ins. Linear: each node is visited once and every
 // string is built from arrays joined once.

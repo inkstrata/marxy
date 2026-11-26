@@ -1,5 +1,5 @@
-// Save As onto a path the other pane already shows (D-10.1): the path keeps one store and one watch, both
-// panes show the saved bytes, and unsaved text in either pane is never thrown away (found by E-13's review).
+// Save As onto a path the other pane already shows: the path keeps one store and one watch, both
+// panes show the saved bytes, and unsaved text in either pane is never thrown away.
 // Booted on the shipped skeleton over the memory shell (test/support/split-same.mjs).
 import { after } from 'node:test';
 import { closeHarness } from './support/two-pane.mjs';
@@ -75,7 +75,8 @@ test('Save As from a scratch onto a path the other pane shows, clean there: one 
     assert.deepEqual(await paths(page), [A, A]);
     assert.equal(await storeText(page, 0), '# Mine\n\n- [ ] mine\n');
     assert.equal(await storeText(page, 1), '# Mine\n\n- [ ] mine\n');
-    assert.equal(await liveWatches(page), 1);
+    // One store for the path, and B, which the scratch document replaced in the right pane, kept warm with its watch.
+    assert.equal(await liveWatches(page), 2);
   });
 });
 

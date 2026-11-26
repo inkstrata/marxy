@@ -1,4 +1,4 @@
-// "Split this document" (D-10): the focused document opens again in the other pane, at the reading position
+// "Split this document": the focused document opens again in the other pane, at the reading position
 // of the first, and the two views move independently from there. Both are views over one store (the
 // registry hands the second the store already open for the path): one parse, one watch, one history, and
 // an edit or a reload in either shows in both, each keeping its own place.
@@ -32,6 +32,10 @@ export function paneSplitSameCommands(): readonly Command[] {
       when() {
         const panes = appHandle()?.panes();
         return panes !== undefined && panes.panes.length === 1 && panes.focused.path() !== null && splitRefusal(panes) === null;
+      },
+      unavailable() {
+        const panes = appHandle()?.panes();
+        return panes !== undefined && panes.panes.length === 1 && panes.focused.path() !== null ? splitRefusal(panes) : null;
       },
       run: splitSame,
     },

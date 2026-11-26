@@ -1,4 +1,4 @@
-// Copy as (J-04, ADR-0065 item 1, mock-v2 01-workspace §Keyboard): `⇧⌘C` opens a menu of the targets in core's
+// Copy as: `⇧⌘C` opens a menu of the targets in core's
 // `COPY_TARGETS` at the pointer, for the selection, else the block under the pointer, else the document, in
 // Rendered and in Source. A choice writes one pasteboard item (`writeCopy`). The row `copy_format` names is
 // first and has focus, so `⇧⌘C` Return copies as Markdown unless the reader chose another. Each target is also a
@@ -64,10 +64,10 @@ async function sourceInput(): Promise<CopyAsInput | null> {
   if (!state) return null;
   const { from, to } = state.selection.main;
   const held = from === to ? state.doc.sliceString(0, state.doc.length, state.lineBreak) : state.doc.sliceString(from, to, state.lineBreak);
-  // A byte that is not UTF-8 is a lone surrogate in the editor's text; it is copied as U+FFFD (F-34.1).
+  // A byte that is not UTF-8 is a lone surrogate in the editor's text; it is copied as U+FFFD.
   const text = readableText(held);
   const path = pathOfOpen();
-  // With nothing selected this is the whole file: the store's parse of it, when it is exactly this text (F-60.1).
+  // With nothing selected this is the whole file: the store's parse of it, when it is exactly this text.
   const parsed = from === to ? (appHandle()?.document()?.textParse() ?? undefined) : undefined;
   return copyAsFromText(text, { ...(path === undefined ? {} : { path }), ...(parsed === undefined ? {} : { parsed }) });
 }
@@ -106,7 +106,7 @@ function renderedInput(): CopyAsInput | null {
   if (!input) return null;
   const copy = copyAsFromOperation(input, ref);
   // With nothing selected this is the whole document: the store's parse of its bytes, when the text is exactly those
-  // bytes (F-60.1). The targets that run a transform use it only if they read exactly that text.
+  // bytes. The targets that run a transform use it only if they read exactly that text.
   const parsed = sel.kind === 'none' ? handle.document()?.textParse() : null;
   return parsed ? { ...copy, parsed } : copy;
 }
@@ -172,7 +172,7 @@ export function copyAsCommands(): readonly Command[] {
       global: true,
       group: 'selection',
       // `global` so it runs from Source's editor; the find field and the open palette keep their keys, as `Mod+V`
-      // leaves them (J-05). The palette lists commands while its field has focus, so it is refused in `run`: from
+      // leaves them. The palette lists commands while its field has focus, so it is refused in `run`: from
       // a key the palette is still open, from the palette it closed first.
       when: (ctx) => (ctx.document !== null || inSourceMode()) && !inFindField(),
       async run(ctx) {

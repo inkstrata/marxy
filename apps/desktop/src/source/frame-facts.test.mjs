@@ -1,4 +1,4 @@
-// The facts the Source frame's bars show (V-05): each is read from the bytes and says only what they say. A CRLF file says CRLF,
+// The facts the Source frame's bars show: each is read from the bytes and says only what they say. A CRLF file says CRLF,
 // a mixed one Mixed, a BOM file "UTF-8 with BOM", a file with bytes that are not UTF-8 says so and counts them; the character
 // readout names U+200B; the indentation is what the lines begin with.
 
@@ -100,7 +100,7 @@ test('the character after the caret is its code point, named where it cannot be 
   assert.equal(strayReadout(0xff), 'Byte FF, not UTF-8');
 });
 
-// Line count edge cases (F-71, from the V-05 review): the count is the rows of the editor's text, less the empty row after
+// Line count edge cases: the count is the rows of the editor's text, less the empty row after
 // a final line break, and none for an empty file.
 const docOf = (text) => {
   const buffer = buf(text);

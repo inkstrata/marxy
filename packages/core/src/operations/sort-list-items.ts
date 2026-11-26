@@ -1,4 +1,4 @@
-// Sort list items (E-09): a list's top-level items are reordered A to Z, each carrying its own bytes. The markers and the
+// Sort list items: a list's top-level items are reordered A to Z, each carrying its own bytes. The markers and the
 // separators between items stay in their places, so the output is a permutation of the input's bytes: no line ending is
 // created, none is lost, and a moved last item brings no newline to the end and takes none from it.
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';

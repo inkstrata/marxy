@@ -1,4 +1,4 @@
-// The drag selection's verbs: copy as rich text, plain text or exact markdown (ADR-0054, design 03, C-06).
+// The drag selection's verbs: copy as rich text, plain text or exact markdown.
 // They act on the drag recorded when it was made (its range and its blocks' bytes), never on the live DOM
 // selection, which the palette takes away; so they are app commands rather than `op.*`. Each writes the
 // clipboard once and never changes the document.
@@ -16,7 +16,7 @@ const isDrag = (ctx: AppContext): boolean => ctx.selection.kind === 'text';
 
 type Drag = Extract<AppContext['selection'], { kind: 'text' }>;
 
-/** The text a drag copies: a code file's own bytes between its ends (V-10), else the page's text. */
+/** The text a drag copies: a code file's own bytes between its ends, else the page's text. */
 function codeText(ctx: AppContext, drag: Drag, range: Range): string | null {
   const page = ctx.renderedPage?.();
   return page && drag.version === page.version ? codeRunSourceText(range, page.article, page.buffer.bytes) : null;
@@ -42,7 +42,7 @@ export function copyTextCommands(): readonly Command[] {
         if (ctx.selection.kind !== 'text') return;
         const range = liveRange(ctx, ctx.selection);
         if (!range) return write(ctx, { text: ctx.selection.text }, 'Copied as plain text');
-        // A code file's selection is its bytes and nothing else on the clipboard (V-10).
+        // A code file's selection is its bytes and nothing else on the clipboard.
         const code = codeText(ctx, ctx.selection, range);
         if (code !== null) return write(ctx, { text: code }, 'Copied');
         const html = htmlFromRange(range);

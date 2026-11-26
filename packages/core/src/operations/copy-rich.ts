@@ -1,4 +1,4 @@
-// copy-rich: sanitised HTML with plain text beside it (C-07).
+// copy-rich: sanitised HTML with plain text beside it.
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 import { renderDocumentSafeHtml } from '../render/pipeline.ts';
 import { isBlockOrDocument } from './copy-source.ts';

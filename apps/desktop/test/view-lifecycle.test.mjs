@@ -1,6 +1,6 @@
-// The per-article view (B-13): `view/rendered-view.ts` owns everything about showing a store in an
+// The per-article view: `view/rendered-view.ts` owns everything about showing a store in an
 // article, so `app.ts` keeps none of it, N opens leave one of each thing a page starts, and two views
-// in one page (Phase D's two panes) render, follow their stores and tear down independently.
+// in one page (two panes) render, follow their stores and tear down independently.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -9,7 +9,7 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -49,6 +49,15 @@ const E = [
   'The end.',
   '',
 ].join('\n');
+// A second long document with its heading at another depth than C's, so a landing on one is not a landing on the other.
+const G = [
+  '# Golf',
+  '',
+  ...Array.from({ length: 22 }, (_, i) => `${para(`Gap ${i}`).repeat(2)}\n`),
+  '## Saved heading',
+  '',
+  ...Array.from({ length: 40 }, (_, i) => `${para(`Rest ${i}`).repeat(2)}\n`),
+].join('\n');
 const bytes = (text) => Buffer.from(text, 'utf8');
 const files = {
   '/r/A.md': bytes(A).toString('base64'),
@@ -56,7 +65,9 @@ const files = {
   '/r/C.md': bytes(C).toString('base64'),
   '/r/D.rs': bytes(RS).toString('base64'),
   '/r/E.md': bytes(E).toString('base64'),
+  '/r/G.md': bytes(G).toString('base64'),
 };
+const savedHeading = bytes(G).indexOf('## Saved heading');
 const target = bytes(C).indexOf('## Target heading');
 const lastHeading = bytes(E).indexOf('## Last heading');
 
@@ -93,14 +104,14 @@ function topLevel(text, kind) {
   return [...text.matchAll(new RegExp(`^${kind} (\\w+)`, 'gm'))].map((m) => m[1]);
 }
 
-// The state map in docs/plan/roadmap-2026-10/02-phase-b.md (B-11): rows 5–10, 24, 26–32 and the two consts.
+// The state map: rows 5–10, 24, 26–32 and the two consts.
 const B13_LETS = [
   'viewMode', 'sourceEditor', 'keysInstalled', 'lastReadingByteOffset', 'lastReadingFraction', 'modeToggleBusy',
   'typeset', 'anchor', 'anchorListening', 'lastSnapAt', 'snapTimer', 'snapFrame', 'resizeObserver', 'liveResizeObservers',
 ];
 const B13_CONSTS = ['scopedAssetRoots', 'liveTypesetters'];
 
-nodeTest('app.ts keeps none of the state-map rows B-13 moves into the view', () => {
+nodeTest('app.ts keeps none of the state-map rows that move into the view', () => {
   const app = readFileSync(join(src, 'app.ts'), 'utf8');
   const lets = topLevel(app, 'let');
   const consts = topLevel(app, 'const');
@@ -110,7 +121,7 @@ nodeTest('app.ts keeps none of the state-map rows B-13 moves into the view', () 
   assert.doesNotMatch(app, /\battach\(|\bsnapToGrid\(|new ResizeObserver\(|source\/editor\.ts/);
 });
 
-nodeTest('app.ts holds no watch and no persistence state, and never reaches for the palette on window (B-14)', () => {
+nodeTest('app.ts holds no watch and no persistence state, and never reaches for the palette on window', () => {
   const app = readFileSync(join(src, 'app.ts'), 'utf8');
   for (const name of ['documentWatch', 'positionPersistence', 'persistenceLoaded', 'scrollPersistenceInstalled', '__marxyPalette']) {
     assert.doesNotMatch(app, new RegExp(`\\b${name}\\b`), `app.ts still names ${name}`);
@@ -133,6 +144,8 @@ test('N opens through the app leave one typesetter, one resize observer and at m
     const seen = await page.evaluate(async (files) => {
       const h = await window.marxyApp.start(files, ['/r/D.rs']);
       await h.ready;
+      // Code lands in Read: the reader asks for its Source.
+      await h.toggleMode();
       const editorsInSource = document.querySelectorAll('#marxy-source .cm-editor').length;
       for (const path of ['/r/A.md', '/r/B.md', '/r/D.rs', '/r/C.md', '/r/A.md']) await h.open(path);
       return {
@@ -158,6 +171,9 @@ test('two views in one page typeset independently, follow their own stores, and 
       await one.view.show(one.store);
       await two.view.show(two.store);
       await Promise.all([one.view.typeset(), two.view.typeset()]);
+      // The views stack, and a first batch sets one screen: the lower article's lines come in the chunk after.
+      const deadline = performance.now() + 5000;
+      while (two.article.querySelectorAll('.marxy-lb').length === 0 && performance.now() < deadline) await new Promise((r) => setTimeout(r, 20));
       const counts = () => ({ one: one.view.debugCounts(), two: two.view.debugCounts() });
       const shown = counts();
       const texts = { one: one.article.querySelector('h1')?.textContent, two: two.article.querySelector('h1')?.textContent };
@@ -415,4 +431,56 @@ test('an edit that starts in the block above a held heading and runs into it hol
     }, { files, target });
     assert.equal(seen.before, target, 'the open landed on the heading');
     assert.equal(seen.after, seen.heading, 'the heading is held at its new offset, not the paragraph above it');
+  }));
+
+test('a file opened at a saved place while a resize burst is still waiting lands there: the old burst\'s timer, fired late, moves nothing', () =>
+  withPage(async (page) => {
+    const seen = await page.evaluate(async ({ files, target, savedHeading }) => {
+      // The burst's 100 ms timers are held here and fired by hand, so the interleaving is the same on every run.
+      const held = new Map();
+      const realSet = window.setTimeout.bind(window);
+      const realClear = window.clearTimeout.bind(window);
+      let next = 1;
+      window.setTimeout = (fn, ms, ...args) => {
+        if (ms !== 100) return realSet(fn, ms, ...args);
+        const id = -next++;
+        held.set(id, () => fn(...args));
+        return id;
+      };
+      window.clearTimeout = (id) => (typeof id === 'number' && id < 0 ? held.delete(id) : realClear(id));
+      const frames = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const h = await window.marxyApp.start(files, ['/r/A.md']);
+      await h.ready;
+      await h.open('/r/C.md', { at: target });
+      await h.contentComplete();
+      await frames();
+      const first = h.sourceHarness().byteOffset;
+      held.clear();
+      const article = document.getElementById('doc');
+      for (const width of [520, 460, 400]) {
+        article.style.width = `${width}px`;
+        await frames();
+      }
+      const waiting = held.size;
+      await h.open('/r/G.md', { at: savedHeading });
+      // The old burst's settle promise ends with its timer's cancel: the page completes without it. Bounded, so a
+      // cancel that never ran fails here and does not hang.
+      const stuck = await Promise.race([h.contentComplete().then(() => false), new Promise((resolve) => realSet(() => resolve(true), 3000))]);
+      await frames();
+      const landed = h.sourceHarness().byteOffset;
+      for (const fire of [...held.values()]) fire();
+      held.clear();
+      await new Promise((resolve) => realSet(resolve, 400));
+      await h.contentComplete();
+      await frames();
+      const heading = [...document.querySelectorAll('#doc h2')].find((el) => el.textContent === 'Saved heading');
+      const r = heading?.getBoundingClientRect();
+      return { first, waiting, stuck, landed, after: h.sourceHarness().byteOffset, visible: !!r && r.top >= 0 && r.bottom <= window.innerHeight };
+    }, { files, target, savedHeading });
+    assert.equal(seen.first, target);
+    assert.ok(seen.waiting > 0, `a resize burst was waiting when the new file opened (${JSON.stringify(seen)})`);
+    assert.equal(seen.stuck, false, 'the page completes while the old burst\'s timer is still waiting: its cancel ran');
+    assert.equal(seen.landed, savedHeading, 'the open landed at the saved place');
+    assert.equal(seen.after, savedHeading, 'the old burst\'s timer, fired late, left the reader at the saved place');
+    assert.equal(seen.visible, true);
   }));

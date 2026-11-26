@@ -1,11 +1,11 @@
-// The table lens (K-10b; ADR-0071, amending ADR-0061): a `.csv` or `.tsv` shown as a grid in place of its Source, in the
+// The table lens: a `.csv` or `.tsv` shown as a grid in place of its Source, in the
 // pane's own Source mount, until Esc or the Table tool again returns to Source at the same row.
 //
 // What it promises:
 // - **It never writes** (commitment 3). The grid is derived from the store's bytes by core's `delimited-table` deriver;
 //   the header choice, the sort and the column stats are view state; no cell reaches a splice. Source keeps the file
 //   byte for byte. A `cell` selection is the whole raw field in bytes; ⌘C copies its decoded value; *Source field (CSV)*
-//   copies the raw field; a copy of the whole table guards a formula (ADR-0071 item 5).
+//   copies the raw field; a copy of the whole table guards a formula.
 // - **Nothing hidden silently** (commitment 4). One line over the grid says what it is and what it reshaped (header,
 //   decoded fields, unreadable rows, short rows, blank lines, a BOM), each count a list of its places; a decoded cell is
 //   marked at rest and its raw field is its description; a line break, a bidi control, a zero-width character and a byte
@@ -13,7 +13,7 @@
 // - **First rows never wait for the whole file** (commitment 5). The first screen of records is read and drawn at once;
 //   the rest is read a few milliseconds a slice with the loop given back between slices, and a sort or the stats of a
 //   column are worked the same way (core's `data/table-view.ts`). The grid draws only the rows and the columns on screen
-//   (F-89): a file of thousands of columns costs the cells in view, not the cells in the file, and the stats are counted
+// a file of thousands of columns costs the cells in view, not the cells in the file, and the stats are counted
 //   for the columns in view and for others as they scroll in.
 import {
   cellOf,
@@ -92,7 +92,7 @@ function yieldNow(): Promise<void> {
 
 const plural = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 
-/** What an unreadable row says of the lines its quote reached into (F-89): they are drawn as rows, and may belong to it. */
+/** What an unreadable row says of the lines its quote reached into: they are drawn as rows, and may belong to it. */
 const swallowedNote = (lines: number, reason: 'unclosed-quote' | 'after-quote'): string =>
   `${reason === 'unclosed-quote' ? 'the quote runs on' : 'the quote closes later'} · the ${lines === 1 ? 'line' : `${lines.toLocaleString('en-US')} lines`} after it may have been part of it, read as ${lines === 1 ? 'a row' : 'rows'} of ${lines === 1 ? 'its' : 'their'} own`;
 
@@ -226,6 +226,10 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
   /** The columns drawn: `[first, last)`. Everything else is a spacer. */
   let win = { first: 0, last: 0 };
   let drawn = { first: -1, last: -1, version: -1, cfirst: -1, clast: -1, layout: -1 };
+  /** The scroll's scale the rows on screen were drawn at; 0 before the first draw. */
+  let drawnK = 0;
+  /** The scroll the rows on screen were drawn at. */
+  let drawnTop = 0;
   let version = 0;
   let firstDraw: LensState['firstDraw'] = null;
   const slices = { read: 0, widestRead: 0, sort: 0, stats: 0 };
@@ -349,7 +353,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     fitWidths();
   }
 
-  /** The widths in pixels, the data columns grown alike to fill the pane when the grid is narrower than it (as the mock's does). */
+  /** The widths in pixels, the data columns grown alike to fill the pane when the grid is narrower than it. */
   let fittedTo = -1;
   function fitWidths(): void {
     const probe = el('span', undefined, '0000000000');
@@ -577,7 +581,9 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     const total = viewLength();
     const h = rowH || 24;
     const k = scale();
+    drawnK = k;
     const top = scroller.scrollTop;
+    drawnTop = top;
     const virtualTop = top * k;
     const view = scroller.clientHeight || 600;
     const first = Math.max(0, Math.min(total, Math.floor(virtualTop / h) - OVERSCAN));
@@ -688,7 +694,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
       sep();
       parts.push('lines end in CR alone');
     }
-    // The delimiter is the extension's; a file that looks like another says so and is not read again (ADR-0071 rejects sniffing).
+    // The delimiter is the extension's; a file that looks like another says so and is not read again (sniffing is rejected).
     const hint = delimiterHint(scan);
     if (hint !== null) {
       sep();
@@ -714,7 +720,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
       sep();
       parts.push(countButton(`${plural(unreadable, 'row')} unreadable`, () => recordsWhere((r) => scan.records.kind.data[r] === RECORD_UNREADABLE), 'unreadable rows'));
     }
-    // Ragged rows (ADR-0071 item 3), told against the field count most rows have: a short row's missing cells are absent,
+    // Ragged rows, told against the field count most rows have: a short row's missing cells are absent,
     // a long row's extra fields are columns of their own; nothing is padded or trimmed.
     let usual = 0;
     let most = -1;
@@ -868,7 +874,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
 
   /**
    * Counts the columns in view that are not yet counted, one column at a time and each in slices, and again for the
-   * columns a scroll brings in. A file of thousands of columns is never counted whole (F-89): the foot shows what is
+   * columns a scroll brings in. A file of thousands of columns is never counted whole: the foot shows what is
    * in view, and the rest is counted when it is.
    */
   async function applyStats(): Promise<void> {
@@ -970,7 +976,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
       notify({ kind: 'refused', text: 'Nothing to copy · this cell is absent: its row has no field here · Copy as copies the row\'s table' });
       return;
     }
-    // A single cell copies its decoded value, as the reader reads it, with no formula guard (ADR-0071 item 5).
+    // A single cell copies its decoded value, as the reader reads it, with no formula guard.
     await writeCopy(ctx, { text: cellOf(scan, cell.f, file).value }, 'Copied the cell');
   }
 
@@ -1029,7 +1035,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     openVerbMenu(at, buildAppContext(appHandle()), { registered: [], allActions: () => {}, rows: copyAsRows(), label: 'Copy as' });
   }
 
-  /** The `cell` verbs, in ADR-0071 item 6's order. */
+  /** The `cell` verbs, in their menu order. */
   function openCellMenu(at: MenuAnchor = anchorOfSelection()): void {
     if (!selected) return;
     const cell = selectedCell();
@@ -1129,6 +1135,15 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
   scroller.addEventListener('scroll', scheduleDraw, { passive: true });
   const resize = new ResizeObserver(() => {
     if (scroller.clientWidth !== fittedTo && columns > 0) fitWidths();
+    // The scale depends on the height: keep the row that was on top. scrollTop is whole pixels, each worth k of the
+    // table's, so the old virtual top divided by the new scale may round into the row before or after.
+    const k = scale();
+    if (drawnK > 0 && k !== drawnK) {
+      const h = rowH || 24;
+      const row = Math.floor((drawnTop * drawnK) / h);
+      const near = Math.round((drawnTop * drawnK) / k);
+      scroller.scrollTop = Math.floor((near * k) / h) === row ? near : Math.ceil((row * h) / k);
+    }
     scheduleDraw();
   });
   resize.observe(scroller);
@@ -1176,7 +1191,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
     pane,
     async close(opts = {}) {
       if (closed) return;
-      // The row the reader is on: the selected one, else the first on screen. Its first byte is a file offset (ADR-0018).
+      // The row the reader is on: the selected one, else the first on screen. Its first byte is a file offset.
       const pos = selected?.pos ?? Math.floor((scroller.scrollTop * scale()) / (rowH || 24));
       const r = viewLength() > 0 ? recordAt(Math.max(0, Math.min(viewLength() - 1, pos))) : -1;
       const byte = r >= 0 ? scan.records.start.data[r]! : 0;

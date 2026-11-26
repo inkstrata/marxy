@@ -1,4 +1,4 @@
-// Smart typography as a render-time text-run transform. The file's bytes are never touched (ADR-0003, D-A13).
+// Smart typography as a render-time text-run transform. The file's bytes are never touched.
 
 import type { Inline, Text } from '../contracts/ast.ts';
 
@@ -38,7 +38,7 @@ const ELLIPSIS = '\u2026';
 const NBSP = '\u00a0';
 
 /**
- * Applies the D-A13 rule table to one text run. Idempotent: a second pass returns the same string.
+ * Applies the rule table to one text run. Idempotent: a second pass returns the same string.
  * Never used on the source buffer.
  */
 export function smarten(text: string, ctx: SmartenContext): string {
@@ -132,7 +132,7 @@ export function advanceSiblingRun(run: SiblingRun, sibling: Inline): SiblingRun 
 
 /**
  * Smartens one markdown text run inside a paragraph, skipping text inside raw-HTML code-like tags
- * (`code`, `kbd`, `samp`, `pre`) opened earlier in the same sibling list (MARXY-230, handbook P06).
+ * (`code`, `kbd`, `samp`, `pre`) opened earlier in the same sibling list.
  * `run` is what the siblings before `node` left behind; the caller computes it in its one pass.
  */
 export function smartenParagraphTextNode(node: Text, typo: ParagraphTypo, run: SiblingRun): string {

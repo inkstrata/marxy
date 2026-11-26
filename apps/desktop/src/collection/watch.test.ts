@@ -1,4 +1,4 @@
-// The tree watches' lifecycle (C-11), over the memory shell and the real index service: one watch per
+// The tree watches' lifecycle, over the memory shell and the real index service: one watch per
 // distinct watched tree, opened and closed as roots become and stop being watched, and a refusal that
 // reaches the palette's notice line by itself.
 import { test } from 'node:test';
@@ -255,7 +255,7 @@ test('a file written again within PATCH_GAP_MS is read once more when the gap en
   assert.deepEqual(titles(), ['Three']);
 });
 
-test('a declared home folder opens no recursive watch and is rescanned on summon instead (C-10.1)', async () => {
+test('a declared home folder opens no recursive watch and is rescanned on summon instead', async () => {
   const home = '/Users/ian';
   const shell = createMemoryShell({ [`${home}/notes.md`]: enc('# N\n'), [`${home}/Library/x/leak.md`]: enc('# L\n'), '/n/notes.md': enc('# Notes\n') });
   const host = { ...shell, configPaths: async () => ({ config: `${home}/.config/marxy`, data: '/data' }) };
@@ -270,7 +270,7 @@ test('a declared home folder opens no recursive watch and is rescanned on summon
   trees.stop();
 });
 
-test('a declared ~/Documents, ~/Downloads or volume is budgeted but still watched recursively, with no notice (C-10.1)', async () => {
+test('a declared ~/Documents, ~/Downloads or volume is budgeted but still watched recursively, with no notice', async () => {
   const home = '/Users/ian';
   const shell = createMemoryShell({
     [`${home}/notes.md`]: enc('# N\n'),
@@ -289,7 +289,7 @@ test('a declared ~/Documents, ~/Downloads or volume is budgeted but still watche
   trees.stop();
 });
 
-test('a summon rescans a refused home folder no sooner than HOME_REVALIDATE_MIN_MS, an ordinary tree at REVALIDATE_MIN_MS (C-10.1)', async () => {
+test('a summon rescans a refused home folder no sooner than HOME_REVALIDATE_MIN_MS, an ordinary tree at REVALIDATE_MIN_MS', async () => {
   const home = '/Users/ian';
   const shell = createMemoryShell({ [`${home}/notes.md`]: enc('# N\n'), '/n/notes.md': enc('# Notes\n') });
   const host = { ...shell, configPaths: async () => ({ config: `${home}/.config/marxy`, data: '/data' }) };
@@ -324,7 +324,7 @@ test('a summon rescans a refused home folder no sooner than HOME_REVALIDATE_MIN_
   await trees.settled();
 });
 
-test('a declared ~/Documents refused for another reason is rescanned at REVALIDATE_MIN_MS, not HOME_REVALIDATE_MIN_MS (C-10.1)', async () => {
+test('a declared ~/Documents refused for another reason is rescanned at REVALIDATE_MIN_MS, not HOME_REVALIDATE_MIN_MS', async () => {
   const home = '/Users/ian';
   const docs = `${home}/Documents`;
   const shell = createMemoryShell({ [`${docs}/a.md`]: enc('# A\n') });
@@ -355,7 +355,7 @@ test('a declared ~/Documents refused for another reason is rescanned at REVALIDA
   await trees.settled();
 });
 
-test('watchState and indexing tell what is true now: live, refused, none; and a walk in flight (U-06)', async () => {
+test('watchState and indexing tell what is true now: live, refused, none; and a walk in flight', async () => {
   const shell = createMemoryShell(files());
   const index = createIndexService(shell);
   const heard: string[] = [];
@@ -373,4 +373,100 @@ test('watchState and indexing tell what is true now: live, refused, none; and a 
   index.setTreeWatch('/c', undefined);
   assert.equal(index.watchState(), 'none');
   assert.ok(heard.includes('none/true') && heard.includes('live/false') && heard.includes('refused/false'), heard.join(' '));
+});
+
+/** What the tree watch of `tree` was last told to leave out: its opening list, then each `watchIgnore`. */
+function lastIgnore(shell: ReturnType<typeof createMemoryShell>, tree: string): readonly string[] | undefined {
+  let told: readonly string[] | undefined;
+  for (const call of shell.calls) {
+    if (call.method === 'watch' && call.args[0] === tree && (call.args[1] as { recursive?: boolean })?.recursive) {
+      told = (call.args[1] as { ignore?: readonly string[] }).ignore ?? [];
+    }
+    if (call.method === 'watchIgnore' && call.args[0] === tree) told = call.args[1] as readonly string[];
+  }
+  return told;
+}
+
+test('a folder the walk left out is left out of the tree watch, and is taken back when the rule goes', async () => {
+  const shell = createMemoryShell({
+    ...files(),
+    '/c/.gitignore': enc('gen-out/\n'),
+    '/c/gen-out/bundle.js': enc('x'),
+  });
+  const index = createIndexService(shell);
+  const trees = startTreeWatches({ shell, index });
+  await index.ensureFor('/c/README.md');
+  await trees.settled();
+  await index.settled();
+  await trees.settled();
+  assert.deepEqual(lastIgnore(shell, '/c'), ['/c/gen-out']);
+
+  await shell.writeFileAtomic('/c/.gitignore', enc('# nothing left out\n'));
+  shell.emit([{ kind: 'modified', path: '/c/.gitignore' }]);
+  await index.settled();
+  await trees.settled();
+  assert.deepEqual(lastIgnore(shell, '/c'), [], 'the folder is watched again');
+  trees.stop();
+});
+
+test('a watched root inside a folder another root left out keeps that folder in the tree watch', async () => {
+  const shell = createMemoryShell({
+    ...files(),
+    '/c/.gitignore': enc('docs/\n'),
+  });
+  const index = createIndexService(shell);
+  const trees = startTreeWatches({ shell, index });
+  await index.ensureFor('/c/README.md');
+  await index.ensureRoot('/c/docs', { watch: true });
+  await trees.settled();
+  await index.settled();
+  await trees.settled();
+  assert.deepEqual(index.ignoredFolders('/c'), [], '/c/docs is a root of its own and still reads its files');
+  assert.deepEqual(lastIgnore(shell, '/c') ?? [], []);
+  trees.stop();
+});
+
+test('a folder one root left out stays in the tree watch while a root inside the tree still reads it', async () => {
+  const shell = createMemoryShell({
+    ...files(),
+    '/c/.gitignore': enc('docs/gen/\n'),
+    '/c/docs/gen/out.md': enc('# Out\n'),
+  });
+  const index = createIndexService(shell);
+  const trees = startTreeWatches({ shell, index });
+  await index.ensureFor('/c/README.md');
+  await trees.settled();
+  await index.settled();
+  await trees.settled();
+  assert.deepEqual(index.ignoredFolders('/c'), ['/c/docs/gen'], 'left out while /c is the only root');
+  // The rule sits in /c's ignore file, so a walk of /c/docs alone reads the folder.
+  await index.ensureRoot('/c/docs', { watch: true });
+  await trees.settled();
+  await index.settled();
+  await trees.settled();
+  assert.ok(index.entries().some((e) => e.path === '/c/docs/gen/out.md'), '/c/docs reads the folder');
+  assert.deepEqual(index.ignoredFolders('/c'), []);
+  assert.deepEqual(lastIgnore(shell, '/c'), [], 'the folder is watched again');
+  trees.stop();
+});
+
+test('a watched root deeper inside a folder another root left out keeps that folder in the tree watch', async () => {
+  const shell = createMemoryShell({
+    ...files(),
+    '/c/.gitignore': enc('docs/\n'),
+    '/c/docs/deep/x.md': enc('# X\n'),
+  });
+  const index = createIndexService(shell);
+  const trees = startTreeWatches({ shell, index });
+  await index.ensureFor('/c/README.md');
+  await index.settled();
+  await trees.settled();
+  assert.deepEqual(lastIgnore(shell, '/c'), ['/c/docs']);
+  await index.ensureRoot('/c/docs/deep', { watch: true });
+  await trees.settled();
+  await index.settled();
+  await trees.settled();
+  assert.deepEqual(index.ignoredFolders('/c'), [], '/c/docs/deep reads its files');
+  assert.deepEqual(lastIgnore(shell, '/c'), []);
+  trees.stop();
 });

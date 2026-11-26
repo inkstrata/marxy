@@ -1,8 +1,8 @@
-// Structural selection for the Source editor (V-01): the range of the block, the section, or the next step
+// Structural selection for the Source editor: the range of the block, the section, or the next step
 // up from a selection. Pure: text and a range in, a range out, never the DOM and never a splice.
 //
 // Offsets are UTF-16 indexes into `text` as the editor holds it, lines joined by "\n" (CodeMirror counts a
-// line break as one, whatever the file's separator is). The parse counts bytes (ADR-0003), so a block's
+// line break as one, whatever the file's separator is). The parse counts bytes, so a block's
 // or section's bytes are converted to indexes here, once, at the seam. Markdown is parsed; any other text
 // has paragraphs (runs of non-blank lines) and no sections.
 
@@ -51,7 +51,7 @@ function visit(node: Node, fn: (n: Node) => void): void {
   for (const child of node.children ?? []) visit(child, fn);
 }
 
-/** Every block of the parse that holds bytes `[b0, b1]`, outermost first, as index ranges. */
+/** Every block of the parse that holds bytes ``, outermost first, as index ranges. */
 function blocksHolding(p: Parsed, b0: number, b1: number): TextRange[] {
   const out: TextRange[] = [];
   visit(p.doc, (n) => {
@@ -61,7 +61,7 @@ function blocksHolding(p: Parsed, b0: number, b1: number): TextRange[] {
   return out;
 }
 
-/** Every section (a heading to the next of equal or higher rank) that holds bytes `[b0, b1]`. */
+/** Every section (a heading to the next of equal or higher rank) that holds bytes ``. */
 function sectionsHolding(p: Parsed, b0: number, b1: number): TextRange[] {
   const out: TextRange[] = [];
   visit(p.doc, (n) => {

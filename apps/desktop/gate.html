@@ -6,10 +6,10 @@
 <!-- marxy:fonts -->
 <!-- marxy:default-theme -->
 <style>
-  /* The empty state only; the document is styled by the default theme above (MARXY-20). */
+  /* The empty state only; the document is styled by the default theme above. */
   .marxy-empty { color: var(--marxy-color-text-secondary); font: 15px/1.5 system-ui, sans-serif; padding: 2rem; }
   #marxy-main { min-height: 100vh; }
-  /* Notices are pills at the pane's foot (U-02): the same placement as index.html's, which this page copies. */
+  /* Notices are pills at the pane's foot: the same placement as index.html's, which this page copies. */
   .marxy-pane { min-height: inherit; }
   .marxy-pane > [role="status"]:empty { display: none; }
   .marxy-pane > [role="status"] {
@@ -22,8 +22,8 @@
   /* Source covers the window, out of the pane's flow: the pills are placed by the window's foot. */
   body[data-marxy-mode="source"] .marxy-pane > [role="status"] { position: fixed; left: 0; right: 0; }
   #marxy-palette:not([open]) { display: none; }
-  #marxy-outline:not([open]), #marxy-find[hidden], #marxy-source[hidden] { display: none; }
-  /* Source mode mount (§09); visible only while `data-marxy-mode="source"`. */
+  #marxy-find[hidden], #marxy-source[hidden] { display: none; }
+  /* Source mode mount; visible only while `data-marxy-mode="source"`. */
   #marxy-source:not([hidden]) { position: fixed; inset: 0; overflow: auto; }
 </style>
 </head>
@@ -34,7 +34,6 @@
   </main>
   <div id="marxy-source" hidden></div>
   <dialog id="marxy-palette"></dialog>
-  <dialog id="marxy-outline"></dialog>
   <div id="marxy-find" hidden></div>
   <script type="module" src="./src/harness/gate-entry.ts"></script>
 </body>

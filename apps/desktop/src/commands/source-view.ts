@@ -1,4 +1,4 @@
-// Source gutter toggle and jump-to-source palette commands (MARXY-239).
+// Source gutter toggle and jump-to-source palette commands.
 import type { AppContext, Command } from './registry.ts';
 import type { AppShell } from '../app.ts';
 import { writeReaderKey } from '../theme/reader-config.ts';
@@ -31,11 +31,11 @@ function selectionStartByte(ctx: AppContext): number | null {
       if (s !== null) return s;
     }
   }
-  // A click still names a block when the selection model does not (MARXY-239).
+  // A click still names a block when the selection model does not.
   return clickedBlockByte();
 }
 
-/** The depth lens is offered for a JSON or YAML file shown in Source that gets folding (K-10a): never for TOML or a large file. */
+/** The depth lens is offered for a JSON or YAML file shown in Source that gets folding: never for TOML or a large file. */
 function depthLensOffered(ctx: AppContext): boolean {
   if (document.body.dataset.marxyMode !== 'source') return false;
   const buffer = ctx.document?.snapshot().buffer;
@@ -44,7 +44,7 @@ function depthLensOffered(ctx: AppContext): boolean {
 
 /**
  * Fold the focused Source editor to `depth`, or open every fold (`depth` null). A view only: nothing here writes the
- * buffer, and a fold is not remembered. A refusal says what happened, what is unchanged and what to do (X-21, Q10).
+ * buffer, and a fold is not remembered. A refusal says what happened, what is unchanged and what to do.
  */
 async function runDepthLens(ctx: AppContext, depth: number | null): Promise<void> {
   const what = depth === null ? 'unfold' : `fold to depth ${depth}`;
@@ -69,7 +69,7 @@ async function runDepthLens(ctx: AppContext, depth: number | null): Promise<void
   }
 }
 
-/** *Fold to depth* 1 to 4 and *Unfold all*: palette only, no keys until the menu bar checks conflicts (K-10a, question 2). */
+/** *Fold to depth* 1 to 4 and *Unfold all*: palette only, no keys until the menu bar checks conflicts (question 2). */
 function depthLensCommands(): readonly Command[] {
   const levels = [1, 2, 3, 4] as const;
   return [
@@ -89,7 +89,7 @@ function depthLensCommands(): readonly Command[] {
 const sourceOrDocument = (ctx: AppContext): boolean => document.body.dataset.marxyMode === 'source' || ctx.document !== null;
 
 /**
- * Show whitespace and the column guide (V-08): palette toggles on the Source editor, remembered in config.toml like the
+ * Show whitespace and the column guide: palette toggles on the Source editor, remembered in config.toml like the
  * line numbers. Display only: neither writes the buffer. The editor that is mounted changes now; with none, the next
  * Source entry reads the recorded choice.
  */
@@ -137,7 +137,7 @@ function viewAidCommands(): readonly Command[] {
 }
 
 /**
- * *Go to next note* and *Go to previous note* (V-04): the caret moves from one note to the next in the Source editor,
+ * *Go to next note* and *Go to previous note*: the caret moves from one note to the next in the Source editor,
  * and wraps from the last to the first. Nothing is written; a file with no notes says so.
  */
 function noteCommands(): readonly Command[] {
@@ -176,7 +176,7 @@ export function sourceViewCommands(): readonly Command[] {
       group: 'view',
       when: (ctx) => document.body.dataset.marxyMode === 'source' || ctx.document !== null,
       run: async (ctx) => {
-        // The preference only; the app owns the Source editor and makes it (F-03, F-12). One that is
+        // The preference only; the app owns the Source editor and makes it. One that is
         // mounted is reconfigured now; with none, the next Source entry reads the recorded choice.
         const { activeSourceEditor } = await import('../source/editor.ts');
         const editor = activeSourceEditor();
@@ -202,10 +202,11 @@ export function sourceViewCommands(): readonly Command[] {
       when: (ctx) => selectionStartByte(ctx) !== null,
       run: async (ctx) => {
         const byte = selectionStartByte(ctx);
-        // Source opens only through the running app, so what is typed there is the document's (F-03).
+        // Source opens only through the running app, so what is typed there is the document's.
         const app = appHandle();
         if (byte === null || !app) return;
         await app.jumpToSource(byte);
+        app.focusSource();
       },
     },
   ];

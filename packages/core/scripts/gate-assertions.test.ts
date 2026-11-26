@@ -1,4 +1,4 @@
-// Criterion 3 of MARXY-83: deleting any assertion inside the no-network gate fails a named test.
+// Deleting any assertion inside the no-network gate fails a named test.
 //
 // Each test below proves one entry of `GATE_ASSERTION_IDS` by calling the same pure function
 // `scripts/gate-no-network.mjs` calls to decide that check, with a case it must catch and (mostly)
@@ -138,14 +138,14 @@ test('every declared gate assertion was proved above, and nothing else was', () 
   );
 });
 
-// Criterion 4 (MARXY-84): the tree-depth harness runs in the no-network gate on both engines, with
+// Criterion 4: the tree-depth harness runs in the no-network gate on both engines, with
 // no skip path — the same spawn the gate uses for this file, so deleting either half fails CI.
 test('tree-depth harness runs as part of the no-network gate', () => {
   const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
   const depth = spawnSync(process.execPath, ['packages/core/scripts/gate-tree-depth.mjs'], {
     cwd: repoRoot,
     encoding: 'utf8',
-    env: { ...process.env, MARXY_84_MUTATION: undefined },
+    env: { ...process.env, MARXY_TREE_DEPTH_MUTATION: undefined },
   });
   process.stdout.write(depth.stdout ?? '');
   if (depth.status !== 0) {
@@ -158,7 +158,7 @@ test('tree-depth harness runs as part of the no-network gate', () => {
   );
 });
 
-// A-10.1: the dirty control page is read only after the elements its two checks look for are in the
+// the dirty control page is read only after the elements its two checks look for are in the
 // live DOM, in both engines (the one `run` serves both). A pull-request run read it before Chromium
 // had built them and failed both checks; this fails if the wait is removed or loses an element.
 test('the dirty control page waits for its own elements before the live DOM is read', () => {
@@ -166,7 +166,7 @@ test('the dirty control page waits for its own elements before the live DOM is r
   assert.match(gateSource, /tab\.waitForSelector\(selector, \{ state: 'attached'/);
 });
 
-// A-10.2: the gate stops watching when the page is quiet, not after a fixed 150 ms, and proves it
+// the gate stops watching when the page is quiet, not after a fixed 150 ms, and proves it
 // with controls that fire a request at 500 ms and 2 s. Removing the settle, a control, or the cap
 // fails here; the browser half is the controls themselves, which turn the gate red in both engines.
 test('the gate watches until the page goes quiet and proves it with late-request controls', () => {

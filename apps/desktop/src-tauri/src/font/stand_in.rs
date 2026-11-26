@@ -1,0 +1,164 @@
+//! The browser build has no native readers: its memory shell answers `fontFacts`, `fontGlyph`, `mediaFacts` and
+//! `mediaEnvelope` for the demo's fonts and media, `mailFromMsg` for its Outlook messages and `officeFromOle` for its
+//! Word 97-2003 document and deck, from what these readers
+//! said of them, kept in `apps/desktop/src/harness/native-facts.ts`. This test says it again and fails when the file disagrees;
+//! `MARXY_BLESS=1 cargo test stand_in` writes it.
+
+use std::fs;
+use std::path::PathBuf;
+
+use serde_json::{json, Map, Value};
+
+use crate::facts::media;
+
+/// The buckets the page asks a waveform in (`ENVELOPE_BUCKETS` in core's viewer/media.ts).
+const BUCKETS: usize = 1000;
+
+fn root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..")
+}
+
+/// FNV-1a over the bytes, as the memory shell keys them: `size:hash`.
+fn key(bytes: &[u8]) -> String {
+    let mut h: u32 = 0x811c_9dc5;
+    for &b in bytes {
+        h ^= b as u32;
+        h = h.wrapping_mul(0x0100_0193);
+    }
+    format!("{}:{h:08x}", bytes.len())
+}
+
+fn files(dir: &str) -> Vec<(String, PathBuf)> {
+    files_in("fixtures/demo", dir)
+}
+
+fn files_in(base: &str, dir: &str) -> Vec<(String, PathBuf)> {
+    let mut out: Vec<(String, PathBuf)> = fs::read_dir(root().join(base).join(dir))
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_none_or(|e| e != "py"))
+        .map(|p| {
+            (
+                format!("{dir}/{}", p.file_name().unwrap().to_string_lossy()),
+                p,
+            )
+        })
+        .collect();
+    out.sort();
+    out
+}
+
+fn table() -> Map<String, Value> {
+    let mut out = Map::new();
+    for (name, path) in files("fonts") {
+        let bytes = fs::read(&path).unwrap();
+        let facts = super::facts(&bytes).unwrap();
+        // Each glyph a face maps, as [code, glyph, advance, contours, points]: what the Glyph card says.
+        let sfnt = super::unwrap(&bytes).unwrap();
+        let glyphs: Vec<Value> = facts
+            .faces
+            .iter()
+            .enumerate()
+            .map(|(i, face)| {
+                Value::Array(
+                    face.mapped
+                        .iter()
+                        .map(|&c| {
+                            let g = super::glyph(&sfnt, i as u32, c).unwrap().unwrap();
+                            json!([c, g.glyph, g.advance, g.contours, g.points])
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
+        out.insert(
+            key(&bytes),
+            json!({ "name": name, "font": facts, "glyphs": glyphs }),
+        );
+    }
+    // The Ogg and FLAC fixtures beside the demo's own recordings.
+    let mut media_files = files("media");
+    media_files.extend(files_in("fixtures", "media"));
+    for (name, path) in media_files {
+        let bytes = fs::read(&path).unwrap();
+        let mut file = fs::File::open(&path).unwrap();
+        let facts = media::read(&mut file).unwrap().unwrap();
+        let envelope = facts
+            .pcm
+            .map(|pcm| media::envelope(&mut file, &pcm, BUCKETS).unwrap())
+            .map(|e| {
+                // Three decimals: the page draws at most a few hundred pixels high.
+                let peaks: Vec<Value> = e
+                    .peaks
+                    .iter()
+                    .map(|p| {
+                        json!([
+                            (p[0] * 1000.0).round() / 1000.0,
+                            (p[1] * 1000.0).round() / 1000.0
+                        ])
+                    })
+                    .collect();
+                json!({ "peaks": peaks, "sampled": e.sampled })
+            });
+        out.insert(
+            key(&bytes),
+            json!({ "name": name, "media": facts, "envelope": envelope }),
+        );
+    }
+    // The demo's Outlook messages, as the message each reads as: written as text, which it is.
+    for (name, path) in files("mail") {
+        if path.extension().is_none_or(|e| e != "msg") {
+            continue;
+        }
+        let bytes = fs::read(&path).unwrap();
+        let c = crate::outlook::read(&bytes, &crate::outlook::Limits::DEFAULT).unwrap();
+        out.insert(
+            key(&bytes),
+            json!({ "name": name, "mail": { "facts": c.facts, "mime": String::from_utf8(c.mime).unwrap() } }),
+        );
+    }
+    // The demo's Word 97-2003 document and deck, as the document each reads as.
+    for (name, path) in files("documents") {
+        if !path.extension().is_some_and(|e| e == "doc" || e == "ppt") {
+            continue;
+        }
+        let bytes = fs::read(&path).unwrap();
+        let r = crate::legacy_office::read(&bytes, &crate::legacy_office::Limits::DEFAULT).unwrap();
+        out.insert(key(&bytes), json!({ "name": name, "office": r }));
+    }
+    out
+}
+
+fn module(table: &Map<String, Value>) -> String {
+    let mut s = String::from(
+        "// Generated by `MARXY_BLESS=1 cargo test stand_in` (src-tauri/src/font/stand_in.rs), which fails while this disagrees:\n\
+         // what the desktop's own readers say of the demo's fonts, media, Outlook messages and Word 97-2003 files, keyed by size and FNV-1a of the bytes. The browser\n\
+         // build's memory shell has no native readers and answers from this for those files alone.\n\
+         export const NATIVE_FACTS: Readonly<Record<string, unknown>> = {\n",
+    );
+    for (k, v) in table {
+        s.push_str(&format!(
+            "  '{k}': {},\n",
+            serde_json::to_string(v).unwrap()
+        ));
+    }
+    s.push_str("};\n");
+    s
+}
+
+#[test]
+fn stand_in_matches_what_the_readers_say() {
+    let path = root().join("apps/desktop/src/harness/native-facts.ts");
+    let want = module(&table());
+    if std::env::var("MARXY_BLESS").is_ok_and(|v| v == "1") {
+        fs::write(&path, &want).unwrap();
+    }
+    let have = fs::read_to_string(&path)
+        .unwrap_or_default()
+        .replace("\r\n", "\n");
+    assert!(
+        have == want,
+        "{} disagrees with the readers: run MARXY_BLESS=1 cargo test stand_in",
+        path.display()
+    );
+}

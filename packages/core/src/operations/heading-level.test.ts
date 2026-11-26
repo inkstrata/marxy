@@ -1,4 +1,4 @@
-// promote-heading / demote-heading (E-07): the table rows run in LF, CRLF, CR, no trailing newline and BOM.
+// promote-heading / demote-heading: the table rows run in LF, CRLF, CR, no trailing newline and BOM.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Document, Heading, Node } from '../contracts/ast.ts';

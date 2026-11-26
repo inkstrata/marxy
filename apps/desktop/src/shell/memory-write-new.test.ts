@@ -1,4 +1,4 @@
-// `writeFileNew` (F-85, ADR-0074) on the memory shell: the contract every shell keeps, held here as the Rust shell holds it in
+// `writeFileNew` on the memory shell: the contract every shell keeps, held here as the Rust shell holds it in
 // `atomic_write.rs`. Anything at the name (a file, a folder, a symlink, a symlink that leads nowhere, a name differing only by case
 // on a case-insensitive volume) refuses `exists` and writes nothing; a creator that appears between a caller's look and its write is
 // never replaced; a failed write leaves nothing. Bytes are compared as bytes (the fidelity gate scans this folder).

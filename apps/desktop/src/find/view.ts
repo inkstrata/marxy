@@ -1,6 +1,6 @@
-// Rendered find, one pane at a time (D-13; docs/design/09-app-shell.md §Find). `Mod+F` mounts a small
+// Rendered find, one pane at a time. `Mod+F` mounts a small
 // field in the focused pane's `.marxy-find-slot`, at that pane's top right; typing reruns the match one
-// frame after the last keystroke over that pane's article alone (D-03's index and query compiler, over
+// frame after the last keystroke over that pane's article alone (the index and query compiler, over
 // walk.ts's text), highlights every match, counts them (`3 of 41`) and puts the current one on the
 // pane's reading line. `Enter` and `Shift+Enter` step; `Esc` closes, takes every highlight away and
 // gives focus back to the pane find opened from.
@@ -11,10 +11,11 @@
 // never written, so the typesetter (which watches it) has nothing to answer and a long document is as
 // fast as with highlights. Find only reads the article: no byte of the document changes, and the things it
 // may change are a closed `<details>` the current match is inside (opened, so a match is never counted
-// somewhere the reader cannot see it) and the scroll position of the scrollers the match is inside.
+// somewhere the reader cannot see it), a folded section or "only this" hiding it (depths/dress.ts, likewise) and
+// the scroll position of the scrollers the match is inside.
 //
-// The matches are kept as spans of the index's text, and a Range is held only for the ones near the view
-// (F-43). A Range is live: the engine updates every one of them on every DOM mutation anywhere in the
+// The matches are kept as spans of the index's text, and a Range is held only for the ones near the view.
+// A Range is live: the engine updates every one of them on every DOM mutation anywhere in the
 // document, so a few thousand of them made the typesetter's background pass, which splits and inserts
 // at every line break, four times slower on a 1 MB document (and worse still with highlights). The text
 // the spans index is never changed by a typesetter pass, only where its nodes split, so a window of
@@ -22,10 +23,16 @@
 // it was made. A short list of matches holds a Range each and highlights them all, as before.
 //
 // One find is open in the window at a time: opening it in one pane closes it in the other. Each pane
-// keeps its own last query for the next `Mod+F` there.
+// keeps its own last query for the next `Mod+F` there. A find belongs to the document it was opened on: another
+// document in its pane puts it away, and it comes back with that document, in whichever pane shows it
+// (commands/find.ts).
 
 import { readingLine } from '@marxy/core/src/position/blocks.ts';
+import { exposeAt } from '../depths/dress.ts';
 import type { Pane } from '../pane/pane-set.ts';
+import type { ViewerFind } from '../viewers/types.ts';
+import { rowsViewIn } from '../view/reading-rows.ts';
+import { linesViewIn } from '../view/reading-lines.ts';
 import { compileQuery } from './query.ts';
 import { buildTextIndex, findAll, type Span } from './text-index.ts';
 import { hiddenText, placeRange, walkText, type Walked } from './walk.ts';
@@ -44,13 +51,15 @@ const WINDOW_MAX = 600;
 export interface FindDeps {
   /** Records a timing mark (the `find_first_match` budget). */
   mark(name: 'find_first_match', data: string): void;
-  /** Focus back where find was opened from (D-06's `focusOrigin`). */
+  /** Focus back where find was opened from (`focusOrigin`). */
   restoreFocus(): void;
 }
 
 export interface FindState {
   readonly open: boolean;
   readonly query: string;
+  /** What `query` is matched by: the Line's `/` pattern when it opened find, else the plain query. */
+  readonly pattern: RegExp | null;
   /** Matches in this pane's article. */
   readonly count: number;
   /** The current match, 0-based; -1 with none. */
@@ -62,8 +71,13 @@ export interface FindState {
 export interface FindController {
   readonly pane: Pane;
   isOpen(): boolean;
-  /** Mounts the field (with this pane's last query, selected) and focuses it; closes find in any other pane. */
-  open(): void;
+  /** The document the field was opened on; null while it is not open. */
+  document(): string | null;
+  /**
+   * Mounts the field (with this pane's last query, selected) and focuses it; closes find in any other pane. With
+   * `focus` false the field comes back without taking focus (its document shown again).
+   */
+  open(opts?: { focus?: boolean }): void;
   /** Takes the field and every highlight away; with `restore`, focus goes back to the origin pane. */
   close(opts?: { restore?: boolean }): void;
   /** The next (1) or previous (-1) match, to the reading line. */
@@ -71,6 +85,8 @@ export interface FindController {
   /** Matches again now, keeping the current index (the page was set again). */
   refresh(): void;
   state(): FindState;
+  /** Opens find on `text`, matched by `re` (the Line's `/`: a regular expression, or exact case) until the field is typed in. */
+  seek(text: string, re: RegExp | null, opts?: { focus?: boolean }): void;
 }
 
 interface Highlights {
@@ -152,8 +168,95 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
   let typedAt: number | null = null;
   /** Bumped on every open and close: a late `contentComplete` answers only the open it was asked for. */
   let generation = 0;
+  /** A page of the app's own with text of its own (a PDF's text layer) finds in that text instead of the article. */
+  let inViewer: ViewerFind | null = null;
+  let viewerCount = 0;
+  /** A viewer run is still reading pages: the count is its matches so far, not an answer. */
+  let counting = false;
+  /** Bumped on every viewer run: a late count answers only the run it was asked for. */
+  let viewerRun = 0;
+  /** The viewer run the reader last stepped in. */
+  let steppedIn = -1;
+  let offDocument: (() => void) | null = null;
+  /** The Line's `/` pattern (a regular expression, or exact case) for `query`, until the field is typed in. */
+  let custom: RegExp | null = null;
+  const pattern = (): RegExp | null => custom ?? compileQuery(query);
+  /** The document the field was opened on. */
+  let openedOn: string | null = null;
 
   const scroller = (): HTMLElement => pane.view.scroller;
+
+  function viewerFind(): ViewerFind | null {
+    const viewer = pane.view.viewer();
+    const mode = pane.view.mode;
+    if (viewer?.owns(mode)) return viewer.find?.(mode) ?? null;
+    // A table reading drawn in part (a long CSV or JSON Lines) finds in every row of the file, not the rows on the page.
+    const rows = mode === 'rendered' ? rowsViewIn(pane.article) : null;
+    if (rows?.windowed()) return rows.find;
+    // A big file read as lines finds in every line of the file, not the lines on the page.
+    return (mode === 'rendered' ? linesViewIn(pane.article)?.find : null) ?? null;
+  }
+
+  /** Matches counted as the viewer reads its pages; the first at or below the view becomes current once it is found. */
+  /** What stops hearing the viewer's matches go stale. */
+  let offStale: (() => void) | null = null;
+
+  function runInViewer(found: ViewerFind, keep: boolean): void {
+    const asked = ++viewerRun;
+    offStale?.();
+    // A page whose order changes under find (a log's level filter) is matched again, from the reader's place.
+    offStale = found.stale?.(() => {
+      if (field && query.length > 0 && inViewer === found) run({ keep: false });
+    }) ?? null;
+    const keepAt = keep ? current : -1;
+    inViewer = found;
+    // A new query never shows the last one's count while its own pages are still being read.
+    if (!keep) {
+      viewerCount = 0;
+      current = -1;
+    }
+    counting = true;
+    const re = pattern();
+    const typed = typedAt;
+    typedAt = null;
+    if (!re) {
+      found.clear();
+      viewerCount = 0;
+      current = -1;
+      counting = false;
+      paintCount();
+      return;
+    }
+    // Matched again over the same page (a refresh): the current match stays where the reader stepped it, unscrolled.
+    let landed = keepAt >= 0;
+    const land = (at: number): void => {
+      landed = true;
+      // The reader stepped while the pages were still being read: the match they stepped to stays current.
+      if (steppedIn === asked) return;
+      current = at;
+      if (typed !== null) deps.mark('find_first_match', `ms=${(performance.now() - typed).toFixed(1)} matches=${viewerCount}`);
+      found.show(current);
+    };
+    if (!landed) current = -1;
+    void found
+      .run(re, (n) => {
+        if (asked !== viewerRun) return;
+        viewerCount = n;
+        const at = found.first();
+        if (!landed && n > 0 && at >= 0) land(at);
+        paintCount();
+      })
+      .then((n) => {
+        if (asked !== viewerRun) return;
+        counting = false;
+        viewerCount = n;
+        if (n === 0) current = -1;
+        else if (!landed) land(Math.max(0, found.first()));
+        else if (current >= n) current = n - 1;
+        if (keepAt >= 0 && current >= 0) found.show(current);
+        paintCount();
+      });
+  }
 
   function clearMatches(): void {
     const api = highlightApi();
@@ -177,7 +280,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     probeRange = null;
   }
 
-  /** Matches in the lines a log's level filter hides (K-08): find cannot show them, and says there are more. */
+  /** Matches in the lines a log's level filter hides: find cannot show them, and says there are more. */
   let hiddenMore = 0;
   function countHidden(walkedArticle: HTMLElement, re: RegExp | null): void {
     const pieces = re ? hiddenText(walkedArticle) : [];
@@ -188,7 +291,14 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     if (!countEl) return;
     const busy = pane.article.classList.contains('marxy-log-filter-busy') ? ' · still filtering' : '';
     const more = (hiddenMore > 0 ? ` · ${hiddenMore} more in hidden lines` : '') + busy;
-    countEl.textContent = query.length === 0 ? '' : `${spans.length === 0 ? 0 : current + 1} of ${spans.length}${more}`;
+    const total = inViewer ? viewerCount : spans.length;
+    if (inViewer && counting && query.length > 0) {
+      // A refresh keeps the current match while the count starts over: until the count reaches it, "N of M" would read N above M.
+      const place = current >= total ? `${total} so far` : `${current < 0 ? 0 : current + 1} of ${total}`;
+      countEl.textContent = total === 0 ? `counting…${busy}` : `${place} · still counting${busy}`;
+      return;
+    }
+    countEl.textContent = query.length === 0 ? '' : `${total === 0 || current < 0 ? 0 : current + 1} of ${total}${more}`;
   }
 
   /** The Range of the current match: one held in the window, else its own, from a fresh walk. */
@@ -236,7 +346,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
   function fresh(): Walked {
     const walked = walkText(pane.article);
     if (walked.index.text !== indexText) {
-      const re = compileQuery(query);
+      const re = pattern();
       indexText = walked.index.text;
       spans = re ? findAll(walked.index, re) : [];
       countHidden(pane.article, re);
@@ -448,6 +558,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       const summary = d.querySelector(':scope > summary');
       if (!d.open && !(summary && summary.contains(element!))) d.open = true;
     }
+    if (element) exposeAt(element);
     revealInInnerScrollers(match, element);
     const top = topOf(match);
     if (top === null) return;
@@ -460,9 +571,19 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
 
   function run(opts: { keep: boolean }): void {
     frame = 0;
+    const own = viewerFind();
+    if (inViewer && inViewer !== own) {
+      inViewer.clear();
+      inViewer = null;
+      viewerRun += 1;
+    }
+    if (own) {
+      runInViewer(own, opts.keep);
+      return;
+    }
     const keep = opts.keep ? current : -1;
     clearMatches();
-    const re = compileQuery(query);
+    const re = pattern();
     if (!re) {
       current = -1;
       hiddenMore = 0;
@@ -533,6 +654,16 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     field.append(input, countEl);
     input.addEventListener('input', () => {
       query = input!.value;
+      custom = null;
+      // The frame before the new run starts must not show the old query's count either.
+      if (inViewer && inViewer === viewerFind()) {
+        // The old run may report another page before the new one starts: its counts no longer answer.
+        viewerRun += 1;
+        viewerCount = 0;
+        current = -1;
+        counting = query.length > 0;
+        paintCount();
+      }
       schedule();
     });
     input.addEventListener('keydown', onKey);
@@ -556,12 +687,23 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
   const controller: FindController = {
     pane,
     isOpen: () => field !== null,
-    open() {
+    document: () => (field === null ? null : openedOn),
+    open(opts) {
       if (active && active !== controller) active.close();
       active = controller;
       if (!field) {
+        openedOn = pane.path();
         generation += 1;
         mount();
+        // A page set again in place is no pane open: a viewer's made again (a PDF changed on disk), or an article
+        // repainted by a live reload, an undo, a transform or the other pane's edit. The new page is matched when it is up.
+        const changes = (pane.content as { onDocumentChange?: (cb: () => void) => () => void }).onDocumentChange;
+        offDocument = changes?.call(pane.content, () => {
+          void pane.view.settled().then(() => {
+            if (!field || query.length === 0) return;
+            if (!inViewer || inViewer !== viewerFind()) run({ keep: true });
+          });
+        }) ?? null;
         if (query.length > 0) run({ keep: false });
         // A long document mounts its last blocks at idle: once it is all in, match again, holding the
         // current one.
@@ -570,6 +712,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
           if (asked === generation && field && query.length > 0) run({ keep: true });
         });
       }
+      if (opts?.focus === false) return;
       input!.focus({ preventScroll: true });
       input!.select();
     },
@@ -578,9 +721,17 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       frame = 0;
       typedAt = null;
       generation += 1;
+      offDocument?.();
+      offDocument = null;
       clearMatches();
       dropRanges();
       watchView(false);
+      inViewer?.clear();
+      inViewer = null;
+      offStale?.();
+      offStale = null;
+      viewerRun += 1;
+      viewerCount = 0;
       current = -1;
       const wasOpen = field !== null;
       unmount();
@@ -588,6 +739,25 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       if (wasOpen && opts?.restore) deps.restoreFocus();
     },
     step(direction) {
+      if (inViewer && inViewer !== viewerFind()) {
+        // The page was made again (the file changed on disk): match in the new one, from the match the reader was on.
+        run({ keep: true });
+        if (inViewer) return;
+      }
+      if (inViewer) {
+        if (viewerCount === 0) return;
+        steppedIn = viewerRun;
+        // While counting, the last match counted is not the last match: forward from it (or from a kept match past it) has no known next, so the reader stays put rather than wrap.
+        if (counting && direction > 0 && current >= viewerCount - 1) return;
+        if (counting && current >= viewerCount) current = viewerCount - 1;
+        else current = (current + direction + viewerCount) % viewerCount;
+        inViewer.show(current);
+        paintCount();
+        return;
+      }
+      // A held Range the page dropped (its block was set again before the refresh came): match the page as it is now.
+      const now = current >= heldFrom && current < heldFrom + heldCount ? held[current - heldFrom]! : null;
+      if (now && (now.collapsed || !now.startContainer.isConnected)) run({ keep: true });
       if (spans.length === 0) return;
       current = (current + direction + spans.length) % spans.length;
       paintCurrent();
@@ -596,7 +766,19 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     refresh() {
       if (field && query.length > 0) run({ keep: true });
     },
-    state: () => ({ open: field !== null, query, count: spans.length, current, via }),
+    state: () => ({ open: field !== null, query, pattern: pattern(), count: inViewer ? viewerCount : spans.length, current, via }),
+    seek(text, re, opts) {
+      query = text;
+      custom = re;
+      if (!field) {
+        controller.open(opts);
+        return;
+      }
+      input!.value = text;
+      run({ keep: false });
+      input!.focus({ preventScroll: true });
+      input!.select();
+    },
   };
   return controller;
 }

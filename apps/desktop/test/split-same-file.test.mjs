@@ -1,4 +1,4 @@
-// "Split this document" (D-10): the focused document opens again in the other pane at the first pane's
+// "Split this document": the focused document opens again in the other pane at the first pane's
 // reading position, both views over one store. An edit, an undo or a task tick shows in both within a
 // frame, each view keeps its own place (the other's shifts by the edit's delta), and the file is parsed
 // once. Booted on the shipped skeleton over the memory shell (test/support/two-pane.mjs).
@@ -49,6 +49,19 @@ test('Split this document opens the file again in the other pane at the reading 
     const before = await place(page, 0);
     assert.ok(before.byteOffset > 0, 'the first pane is not at the top');
     await runSplitSame(page);
+    // The first pane is set again at its new width after the split (a resize burst, then the relayout): its place is
+    // read once that is done, or the scroll below would be blamed for the place the relayout re-read at the new width.
+    await page.evaluate(async () => {
+      const heights = () => [...document.querySelectorAll('section.marxy-pane')].map((el) => el.scrollHeight).join();
+      let last = '';
+      let still = 0;
+      while (still < 10) {
+        await new Promise((r) => setTimeout(r, 100));
+        const h = heights();
+        if (h === last) still++;
+        else { still = 0; last = h; }
+      }
+    });
     const left = await place(page, 0);
     const right = await place(page, 1);
     // The second pane is at the first's block (the panes are half as wide, so the fraction within it may differ).

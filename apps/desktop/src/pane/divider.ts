@@ -1,7 +1,7 @@
-// The hairline between two panes (D-04; ADR-0057): one 1 px line, no handle, no label and no layout
+// The hairline between two panes: one 1 px line, no handle, no label and no layout
 // width. It exists exactly while two panes do (`PaneSet.onSplit`). Dragging it, the arrow keys on it and
 // the palette's split commands all go through `PaneSet.setRatio`, clamped so neither column drops below
-// the 45-character floor (`clampRatio`, D-02). Double-click and "Even split" make the
+// the 45-character floor (`clampRatio`). Double-click and "Even split" make the
 // panes even; Home does the same (there is no End). Arrow keys and Home are the whole keyboard.
 // How it looks is `.marxy-divider` in the theme's base.css and three `--marxy-*` tokens.
 

@@ -1,8 +1,8 @@
-// A long run of paragraphs restyles in bounded time (F-96.1, WebKit). A document of 27,000 short paragraphs with one
+// A long run of paragraphs restyles in bounded time (WebKit). A document of 27,000 short paragraphs with one
 // mermaid fence at its end is opened in Rendered, then the whole page is restyled by changing its colour variant (the
 // `:root[data-marxy-variant]` tokens every paragraph inherits), and the next frame is awaited. With the old
 // `p:has(+ pre.language-mermaid)` rule in base.css WebKit took 13 to 15 s here, growing with the square of the run
-// (F-96); with the caption marked by class it takes about 50 ms. The bound of 2,000 ms is 40 times the measured 50 ms:
+// with the caption marked by class it takes about 50 ms. The bound of 2,000 ms is 40 times the measured 50 ms:
 // a slow runner has room in it, a quadratic regression does not.
 import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
@@ -21,7 +21,7 @@ after(() => closeHarness());
 const RESTYLE_MS = 2_000;
 const PARAGRAPHS = 27_000;
 
-test('F-96.1 a 27,000-paragraph page with a diagram fence restyles in bounded time in Rendered', async () => {
+test('a 27,000-paragraph page with a diagram fence restyles in bounded time in Rendered', async () => {
   const lines = [];
   for (let i = 0; i < PARAGRAPHS; i++) lines.push(`Paragraph ${i}, a short line of ordinary prose.`);
   const md = `# Long run\n\n${lines.join('\n\n')}\n\n\`\`\`mermaid\nflowchart LR\n  A --> B\n\`\`\`\n`;
@@ -57,7 +57,7 @@ test('F-96.1 a 27,000-paragraph page with a diagram fence restyles in bounded ti
       return out;
     });
     const worst = Math.max(...runs.map((r) => r.ms));
-    console.log(`F-96.1 restyle of ${PARAGRAPHS} paragraphs, three runs: ${runs.map((r) => Math.round(r.ms)).join(', ')} ms`);
+    console.log(`restyle of ${PARAGRAPHS} paragraphs, three runs: ${runs.map((r) => Math.round(r.ms)).join(', ')} ms`);
     assert.ok(runs.every((r) => r.changed), 'the colour variant change restyled the paragraphs (their colour changed)');
     assert.ok(worst < RESTYLE_MS, `a full restyle took ${Math.round(worst)} ms; the bound is ${RESTYLE_MS} ms`);
   } finally {

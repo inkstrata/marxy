@@ -1,4 +1,4 @@
-// Source mode looks (L-06): the palette, the grid, the active line, the live theme, the search panel.
+// Source mode looks: the palette, the grid, the active line, the live theme, the search panel.
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -7,15 +7,16 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const appRoot = join(repoRoot, 'apps', 'desktop');
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-source-looks-'));
 let server;
@@ -49,24 +50,29 @@ const TS = [
 const setVariant = (page, variant) => page.evaluate((v) => document.documentElement.setAttribute('data-marxy-variant', v), variant);
 
 const MD = '# Title\n\nSome `inline` code and a [link](https://example.com).\n\n- item\n';
+const NIGHT_PAPER = 'theme = "night-paper"\n';
 
-async function boot(page, path, body) {
+async function boot(page, path, body, config) {
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   await page.evaluate(async ({ files, argv }) => {
     const handle = await window.marxyApp.start(files, argv);
     await handle.ready;
     window.__marxyHandle = handle;
-  }, { files: { [path]: Buffer.from(body).toString('base64') }, argv: [path] });
+    // Code lands in Read; this is about Source, one press away.
+    if (document.body.dataset.marxyMode !== 'source') await handle.toggleMode();
+  }, { files: { [path]: Buffer.from(body).toString('base64'), ...(config ? { '/config': Buffer.from(config).toString('base64') } : {}) }, argv: [path] });
   await page.waitForSelector('#marxy-source .cm-editor .cm-line');
+  // A code file's colour is Shiki's runs from the highlight worker: it arrives after the text, the whole sample at once.
+  if (!path.endsWith('.md')) await page.waitForSelector('#marxy-source .cm-line [class*="marxy-tok-"]', { timeout: 15_000 });
   await page.evaluate(() => document.fonts.ready);
 }
 
-/** Computed colour of what `css` paints, resolved in the page the way the editor resolves it. */
+/** Computed colour of what `css` paints, resolved in the editor's own language scope (its palette), as its tokens are. */
 const probe = `(css, prop) => {
   const el = document.createElement('i');
   el.style[prop] = css;
-  document.body.appendChild(el);
+  (document.querySelector('#marxy-source .cm-editor') ?? document.body).appendChild(el);
   const v = getComputedStyle(el)[prop];
   el.remove();
   return v;
@@ -86,11 +92,13 @@ async function expectToken(page, text, tokenVar) {
   assert.equal(seen.got, want, `${text} should carry ${tokenVar} (${seen.got} vs ${want}; text ${seen.text})`);
 }
 
-test('L-06.1 Source tokens carry the --marxy-tok-* colours (TypeScript and Markdown, both variants)', async () => {
+test('Source tokens carry the --marxy-tok-* colours (TypeScript and Markdown, both variants)', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
-    await boot(page, '/src/a.ts', TS);
+    // Night and Paper, named (NIGHT_PAPER): under Ink, the default, as under Fjord, Source's first
+    // colours land a moment after its lines, and these cases read them at once.
+    await boot(page, '/src/a.ts', TS, NIGHT_PAPER);
     const lightStrings = [];
     for (const variant of ['dark', 'light']) {
       await setVariant(page, variant);
@@ -109,8 +117,8 @@ test('L-06.1 Source tokens carry the --marxy-tok-* colours (TypeScript and Markd
     await page2.evaluate(async ({ files, argv }) => {
       const handle = await window.marxyApp.start(files, argv);
       await handle.ready;
-    }, { files: { '/doc/a.md': Buffer.from(MD).toString('base64') }, argv: ['/doc/a.md'] });
-    await page2.keyboard.press('Meta+E');
+    }, { files: { '/doc/a.md': Buffer.from(MD).toString('base64'), '/config': Buffer.from(NIGHT_PAPER).toString('base64') }, argv: ['/doc/a.md'] });
+    await page2.keyboard.press('ControlOrMeta+E');
     await page2.waitForSelector('#marxy-source .cm-editor .cm-line');
     await expectToken(page2, 'inline', '--marxy-tok-string');
     await expectToken(page2, 'link', '--marxy-tok-link');
@@ -140,18 +148,21 @@ const spansOf = (page) => page.evaluate(() => {
   return { spans: out, text: getComputedStyle(document.querySelector('#marxy-source .cm-content')).color };
 });
 
-test('V-13 Source: a Python file uses at least nine token colours and leaves no keyword, decorator, class name or escape in the text colour', async () => {
+test('Source: a Python file uses at least nine token colours and leaves no keyword, decorator, class name or escape in the text colour', async () => {
   const browser = await launchWebkit();
   try {
     for (const variant of ['dark', 'light']) {
       const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
-      await boot(page, '/src/a.py', PY);
+      // The shared roles' hues: Python's own palette gives strings, numbers and decorators one yellow.
+      // Night and Paper's roles, named: Ink, the default, keeps keywords in the ink on purpose.
+      await boot(page, '/src/a.py', PY, `${NIGHT_PAPER}[syntax]\nby_language = false\n`);
       await setVariant(page, variant);
       const { spans, text } = await spansOf(page);
       const colours = new Set(Object.values(spans));
       assert.ok(colours.size >= 9, `${variant}: ${colours.size} token colours`);
       for (const word of ['class', 'def', 'return', 'Foo', 'run', '@', '\\n']) {
-        const hit = Object.entries(spans).find(([k]) => k === word);
+        // Shiki's runs join neighbours of one role (`@decorator` is one decorator run), so a word may open a longer span.
+        const hit = Object.entries(spans).find(([k]) => k === word) ?? Object.entries(spans).find(([k]) => k.startsWith(word));
         assert.ok(hit, `${variant}: no span for ${word}`);
         assert.notEqual(hit[1], text, `${variant}: ${word} is left in the text colour ${JSON.stringify(spans)}`);
       }
@@ -162,7 +173,7 @@ test('V-13 Source: a Python file uses at least nine token colours and leaves no 
   }
 });
 
-test('V-13 Source: Markdown headings, link, URL, code, list and quote marks take token colours, and every row stays one line box', async () => {
+test('Source: Markdown headings, link, URL, code, list and quote marks take token colours, and every row stays one line box', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -172,10 +183,16 @@ test('V-13 Source: Markdown headings, link, URL, code, list and quote marks take
       const handle = await window.marxyApp.start(files, argv);
       await handle.ready;
     }, { files: { '/doc/a.md': Buffer.from(MD_FULL).toString('base64') }, argv: ['/doc/a.md'] });
-    await page.keyboard.press('Meta+E');
+    await page.keyboard.press('ControlOrMeta+E');
     await page.waitForSelector('#marxy-source .cm-editor .cm-line');
+    const words = [' One', ' Two', ' Three', 'a link', 'https://example.com/x', 'code', '>', '-', '1.', '---'];
+    // CodeMirror parses in slices of time: under load the later rows are styled a little after the editor shows.
+    await page.waitForFunction((words) => {
+      const got = new Set([...document.querySelectorAll('#marxy-source .cm-line span')].filter((e) => e.children.length === 0).map((e) => e.textContent.trim()));
+      return words.every((w) => got.has(w.trim()));
+    }, words);
     const { spans, text } = await spansOf(page);
-    for (const word of [' One', ' Two', ' Three', 'a link', 'https://example.com/x', 'code', '>', '-', '1.', '---']) {
+    for (const word of words) {
       const hit = Object.entries(spans).find(([k]) => k === word || k.trim() === word.trim());
       assert.ok(hit, `no span for ${JSON.stringify(word)}`);
       assert.notEqual(hit[1], text, `${JSON.stringify(word)} is left in the text colour`);
@@ -196,13 +213,13 @@ async function setTextSize(page, px) {
   for (let i = 0; i < 40; i++) {
     const now = await read();
     if (now === px) return;
-    await page.keyboard.press(now < px ? 'Meta+Equal' : 'Meta+Minus');
+    await page.keyboard.press(now < px ? 'ControlOrMeta+Equal' : 'ControlOrMeta+Minus');
     await page.waitForFunction((was) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-size-body')) !== was, now);
   }
   throw new Error(`could not reach text size ${px}`);
 }
 
-test('V-12 Source sets its own type: 14 on 21 at the default, scaling with the reader\'s text size (K-R1 a, ADR-0067)', async () => {
+test('Source sets its own type: 14 on 21 at the default, scaling with the reader\'s text size', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -238,7 +255,7 @@ test('V-12 Source sets its own type: 14 on 21 at the default, scaling with the r
   }
 });
 
-test('V-12 the gutter takes its padding from the line box, not CodeMirror\'s 3px and 5px; the numbers are tabular and secondary', async () => {
+test('the gutter takes its padding from the line box, not CodeMirror\'s 3px and 5px; the numbers are tabular and secondary', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -267,7 +284,7 @@ test('V-12 the gutter takes its padding from the line box, not CodeMirror\'s 3px
   }
 });
 
-test('V-12 Source takes the article\'s weight: the body weight token plus the platform offset, not 400', async () => {
+test('Source takes the article\'s weight: the body weight token plus the platform offset, not 400', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -295,7 +312,7 @@ test('V-12 Source takes the article\'s weight: the body weight token plus the pl
   }
 });
 
-test('V-12 nothing at rest: no tinted line without the caret, and a fold chevron only over the gutter', async () => {
+test('nothing at rest: no tinted line without the caret, and a fold chevron only over the gutter', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -328,7 +345,7 @@ test('V-12 nothing at rest: no tinted line without the caret, and a fold chevron
   }
 });
 
-test('L-06.3 active line is a colour-mix of theme tokens; the fold gutter shows only with line numbers', async () => {
+test('active line is a colour-mix of theme tokens; the fold gutter shows only with line numbers', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -360,7 +377,7 @@ test('L-06.3 active line is a colour-mix of theme tokens; the fold gutter shows 
   }
 });
 
-test('L-06.4 changing variant or size re-themes the same editor, keeping selection and undo', async () => {
+test('changing variant or size re-themes the same editor, keeping selection and undo', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -393,20 +410,20 @@ test('L-06.4 changing variant or size re-themes the same editor, keeping selecti
     await setTextSize(page, 24);
     await page.waitForFunction((pad) => getComputedStyle(document.querySelector('#marxy-source .cm-content')).paddingTop !== pad, after.padTop);
     assert.equal((await snap()).sentinel, 'same');
-    await page.keyboard.press('Meta+Z');
+    await page.keyboard.press('ControlOrMeta+Z');
     assert.ok(!(await snap()).text.includes('XYZ'), 'undo still reaches the typing made before the re-theme');
   } finally {
     await browser.close();
   }
 });
 
-test('L-06.5 the search panel is painted from tokens', async () => {
+test('the search panel is painted from tokens', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await boot(page, '/src/a.ts', TS);
     await page.click('#marxy-source .cm-line >> nth=1');
-    await page.keyboard.press('Meta+F');
+    await page.keyboard.press('ControlOrMeta+F');
     await page.waitForSelector('#marxy-source .cm-search input');
     const seen = await page.evaluate(`(() => {
       const probe = ${probe};
@@ -428,13 +445,13 @@ test('L-06.5 the search panel is painted from tokens', async () => {
   }
 });
 
-test('L-11 a search match carries the edge; the current match is outlined', async () => {
+test('a search match carries the edge; the current match is outlined', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await boot(page, '/src/a.ts', TS);
     await page.click('#marxy-source .cm-line >> nth=1');
-    await page.keyboard.press('Meta+F');
+    await page.keyboard.press('ControlOrMeta+F');
     await page.waitForSelector('#marxy-source .cm-search input');
     await page.keyboard.type('e');
     await page.keyboard.press('Enter');
@@ -463,7 +480,7 @@ test('L-11 a search match carries the edge; the current match is outlined', asyn
   }
 });
 
-test('H-05: a theme that is dark under the light variant gives Source the dark base theme, and the head is not watched in a loop', async () => {
+test('a theme that is dark under the light variant gives Source the dark base theme, and the head is not watched in a loop', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -471,7 +488,7 @@ test('H-05: a theme that is dark under the light variant gives Source the dark b
     // the page busy, so an in-page wait would hang instead of failing.
     const stuck = (what) => new Promise((_, reject) => setTimeout(() => reject(new Error(`the page stopped answering ${what}: Source and the theme bridge are probably reconfiguring each other in a loop`)), 8_000).unref());
     const quick = (fn) => Promise.race([page.evaluate(fn), stuck('after a theme change')]);
-    await Promise.race([boot(page, '/src/a.ts', TS), stuck('while the app started up')]);
+    await Promise.race([boot(page, '/src/a.ts', TS, NIGHT_PAPER), stuck('while the app started up')]);
     const editorClass = () => quick(() => document.querySelector('#marxy-source .cm-editor').className);
     await quick(() => document.documentElement.setAttribute('data-marxy-variant', 'dark'));
     await new Promise((r) => setTimeout(r, 150));
@@ -486,7 +503,8 @@ test('H-05: a theme that is dark under the light variant gives Source the dark b
     // Count what lands in the head meanwhile: a reconfigure injects a style, so a loop shows as a count that keeps growing.
     await quick(() => {
       window.__headAdds = 0;
-      new MutationObserver((records) => { for (const r of records) window.__headAdds += r.addedNodes.length; }).observe(document.head, { childList: true });
+      // Styles only: a lazy chunk loaded at idle meanwhile (the left panels) adds its own preload links, which are no loop.
+      new MutationObserver((records) => { for (const r of records) for (const n of r.addedNodes) if (n.nodeName !== 'LINK') window.__headAdds += 1; }).observe(document.head, { childList: true });
       const sheet = new CSSStyleSheet();
       sheet.replaceSync(':root[data-marxy-variant="light"] { color-scheme: dark; }');
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];

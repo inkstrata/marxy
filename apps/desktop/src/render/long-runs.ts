@@ -1,4 +1,4 @@
-// A break opportunity inside a run of text that has none (F-79). WebKit lays out a run of non-space characters that
+// A break opportunity inside a run of text that has none. WebKit lays out a run of non-space characters that
 // spans two or more text nodes in time quadratic in its length when the page has `overflow-wrap: break-word`: a 2 MB
 // line with no spaces took 80 s for one layout, and every later layout paid it again. The HTML parser makes the
 // split itself, a text node at most 64 KB long. A `<wbr>` is an element that holds nothing and draws nothing: it is

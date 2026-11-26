@@ -1,4 +1,4 @@
-// The outline is the heading list a later dialog will render. These cases are §12 and MARXY-109.
+// The outline is the heading list a later dialog will render.
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import type { Heading, Node } from '../contracts/ast.ts';
 import { parseMarkdown } from '../parse/parse.ts';
-import { outlineFrom } from './outline.ts';
+import { OUTLINE_MAX, outlineFrom, outlineOf } from './outline.ts';
 import { outlineFrom as exported } from '../index.ts';
 
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
@@ -40,8 +40,8 @@ function sourceFiles(directory: URL, prefix = ''): { path: string; text: string 
   return files;
 }
 
-// The sanitiser only (CODEOWNERS protects it; contracts are reviewed, not locked, ADR-0045).
-// package.json, scripts and apps/desktop were MARXY-109's own PR boundary, not a standing lock — later core stories (MARXY-77) need those paths.
+// The sanitiser only (CODEOWNERS protects it; contracts are reviewed, not locked).
+// package.json, scripts and apps/desktop were one change's own boundary, not a standing lock — later core work needs those paths.
 const FORBIDDEN_PREFIXES = ['packages/core/src/sanitize'];
 
 type GitExec = (
@@ -51,7 +51,7 @@ type GitExec = (
 ) => string;
 
 // Shallow CI checkouts often have no origin/main; throwing on the three-dot
-// range failed the suite instead of asserting the story boundary (MARXY-109).
+// range failed the suite instead of asserting the boundary.
 function resolveThreeDotBase(opts: { cwd: string }, git: GitExec = execFileSync as GitExec): string | null {
   for (const ref of ['origin/main', 'main']) {
     try {
@@ -141,6 +141,22 @@ test('a heading nested in a blockquote is included, document order', () => {
   assert.equal(headings[1]?.src.start, outline[1]?.src.start);
 });
 
+test('200,000 headings in one quote: every one in order, no RangeError; capped at OUTLINE_MAX only when asked', () => {
+  const document = parseMarkdown(`---\ntitle: T\n---\n${'> ## h\n'.repeat(199_999)}> # last\n`, { file: 'many.md' });
+  const all = outlineFrom(document);
+  assert.equal(all.length, 200_000, 'the h1 means no front-matter title');
+  assert.equal(all[199_999]!.text, 'last');
+  assert.ok(all.every((entry, i) => i === 0 || entry.src.start > all[i - 1]!.src.start));
+  assert.equal(outlineOf(document).capped, false);
+  const outline = outlineOf(document, OUTLINE_MAX);
+  assert.equal(outline.capped, true);
+  assert.equal(outline.entries.length, OUTLINE_MAX, 'an h1 past the cap still means no front-matter title');
+  assert.deepEqual(outline.entries, all.slice(0, OUTLINE_MAX));
+  const under = outlineOf(parseMarkdown('> # a\n> ## b\n\n# c\n', { file: 'few.md' }));
+  assert.equal(under.capped, false);
+  assert.deepEqual(under.entries.map((entry) => entry.text), ['a', 'b', 'c']);
+});
+
 test('frontmatter title: prepends as level 1 when there is no h1', () => {
   const source = '---\ntitle: Hello\n---\n\n## Section\n';
   const document = parseMarkdown(source, { file: 'fm.md' });
@@ -187,7 +203,7 @@ test('packages/core/src/index.ts exports outlineFrom', () => {
   assert.equal(exported, outlineFrom);
 });
 
-test('no file under packages/core/src/outline imports apps/desktop or packages/shell-api (ADR-0020)', () => {
+test('no file under packages/core/src/outline imports apps/desktop or packages/shell-api', () => {
   const offenders: string[] = [];
   for (const file of sourceFiles(outlineDir)) {
     for (const specifier of imports(file.text)) {
@@ -311,7 +327,7 @@ test('the three-dot forbidden-path check fails when a forbidden prefix is in the
   }
 });
 
-test('the three-dot forbidden-path check allows a contract file (ADR-0045)', () => {
+test('the three-dot forbidden-path check allows a contract file', () => {
   runThreeDotForbiddenCheck({
     resolveBase: () => 'main',
     listNames: () => ['packages/core/src/contracts/ast.ts'],

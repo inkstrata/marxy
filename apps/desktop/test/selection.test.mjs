@@ -1,4 +1,4 @@
-// Rendered selection: corpus resolve property, clicks, keys, re-render, text drag (MARXY-41).
+// Rendered selection: corpus resolve property, clicks, keys, re-render, text drag.
 
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { parseMarkdown } from '../../../packages/core/src/parse/parse.ts';
 import { sectionRange } from '../../../packages/core/src/sourcemap/section.ts';
@@ -115,7 +115,16 @@ async function runCorpusProperty(page, { brokenResolve = false } = {}) {
     for (const el of article.querySelectorAll('[data-marxy-s]')) {
       const hit = resolveFn(el, nodeMap);
       if (!hit) {
-        failures.push(`miss ${el.outerHTML.slice(0, 60)}`);
+        // A fence read on its own (a data fence as a tree) carries its own byte spans inside the fence's
+        // carrier, and a byline value its own bytes inside the front matter's; a selection there takes the fence or
+        // the front matter, as selection/view.ts's blockOfElement walks up to it.
+        let outer = null;
+        for (let up = el.parentElement?.closest('[data-marxy-s]'); up && !outer; up = up.parentElement?.closest('[data-marxy-s]')) outer = resolveFn(up, nodeMap);
+        const s = Number(el.getAttribute('data-marxy-s'));
+        const e = Number(el.getAttribute('data-marxy-e'));
+        const inFence = outer?.node.type === 'codeBlock' && el.closest('.marxy-reading') !== null && s >= outer.range.start && e <= outer.range.end;
+        const inHead = outer?.node.type === 'frontmatter' && el.matches('dl[data-marxy-fm-part="head"] > dd[data-marxy-fm-part="byline"]') && s >= outer.range.start && e <= outer.range.end;
+        if (!inFence && !inHead) failures.push(`miss ${el.outerHTML.slice(0, 60)}`);
         continue;
       }
       if (String(hit.node.src.start) !== el.getAttribute('data-marxy-s') && hit.node.type !== 'codeBlock') {
@@ -267,7 +276,7 @@ test('a selection made in one document does not survive opening another', async 
 });
 
 test('after the page fails to render a change, nothing stays selected', async () => {
-  // The B-11 review: a selection held across a failed render names a page that is gone, at offsets
+  // A selection held across a failed render names a page that is gone, at offsets
   // of bytes the store has moved past.
   const docPath = '/fail.md';
   const browser = await launchWebkit();
@@ -278,23 +287,29 @@ test('after the page fails to render a change, nothing stays selected', async ()
     assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'node');
     const failed = await page.evaluate(async (path) => {
       const article = document.getElementById('doc');
-      // The next query of the article throws once: the repaint that follows the store's commit fails.
-      article.querySelectorAll = () => {
-        delete article.querySelectorAll;
+      // The in-place update fails once it has begun changing the page (it takes out the old blocks with
+      // `removeChild`), and so does the whole render it falls back to (it queries the article), so the repaint after
+      // the store's commit fails whichever path a document takes.
+      const boom = () => {
         throw new Error('render failed');
       };
+      article.removeChild = boom;
+      article.querySelectorAll = boom;
       const next = window.marxySelection.createBuffer(path, new TextEncoder().encode('# Title\n\nA changed paragraph.\n'));
       const warn = console.warn;
-      console.warn = () => {};
+      const warned = [];
+      console.warn = (m) => warned.push(String(m));
       try {
         await window.__marxyTestHandle.commitEdit(next);
       } finally {
         console.warn = warn;
+        delete article.removeChild;
         delete article.querySelectorAll;
       }
-      return article.textContent;
+      return warned.join(' | ');
     }, docPath);
-    assert.match(failed, /render failed/);
+    assert.match(failed, /the blocks a change touched could not be replaced/);
+    assert.match(failed, /the page could not be set after a change/);
     assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'none');
   } finally {
     await browser.close();

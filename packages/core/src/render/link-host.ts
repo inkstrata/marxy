@@ -1,4 +1,4 @@
-// Link text vs destination host comparison and mismatch labels (handbook ch.7, MARXY-236).
+// Link text vs destination host comparison and mismatch labels (handbook ch.7).
 
 import { hostnameToUnicode } from './punycode.ts';
 

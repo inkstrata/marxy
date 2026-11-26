@@ -1,4 +1,4 @@
-// Root detection matches ADR-0012: enclosing repository, else the file's own directory.
+// Root detection: enclosing repository, else the file's own directory.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -8,9 +8,10 @@ import assert from 'node:assert/strict';
 import { detectIndexRoot } from './index.ts';
 import { nodeReader } from './node-reader.test.ts';
 
+// The root is spelled with `/`, as every path the page sees is, on Windows too.
 function scratch(label: string): string {
   const dir = mkdtempSync(join(tmpdir(), `marxy-index-root-${label}-`));
-  return dir;
+  return dir.replaceAll('\\', '/');
 }
 
 test('a file inside a git repository indexes the repository root', () => {

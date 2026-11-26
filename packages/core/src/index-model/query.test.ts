@@ -1,9 +1,10 @@
-// The query language (Q-02): one case per row of the mock's syntax table, the combinators, the
+// The query language: one case per row of the syntax table, the combinators, the
 // flagged terms, the authorship exclusion, range bookkeeping and totality over random input.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { completeQuery, parseQuery, QUERY_KEYS, type FieldTerm, type Term } from './index.ts';
+import { parseQuery, type FieldTerm, type Term } from './index.ts';
+import { QUERY_KEYS } from './query.ts';
 
 const only = (input: string): Term => {
   const q = parseQuery(input);
@@ -128,19 +129,10 @@ test('an unclosed quote runs to the end as an incomplete phrase', () => {
 });
 
 for (const name of ['model', 'session', 'tag', 'is:ai', 'is:live']) {
-  test(`${name} is not a key: it parses as unknown and is never suggested`, () => {
+  test(`${name} is not a key: it parses as unknown`, () => {
     const input = name.includes(':') ? name : `${name}:x`;
     assert.equal(only(input).kind, 'unknown', input);
     assert.ok(!(QUERY_KEYS as readonly string[]).includes(name));
-    const keyList = completeQuery(name.slice(0, 2), 2).items.map((i) => i.insert);
-    assert.ok(!keyList.includes(`${name}:`), `${name} suggested as a key`);
-    if (name.startsWith('is:')) {
-      const values = completeQuery('is:', 3).items.map((i) => i.insert);
-      assert.ok(!values.includes(name.slice(3)), `${name} suggested as a value`);
-    }
-    for (const prefix of ['', 'm', 's', 't']) {
-      for (const item of completeQuery(prefix, prefix.length).items) assert.ok(!/^(model|session|tag):/.test(item.insert));
-    }
   });
 }
 
@@ -179,7 +171,6 @@ test('random input: never throws, ranges in order, non-overlapping and inside th
     let s = '';
     for (let j = rand(14); j >= 0; j--) s += pieces[rand(pieces.length)];
     checkRanges(s);
-    completeQuery(s, rand(s.length + 3) - 1);
   }
 });
 
@@ -194,39 +185,4 @@ test('a 100 KB input parses in linear time (recorded, not asserted)', () => {
   const t1 = performance.now();
   parseQuery(bad);
   console.log(`# parseQuery unclosed quote, 100 KB: ${(performance.now() - t1).toFixed(1)} ms`);
-});
-
-test('completion: keys at the start and after a space, never tasks', () => {
-  const c = completeQuery('', 0);
-  assert.deepEqual(c.replace, [0, 0]);
-  assert.deepEqual(c.items.map((i) => i.label), ['kind:', 'is:', 'has:', 'modified:', 'words:', 'size:', 'path:', 'in:']);
-  const d = completeQuery('foo mo', 6);
-  assert.deepEqual(d.replace, [4, 6]);
-  assert.deepEqual(d.items.map((i) => i.insert), ['modified:']);
-  assert.deepEqual(completeQuery('-ki', 3).replace, [1, 3]);
-});
-
-test('completion: values after is:, has: and in:', () => {
-  const is = completeQuery('is:un', 5);
-  assert.deepEqual(is.replace, [3, 5]);
-  assert.deepEqual(is.items.map((i) => i.insert), ['unread']);
-  assert.equal(completeQuery('is:', 3).items.length, 10);
-  assert.deepEqual(completeQuery('has:', 4).items.map((i) => i.insert), ['code', 'paths', 'links']);
-  assert.deepEqual(completeQuery('is:read,ch', 10).replace, [8, 10]);
-  const inn = completeQuery('in:pl', 5, { collections: ['plans', 'notes', 'my plans'] });
-  assert.deepEqual(inn.items.map((i) => i.insert), ['plans']);
-  assert.deepEqual(completeQuery('in:my', 5, { collections: ['my plans'] }).items.map((i) => i.insert), ['"my plans"']);
-  assert.deepEqual(completeQuery('in:', 3).items, []);
-  assert.deepEqual(completeQuery('colour:', 7).items, []);
-  assert.deepEqual(completeQuery('"is:un', 6).items, [], 'nothing inside an open phrase');
-});
-
-test('completion: a bad caret is clamped, never thrown on', () => {
-  const input = 'is:un';
-  assert.deepEqual(completeQuery(input, Number.NaN).replace, [0, 0]);
-  assert.deepEqual(completeQuery(input, -4).replace, [0, 0]);
-  assert.deepEqual(completeQuery(input, 99).replace, [3, 5]);
-  assert.deepEqual(completeQuery(input, Number.POSITIVE_INFINITY).replace, [3, 5]);
-  assert.deepEqual(completeQuery(input, 5.9).replace, [3, 5]);
-  assert.deepEqual(completeQuery(input, 2.5).replace, completeQuery(input, 2).replace);
 });

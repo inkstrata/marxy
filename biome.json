@@ -10,8 +10,12 @@
       "!!**/dist",
       "!!**/target",
       "!!results",
+      "!!work",
       "!!docs/research",
-      "!!apps/desktop/test/fixtures/paste"
+      "!!apps/desktop/test/fixtures/paste",
+      "!!fixtures/detect/clip.ts",
+      "!!fixtures/demo/data/soundings.json",
+      "!!apps/desktop/src/harness/tables-demo.json"
     ]
   },
   "assist": {
@@ -46,12 +50,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "orchestration/jira.mjs",
-        "packages/core/src/index-model/walk.test.ts",
-        "scripts/check-story.mjs",
-        "scripts/new.mjs"
-      ],
+      "includes": ["packages/core/src/index-model/walk.test.ts"],
       "linter": {
         "rules": {
           "correctness": {

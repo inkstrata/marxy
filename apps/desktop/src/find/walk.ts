@@ -1,5 +1,5 @@
-// The DOM half of Rendered find's index (D-13; docs/design/09-app-shell.md §Find): the article's text
-// nodes, in order, as the strings D-03's `buildTextIndex` concatenates, and the way back from an offset
+// The DOM half of Rendered find's index: the article's text
+// nodes, in order, as the strings `buildTextIndex` concatenates, and the way back from an offset
 // pair in that text to a DOM Range.
 //
 // What is in the index is what the reader reads, by one rule: a subtree that is not the document's
@@ -22,16 +22,20 @@ import { buildTextIndex, type PieceOffset, type Span, type TextIndex } from './t
 export const NON_CONTENT = [
   '[hidden]', '[aria-hidden="true"]:not(.marxy-invisible-byte)', 'template', 'script', 'style', 'button', 'input', 'select', 'textarea',
   '.katex',
+  // A diagram's drawing and its note are the page's; find reads the diagram's source, which stays beside them.
+  '.marxy-diagram', '.marxy-diagram-note', '.marxy-note-margin', '.marxy-note-here',
+  // The reader's own margin notes: kept beside the file, never its text.
+  '.marxy-mnote',
   '.marxy-elided', '.marxy-line-omitted', '.marxy-link-dest', '.marxy-link-host-label', '.marxy-invisible-glyph',
   '.marxy-notices', '.marxy-notice', '.marxy-find-slot',
-  // An article's byline and dek (K-20): their keys are clipped for a screen reader and a byline value's quotes and a
-  // source's scheme and path are not drawn, so none is what the reader reads; Source still finds them in the bytes.
-  '[data-marxy-kind="article"] .marxy-article > dl:first-child > dt[data-marxy-fm-part]',
-  '[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="byline"] :is([data-marxy-fm-part="quote"],[data-marxy-fm-part="scheme"],[data-marxy-fm-part="path"])',
-  // A log the level filter is on (K-08): the lines it hides are not read, and neither are the words that stand for them.
+  // The front matter's keys, its rows other than the byline's and a byline value's quotes are not drawn, so none is
+  // what the reader reads; Source still finds them in the bytes.
+  '.marxy-article > dl[data-marxy-fm-part="head"] > :is(dt, dd:not([data-marxy-fm-part="byline"]))',
+  '.marxy-article > dl[data-marxy-fm-part="head"] [data-marxy-fm-part="quote"]',
+  // A log the level filter is on: the lines it hides are not read, and neither are the words that stand for them.
   '.marxy-log-hidden-text', '.marxy-log-hidden-piece', '.marxy-log-hidden-run',
 ].join(', ');
-/** The runs of a log the level filter hides, and the pieces it hides whole (K-08). */
+/** The runs of a log the level filter hides, and the pieces it hides whole. */
 const FILTERED_OUT = '.marxy-log-hidden-text, .marxy-log-hidden-piece';
 /** What `NON_CONTENT` skips, less the filter's own hiding: the text a hidden run holds is still the file's. */
 const STILL_SKIPPED = NON_CONTENT.split(', ').filter((s) => !s.startsWith('.marxy-log-hidden')).join(', ');
@@ -89,7 +93,7 @@ export function walkText(article: HTMLElement): Walked {
 /**
  * Where a match ends. `locate` puts an offset on a piece boundary in the later piece (right for a start);
  * an end there is moved to the end of the previous non-empty piece, so a match never reaches into the
- * next node (which may be in the next block). The D-03 review's end bias, kept here rather than in the
+ * next node (which may be in the next block). The end bias, kept here rather than in the
  * pure index.
  */
 export function locateEnd(walked: Walked, offset: number): PieceOffset {

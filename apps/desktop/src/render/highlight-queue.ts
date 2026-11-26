@@ -1,4 +1,4 @@
-// The highlight worker's job queue (B-21). Tokenising is never cut off by time, so one slow block can
+// The highlight worker's job queue. Tokenising is never cut off by time, so one slow block can
 // hold the worker; what must not happen is every later block, and the next document's, waiting behind
 // work nobody will see. Jobs run one at a time with a task boundary between them, so a `drop` message
 // is handled before the next job starts, and a dropped job is never run.
@@ -41,6 +41,20 @@ export class JobQueue<T extends Job> {
       this.draining = true;
       this.nextTask(() => void this.drain());
     }
+  }
+
+  /** Puts `job` first in line, ahead of every queued job (what is in view). */
+  pushFront(job: T): void {
+    this.queue.unshift(job);
+    if (!this.draining) {
+      this.draining = true;
+      this.nextTask(() => void this.drain());
+    }
+  }
+
+  /** Takes out the queued jobs `which` picks. */
+  remove(which: (job: T) => boolean): void {
+    for (let i = this.queue.length - 1; i >= 0; i--) if (which(this.queue[i]!)) this.queue.splice(i, 1);
   }
 
   /** Removes queued jobs by id; returns the ids that were still queued (the running job is not among them). */

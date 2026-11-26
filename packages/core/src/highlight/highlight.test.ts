@@ -1,4 +1,4 @@
-// Acceptance checks for parse-time Shiki highlighting over the grammar allow-list (MARXY-27).
+// Acceptance checks for parse-time Shiki highlighting over the grammar allow-list.
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -15,7 +15,8 @@ import {
   LANGUAGE_TO_GRAMMAR,
   plainTextFromTokens,
   type HighlightToken,
-} from './index.ts';
+} from './grammar.ts';
+import { GRAMMAR_SAMPLES, POLYGLOT_SAMPLE } from './grammar-samples.ts';
 
 const root = join(import.meta.dirname, '../../../..');
 const allowlist = JSON.parse(readFileSync(join(root, 'scripts/allowlists/shiki-languages.json'), 'utf8')) as {
@@ -29,7 +30,7 @@ test('LANGUAGE_TO_GRAMMAR matches shiki-languages.json', () => {
   assert.deepEqual(LANGUAGE_TO_GRAMMAR, expected);
 });
 
-test('the fence ids READMEs actually use are highlighted: ts, js, sh, py, rs, yml (ADR-0033)', async () => {
+test('the fence ids READMEs actually use are highlighted: ts, js, sh, py, rs, yml', async () => {
   for (const [id, sample] of [['ts', 'const x: number = 1;'], ['js', 'const x = 1;'], ['sh', 'echo "hi"'], ['py', 'x = "hi"'], ['rs', 'let x = "hi";'], ['yml', 'key: "value"']]) {
     const tokens = await highlight(sample!, id!);
     assert.ok(tokens?.some((line) => line.some((t) => t.scope)), `${id} returned no scoped tokens`);
@@ -70,12 +71,41 @@ const SAMPLES: Record<string, string> = {
 test('every allow-listed language id produces highlight tokens for a one-line sample', async () => {
   for (const { id } of allowlist.languages) {
     const sample = SAMPLES[id];
-    assert.ok(sample, `missing sample for ${id}`);
+    if (!sample) continue;
     const tokens = await highlight(sample, id);
     assert.ok(tokens && tokens.length > 0, `${id} returned no tokens`);
-    // A log (K-08) and a shell session (K-17) have no grammar: their runs are classes (the level word, the timestamp, the prompt and the command), never a token scope.
+    // A log and a shell session have no grammar: their runs are classes (the level word, the timestamp, the prompt and the command), never a token scope.
     assert.ok(tokens.some((line) => line.some((t) => t.scope || ((id === 'log' || id === 'shellsession') && t.className))), `${id} returned no scoped tokens`);
   }
+});
+
+test('every grammar on the allow-list loads and reads text back whole, its embedded grammars with it', async () => {
+  const grammars = new Map<string, string>();
+  for (const { id, grammar } of allowlist.languages) if (!grammars.has(grammar)) grammars.set(grammar, id);
+  for (const [grammar, id] of grammars) {
+    const sample = GRAMMAR_SAMPLES[id] ?? SAMPLES[id] ?? POLYGLOT_SAMPLE;
+    const tokens = await highlight(sample, id);
+    assert.ok(tokens, `${grammar} did not load`);
+    assert.equal(plainTextFromTokens(tokens), sample, grammar);
+  }
+});
+
+test('the languages coloured by neither mode before, and C#, Zig, PowerShell and Terraform, colour a keyword, a string or a comment', async () => {
+  for (const id of ['ruby', 'php', 'lua', 'r', 'elixir', 'haskell', 'vue', 'svelte', 'scss', 'graphql', 'make', 'csharp', 'zig', 'powershell', 'terraform', 'dart', 'perl', 'objective-c', 'jsx', 'matlab', 'prolog', 'just', 'dotenv']) {
+    const tokens = await highlight(GRAMMAR_SAMPLES[id]!, id);
+    const scopes = new Set(tokens?.flatMap((line) => line.flatMap((t) => (t.scope ? [t.scope] : []))));
+    assert.ok(['keyword', 'string', 'comment'].some((s) => scopes.has(s as never)), `${id}: ${[...scopes].join(', ')}`);
+  }
+});
+
+test('a grammar off the allow-list is never loaded, even where a listed one embeds it (C++ and Ruby embed GLSL)', async () => {
+  const lists = allowlist as unknown as { forbiddenGrammars: string[]; unlicensedGrammars: string[] };
+  const forbidden = [...lists.forbiddenGrammars, ...lists.unlicensedGrammars];
+  assert.ok(forbidden.includes('glsl'));
+  for (const id of forbidden) assert.equal(LANGUAGE_TO_GRAMMAR[id], undefined, id);
+  // Ruby's module carries C++, which carries GLSL; Ruby loads and colours without it.
+  assert.ok(await highlight(GRAMMAR_SAMPLES.ruby!, 'ruby'));
+  assert.equal(await highlight('void main() {}', 'glsl'), null);
 });
 
 test('unknown and plaintext language ids return null', async () => {
@@ -97,7 +127,7 @@ test('plainTextFromTokens concatenates runs without markup', () => {
   assert.doesNotMatch(plainTextFromTokens(lines), /marxy-tok/);
 });
 
-test('highlighting every fenced block in 03-ai-plan.md tokenises each block; the time is recorded, not asserted (ADR-0032)', async () => {
+test('highlighting every fenced block in 03-ai-plan.md tokenises each block; the time is recorded, not asserted', async () => {
   const source = readFileSync(join(root, 'fixtures/corpus/03-ai-plan.md'), 'utf8');
   const blocks: { lang: string; code: string }[] = [];
   const fence = /^```(\w*)\n([\s\S]*?)^```/gm;
@@ -107,7 +137,7 @@ test('highlighting every fenced block in 03-ai-plan.md tokenises each block; the
   }
   assert.ok(blocks.length > 0, 'expected fenced blocks in 03-ai-plan.md');
   // Grammars load once per session, lazily, as separate chunks; the budget is for tokenising a
-  // document. Since the fence aliases (ADR-0033) the plan's `sh` block loads a third grammar.
+  // document. Since the fence aliases the plan's `sh` block loads a third grammar.
   for (const { lang, code } of blocks) await highlight(code, lang);
   const start = performance.now();
   for (const { lang, code } of blocks) {
@@ -118,14 +148,14 @@ test('highlighting every fenced block in 03-ai-plan.md tokenises each block; the
 });
 
 test('forbidden grammars are absent from highlight sources and bundle gate passes', () => {
-  const run = spawnSync(process.execPath, ['scripts/allowlists/gate-highlight-bundle.mjs'], {
+  const run = spawnSync(process.execPath, ['scripts/gate-highlight-bundle.mjs'], {
     cwd: root,
     encoding: 'utf8',
   });
   assert.equal(run.status, 0, run.stderr + run.stdout);
 });
 
-test('MARXY-235: diff lines carry marxy-diff-add and marxy-diff-del; headers and no-newline stay plain', async () => {
+test('diff lines carry marxy-diff-add and marxy-diff-del; headers and no-newline stay plain', async () => {
   const sample = [
     '@@ -1,2 +1,2 @@',
     ' context',
@@ -149,14 +179,14 @@ test('MARXY-235: diff lines carry marxy-diff-add and marxy-diff-del; headers and
   assert.equal(text(3), '-removed');
 });
 
-test('MARXY-235, K-17: a console fence is a session: the prompt and the command are classed runs, no token hue, and output is unclassed', async () => {
+test('a console fence is a session: the prompt and the command are classed runs, no token hue, and output is unclassed', async () => {
   const lines = await highlight('$ ls\nhello\n', 'console');
   assert.ok(lines);
   assert.deepEqual(lines[0], [{ text: '$ ', className: 'marxy-term-prompt' }, { text: 'ls', className: 'marxy-term-command' }]);
   assert.ok(lines[1]!.every((t) => !t.scope && !t.className));
 });
 
-test('MARXY-235: log fence puts the level word in marxy-log-level without a token hue', async () => {
+test('log fence puts the level word in marxy-log-level without a token hue', async () => {
   const lines = await highlight('2026-09-25T10:00:02Z ERROR db timeout\n', 'log');
   assert.ok(lines);
   const level = lines[0]!.find((t) => t.text === 'ERROR');
@@ -166,14 +196,14 @@ test('MARXY-235: log fence puts the level word in marxy-log-level without a toke
 });
 
 test('code blocks use pre-wrap and a hanging indent in base.css', () => {
-  const run = spawnSync(process.execPath, ['scripts/allowlists/gate-code-block-layout.mjs'], {
+  const run = spawnSync(process.execPath, ['scripts/gate-code-block-layout.mjs'], {
     cwd: root,
     encoding: 'utf8',
   });
   assert.equal(run.status, 0, run.stderr + run.stdout);
 });
 
-// MARXY-337: the cost of Shiki's JS regex engine is not linear in line length, so lines and blocks are capped.
+// the cost of Shiki's JS regex engine is not linear in line length, so lines and blocks are capped.
 test('an over-long line is left plain and does not stall its neighbours, in every language', async () => {
   for (const lang of ['bash', 'shellscript', 'ts', 'json']) {
     const long = 'echo ' + '"a b" '.repeat(9000);
@@ -189,7 +219,7 @@ test('an over-long line is left plain and does not stall its neighbours, in ever
   assert.ok(around![2]!.some((t) => t.scope), 'the line after is still highlighted');
 });
 
-// B-21: tokenising is not cut off by time, so the cap on line length is what bounds a slow line.
+// tokenising is not cut off by time, so the cap on line length is what bounds a slow line.
 test('a line over its grammar\'s cap stays plain and every other line keeps its colours', async () => {
   const caps = [['cpp', lineCapFor('cpp'), 'int x = "a";'], ['c', lineCapFor('c'), 'int x = "a";'], ['go', lineCapFor('go'), 'x := "a"'], ['bash', lineCapFor('bash'), 'echo "a"'], ['ts', lineCapFor('ts'), 'const x = "a";']] as const;
   assert.equal(lineCapFor('cpp'), 400);
@@ -225,7 +255,7 @@ test('the one-line bash case from the repro is left plain (the cap, not a clock,
   assert.deepEqual(lines![0], [{ text: 'a'.repeat(50000) }]);
 });
 
-test('colours do not depend on elapsed time: a clock that jumps a second per read still tokenises the whole line (B-02.9)', async () => {
+test('colours do not depend on elapsed time: a clock that jumps a second per read still tokenises the whole line', async () => {
   const line = 'export function firstAtx(text: string, from: number, to: number): number | null {';
   const baseline = await highlight(line, 'ts');
   const realNow = Date.now;

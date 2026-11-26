@@ -1,4 +1,4 @@
-// The palette's scope (C-10): order, one entry per path, and the cap.
+// The palette's scope: order, one entry per path, and the cap.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';

@@ -1,4 +1,4 @@
-// F-26: `ol start` and `li value` take a signed small integer and nothing else.
+// `ol start` and `li value` take a signed small integer and nothing else.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -77,7 +77,7 @@ test('an entity-encoded minus decodes first: &minus; and &#8722; are U+2212 and 
   assert.equal(ol('&#43;3'), '<ol><li>x</li></ol>');
 });
 
-// S-13-0003: the emitted start must be one the browser would also parse as that integer.
+// The emitted start must be one the browser would also parse as that integer.
 test('start="&hyphen;3" is not read as -3 (HTML says U+2010, not hyphen-minus)', () => {
   const out = ol('&hyphen;3');
   assert.doesNotMatch(out, /start="-?3"/);

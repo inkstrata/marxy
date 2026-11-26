@@ -1,0 +1,15 @@
+Last login: Mon Oct 13 21:02:44 on ttys004
+Welcome to deploy-box (Ubuntu 24.04 LTS)
+
+ops@deploy-box ~/api % git pull --ff-only
+Updating 4c1e9a2..b7d03f1
+Fast-forward
+ auth/session.go | 41 ++++++++++++++++++++++++-----------
+ 1 file changed, 28 insertions(+), 13 deletions(-)
+ops@deploy-box ~/api % make deploy ENV=staging
+==> building api:b7d03f1
+==> pushing image (212 MB)
+==> rolling 3 of 3 pods
+deployment "api" successfully rolled out
+ops@deploy-box ~/api % curl -s staging.example.com/healthz
+{"status":"ok","version":"b7d03f1"}

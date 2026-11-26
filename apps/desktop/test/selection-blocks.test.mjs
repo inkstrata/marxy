@@ -1,4 +1,4 @@
-// A run of sibling blocks (E-05): the pure half. Which blocks a gesture reaches, the exact bytes the run resolves to,
+// A run of sibling blocks: the pure half. Which blocks a gesture reaches, the exact bytes the run resolves to,
 // and what an operation is handed for it. The browser half is multi-block.test.mjs.
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';

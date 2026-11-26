@@ -1,27 +1,12 @@
-// set-front-matter-value (W-17): change one front-matter scalar's value, and nothing else. A value is edited as one splice over
-// the bytes of that value's token (its quotes included) on its own line; the key, the spacing, a trailing comment, the line
-// ending, every other key and the whole body are never read for writing and never written. Pure: bytes in, a range and its
-// replacement out, or a refusal in words.
+// The front matter's top-level keys and their scalar values, read from the document's bytes for the Metadata tab. Pure: bytes
+// in, a list out. Nothing is written: a value is changed in Source, as bytes.
 //
-// It is not in `OPERATIONS`: an operation takes a range and gives text, and this one also needs the key and the new value,
-// which the contract has no place for (a registered one would be a palette command that cannot run). `setFrontMatterValue`
-// is its entry; `frontMatterValues` lists what the Metadata tab shows. `gate:fidelity` holds both (scripts/gate-fidelity.mjs).
-//
-// What is editable: one line, `key: value` (YAML) or `key = value` (TOML), where the value is a scalar written as a plain word
-// (YAML) or a bare literal (TOML), or one pair of quotes on that line. Anything else is shown and refused with the reason: a
-// `|` or `>` block, an anchor, an alias, a tag, a flow list or mapping, a value that runs over several lines, an empty value, a
-// key that appears twice, a TOML array, inline table or multi-line string, and every key below a TOML `[table]`.
-// A front matter with a line this reader does not understand edits nothing: it is read-only as a whole.
-//
-// The new value keeps the quoting the old one had: a double-quoted value stays double-quoted and escapes `\` and `"`; a
-// single-quoted one doubles its `'`. A plain YAML value stays plain unless the new text could not be read back as the same
-// string (a leading indicator, `: `, ` #`, edge spaces, or a word YAML would turn into a number, a boolean or null when the
-// old one was a string), and then it is single-quoted. A TOML bare value stays bare when the new text is a bare literal and is
-// otherwise a basic string; a TOML literal string whose new text holds `'` becomes a basic string. The result is read again
-// before it is returned: every other entry must come back exactly as it was and this one with the value asked for.
-import type { Document, Source } from '../contracts/ast.ts';
-
-export const SET_FRONT_MATTER_VALUE_ID = 'set-front-matter-value';
+// What is a scalar here: one line, `key: value` (YAML) or `key = value` (TOML), where the value is a plain word (YAML) or a
+// bare literal (TOML), or one pair of quotes on that line. Anything else is listed as written with the reason it is not read as
+// a scalar: a `|` or `>` block, an anchor, an alias, a tag, a flow list or mapping, a value that runs over several lines, an
+// empty value, a key that appears twice, a TOML array, inline table or multi-line string, and every key below a TOML `[table]`.
+// A front matter with a line this reader does not understand is `unreadable` as a whole.
+import type { Document } from '../contracts/ast.ts';
 
 export type Quoting = 'plain' | 'double' | 'single';
 export type FrontMatterFormat = 'yaml' | 'toml';
@@ -36,44 +21,25 @@ export interface FrontMatterValue {
   /** 1-based line in the file where the key is, and the byte offset of that line's start. */
   readonly line: number;
   readonly lineStart: number;
-  /** Why the value cannot be edited here, or null when it can. */
+  /** Why the value is not read as one scalar, or null when it is. */
   readonly refusal: string | null;
 }
 
 export interface FrontMatterValues {
   readonly format: FrontMatterFormat;
   readonly values: readonly FrontMatterValue[];
-  /** Set when no value can be edited because a line was not understood; every value then carries it as its refusal. */
+  /** Set when a line was not understood, so no value is read as a scalar; every value then carries it as its refusal. */
   readonly unreadable: string | null;
 }
-
-export type FrontMatterEdit =
-  | {
-      readonly ok: true;
-      /** The bytes of the value's token (quotes included) in the document, and what replaces them. */
-      readonly range: Source;
-      readonly replacement: string;
-      /** The new value is the one already there: nothing to splice. */
-      readonly unchanged: boolean;
-      readonly summary: string;
-      /** In words, when the written value is typed (a number, true or false, a date, empty) or was kept as text by quotes; else null. */
-      readonly typed: string | null;
-    }
-  | { readonly ok: false; readonly reason: string };
-
-type ScalarClass = 'null' | 'bool' | 'number' | 'timestamp' | 'string';
 
 interface Entry {
   readonly key: string;
   readonly line: number;
   readonly value: string;
   readonly quoting: Quoting | null;
-  /** UTF-16 range of the token inside the block, when it can be edited. */
+  /** UTF-16 range of the token inside the block, when the value is one scalar. */
   readonly token: { readonly from: number; readonly to: number } | null;
   readonly refusal: string | null;
-  readonly cls: ScalarClass | null;
-  /** What identifies the entry in a re-read: its token's text, or its refusal. */
-  readonly sig: string;
 }
 
 interface Scan {
@@ -166,34 +132,6 @@ function decodeTomlBasic(inner: string): string | null {
     } else return null;
   }
   return out;
-}
-
-const YAML_NULL = /^(?:~|null|Null|NULL)$/;
-const YAML_BOOL = /^(?:y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF)$/;
-const YAML_NUMBER = /^(?:[-+]?(?:\.[0-9]+|[0-9][0-9_,]*(?:\.[0-9_]*)?)(?:[eE][-+]?[0-9]+)?|[-+]?0[xXoObB][0-9a-fA-F_]+|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN)|[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+(?:\.[0-9_]*)?)$/;
-const YAML_TIMESTAMP = /^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}(?:[Tt ].*)?$/;
-
-const CORE_NON_STRING =
-  /^(?:~|null|Null|NULL|true|True|TRUE|false|False|FALSE|[-+]?[0-9]+|0o[0-7]+|0x[0-9a-fA-F]+|[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$/;
-
-/**
- * Whether a plain word is a string to some reader of YAML: to the 1.2 core schema (`yes`, `12:30` and `0b11` are words) or to
- * 1.1 (they are not). A word that is a string either way is quoted when its new value would not be one; a date is taken as a
- * date, as the tools that read front matter take it.
- */
-function isStringSomewhere(text: string): boolean {
-  const c = yamlClass(text);
-  if (c === 'timestamp') return false;
-  return c === 'string' || (text !== '' && !CORE_NON_STRING.test(text));
-}
-
-/** What a YAML plain word resolves to, liberally: a mistake here only ever quotes a value that did not need it. */
-function yamlClass(text: string): ScalarClass {
-  if (text === '' || YAML_NULL.test(text)) return 'null';
-  if (YAML_BOOL.test(text)) return 'bool';
-  if (YAML_NUMBER.test(text)) return 'number';
-  if (YAML_TIMESTAMP.test(text)) return 'timestamp';
-  return 'string';
 }
 
 const TOML_BARE =
@@ -319,7 +257,6 @@ function scanYaml(block: string, lines: readonly Ln[], from: number, end: number
     let quoting: Quoting | null = null;
     let value = '';
     let token: { from: number; to: number } | null = null;
-    let cls: ScalarClass | null = null;
     let next = i + 1;
     // The text shown for a value that is not one scalar: from where it starts to the end of its last line.
     let showFrom = valueAt;
@@ -408,7 +345,6 @@ function scanYaml(block: string, lines: readonly Ln[], from: number, end: number
       else if (/:(?:[ \t]|$)/.test(word)) refusal = 'It holds a colon that YAML reads as a mapping';
       else {
         token = { from: lines[i]!.at + q, to: lines[i]!.at + q + word.length };
-        cls = isStringSomewhere(word) ? 'string' : yamlClass(word);
       }
     }
     // Whatever follows a single-line value on indented lines is its continuation: the value is longer than the line.
@@ -417,7 +353,6 @@ function scanYaml(block: string, lines: readonly Ln[], from: number, end: number
       if (run > next) {
         spans(run - 1);
         token = null;
-        cls = null;
         refusal = refusal ?? 'It runs over several lines';
         value = '';
         quoting = null;
@@ -432,8 +367,6 @@ function scanYaml(block: string, lines: readonly Ln[], from: number, end: number
       quoting: token === null ? null : quoting,
       token,
       refusal,
-      cls,
-      sig: token === null ? `r:${refusal}:${lines[keyLine]!.text}` : `t:${quoting}:${lines[keyLine]!.text.slice(0, token.from - lines[keyLine]!.at)}`,
     });
     i = next;
   }
@@ -590,8 +523,6 @@ function scanToml(block: string, lines: readonly Ln[], from: number, end: number
       quoting: token === null ? null : quoting,
       token,
       refusal,
-      cls: null,
-      sig: token === null ? `r:${refusal}:${lines[keyLine]!.text}` : `t:${quoting}:${lines[keyLine]!.text.slice(0, token.from - lines[keyLine]!.at)}`,
     });
     i = next;
   }
@@ -615,14 +546,14 @@ function scanBlock(block: string): Scan {
     }
   }
   if (end < 0) return { ...none('the front matter is not closed'), format };
-  // TOML ends a line with LF or CRLF only: a bare CR is a character to its parser, and here a line end, so nothing is edited.
+  // TOML ends a line with LF or CRLF only: a bare CR is a character to its parser, and here a line end, so nothing is read.
   if (format === 'toml' && /\r(?!\n)/.test(block)) return { ...none('it has a bare carriage return, which TOML does not read as a line ending'), format };
   const { entries, unreadable } = format === 'yaml' ? scanYaml(block, lines, 1, end) : scanToml(block, lines, 1, end);
-  // A key twice is ambiguous: neither is edited.
+  // A key twice is ambiguous: neither is read as a scalar.
   const seen = new Map<string, number>();
   for (const e of entries) seen.set(e.key, (seen.get(e.key) ?? 0) + 1);
   const marked = entries.map((e): Entry =>
-    seen.get(e.key)! > 1 ? { ...e, token: null, quoting: null, cls: null, refusal: 'The key is written more than once', sig: `r:dup:${e.line}` } : e,
+    seen.get(e.key)! > 1 ? { ...e, token: null, quoting: null, refusal: 'The key is written more than once' } : e,
   );
   return { format, entries: unreadable === null ? marked : [], lineStarts, unreadable };
 }
@@ -655,7 +586,7 @@ function locate(document: Document, bytes: Uint8Array): Located | string {
 const byteLength = (text: string): number => encoder.encode(text).length;
 
 /**
- * The top-level keys of `document`'s front matter with what each shows and whether it can be edited here. Null when the
+ * The top-level keys of `document`'s front matter with what each shows and whether it is one scalar. Null when the
  * document has none. `bytes` are the document's bytes (`buffer.bytes`).
  */
 export function frontMatterValues(document: Document, bytes: Uint8Array): FrontMatterValues | null {
@@ -688,102 +619,4 @@ export function frontMatterValues(document: Document, bytes: Uint8Array): FrontM
       refusal: e.refusal,
     })),
   };
-}
-
-// ---- writing a value ------------------------------------------------------------------------------------------------------
-
-const BAD_CHARS = /[\u0000-\u0008\u000a-\u001f\u007f-\u009f\u2028\u2029\ufeff\ufffe\uffff]|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
-
-/** Why `text` cannot be a value on one line, or null. */
-function unwritable(text: string): string | null {
-  if (/[\r\n\u0085\u2028\u2029]/.test(text)) return 'A value here is one line; it cannot hold a line break';
-  if (BAD_CHARS.test(text)) return 'A value here cannot hold a control character';
-  return null;
-}
-
-const doubleQuoted = (text: string): string => `"${text.replace(/[\\"]/g, '\\$&').replace(/\t/g, '\\t')}"`;
-const singleQuoted = (text: string): string => `'${text.replace(/'/g, "''")}'`;
-
-/** Whether `text` read as a plain YAML word is the same string, and (when the old value was a string) still a string. */
-function plainYaml(text: string, old: ScalarClass | null): boolean {
-  if (text === '' || text !== text.trim()) return false;
-  if (/^[[\]{},#&*!|>'"%@`]/.test(text)) return false;
-  if (/^[-?:](?:[ \t]|$)/.test(text)) return false;
-  if (/[ \t]#/.test(text) || /:(?:[ \t]|$)/.test(text)) return false;
-  if (old === 'string' && yamlClass(text) !== 'string') return false;
-  return true;
-}
-
-function renderYaml(quoting: Quoting, old: ScalarClass | null, next: string): string {
-  if (quoting === 'double') return doubleQuoted(next);
-  if (quoting === 'single') return singleQuoted(next);
-  if (plainYaml(next, old)) return next;
-  return /'/.test(next) && !/["\\]/.test(next) && !/\t/.test(next) ? doubleQuoted(next) : singleQuoted(next);
-}
-
-function renderToml(quoting: Quoting, next: string): string {
-  if (quoting === 'double') return doubleQuoted(next);
-  if (quoting === 'single') return /'/.test(next) ? doubleQuoted(next) : `'${next}'`;
-  return TOML_BARE.test(next) ? next : doubleQuoted(next);
-}
-
-const CLASS_WORDS: Record<ScalarClass, string> = {
-  null: 'an empty value',
-  bool: 'a true-or-false value',
-  number: 'a number',
-  timestamp: 'a date',
-  string: 'text',
-};
-
-/**
- * What the reader should know of the type a YAML value is written as (it is the word they typed that decides it): that a number
- * is still a number, that `1` typed as `true` is now a true-or-false value and no longer a number, and that a word that would
- * read as one of those was put in quotes so it stays text. Null when text stays text.
- */
-function typedNote(old: ScalarClass, typed: string, written: string): string | null {
-  const wouldBe = yamlClass(typed);
-  const quoted = written.startsWith('"') || written.startsWith("'");
-  const now: ScalarClass = quoted ? 'string' : wouldBe;
-  if (now === 'string' && wouldBe !== 'string') return `Kept as text: the quotes stop it being read as ${CLASS_WORDS[wouldBe]}.`;
-  if (now === old) return old === 'string' ? null : `Still ${CLASS_WORDS[now]}.`;
-  return `Now ${CLASS_WORDS[now]}, not ${CLASS_WORDS[old]}.`;
-}
-
-/**
- * The edit that sets the value of `key` in `document`'s front matter to `value` (the text as a reader reads it, not as the
- * file writes it). `bytes` are the document's bytes. On success, `range` and `replacement` are one splice over the bytes of
- * that value's token and nothing else; on refusal, `reason` says why in words and nothing is to be written.
- */
-export function setFrontMatterValue(document: Document, bytes: Uint8Array, key: string, value: string): FrontMatterEdit {
-  const refuse = (reason: string): FrontMatterEdit => ({ ok: false, reason });
-  const found = locate(document, bytes);
-  if (typeof found === 'string') return refuse(found);
-  const { block, scan, start, file } = found;
-  if (scan.unreadable !== null) return refuse(`This front matter is read-only: ${scan.unreadable}`);
-  const entry = scan.entries.find((e) => e.key === key);
-  if (entry === undefined) return refuse(`There is no key "${key}" in the front matter`);
-  if (entry.refusal !== null || entry.token === null || entry.quoting === null) return refuse(entry.refusal ?? 'This value cannot be edited here');
-  const why = unwritable(value);
-  if (why !== null) return refuse(why);
-  const { from, to } = entry.token;
-  const range: Source = { file, start: start + byteLength(block.slice(0, from)), end: start + byteLength(block.slice(0, to)) };
-  const old = block.slice(from, to);
-  if (value === entry.value) return { ok: true, range, replacement: old, unchanged: true, summary: `${key} is already that`, typed: null };
-  const replacement = scan.format === 'yaml' ? renderYaml(entry.quoting, entry.cls, value) : renderToml(entry.quoting, value);
-  // The result is read again before it is offered: the other entries come back as they were and this one as asked.
-  const patched = block.slice(0, from) + replacement + block.slice(to);
-  const again = scanBlock(patched);
-  const same =
-    again.unreadable === null &&
-    again.format === scan.format &&
-    again.entries.length === scan.entries.length &&
-    again.entries.every((e, i) => {
-      const was = scan.entries[i]!;
-      if (e.key !== was.key || e.line !== was.line) return false;
-      if (was === entry) return e.refusal === null && e.value === value && (e.quoting === 'plain') === (replacement === value || (scan.format === 'toml' && TOML_BARE.test(replacement)));
-      return e.sig === was.sig && e.value === was.value && e.refusal === was.refusal;
-    });
-  if (!same) return refuse('Marxy could not write that value without risk to the file; edit it in Source');
-  const typed = scan.format === 'yaml' ? typedNote(entry.cls ?? 'string', value, replacement) : null;
-  return { ok: true, range, replacement, unchanged: false, summary: `${key} changed`, typed };
 }

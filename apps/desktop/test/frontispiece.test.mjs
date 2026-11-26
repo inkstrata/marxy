@@ -1,6 +1,6 @@
-// The frontispiece's pure half (MARXY-257): which Commonplace piece a launch with no document shows,
+// The frontispiece's pure half: which Commonplace piece a launch with no document shows,
 // that only that one is read, and the front-matter fields the layout reads. Sources are injected;
-// nothing here depends on the real corpus (MARXY-256), which may hold any number of pieces or none.
+// nothing here depends on the real corpus, which may hold any number of pieces or none.
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {

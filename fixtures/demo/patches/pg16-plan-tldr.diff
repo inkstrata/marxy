@@ -1,0 +1,17 @@
+diff --git a/plans/pg16-upgrade-plan.md b/plans/pg16-upgrade-plan.md
+index 4be1d0c..9f1c2a7 100644
+--- a/plans/pg16-upgrade-plan.md
++++ b/plans/pg16-upgrade-plan.md
+@@ -9,9 +9,9 @@ A step-by-step plan for upgrading the primary cluster from Postgres 14 to 16.
+
+ ## TL;DR
+
+-- Upgrade the primary in place with `pg_upgrade --link`.
+-- Expected downtime is **about 10 minutes**.
+-- One blocker: the `pg_partman` 4.x extension.
++- Upgrade a promoted replica with `pg_upgrade --link`, not the primary in place.
++- Expected downtime is **under 4 minutes**, dominated by the final sync and the DNS flip.
++- Two blockers: the `pg_partman` 4.x extension and three `regproc` columns in `legacy.audit_log`.
+
+ ## Context
+

@@ -1,5 +1,7 @@
-// Lezer tags → the --marxy-tok-* custom properties. Source and Rendered read one role table
-// (packages/core/src/highlight/roles.ts, ADR-0068) and one contrast-audited palette in both variants;
+// Lezer tags → the --marxy-tok-* custom properties, for Markdown's own marks in Source (headings, list and quote marks,
+// links, inline code). A code file's tokens and a fence's are coloured from Shiki's runs (colour.ts), as Read
+// colours them; this style is installed with Markdown's language only. One role table
+// (packages/core/src/highlight/roles.ts), one contrast-audited palette in both variants;
 // `var(...)` makes the colours follow the variant live.
 
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';

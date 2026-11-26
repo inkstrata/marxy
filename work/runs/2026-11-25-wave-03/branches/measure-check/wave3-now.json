@@ -1,0 +1,240 @@
+{
+  "version": 2,
+  "meta": {
+    "commit": "b0d9cb52",
+    "dirty": false,
+    "code": {
+      "apps": "6a329185",
+      "packages": "abd77aca",
+      "fixtures": "1acbf355",
+      "dirty": false
+    },
+    "date": "2026-11-26T02:05:58.556Z",
+    "machine": "win32-x64, 16 x AMD Ryzen 7 8845HS w/ Radeon 780M Graphics, 31 GB",
+    "edge": "msedge 158.0.4370.33",
+    "node": "v24.14.1",
+    "runs": 3,
+    "keys": 20
+  },
+  "documents": {
+    "long-reference": {
+      "open": {
+        "taskMs": 2607.56,
+        "scriptMs": 502.76,
+        "layoutMs": 566.14,
+        "styleMs": 391.5,
+        "layouts": 431,
+        "recalcs": 740,
+        "firstContentMs": 265.8,
+        "longestTaskMs": 273,
+        "settleMs": 2785.8,
+        "nodes": 10080
+      },
+      "key": {
+        "taskMs": 29.37,
+        "scriptMs": 7.63,
+        "layoutMs": 2.5,
+        "styleMs": 6.95,
+        "layouts": 4,
+        "recalcs": 5,
+        "handlerMs": 28.1
+      },
+      "click": {
+        "taskMs": 57.81,
+        "scriptMs": 12.2,
+        "layoutMs": 4.91,
+        "styleMs": 11.97,
+        "layouts": 6,
+        "recalcs": 9,
+        "longestTaskMs": 0,
+        "handlerMs": 13.7
+      },
+      "undo": {
+        "taskMs": 3747.28,
+        "scriptMs": 774.93,
+        "layoutMs": 628.05,
+        "styleMs": 518.78,
+        "layouts": 550,
+        "recalcs": 973,
+        "longestTaskMs": 247,
+        "removedTop": 2463,
+        "addedTop": 2463
+      },
+      "reload": {
+        "taskMs": 3837.96,
+        "scriptMs": 780.97,
+        "layoutMs": 660.61,
+        "styleMs": 529.62,
+        "layouts": 548,
+        "recalcs": 944,
+        "longestTaskMs": 240,
+        "removedTop": 2465,
+        "addedTop": 2467
+      },
+      "tabBack": {
+        "taskMs": 5122.22,
+        "scriptMs": 987.95,
+        "layoutMs": 910.09,
+        "styleMs": 747.99,
+        "layouts": 591,
+        "recalcs": 1051,
+        "shownMs": 750
+      },
+      "tabAway": {
+        "taskMs": 420.51,
+        "scriptMs": 38.03,
+        "layoutMs": 24.3,
+        "styleMs": 137.48,
+        "layouts": 58,
+        "recalcs": 114,
+        "shownMs": 338
+      },
+      "toRead": {
+        "taskMs": 485.58,
+        "scriptMs": 30.67,
+        "layoutMs": 138.8,
+        "styleMs": 194.01,
+        "layouts": 59,
+        "recalcs": 61,
+        "shownMs": 381.6
+      },
+      "toSource": {
+        "taskMs": 126.89,
+        "scriptMs": 19.34,
+        "layoutMs": 9.13,
+        "styleMs": 51.78,
+        "layouts": 9,
+        "recalcs": 12,
+        "shownMs": 43.9
+      }
+    },
+    "long-reference-plain": {
+      "open": {
+        "taskMs": 3355.18,
+        "scriptMs": 592.31,
+        "layoutMs": 739.64,
+        "styleMs": 489.1,
+        "layouts": 479,
+        "recalcs": 857,
+        "firstContentMs": 284.4,
+        "longestTaskMs": 294,
+        "settleMs": 3755,
+        "nodes": 9841
+      },
+      "undo": {
+        "taskMs": 448.84,
+        "scriptMs": 22.99,
+        "layoutMs": 70.52,
+        "styleMs": 141.84,
+        "layouts": 72,
+        "recalcs": 82,
+        "longestTaskMs": 169,
+        "removedTop": 3,
+        "addedTop": 3
+      },
+      "reload": {
+        "taskMs": 561.37,
+        "scriptMs": 20.13,
+        "layoutMs": 116.22,
+        "styleMs": 62.88,
+        "layouts": 70,
+        "recalcs": 74,
+        "longestTaskMs": 81,
+        "removedTop": 0,
+        "addedTop": 2
+      }
+    },
+    "short-document": {
+      "open": {
+        "taskMs": 321.14,
+        "scriptMs": 47.37,
+        "layoutMs": 68.24,
+        "styleMs": 43.77,
+        "layouts": 81,
+        "recalcs": 142,
+        "firstContentMs": 95.6,
+        "longestTaskMs": 101,
+        "settleMs": 386.6,
+        "nodes": 1908
+      },
+      "key": {
+        "taskMs": 9.91,
+        "scriptMs": 3,
+        "layoutMs": 0.56,
+        "styleMs": 2.15,
+        "layouts": 4,
+        "recalcs": 5,
+        "handlerMs": 14.2
+      },
+      "click": {
+        "taskMs": 17.77,
+        "scriptMs": 4.46,
+        "layoutMs": 2.62,
+        "styleMs": 3.26,
+        "layouts": 6,
+        "recalcs": 9,
+        "longestTaskMs": 0,
+        "handlerMs": 5.9
+      },
+      "undo": {
+        "taskMs": 260.46,
+        "scriptMs": 61.58,
+        "layoutMs": 32.88,
+        "styleMs": 47.11,
+        "layouts": 77,
+        "recalcs": 126,
+        "longestTaskMs": 65,
+        "removedTop": 198,
+        "addedTop": 198
+      },
+      "reload": {
+        "taskMs": 256.11,
+        "scriptMs": 57.86,
+        "layoutMs": 32.87,
+        "styleMs": 46.85,
+        "layouts": 74,
+        "recalcs": 119,
+        "longestTaskMs": 59,
+        "removedTop": 200,
+        "addedTop": 202
+      },
+      "tabBack": {
+        "taskMs": 323.82,
+        "scriptMs": 60.7,
+        "layoutMs": 37.59,
+        "styleMs": 71.89,
+        "layouts": 84,
+        "recalcs": 164,
+        "shownMs": 198
+      },
+      "tabAway": {
+        "taskMs": 190.89,
+        "scriptMs": 32.09,
+        "layoutMs": 20.44,
+        "styleMs": 55.28,
+        "layouts": 65,
+        "recalcs": 125,
+        "shownMs": 167
+      },
+      "toRead": {
+        "taskMs": 73.42,
+        "scriptMs": 5.12,
+        "layoutMs": 14.13,
+        "styleMs": 21.82,
+        "layouts": 16,
+        "recalcs": 18,
+        "shownMs": 43.7
+      },
+      "toSource": {
+        "taskMs": 39.24,
+        "scriptMs": 6.53,
+        "layoutMs": 4.26,
+        "styleMs": 14.07,
+        "layouts": 9,
+        "recalcs": 12,
+        "shownMs": 18.8
+      }
+    }
+  },
+  "missing": []
+}

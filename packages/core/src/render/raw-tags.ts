@@ -1,5 +1,5 @@
 // Whether a block's raw inline HTML leaves the sanitiser's stack of open elements where it found it
-// (moved here from the desktop's incremental render, B-24, for D-15's sliced render, which has the
+// (moved here from the desktop's incremental render, for the sliced render, which has the
 // same question: may a run of blocks be sanitised on its own?).
 
 import type { Node as AstNode } from '../contracts/ast.ts';
@@ -28,7 +28,10 @@ export function rawTagsBalanced(block: AstNode): boolean {
 const TAG = /^<(\/?)([A-Za-z][A-Za-z0-9-]*)(?:\s[^>]*)?\/?>$/s;
 
 function tagKeepsStack(value: string, open: string[]): boolean {
-  if (value.startsWith('<!') || value.startsWith('<?')) return true; // a comment or a declaration: removed, no element
+  // A processing instruction or CDATA ends at `?>` / `]]>` for the parser but at the first `>` for the sanitiser,
+  // so a tag inside one is read differently sliced and whole.
+  if (value.startsWith('<?') || value.startsWith('<![CDATA[')) return false;
+  if (value.startsWith('<!')) return true; // a comment or a declaration: removed, no element
   const m = TAG.exec(value);
   if (m === null) return false;
   const name = m[2]!.toLowerCase();

@@ -1,5 +1,5 @@
-// Open in external editor (Mod+Shift+E) in WebKit on the memory shell (A-16,
-// docs/design/09-app-shell.md §Open in external editor): the line is the reading block's in Rendered
+// Open in external editor (Mod+Alt+E, since Mod+Shift+E went to the Library) in WebKit on the memory shell:
+// the line is the reading block's in Rendered
 // and the cursor's in Source, only the path and the line reach the shell, and a refusal is one notice.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -8,15 +8,16 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const desktopRoot = new URL('..', import.meta.url).pathname;
+const desktopRoot = fileURLToPath(new URL('..', import.meta.url));
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-external-editor-'));
 let server;
 let base;
@@ -87,13 +88,13 @@ const revealCalls = (page) =>
 const notices = (page) =>
   page.evaluate(() => [...document.querySelectorAll('#marxy-notices .marxy-notice .marxy-notice-text')].map((n) => n.textContent));
 
-/** One press of Mod+Shift+E, then a wait for its effect. */
+/** One press of Mod+Alt+E, then a wait for its effect. */
 async function pressOpenInEditor(page, waitFor) {
-  await page.keyboard.press(`${await modOf(page)}+Shift+E`);
+  await page.keyboard.press(`${await modOf(page)}+Alt+KeyE`);
   await page.waitForFunction(waitFor, null, { timeout: 5_000 });
 }
 
-test('Mod+Shift+E in Rendered opens the reading block line, and writes nothing', () =>
+test('Mod+Alt+E in Rendered opens the reading block line, and writes nothing', () =>
   withPage(async (page) => {
     await page.evaluate(async ({ path, at }) => { await window.__boot.handle.open(path, { at }); }, { path: DOC, at: targetByte });
     const reading = await page.evaluate(() => window.__boot.handle.sourceHarness());
@@ -107,7 +108,7 @@ test('Mod+Shift+E in Rendered opens the reading block line, and writes nothing',
     assert.deepEqual(await notices(page), []);
   }));
 
-test('Mod+Shift+E in Source, with focus in the editor, opens the cursor line', () =>
+test('Mod+Alt+E in Source, with focus in the editor, opens the cursor line', () =>
   withPage(async (page) => {
     const mod = await modOf(page);
     await page.keyboard.press(`${mod}+e`);

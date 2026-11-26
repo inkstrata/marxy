@@ -1,4 +1,4 @@
-// The stale-write guard must survive the app's own live-reload look at the disk (MARXY-337).
+// The stale-write guard must survive the app's own live-reload look at the disk.
 import { strict as assert } from 'node:assert';
 import { register } from 'node:module';
 import { test } from 'node:test';
@@ -32,9 +32,39 @@ test('once the app adopts what it peeked (reload), writes are allowed against th
   assert.equal(dec(fs.get(p)), 'three\n');
 });
 
+test('two writes to one path at once (a state file on its timer and on an open) both land: the second never reads the first as another program', async () => {
+  const { hooks } = await import('./support/tauri-core-stub.mjs');
+  const p = '/data/positions.json';
+  fs.set(p, enc('{"v":0}'));
+  await shell.readFile(p);
+  hooks.afterWrite = () => new Promise((r) => setTimeout(r, 20));
+  try {
+    const first = shell.writeFileAtomic(p, enc('{"v":1}'));
+    // The second starts once the first is on disk and before its command has answered.
+    await new Promise((r) => setTimeout(r, 5));
+    await Promise.all([first, shell.writeFileAtomic(p, enc('{"v":2}'))]);
+  } finally {
+    hooks.afterWrite = null;
+  }
+  assert.equal(dec(fs.get(p)), '{"v":2}', 'the later write is the one kept');
+  // An edit by another program is still refused after them.
+  fs.set(p, enc('{"other":true}'));
+  await assert.rejects(() => shell.writeFileAtomic(p, enc('{"v":3}')), /changed on disk/);
+});
+
+test('a Windows path from the launch is spelled with slashes, as the index and Search spell it: one file is one tab', async () => {
+  const { hooks } = await import('./support/tauri-core-stub.mjs');
+  hooks.args = ['C:\\Dev\\demo\\plans\\plan.md', '--quiet', '/Users/a/b.md'];
+  try {
+    assert.deepEqual(await shell.args(), ['C:/Dev/demo/plans/plan.md', '--quiet', '/Users/a/b.md']);
+  } finally {
+    hooks.args = [];
+  }
+});
+
 test('the app watcher re-read goes through peekFile, and a reload goes through the store', async () => {
   const { readFileSync } = await import('node:fs');
-  // Live reload is its own module since B-14.
+  // Live reload is its own module.
   const watch = readFileSync(new URL('../src/document/live-reload.ts', import.meta.url), 'utf8');
   const retry = watch.slice(watch.indexOf('async function readOpenFileWithRetry'), watch.indexOf('async function reloadOpenFromDisk'));
   assert.match(retry, /peekFile/);
@@ -42,12 +72,12 @@ test('the app watcher re-read goes through peekFile, and a reload goes through t
   assert.match(reload, /\.reload\(bytes[,)]/);
 });
 
-/** A document store on the Tauri shell, as app.ts opens one (B-11): the store records what it adopts. */
+/** A document store on the Tauri shell, as app.ts opens one: the store records what it adopts. */
 async function storeOn(path) {
   const { openDocumentStore } = await import('../src/document/store.ts');
   const bytes = await shell.readFile(path);
   return openDocumentStore(
-    { writeFileAtomic: (p, b) => shell.writeFileAtomic(p, b), recordRead: (p, b) => shell.recordRead(p, b) },
+    { writeFileAtomic: (p, b, expected) => shell.writeFileAtomic(p, b, expected), recordRead: (p, b) => shell.recordRead(p, b) },
     path,
     bytes,
   );
@@ -75,13 +105,13 @@ test('a reload the store keeps (unsaved edits) records nothing: the next save st
   assert.equal(dec(fs.get(p)), 'EXTERNAL\n');
 });
 
-test('read_file rejecting with the bare Rust string "No such file" reads as code not-found (F-09)', async () => {
+test('read_file rejecting with ShellError code not-found reads as not-found, and io as io', async () => {
   const { hooks } = await import('./support/tauri-core-stub.mjs');
-  hooks.readError = '/data/trust.json: No such file or directory (os error 2)';
+  hooks.readError = { code: 'not-found', message: '/data/trust.json: No such file or directory (os error 2)' };
   try {
     await assert.rejects(() => shell.readFile('/data/trust.json'), (e) => e instanceof Error && e.code === 'not-found');
     await assert.rejects(() => shell.peekFile('/data/trust.json'), (e) => e.code === 'not-found');
-    hooks.readError = '/data/trust.json: Input/output error (os error 5)';
+    hooks.readError = { code: 'io', message: '/data/trust.json: Input/output error (os error 5)' };
     await assert.rejects(
       () => shell.readFile('/data/trust.json'),
       (e) => e.code === 'io' && /Input\/output error/.test(e.message),
@@ -91,7 +121,7 @@ test('read_file rejecting with the bare Rust string "No such file" reads as code
   }
 });
 
-test('loadTrust on the real shell: a missing trust.json starts empty, an I/O error rejects (F-09)', async () => {
+test('loadTrust on the real shell: a missing trust.json starts empty, an I/O error rejects', async () => {
   const { hooks } = await import('./support/tauri-core-stub.mjs');
   const { loadTrust } = await import('../src/trust/trust.ts');
   const writes = [];
@@ -100,12 +130,12 @@ test('loadTrust on the real shell: a missing trust.json starts empty, an I/O err
     writeFileAtomic: async (_p, b) => { writes.push(b); },
     dataDirectory: async () => '/data',
   };
-  hooks.readError = '/data/trust.json: No such file or directory (os error 2)';
+  hooks.readError = { code: 'not-found', message: '/data/trust.json: No such file or directory (os error 2)' };
   try {
     const store = await loadTrust(io);
     assert.equal(await store.grant('/a.md', { html: true }), true);
     assert.equal(writes.length, 1);
-    hooks.readError = '/data/trust.json: Input/output error (os error 5)';
+    hooks.readError = { code: 'io', message: '/data/trust.json: Input/output error (os error 5)' };
     await assert.rejects(loadTrust(io), /Input\/output/);
     assert.equal(writes.length, 1);
   } finally {

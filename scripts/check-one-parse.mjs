@@ -1,11 +1,11 @@
-// One parse, one sanitiser (ADR-0001, ADR-0021): leftover markdown-it / DOMPurify must not return,
-// desktop and scripts render through @marxy/core, and docs/plan.md keeps naming mdast/micromark.
+// One parse, one sanitiser: leftover markdown-it or DOMPurify must not return, and the desktop app
+// and the scripts render Markdown through @marxy/core.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ROOT, walk, fail, fix } from './lib/repo.mjs';
 
-/** Names this story removed. A return in any manifest or the lockfile is a second parser. */
+/** Names that were removed. A return in any manifest or the lockfile is a second parser. */
 export const LEFTOVER_DEPENDENCIES = [
   'markdown-it',
   'dompurify',
@@ -56,10 +56,6 @@ export function leftoverImportsInSource(text) {
   return specs.map(leftoverImportSpecifier).filter(Boolean);
 }
 
-export function planNamesOneParse(text) {
-  return /mdast/.test(text) && /micromark/.test(text) && !/markdown-it/i.test(text);
-}
-
 export function manifestsUnder(root) {
   const out = ['package.json'];
   for (const dir of ['packages', 'apps']) {
@@ -97,10 +93,6 @@ export function check(root = ROOT) {
       }
     }
   }
-  const plan = join(root, 'docs/plan.md');
-  if (!existsSync(plan) || !planNamesOneParse(readFileSync(plan, 'utf8'))) {
-    problems.push(`docs/plan.md must name mdast/micromark and must not name markdown-it${fix('keep the ADR-0021 wording; do not reintroduce markdown-it')}`);
-  }
   return problems;
 }
 
@@ -108,5 +100,5 @@ const invoked = process.argv[1] && fileURLToPath(import.meta.url) === fileURLToP
 if (invoked) {
   const problems = check();
   if (fail(problems)) process.exit(1);
-  console.log('one-parse ok (no leftover markdown-it/DOMPurify; plan names mdast/micromark)');
+  console.log('one-parse ok (no leftover markdown-it or DOMPurify)');
 }

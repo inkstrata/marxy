@@ -1,4 +1,4 @@
-// The text scan that answers a source nested past doubt without parsing it (F-54): when it says yes the document
+// The text scan that answers a source nested past doubt without parsing it: when it says yes the document
 // really is deeper than the cap, and a document that is not deep renders exactly as it did before the scan existed.
 
 import { strict as assert } from 'node:assert';
@@ -12,8 +12,9 @@ import type { Block, Document } from '../contracts/ast.ts';
 import { renderSafeHtml } from '../render/pipeline.ts';
 import { checkInvariants } from './invariants.ts';
 import { MAX_NESTING_DEPTH, nestedTooDeepText } from './from-mdast.ts';
-import { SCAN_MARKERS, opensWithTooManyMarkers } from './nesting-scan.ts';
+import { SCAN_INDENTED_LEVELS, SCAN_MARKERS, opensWithTooManyMarkers } from './nesting-scan.ts';
 import { parseMarkdown } from './parse.ts';
+import { cpuNow } from '../testing/cpu-clock.ts';
 
 const N = SCAN_MARKERS + 44; // 300: past the scan's bound
 const quotes = '> '.repeat(N);
@@ -124,4 +125,52 @@ test('the document nested too deep to typeset satisfies every AST invariant, how
   // And a deep document that begins like a fence, which a code block's own content check would take for one.
   const fenced = new TextEncoder().encode(`${'> '.repeat(MAX_NESTING_DEPTH + 1)}\`\`\`\n`);
   assert.deepEqual(checkInvariants(parseMarkdown(fenced), fenced), []);
+});
+
+// a list nested by indentation, one item a line, is judged on its text too.
+const staircase = (n: number, step = 2, marker = '-'): string =>
+  `${Array.from({ length: n }, (_, i) => `${' '.repeat(i * step)}${marker} level ${i + 1}`).join('\n')}\n`;
+
+test('a staircase of 400 indented items is deep by the scan, before micromark is asked', () => {
+  for (const source of [staircase(400), staircase(400, 3, '1.'), staircase(400, 4, '*'), `intro\n\n${staircase(400)}\nafter\n`]) {
+    assert.equal(opensWithTooManyMarkers(source), true);
+    const started = cpuNow();
+    assert.notEqual(nestedTooDeepText(parseMarkdown(source)), undefined);
+    assert.ok(cpuNow() - started < 200, `took ${Math.round(cpuNow() - started)} ms`);
+  }
+  assert.ok(treeDepth(staircase(200)) > MAX_NESTING_DEPTH);
+});
+
+test('indented lists that do not nest past doubt are left to the tree', () => {
+  const shallow: readonly string[] = [
+    staircase(MAX_NESTING_DEPTH),
+    staircase(MAX_NESTING_DEPTH * 2),
+    // Siblings at one depth, however many.
+    `${'- a\n  - b\n'.repeat(2000)}`,
+    // Four more spaces is code or a paragraph's continuation, not a nested item.
+    `${Array.from({ length: 400 }, (_, i) => `${' '.repeat(i * 4 + (i % 2) * 2)}- level ${i + 1}`).join('\n')}\n`,
+    `${Array.from({ length: 400 }, (_, i) => `${' '.repeat(i * 6)}- x`).join('\n')}\n`,
+    // A quote or a line back at the margin each end what the scan counts.
+    `${Array.from({ length: 400 }, (_, i) => `${i % 50 === 49 ? '> q' : `${' '.repeat((i % 50) * 2)}- x`}`).join('\n')}\n`,
+    `${Array.from({ length: 400 }, (_, i) => `${' '.repeat((i % 100) * 2)}- x${i % 100 === 99 ? '\nback' : ''}`).join('\n')}\n`,
+    `\`\`\`\n${staircase(400)}\`\`\`\n`,
+    `\t${staircase(400).replaceAll('\n', '\n\t')}`,
+  ];
+  for (const source of shallow) {
+    assert.equal(opensWithTooManyMarkers(source), false, source.slice(0, 60));
+  }
+});
+
+test('an indented staircase the scan calls deep is deep in the tree, empty items and blank lines included', () => {
+  const sources = [
+    // An empty item is not counted, but the next line still nests inside it.
+    `${Array.from({ length: 400 }, (_, i) => `${' '.repeat(i * 2)}-${i % 50 === 49 ? '' : ' x'}`).join('\n')}\n`,
+    // A blank line between items closes nothing.
+    staircase(400).replaceAll('\n', '\n\n'),
+    `${Array.from({ length: 400 }, (_, i) => `${' '.repeat(i * 2)}- x\n${' '.repeat(i * 2 + 2)}more text`).join('\n')}\n`,
+  ];
+  for (const source of sources) {
+    assert.equal(opensWithTooManyMarkers(source), true, source.slice(0, 60));
+    assert.ok(treeDepth(source) > SCAN_INDENTED_LEVELS, `the tree is only ${treeDepth(source)} deep`);
+  }
 });

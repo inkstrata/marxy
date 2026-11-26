@@ -1,0 +1,62 @@
+/* A mail message's page and an HTML file read as a page: the head set as a letter's, the bar
+   that says what is held back, the sandbox on the message's own paper (white in Night too, as a PDF's), the text part's
+   quotes, and the attachments as file cards. */
+.marxy-mailpage, .marxy-htmlpage { height: 100%; overflow-y: auto; outline: none; }
+.marxy-mail-col { max-width: 820px; margin: 0 auto; padding: 56px 24px 72px; }
+.marxy-htmlpage-col { max-width: 1040px; margin: 0 auto; padding: 48px 24px 72px; }
+.marxy-mail-kicker { margin: 0 0 14px; color: var(--marxy-color-text-faint); font-size: calc(13 * var(--marxy-c)); }
+.marxy-mail-subject { margin: 0 0 18px; font-family: var(--marxy-face-chrome); color: var(--marxy-color-text-strong); font-size: calc(25 * var(--marxy-c)); line-height: 1.25; font-weight: 640; }
+.marxy-mail-who { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 6px 0; margin: 0 0 16px; font-size: calc(13.5 * var(--marxy-c)); }
+.marxy-mail-who dt { color: var(--marxy-color-text-faint); }
+.marxy-mail-who dd { margin: 0; color: var(--marxy-color-text); overflow-wrap: anywhere; }
+.marxy-mail-who b { color: var(--marxy-color-text-strong); font-weight: 620; }
+.marxy-mail-quiet { color: var(--marxy-color-text-faint); }
+.marxy-mail-bar { display: flex; align-items: center; gap: 12px; padding: 0 0 14px; margin: 0 0 16px; box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); font-size: calc(12.5 * var(--marxy-c)); }
+.marxy-mail-grow { flex: 1 1 auto; }
+.marxy-mail-remote { display: flex; align-items: center; gap: 16px; margin: 0 0 14px; padding: 12px 14px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); font-size: calc(13 * var(--marxy-c)); }
+.marxy-mail-remote-words { flex: 1 1 auto; margin: 0; line-height: 1.55; color: var(--marxy-color-text); }
+.marxy-mail-remote-words b { color: var(--marxy-color-text-strong); font-weight: 640; }
+.marxy-mail-remote-words code { font-family: var(--marxy-face-mono, monospace); font-size: 0.95em; color: var(--marxy-color-text-strong); }
+.marxy-mail-remote .marxy-btn { flex: none; white-space: nowrap; }
+.marxy-mail-remote .marxy-linkish { flex: none; white-space: nowrap; }
+/* The message's own paper: what it set, or white, in every look. */
+.marxy-mail-paper { position: relative; border-radius: 6px; overflow: hidden; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18); }
+.marxy-sandbox { display: block; width: 100%; height: 160px; border: 0; background: #fff; }
+/* Where the frame runs no listener of the app's (WebKit), a press on a link lands on one of these instead. */
+.marxy-sandbox-hits { position: absolute; width: 0; height: 0; pointer-events: none; }
+.marxy-sandbox-hit { position: absolute; pointer-events: auto; cursor: pointer; }
+.marxy-mail-note { margin: 10px 0 0; color: var(--marxy-color-text-faint); font-size: calc(12.5 * var(--marxy-c)); line-height: 1.55; }
+.marxy-mail-text { font-size: calc(15 * var(--marxy-c)); line-height: 1.6; color: var(--marxy-color-text); }
+.marxy-mail-line { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.marxy-mail-line[data-marxy-level] { padding-left: 12px; box-shadow: inset 2px 0 0 var(--marxy-frame-hair-2); color: var(--marxy-color-text-secondary, var(--marxy-color-text)); }
+.marxy-mail-line[data-marxy-level="2"] { padding-left: 26px; box-shadow: inset 2px 0 0 var(--marxy-frame-hair-2); color: var(--marxy-color-text-faint); }
+.marxy-mail-line[data-marxy-level="3"], .marxy-mail-line[data-marxy-level="4"], .marxy-mail-line[data-marxy-level="5"], .marxy-mail-line[data-marxy-level="6"] { padding-left: 40px; color: var(--marxy-color-text-faint); }
+.marxy-mail-line[data-marxy-sig] { color: var(--marxy-color-text-faint); }
+.marxy-mail-attach { margin: 28px 0 0; }
+.marxy-mail-attach-head { margin: 0 0 10px; color: var(--marxy-color-text-faint); font-size: calc(11 * var(--marxy-c)); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; }
+.marxy-mail-attach-head span { margin-left: 6px; }
+.marxy-mail-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.marxy-mail-card { display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 8px; border-radius: 8px; background: var(--marxy-frame-chrome); box-shadow: inset 0 0 0 1px var(--marxy-frame-hair); text-align: left; min-width: 0; }
+.marxy-mail-card:hover { box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-mail-card-pic { flex: none; display: grid; place-items: center; width: 52px; height: 40px; border-radius: 5px; overflow: hidden; background: var(--marxy-frame-chrome-2, var(--marxy-color-bg)); }
+.marxy-mail-card-pic img { width: 100%; height: 100%; object-fit: cover; }
+.marxy-mail-card-kind { color: var(--marxy-color-text-faint); font-size: calc(10.5 * var(--marxy-c)); font-weight: 650; letter-spacing: 0.06em; }
+.marxy-mail-card-words { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.marxy-mail-card-name { color: var(--marxy-color-text-strong); font-weight: 620; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.marxy-mail-card-sub { color: var(--marxy-color-text-faint); font-size: calc(12 * var(--marxy-c)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.marxy-mail-card-open { flex: none; color: var(--marxy-color-text); text-decoration: underline; text-decoration-color: var(--marxy-frame-hair-2); text-underline-offset: 3px; }
+/* The panel's cards. */
+.marxy-mail-caps { margin: 4px 0 0; padding-left: 16px; list-style: disc; color: var(--marxy-color-text-faint); line-height: 1.5; }
+.marxy-mail-tree { list-style: none; margin: 0; padding: 0; }
+.marxy-mail-tree-row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0 3px calc(var(--depth, 0) * 14px); }
+.marxy-mail-tree-type { color: var(--marxy-color-text-strong); overflow-wrap: anywhere; }
+.marxy-mail-tree-size { flex: none; color: var(--marxy-color-text-faint); text-align: right; }
+.marxy-mail-atts { display: flex; flex-direction: column; }
+.marxy-mail-headers { display: flex; flex-direction: column; gap: 8px; margin: 0 0 10px; }
+.marxy-mail-header { display: flex; flex-direction: column; gap: 1px; }
+.marxy-mail-header-k { color: var(--marxy-color-text-faint); }
+.marxy-mail-header-v { color: var(--marxy-color-text-strong); overflow-wrap: anywhere; }
+.marxy-mail-header-read { color: var(--marxy-color-text-faint); overflow-wrap: anywhere; }
+.marxy-mail-odd { margin: 2px 0 6px; padding-left: 10px; }
+.marxy-htmlpage-line { margin: 0 0 14px; color: var(--marxy-color-text-faint); font-size: calc(13 * var(--marxy-c)); line-height: 1.55; }
+.marxy-htmlpage .marxy-mail-paper { border-radius: 8px; }

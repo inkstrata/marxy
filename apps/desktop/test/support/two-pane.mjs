@@ -1,11 +1,11 @@
-// Two panes in the harness (D-01; later Phase D stories reuse it). The harness page (`app.html`) boots
+// Two panes in the harness. The harness page (`app.html`) boots
 // the real app over a memory shell; this helper first gives it the shipped skeleton and its inline CSS
 // from `index.html`, so a split is laid out by the very rules the app ships, then starts the app on
 // `open[0]` and opens `open[1]` beside it through `PaneSet.openIn('other', …)`.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer } from 'vite';
+import { createServer } from './shared-vite.mjs';
 
 const desktopRoot = fileURLToPath(new URL('../../', import.meta.url));
 
@@ -38,15 +38,17 @@ export function shippedSkeleton() {
 let serverPromise = null;
 let closeServer = () => {};
 
-/** One Vite dev server for the test file, on port 0 (the style of `boot` in test/live-reload.test.mjs). */
+/** One Vite dev server for the test file, on port 0, or the runner's own (`scripts/browser-tests.mjs`). */
 export async function harnessBase() {
+  if (process.env.MARXY_HARNESS_URL) return process.env.MARXY_HARNESS_URL;
   if (!serverPromise) {
     serverPromise = (async () => {
       const server = await createServer({
         root: desktopRoot,
         configFile: join(desktopRoot, 'vite.config.ts'),
         logLevel: 'silent',
-        server: { port: 0, strictPort: false, host: '127.0.0.1' },
+        // No watcher and no HMR: an edit to the source while a file runs must not reload its pages mid-test.
+        server: { port: 0, strictPort: false, host: '127.0.0.1', hmr: false, watch: null },
       });
       await server.listen();
       closeServer = () => server.close();
@@ -61,7 +63,7 @@ export function closeHarness() {
 }
 
 export function b64(text) {
-  return Buffer.from(text, 'utf8').toString('base64');
+  return (typeof text === 'string' ? Buffer.from(text, 'utf8') : Buffer.from(text)).toString('base64');
 }
 
 /**
@@ -82,19 +84,24 @@ export async function routeSkeleton(page, base) {
 }
 
 /**
- * Boots the app on `files` (path to text) with `open[0]`, and, given `open[1]`, opens it in a second pane.
+ * Boots the app on `files` (path to text, or to bytes) with `open[0]`, and, given `open[1]`, opens it in a second pane.
+ * `sparse` names files too large to hold, by size (the memory shell's SparseFile): byte `i` of each is `i % 251`.
  * The handle is `window.__marxyHandle`; the memory shell's calls are on `handle.shell.calls`, and the
- * number of its watches open now is `window.__marxyWatches`. Resolves
- * what the panes show: `[{ slot, path, article }]`, left to right.
+ * number of its watches open now is `window.__marxyWatches`. `full` boots through main.ts's
+ * `bootApplication`, as the shipped app does, so the palette, the index feed and the collection are up
+ * too (the Library lists from them). Resolves what the panes show: `[{ slot, path, article }]`, left to right.
  */
-export async function bootTwoPanes(page, { files, open, guard = false }) {
+export async function bootTwoPanes(page, { files, open, guard = false, full = false, sparse = {} }) {
   const base = await harnessBase();
   await routeSkeleton(page, base);
+  // Tests find the app's own module URLs on the resource timeline. The dev server serves about 250 modules
+  // unbundled, and WebKit keeps only the first 250 entries, so a module fetched late under load fell off it.
+  await page.addInitScript(() => performance.setResourceTimingBufferSize(10_000));
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   const encoded = Object.fromEntries(Object.entries(files).map(([path, text]) => [path, b64(text)]));
   return page.evaluate(
-    async ({ files, open, guard }) => {
+    async ({ files, open, guard, full, sparse }) => {
       const bytes = {};
       for (const [path, encoded] of Object.entries(files)) {
         const raw = atob(encoded);
@@ -104,11 +111,12 @@ export async function bootTwoPanes(page, { files, open, guard = false }) {
       }
       const { createMemoryShell } = await import('/src/shell/memory.ts');
       const { startApp } = await import('/src/app.ts');
-      const shell = createMemoryShell(bytes);
+      const shell = createMemoryShell(bytes, { sparse: Object.fromEntries(Object.entries(sparse).map(([path, size]) => [path, { size, byteAt: (i) => i % 251 }])) });
       if (guard) {
         // The stale-write guard of shell/tauri.ts (`lastRead`), over the memory shell: `readFile` and
-        // `recordRead` arm it, `peekFile` does not, and a write refuses when disk is no longer what was
-        // read. `window.__outside` is another program writing the file: it does not arm the guard.
+        // `recordRead` arm it, `peekFile` does not, and a write with no `expected` of its own refuses when disk
+        // is no longer what was read (one with it is checked by the memory shell, as Rust checks it).
+        // `window.__outside` is another program writing the file: it does not arm the guard.
         const lastRead = new Map();
         const readRaw = shell.readFile.bind(shell);
         const writeRaw = shell.writeFileAtomic.bind(shell);
@@ -121,11 +129,11 @@ export async function bootTwoPanes(page, { files, open, guard = false }) {
         };
         shell.peekFile = (path) => readRaw(path);
         shell.recordRead = (path, read) => lastRead.set(path, read.slice());
-        shell.writeFileAtomic = async (path, written) => {
-          const expected = lastRead.get(path);
+        shell.writeFileAtomic = async (path, written, own) => {
+          const expected = own ?? lastRead.get(path);
           if (expected) {
             const onDisk = await readRaw(path).catch(() => null);
-            if (onDisk && !same(expected, onDisk)) throw new Error(`${path}: changed on disk since it was opened; refusing to overwrite`);
+            if (onDisk && !same(expected, onDisk)) throw Object.assign(new Error(`${path}: changed on disk since it was opened; refusing to overwrite`), { code: 'changed' });
           }
           await writeRaw(path, written);
           lastRead.set(path, written.slice());
@@ -152,12 +160,13 @@ export async function bootTwoPanes(page, { files, open, guard = false }) {
           },
         };
       };
-      const handle = await startApp(shell, { argv: [open[0]] });
+      const start = full ? (await import('/src/main.ts')).bootApplication : startApp;
+      const handle = await start(shell, { argv: open.length === 0 ? [] : [open[0]] });
       await handle.ready;
       window.__marxyHandle = handle;
       if (open[1] !== undefined) await handle.panes().openIn('other', open[1]);
       return handle.panes().panes.map((pane) => ({ slot: pane.slot, path: pane.path(), article: pane.article.id }));
     },
-    { files: encoded, open, guard },
+    { files: encoded, open, guard, full, sparse },
   );
 }

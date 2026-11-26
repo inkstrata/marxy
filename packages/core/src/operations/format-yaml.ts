@@ -1,4 +1,4 @@
-// Re-indent YAML (E-10): the leading whitespace of each line of a `yaml` fence becomes two spaces per level.
+// Re-indent YAML: the leading whitespace of each line of a `yaml` fence becomes two spaces per level.
 // Pure string to string. Nothing but leading whitespace changes (no parse-and-print: comments, anchors, quotes and
 // scalars are never touched). It declines whenever re-indenting could change what the YAML means, and it checks
 // its own result: the structure of the output, recomputed, must equal the structure of the input.

@@ -1,4 +1,4 @@
-// Transform the clipboard (J-06, ADR-0065 §3): one command per runnable transform, `Transform clipboard: <name>`. Running one
+// Transform the clipboard: one command per runnable transform, `Transform clipboard: <name>`. Running one
 // reads the pasteboard on that command and not before (types first; a concealed item is refused and nothing is read), runs the
 // transform on its text and opens the result sheet (`transform/sheet.ts`) with the clipboard as the input. The sheet's
 // primary action writes the result back as one plain-text item; Esc writes nothing. No document is read or changed.

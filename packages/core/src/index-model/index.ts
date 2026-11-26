@@ -1,12 +1,12 @@
-// Index model: root, ignore, deny list, ceiling, persist. Not `src/index` (ADR-0012, ADR-0020).
+// Index model: root, ignore, deny list, ceiling, persist. Not `src/index`.
 
 export { detectIndexRoot, type RootProbe } from './root.ts';
 export { DENY_DIRECTORY_NAMES, isDeniedName, isDeniedPath } from './deny.ts';
 export { classify, extensionOf } from './kinds.ts';
-export { fileTypeOf, fileTypeForExtension, tableExtensions, type FileType, type FileKind, type FileMode } from './file-types.ts';
+export { fileTypeOf, fileTypeFor, fileTypeForExtension, tableExtensions, type FileType, type FileKind, type FileMode } from '../kind/registry.ts';
 export { parseIgnore, isIgnored, type IgnoreRule } from './ignore.ts';
 export { applyCeiling, type IndexNotice, type CeilingResult } from './ceiling.ts';
-export { entryFromCandidate, headingsFromMarkdown, type IndexCandidate, type IndexHeading } from './entry.ts';
+export { entryFromCandidate, headingsFromMarkdown, readerKindOf, withReaderKinds, type IndexCandidate, type IndexHeading, type ReaderKinds } from './entry.ts';
 export {
   serializeSnapshot,
   parseSnapshot,
@@ -27,6 +27,8 @@ export {
   appendRoot,
   appendQuery,
   queryRange,
+  removeRoot,
+  rootRange,
   denyRulesFor,
   COLLECTION_TEMPLATE,
   type Collection,
@@ -42,45 +44,5 @@ export {
   CAPTURE_PRIVACY_LINE,
   type CaptureRule,
 } from './capture.ts';
-export {
-  parseQuery,
-  completeQuery,
-  QUERY_KEYS,
-  IS_VALUES,
-  HAS_VALUES,
-  type Query,
-  type Group,
-  type Term,
-  type FieldTerm,
-  type TextTerm,
-  type FlaggedTerm,
-  type QueryKey,
-  type CompareOp,
-  type QueryRange,
-  type Completion,
-  type CompletionItem,
-  type CompletionContext,
-} from './query.ts';
+export { parseQuery, type Query, type Group, type Term, type FieldTerm, type TextTerm, type FlaggedTerm, type QueryKey, type CompareOp, type QueryRange } from './query.ts';
 export { countsAsMarkdown, countWords, createWordCounter, type WordCounter, type WordCountOptions } from './words.ts';
-export {
-  capQuery,
-  evaluateQuery,
-  MAX_QUERY_TERMS,
-  MAX_TERM_VALUES,
-  indexCandidates,
-  measureText,
-  textTerms,
-  termNote,
-  usesContentKeys,
-  UNAVAILABLE_STATUSES,
-  CHECKED_STATUSES,
-  usesChecks,
-  groupsCopies,
-  type DupFacts,
-  type QueryHit,
-  type QueryContext,
-  type Reason,
-  type Measure,
-  type Measured,
-  type LineMatches,
-} from './query-eval.ts';

@@ -1,12 +1,12 @@
-// A split the window can no longer hold gives one pane back (F-106; X-32 finding 6). Opening a second pane is
+// A split the window can no longer hold gives one pane back. Opening a second pane is
 // refused where two columns do not fit at the typography floor (`splitRefusal`, `fitsTwoColumns`); a split made in a
 // wide window and then narrowed used to keep both panes at about 250 px. This watches the grid's width and applies
 // the same test to the panes already open: with two panes and no room for two columns, the pane that is not
 // focused is closed through `PaneSet.close`, so everything that guards a close guards this one (a document with
 // unsaved edits that no other pane shows is asked about, in its pane, and stays open until the reader answers).
 //
-// Nothing the reader had is dropped: the document of the pane given back keeps its tab (a tab is any path a pane has
-// shown), and its place, its mode and the split's ratio are remembered. When the window is wide enough again, and
+// Nothing the reader had is dropped: the window's one row of tabs keeps the given-back document's tab, and its place,
+// its mode and the split's ratio are remembered. When the window is wide enough again, and
 // the reader has not opened anything in the meantime, the split comes back as it was, on the same side, at both
 // places. A reader's own open, or a different document under the surviving pane, ends that promise: the
 // narrowed window is theirs now. While a pane is given back the saved layout (layout.json) is left as it was.
@@ -16,7 +16,7 @@
 
 import { withdrawClosePrompt } from '../close.ts';
 import { notify } from '../notices/index.ts';
-import { isTransient } from '../workspace/tabs.ts';
+import { isTransient } from '../frame/tabs.ts';
 import { activeFind } from '../find/view.ts';
 import { clampToMain } from './divider.ts';
 import { canShowTwoColumns } from './fit.ts';
@@ -32,6 +32,8 @@ interface GivenBack {
   /** The slot the given-back pane was in; the other pane is the one that stayed. */
   readonly side: 0 | 1;
   readonly stayedPath: string;
+  /** Where the pane that stayed was when the other was given back, kept as the reader scrolls it. */
+  stayedAt: number;
   readonly ratio: number;
   readonly focusedSide: 0 | 1;
 }
@@ -51,8 +53,9 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
   let stopped = false;
   /** The pane whose close is waiting on the reader's answer about unsaved edits. */
   let asking: AppPane | null = null;
-  /** Ends the wait for a dismissed document to be saved (F-106.1). */
+  /** Ends the wait for a dismissed document to be saved. */
   let unwatch: (() => void) | null = null;
+  let offStayed: (() => void) | null = null;
 
   const modeOf = (pane: AppPane): 'rendered' | 'source' => (pane.view.mode === 'source' ? 'source' : 'rendered');
   /** `pane` in `mode`, at `at`: the switch to Source opens at the block's top, so the place is put back. */
@@ -65,7 +68,6 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
     unwatch?.();
     unwatch = null;
   };
-
   async function giveBack(): Promise<void> {
     const [left, right] = panes.panes as readonly [AppPane, AppPane];
     // The focused pane stays, unless it shows nothing: then the one with a document does.
@@ -90,6 +92,7 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
             path: leaves.path()!,
             side: leaves === left ? 0 : 1,
             stayedPath: stays.path()!,
+            stayedAt: stays.view.position().byteOffset,
             mode: modeOf(leaves),
             at: leaves.view.position().byteOffset,
             ratio: panes.ratio,
@@ -123,6 +126,15 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
     }
     given = record;
     if (!record) hooks.hold(false);
+    else {
+      // Read now, not at the widening: a window widened under a Source pane reflows it before the split comes back, and
+      // its top line then is not the reader's place.
+      offStayed?.();
+      const pane = panes.panes[0];
+      offStayed = pane ? pane.view.onScroll(() => {
+        if (given === record && pane.path() === record.stayedPath) record.stayedAt = pane.view.position().byteOffset;
+      }) : null;
+    }
   }
 
   async function restore(g: GivenBack): Promise<void> {
@@ -135,7 +147,9 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
       // The pane that stayed is in slot 0 now; it goes to the right, as it is now, and the given-back document takes the left.
       const now = panes.panes[0]!;
       const stayedMode = modeOf(now);
-      const stayedAt = now.view.position().byteOffset;
+      const stayedAt = g.stayedAt;
+      offStayed?.();
+      offStayed = null;
       const right = await panes.openIn('other', g.stayedPath, { at: stayedAt });
       if (!right) return;
       await inMode(right, stayedMode, stayedAt);
@@ -149,8 +163,8 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
 
   /** The reader closed the given-back document's tab while the window was narrow: the split is not coming back. */
   const tabClosed = (path: string): boolean => {
-    const row = document.querySelectorAll('[data-marxy-tab]');
-    return row.length > 0 && ![...row].some((t) => t.getAttribute('data-marxy-tab') === path);
+    const row = document.querySelectorAll('[data-marxy-tab-path]');
+    return row.length > 0 && ![...row].some((t) => t.getAttribute('data-marxy-tab-path') === path);
   };
 
   async function settle(): Promise<void> {
@@ -211,6 +225,7 @@ export function keepTwoColumns(panes: AppPanes, main: HTMLElement, hooks: Narrow
   return () => {
     stopped = true;
     forget();
+    offStayed?.();
     off();
     offSplit();
     observer?.disconnect();

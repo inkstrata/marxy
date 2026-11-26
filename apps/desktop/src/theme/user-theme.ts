@@ -1,10 +1,11 @@
-// User theme load, apply, watch, and config resolution (docs/design/05-theme.md §App side). MARXY-177.
+// User theme load, apply, watch, and config resolution.
 import { joinPath, normalizePath, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { applyTheme, avgCharWarnings, loadTheme } from '@marxy/theme';
+import { FIRST_THEME_ID } from '@marxy/theme/src/loader.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import { notify } from '../notices/index.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
-import { bundledThemeCss, bundledThemeName, type BundledThemeName } from './bundled-themes.ts';
+import { DEFAULT_THEME, bundledThemeCss, themeMeant, type BundledThemeName } from './bundled-themes.ts';
 import { afterFirstPaint, measureAverageAdvance } from './measure-face.ts';
 
 export interface UserThemeShell {
@@ -15,6 +16,7 @@ export interface UserThemeShell {
   assetUrl(path: string): string;
   mark(name: string, t: number, data?: string): Promise<void>;
   configPaths?(): Promise<{ config: string; data: string }>;
+  markOpened?(path: string, as?: 'file' | 'root'): Promise<void>;
 }
 
 const DEBOUNCE_MS = 100;
@@ -22,12 +24,12 @@ const WARNINGS_SHOWN = 3;
 
 export interface UserThemeContext {
   readonly shell: UserThemeShell;
-  /** Every view the app shows: each is set again, with its reader kept in place, when a theme applies (B-13). */
+  /** Every view the app shows: each is set again, with its reader kept in place, when a theme applies. */
   views(): readonly RenderedView[];
 }
 
-/** The theme in force, for the palette: a bundled name, 'folder' for a theme directory, null for Night and Paper. */
-let current: BundledThemeName | 'folder' | null = null;
+/** The theme in force, for the palette: a bundled name, or 'folder' for a theme directory. index.html inlines the default's. */
+let current: BundledThemeName | 'folder' | null = DEFAULT_THEME;
 let running: { stop(): void } | null = null;
 
 export function currentThemeName(): BundledThemeName | 'folder' | null {
@@ -35,11 +37,14 @@ export function currentThemeName(): BundledThemeName | 'folder' | null {
 }
 
 /**
- * H-05: applies a bundled theme now, or Night and Paper for null, and stops following any theme folder. The
- * default theme's own stylesheet is in index.html, so Night and Paper is the theme sheet emptied.
+ * Applies a bundled theme now and stops following any theme folder. Night and Paper's own stylesheet is in
+ * index.html, so it is the theme sheet emptied.
  */
-export async function applyBundledTheme(name: BundledThemeName | null, doc: Document = document): Promise<void> {
-  const css = name === null ? '' : await bundledThemeCss(name);
+export async function applyBundledTheme(name: BundledThemeName, doc: Document = document): Promise<void> {
+  // The default is already on the page from index.html: applying it again would only move the head under Source's theme
+  // bridge and the typesetter at launch.
+  if (name === DEFAULT_THEME && current === DEFAULT_THEME && doc.getElementById(FIRST_THEME_ID) !== null) return;
+  const css = await bundledThemeCss(name);
   running?.stop();
   running = null;
   applyTheme(css, doc);
@@ -52,15 +57,18 @@ export type ThemeChoice =
 
 /**
  * What `theme` in config.toml names. A bare name with no `/` that matches a bundled directory is the bundled theme,
- * unless a directory of that name sits beside config.toml, which still wins (and `shadows` says which it hid).
+ * unless a directory of that name sits beside config.toml, which still wins (and `shadows` says which it hid). Unset or
+ * empty is the default theme.
  */
 export async function resolveThemeChoice(
-  shell: Pick<UserThemeShell, 'readFile'>,
+  shell: Pick<UserThemeShell, 'readFile' | 'markOpened'>,
   raw: string | null,
   configPath: string,
 ): Promise<ThemeChoice | null> {
-  const bundled = bundledThemeName(raw);
+  const bundled = themeMeant(raw);
   const dir = resolveThemeDir(raw, configPath);
+  // A theme folder config.toml names is one the reader chose, wherever it is: the shell reads it once told.
+  if (dir !== null) await shell.markOpened?.(dir, 'root').catch(() => undefined);
   if (bundled === null) return dir === null ? null : { kind: 'dir', dir, shadows: null };
   if (dir !== null) {
     try {
@@ -123,8 +131,8 @@ async function relayoutKeepingPosition(ctx: UserThemeContext): Promise<void> {
 }
 
 /**
- * H-06: tells the reader when the theme's `--marxy-avg-char` is far from what its text face measures. Runs
- * after first paint (commitment 5): measuring waits for the face to load, and nothing here is on the way to text.
+ * Tells the reader when the theme's `--marxy-avg-char` is far from what its text face measures. Runs
+ * after first paint: measuring waits for the face to load, and nothing here is on the way to text.
  */
 function checkAvgCharAfterPaint(css: string, themeName: string): void {
   afterFirstPaint(() => {
@@ -188,7 +196,7 @@ export async function startUserTheme(ctx: UserThemeContext, dir: string | null):
   if (gen !== generation) return self;
 
   // The theme is applied; a folder that cannot be watched only means a later edit is not followed. The open
-  // this runs after must not fail for it (V-11).
+  // this runs after must not fail for it.
   try {
     const handle = await ctx.shell.watch(dir, () => {
       if (debounce !== undefined) clearTimeout(debounce);

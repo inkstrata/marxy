@@ -1,5 +1,5 @@
 document [0,903)
-  frontmatter [0,66) value="title: Sections\n# a comment in front matter, not a heading"
+  frontmatter [0,66) content=[4,62) value="title: Sections\n# a comment in front matter, not a heading"
   paragraph [68,132)
     text [68,132) value="A few words before the first heading. They belong to no section."
   heading [134,147) level=1

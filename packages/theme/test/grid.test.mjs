@@ -1,5 +1,5 @@
-// The default theme, measured in Playwright WebKit over the rendered corpus (MARXY-20;
-// docs/design/10-gates-and-testing.md checks 1–3, ADR-0030). No shell: the corpus is rendered by the
+// The default theme, measured in Playwright WebKit over the rendered corpus.
+// No shell: the corpus is rendered by the
 // core pipeline in Node, the page carries exactly the stylesheet the app inlines, and the grid pass is
 // the one the app runs. The aesthetics gate measures the same theme on the app itself (apps/desktop/gate.html).
 
@@ -12,7 +12,7 @@ import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { generateLarge } from '../../../scripts/perf-harness.mjs';
 
 /**
- * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+ * A run without Playwright's WebKit skips these tests and says why, unless
  * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
  */
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -32,8 +32,8 @@ const CORPUS = [
   '06-math.md', '07-cjk.md', '08-rtl.md', '09-gfm-everything.md', '10-hostile.md', '14-marxy-plan.md', '15-prose-volume.md',
 ];
 /**
- * No code, math, images or tables (islands since MARXY-128), and no heading that wraps: a heading's
- * line box is not a grid unit, so a two-line heading is an island the grid pass pads too (ADR-0033).
+ * No code, math, images or tables (islands), and no heading that wraps: a heading's
+ * line box is not a grid unit, so a two-line heading is an island the grid pass pads too.
  * At 66 characters the plan's long headings wrap, so the case is written here.
  */
 const TEXT_ONLY_DOC = [
@@ -67,7 +67,7 @@ async function open(file, { width = 960, size = 20, variant = 'dark', snap = tru
   return page;
 }
 
-/** §10 check 1, with the unit of ADR-0030: every block's top, from the article's top, on the half-line grid. */
+/** Check 1: every block's top, from the article's top, on the half-line grid. */
 function offGrid(page) {
   return page.evaluate(() => {
     const article = document.getElementById('doc');
@@ -93,7 +93,7 @@ test('text with one-line headings: the stylesheet alone puts every block on the 
   }
 });
 
-// MARXY-282: padding-bottom on the first of two collapsing siblings uncollapses the gap; a predicted delta drifts the second block off-grid.
+// padding-bottom on the first of two collapsing siblings uncollapses the gap; a predicted delta drifts the second block off-grid.
 test('two adjacent blocks: after a grid push on the first, the second still lands on-grid', async () => {
   const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
   await page.setContent(
@@ -140,14 +140,14 @@ rendered.set('big-256k', renderSafeHtml(generateLarge(256 * 1024), { file: 'big-
 /** Three hundred blocks that each land off the grid: a margin of a quarter line plus a pixel on every paragraph. */
 rendered.set('every-block-off', Array.from({ length: 300 }, (_, i) => `<p data-marxy-s="${i}" style="margin-bottom:calc(var(--marxy-line-box) / 4 + 1px)">Block ${i}.</p>`).join(''));
 /**
- * MARXY-282's case three hundred times: a paragraph's bottom margin collapses through the block around
+ * The bug's case three hundred times: a paragraph's bottom margin collapses through the block around
  * it with the next block's top margin until the grid pass pads that block, so a push moves the next
  * block further than predicted and only a second round sees where it went.
  */
 rendered.set('collapse-through', Array.from({ length: 300 }, (_, i) => `<div data-marxy-s="${2 * i}"><p style="margin-bottom:calc(var(--marxy-line-box) * 0.75 + 3px)">Inner ${i}.</p></div><p data-marxy-s="${2 * i + 1}" style="margin-top:5px">Next ${i}.</p>`).join(''));
 
 /**
- * The oracle (A-01): the grid pass as it was before it ran in rounds, which pushed one block, read
+ * The oracle: the grid pass as it was before it ran in rounds, which pushed one block, read
  * the next top from layout, and pushed again. Slow (a layout per push) but measured at every step,
  * so the round pass must pad exactly what it padded. It shares the module's helpers (`shortfall`,
  * `isBlock`, `apply`, `ISLANDS`, `snapped`), which are globals of the page script.
@@ -194,7 +194,7 @@ const PADDINGS = `window.paddings = (article) => {
 };`;
 
 for (const file of [...CORPUS, 'every-block-off', 'collapse-through']) {
-  test(`${file}: the round pass pads the same elements by the same amounts as the sequential pass (A-01)`, async () => {
+  test(`${file}: the round pass pads the same elements by the same amounts as the sequential pass`, async () => {
     const cases = [...WIDTHS.map((width) => ({ width })), ...[16, 24, 28].map((size) => ({ size }))];
     for (const options of cases) {
       const page = await open(file, { ...options, snap: false });
@@ -220,7 +220,7 @@ for (const file of [...CORPUS, 'every-block-off', 'collapse-through']) {
 
 /**
  * Reads of layout that follow a write, during one grid pass: each is a layout the engine must redo.
- * The count must not grow with the document (A-01; 05-performance-audit.md §9.2).
+ * The count must not grow with the document.
  */
 async function readsAfterWrite(page) {
   return page.evaluate(() => {
@@ -255,7 +255,7 @@ async function readsAfterWrite(page) {
 }
 
 for (const file of ['15-prose-volume.md', 'big-256k', 'every-block-off', 'collapse-through']) {
-  test(`${file}: one grid pass reads layout after a write at most five times, whatever the length (A-01)`, async () => {
+  test(`${file}: one grid pass reads layout after a write at most five times, whatever the length`, async () => {
     const page = await open(file, { snap: false });
     const count = await readsAfterWrite(page);
     assert.ok(count <= 5, `${count} reads after a write`);
@@ -266,7 +266,7 @@ for (const file of ['15-prose-volume.md', 'big-256k', 'every-block-off', 'collap
   });
 }
 
-test('the measure is 66 average characters ± 10 % at every size, where the window allows (ADR-0033)', async () => {
+test('the measure is 66 average characters ± 10 % at every size, where the window allows', async () => {
   for (const [width, size] of [...[960, 1280].map((w) => [w, 20]), ...[16, 24].map((s) => [960, s]), [1280, 28]]) {
     const page = await open('15-prose-volume.md', { width, size, fonts: true });
     const chars = await page.evaluate(async () => {
@@ -295,7 +295,7 @@ const luminance = ([r, g, b]) => {
 };
 const contrast = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
-// MARXY-46: §Palettes contrast table — light is designed on its own ground, not inverted from dark.
+// The palettes' contrast: light is designed on its own ground, not inverted from dark.
 for (const variant of ['dark', 'light']) {
   test(`contrast, ${variant}: body ≥ 7:1, secondary ≥ 4.5:1, code and every code token ≥ 4.5:1`, async () => {
     const page = await open('09-gfm-everything.md', { variant });
@@ -336,14 +336,15 @@ for (const variant of ['dark', 'light']) {
   });
 }
 
-test('the design-language numbers fall out of the formulas at 20 px: h2 is 60 above, 38 tall, 15 below', async () => {
+test('the design-language numbers fall out of the formulas at 20 px: h2 is 45 above, 30 tall, 15 below', async () => {
   const page = await open('01-long-technical.md');
   const h2 = await page.evaluate(() => {
     const style = getComputedStyle(document.querySelector('h2'));
     return [style.marginTop, style.lineHeight, style.marginBottom, style.fontSize].map(parseFloat);
   });
-  // 60 / 38 / 15: the named gaps are grid units; the 7 px remainder is padding-bottom (MARXY-128).
-  assert.deepEqual(h2, [60, 38, 15, 31]);
+  // 45 / 30 / 15 at 25 px: the named gaps are grid units, and the line box is two of them, so no
+  // remainder is left for padding-bottom.
+  assert.deepEqual(h2, [45, 30, 15, 25]);
   await page.close();
 });
 
@@ -384,7 +385,7 @@ test('a wrapped line of code hangs under its own first line, on every source lin
   await page.close();
 });
 
-test('a wrapped code line continues past its own indentation, with a rule only beside continuation rows (ADR-0033)', async () => {
+test('a wrapped code line continues past its own indentation, with a rule only beside continuation rows', async () => {
   const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
   const { html } = renderSafeHtml(new TextEncoder().encode(`\`\`\`py\ndef f():\n    return g(${'argument, '.repeat(20)})\n\`\`\`\n`), { file: 't.md' });
   await page.setContent(`<!doctype html><html data-marxy-variant="dark"><head><style>${css}</style></head><body><article class="marxy-article" id="doc">${html}</article></body></html>`);

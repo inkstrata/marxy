@@ -1,4 +1,4 @@
-// collection.toml in the real app (C-10): the palette harness over the memory shell. Declared folders
+// collection.toml in the real app: the palette harness over the memory shell. Declared folders
 // join the palette's scope after the current repository, a declared deny glob hides a file, and an
 // edit to collection.toml drops a folder without a restart.
 import { strict as assert } from 'node:assert';
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { parseCollection } from '@marxy/core/src/index-model/collection.ts';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -69,8 +69,9 @@ async function search(page, mod, query) {
   await page.keyboard.press(`${mod}+KeyP`);
   await page.waitForSelector('#marxy-palette[open]');
   await page.fill('#marxy-palette .marxy-palette-query', query);
-  const rows = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
-    // A row's title, without the age a watched root's row carries beside it (C-12).
+  // The document rows: Go also lists headings and commands the word names (the Line).
+  const rows = await page.$$eval(query.startsWith('>') ? '#marxy-palette .marxy-palette-row' : '#marxy-palette .marxy-palette-row[data-row-key$=":doc"]', (els) =>
+    // A row's title, without the age a watched root's row carries beside it.
     els.map((el) => (el.querySelector('.marxy-palette-title') ?? el).textContent ?? ''),
   );
   await page.keyboard.press('Escape');
@@ -125,7 +126,7 @@ test('declared /b and /a follow the open repository /c; a denied draft never app
   }
 });
 
-// ---- C-14: the two palette commands ------------------------------------------------------------
+// ---- the two palette commands ------------------------------------------------------------
 
 const dec = (b) => Buffer.from(b).toString('utf8');
 
@@ -165,7 +166,7 @@ const readToml = (page) => page.evaluate(async () => {
 const tomlWrites = (page) => page.evaluate(
   () => window.__h.shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === (window.__tomlPath ?? '/collection.toml')).length,
 );
-/** The kinds of the pills showing (U-02.1: what the notice is, not only what it says). */
+/** The kinds of the pills showing (what the notice is, not only what it says). */
 const noticeKinds = (page) => page.evaluate(() => [...document.querySelectorAll('.marxy-notice')].map((n) => n.dataset.noticeKind));
 const noticeText = (page) => page.evaluate(() => document.getElementById('marxy-notices')?.textContent ?? '');
 /** Delivers the config directory's watch event, as the shell does, and waits for the reload. */
@@ -332,7 +333,7 @@ test("Add escapes a folder named it's, keeps every prior byte and parses back to
 });
 
 // ---------------------------------------------------------------------------------------------
-// C-11: a watch event patches one entry, never the whole index.
+// A watch event patches one entry, never the whole index.
 
 /** /c is the open repository; /n is declared; /c/docs is declared inside /c; drafts are denied. */
 const watchedFiles = () => ({
@@ -365,7 +366,7 @@ async function bootWatched(page, files, opts) {
   return (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
 }
 
-test('C-11: a file written temp-then-rename into a watched folder is listed after the batch; deleting it removes it', async () => {
+test('a file written temp-then-rename into a watched folder is listed after the batch; deleting it removes it', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -433,7 +434,7 @@ test('C-11: a file written temp-then-rename into a watched folder is listed afte
   }
 });
 
-test('C-11: one changed file prepares one row, not the whole index; a burst of 20 events writes the snapshot once', async () => {
+test('one changed file prepares one row, not the whole index; a burst of 20 events writes the snapshot once', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -472,7 +473,7 @@ test('C-11: one changed file prepares one row, not the whole index; a burst of 2
   }
 });
 
-test('C-11: a folder the shell refuses to watch says so in the palette, and summoning the palette walks it again once', async () => {
+test('a folder the shell refuses to watch says so in the palette, and summoning the palette walks it again once', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -497,7 +498,7 @@ test('C-11: a folder the shell refuses to watch says so in the palette, and summ
   }
 });
 
-test('C-11: a folder that leaves collection.toml but stays a recent root keeps its entries and stops being watched', async () => {
+test('a folder that leaves collection.toml but stays a recent root keeps its entries and stops being watched', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -541,7 +542,7 @@ test('C-11: a folder that leaves collection.toml but stays a recent root keeps i
   }
 });
 
-test('C-11: a change to the open document, heard by its folder watch and its tree watch, reloads it once', async () => {
+test('a change to the open document, heard by its folder watch and its tree watch, reloads it once', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -564,7 +565,7 @@ test('C-11: a change to the open document, heard by its folder watch and its tre
   }
 });
 
-// ---- C-15: copies of one document from worktrees of one repository fold -----------------------------
+// ---- copies of one document from worktrees of one repository fold -----------------------------
 
 const agents = '# Agents\n\nHow to work here.\n';
 const worktree = (main, name) => enc(`gitdir: ${main}/.git/worktrees/${name}\n`);
@@ -588,12 +589,12 @@ async function noticeFor(page, mod, query) {
   return text;
 }
 
-/** The document paths of the rows a typed query lists (a row's key is `<path>:<heading or doc>`). */
+/** The document paths of the file rows a typed query lists (a row's key is `<path>:doc`); Go's headings and commands are not counted. */
 async function openedBy(page, mod, query) {
   await page.keyboard.press(`${mod}+KeyP`);
   await page.waitForSelector('#marxy-palette[open]');
   await page.fill('#marxy-palette .marxy-palette-query', query);
-  const keys = await page.$$eval('#marxy-palette .marxy-palette-row', (els) => els.map((el) => el.dataset.rowKey ?? ''));
+  const keys = await page.$$eval('#marxy-palette .marxy-palette-row[data-row-key$=":doc"]', (els) => els.map((el) => el.dataset.rowKey ?? ''));
   await page.keyboard.press('Escape');
   return keys.map((k) => k.replace(/:[^:]*$/, ''));
 }

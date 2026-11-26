@@ -1,5 +1,5 @@
-// MARXY-46: config.variant light and auto resolve through the app harness the aesthetics gate renders
-// with (apps/desktop/gate.html, B-02): the variant goes in the config file and the real app applies it.
+// config.variant light and auto resolve through the app harness the aesthetics gate renders
+// with (apps/desktop/gate.html): the variant goes in the config file and the real app applies it.
 // Playwright WebKit.
 
 import { strict as assert } from 'node:assert';
@@ -70,7 +70,7 @@ async function bgForVariant(page, variantPreference) {
   return page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--marxy-color-bg').trim());
 }
 
-test('MARXY-46: variant light paints the designed paper through the app harness', async () => {
+test('variant light paints the designed paper through the app harness', async () => {
   const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
   try {
     assert.equal(await bgForVariant(page, 'light'), palettes.light['--marxy-color-bg']);
@@ -79,7 +79,7 @@ test('MARXY-46: variant light paints the designed paper through the app harness'
   }
 });
 
-test('MARXY-46: variant auto follows prefers-color-scheme through the app harness', async () => {
+test('variant auto follows prefers-color-scheme through the app harness', async () => {
   const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
   try {
     await page.emulateMedia({ colorScheme: 'light' });

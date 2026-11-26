@@ -1,4 +1,4 @@
-// Table tools as splices over the editor's text (V-02). Each tool is checked for what it writes, for what it
+// Table tools as splices over the editor's text. Each tool is checked for what it writes, for what it
 // leaves (every byte outside the table, the line endings, the container prefix), and, by a seeded property,
 // for never writing a table the parse reads differently from what was asked.
 

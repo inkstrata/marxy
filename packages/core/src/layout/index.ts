@@ -2,7 +2,9 @@ export * from './average-advance.ts';
 export * from './geometry.ts';
 export {
   LAYOUT_FILE_VERSION,
+  LAYOUT_TABS_MAX,
   emptyLayoutEnvelope,
+  layoutTabs,
   parseLayoutFile,
   serializeLayoutFile,
 } from './storage.ts';

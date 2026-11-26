@@ -1,4 +1,4 @@
-// The depth lens in Source (K-10a), in the running app over the memory shell, WebKit: a JSON file folds to a depth by
+// The depth lens in Source, in the running app over the memory shell, WebKit: a JSON file folds to a depth by
 // palette command, every fold says how many lines it hides, and none of it touches the bytes. Commitment 3 (a fold is
 // a view: the buffer, a copy and a save are the file's own) and commitment 4 (a fold says what it hides).
 import { strict as assert } from 'node:assert';
@@ -30,6 +30,8 @@ async function withApp(open, fn, { height = 2600, inSource = true } = {}) {
   try {
     const page = await browser.newPage({ viewport: { width: 1470, height } });
     await bootTwoPanes(page, { files, open: [open], guard: true });
+    // A data file opens in Read, as a tree (Readings); the depth lens is Source's.
+    if (inSource) await page.evaluate(() => window.__marxyHandle.panes().focused.view.setMode('source'));
     if (inSource) await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-line'));
     await fn(page, (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control');
   } finally {
@@ -259,7 +261,8 @@ test('no placeholder is a tab stop, so Tab leaves the editor; the caret-on-a-fol
     // The caret on a folded line, then CodeMirror's unfold key.
     const line3 = ITEMS.split('\n').slice(0, 2).join('\n').length + 1;
     await caretAt(page, line3 + 1);
-    await page.keyboard.press(mod === 'Meta' ? 'Meta+Alt+]' : 'Control+Shift+]');
+    // BracketRight, not ']': with Shift held a real keyboard sends '}', and CodeMirror binds the key that way.
+    await page.keyboard.press(mod === 'Meta' ? 'Meta+Alt+]' : 'Control+Shift+BracketRight');
     const s = await shown(page);
     assert.equal(s.folds, 59, 'that fold opened, the others stayed');
     assert.equal(s.doc, ITEMS);

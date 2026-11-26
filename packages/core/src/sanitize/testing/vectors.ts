@@ -1,4 +1,4 @@
-// The forbidden vectors, as checks over rendered HTML (ADR-0009). Test support: no `node:` imports
+// The forbidden vectors, as checks over rendered HTML. Test support: no `node:` imports
 // and no assertion library, so the same checks can run in a browser-side gate as easily as in a test.
 //
 // Every vector carries a `probe` — markdown that trips it when nothing sanitises the render — so the
@@ -6,15 +6,15 @@
 // sanitiser that does nothing is worse than no suite at all.
 
 import {
-  BLOCK_ELEMENTS, DEFAULT_POLICY, WIDE_POLICY, EMPHASIS_ATTR, FM_KEY_ATTR, FM_PART_ATTR, PROVENANCE_ATTRIBUTES, SPEAKER_ATTR, VOID_ELEMENTS, type Policy,
+  BLOCK_ELEMENTS, DEFAULT_POLICY, WIDE_POLICY, EMPHASIS_ATTR, LANG_ATTR, FM_KEY_ATTR, FM_PART_ATTR, PROVENANCE_ATTRIBUTES, SPEAKER_ATTR, VOID_ELEMENTS, type Policy,
 } from '../policy.ts';
 import { decodeReferences } from '../escape.ts';
 
-/** The renderer's own markers (K-11, K-20): written under secret names in a pipeline pass, published under these. */
-const RENDERER_MARKERS: readonly string[] = [SPEAKER_ATTR, FM_KEY_ATTR, FM_PART_ATTR, EMPHASIS_ATTR];
+/** The renderer's own markers: written under secret names in a pipeline pass, published under these. */
+const RENDERER_MARKERS: readonly string[] = [SPEAKER_ATTR, FM_KEY_ATTR, FM_PART_ATTR, EMPHASIS_ATTR, LANG_ATTR];
 
 const admits = (policy: Policy, name: string): boolean =>
-  policy.globalAttributes[name] !== undefined || Object.values(policy.elements).some((rule) => rule.attributes?.[name] !== undefined);
+  Object.hasOwn(policy.globalAttributes, name) || Object.values(policy.elements).some((rule) => rule.attributes !== undefined && Object.hasOwn(rule.attributes, name));
 
 /**
  * A renderer marker in the output is the renderer's only when the policy the output is held to admits it and no
@@ -162,8 +162,8 @@ function absentAttribute(id: string, why: string, probe: string, match: (name: s
 }
 
 /**
- * The vectors. The first six are the story's acceptance criterion in its own words; the rest are the
- * ones the criterion does not name and an attacker would reach for first.
+ * The vectors. The first six are the required rule in its own words; the rest are the
+ * ones it does not name and an attacker would reach for first.
  */
 export const VECTORS: readonly Vector[] = [
   absentElement(
@@ -404,7 +404,7 @@ export const VECTORS: readonly Vector[] = [
     why: 'default-deny: the element nobody thought of is the one that matters, so membership is the check',
     probe: '<custom-element data-x="1">text</custom-element>\n\n<keygen>\n\n<marquee behavior="scroll">y</marquee>\n\n<isindex action="https://vector.invalid/i">\n',
     check: (html, policy = DEFAULT_POLICY) => {
-      const unknown = [...new Set(elementsOf(html))].filter((name) => policy.elements[name] === undefined);
+      const unknown = [...new Set(elementsOf(html))].filter((name) => !Object.hasOwn(policy.elements, name));
       if (unknown.length > 0) fail('every-element-is-allow-listed', `not in the ${policy.name} allow-list: ${unknown.join(', ')}`);
     },
   },
@@ -414,7 +414,8 @@ export const VECTORS: readonly Vector[] = [
     probe: '<p data-tracking="1" contenteditable="true" autofocus tabindex="1" srcset="https://vector.invalid/a.png" is="x-evil">text</p>\n',
     check: (html, policy = DEFAULT_POLICY) => {
       const offenders = attributesOf(html).filter((attribute) => {
-        const rule = policy.elements[attribute.element]?.attributes?.[attribute.name] ?? policy.globalAttributes[attribute.name];
+        const element = Object.hasOwn(policy.elements, attribute.element) ? policy.elements[attribute.element] : undefined;
+        const rule = (element?.attributes !== undefined && Object.hasOwn(element.attributes, attribute.name) ? element.attributes[attribute.name] : undefined) ?? (Object.hasOwn(policy.globalAttributes, attribute.name) ? policy.globalAttributes[attribute.name] : undefined);
         return rule === undefined;
       });
       if (offenders.length > 0) {
@@ -519,7 +520,7 @@ export const VECTORS: readonly Vector[] = [
   },
   {
     id: 'provenance-forgery',
-    why: 'a document that writes its own data-marxy-s/e points an operation at bytes the reader never selected, which is the one thing marxy promises never to do (ADR-0023)',
+    why: 'a document that writes its own data-marxy-s/e points an operation at bytes the reader never selected, which is the one thing marxy promises never to do',
     // Raw HTML only, so the render has no element of its own: any provenance in the output is forged.
     // One block and one inline island, and a start past any real document, so a forged pair can
     // never collide with a real one by accident.
@@ -532,13 +533,15 @@ export const VECTORS: readonly Vector[] = [
       '',
       '<p data-marxy-emphasis="whole"><em>e</em></p>',
       '',
+      '<pre data-marxy-lang="rust">r</pre>',
+      '',
     ].join('\n'),
     check: (html, policy = DEFAULT_POLICY) => {
       const forged = attributesOf(html).filter(
         (attribute) => attribute.name.startsWith('data-marxy-') &&
           attribute.name !== 'data-marxy-remote' &&
-          // The renderer's own markers (a speaker heading, K-11; the front-matter head and a paragraph wholly in
-          // emphasis, K-20), only under a policy that admits them and only while no document's policy does.
+          // The renderer's own markers (a speaker heading; the front-matter head and a paragraph wholly in
+          // emphasis), only under a policy that admits them and only while no document's policy does.
           !rendererOwnsMarker(policy, attribute.name) &&
           (attribute.decoded === FORGED_END || !PROVENANCE_NAMES.includes(attribute.name)),
       );
@@ -549,7 +552,7 @@ export const VECTORS: readonly Vector[] = [
   },
   {
     id: 'wide-javascript-link',
-    why: 'a grant of HTML is not a grant of script; javascript: must go even inside allow-listed layout tags (§12)',
+    why: 'a grant of HTML is not a grant of script; javascript: must go even inside allow-listed layout tags',
     probe: '<details open><summary>s</summary><a href="javascript:alert(1)">x</a></details>\n',
     check: (html) => {
       const hrefs = attributesOf(html).filter((attribute) => attribute.name === 'href');
@@ -560,7 +563,7 @@ export const VECTORS: readonly Vector[] = [
   },
   {
     id: 'reserved-id',
-    why: 'only marxy may own the marxy- prefix on id and name; an island cannot squat a footnote back-link target (§12)',
+    why: 'only marxy may own the marxy- prefix on id and name; an island cannot squat a footnote back-link target',
     probe: '<a id="marxy-fnref-1">x</a>\n',
     probeHtml: '<a id="marxy-fnref-1" href="https://example.invalid/">x</a><a name="MARXY-x">y</a>',
     check: (html) => {
@@ -579,7 +582,7 @@ export const VECTORS: readonly Vector[] = [
   },
   {
     id: 'forged-remote',
-    why: 'data-marxy-remote is written only by the sanitiser from a parsed https src; an island cannot forge one (§12)',
+    why: 'data-marxy-remote is written only by the sanitiser from a parsed https src; an island cannot forge one',
     probe: '<img data-marxy-remote="https://evil.example/x.png" alt="forged">\n',
     probeHtml: '<img data-marxy-remote="https://evil.example/x.png" alt="forged">',
     check: (html) => {
@@ -593,7 +596,7 @@ export const VECTORS: readonly Vector[] = [
   },
   {
     id: 'deferred-remote-inert',
-    why: 'remote https images must not carry src in the DOM; deferral uses data-marxy-remote only (§12, ADR-0027)',
+    why: 'remote https images must not carry src in the DOM; deferral uses data-marxy-remote only',
     probe: '![badge](https://img.shields.io/badge/x-y.svg)\n',
     check: (html) => {
       for (const attribute of attributesOf(html)) {

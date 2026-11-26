@@ -1,0 +1,90 @@
+verify full in /Users/<user>/Dev/marxy-wt/reader-architecture
+4104 files changed against main; unit suites: desktop, core, theme, typeset, scripts; browser files: 270; rust changed; unmapped: .claude/launch.json, .claude/skills/install-local/SKILL.md, .claude/skills/install-local/install.sh, .claude/skills/resolve-taste-queue/SKILL.md, .claude/skills/resolve-taste-queue/guides.json, ...
+logs in /tmp/claude-<uid>/marxy-logs/verify-full
+
+PASS    install        0.3s      
+PASS    typecheck      6.4s      
+PASS    lint           2.2s      
+PASS    check          5.3s      10 pass, 0 fail
+PASS    golden         0.9s      
+PASS    fidelity       10.0s     
+PASS    licences       0.4s      
+verify: holding place 1 of 2 (--no-lock skips it)
+
+PASS    unit-core      119.2s    4242 pass, 0 fail, 2 skip
+PASS    unit-theme     27.0s     305 pass, 0 fail
+PASS    unit-typeset   26.8s     90 pass, 0 fail
+PASS    unit-scripts   28.6s     289 pass, 0 fail
+PASS    unit-desktop   26.0s     1269 pass, 0 fail, 1 skip
+PASS    unit-desktop-browser 51.9s     45 pass, 0 fail
+FAIL    lint-rust      28.7s     
+FAIL    browser        1265.2s   2520 pass, 18 fail, 2 skip
+FAIL    cargo          49.0s     634 pass, 16 fail, 6 skip
+PASS    build          117.9s    
+
+step                  result  wall     tests
+--------------------  ------  -------  --------------------------
+install               pass    0.3s
+typecheck             pass    6.4s
+lint                  pass    2.2s
+check                 pass    5.3s     10 pass, 0 fail
+golden                pass    0.9s
+fidelity              pass    10.0s
+licences              pass    0.4s
+unit-core             pass    119.2s   4242 pass, 0 fail, 2 skip
+unit-theme            pass    27.0s    305 pass, 0 fail
+unit-typeset          pass    26.8s    90 pass, 0 fail
+unit-scripts          pass    28.6s    289 pass, 0 fail
+unit-desktop          pass    26.0s    1269 pass, 0 fail, 1 skip
+unit-desktop-browser  pass    51.9s    45 pass, 0 fail
+lint-rust             FAIL    28.7s
+browser               FAIL    1265.2s  2520 pass, 18 fail, 2 skip
+cargo                 FAIL    49.0s    634 pass, 16 fail, 6 skip
+build                 pass    117.9s
+--------------------  ------  -------  --------------------------
+total                         1765.7s
+
+--- lint-rust (/tmp/claude-<uid>/marxy-logs/verify-full/14-lint-rust.log)
+error: using `contains()` instead of `iter().any()` is more efficient
+   --> src/commands/search.rs:164:9
+    |
+164 |     if !expected.iter().any(|c| *c == canonical) {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `expected.contains(&canonical)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#manual_contains
+    = note: `-D clippy::manual-contains` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::manual_contains)]`
+
+error: could not compile `marxy` (bin "marxy") due to 6 previous errors
+[ELIFECYCLE] Command failed with exit code 101.
+
+--- browser (/tmp/claude-<uid>/marxy-logs/verify-full/15-browser.log)
+      at file:///Users/<user>/Dev/marxy-wt/reader-architecture/apps/desktop/test/tail-follow.test.mjs:153:12
+      at async withLog (file:///Users/<user>/Dev/marxy-wt/reader-architecture/apps/desktop/test/tail-follow.test.mjs:56:5)
+      at async TestContext.<anonymous> (file:///Users/<user>/Dev/marxy-wt/reader-architecture/apps/desktop/test/tail-follow.test.mjs:133:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+--- cargo (/tmp/claude-<uid>/marxy-logs/verify-full/16-cargo.log)
+    tables::sqlite::tests::a_view_that_runs_too_long_is_stopped_and_says_so
+    tables::sqlite::tests::a_wal_database_reads_with_its_log_and_alone_without_it_writing_nothing
+    tables::sqlite::tests::a_wal_database_with_no_index_beside_it_is_read_without_making_one
+    tables::sqlite::tests::an_shm_or_log_that_is_a_link_out_is_not_read
+    tables::sqlite::tests::an_shm_that_is_another_files_second_name_is_not_read
+    tables::sqlite::tests::bytes_without_sqlites_header_are_not_a_database
+    tables::sqlite::tests::nothing_can_be_written_through_the_reader
+    tables::sqlite::tests::text_past_the_cap_is_cut_and_a_without_rowid_table_reads_in_key_order
+
+test result: FAILED. 634 passed; 16 failed; 6 ignored; 0 measured; 0 filtered out; finished in 10.01s
+
+error: test failed, to rerun pass `--bin marxy`
+
+verify full: 14/17 steps passed; failed: lint-rust, browser, cargo; rerun with --from lint-rust
+verify exit 1

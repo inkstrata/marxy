@@ -1,25 +1,25 @@
 /**
- * Derived views (ADR-0061, amended by ADR-0071): a read-only tree beside the AST, computed by a pure function of the
- * buffer, never written back. Reviewed contract (ADR-0045): changes by pull request.
+ * Derived views: a read-only tree beside the AST, computed by a pure function of the
+ * buffer, never written back. Reviewed contract: changes need review.
  *
  * A `DerivedNode` is not a `Node`: it reuses `Source` from `ast.ts` and nothing else, so the type checker refuses to
  * hand one to an operation (`OperationInput.node` is a `Node`). This file holds the table deriver's types
- * (`delimited-table`, ADR-0071, K-10b) and, below them, the transcript deriver's (`jsonl-transcript`, ADR-0061, K-12).
+ * (`delimited-table`) and, below them, the transcript deriver's (`jsonl-transcript`).
  */
 import type { Source } from './ast.ts';
 
-/** The derivers ADR-0061 and its amendments admit. */
+/** The admitted derivers. */
 export type DeriverId = 'delimited-table' | 'jsonl-transcript';
 
 /**
- * How a leaf's value comes from its bytes, exactly (ADR-0071 item 2):
+ * How a leaf's value comes from its bytes, exactly:
  * - `csv-field`: a field whose first byte is not `"` is its bytes as UTF-8; a quoted one is the bytes between its
  *   quotes with each `""` read as one `"`;
- * - `none`: the bytes as UTF-8 and nothing else (a TSV field, ADR-0071 item 1).
+ * - `none`: the bytes as UTF-8 and nothing else (a TSV field).
  */
 export type Decoding = 'csv-field' | 'none';
 
-/** One field of one record: a leaf. `src` is the whole raw field, quotes included; it may be empty (ADR-0071 item 3, 4.2). */
+/** One field of one record: a leaf. `src` is the whole raw field, quotes included; it may be empty (4.2). */
 export interface DerivedCell {
   readonly type: 'cell';
   readonly src: Source;
@@ -84,7 +84,7 @@ export interface DerivedTable {
 export type DerivedNode = DerivedTable | DerivedRow | DerivedCell | DerivedUnreadable | DerivedPending | TranscriptNode;
 
 /**
- * What every table tree satisfies (ADR-0061 item 4 as ADR-0071 reads it for this deriver), asserted by
+ * What every table tree satisfies, asserted by
  * `checkTableInvariants` in `data/delimited.ts`.
  */
 export const DERIVED_TABLE_INVARIANTS = [
@@ -96,10 +96,10 @@ export const DERIVED_TABLE_INVARIANTS = [
   'a row\'s cells tile it: one delimiter byte between neighbours, nothing before the first or after the last',
 ] as const;
 
-// ---- the transcript deriver (`jsonl-transcript`, ADR-0061 items 3 and 4, K-12) -----------------------------------------
+// ---- the transcript deriver (`jsonl-transcript`) -----------------------------------------
 //
 // A JSONL session read as the conversation it records. Every node carries `src`, the hull of what it came from, and
-// `from`, the exact byte ranges it was derived from (ADR-0061 item 3). A line is `[start, end)` with its `\n` when it has
+// `from`, the exact byte ranges it was derived from. A line is `[start, end)` with its `\n` when it has
 // one. No node has a field for a session id, a model, a cost, a token count or a per-event time: the tree is for reading
 // the open file, never metadata about it, and nothing in it feeds the index.
 
@@ -113,7 +113,7 @@ export type TurnSpeaker = 'you' | 'agent';
 export type DerivedTextRole = 'text' | 'thinking' | 'tool-name' | 'tool-input' | 'tool-output';
 
 /**
- * A leaf holding decoded text: one JSON string token, quotes included, whose decoding is `value` (ADR-0061 item 3).
+ * A leaf holding decoded text: one JSON string token, quotes included, whose decoding is `value`.
  * `markdown` only for well-formed UTF-16 decoded from valid UTF-8; a leaf with a lone surrogate or with bytes that are
  * not UTF-8 is always `plain`.
  */
@@ -129,14 +129,14 @@ export interface DerivedText {
   /** For a `tool-input` leaf: the key it is the value of in the call's input, decoded. */
   readonly key?: string;
   /**
-   * UTF-16 offsets in `value` of each U+FFFD the decoding put in place of bytes that are not UTF-8 (ADR-0061 item 7), so
+   * UTF-16 offsets in `value` of each U+FFFD the decoding put in place of bytes that are not UTF-8, so
    * a replacement Marxy made is told from one the file holds. Empty for a leaf of valid UTF-8.
    */
   readonly replaced: readonly number[];
 }
 
 /**
- * A value in a shown line that the view does not set as text, and says so (ADR-0061 item 7): a tool's input that is not a
+ * A value in a shown line that the view does not set as text, and says so: a tool's input that is not a
  * string (a list, an object, a number), an item of a result that is not text, or a block of a message that is neither
  * text, thinking nor a tool (an image, a document). The view counts them and shows their bytes as written.
  */
@@ -201,7 +201,7 @@ export interface TranscriptPending {
 }
 
 /**
- * A line the tree leaves out and says it left out (ADR-0061 item 7): its record type (the line's `type`, else its `role`),
+ * A line the tree leaves out and says it left out: its record type (the line's `type`, else its `role`),
  * whether the deriver knows that type, and the line. A blank line is `blank`, known; a JSON value that is not an object
  * is `(not an object)`, unknown.
  */
@@ -233,8 +233,8 @@ export type TranscriptNode =
   | TranscriptPending;
 
 /**
- * What every transcript tree satisfies (ADR-0061 item 4), asserted by `checkDerivedInvariants` in `derive/invariants.ts`
- * (beside the deriver, because item 6 runs the ordinary parser, which a contract file does not import).
+ * What every transcript tree satisfies, asserted by `checkDerivedInvariants` in `derive/invariants.ts`
+ * (beside the deriver, because one invariant runs the ordinary parser, which a contract file does not import).
  */
 export const DERIVED_INVARIANTS = [
   'src.start <= src.end for every derived node, and transcript.src covers [0, byteLength)',

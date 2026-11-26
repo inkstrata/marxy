@@ -1,4 +1,4 @@
-// V-03: find and replace in Source. `Mod+Alt+F` opens find with its replace field; Replace all… opens a preview of every
+// find and replace in Source. `Mod+Alt+F` opens find with its replace field; Replace all… opens a preview of every
 // change and changes nothing; Apply (Mod+Return) makes every change in one transaction, one undo step, in the file's
 // own line endings; an outside change while the preview is open makes Apply refuse. The real app over the memory shell,
 // in WebKit, with real keys (test/support/two-pane.mjs).
@@ -109,7 +109,8 @@ test('Mod+Alt+F opens find with its replace field; Replace all… on 37 matches 
     await page.click('.cm-content');
     await page.keyboard.press(`${s.mod}+z`);
     assert.equal(await s.doc(), LF_DOC, 'one undo restores the text');
-    await page.keyboard.press(`${s.mod}+Shift+z`);
+    // Redo is CodeMirror's: Mod+Shift+Z on a Mac, Ctrl+Y off one (historyKeymap).
+    await page.keyboard.press(s.mod === 'Meta' ? 'Meta+Shift+z' : 'Control+y');
     assert.equal(await s.doc(), LF_DOC.replaceAll('colour', 'color'));
 
     // Leaving Source folds the editor into the store: the file's own endings and its mark.

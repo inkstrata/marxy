@@ -1,5 +1,4 @@
-// Open the document in the reader's external editor at the current line (docs/design/09-app-shell.md
-// §Open in external editor, D-A31). A-16.
+// Open the document in the reader's external editor at the current line.
 import { lineOf } from '@marxy/core';
 import type { AppShell } from '../app.ts';
 import { appHandle } from './app-handle.ts';
@@ -46,7 +45,7 @@ export function editorCommands(): readonly Command[] {
     {
       id: 'document.open-in-editor',
       title: 'Open in external editor',
-      key: 'Mod+Shift+E',
+      key: 'Mod+Alt+E',
       global: true,
       group: 'document',
       when: () => editablePath() !== null,
@@ -57,7 +56,7 @@ export function editorCommands(): readonly Command[] {
         const line = await currentLine();
         try {
           if (typeof shell.revealInExternalEditor !== 'function') throw new Error('this build has no external editor');
-          // Only the path and the line leave the webview; the program is Rust's to choose (D-A31).
+          // Only the path and the line leave the webview; the program is Rust's to choose.
           await shell.revealInExternalEditor(path, line);
         } catch (err) {
           ctx.showNotice(`Could not open ${baseName(path)} in the external editor: ${reasonOf(err)}.`, { kind: 'error' });

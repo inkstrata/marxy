@@ -1,7 +1,7 @@
 // A WebKit page with a corpus document set exactly as the app sets it — the core pipeline's HTML, the
 // default theme, the bundled faces — and the typesetter loaded from source. `src/*.ts` is served with
 // its types stripped and `justif/*` through an import map, so the page runs the same modules the app
-// bundles, with no bundler in the way. Shared by the tests and scripts/measure-rendered.mjs.
+// bundles, with no bundler in the way.
 
 import { readFileSync, existsSync } from 'node:fs';
 import { createServer } from 'node:http';

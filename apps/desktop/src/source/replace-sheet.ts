@@ -1,4 +1,4 @@
-// Find and replace in Source (V-03): the find panel, Replace one at a time, and the preview Replace all opens.
+// Find and replace in Source: the find panel, Replace one at a time, and the preview Replace all opens.
 //
 // The panel is CodeMirror's own, rebuilt (its class is not exported) with the same fields, names and words, so the
 // look and the keys are unchanged; only Replace and Replace all are Marxy's:
@@ -6,7 +6,7 @@
 //   Replace all…        never changes anything at once: it opens the preview (`openReplacePreview`); Mod+Return
 //                       in the replace field does the same
 //
-// The preview is a modal dialog on the result sheet's classes (`transform/sheet.ts`, W-21): every change as a
+// The preview is a modal dialog on the result sheet's classes (`transform/sheet.ts`): every change as a
 // before-and-after line with its line number, the count ("37 replacements on 21 lines"), and
 //   Apply (Mod+Return)  every change in one CodeMirror transaction, one undo step, in the file's own line endings;
 //                       never writes to disk
@@ -40,6 +40,7 @@ import {
   type ReplaceQuery,
   type Segment,
 } from './replace.ts';
+import { closeButton } from '../frame/dom.ts';
 
 /** What an editor is to the functions here: its state and a way to change it (an `EditorView`, or a test's stand-in). */
 export interface ReplaceTarget {
@@ -387,19 +388,7 @@ function injectStyles(doc: Document): void {
     }
     #marxy-replace .marxy-transform-scope { color: var(--marxy-color-text-secondary); font-weight: 400; }
     #marxy-replace .marxy-transform-counts { margin-inline-start: auto; flex: none; color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
-    #marxy-replace .marxy-transform-close {
-      flex: none;
-      align-self: center;
-      font: inherit;
-      line-height: 1;
-      color: var(--marxy-color-text-secondary);
-      padding: 0.25rem 0.5rem;
-      background: transparent;
-      border: 0;
-      border-radius: calc(var(--marxy-size-chrome) * 6 / 13);
-      cursor: default;
-    }
-    #marxy-replace .marxy-transform-close:hover { color: var(--marxy-color-text); background: var(--marxy-color-accent-wash); }
+    #marxy-replace .marxy-transform-close { flex: none; align-self: center; }
     #marxy-replace .marxy-transform-note { margin: 0; padding: 0.25rem 1.25rem; color: var(--marxy-color-text-secondary); }
     #marxy-replace .marxy-transform-body { padding: 0.5rem 1.25rem; min-height: 0; flex: 1 1 auto; overflow: hidden; display: flex; }
     #marxy-replace .marxy-transform-text {
@@ -532,11 +521,7 @@ function paint(l: Live, query: ReplaceQuery): void {
   title.append(el('span', 'marxy-transform-scope', scopeText(query)));
   const counts = el('span', 'marxy-transform-counts', countLine(plan));
   counts.id = 'marxy-replace-count';
-  const close = el('button', 'marxy-transform-close', '×');
-  close.type = 'button';
-  close.setAttribute('aria-label', 'Cancel');
-  close.title = 'Cancel (Esc)';
-  close.addEventListener('click', () => closeReplacePreview());
+  const close = closeButton('Cancel', { className: 'marxy-transform-close', title: 'Cancel (Esc)', onClick: () => closeReplacePreview() });
   headline.append(title, counts, close);
   head.append(headline);
 

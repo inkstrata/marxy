@@ -468,7 +468,7 @@
       },
       {
         "tier": 4,
-        "signal": "timestamp and level word open most lines",
+        "signal": "most lines open as a log's lines do",
         "kind": "log",
         "at": "line 1",
         "decisive": false
@@ -605,12 +605,12 @@
     ]
   },
   "image.png": {
-    "kind": "code",
+    "kind": "data",
     "reasons": [
       {
         "tier": 3,
         "signal": "extension .png",
-        "kind": "code",
+        "kind": "data",
         "at": "image.png",
         "decisive": true
       }

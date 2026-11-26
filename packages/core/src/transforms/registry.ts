@@ -1,6 +1,6 @@
-// The transform library's registry (J-03, ADR-0065 item 4): one list of `{ id, name, group, fn }` that the
-// palette, the toolbar and the verb menu read, so they agree. `ids.json` is the catalogue (the mockup's 50 ids,
-// `docs/plan/direction-2026-10/mock-v2/06-clipboard.md`); every id is either implemented here or listed in
+// The transform library's registry: one list of `{ id, name, group, fn }` that the
+// palette, the toolbar and the verb menu read, so they agree. `ids.json` is the catalogue (50 ids
+// in all); every id is either implemented here or listed in
 // `NOT_YET` with its reason, and a test holds that line.
 //
 // Each `fn` is pure `string -> string`. It keeps the file's line endings and byte-order mark (see `wrap`):
@@ -31,10 +31,10 @@ export interface Transform extends CatalogueEntry {
   readonly fn: (text: string, ctx?: TransformContext) => string;
 }
 
-/** The catalogue: every id the mockup's transform table names, in its order. */
+/** The catalogue: every id the transform table names, in its order. */
 export const CATALOGUE: readonly CatalogueEntry[] = catalogue as readonly CatalogueEntry[];
 
-/** Catalogue ids not built yet, each with why. Empty since J-03.1; a new catalogue id may be listed here until it is built. One per line, sorted by id (F-32). */
+/** Catalogue ids not built yet, each with why. Empty now; a new catalogue id may be listed here until it is built. One per line, sorted by id. */
 export const NOT_YET: Readonly<Record<string, string>> = {};
 
 const eolOf = (s: string): string => /\r\n|\n|\r/.exec(s)?.[0] ?? '\n';

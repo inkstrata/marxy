@@ -1,4 +1,4 @@
-// Registry-level checks (E-01). Later stories that register operations extend these by registering, not by
+// Registry-level checks. Later changes that register operations extend these by registering, not by
 // editing this file: no list of ids is kept here.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -20,7 +20,7 @@ test('registry: every operation has a title and at least one appliesTo', () => {
   }
 });
 
-// E-11: stripping markdown is a copy form. A splice that strips would touch bytes nobody asked about.
+// stripping markdown is a copy form. A splice that strips would touch bytes nobody asked about.
 import type { Document, Inline, Node } from '../contracts/ast.ts';
 import type { Operation } from '../contracts/operation.ts';
 import { createBuffer, textOf } from '../buffer/buffer.ts';
@@ -34,7 +34,7 @@ const STRIPPING_ID = /strip|plain|unformat|remove-markup/;
 function assertNoStrippingIds(ops: readonly Operation[]): void {
   for (const op of ops) {
     if (op.id.startsWith('copy-')) continue;
-    assert.ok(!STRIPPING_ID.test(op.id), `${op.id}: stripping is a copy form (E-11); a splice would touch bytes nobody asked about`);
+    assert.ok(!STRIPPING_ID.test(op.id), `${op.id}: stripping is a copy form; a splice would touch bytes nobody asked about`);
   }
 }
 
@@ -74,7 +74,7 @@ function assertNoMarkdownStripped(ops: readonly Operation[]): number {
         const after: Document = parseMarkdown(next, { file });
         assert.ok(
           markupCount(after) >= before,
-          `${op.id} at ${node.type}@${range.start} in ${file} strips markdown (${before} to ${markupCount(after)} markup nodes); stripping is a copy form (E-11)`,
+          `${op.id} at ${node.type}@${range.start} in ${file} strips markdown (${before} to ${markupCount(after)} markup nodes); stripping is a copy form`,
         );
         checked++;
       }
@@ -83,15 +83,15 @@ function assertNoMarkdownStripped(ops: readonly Operation[]): number {
   return checked;
 }
 
-test('E-11: no non-copy operation id says strip, plain, unformat or remove-markup', () => {
+test('no non-copy operation id says strip, plain, unformat or remove-markup', () => {
   assertNoStrippingIds(OPERATIONS);
 });
 
-test('E-11: no mutating operation strips markdown outside its target, over the corpus', () => {
+test('no mutating operation strips markdown outside its target, over the corpus', () => {
   assert.ok(assertNoMarkdownStripped(MUTATING_OPERATIONS) > 0, 'the guard must exercise at least one mutation');
 });
 
-test('E-11: the guards fail on a deliberate strip-markdown splice', () => {
+test('the guards fail on a deliberate strip-markdown splice', () => {
   const bad: Operation = {
     id: 'strip-markdown',
     title: 'Strip markdown',
@@ -103,8 +103,8 @@ test('E-11: the guards fail on a deliberate strip-markdown splice', () => {
   canFail(() => assertNoMarkdownStripped([...MUTATING_OPERATIONS, { ...bad, id: 'tidy-text' }]));
 });
 
-// E-18: the operations Phase E added are all registered, and as mutating ones, so none can be taken for a copy verb that ranks
-// first in a menu. The menu's own order (`MENU_ORDER`) is desktop code, checked in `apps/desktop/test/phase-e-flow.test.mjs`.
+// the operations added later are all registered, and as mutating ones, so none can be taken for a copy verb that ranks
+// first in a menu. The menu's own order (`MENU_ORDER`) is desktop code, checked in `apps/desktop/test/paste-and-tidy-flow.test.mjs`.
 const PHASE_E = [
   'bullets-from-glyphs',
   'dedupe-lines',
@@ -119,7 +119,7 @@ const PHASE_E = [
   'unwrap-markdown-fence',
 ];
 
-test('registry: every Phase E operation is registered once, as a mutating operation and not a copy verb', () => {
+test('registry: every later-added operation is registered once, as a mutating operation and not a copy verb', () => {
   const mutating = new Set(MUTATING_OPERATIONS.map((op) => op.id));
   const clipboard = new Set(CLIPBOARD_OPERATIONS.map((op) => op.id));
   for (const id of PHASE_E) {

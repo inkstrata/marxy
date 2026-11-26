@@ -1,15 +1,16 @@
 // The reader's own settings from config.toml: light variant and text size, applied before first
-// text and changed by command (A-14), and the Source line-number choice (L-06.1). Applied here: `variant`, `size`, `chrome_size`,
-// `line_numbers`, `show_whitespace`, `column_guide` (V-08), `contrast` and `reduce_transparency` (W-22), and `measure` (W-12).
-// Written here: those and `theme` (H-05), and, for the Settings page (W-12, ADR-0075), every key it changes (`READER_KEYS`).
+// text and changed by command, and the Source line-number choice. Applied here: `variant`, `size`, `chrome_size`,
+// `line_numbers`, `show_whitespace`, `column_guide`, `contrast` and `reduce_transparency`, and `measure`.
+// Written here: those and `theme`, and, for the Settings page, every key it changes (`READER_KEYS`).
 import { applyVariant, parseConfig, removeTopLevelKey, resolveVariantPreference, setTopLevelKey } from '@marxy/theme';
 import type { Config } from '@marxy/theme';
 import type { AppShell } from '../app.ts';
 import { setLineNumbersChoice } from '../source/line-numbers.ts';
 import { setColumnGuideChoice, setShowWhitespaceChoice } from '../source/view-aids.ts';
+import { noteWritten } from './written.ts';
 
 type ConfigShell = Pick<AppShell, 'readFile' | 'configPaths'>;
-type WriteShell = Pick<AppShell, 'readFile' | 'writeFileAtomic' | 'configPaths'>;
+export type WriteShell = Pick<AppShell, 'readFile' | 'writeFileAtomic' | 'configPaths'>;
 
 export const DEFAULT_SIZE = 20;
 /** The property a configured measure sets on the root (tokens.css's own `--marxy-measure-chars`). */
@@ -21,7 +22,7 @@ export const MAX_SIZE = 50;
 
 const DEFAULTS: Pick<Config, 'variant' | 'size'> = { variant: 'dark', size: DEFAULT_SIZE }
 
-/** The custom property the reader's `chrome_size` sets on the root (ADR-0059 item 6). */
+/** The custom property the reader's `chrome_size` sets on the root. */
 export const CHROME_SIZE_PROPERTY = '--marxy-size-chrome';;
 
 /** The config bytes the pre-paint read saw, handed on once to the theme read so the file is read once. */
@@ -34,7 +35,7 @@ export function takeConfigRead(): { readonly path: string; readonly bytes: Uint8
   return read;
 }
 
-/** What the config read has to tell the reader (a refused `chrome_size`), held until a document is on the page, since opening one clears notices. */
+/** What the config read has to tell the reader (a refused `chrome_size`, `size`, `variant` or `measure`, a file that cannot be read), held until a document is on the page, since opening one clears notices. */
 let pendingNotices: string[] = [];
 
 /** Takes the config notices; the second caller gets none. */
@@ -44,15 +45,25 @@ export function takeConfigNotices(): string[] {
   return out;
 }
 
-/** The bytes `readReaderConfig` read, kept in place: the launch's kind decision parses its `[[kind]]` rules from them (K-05a.1). */
+/** The bytes `readReaderConfig` read, kept in place: the launch's kind decision parses its `[[kind]]` rules from them. */
 export function peekConfigRead(): { readonly path: string; readonly bytes: Uint8Array } | null {
   return lastRead;
+}
+
+const notReadable = (what: string): string => `config.toml ${what} · every setting is at its default · fix the file, then reopen Marxy`;
+const firstLine = (text: string): string => text.split('\n', 1)[0]!.trim().replace(/\.$/, '');
+
+/** A read failure without the path the shell prefixes it with or the OS error number. */
+function plainReason(e: unknown, path: string): string {
+  const raw = e instanceof Error ? e.message : typeof (e as { message?: unknown } | null)?.message === 'string' ? (e as { message: string }).message : String(e);
+  const text = (raw.startsWith(`${path}:`) ? raw.slice(path.length + 1) : raw).replace(/\s*\(os error \d+\)/, '').trim().replace(/\.$/, '');
+  return text === '' ? 'the file could not be opened' : text;
 }
 
 /**
  * The parsed config, or the defaults on any failure (no path, no file, unreadable, unparsable). `onPaths` is told
  * where config.toml and the data directory are as soon as the shell has said, before config.toml is read, so a
- * caller can start a read of its own beside this one without asking the shell for the paths again (K-05a.1).
+ * caller can start a read of its own beside this one without asking the shell for the paths again.
  */
 export async function readReaderConfig(
   shell: ConfigShell,
@@ -74,16 +85,18 @@ export async function readReaderConfig(
     const bytes = await shell.readFile(path);
     lastRead = { path, bytes };
     const parsed = parseConfig(bytes);
-    pendingNotices = parsed.warnings.filter((w) => w.startsWith('chrome_size'));
+    pendingNotices = parsed.warnings.filter((w) => /^(chrome_size|variant|size|measure) /.test(w));
+    if (parsed.parseError !== undefined) pendingNotices.push(notReadable(`is not valid TOML (${firstLine(parsed.parseError)})`));
     return parsed.config;
   } catch (e) {
     // No file is an answer too: the theme read need not ask the same question again.
     if ((e as { code?: string } | null)?.code === 'not-found') lastRead = { path, bytes: new Uint8Array() };
+    else pendingNotices = [notReadable(`could not be read (${plainReason(e, path)})`)];
     return fallback;
   }
 }
 
-/** The line box for a body size: twice the rounded three-quarter, so it is always even (ADR-0030). */
+/** The line box for a body size: twice the rounded three-quarter, so it is always even. */
 export function lineBoxFor(sizePx: number): number {
   return 2 * Math.round(0.75 * sizePx);
 }
@@ -99,7 +112,7 @@ export function codeSizeFor(sizePx: number): number {
 
 /**
  * The Source editor's type for a body size: seven-tenths of it, to the half pixel (14 of 20). Source holds no
- * prose, so it is not set on the prose grid; the ratio is the author's ruling K-R1 (a), ADR-0067. Inside prose the
+ * prose, so it is not set on the prose grid. Inside prose the
  * research sets code at 0.85 to 0.9 em of the text around it (06-code.md, "Size and the monospace quirk"); an
  * editor that is the whole window has no text around it, and the cited incumbent, GitHub, sets code at 13 px
  * (reader-artifacts/04-code-typography.md, "Leading").
@@ -133,7 +146,7 @@ export function sizeProperties(sizePx: number): Record<string, string> {
   };
 }
 
-/** The root attributes more contrast and solid fills set (W-22); the stylesheet's `base.css` keys on them. */
+/** The root attributes more contrast and solid fills set; the stylesheet's `base.css` keys on them. */
 export const CONTRAST_ATTRIBUTE = 'data-marxy-contrast';
 export const TRANSPARENCY_ATTRIBUTE = 'data-marxy-transparency';
 
@@ -177,23 +190,42 @@ export function currentVariant(root: HTMLElement = document.documentElement): 'l
   return root.getAttribute('data-marxy-variant') === 'light' ? 'light' : 'dark';
 }
 
+type ReaderConfig = Partial<Pick<Config, 'variant' | 'size' | 'lineNumbers' | 'chromeSize' | 'showWhitespace' | 'columnGuide' | 'contrast' | 'reduceTransparency' | 'measure' | 'measureSet' | 'typeset'>>;
+
+/** Every key as last applied: the looks paint over the same root properties, and give these back when they go off. */
+let applied: ReaderConfig = {};
+const appliedListeners = new Set<() => void>();
+
+/** Called after each `applyReaderConfig`: the look painter paints its tokens again over what a write just set. */
+export function onReaderConfigApplied(cb: () => void): () => void {
+  appliedListeners.add(cb);
+  return () => appliedListeners.delete(cb);
+}
+
+/** The variant (`auto` following the system again), sizes and measure as config.toml last said them, on `root` again. */
+export function reapplyReaderConfig(root: HTMLElement): void {
+  const { variant, size, measure, measureSet, typeset } = applied;
+  applyReaderConfig(root, { variant, size, measure, measureSet, typeset, ...('chromeSize' in applied ? { chromeSize: applied.chromeSize } : {}) });
+}
+
 /**
  * Applies variant and size to `root`. `auto` follows the system until the next call; the returned
  * function stops that following.
  */
-export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, 'variant' | 'size' | 'lineNumbers' | 'chromeSize' | 'showWhitespace' | 'columnGuide' | 'contrast' | 'reduceTransparency' | 'measure' | 'measureSet' | 'typeset'>>): () => void {
+export function applyReaderConfig(root: HTMLElement, cfg: ReaderConfig): () => void {
+  applied = { ...applied, ...cfg };
   stopAuto?.();
   stopAuto = null;
   const variant = cfg.variant ?? DEFAULTS.variant;
   const size = cfg.size ?? DEFAULTS.size;
-  // Only a key the reader wrote speaks for the gutter; absent, the per-path default stands (L-06.1).
+  // Only a key the reader wrote speaks for the gutter; absent, the per-path default stands.
   if (cfg.lineNumbers !== undefined) setLineNumbersChoice(cfg.lineNumbers);
-  // The same for the two Source aids (V-08): absent, whitespace is off and the guide follows the kind of file.
+  // The same for the two Source aids: absent, whitespace is off and the guide follows the kind of file.
   if (cfg.showWhitespace !== undefined) setShowWhitespaceChoice(cfg.showWhitespace);
   if (cfg.columnGuide !== undefined) setColumnGuideChoice(cfg.columnGuide);
   // Contrast and transparency are the config's alone: a call that names neither (the palette's variant and size commands) leaves them as they are.
   if (cfg.contrast !== undefined || cfg.reduceTransparency !== undefined) applyContrast(root, cfg.contrast ?? 'system', cfg.reduceTransparency ?? false);
-  // The measure (W-12): a `measure` the reader wrote applies to every kind, over the kind's own, while Typeset is on (with it off Marxy sets no
+  // The measure: a `measure` the reader wrote applies to every kind, over the kind's own, while Typeset is on (with it off Marxy sets no
   // measure, and the Settings page disables the control to say so). Unset, each kind keeps its own. A call that names no measure (the palette's
   // variant and size) leaves it.
   if (cfg.measure !== undefined) {
@@ -222,9 +254,13 @@ export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, '
     if (size === DEFAULT_SIZE) root.style.removeProperty(name);
     else root.style.setProperty(name, value);
   }
-  // Set only when the reader wrote a valid value; unset, the theme's value stands (the default look is unchanged).
-  if (cfg.chromeSize === undefined || cfg.chromeSize === null) root.style.removeProperty(CHROME_SIZE_PROPERTY);
-  else root.style.setProperty(CHROME_SIZE_PROPERTY, `${cfg.chromeSize}px`);
+  // Set only when the reader wrote a valid value; unset, the theme's value stands. A call that does not name it (the variant
+  // and size commands) leaves it as it is.
+  if ('chromeSize' in cfg) {
+    if (cfg.chromeSize === undefined || cfg.chromeSize === null) root.style.removeProperty(CHROME_SIZE_PROPERTY);
+    else root.style.setProperty(CHROME_SIZE_PROPERTY, `${cfg.chromeSize}px`);
+  }
+  for (const cb of [...appliedListeners]) cb();
   return stop;
 }
 
@@ -236,7 +272,7 @@ let writes: Promise<void> = Promise.resolve();
  */
 export const READER_KEYS = [
   'variant', 'size', 'line_numbers', 'show_whitespace', 'column_guide', 'chrome_size', 'theme', 'contrast', 'reduce_transparency',
-  'measure', 'typeset', 'external_editor', 'resident', 'copy_format', 'versions',
+  'measure', 'typeset', 'external_editor', 'copy_format', 'versions', 'verbs', 'review_changes', 'proposals', 'version_copies',
 ] as const;
 export type ReaderKey = (typeof READER_KEYS)[number];
 
@@ -271,8 +307,9 @@ const sameBytes = (a: Uint8Array, b: Uint8Array): boolean => a.length === b.leng
  * Reads config.toml (a missing file is empty), hands the bytes to `edit`, writes what it returns. A missing file is created; a file that
  * exists but cannot be read is left alone. Writes run one after another, so three quick presses are three read-modify-writes in order,
  * not three that overwrite each other. The shell's own stale-write guard covers the instant between the read and the write.
+ * Every write to config.toml goes through here, whatever the caller: the queue is what keeps two edits from losing one.
  */
-function editConfig(shell: WriteShell, edit: (bytes: Uint8Array) => Uint8Array, opts: WriteOptions): Promise<Uint8Array | null> {
+export function editConfig(shell: WriteShell, edit: (bytes: Uint8Array) => Uint8Array, opts: WriteOptions): Promise<Uint8Array | null> {
   const run = async (): Promise<Uint8Array | null> => {
     if (shell.configPaths === undefined) return null;
     const { config } = await shell.configPaths();
@@ -289,6 +326,7 @@ function editConfig(shell: WriteShell, edit: (bytes: Uint8Array) => Uint8Array, 
     // Nothing to change (a reset of a key the file does not have): no write, and the file is not touched.
     if (next === bytes) return bytes;
     await shell.writeFileAtomic(config, next);
+    noteWritten(config, bytes, next);
     return next;
   };
   const next = writes.then(run, run);

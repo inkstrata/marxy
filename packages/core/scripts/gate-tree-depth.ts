@@ -1,10 +1,10 @@
-// Compares the sanitiser's written tree to the live DOM in a browser (MARXY-84). The gate asks
+// Compares the sanitiser's written tree to the live DOM in a browser. The gate asks
 // whether any node gained an ancestor other than an implied table section; the mutation hook proves
 // the check fails when a formatting element closes late.
 
 import { TREE_DEPTH_CASES, type TreeDepthCase } from './tree-depth-cases.ts';
 
-/** The only ancestors a live tree may gain over the written one (review measurement, MARXY-12). */
+/** The only ancestors a live tree may gain over the written one (review measurement). */
 export const IMPLIED_TABLE_SECTION = new Set(['table', 'tbody', 'thead', 'tfoot', 'tr']);
 
 export interface ElementSnapshot {

@@ -1,7 +1,9 @@
-// The Settings page (W-12, ADR-0075), as the reader sees it: the full app on the shipped skeleton and CSS over the memory shell, in
+// The Settings page, as the reader sees it: the full app on the shipped skeleton and CSS over the memory shell, in
 // WebKit. It is opened the way a reader opens it (`Mod+,`), searched, changed and reset through its own controls; the file it edits is
 // the memory shell's `/config`. The schema's rules are packages/theme/src/settings-schema.test.ts, the privacy table's are
 // src/settings/privacy.test.ts, and the byte rules of a line write are config.test.ts and src/settings/page.test.ts.
+// Settings is a branch of the drawer (src/settings/settings.ts): one scroll of groups, a category each, under a
+// search field, beside the page rather than over it, and its notices are the app's own. `category` reads one group.
 import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
@@ -24,6 +26,7 @@ const files = {
 const CONFIG = '# Marxy configuration. Edit freely; Marxy re-reads this file when it changes.\n\n# the size I like\nsize = 22   # my eyes\n\nexternal_editor = "code --goto {file}:{line}"\ncolour = "teal"\n\n[linux]\nweight_offset = 75\n';
 
 async function withPage(fn, { config = CONFIG, data = {}, width = 1280, height = 900, open = '/r/A.md' } = {}) {
+  inGroup = null;
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width, height } });
@@ -67,60 +70,75 @@ async function withPage(fn, { config = CONFIG, data = {}, width = 1280, height =
 const settle = (page, ms = 250) => page.evaluate((t) => new Promise((r) => setTimeout(r, t)), ms);
 const config = (page) => page.evaluate(() => window.__config());
 const isOpen = (page) => page.evaluate(() => document.querySelector('[data-marxy-settings]') !== null);
+const TITLES = { general: 'General', appearance: 'Appearance', reading: 'Reading', source: 'Source', types: 'Content types', accessibility: 'Accessibility', privacy: 'Privacy', proposals: 'Proposals', advanced: 'Advanced' };
+/** The group `rowKeys` reads: every group is drawn at once, so a category is a group to look in, not a page to go to. */
+let inGroup = null;
 const openByKey = async (page) => {
-  await page.keyboard.press('Meta+Comma');
+  await page.keyboard.press('ControlOrMeta+Comma');
   await page.waitForSelector('[data-marxy-settings]');
   await settle(page, 80);
 };
-const rowKeys = (page) => page.evaluate(() => [...document.querySelectorAll('[data-marxy-setting]')].map((r) => r.getAttribute('data-marxy-setting')));
+const rowKeys = (page) => page.evaluate((title) => {
+  const groups = [...document.querySelectorAll('[data-marxy-settings] .marxy-settings-group')];
+  const scope = title === null ? groups : groups.filter((g) => g.querySelector('.marxy-dlab span')?.textContent === title);
+  return scope.flatMap((g) => [...g.querySelectorAll('[data-marxy-setting]')].map((r) => r.getAttribute('data-marxy-setting')));
+}, inGroup);
 const category = async (page, id) => {
-  await page.click(`[data-marxy-category="${id}"]`);
+  inGroup = TITLES[id];
+  await page.locator('[data-marxy-settings] .marxy-settings-group', { has: page.locator('.marxy-dlab span', { hasText: TITLES[id] }) }).first().scrollIntoViewIfNeeded();
   await settle(page, 80);
 };
+const FIELD = '[data-marxy-settings] input[type="search"]';
 const search = async (page, text) => {
-  await page.fill('.marxy-settings-field', text);
+  inGroup = null;
+  await page.fill(FIELD, text);
   await settle(page, 120);
 };
 const row = (key) => `[data-marxy-setting="${key}"]`;
-const pillTexts = (page) => page.evaluate(() => [...document.querySelectorAll('.marxy-settings-notices .marxy-notice-text')].map((n) => n.textContent));
+const pillTexts = (page) => page.evaluate(() => [...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent));
 
-test('Mod+, opens Settings, unfolding a folded window; the categories are the card\'s, and Collections, which has no key, is not drawn', async () => {
+test('Mod+, unfolds a folded window and shows Settings in the drawer', async () => {
   await withPage(async (page) => {
-    assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().mode), 'folded');
+    await page.evaluate(() => window.__marxyHandle.frame().fold());
     await openByKey(page);
-    assert.equal(await page.evaluate(() => window.__marxyHandle.workspace().mode), 'unfolded', 'a folded window is unfolded for it');
+    assert.equal(await page.evaluate(() => (window.__marxyHandle.frame().folded ? 'folded' : 'unfolded')), 'unfolded', 'a folded window is unfolded for it');
+    assert.equal(await page.evaluate(() => document.querySelector('.marxy-drawer')?.dataset.marxyBranch ?? null), 'settings');
+  });
+});
+
+test('Mod+, opens Settings in the drawer beside the page (a hosted branch, `[data-marxy-branch=settings]`); its groups are the card categories, and Collections, which has no key, is not drawn', async () => {
+  await withPage(async (page) => {
+    await openByKey(page);
+    await page.waitForSelector('.marxy-drawer[data-marxy-branch="settings"] [data-marxy-settings]');
     const state = await page.evaluate(() => {
       const main = document.getElementById('marxy-main');
-      const page = document.querySelector('[data-marxy-settings]');
-      const r = page.getBoundingClientRect();
-      const at = document.elementFromPoint(r.x + r.width / 2, r.y + 120);
+      const settings = document.querySelector('[data-marxy-settings]');
       return {
+        branch: document.querySelector('.marxy-drawer')?.dataset.marxyBranch ?? null,
+        inDrawer: document.querySelector('.marxy-drawer')?.contains(settings) ?? false,
         hidden: main.hidden,
         inert: main.inert,
-        covered: page.contains(at),
-        height: r.height,
-        width: r.width,
-        categories: [...document.querySelectorAll('[data-marxy-category]')].map((b) => b.querySelector('.marxy-settings-nav-title').textContent),
-        focus: document.activeElement.getAttribute('aria-label'),
-        name: page.getAttribute('aria-label'),
+        groups: [...settings.querySelectorAll('.marxy-settings-group > .marxy-dlab span')].map((t) => t.textContent),
+        region: settings.querySelector('.marxy-settings-pane')?.getAttribute('aria-label'),
       };
     });
-    assert.deepEqual(state.categories, ['General', 'Appearance', 'Reading', 'Source', 'Content types', 'Accessibility', 'Privacy', 'Advanced']);
-    assert.equal(state.hidden, true);
-    assert.equal(state.inert, true);
-    assert.equal(state.covered, true, 'the page, not a pane, is what is at its centre');
-    assert.ok(state.height > 300 && state.width > 600, `the page fills the panes' cell (${state.width} x ${state.height})`);
-    assert.equal(state.name, 'Settings');
-    assert.equal(state.focus, 'Search settings', 'the search field has focus');
-    // Each category shows only keys that exist: the Reading ones are the three of config.toml.
+    assert.equal(state.branch, 'settings');
+    assert.equal(state.inDrawer, true, 'Settings is a branch of the drawer');
+    assert.equal(state.hidden, false, 'the page stays beside it');
+    assert.equal(state.inert, false);
+    assert.deepEqual(state.groups, ['General', 'Appearance', 'Reading', 'Source', 'Content types', 'Accessibility', 'Privacy', 'Proposals', 'Advanced']);
+    assert.equal(state.region, 'Settings');
+    // Each category shows only keys that exist: the Reading ones are the four of config.toml.
     await category(page, 'reading');
-    assert.deepEqual(await rowKeys(page), ['size', 'measure', 'typeset']);
-    // The menu's door is the same command: running it again does not open a second page.
-    await page.evaluate(() => window.__cmd('view.settings'));
+    assert.deepEqual(await rowKeys(page), ['size', 'measure', 'typeset', 'verbs']);
+    // The chord is the branch's own press: again goes back to the panel, and a third press draws it once.
+    await page.keyboard.press('ControlOrMeta+Comma');
+    await page.waitForFunction(() => document.querySelector('[data-marxy-settings]') === null && document.querySelector('.marxy-drawer')?.dataset.marxyLeft === 'places');
+    await openByKey(page);
     assert.equal(await page.evaluate(() => document.querySelectorAll('[data-marxy-settings]').length), 1);
-    // Folding hides the page with the rest.
-    await page.evaluate(() => window.__marxyHandle.workspace().fold());
-    assert.equal(await isOpen(page), false);
+    // Folding hides it with the rest of the frame.
+    await page.evaluate(() => window.__marxyHandle.frame().fold());
+    await page.waitForFunction(() => document.querySelector('[data-marxy-settings]')?.checkVisibility() !== true);
     assert.equal(await page.evaluate(() => document.getElementById('marxy-main').hidden), false);
   });
 });
@@ -169,21 +187,19 @@ test('search finds a setting by its words and by its key, across every category,
     assert.ok((await rowKeys(page)).includes('contrast'));
     await search(page, 'zzzz');
     assert.deepEqual(await rowKeys(page), []);
-    assert.match(await page.locator('.marxy-settings-empty').textContent(), /No setting matches/);
-    // Esc clears the search first, and the next Esc closes the page.
+    assert.match(await page.locator('[data-marxy-settings] .marxy-settings-pane > .marxy-dnote').textContent(), /No setting matches/);
+    // Esc clears the search, and leaves Settings up. A docked drawer is not closed by Esc (frame.ts closes
+    // only a drawer over the page; frame-drawer holds that).
     await page.keyboard.press('Escape');
-    assert.equal(await page.inputValue('.marxy-settings-field'), '');
+    assert.equal(await page.inputValue(FIELD), '');
     assert.equal(await isOpen(page), true);
-    await page.keyboard.press('Escape');
-    assert.equal(await isOpen(page), false);
-    assert.equal(await page.evaluate(() => document.getElementById('marxy-main').hidden), false);
   });
 });
 
 test('a changed value carries the dot already in the file: size = 22 is changed, the others are not; the nav counts them', async () => {
   await withPage(async (page) => {
     await openByKey(page);
-    assert.match(await page.locator('.marxy-settings-count').textContent(), /2 changed/);
+    assert.match(await page.locator('.marxy-settings-count').textContent(), /2 settings changed/);
     await category(page, 'reading');
     assert.equal(await page.locator(`${row('size')} [data-marxy-dot]`).count(), 1);
     assert.equal(await page.locator(`${row('measure')} [data-marxy-dot]`).count(), 0);
@@ -193,7 +209,7 @@ test('a changed value carries the dot already in the file: size = 22 is changed,
     await settle(page, 200);
     assert.equal(await config(page), CONFIG.replace('size = 22   # my eyes\n', ''));
     assert.ok((await pillTexts(page)).some((t) => /Reset Text size/.test(t)));
-    await page.click('.marxy-settings-notices .marxy-notice-action');
+    await page.click('.marxy-notice .marxy-notice-action');
     await settle(page, 200);
     assert.equal(await config(page), CONFIG, 'Undo puts the line back exactly, its comment included');
   });
@@ -235,10 +251,12 @@ test('Measure and Variant are applied at once, and written as one line each', as
     await settle(page, 250);
     assert.match(await config(page), /\nvariant = "light"\n/);
     assert.equal(await page.evaluate(() => document.documentElement.getAttribute('data-marxy-variant') ?? document.body.getAttribute('data-marxy-variant')), 'light');
-    await page.locator(`${row('theme')} select`).selectOption('ink');
+    // Ink is the default: the choice that writes a line is another theme.
+    assert.equal(await page.locator(`${row('theme')} select`).inputValue(), '');
+    await page.locator(`${row('theme')} select`).selectOption('night-paper');
     await settle(page, 400);
-    assert.match(await config(page), /\ntheme = "ink"\n/);
-    assert.equal(await page.evaluate(async () => (await import('/src/theme/user-theme.ts')).currentThemeName()), 'ink');
+    assert.match(await config(page), /\ntheme = "night-paper"\n/);
+    assert.equal(await page.evaluate(async () => (await import('/src/theme/user-theme.ts')).currentThemeName()), 'night-paper');
   });
 });
 
@@ -301,7 +319,7 @@ test('Privacy is computed: each file Marxy keeps with its path and size, what ca
       size: li.querySelector('.marxy-settings-stored-size').textContent,
       path: li.querySelector('.marxy-settings-stored-path').textContent,
     })));
-    assert.deepEqual(stored.map((s) => s.id), ['config', 'collection', 'positions', 'history', 'trust', 'workspace', 'layout', 'kinds', 'index', 'versions']);
+    assert.deepEqual(stored.map((s) => s.id), ['config', 'collection', 'positions', 'history', 'trust', 'workspace', 'layout', 'kinds', 'readings', 'index', 'versions']);
     const by = Object.fromEntries(stored.map((s) => [s.id, s]));
     assert.match(by.config.size, /\d+ B$/);
     assert.match(by.positions.size, /^\d+(\.\d)? (B|KB)$/, 'a size as the folder reports it');
@@ -310,7 +328,8 @@ test('Privacy is computed: each file Marxy keeps with its path and size, what ca
     assert.ok(by.positions.path.endsWith('/positions.json') && by.positions.path.startsWith('/data'), by.positions.path);
     const leaves = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-leave]')].map((li) => li.getAttribute('data-marxy-leave')));
     assert.deepEqual(leaves, ['open-link', 'remote-image', 'clipboard']);
-    assert.equal(await page.locator('[data-marxy-leave="remote-image"] .marxy-settings-leave-status').textContent(), 'Not built yet');
+    // A message's images are fetched through the shell on request now: the row is built and carries no status.
+    assert.equal(await page.locator('[data-marxy-leave="remote-image"] .marxy-settings-leave-status').count(), 0);
     assert.equal(await page.locator('.marxy-settings-nothing-else').textContent(), 'Nothing else leaves this Mac.');
     // Read-only: nothing on the page writes a stored file, and the one Clear asks first.
     const before = await page.evaluate(async (v) => (await window.__marxyHandle.shell.readFile(`/data/versions-${v}.json`)).length, sha);
@@ -350,22 +369,22 @@ test('Advanced opens config.toml itself in Source', async () => {
     await category(page, 'advanced');
     await page.click('[data-marxy-advanced="open-source"]');
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
-    assert.equal(await isOpen(page), false, 'the page gives the panes back');
+    // The drawer is beside the pane, so there are no panes to give back: config.toml is in the pane.
     assert.equal(await page.evaluate(() => window.__marxyHandle.currentPath()), '/config');
   });
 });
 
 test('the panes come back as they were: the reading position survives the round trip, and the text under the page never moved', async () => {
   await withPage(async (page) => {
-    await page.evaluate(() => window.__marxyHandle.workspace().unfold());
+    await page.evaluate(() => window.__marxyHandle.frame().unfold());
     await settle(page, 300);
     await page.evaluate(() => window.scrollTo(0, 420));
     await settle(page, 150);
     const before = await page.evaluate(() => ({ y: window.scrollY, top: [...document.querySelectorAll('#doc p')].find((p) => p.getBoundingClientRect().top > 0)?.getBoundingClientRect().top }));
-    await page.evaluate(() => window.__cmd('view.settings'));
-    await page.waitForSelector('[data-marxy-settings]');
+    await openByKey(page);
     await category(page, 'reading');
-    await page.keyboard.press('Escape');
+    // A docked drawer closes by its own chord (Esc closes only one over the page).
+    await page.keyboard.press('ControlOrMeta+Comma');
     await page.waitForFunction(() => document.querySelector('[data-marxy-settings]') === null);
     await settle(page, 150);
     const after = await page.evaluate(() => ({ y: window.scrollY, top: [...document.querySelectorAll('#doc p')].find((p) => p.getBoundingClientRect().top > 0)?.getBoundingClientRect().top }));
@@ -441,8 +460,9 @@ test('a measure the reader wrote applies to every kind, over the kind\'s own; un
     assert.ok(ratio > 1.5 && ratio < 1.7, `${kind}: 80 characters is about 1.6 times 50 (${widths['50'][kind]} px to ${widths['80'][kind]} px)`);
     assert.notEqual(Math.round(widths.unset[kind]), Math.round(widths['50'][kind]), `${kind}: unset is not 50`);
   }
-  // Unset, the kinds keep their own measures (theme.css: article 66, readme 80, report 74, transcript 66), read against the 50 in the same kind.
-  const own = { article: 66, readme: 80, report: 74, transcript: 66 };
+  // Unset, the kinds keep their own measures, read against the 50 in the same kind. Every prose kind has one
+  // setting, 66 average characters (packages/theme/default/theme.css).
+  const own = { article: 66, readme: 66, report: 66, transcript: 66 };
   for (const [kind, chars] of Object.entries(own)) {
     const effective = (50 * widths.unset[kind]) / widths['50'][kind];
     assert.ok(Math.abs(effective - chars) < 3, `${kind} keeps its own measure unset: about ${chars} characters, measured ${effective.toFixed(1)}`);

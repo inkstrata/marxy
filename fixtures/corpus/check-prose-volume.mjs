@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Asserts the MARXY-64 prose fixture has the volume and shape the story asked for,
+// Asserts the prose fixture has the volume and shape it was written for,
 // and that fixtures/corpus/README.md records a licence the tree can ship.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

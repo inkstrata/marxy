@@ -9,7 +9,7 @@ source: https://example.org/essays/leading?from=feed
 
 # Leading, measured
 
-*An opening paragraph wholly in italics sits where a dek would, but this file's front matter names a description, and the key wins.*
+*An opening paragraph wholly in italics, directly under the title and its byline, reads as the dek.*
 
 Most readers could not name the distance between two lines of text, yet every one of them notices when it is wrong. Set it too tight and the eye slips down to the next line on its way back from the end of this one; set it too loose and the lines stop reading as a paragraph and start reading as a list.
 

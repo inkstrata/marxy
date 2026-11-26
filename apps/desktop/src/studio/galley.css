@@ -1,0 +1,42 @@
+/* The specimen (galley.ts): one column of pages, each kind of text after the last, read by scrolling. The pages are the
+   app's own articles in a leaf; here a leaf flows to its content's height instead of scrolling inside a fixed box. */
+.marxy-studio-galley {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 18px 24px 64px;
+  box-sizing: border-box;
+  scroll-padding-top: 12px;
+}
+.marxy-studio-galley:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-studio-galley-index { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 14px; margin: 0 auto 18px; max-width: 760px; }
+.marxy-studio .marxy-studio-galley-to { padding: 0; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); }
+.marxy-studio .marxy-studio-galley-to:hover { color: var(--marxy-color-text-strong); text-decoration: underline; text-underline-offset: 0.2em; }
+.marxy-studio-galley-sec { width: fit-content; margin: 0 auto 30px; }
+.marxy-studio-galley-h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 2px 7px;
+  color: var(--marxy-color-text-faint);
+  font-size: calc(11.5 * var(--marxy-c));
+}
+.marxy-studio-galley-name {
+  font-size: calc(10.5 * var(--marxy-c));
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--marxy-color-text-secondary);
+}
+.marxy-studio-galley-sec[data-marxy-on] .marxy-studio-galley-name { color: var(--marxy-color-text-strong); }
+.marxy-studio-galley-page {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--marxy-frame-hair-2);
+}
+.marxy-studio-galley-sec[data-marxy-on] .marxy-studio-galley-page { box-shadow: 0 0 0 1px var(--marxy-frame-hair-2), 0 0 0 3px color-mix(in srgb, var(--marxy-color-accent) 40%, transparent); }
+.marxy-studio-galley .marxy-studio-leaf { position: relative; }
+.marxy-studio-galley .marxy-studio-scroll { position: static; overflow: visible; padding: 26px 0 30px; }
+.marxy-studio-galley-langh { margin-top: 1.1em; }

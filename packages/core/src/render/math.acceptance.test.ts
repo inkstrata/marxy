@@ -1,4 +1,4 @@
-// MARXY-28 acceptance: KaTeX deferred until math, bundled fonts, display grid, inline baseline.
+// Acceptance: KaTeX deferred until math, bundled fonts, display grid, inline baseline.
 // @ts-nocheck
 import { strict as assert } from 'node:assert';
 import { execFileSync } from 'node:child_process';
@@ -32,9 +32,10 @@ function listFiles(dir) {
 }
 
 function buildDesktop(outDir) {
+  // Node, not `pnpm`: on Windows pnpm is a .cmd shim that execFileSync cannot start without a shell.
   execFileSync(
-    'pnpm',
-    ['exec', 'vite', 'build', '--outDir', outDir, '--emptyOutDir', '--logLevel', 'silent'],
+    process.execPath,
+    [join(repoRoot, 'apps/desktop/node_modules/vite/bin/vite.js'), 'build', '--outDir', outDir, '--emptyOutDir', '--logLevel', 'silent'],
     { cwd: join(repoRoot, 'apps/desktop'), stdio: 'pipe' },
   );
 }
@@ -69,7 +70,7 @@ async function withBuiltApp(run) {
   }
 }
 
-nodeTest('MARXY-28: production build bundles KaTeX fonts with hashed URLs', async () => {
+nodeTest('production build bundles KaTeX fonts with hashed URLs', async () => {
   await withBuiltApp(({ outDir }) => {
     const files = listFiles(outDir);
     const katexFonts = files.filter((f) => /KaTeX_.*\.(woff2|woff|ttf)$/.test(f));
@@ -84,7 +85,7 @@ nodeTest('MARXY-28: production build bundles KaTeX fonts with hashed URLs', asyn
   });
 });
 
-nodeTest('MARXY-28: the entry chunk does not statically import katex', async () => {
+nodeTest('the entry chunk does not statically import katex', async () => {
   await withBuiltApp(({ outDir }) => {
     const html = readFileSync(join(outDir, 'index.html'), 'utf8');
     const entrySrc = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1].replace(/^\.\//, ''))[0];
@@ -93,7 +94,7 @@ nodeTest('MARXY-28: the entry chunk does not statically import katex', async () 
   });
 });
 
-browserTest('MARXY-28: a document without math never requests katex', async () => {
+browserTest('a document without math never requests katex', async () => {
   await withBuiltApp(async ({ base }) => {
     const browser = await launchWebkit();
     try {
@@ -113,7 +114,7 @@ browserTest('MARXY-28: a document without math never requests katex', async () =
   });
 });
 
-browserTest('MARXY-28: display math blocks occupy whole line boxes after KaTeX', async () => {
+browserTest('display math blocks occupy whole line boxes after KaTeX', async () => {
   await withBuiltApp(async ({ base }) => {
     const browser = await launchWebkit();
     try {
@@ -147,7 +148,7 @@ browserTest('MARXY-28: display math blocks occupy whole line boxes after KaTeX',
   });
 });
 
-browserTest('MARXY-28: injected KaTeX CSS rewrites font URLs to bundled assets', async () => {
+browserTest('injected KaTeX CSS rewrites font URLs to bundled assets', async () => {
   await withBuiltApp(async ({ base }) => {
     const browser = await launchWebkit();
     try {
@@ -169,7 +170,7 @@ browserTest('MARXY-28: injected KaTeX CSS rewrites font URLs to bundled assets',
   });
 });
 
-browserTest('MARXY-28: inline math baseline within 1 px of surrounding text', async () => {
+browserTest('inline math baseline within 1 px of surrounding text', async () => {
   await withBuiltApp(async ({ base }) => {
     const browser = await launchWebkit();
     try {

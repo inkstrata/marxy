@@ -1,4 +1,4 @@
-// Docs, notes and changelogs in their own settings (K-22): Copy release notes writes the bytes of the newest version's
+// Docs, notes and changelogs in their own settings: Copy release notes writes the bytes of the newest version's
 // section and is not drawn for a file with no version heading; On this page and Versions open the inspector's Outline tab;
 // a version's date and a notes file's date line are painted quiet without a character of the page changing; a docs page's
 // signature block and admonitions are set apart, and ordinary Markdown is not touched. WebKit, over the shipped skeleton
@@ -26,6 +26,7 @@ const docsPage = [
   '> [!NOTE]', '> Events are coalesced per file.', '',
   '> **Careful** plain quote that starts with bold.', '',
   '> [!CAUTION]', '> On macOS this can be late.', '',
+  '> [!TIP]', '> Watch the parent folder.', '>', '> A second paragraph closes the tip.', '',
 ].join('\n');
 const ordinary = '# Title\n\nA paragraph.\n\n```rust\nfn main() {}\n```\n\n> [!NOTE]\n> A note in an ordinary article.\n\n> **Careful** plain quote that starts with bold.\n';
 const files = {
@@ -68,8 +69,6 @@ const available = (page, id) =>
     const c = window.__marxyHandle.commands().find((x) => x.id === command);
     return c !== undefined && (c.when === undefined || c.when());
   }, id);
-const stripTools = (page) =>
-  page.evaluate(() => [...document.querySelectorAll('[data-marxy-workspace-region="strip"] button')].map((b) => b.textContent.trim()));
 const quietDates = (page) =>
   page.evaluate(async () => {
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -91,38 +90,16 @@ test('Copy release notes writes exactly the bytes of the newest version, from it
     assert.equal(await page.evaluate(async () => new TextDecoder().decode(await window.__marxyHandle.shell.readFile('/r/CHANGELOG.md'))), fixture, 'the file is unchanged');
   }));
 
-test('a changelog with no version heading does not offer Copy release notes: the strip keeps the tool off, with its reason, as a log\'s are', () =>
+// The strip that drew the tool off with its reason went with the old chrome; the command's own answer is what is left.
+test('a changelog with no version heading does not offer Copy release notes, and running it copies nothing', () =>
   withPage(async (page) => {
     assert.equal(await available(page, 'changelog.copy-release-notes'), true);
-    await page.evaluate(() => window.__marxyHandle.workspace().unfold());
-    assert.deepEqual(await stripTools(page), ['Versions', 'Copy release notes', 'Changes']);
     await openFile(page, '/r/CHANGES.md');
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().focused.host.getAttribute('data-marxy-kind')), 'changelog');
     assert.equal(await available(page, 'changelog.copy-release-notes'), false);
-    await page.evaluate(() => new Promise((r) => setTimeout(r, 100)));
-    const button = await page.evaluate(() => {
-      const b = document.querySelector('[data-marxy-workspace-region="strip"] button[data-tool="copy-release-notes"]');
-      return b && { off: b.getAttribute('aria-disabled'), title: b.title };
-    });
-    assert.deepEqual(button, { off: 'true', title: 'Copy release notes: No version heading in this file' });
     await run(page, 'changelog.copy-release-notes').catch(() => {});
     assert.equal(await page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').length), 0, 'nothing was copied');
   }));
-
-test('On this page and Versions open the inspector on its Outline tab', () =>
-  withPage(async (page) => {
-    await page.evaluate(() => window.__marxyHandle.workspace().unfold());
-    assert.ok((await stripTools(page)).includes('Versions'));
-    await page.click('[data-marxy-workspace-region="strip"] button:has-text("Versions")');
-    await page.waitForSelector('.marxy-inspector [role="tab"][aria-selected="true"]');
-    assert.equal(await page.evaluate(() => document.querySelector('.marxy-inspector [role="tab"][aria-selected="true"]').textContent.trim()), 'Outline');
-    await openFile(page, '/r/docs/watch.md');
-    assert.deepEqual(await stripTools(page), ['On this page']);
-    await page.evaluate(() => window.__marxyHandle.workspace().setPanel('inspector', false));
-    await page.click('[data-marxy-workspace-region="strip"] button:has-text("On this page")');
-    await page.waitForSelector('.marxy-inspector [role="tab"][aria-selected="true"]');
-    assert.equal(await page.evaluate(() => document.querySelector('.marxy-inspector [role="tab"][aria-selected="true"]').textContent.trim()), 'Outline');
-  }), ['/r/CHANGELOG.md']);
 
 test('a version heading\'s date, and a notes file\'s date line, are painted quiet over the characters already there', () =>
   withPage(async (page) => {
@@ -149,7 +126,7 @@ test('a notes file\'s front-matter date row is in the secondary colour', () =>
   withPage(async (page) => {
     await openFile(page, '/r/notes/with-front.md');
     const colours = await page.evaluate(() => {
-      const dd = document.querySelector('.marxy-article > dl:first-child > dd[data-marxy-fm-key="date"]');
+      const dd = document.querySelector('.marxy-article > dl[data-marxy-fm-part="head"] > dd[data-marxy-fm-key="date"]');
       const probe = document.createElement('i');
       probe.style.color = 'var(--marxy-color-text-secondary)';
       document.body.append(probe);
@@ -166,19 +143,30 @@ test('a docs page sets its signature block and admonitions apart; the same Markd
     const look = (page_) => page_.evaluate(() => {
       const article = document.querySelector('.marxy-article');
       const pre = article.querySelector('pre');
-      const quotes = [...article.querySelectorAll(':scope > blockquote')].map((q) => ({ bg: getComputedStyle(q).backgroundColor, text: q.textContent.trim().slice(0, 12) }));
+      const quotes = [...article.querySelectorAll(':scope > blockquote')].map((q) => ({
+        bg: getComputedStyle(q).backgroundColor,
+        text: q.textContent.trim().slice(0, 12),
+        children: q.children.length,
+        first: getComputedStyle(q.firstElementChild).marginBottom,
+        last: getComputedStyle(q.lastElementChild).marginBottom,
+      }));
       return { kind: article.closest('section').getAttribute('data-marxy-kind'), signature: getComputedStyle(pre).borderInlineStartWidth, quotes };
     });
     const docs = await look(page);
     assert.equal(docs.kind, 'docs');
     assert.equal(docs.signature, '3px', 'the signature block after the title has the accent\'s edge');
-    assert.equal(docs.quotes.length, 3);
+    assert.equal(docs.quotes.length, 4);
     const clear = 'rgba(0, 0, 0, 0)';
     assert.ok(docs.quotes.every((q) => q.bg !== clear), 'each alert and the bold-led quote sit on the code ground in a docs page');
+    // The callout's padding is its space below: its last child, the label's paragraph or one after it, keeps no margin.
+    assert.ok(docs.quotes.every((q) => q.last === '0px'), `each callout's last child has no bottom margin: ${JSON.stringify(docs.quotes)}`);
+    const tip = docs.quotes.find((q) => q.children > 1);
+    assert.ok(tip && tip.first !== '0px', 'a paragraph before the last keeps its margin');
     await openFile(page, '/r/essay.md');
     const essay = await look(page);
     assert.equal(essay.signature, '0px');
     assert.ok(essay.quotes.every((q) => q.bg === clear), 'in an article, quotes and alerts are as before');
+    assert.ok(essay.quotes.every((q) => q.last !== '0px'), 'and their last paragraphs keep their margin');
   }));
 
 test('a changelog\'s headings keep their words: the dates are restyled, not removed', () =>

@@ -1,4 +1,4 @@
-// The one word counter (F-86): a reference table over mixed scripts, the Markdown skips, and the cut-anywhere property.
+// The one word counter: a reference table over mixed scripts, the Markdown skips, and the cut-anywhere property.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { countsAsMarkdown, countWords, createWordCounter } from './words.ts';

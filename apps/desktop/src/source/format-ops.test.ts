@@ -1,4 +1,4 @@
-// Formatting commands and inserts (V-08), over a real CodeMirror state with no DOM: the file's bytes go in through
+// Formatting commands and inserts, over a real CodeMirror state with no DOM: the file's bytes go in through
 // `cmDocText` and `lineSeparatorFor`, a command runs, and the bytes come out through `leaveSourceMode`, the Source fold the
 // app uses, so what is checked is what would be saved.
 import assert from 'node:assert/strict';
@@ -327,8 +327,8 @@ test('a wrap never moves a byte it was not asked to: over every selection of a l
   }
 });
 
-// F-78: three rough edges.
-test('F-78: a phrase that holds a whole code span wraps; inside or across a span declines, the pill saying which', async () => {
+// three rough edges.
+test('a phrase that holds a whole code span wraps; inside or across a span declines, the pill saying which', async () => {
   const text = 'so run `npm i` now ok\n';
   const from = text.indexOf('run');
   const to = text.indexOf(' ok');
@@ -361,7 +361,7 @@ test('F-78: a phrase that holds a whole code span wraps; inside or across a span
   assert.deepEqual([...cut.bytes], [...bytes]);
 });
 
-test('F-78: a block Insert with the caret inside an inline code span declines and writes nothing', async () => {
+test('a block Insert with the caret inside an inline code span declines and writes nothing', async () => {
   const text = 'use `npm i` here\n';
   const caret = text.indexOf('npm') + 1;
   for (const insert of INSERTS) {
@@ -377,7 +377,7 @@ test('F-78: a block Insert with the caret inside an inline code span declines an
   assert.deepEqual([...r.bytes], [...bytes]);
 });
 
-test('F-78: Code on text with backticks uses a longer run, pads at an edge, and unwraps any run length', async () => {
+test('Code on text with backticks uses a longer run, pads at an edge, and unwraps any run length', async () => {
   const wrapCode = (t: string, a: number, b: number) => wrapped(t, a, b, 'code');
   assert.equal(wrapCode('x a`b y\n', 2, 5).text, 'x ``a`b`` y\n');
   assert.equal(wrapCode('x a``b y\n', 2, 6).text, 'x ```a``b``` y\n');

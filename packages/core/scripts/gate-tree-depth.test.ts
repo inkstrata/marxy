@@ -1,4 +1,4 @@
-// Criterion 2–4 of MARXY-84: the case list is pinned, the writer-close-late mutant fails, and the
+// The case list is pinned, the writer-close-late mutant fails, and the
 // no-network gate must spawn this harness with no opt-out env var.
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
@@ -85,7 +85,7 @@ test('the no-network gate spawns the tree-depth harness with no skip env var', (
     'gate-assertions.test.ts must spawn packages/core/scripts/gate-tree-depth.mjs',
   );
   assert.ok(
-    !gateTreeDepthMjs.includes('MARXY_84_SKIP') && !gateTreeDepthMjs.includes('process.env.SKIP'),
+    !gateTreeDepthMjs.includes('MARXY_TREE_DEPTH_SKIP') && !gateTreeDepthMjs.includes('process.env.SKIP'),
     'the harness must not define a skip path that can become the silent default',
   );
   assert.match(gateTreeDepthMjs, /\[webkit, chromium\]/, 'both engines must be driven');
@@ -96,7 +96,7 @@ test(`mutation ${WRITER_CLOSE_LATE_MUTATION} fails the browser harness with the 
   const depth = spawnSync(process.execPath, ['packages/core/scripts/gate-tree-depth.mjs'], {
     cwd: repoRoot,
     encoding: 'utf8',
-    env: { ...process.env, MARXY_84_MUTATION: WRITER_CLOSE_LATE_MUTATION },
+    env: { ...process.env, MARXY_TREE_DEPTH_MUTATION: WRITER_CLOSE_LATE_MUTATION },
   });
   const combined = `${depth.stdout ?? ''}${depth.stderr ?? ''}`;
   assert.notEqual(depth.status, 0, 'the harness must fail when the writer-close-late mutation is active');

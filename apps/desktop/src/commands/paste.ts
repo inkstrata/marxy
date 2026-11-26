@@ -1,5 +1,5 @@
-// Paste as commands over `shell-api` (J-05, ADR-0065 §3), not the webview's `paste` event. `Mod+V` in Rendered reads the
-// pasteboard on that key and opens it as Markdown in a new scratch document (E-13). In Source, `Mod+V` is the editor's: the
+// Paste as commands over `shell-api`, not the webview's `paste` event. `Mod+V` in Rendered reads the
+// pasteboard on that key and opens it as Markdown in a new scratch document. In Source, `Mod+V` is the editor's: the
 // `paste` handler in `source/paste.ts` takes a paste that carries HTML, and any other is the editor's own. `Mod+Alt+Shift+V`
 // (Paste and Match Style) inserts the plain text unconverted. Nothing here reads the pasteboard until a key or a command runs.
 import { openScratch } from '../document/scratch.ts';
@@ -43,7 +43,7 @@ export function pasteCommands(): readonly Command[] {
       group: 'document',
       when: () => !inSourceMode(),
       async run(ctx) {
-        // The pasteboard reader and the HTML converter load on the first paste, not at first text (F-111).
+        // The pasteboard reader and the HTML converter load on the first paste, not at first text.
         const { CONVERTED_NOTICE, NOTHING_TO_PASTE, pasteShellOf, readConverted } = await import('../paste/read-clipboard.ts');
         const shell = pasteShellOf(ctx.shell);
         if (!shell) return ctx.showNotice('This window has no clipboard access · nothing was pasted.', { kind: 'refused' });

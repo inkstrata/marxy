@@ -1,4 +1,4 @@
-// Byte ↔ UTF-16 position mapping (§08 mode switch).
+// Byte ↔ UTF-16 position mapping.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,7 +12,7 @@ import { renderedByteToCmPos, sourceReadingPosition } from './mode-switch.ts';
 
 /** The editor state the app builds for `buffer`: its doc and line separator. */
 function stateFor(buffer) {
-  // The one separator rule the editor itself uses (F-25), not a copy of it.
+  // The one separator rule the editor itself uses, not a copy of it.
   return EditorState.create({ doc: cmDocText(buffer), extensions: [EditorState.lineSeparator.of(lineSeparatorFor(buffer))] });
 }
 
@@ -53,7 +53,7 @@ function fakeView(text, lineHeight, documentTop, state) {
   };
 }
 
-test('the Source place is the line on the reading line, from where the window has scrolled (S-07-0003)', () => {
+test('the Source place is the line on the reading line, from where the window has scrolled', () => {
   const bytes = readFileSync(new URL('fixtures/corpus/01-long-technical.md', root));
   const buffer = createBuffer('/tmp/01-long-technical.md', new Uint8Array(bytes));
   const text = buffer.bom ? buffer.text.slice(1) : buffer.text;
@@ -74,7 +74,7 @@ test('renderedByteToCmPos matches doc length for ASCII fixture', () => {
 
 const enc = (text) => new TextEncoder().encode(text);
 
-test('a CRLF file: a CodeMirror position is one short of the buffer offset per line break above it (F-23)', () => {
+test('a CRLF file: a CodeMirror position is one short of the buffer offset per line break above it', () => {
   const buffer = createBuffer('/tmp/x.ts', enc('ab\r\ncd\r\nef\r\n'));
   const state = stateFor(buffer);
   assert.equal(state.lineBreak, '\r\n');
@@ -89,7 +89,7 @@ test('a CRLF file: a CodeMirror position is one short of the buffer offset per l
   assert.equal(utf16ToCmPos(buffer, state, 3), 2);
 });
 
-test('a BOM: the editor doc leaves it out, the buffer counts it (F-23)', () => {
+test('a BOM: the editor doc leaves it out, the buffer counts it', () => {
   const buffer = createBuffer('/tmp/x.ts', new Uint8Array([0xef, 0xbb, 0xbf, ...enc('ab\ncd\n')]));
   const state = stateFor(buffer);
   assert.equal(buffer.bom, true);
@@ -100,7 +100,7 @@ test('a BOM: the editor doc leaves it out, the buffer counts it (F-23)', () => {
   assert.equal(renderedByteToCmPos(buffer, state, 3 + 3), 3);
 });
 
-test('a CRLF file with a BOM: both offsets apply (F-23)', () => {
+test('a CRLF file with a BOM: both offsets apply', () => {
   const buffer = createBuffer('/tmp/x.ts', new Uint8Array([0xef, 0xbb, 0xbf, ...enc('ab\r\ncd\r\n')]));
   const state = stateFor(buffer);
   // 'c' is CodeMirror position 3, buffer offset 1 (BOM) + 4 ('ab\r\n') = 5.
@@ -108,7 +108,7 @@ test('a CRLF file with a BOM: both offsets apply (F-23)', () => {
   assert.equal(utf16ToCmPos(buffer, state, 5), 3);
 });
 
-test('an LF file is unchanged by the conversion (F-23)', () => {
+test('an LF file is unchanged by the conversion', () => {
   const buffer = createBuffer('/tmp/x.ts', enc('ab\ncd\né\n'));
   const state = stateFor(buffer);
   for (let pos = 0; pos <= state.doc.length; pos++) {
@@ -117,7 +117,7 @@ test('an LF file is unchanged by the conversion (F-23)', () => {
   }
 });
 
-test('a CR-only file: the shared separator rule splits on CR, and positions map as for CRLF (F-25)', () => {
+test('a CR-only file: the shared separator rule splits on CR, and positions map as for CRLF', () => {
   const buffer = createBuffer('/tmp/x.ts', enc('ab\rcd\ref\r'));
   assert.equal(lineSeparatorFor(buffer), '\r');
   const state = stateFor(buffer);
@@ -129,7 +129,7 @@ test('a CR-only file: the shared separator rule splits on CR, and positions map 
   assert.equal(lineSeparatorFor(createBuffer('/tmp/x.ts', enc('a\r\nb\r\n'))), '\r\n');
 });
 
-test('a stray sequence of several bytes is several editor positions and one buffer offset; bytes map both ways (F-34.1)', () => {
+test('a stray sequence of several bytes is several editor positions and one buffer offset; bytes map both ways', () => {
   // "a", then E2 82 (a cut-off three-byte sequence), then "b\r\n", then FF, then "c\r\n" with a BOM: CRLF, BOM and strays at once.
   const buffer = createBuffer('/tmp/x.md', new Uint8Array([0xef, 0xbb, 0xbf, 0x61, 0xe2, 0x82, 0x62, 0x0d, 0x0a, 0xff, 0x63, 0x0d, 0x0a]));
   const state = stateFor(buffer);

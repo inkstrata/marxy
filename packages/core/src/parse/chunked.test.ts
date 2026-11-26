@@ -1,8 +1,8 @@
-// D-15: the parse in slices equals the whole file's parse, node for node and range for range, for the
+// the parse in slices equals the whole file's parse, node for node and range for range, for the
 // corpus, a long transcript, structured random documents cut into very small slices, and the cases the
 // proof must refuse; and it splits where it can, and parses whole where it cannot.
 //
-// The structured property runs a fixed number of seeds on every pull request:
+// The structured property runs a fixed number of seeds on every run:
 // `CHUNKED_SEEDS=1500 node --test --experimental-strip-types packages/core/src/parse/chunked.test.ts` takes more.
 
 import assert from 'node:assert/strict';
@@ -11,7 +11,9 @@ import { test } from 'node:test';
 import { lineStartAt } from '../sourcemap/line-starts.ts';
 import { lastChunkedParse, parseMarkdownChunked } from './chunked.ts';
 import { parseMarkdown } from './parse.ts';
-import { generated, random } from './testing/structured.ts';
+import { BLOCKS, generated, random } from './testing/structured.ts';
+import { holdsDefinitions } from './from-mdast.ts';
+import { holdsDefinitionMark } from './reparse.ts';
 
 const SEEDS = Number(process.env.CHUNKED_SEEDS ?? 150);
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
@@ -82,4 +84,61 @@ test('a fence with blank lines inside is never cut, and a list is not split from
   const loose = Array.from({ length: 60 }, (_, n) => `- item ${n}\n`).join('\n');
   await assertSame(encode(`${pad}\n${loose}\n${pad}`), 32, 'loose list');
   await assertSame(encode(`    indented\n\n- x\n\n${pad}`), 16, 'indented code before a list marker');
+});
+
+test('a `]:` that starts no definition (mid-line, in a fence, in code) leaves the file in slices', async () => {
+  const pad = Array.from({ length: 80 }, (_, n) => `paragraph ${n} of plain words\n`).join('\n');
+  for (const [where, mark] of [
+    ['mid-line', 'see [12:00]: msg, a log line quoted in a paragraph\n'],
+    ['after text', 'log [a]: b and more\n'],
+    ['fenced', '```\n[x]: inside a fence\n```\n'],
+    ['tilde fence', '~~~\n[^n]: inside a fence\n~~~\n'],
+    ['code span', '`[x]: a code span`\n'],
+    ['image', '![alt]: not a definition\n'],
+    ['escaped', '\\[x]: escaped\n'],
+  ] as const) {
+    const bytes = encode(`${pad}\n${mark}\n${pad}`);
+    assert.equal(holdsDefinitionMark(bytes), false, where);
+    assert.equal(await assertSame(bytes, 256, where), 'slices', where);
+  }
+  // Every shape a definition can take is still found: the file is parsed whole.
+  for (const [where, def] of [
+    ['top', '[ref]: http://x.example\n'],
+    ['indented', '   [ref]: /r\n'],
+    ['quote', '> [ref]: /q\n'],
+    ['list', '- [ref]: /l\n'],
+    ['ordered', '1. [ref]: /o\n'],
+    ['footnote', '[^ref]: a note\n'],
+    ['label over two lines', '[re\nf]: /m\n'],
+    ['crlf', '[ref]: /c\r\n'],
+    ['after a fence', '```\ncode\n```\n[ref]: /f\n'],
+    ['after an unclosed fence', '```\nnever closed\n\n[ref]: /u\n'],
+  ] as const) {
+    const bytes = encode(`${pad}\n${def}\nsee [ref] and [^ref]\n\n${pad}`);
+    assert.equal(holdsDefinitionMark(bytes), true, where);
+    assert.equal(await assertSame(bytes, 256, where), 'whole', where);
+  }
+});
+
+test('structured random documents with `]:` marks and definitions: slices equal the whole parse, and no definition is missed', async () => {
+  const MARKS = [
+    'see [12:00]: msg\n', 'a [b]: c d\n', '```\n[x]: fenced\n```\n', '~~~\n[^n]: fenced\n~~~\n', '`[x]: code`\n', '![i]: no\n',
+    '[ref]: http://example.com\n', '> [q]: /q\n', '- [l]: /l\n', '[^f]: note\n', '[multi\nline]: /m\n', '   [ind]: /i\n',
+    '    [code]: /c\n', 'see [ref] [q] [l] [^f] [multi line] [ind]\n',
+  ];
+  const counts = { slices: 0, whole: 0 };
+  for (let seed = 1; seed <= SEEDS; seed++) {
+    const next = random(seed * 7919);
+    let text = '';
+    for (let count = 20 + Math.floor(next() * 60); count > 0; count--) {
+      const pool = next() < 0.2 ? MARKS : BLOCKS;
+      text += pool[Math.floor(next() * pool.length)]! + (next() < 0.7 ? '\n' : '');
+    }
+    const bytes = encode(text);
+    const kind = await assertSame(bytes, 1 + Math.floor(next() * 200), `marks seed ${seed}`);
+    counts[kind]++;
+    // A superset of the real definitions: the reparse leans on it for a parse that does not say.
+    if (holdsDefinitions(parseMarkdown(bytes, { file: '/c.md' }))) assert.equal(holdsDefinitionMark(bytes), true, `marks seed ${seed}: a definition the scan missed`);
+  }
+  assert.ok(counts.slices > 0 && counts.whole > 0, `slices ${counts.slices}, whole ${counts.whole}`);
 });

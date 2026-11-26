@@ -7,7 +7,7 @@
 // specification's examples and are not in its order: they are grouped by the construct a reader
 // meets, and their content is this project's vocabulary. The specification's own example set is
 // CC-BY-SA-4.0, and a set of test vectors is protected by the selection and arrangement even where
-// each snippet is too short to protect, so it is not transcribed into this MIT tree (ADR-0006).
+// each snippet is too short to protect, so it is not transcribed into this MIT tree.
 //
 // A handful of these inputs do coincide with a specification example, because some rules have exactly
 // one minimal form: an empty block quote can only be written `>`. `scripts/commonmark-spec.ts` prints

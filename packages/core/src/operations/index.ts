@@ -1,4 +1,4 @@
-// Operation registry: palette order (ADR-0004). Story MARXY-42, MARXY-43, C-02.
+// Operation registry: palette order.
 import type { Operation } from '../contracts/operation.ts';
 import { alignTablePipes } from './align-table-pipes.ts';
 import { copyCodeClean } from './copy-code-clean.ts';
@@ -19,8 +19,8 @@ import { sortListItems } from './sort-list-items.ts';
 import { toggleTask } from './toggle-task.ts';
 import { unwrapMarkdownFence } from './unwrap-markdown-fence.ts';
 
-// Both lists below are one entry per line, sorted by operation id, with a trailing comma, so a story that adds an
-// operation touches its own line and git merges two such stories without a conflict (F-32). The palette sorts for
+// Both lists below are one entry per line, sorted by operation id, with a trailing comma, so a change that adds an
+// operation touches its own line and git merges two such changes without a conflict. The palette sorts for
 // itself (group, then title), so this order is not what the reader sees.
 
 /** Operations whose replacement is always the input text: they only fill the clipboard. */
@@ -62,5 +62,5 @@ export const OPERATIONS: readonly Operation[] = [...CLIPBOARD_OPERATIONS, ...MUT
 
 export { alignTablePipes, copyCodeClean, copySection, dedupeLines, sortListItems, toggleTask, unwrapMarkdownFence };
 
-// A parametrised edit (a key and a value) is not an `Operation`, so it is not in the lists above; see front-matter-value.ts (W-17).
-export { frontMatterValues, setFrontMatterValue, SET_FRONT_MATTER_VALUE_ID } from './front-matter-value.ts';
+// The front matter's keys and values are read here; they are not an `Operation`.
+export { frontMatterValues } from './front-matter-value.ts';

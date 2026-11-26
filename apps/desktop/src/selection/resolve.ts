@@ -1,4 +1,4 @@
-// Map a rendered element to its AST node through the node map (ADR-0023, MARXY-41).
+// Map a rendered element to its AST node through the node map.
 
 import type { Node, Source } from '@marxy/core';
 import type { NodeMap } from '../render/post.ts';

@@ -1,4 +1,4 @@
-// C-07: copy-source, copy-plain and copy-rich — table cases and corpus properties.
+// copy-source, copy-plain and copy-rich — table cases and corpus properties.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Document, Heading, List, Node, Paragraph } from '../contracts/ast.ts';
@@ -10,7 +10,6 @@ import { copyRich } from './copy-rich.ts';
 import { copySource } from './copy-source.ts';
 import { inlinePlainText } from './inline-text.ts';
 import { plainTextOf } from './plain-text.ts';
-import { COPY_PACK } from './pack-copy.ts';
 import { corpusDocuments } from './testing/corpus.ts';
 
 const enc = new TextEncoder();
@@ -32,10 +31,11 @@ function blockInput(source: string, index = 0) {
 }
 
 const IDS = (op: { id: string }) => op.id;
+const COPY_OPS = [copySource, copyPlain, copyRich];
 
-test('COPY_PACK lists copy-source, copy-plain and copy-rich, in that order', () => {
-  assert.deepEqual(COPY_PACK.map(IDS), ['copy-source', 'copy-plain', 'copy-rich']);
-  assert.deepEqual(COPY_PACK.map((op) => op.title), ['Copy as markdown', 'Copy as plain text (strip markdown)', 'Copy as rich text']);
+test('copy-source, copy-plain and copy-rich keep their ids and titles', () => {
+  assert.deepEqual(COPY_OPS.map(IDS), ['copy-source', 'copy-plain', 'copy-rich']);
+  assert.deepEqual(COPY_OPS.map((op) => op.title), ['Copy as markdown', 'Copy as plain text (strip markdown)', 'Copy as rich text']);
 });
 
 type Case = { name: string; source: string; plain: string; sourceText?: string };
@@ -56,7 +56,7 @@ const cases: Case[] = [
 ];
 
 for (const c of cases) {
-  test(`pack-copy: ${c.name}`, () => {
+  test(`copy: ${c.name}`, () => {
     const input = wholeDocument(c.source);
     assert.ok(copySource.canApply(input) && copyPlain.canApply(input) && copyRich.canApply(input));
 
@@ -106,7 +106,7 @@ test('canApply is false for an inline node and for a partial span', () => {
   const document = parse('Some *emphasis* here.\n');
   const para = document.children[0] as Paragraph;
   const inline = para.children.find((n) => n.type === 'emphasis')!;
-  for (const op of COPY_PACK) {
+  for (const op of COPY_OPS) {
     assert.equal(op.canApply({ document, node: inline, range: inline.src }), false, `${op.id} inline`);
     assert.equal(op.canApply({ document, range: { ...document.src, start: 2, end: 6 } }), false, `${op.id} span`);
     assert.equal(op.canApply({ document, node: para, range: para.src }), true, `${op.id} block`);
@@ -229,9 +229,9 @@ test('copy-plain keeps words apart across an inline <br> (paragraph: newline; ta
   }
 });
 
-// E-11 rows. The card names copy-plain-text.test.ts, but copy-plain already ships (C-07), so its rows sit here.
+// The card names copy-plain-text.test.ts, but copy-plain already ships, so its rows sit here.
 // Clipboards are not files: the clipboard text uses `\n` whatever the document's line endings; replacement === text.
-test('E-11: copy-plain clipboard text uses \\n for CRLF and CR sources, and replacement === text', () => {
+test('copy-plain clipboard text uses \\n for CRLF and CR sources, and replacement === text', () => {
   for (const [name, eol] of [['LF', '\n'], ['CRLF', '\r\n'], ['CR', '\r']] as const) {
     const source = `one${eol}two${eol}${eol}- three${eol}- four${eol}`;
     const document = parse(source);
@@ -246,7 +246,7 @@ test('E-11: copy-plain clipboard text uses \\n for CRLF and CR sources, and repl
   }
 });
 
-test('E-11: copy-plain on a paragraph with a footnote reference, emphasis, a link and inline code', () => {
+test('copy-plain on a paragraph with a footnote reference, emphasis, a link and inline code', () => {
   const source = 'Say *hi*[^1] to [the site](https://example.com) and `code`.\n\n[^1]: note\n';
   const input = blockInput(source, 0);
   const result = copyPlain.run(input);

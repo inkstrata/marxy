@@ -1,4 +1,4 @@
-// J-05: Mod+V in Rendered opens the clipboard as Markdown in a new scratch document (E-13); the file on disk is
+// Mod+V in Rendered opens the clipboard as Markdown in a new scratch document; the file on disk is
 // untouched and Save As is the first write. Not bound in Source, the find field or the palette. A concealed item
 // is refused before any read. WebKit, the real app over the memory shell, real keys (test/support/two-pane.mjs).
 import { strict as assert } from 'node:assert';
@@ -88,7 +88,7 @@ test('Mod+V with nothing on the pasteboard opens nothing and says so', async () 
     await s.pasteboard({ [TEXT]: '  \n ' });
     await s.paste();
     await page.waitForFunction(() => document.body.textContent.includes('Nothing to paste'));
-    // An empty paste is a Note that fades, never a sticky "Not done" (U-02.1).
+    // An empty paste is a Note that fades, never a sticky "Not done".
     assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.marxy-notice')].map((n) => n.dataset.noticeKind)), ['info']);
     await page.waitForFunction(() => document.querySelector('.marxy-notice') === null, undefined, { timeout: 7000 });
     assert.deepEqual(await s.paths(), [A]);
@@ -185,10 +185,32 @@ test('Mod+V in Source is the editor\'s: the registry does not open a scratch, an
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
     await page.click('.cm-content');
     await s.pasteboard(SAMPLES.text);
+    // The key alone: the webview's own paste event carries the system pasteboard, which is not the test's (WebKit on
+    // Windows lists text/html on every paste), so it is held back here and the event is sent below with known types.
+    await page.evaluate(() => {
+      window.__nativePastes = 0;
+      window.addEventListener('paste', (e) => {
+        if (!e.isTrusted) return;
+        window.__nativePastes++;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }, { capture: true });
+    });
     await s.paste();
     await s.settle();
+    assert.equal(await page.evaluate(() => window.__nativePastes), 1, 'the key reached the editor as a paste');
     assert.deepEqual(await s.paths(), [A]);
+    assert.deepEqual(await s.calls('clipboardTypes', 'clipboardRead'), [], 'the registry left the key to the editor');
+    // A paste of plain text, as the editor receives one: it inserts the event's text and never reads the pasteboard.
+    await page.evaluate(() => {
+      const data = new DataTransfer();
+      data.setData('text/plain', 'PLAIN');
+      document.querySelector('.cm-content').dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    });
+    await s.settle();
+    assert.match(await page.locator('.cm-content').innerText(), /PLAIN/, 'the editor pasted the text itself');
     assert.deepEqual(await s.calls('clipboardTypes', 'clipboardRead'), []);
+    assert.deepEqual(await s.paths(), [A]);
   });
 });
 

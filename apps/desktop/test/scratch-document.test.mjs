@@ -1,4 +1,4 @@
-// A scratch (untitled) document, end to end in WebKit over the memory shell (E-13): it renders and edits
+// A scratch (untitled) document, end to end in WebKit over the memory shell: it renders and edits
 // like a document, writes nothing until Save As, asks before it is lost once changed, keeps no trace in
 // the reader's saved layout or places, and has no folder for a relative image or link to be relative to.
 import { strict as assert } from 'node:assert';
@@ -116,7 +116,7 @@ test('a scratch document renders, toggles a task in one undo step, and writes an
     assert.match((await noticeText(page)).join('|'), /Opened as a new document \(not saved\)/);
   }, { argv: [] }));
 
-// F-108: "Untitled is Markdown" in one meaning: the kind chip, the Source gutter and the wrap agree, whatever was typed.
+// "Untitled is Markdown" in one meaning: the kind chip, the Source gutter and the wrap agree, whatever was typed.
 test('an Untitled holding code-looking text is Markdown: the chip says article, as for a .md, and Source has no line numbers', () =>
   withPage(async (page) => {
     await openScratch(page, 'fn main() {\n    println!("hi");\n}\n');
@@ -279,12 +279,13 @@ test('a relative image and a relative link in a scratch document are inert: a no
     await page.waitForTimeout(150);
     assert.equal((await snapOf(page)).path, 'untitled', 'nothing opened');
     // Everything the shell was asked since the page was set: Marxy's own state under /data and /config (and collection.toml beside
-    // it, which the version recorder reads for its deny rules, V-06) aside, no read
+    // it, which the version recorder reads for its deny rules) aside, no read
     // of any file, no stat, no listing, no asset scope or image size, no watch and no write.
     const since = await log(page);
+    // One stat is not the scratch's: the document it replaced is kept warm, its size and times noted for the way back.
     const touched = since.filter((e) => {
       const [method, ...rest] = e.split(':');
-      return /^(readFile|readHead|stat|readDir|peekFile|imageSize|allowAssetScope|assetUrl|watch|writeFileAtomic)$/.test(method) && !/^\/(data|config|collection\.toml)\b/.test(rest.join(':'));
+      return /^(readFile|readHead|stat|readDir|peekFile|imageSize|allowAssetScope|assetUrl|watch|writeFileAtomic)$/.test(method) && !/^\/(data|config|collection\.toml)\b/.test(rest.join(':')) && e !== `stat:${A}`;
     });
     assert.deepEqual(touched, [], since.join('\n'));
   }));

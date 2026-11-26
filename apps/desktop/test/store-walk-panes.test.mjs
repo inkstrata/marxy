@@ -1,4 +1,4 @@
-// The data-safety walk through two real panes (F-33, the panes layer). The node layer (store-walk.test.mjs)
+// The data-safety walk through two real panes (the panes layer). The node layer (store-walk.test.mjs)
 // drives the store, the registry, save() and the watch's reload rules; this one drives the same kinds of step
 // through the shipped skeleton over the memory shell with the Tauri stale-write guard emulated: real Source
 // editors and the keys typed into them, the notice regions, `PaneSet`, the app's own `watchDocument`. It is the
@@ -11,8 +11,8 @@
 //   I4  an outside write is announced: a clean store shows it, a dirty one holds it for a choice and says so
 //   I5  one store per path, one watch per store
 //   I8  a Mod+Z in a Source editor lands on text some editor, buffer or file held before (it adds no byte nobody
-//       typed: F-40; the editor's history does not outlive a change made outside it)
-// W-06 adds the tab row: the walk unfolds the window and clicks real tabs and close buttons (tabSwitch, tabClose),
+//       typed; the editor's history does not outlive a change made outside it)
+// The tab row: the walk unfolds the window and clicks real tabs and close buttons (tabSwitch, tabClose),
 // and every step also asks the page the row's own questions (a tab for each document a pane shows, none twice).
 // What only the node layer covers: the exact history/baseline arithmetic (I6, I7) and the weighted mix of
 // steps over CRLF, mixed and BOM files. What only this layer covers: the views and the notices.
@@ -125,6 +125,7 @@ const look = (page) =>
         store.subscribe((snap) => states.add(text(snap.buffer.bytes)));
       }
     }
+    const warm = h.panes().stores.warm().map((s) => ({ path: s.snapshot().path, dirty: s.snapshot().dirty }));
     const files = {};
     for (const stat of await h.shell.readDir('/r')) files[stat.path] = await window.__disk(stat.path);
     const { activeSourceEditor } = await import('/src/source/editor.ts');
@@ -147,11 +148,19 @@ const look = (page) =>
           notices: [...(document.getElementById(slot === 0 ? 'marxy-notices' : 'marxy-notices-2')?.querySelectorAll('.marxy-notice-text') ?? [])].map((n) => n.textContent),
         };
       }),
-      tabs: [...document.querySelectorAll('.marxy-tab')].map((t) => t.getAttribute('data-marxy-tab')),
-      activeTab: document.querySelector('.marxy-tab[data-marxy-tab-active]')?.getAttribute('data-marxy-tab') ?? null,
-      bandHidden: document.querySelector('[data-marxy-workspace-region="tabs"]')?.hidden ?? null,
+      // One row for the window (frame/tab-row.ts), seen from each pane: its paths, and the tab the pane shows (current in the focused pane, marked visible in the other).
+      rows: [0, 1].map(() => [...document.querySelectorAll('.marxy-tabbar .marxy-tab')].map((t) => t.getAttribute('data-marxy-tab-path'))),
+      actives: [0, 1].map((slot) => {
+        const p = h.panes().panes[slot];
+        if (!p) return null;
+        const focused = h.panes().focused === p;
+        const tab = [...document.querySelectorAll('.marxy-tabbar .marxy-tab')].find((t) => (focused ? t.getAttribute('aria-selected') === 'true' : t.dataset.marxyTabPath === p.path() && (t.hasAttribute('data-marxy-visible') || t.getAttribute('aria-selected') === 'true')));
+        return tab?.getAttribute('data-marxy-tab-path') ?? null;
+      }),
       focused: h.panes().panes.indexOf(h.panes().focused),
-      stores: stores.length,
+      // A store kept warm for a tab no pane shows is open, and watched: it counts as one.
+      stores: stores.length + warm.length,
+      warm,
       watches: window.__marxyWatches,
       files,
       violations: window.__violations.slice(),
@@ -166,7 +175,7 @@ const watchWrites = (page) =>
     const text = (bytes) => (bytes ? new TextDecoder().decode(bytes) : null);
     window.__violations = [];
     window.__picked = null;
-    shell.writeFileAtomic = async (path, bytes) => {
+    shell.writeFileAtomic = async (path, bytes, expected) => {
       const before = await shell.peekFile(path).catch(() => null);
       const baselines = window.__marxyHandle
         .panes()
@@ -174,8 +183,9 @@ const watchWrites = (page) =>
         .filter((s) => s && s.snapshot().path === path)
         .map((s) => text(s.snapshot().disk));
       const ok = !path.startsWith('/r/') || before === null || window.__picked === path || baselines.includes(text(before));
+      // The shell checks the write's baseline itself: a write it refuses overwrote nothing.
+      await guarded(path, bytes, expected);
       if (!ok) window.__violations.push(`${path} was overwritten while it held bytes no store had loaded or written`);
-      return guarded(path, bytes);
     };
   });
 
@@ -190,7 +200,7 @@ function openSeed(seed) {
       const second = d.chance(0.5) ? first : d.pick(PATHS);
       await bootTwoPanes(page, { files: FILES, open: [first, second], guard: true });
       await watchWrites(page);
-      await page.evaluate(() => window.__marxyHandle.workspace().unfold());
+      await page.evaluate(() => window.__marxyHandle.frame().unfold());
       log.push(`open ${first} and ${second}, window unfolded`);
       const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
       const tokens = [];
@@ -218,10 +228,10 @@ function openSeed(seed) {
         const dump = seen.panes.map((p) => `  pane ${p.slot}: ${name(p.path)} ${p.mode}, dirty=${p.dirty}, unfolded=${p.unfolded}, held change=${p.conflict}, buffer ${p.buffer?.length} chars, disk baseline ${p.base?.length} chars, said ${JSON.stringify(p.notices)}`).join('\n');
         const fail = (rule, message) => assert.fail(`panes walk failed on seed ${seed} in ${rule}: ${message}\nafter: ${step}\n${dump}\nreplay: MARXY_WALK_SEED=${seed} node --test --experimental-strip-types apps/desktop/test/store-walk-panes.test.mjs\nsteps:\n${log.map((l, i) => `  ${i}. ${l}`).join('\n')}`);
         if (seen.violations.length) fail('I1 (no silent overwrite)', seen.violations.join('; '));
-        // F-42.1: a key the reader types is their own text, never "another pane's change". Held apart is for two panes with
+        // a key the reader types is their own text, never "another pane's change". Held apart is for two panes with
         // unfolded text; with none beside it, a held-apart notice means the pane read its own key as someone else's.
         if (noHeldApart && heldApartNotices(seen) > 0) {
-          fail('F-42 (a key typed during a save is the reader\'s own)', 'the pane said its Source was held apart from another pane\'s, with no other pane typing');
+          fail('a key typed during a save is the reader\'s own', 'the pane said its Source was held apart from another pane\'s, with no other pane typing');
         }
         if (undoLanded && !undoLanded.held) {
           fail('I8 (a store undo lands on a state the store held)', `the undo in pane ${undoLanded.slot} left a buffer the store never held`);
@@ -241,14 +251,21 @@ function openSeed(seed) {
           byStore.set(p.storeIndex, p.path);
         }
         const paths = seen.panes.map((p) => p.path);
-        // W-06: the row shows a tab for every document a pane shows, none twice, the focused pane's active, hidden below two.
-        for (const p of seen.panes) if (!seen.tabs.includes(p.path)) fail('tabs', `${p.path} is shown in pane ${p.slot} and has no tab (${seen.tabs.join(', ')})`);
-        if (new Set(seen.tabs).size !== seen.tabs.length) fail('tabs', `a path has two tabs: ${seen.tabs.join(', ')}`);
-        if (seen.activeTab !== seen.panes[seen.focused]?.path) fail('tabs', `the focused pane shows ${seen.panes[seen.focused]?.path} and the active tab is ${seen.activeTab}`);
-        if (seen.bandHidden !== (seen.tabs.length < 2)) fail('tabs', `${seen.tabs.length} tab(s) and the band is ${seen.bandHidden ? 'hidden' : 'shown'}`);
+        // The window's row has a tab for each document a pane shows, marked as that pane's, and none twice.
+        for (const p of seen.panes) {
+          const row = seen.rows[p.slot];
+          if (!row.includes(p.path)) fail('tabs', `${p.path} is shown in pane ${p.slot} and has no tab in its row (${row.join(', ')})`);
+          if (new Set(row).size !== row.length) fail('tabs', `a path has two tabs in pane ${p.slot}'s row: ${row.join(', ')}`);
+          if (seen.actives[p.slot] !== p.path) fail('tabs', `pane ${p.slot} shows ${p.path} and its active tab is ${seen.actives[p.slot]}`);
+        }
         for (const p of seen.panes) {
           const other = seen.panes.find((q) => q.slot !== p.slot && q.path === p.path);
           if (other && other.storeIndex !== p.storeIndex) fail('I5 (one store per path)', `${p.path} is shown through two stores`);
+        }
+        if (seen.warm.length > 3) fail('I5 (one store per path)', `${seen.warm.length} warm stores`);
+        for (const w of seen.warm) {
+          if (w.dirty) fail('I3 (no lost byte without a notice)', `${w.path} was kept warm with unsaved edits`);
+          if (paths.includes(w.path) || seen.warm.filter((o) => o.path === w.path).length > 1) fail('I5 (one store per path)', `${w.path} has a warm store and another store`);
         }
         if (seen.watches !== seen.stores) fail('I5 (one store per path)', `${seen.watches} live watch(es) for ${seen.stores} store(s) on ${paths.join(', ')}`);
         // Unsaved Source text in any pane on the store counts: the store holds the change for a choice then too.
@@ -283,7 +300,7 @@ function openSeed(seed) {
       const OPS = {
         edit: {
           weight: 5,
-          // A task to tick: a delete in Source (F-40) may have taken the last one out of the file.
+          // A task to tick: a delete in Source may have taken the last one out of the file.
           applicable: (s) => s.panes.some((p) => p.mode === 'rendered' && /\[[ x]\]/.test(p.buffer ?? '')),
           async run(s) {
             const p = d.pick(s.panes.filter((q) => q.mode === 'rendered' && /\[[ x]\]/.test(q.buffer ?? '')));
@@ -302,7 +319,7 @@ function openSeed(seed) {
             return { label: `type ${token.text} in Source, pane ${p.slot} (${name(p.path)})` };
           },
         },
-        // F-42: Mod+S and a key in the same task. The save's fold has not settled when the key lands, and the editor
+        // Mod+S and a key in the same task. The save's fold has not settled when the key lands, and the editor
         // taking the store's bytes back must not delete it (I3 finds the token in the editor, a buffer or a file after).
         saveAndType: {
           weight: 4,
@@ -313,7 +330,7 @@ function openSeed(seed) {
             await toSource(page, p.slot);
             await typeAtLineEnd(page, p.slot, 1 + d.int(8), d.chance(0.5) ? 'x' : '');
             // Nothing is held apart yet and no other pane over this store has unfolded text: from here a held-apart
-            // notice can only be this pane misreading its own key (F-42.1).
+            // notice can only be this pane misreading its own key.
             const seen = await look(page);
             const mine = seen.panes[p.slot];
             const alone = heldApartNotices(seen) === 0 && !seen.panes.some((q) => q.slot !== p.slot && q.storeIndex === mine.storeIndex && q.unfolded);
@@ -373,7 +390,7 @@ function openSeed(seed) {
             return { label: `undo in pane ${p.slot}`, undoLanded: { slot: p.slot, held } };
           },
         },
-        // F-40: a key in the Source editor takes back what its own history holds, and nothing a change from outside
+        // a key in the Source editor takes back what its own history holds, and nothing a change from outside
         // (a Rendered undo, a task ticked, a write by another program) put in the text since.
         sourceDelete: {
           weight: 4,
@@ -451,18 +468,18 @@ function openSeed(seed) {
             return { label: `open ${name(path)} in pane ${p.slot}`, mayDrop: () => tokensIn(p.buffer) };
           },
         },
-        // W-06: a click on a tab shows its document in the focused pane, asking first over unsaved edits as any open does.
+        // a click on a tab shows its document in the focused pane, asking first over unsaved edits as any open does.
         tabSwitch: {
           weight: 5,
-          applicable: (s) => s.tabs.length >= 2,
+          applicable: (s) => s.panes.some((p) => s.rows[p.slot].length >= 2),
           async run(s) {
             const slot = d.pick(s.panes).slot;
             await focusPane(page, slot);
             const here = s.panes[slot];
-            const target = d.pick(s.tabs.filter((t) => t !== here.path));
-            if (!target) return { label: 'every tab is the focused pane\'s document' };
+            const target = d.pick(s.rows[slot].filter((t) => t !== here.path));
+            if (!target) return { label: `every tab in pane ${slot}'s row is its document` };
             const beside = s.panes.some((q) => q.slot !== slot && q.path === target);
-            await page.click(`[data-marxy-tab="${target}"] [role=tab]`);
+            await page.click(`.marxy-tabbar [data-marxy-tab-path="${target}"] .marxy-tab-open`);
             // Over unsaved edits the click asks: Dismiss (nothing changes) or discard (what is unsaved goes).
             const discard = d.chance(0.5);
             const asked = await answer(page, discard ? 'Open without saving' : 'Dismiss');
@@ -470,23 +487,25 @@ function openSeed(seed) {
             return { label, mayDrop: asked && discard ? () => [...tokensIn(here.buffer), ...tokensIn(here.editor)] : undefined };
           },
         },
-        // W-06: the close button removes a tab; on the document a pane shows it opens the next tab there first.
+        // the close button removes a tab; on the document a pane shows it opens the next tab there first.
         tabClose: {
           weight: 3,
-          applicable: (s) => s.tabs.length >= 2,
+          applicable: (s) => s.panes.some((p) => s.rows[p.slot].length >= 2),
           async run(s) {
-            const target = d.pick(s.tabs);
-            const owner = s.panes.find((q) => q.path === target);
-            const closable = await page.evaluate((t) => !document.querySelector(`[data-marxy-tab="${t}"] .marxy-tab-close`).hidden, target);
-            if (!closable) return { label: `tab ${name(target)} has no close button` };
-            await page.click(`[data-marxy-tab="${target}"] .marxy-tab-close`);
+            const slot = d.pick(s.panes).slot;
+            const target = d.pick(s.rows[slot]);
+            const owner = s.panes.find((p) => p.path === target);
+            const tab = `.marxy-tabbar [data-marxy-tab-path="${target}"] .marxy-tab-close`;
+            const closable = await page.evaluate((sel) => !document.querySelector(sel).hidden, tab);
+            if (!closable) return { label: `tab ${name(target)} in pane ${slot} has no close button` };
+            await page.click(tab);
             const discard = d.chance(0.5);
             const asked = await answer(page, discard ? 'Open without saving' : 'Dismiss');
             const label = `close tab ${name(target)}${owner ? ` in pane ${owner.slot}` : ''}${asked ? (discard ? ': discard' : ': Dismiss') : ''}`;
             return { label, mayDrop: owner && asked && discard ? () => [...tokensIn(owner.buffer), ...tokensIn(owner.editor)] : undefined };
           },
         },
-        // F-48: a pane leaves the document while the other pane over it types. B has typed in Source and its fold has not
+        // a pane leaves the document while the other pane over it types. B has typed in Source and its fold has not
         // landed (the store is busy: a queue held, as a slow save's write holds it); A types, once before the leave
         // starts and maybe once while it waits; the store is let go. B's text is in the store or B asked the reader, and
         // A's is in its editor or the store: I3 finds every token after. The close reopens the document in the other
@@ -503,8 +522,8 @@ function openSeed(seed) {
             const tokenA = newToken();
             const midKey = d.chance(0.5) ? newToken() : null;
             const ways = ['Mod+E', 'close the pane', 'open another document'];
-            if (b === 1) ways.push('Read, in the toolbar');
-            if (s.tabs.some((t) => t !== path)) ways.push('click a tab');
+            if (b === 1) ways.push('Read, in the head');
+            if (s.rows[b].some((t) => t !== path)) ways.push('click a tab');
             const way = d.pick(ways);
             await toSource(page, a);
             await toSource(page, b);
@@ -527,13 +546,13 @@ function openSeed(seed) {
                   if (way === 'Mod+E') window.__leaving = set.panes[b].view.toggleMode();
                   else if (way === 'close the pane') window.__leaving = set.close(set.panes[b]);
                   else if (way === 'open another document') window.__leaving = set.openIn(b, other);
-                  else if (way === 'Read, in the toolbar') [...document.querySelectorAll('[role=radiogroup] [role=radio]')].find((r) => r.textContent === 'Read').click();
+                  else if (way === 'Read, in the head') document.querySelector(`[data-marxy-head="${b}"] .marxy-rs-read`).click();
                   else {
                     set.focus(set.panes[b]);
-                    document.querySelector(`[data-marxy-tab="${tab}"] [role=tab]`).click();
+                    document.querySelector(`.marxy-tabbar [data-marxy-tab-path="${tab}"] .marxy-tab-open`).click();
                   }
                 },
-                { way, b, other, tab: s.tabs.find((t) => t !== path) ?? null },
+                { way, b, other, tab: s.rows[b].find((t) => t !== path) ?? null },
               );
               if (midKey) await typeAtLineEnd(page, a, 1 + d.int(8), midKey.text);
             } finally {
@@ -596,7 +615,7 @@ function openSeed(seed) {
             return { label: `${choice === 'mine' ? 'keep mine as a copy' : 'take the version on disk'} in pane ${p.slot}`, mayDrop: choice === 'theirs' ? () => tokensIn(s.panes.filter((q) => q.path === p.path).flatMap((q) => [q.buffer, q.editor]).join('\n')) : undefined };
           },
         },
-        // The shape D-10 fixed: unsaved edits, another program writes, a Cmd-click on a link to the open file, a save.
+        // The shape that was fixed: unsaved edits, another program writes, a Cmd-click on a link to the open file, a save.
         outsideLinkSave: {
           weight: 4,
           applicable: () => true,

@@ -1,4 +1,4 @@
-// F-96 (earlier tuned in B-25.1): the diagram caption is marked by a class the renderer writes, and no rule
+// The diagram caption is marked by a class the renderer writes, and no rule
 // selects a paragraph by the block after it. `p:has(+ pre…)` restyled every paragraph of a long run in time that
 // grew with the square of their number (13 s for 27,000 in WebKit). This test reads base.css; it asserts no timing.
 
@@ -44,9 +44,9 @@ function splitTop(text, separator) {
   return parts;
 }
 
-// F-96: the caption is marked by a class the renderer writes, not found by what follows it. A `p:has(+ pre …)`
+// the caption is marked by a class the renderer writes, not found by what follows it. A `p:has(+ pre …)`
 // restyled every paragraph of a long run in time that grew with the square of their number (13 s for 27,000).
-test('no rule selects a paragraph by the block after it, and the caption rule is a class (F-96)', () => {
+test('no rule selects a paragraph by the block after it, and the caption rule is a class', () => {
   assert.doesNotMatch(css, /\bp\s*:has\(\s*\+\s*pre/, 'a p:has(+ pre …) rule is back in base.css');
   const rule = rules(css).find((r) => r.selectors.includes('.marxy-article > p.marxy-diagram-caption'));
   assert.ok(rule, 'no .marxy-article > p.marxy-diagram-caption rule');

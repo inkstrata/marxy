@@ -1,11 +1,15 @@
 // CodeMirror EditorView construction (dynamic import target).
 
-import { encodeSourceText, type Buffer } from '@marxy/core';
-import { Compartment, EditorState, Transaction } from '@codemirror/state';
+import { encodeSourceText, langOf, type Buffer } from '@marxy/core';
+import { entryRefusal, isArchiveEntry } from '../document/entries.ts';
+import { isUntitled } from '../document/untitled.ts';
+import { notify, paneOf } from '../notices/index.ts';
+import { Compartment, EditorState, type Extension, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { baseExtensions, clearHistory, editorDocConfig, isLargeSourceFile, sourceWraps, toggleLineNumbersInView, type SourceEditor, type SourceEditorOptions } from './editor.ts';
 import { createSourceFrame, type SourceFrame } from './frame.ts';
-import { attachLanguage } from './language.ts';
+import { onColourChoice } from '../render/colour-tier.ts';
+import { attachLanguage, startColour } from './language.ts';
 import { resolveLineNumbers } from './line-numbers.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
 import { readBack } from './stray-bytes.ts';
@@ -15,15 +19,26 @@ export async function createSourceEditor(
   compartments: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment: Compartment; languageCompartment: Compartment },
 ): Promise<SourceEditor> {
   let buffer = opts.buffer;
-  const { doc } = editorDocConfig(buffer);
+  const { doc, lineSeparator } = editorDocConfig(buffer);
+  // The colour's runs are asked for now, so the grammar's slow first use overlaps the mount. The editor's text joins
+  // its lines with `\n` whatever the separator, as the runs' offsets do.
+  let early: Promise<Extension | null> | undefined = startColour(buffer, doc.split(lineSeparator).join('\n'));
   const lineNumbers = resolveLineNumbers(opts.buffer.path, opts.lineNumbers);
   const exts = await baseExtensions(buffer, lineNumbers, compartments);
-  // The app's Source mount gets the frame (V-05): built here, in the task that builds the editor, so nothing paints
+  // The app's Source mount gets the frame: built here, in the task that builds the editor, so nothing paints
   // between them and the text never waits for a bar. Any other parent (the editor's own harness) gets the bare editor.
   const frame: SourceFrame | null = opts.parent.classList.contains('marxy-source-mount')
     ? createSourceFrame(opts.parent, buffer, { wraps: sourceWraps(buffer.path) && !isLargeSourceFile(buffer) })
     : null;
   if (frame) exts.push(frame.extension);
+  // An archive's entry is read-only: a change the reader makes is dropped and said; a new document's text passes.
+  exts.push(
+    EditorState.transactionFilter.of((tr) => {
+      if (!tr.docChanged || !isArchiveEntry(buffer.path) || tr.annotation(Transaction.userEvent) === undefined) return tr;
+      notify({ kind: 'refused', text: entryRefusal(buffer.path) }, { pane: paneOf(opts.parent) });
+      return [];
+    }),
+  );
   const state = EditorState.create({ doc, extensions: exts });
   opts.beforeMount?.();
   const view = new EditorView({ state, parent: frame?.body ?? opts.parent });
@@ -33,9 +48,20 @@ export async function createSourceEditor(
   let destroyed = false;
   const attach = (): void => {
     const mine = ++generation;
-    void attachLanguage(view, buffer, () => !destroyed && mine === generation, compartments.languageCompartment);
+    // The registry's id for the file, so a theme's `[data-marxy-lang]` scope reaches Source as it reaches Read.
+    const lang = isUntitled(buffer.path) ? 'markdown' : langOf(buffer.path);
+    if (lang === undefined) delete view.dom.dataset.marxyLang;
+    else view.dom.dataset.marxyLang = lang;
+    void attachLanguage(view, buffer, () => !destroyed && mine === generation, compartments.languageCompartment, undefined, early);
+    early = undefined;
   };
   attach();
+  // Colour anyway, or back to plain text (the plain-text tier, the Reading card): the language is laid again from nothing.
+  const offColourChoice = onColourChoice((path) => {
+    if (destroyed || path !== buffer.path) return;
+    view.dispatch({ effects: compartments.languageCompartment.reconfigure([]) });
+    attach();
+  });
   // `doc.toString()` joins lines with \n whatever EditorState.lineSeparator says; the buffer's text
   // (and foldText's offsets into it) use the file's own separator, so read the doc through sliceDoc.
   const textNow = (): string => view.state.sliceDoc(0, view.state.doc.length);
@@ -50,6 +76,7 @@ export async function createSourceEditor(
     },
     destroy() {
       destroyed = true;
+      offColourChoice();
       view.destroy();
       frame?.destroy();
     },
@@ -87,7 +114,7 @@ export async function createSourceEditor(
     // means the text is read differently, so it never counts as the same.)
     if (!separatorChanged && nextDoc === textNow()) return;
     // The line-ending class changed on disk (CR to LF, LF to CR, ...): the separator is part of the
-    // state, and the new text is split by the state it is dispatched into, so swap it first (F-25).
+    // state, and the new text is split by the state it is dispatched into, so swap it first.
     if (separatorChanged) {
       view.dispatch({
         effects: compartments.lineSeparatorCompartment.reconfigure(EditorState.lineSeparator.of(lineSeparator)),
@@ -95,7 +122,7 @@ export async function createSourceEditor(
       });
     }
     // New bytes from outside (a reload from disk, a Rendered undo, another pane's fold), or the editor's own fold read
-    // back differently (two stray bytes made neighbours that now spell a character, F-34.1): not the reader's edit,
+    // back differently (two stray bytes made neighbours that now spell a character): not the reader's edit,
     // so Mod+Z must not bring the old text back. Only the part that differs is replaced, so the caret maps through it.
     if (separatorChanged) {
       view.dispatch({
@@ -103,7 +130,7 @@ export async function createSourceEditor(
         annotations: Transaction.addToHistory.of(false),
       });
       // A line break in the old text is not one in the new (a lone LF among CRLFs is a line break in one and
-      // a character in the other), so no change the history holds still means what it did (F-40).
+      // a character in the other), so no change the history holds still means what it did.
       clearHistory(view);
       return;
     }
@@ -119,7 +146,7 @@ export async function createSourceEditor(
     }
     // The text changed under the editor's history by something that is not the reader's typing: a change in one
     // place moves the places every older change was made at, and an undo would write at the wrong one. The history
-    // goes; Rendered's undo (the store's, ADR-0037) is the one that still steps over this change (F-40).
+    // goes; Rendered's undo (the store's) is the one that still steps over this change.
     view.dispatch({ changes: part, annotations: Transaction.addToHistory.of(false) });
     clearHistory(view);
   }

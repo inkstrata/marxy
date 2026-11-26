@@ -1,5 +1,5 @@
-// `[[capture]]` rules in collection.toml (ADR-0063): parse and validate. Nothing here copies, watches
-// or writes a file (P-03). Shell-free: the host passes the home directory and its own folders.
+// `[[capture]]` rules in collection.toml: parse and validate. Nothing here copies, watches
+// or writes a file. Shell-free: the host passes the home directory and its own folders.
 
 import { isIgnored, parseIgnore } from './ignore.ts';
 import { dirname, normalizePath, pathUnder } from './paths.ts';
@@ -9,7 +9,7 @@ import { dirname, normalizePath, pathUnder } from './paths.ts';
  * empty segment); `fromBase` is the first fixed folder of `from`.
  *
  * These checks are strings only: they cannot see symlinks, hard links or a volume's real case
- * sensitivity. P-03 must therefore, at copy time: (a) realpath `fromBase` and `to` and re-run the loop
+ * sensitivity. The copy must therefore, at copy time: (a) realpath `fromBase` and `to` and re-run the loop
  * and own-folder checks on the resolved paths; (b) never follow a symlink out of `fromBase`; (c) check
  * each destination file's realpath is still under `to`; (d) skip any source whose resolved path is
  * under `to` or an own folder.
@@ -41,7 +41,7 @@ export const MAX_CAPTURES = 32;
 
 const CAPTURE_KEYS = new Set(['from', 'to']);
 
-/** ADR-0063 item 6, verbatim: the Privacy page's whole account of the action. */
+/** Verbatim: the Privacy page's whole account of the action. */
 export const CAPTURE_PRIVACY_LINE =
   'Marxy copies files matching your capture rules from `from` to `to` on this disk, while it is running.';
 

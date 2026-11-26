@@ -86,7 +86,7 @@ test('badness is TeX’s: 100 at the full stretch, capped at 10000', () => {
   assert.equal(badness(1000, 34), 10000);
 });
 
-test('non-finite stretch is worst badness, not NaN (MARXY-281)', () => {
+test('non-finite stretch is worst badness, not NaN', () => {
   assert.equal(badness(10, Number.NaN), 10000);
   assert.equal(badness(10, Number.POSITIVE_INFINITY), 10000);
   // A NaN font size makes stretch NaN; the breaker must still choose breaks, not leave every cost NaN.
@@ -101,7 +101,7 @@ test('non-finite stretch is worst badness, not NaN (MARXY-281)', () => {
 const split = (left: number, right: number, hyphen = 6): Measured[] => [{ kind: 'piece', width: left }, { kind: 'hyphen', width: hyphen }, { kind: 'piece', width: right }];
 const space: Measured = { kind: 'space', width: 5, fontSize: 17 };
 
-test('text that sets well without hyphens gets none (TeX \\pretolerance, ADR-0033)', () => {
+test('text that sets well without hyphens gets none (TeX \\pretolerance)', () => {
   // Two 40 px words then a splittable 60 px word: 40+5+40 fills an 88 px line to within 3 px, so the
   // first pass is kept and the hyphen point is never used.
   const tokens: Measured[] = [{ kind: 'piece', width: 40 }, space, { kind: 'piece', width: 40 }, space, ...split(30, 30)];

@@ -1,4 +1,4 @@
-// Explicit save: byte-faithful writes, title dirty dot, watch echo (MARXY-49).
+// Explicit save: byte-faithful writes, title dirty dot, watch echo.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -6,17 +6,18 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { parseMarkdown } from '../../../packages/core/src/index.ts';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
-const desktopRoot = new URL('..', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
+const desktopRoot = fileURLToPath(new URL('..', import.meta.url));
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-save-'));
 let server;

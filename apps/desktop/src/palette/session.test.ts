@@ -1,4 +1,4 @@
-// Empty query is MRU newest first with pinned on top; history walks documents (ADR-0011).
+// Empty query is MRU newest first with pinned on top; history walks documents.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -130,7 +130,7 @@ test('a hit opened in root /b moves the current root, and /b hits come before /a
   assert.deepEqual(hits.map((hit) => hit.entry.root), ['/b', '/a']);
 });
 
-test('recentExcluding is the MRU, newest first, without the documents on screen (D-07)', () => {
+test('recentExcluding is the MRU, newest first, without the documents on screen', () => {
   let session = emptySession('/repo');
   for (const name of ['a', 'b', 'c', 'd']) session = recordOpen(session, `/repo/${name}.md`);
   session = togglePin(session, '/repo/a.md');

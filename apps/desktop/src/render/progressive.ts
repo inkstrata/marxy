@@ -1,14 +1,13 @@
-// The article, mounted progressively (A-02). One per article: the per-article view of Phase B
-// (`RenderedView`, ADR-0037 as amended) owns it as it stands, and until then app.ts keeps the one for
+// The article, mounted progressively. One per article: the per-article view
+// (`RenderedView`) owns it as it stands, and until then app.ts keeps the one for
 // `#doc` beside the typesetter.
 //
-// A large document is still parsed and rendered once (ADR-0003); what changes is how much of the
+// A large document is still parsed and rendered once; what changes is how much of the
 // rendered HTML is in the page before first text. Only the blocks that fill the first screens (or the
 // screens from a landing byte down) go in at once; the rest is appended below in idle-time chunks, and
 // the grid pass, the typesetter and the reading position work on the part that is there. The reason is
-// the style and layout of the whole article, which at 1 MB cost seconds before anything could paint
-// (docs/research/audit-2026-10/05-performance-audit.md §11.2), and the restyle the bundled fonts force
-// when they arrive, which scales with what is in the article when they do.
+// the style and layout of the whole article, which at 1 MB cost seconds before anything could paint,
+// and the restyle the bundled fonts force when they arrive, which scales with what is in the article when they do.
 //
 // Under the threshold, which every corpus file but the long reference is, the HTML is assigned in one
 // step exactly as before and `complete` resolves at once.
@@ -55,7 +54,7 @@ export interface ProgressiveOptions {
   /** After each append past the first: the top-level elements it added, in order. */
   readonly onChunk?: (added: readonly HTMLElement[]) => void;
   /**
-   * The document already parsed in an inert body, `prepare` already run on it (`parseInertInSlices`, D-15),
+   * The document already parsed in an inert body, `prepare` already run on it (`parseInertInSlices`),
    * when the caller built it a slice at a time. `html` then only says how large the document is.
    */
   readonly parsed?: HTMLElement;
@@ -72,7 +71,7 @@ export const DEFAULT_THRESHOLD = 65_536;
 const DEFAULT_SCREENS = 2;
 /** Nodes moved between height reads while the first screens fill: one layout per batch, not per node. */
 const FILL_BATCH = 16;
-/** Each idle chunk's budget, its moves and the layout they cost together (A-02). */
+/** Each idle chunk's budget, its moves and the layout they cost together. */
 const CHUNK_MS = 8;
 /** How often a held mount (`ProgressiveOptions.hold`) looks again. */
 const HOLD_POLL_MS = 250;
@@ -92,6 +91,16 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
     opts.prepare?.(parsed);
   }
   article.replaceChildren();
+  // A reading set in runs (core's prose, verse and as written past RUN_BLOCKS): its root goes in empty and its runs are
+  // the blocks appended to it, so the root's own head and runs are what the mount counts, measures and moves.
+  let from: HTMLElement = parsed;
+  let into: HTMLElement = article;
+  const root = parsed.firstElementChild;
+  if (root instanceof HTMLElement && root === parsed.lastElementChild && root.classList.contains('marxy-reading-runs')) {
+    into = root.cloneNode(false) as HTMLElement;
+    article.appendChild(into);
+    from = root;
+  }
 
   const screens = opts.screens ?? DEFAULT_SCREENS;
   let cancelled = false;
@@ -106,8 +115,8 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
 
   /** Moves the next node into the article; returns it when it is an element. */
   const moveOne = (): HTMLElement | null => {
-    const node = parsed.firstChild!;
-    article.appendChild(node);
+    const node = from.firstChild!;
+    into.appendChild(node);
     return node instanceof HTMLElement ? node : null;
   };
 
@@ -126,13 +135,13 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
     let target: HTMLElement | null = null;
     if (byte !== undefined) {
       // Already in? Then that block is the target and only the screens below it may be missing.
-      for (const el of article.children) {
+      for (const el of into.children) {
         if (el instanceof HTMLElement && reaches(el, byte)) {
           target = el;
           break;
         }
       }
-      while (target === null && parsed.firstChild !== null) {
+      while (target === null && from.firstChild !== null) {
         const el = moveOne();
         if (el === null) continue;
         added.push(el);
@@ -140,13 +149,13 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
       }
     }
     const need = screens * window.innerHeight;
-    while (parsed.firstChild !== null) {
-      const last = article.lastElementChild;
+    while (from.firstChild !== null) {
+      const last = into.lastElementChild;
       if (last !== null) {
         const top = (target ?? article).getBoundingClientRect().top;
         if (last.getBoundingClientRect().bottom - top >= need) break;
       }
-      for (let i = 0; i < FILL_BATCH && parsed.firstChild !== null; i++) {
+      for (let i = 0; i < FILL_BATCH && from.firstChild !== null; i++) {
         const el = moveOne();
         if (el !== null) added.push(el);
       }
@@ -155,7 +164,7 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
   };
 
   fill(opts.landing);
-  if (parsed.firstChild === null) finish();
+  if (from.firstChild === null) finish();
 
   let perChunk = 32;
   const step = (): void => {
@@ -166,17 +175,17 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
     }
     const t0 = performance.now();
     const added: HTMLElement[] = [];
-    for (let i = 0; i < perChunk && parsed.firstChild !== null; i++) {
+    for (let i = 0; i < perChunk && from.firstChild !== null; i++) {
       const el = moveOne();
       if (el !== null) added.push(el);
     }
     // The layout of what was moved is paid here, inside the chunk's budget, not in the next frame.
-    void article.lastElementChild?.getBoundingClientRect();
+    void into.lastElementChild?.getBoundingClientRect();
     const spent = performance.now() - t0;
     // Size the next chunk so moving and laying it out take about the budget.
     perChunk = Math.max(4, Math.min(4096, Math.round(perChunk * (CHUNK_MS / Math.max(spent, 0.5)))));
     if (added.length > 0) opts.onChunk?.(added);
-    if (parsed.firstChild === null) finish();
+    if (from.firstChild === null) finish();
     else void whenIdle(step);
   };
   if (!done) void Promise.resolve(opts.start).then(() => whenIdle(step), () => whenIdle(step));
@@ -188,7 +197,7 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
       if (cancelled || done) return;
       const added = fill(byte);
       if (added.length > 0) opts.onChunk?.(added);
-      if (parsed.firstChild === null) finish();
+      if (from.firstChild === null) finish();
     },
     cancel() {
       if (done) return;
@@ -196,13 +205,13 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
       parsed.replaceChildren();
       finish();
     },
-    pending: () => (done ? null : parsed),
+    pending: () => (done ? null : from),
   };
 }
 
 /**
  * `pieces` (sanitised html, top-level blocks, in order) parsed into an inert body a few milliseconds at a time,
- * with the event loop given back between slices (D-15): the body `mountProgressively` would have made of the
+ * with the event loop given back between slices: the body `mountProgressively` would have made of the
  * pieces joined by a newline, with `prepare` run on what each slice parsed. For a document too large to parse
  * in one frame while another pane is on screen.
  */

@@ -1,7 +1,7 @@
 // Byte-fidelity gate: opening a document and saving it must put back exactly the bytes that were
-// there, and an edit must change exactly the bytes it names (AGENTS.md non-negotiable 4, ADR-0004).
+// there, and an edit must change exactly the bytes it names.
 //
-// Lives in scripts/ so packages/core never reaches into the shell (ADR-0020). The gate compiles
+// Lives in scripts/ so packages/core never reaches into the shell. The gate compiles
 // apps/desktop/src-tauri/src/atomic_write.rs with a bare rustc — the module depends on std and
 // Linux xattr syscalls declared inline — and drives that exact code over the corpus, so a
 // normalising save turns this red. Deliberately broken copies of the save path prove the gate
@@ -32,16 +32,16 @@ const thisFile = fileURLToPath(import.meta.url);
 /** The two fixtures that exist because every plausible save path gets them wrong. */
 const HARD_FIXTURES = ['12-crlf-and-bom.md', '13-no-trailing-newline.md'];
 
-/** Binary corpus assets referenced by markdown fixtures; not documents and not round-tripped (MARXY-138). */
+/** Binary corpus assets referenced by markdown fixtures; not documents and not round-tripped. */
 const CORPUS_ASSETS = new Set(['image.png']);
 
 /** The signature the gate compiles against; also the anchor the deliberately broken copies patch. */
 const SAVE_SIGNATURE = 'pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), WriteError> {';
 
-/** The create-only write's signature (F-85, ADR-0074); the anchor the deliberately broken copy patches. */
+/** The create-only write's signature; the anchor the deliberately broken copy patches. */
 const WRITE_NEW_SIGNATURE = 'pub fn write_new(path: &Path, bytes: &[u8]) -> Result<(), WriteError> {';
 
-/** Rust tests F-85 shipped for `write_new`: the refusals, the race and the fallbacks. The live list must stay equal or grow. */
+/** Rust tests shipped for `write_new`: the refusals, the race and the fallbacks. The live list must stay equal or grow. */
 const WRITE_NEW_RUST_CASES = [
   'write_new_onto_a_free_name_writes_the_bytes',
   'write_new_onto_an_existing_file_fails_exists_and_the_file_is_unchanged',
@@ -60,8 +60,8 @@ const WRITE_NEW_RUST_CASES = [
   'an_exfat_volume_refuses_with_the_volume_message_and_writes_nothing',
 ];
 
-/** Rust tests MARXY-14 shipped. The live list must stay equal or grow (criterion 2). */
-const MARXY_14_RUST_CASES = [
+/** Rust tests already shipped. The live list must stay equal or grow. */
+const SAVE_PATH_RUST_CASES = [
   'hostile_payloads_survive_a_round_trip',
   'a_new_file_is_created',
   'the_staging_file_is_in_the_destinations_own_directory',
@@ -94,7 +94,7 @@ const bytesOf = (name) => readFileSync(join(corpusDir, name));
 const byteOffsetAt = (text, utf16Offset) => Buffer.byteLength(text.slice(0, utf16Offset), 'utf8');
 
 // ---------------------------------------------------------------------------------------------
-// The gate is this file, and packages/core does not reach into the shell (criterion 1).
+// The gate is this file, and packages/core does not reach into the shell.
 // ---------------------------------------------------------------------------------------------
 
 function checkTheGateIsWhatPnpmRuns() {
@@ -111,14 +111,6 @@ function checkTheGateIsWhatPnpmRuns() {
   }
   if (viaCore && !/scripts\/gate-fidelity\.mjs/.test(core.scripts?.['test:fidelity'] ?? '')) {
     fail('gate: packages/core test:fidelity does not run scripts/gate-fidelity.mjs');
-  }
-}
-
-function checkGatesByPathRoutesFidelity() {
-  const map = JSON.parse(readFileSync(join(repoRoot, 'scripts', 'gates-by-path.json'), 'utf8'));
-  const routed = map['scripts/gate-fidelity.mjs'];
-  if (!Array.isArray(routed) || !routed.includes('gate:fidelity')) {
-    fail('gates-by-path: scripts/gate-fidelity.mjs is not routed to gate:fidelity');
   }
 }
 
@@ -141,12 +133,13 @@ function checkCoreDoesNotReachDesktop() {
       if (!/\.(ts|mts|cts|js|mjs|cjs|json)$/.test(name)) continue;
       const text = readFileSync(path, 'utf8');
       const rel = relative(repoRoot, path);
-      // Tests may quote the path (to forbid it, or to prove a later story may edit it).
+      // Tests may quote the path (to forbid it, or to prove a later change may edit it).
       // Production source and scripts must not reach the shell; that is the inversion
-      // this story moved the gate to end.
+      // this change moved the gate to end.
       if (/\.test\.(ts|mts|cts|js|mjs)$/.test(name)) continue;
       if (/atomic_write\.rs/.test(text)) savePathHits.push(rel);
-      if (/apps\/desktop|@marxy\/desktop/.test(text)) productionHits.push(rel);
+      // A comment may name the shell's path; only a module specifier that reaches it is a dependency.
+      if (/\b(?:from|import|require)\s*\(?\s*['"][^'"\n]*(?:apps\/desktop|@marxy\/desktop)[^'"\n]*['"]/.test(text)) productionHits.push(rel);
     }
   };
   walk(root);
@@ -211,7 +204,8 @@ function buildSavePath(label, patch) {
   writeFileSync(join(dir, 'atomic_write.rs'), patch ? patch(source) : source);
   const driver = join(dir, 'driver.rs');
   writeFileSync(driver, `mod atomic_write;\n\n${DRIVER_MAIN}`);
-  const binary = join(dir, 'driver');
+  // rustc writes the name it is given, and Windows only runs a file that ends in .exe.
+  const binary = join(dir, process.platform === 'win32' ? 'driver.exe' : 'driver');
   const built = spawnSync('rustc', ['--edition', '2021', '-A', 'dead_code', '-o', binary, driver], {
     encoding: 'utf8',
   });
@@ -222,7 +216,7 @@ function buildSavePath(label, patch) {
   return binary;
 }
 
-// `--new` as the third argument drives the create-only write (F-85) instead of the save: exit 3 when it refused because something
+// `--new` as the third argument drives the create-only write instead of the save: exit 3 when it refused because something
 // is at the name (`exists`), 2 for any other failure.
 const DRIVER_MAIN = `fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -251,6 +245,22 @@ function save(binary, source, destination) {
 function createOnly(binary, source, destination) {
   const run = spawnSync(binary, [source, destination, '--new'], { encoding: 'utf8' });
   return { status: run.error ? -1 : run.status, stderr: (run.stderr ?? '').trim() || (run.error?.message ?? '') };
+}
+
+/** Set when the create-only check could not make its file symlinks; the success line then says the symlink cases were skipped. */
+let symlinkCasesSkipped = false;
+
+/**
+ * Creates a file symlink, or returns false when Windows refuses it (no Developer Mode). Any other error is a real failure.
+ */
+function trySymlinkFile(target, path) {
+  try {
+    symlinkSync(target, path);
+    return true;
+  } catch (e) {
+    if (e?.code !== 'EPERM') throw e;
+    return false;
+  }
 }
 
 /**
@@ -288,14 +298,19 @@ function createOnlyRoundTrip(binary, names, label) {
     writeFileSync(real, 'THE FILE THE LINK POINTS AT');
     const link = join(dir, 'a-link.md');
     const dangling = join(dir, 'a-dangling-link.md');
-    symlinkSync(real, link);
-    symlinkSync(join(dir, 'nowhere.md'), dangling);
-    for (const target of [link, dangling]) {
-      const refused = createOnly(binary, join(corpusDir, first), target);
-      if (refused.status !== 3) problems.push(`a symlink at the name was not refused as "exists" (${refused.status}: ${refused.stderr})`);
+    // A junction links only directories, so with symlinks refused there is nothing to copy in their place: a copy is a
+    // plain file and would not test a link. The case is skipped, and says so.
+    if (!trySymlinkFile(real, link) || !trySymlinkFile(join(dir, 'nowhere.md'), dangling)) {
+      symlinkCasesSkipped = true;
+      console.log('fidelity: create-only symlink cases skipped: this machine refuses file symlinks (no Developer Mode), and a junction cannot link a file');
+    } else {
+      for (const target of [link, dangling]) {
+        const refused = createOnly(binary, join(corpusDir, first), target);
+        if (refused.status !== 3) problems.push(`a symlink at the name was not refused as "exists" (${refused.status}: ${refused.stderr})`);
+      }
+      if (readFileSync(real, 'utf8') !== 'THE FILE THE LINK POINTS AT') problems.push('a create-only write went through a symlink');
+      if (existsSync(join(dir, 'nowhere.md'))) problems.push('a create-only write created the file a dangling symlink leads to');
     }
-    if (readFileSync(real, 'utf8') !== 'THE FILE THE LINK POINTS AT') problems.push('a create-only write went through a symlink');
-    if (existsSync(join(dir, 'nowhere.md'))) problems.push('a create-only write created the file a dangling symlink leads to');
   }
   const staging = readdirSync(dir).filter((name) => name.includes('marxy-tmp'));
   if (staging.length > 0) problems.push(`staging files remain: ${staging.join(', ')}`);
@@ -330,7 +345,7 @@ function roundTrip(binary, names, label) {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Editing is transformation over byte ranges (ADR-0004), so a save after an edit has to be faithful
+ * Editing is transformation over byte ranges, so a save after an edit has to be faithful
  * everywhere the edit is not. The interesting fixture is the CRLF-and-BOM one, where an offset taken
  * from a JavaScript string is not the byte offset and the naive version would cut the document apart
  * in the wrong place.
@@ -369,7 +384,7 @@ function saveSpliced(binary, dir, file, original, start, end, replacement, label
 }
 
 /**
- * The section moves (W-10) as edits: for each corpus file that is a sections fixture, each top-level heading moved up and moved down
+ * The section moves as edits: for each corpus file that is a sections fixture, each top-level heading moved up and moved down
  * by the real operations (`move-section-up`, `move-section-down`), as the range they cover and the replacement they give. The gate
  * saves each through the real save path, so a move that touched a byte outside its two sections, lost the final line ending of a file
  * that had none, or changed a CRLF turns it red. Empty when the fixtures are not in the corpus (`checkCorpusPreconditions` says so).
@@ -401,78 +416,6 @@ async function sectionMoveEdits() {
   return out;
 }
 
-/**
- * The front-matter value edits (W-17) as edits: each editable key of every corpus file that has front matter, and of eighty
- * generated YAML and TOML front matters (CRLF, lone CR, mixed endings, a BOM; quoted, commented), set by the real operation
- * (`setFrontMatterValue`) to an awkward value. Each is held to the operation's own property before it is saved (`problemsWith`:
- * the splice is the value's token on one line, every other line and the body are byte for byte as they were, every other key
- * reads the same, this one reads as asked, and K-20's row reader and a TOML parser agree), and then saved through the real save
- * path like every other edit. The check is proved able to fail on a tampered edit.
- */
-async function frontMatterValueEdits() {
-  const load = (path) => import(pathToFileURL(join(repoRoot, 'packages', 'core', 'src', path)).href);
-  const [{ parseMarkdown }, { frontMatterValues, setFrontMatterValue }, docs] = await Promise.all([
-    load('parse/parse.ts'),
-    load('operations/front-matter-value.ts'),
-    load('operations/testing/front-matter-docs.ts'),
-  ]);
-  const out = [];
-  const add = (file, original, key, value) => {
-    const doc = parseMarkdown(new Uint8Array(original), { file });
-    const edit = setFrontMatterValue(doc, new Uint8Array(original), key, value);
-    if (!edit.ok) {
-      fail(`edit: ${file}: set-front-matter-value refused ${key} (${edit.reason}), which it lists as editable`);
-      return;
-    }
-    if (edit.unchanged) return;
-    const format = original.subarray(original[0] === 0xef ? 3 : 0, original[0] === 0xef ? 6 : 3).toString() === '+++' ? 'toml' : 'yaml';
-    for (const problem of docs.problemsWith(new Uint8Array(original), key, value, edit, format)) fail(`edit: ${file}: setting ${key} to ${JSON.stringify(value)}: ${problem}`);
-    out.push({ file, original, label: `${file} (set ${key})`, start: edit.range.start, end: edit.range.end, replacement: Buffer.from(edit.replacement, 'utf-8') });
-  };
-  for (const file of corpus.filter((name) => name.endsWith('.md'))) {
-    const original = bytesOf(file);
-    const shown = frontMatterValues(parseMarkdown(new Uint8Array(original), { file }), new Uint8Array(original));
-    if (shown === null) continue;
-    for (const row of shown.values) {
-      if (row.refusal !== null) continue;
-      add(file, original, row.key, 'Edited');
-      add(file, original, row.key, 'a: "q" # x');
-    }
-  }
-  const fromCorpus = out.length;
-  for (let seed = 1; seed <= 80; seed++) {
-    const generated = docs.generateDoc(seed);
-    const original = Buffer.from(generated.source, 'utf-8');
-    generated.entries.forEach((entry, i) => {
-      if (entry.editable) add(`fm-generated-${seed}-${i}.md`, original, entry.key, docs.NEW_VALUES[(seed * 7 + i * 13) % docs.NEW_VALUES.length]);
-    });
-  }
-  if (fromCorpus === 0) fail('edit: no corpus file has an editable front-matter value, so the corpus half of the front-matter edits tests nothing');
-  if (out.length - fromCorpus < 80) fail(`edit: only ${out.length - fromCorpus} generated front-matter edits were made; the generator or the operation changed`);
-  // The check can fail: an edit that eats the line ending after its value, or changes the next line too, is seen.
-  const probe = Buffer.from('---\r\ntitle: Old\r\nb: 1\r\n---\r\nBody\r\n');
-  const probeDoc = parseMarkdown(new Uint8Array(probe), { file: 'probe.md' });
-  const good = setFrontMatterValue(probeDoc, new Uint8Array(probe), 'title', 'New');
-  if (!good.ok || docs.problemsWith(new Uint8Array(probe), 'title', 'New', good, 'yaml').length !== 0) fail('selftest: the front-matter edit check does not accept a correct edit');
-  else {
-    const tampered = { ...good, range: { ...good.range, end: good.range.end + 2 }, replacement: 'New\n' };
-    if (docs.problemsWith(new Uint8Array(probe), 'title', 'New', tampered, 'yaml').length === 0) fail('selftest: an edit that replaced a CRLF with an LF passed the front-matter edit check; this gate proves nothing');
-  }
-  return out;
-}
-
-function checkFrontMatterEditsAreSpliced(binary, edits) {
-  const dir = join(work, 'front-matter');
-  mkdirSync(dir, { recursive: true });
-  let held = 0;
-  for (const { file, original, label, start, end, replacement } of edits) {
-    if (saveSpliced(binary, dir, file, original, start, end, replacement, label)) held++;
-  }
-  if (edits.length > 0 && held === edits.length) {
-    console.log(`fidelity: save-after-front-matter-edit — ${held} value edits (set-front-matter-value; YAML and TOML, quoted and commented, CRLF, CR and BOM) change that value's bytes and nothing else, leave every other key and the body as they were, and save that way (W-17)`);
-  }
-}
-
 function checkEditedDocumentIsSpliced(binary, moves) {
   const dir = join(work, 'edited');
   mkdirSync(dir, { recursive: true });
@@ -498,7 +441,7 @@ function checkEditedDocumentIsSpliced(binary, moves) {
   }
   if (edited > 0) {
     console.log(
-      `fidelity: save-after-operation — an edited document saves its spliced range and nothing else (${edited} documents, byte offsets over UTF-16 ones; MARXY-49)`,
+      `fidelity: save-after-operation — an edited document saves its spliced range and nothing else (${edited} documents, byte offsets over UTF-16 ones)`,
     );
   }
 
@@ -508,7 +451,7 @@ function checkEditedDocumentIsSpliced(binary, moves) {
   }
   if (moves.length === 0) fail('edit: no section move was made over the sections fixtures, so the move-section operations are not under the gate');
   else if (movedOk === moves.length) {
-    console.log(`fidelity: save-after-move — ${movedOk} section moves (move-section-up, move-section-down) over ${new Set(moves.map((m) => m.file)).size} fixtures save their two sections and nothing else, and keep the last byte and the line endings (W-10)`);
+    console.log(`fidelity: save-after-move — ${movedOk} section moves (move-section-up, move-section-down) over ${new Set(moves.map((m) => m.file)).size} fixtures save their two sections and nothing else, and keep the last byte and the line endings`);
   }
 
   // The CRLF-and-BOM fixture must genuinely punish an offset taken from the decoded string, or the
@@ -565,7 +508,7 @@ function checkTheGateWouldCatchANormalisingSave() {
 }
 
 /**
- * A create-only write that replaces (no look, and a plain `rename` for the exclusive one) is the bug F-85 closes. The gate must see
+ * A create-only write that replaces (no look, and a plain `rename` for the exclusive one) is the bug this closes. The gate must see
  * it: the same driver, compiled from a patched copy, has to fail the create-only check, or that check proves nothing.
  */
 function checkTheGateWouldCatchAReplacingCreate() {
@@ -573,6 +516,20 @@ function checkTheGateWouldCatchAReplacingCreate() {
   if (!source.includes(WRITE_NEW_SIGNATURE) || !source.includes('refuse_taken_name(path)?;') || !source.includes('&exclusive::rename,')) {
     fail(`gate: write_new no longer has the shape the selftest patches (${WRITE_NEW_SIGNATURE}, refuse_taken_name, exclusive::rename)`);
     return;
+  }
+  // Each patch must land inside write_new and nowhere else: a second match earlier in the file (another caller of the
+  // exclusive rename, or a comment quoting it) would break that one instead and leave write_new unpatched.
+  const start = source.indexOf(WRITE_NEW_SIGNATURE);
+  const end = source.indexOf('\n}\n', start);
+  // The module's own code, before its tests (which call the exclusive rename themselves).
+  const code = source.slice(0, source.search(/\n#\[cfg\(test\)\]\nmod /));
+  for (const target of ['refuse_taken_name(path)?;', '&exclusive::rename,']) {
+    const count = code.split(target).length - 1;
+    const at = source.indexOf(target);
+    if (count !== 1 || at < start || at > end) {
+      fail(`gate: \`${target}\` must appear exactly once in the module's code, inside write_new (found ${count}${count > 0 ? `, first at offset ${at}, write_new spans ${start}..${end}` : ''}); the selftest would patch the wrong code`);
+      return;
+    }
   }
   const binary = buildSavePath('replacing-create', (text) =>
     text.replace('refuse_taken_name(path)?;', '').replace('&exclusive::rename,', '&|from, to| fs::rename(from, to),'),
@@ -586,12 +543,12 @@ function checkTheGateWouldCatchAReplacingCreate() {
 function checkWriteNewCasesSurvived(source) {
   const names = rustTestNames(source);
   const missing = WRITE_NEW_RUST_CASES.filter((name) => !names.includes(name));
-  if (missing.length > 0) fail(`cases: F-85 create-only tests missing: ${missing.join(', ')}`);
-  else console.log(`fidelity: create-only case list is ${WRITE_NEW_RUST_CASES.length} of ${names.length} save-path tests (F-85)`);
+  if (missing.length > 0) fail(`cases: create-only tests missing: ${missing.join(', ')}`);
+  else console.log(`fidelity: create-only case list is ${WRITE_NEW_RUST_CASES.length} of ${names.length} save-path tests`);
 }
 
 // ---------------------------------------------------------------------------------------------
-// MARXY-14's case list survived the move (criterion 2).
+// The case list survived the move.
 // ---------------------------------------------------------------------------------------------
 
 function rustTestNames(source) {
@@ -600,17 +557,17 @@ function rustTestNames(source) {
 
 function checkMarxy14CasesSurvived(source) {
   const names = rustTestNames(source);
-  const missing = MARXY_14_RUST_CASES.filter((name) => !names.includes(name));
+  const missing = SAVE_PATH_RUST_CASES.filter((name) => !names.includes(name));
   if (missing.length > 0) {
-    fail(`cases: MARXY-14 tests missing after the move: ${missing.join(', ')}`);
+    fail(`cases: save-path tests missing: ${missing.join(', ')}`);
   }
-  if (names.length < MARXY_14_RUST_CASES.length) {
-    fail(`cases: save-path tests shrank from ${MARXY_14_RUST_CASES.length} to ${names.length}`);
+  if (names.length < SAVE_PATH_RUST_CASES.length) {
+    fail(`cases: save-path tests shrank from ${SAVE_PATH_RUST_CASES.length} to ${names.length}`);
   } else {
-    console.log(`fidelity: save-path case list is ${names.length} (MARXY-14 had ${MARXY_14_RUST_CASES.length})`);
+    console.log(`fidelity: save-path case list is ${names.length} (at least ${SAVE_PATH_RUST_CASES.length} required)`);
   }
   const mutantNames = NORMALISATIONS.map((n) => n.name);
-  if (mutantNames.length < 3) fail('cases: the three MARXY-14 normalising mutants are gone');
+  if (mutantNames.length < 3) fail('cases: the three normalising mutants are gone');
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -652,7 +609,7 @@ function runSavePathUnitTests() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Linux xattr skip cannot become the silent default (criterion 3).
+// Linux xattr skip cannot become the silent default.
 // ---------------------------------------------------------------------------------------------
 
 function linuxXattrTestBody(source) {
@@ -769,54 +726,11 @@ function checkRefuseOwnershipChangeIsProved(source) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// ADR-0020 records how a gate may test shell-owned code (criterion 5).
-// ---------------------------------------------------------------------------------------------
-
-function checkAdr0020RecordsHowAGateMayTestShell() {
-  const adrPath = join(repoRoot, 'docs', 'adr', '0020-core-is-shell-free.md');
-  const invented = join(repoRoot, 'docs', 'adr', '0020-shell-boundary.md');
-  if (existsSync(invented)) {
-    fail('adr-0020: docs/adr/0020-shell-boundary.md exists; that would be a second ADR-0020');
-  }
-  if (!existsSync(adrPath)) {
-    fail('adr-0020: docs/adr/0020-core-is-shell-free.md is missing');
-    return;
-  }
-  const adr = readFileSync(adrPath, 'utf8');
-  const decision = (adr.split('## Decision')[1] || '').split('## ')[0];
-  if (
-    !/apps\/desktop/.test(decision) ||
-    !/@tauri-apps\/\*/.test(decision) ||
-    !/packages\/shell-api/.test(decision)
-  ) {
-    fail('adr-0020: the Decision no longer says core and typeset never import the shell');
-  }
-  if (!/Amendment 1/.test(adr) || !/2026-09-18/.test(adr)) {
-    fail('adr-0020: missing dated Amendment 1 (2026-09-18)');
-  }
-  if (!/no longer true of fidelity/.test(adr)) {
-    fail('adr-0020: Amendment 1 does not replace the Why claim that byte-fidelity tests run in Node without a shell');
-  }
-  if (!/scripts\/gate-fidelity\.mjs/.test(adr) || !/compile and drive/.test(adr)) {
-    fail('adr-0020: does not record that scripts/gate-fidelity.mjs may compile and drive apps/desktop source');
-  }
-  if (!/must not live under `packages\/core`/.test(adr)) {
-    fail('adr-0020: does not record that the gate must not live under packages/core');
-  }
-  const readme = readFileSync(join(repoRoot, 'docs', 'adr', 'README.md'), 'utf8');
-  if (!/\[0020\]\(0020-core-is-shell-free\.md\).*\baccepted\b/.test(readme)) {
-    fail('adr-0020: docs/adr/README.md no longer lists ADR-0020 as accepted');
-  } else {
-    console.log('fidelity: ADR-0020 stays accepted and records how a gate may test shell-owned code');
-  }
-}
-
-// ---------------------------------------------------------------------------------------------
 // The shell never turns a document into text.
 // ---------------------------------------------------------------------------------------------
 
 /**
- * The one file allowed to encode: `clipboard.ts` (ADR-0065 §2, J-02). A clipboard representation is
+ * The one file allowed to encode: `clipboard.ts`. A clipboard representation is
  * text the reader copied, never a document's bytes, and the native `pasteboard_write` and
  * `pasteboard_read` commands carry it as a string. Every other shell file, tests included, reaches
  * UTF-8 through that file. Adding a name here widens the gate; the self-check below pins it.
@@ -856,9 +770,7 @@ function checkTheShellKeepsBytes() {
 // ---------------------------------------------------------------------------------------------
 
 checkTheGateIsWhatPnpmRuns();
-checkGatesByPathRoutesFidelity();
 checkCoreDoesNotReachDesktop();
-checkAdr0020RecordsHowAGateMayTestShell();
 checkSavePathTestsShowMarkers();
 checkCorpusPreconditions();
 checkTheShellKeepsBytes();
@@ -882,10 +794,10 @@ if (savePath) {
   const refused = createOnlyRoundTrip(savePath, corpus, 'faithful');
   for (const problem of refused) fail(`create-only: ${problem}`);
   if (refused.length === 0) {
-    console.log(`fidelity: ${corpus.length} corpus files are created byte-identically at a free name by the create-only write (write_new), refused "exists" at a taken one, and a symlink or dangling symlink is never written through (F-85)`);
+    const linkNote = symlinkCasesSkipped ? ' (symlink cases skipped, see above)' : ', and a symlink or dangling symlink is never written through';
+    console.log(`fidelity: ${corpus.length} corpus files are created byte-identically at a free name by the create-only write (write_new), refused "exists" at a taken one${linkNote}`);
   }
   checkEditedDocumentIsSpliced(savePath, await sectionMoveEdits());
-  checkFrontMatterEditsAreSpliced(savePath, await frontMatterValueEdits());
   checkTheGateWouldCatchANormalisingSave();
   checkTheGateWouldCatchAReplacingCreate();
 }

@@ -1,0 +1,16 @@
+{
+  "name": "tidemark",
+  "version": "0.5.0",
+  "released": "2026-10-20",
+  "channels": ["stable", "nightly"],
+  "artifacts": [
+    { "target": "aarch64-apple-darwin", "file": "tidemark-0.5.0-macos-arm64.tar.gz", "bytes": 3951104, "sha256": "4be1d0c97a6e2f1b8c35d7e90a4f6b21c8d3e5f7a9b0c1d2e3f405162738495a" },
+    { "target": "x86_64-apple-darwin", "file": "tidemark-0.5.0-macos-x64.tar.gz", "bytes": 4183552, "sha256": "9f1c2a7e4b6d8f0a1c3e5a7b9d1f3e5c7a9b1d3f5e7c9a1b3d5f7e9a1c3b5d7f" },
+    { "target": "x86_64-unknown-linux-gnu", "file": "tidemark-0.5.0-linux-x64.tar.gz", "bytes": 4402176, "sha256": "0d2f4b6a8c1e3a5c7e9b1d3f5a7c9e1b3d5f7a9c1e3b5d7f9a1c3e5b7d9f1a3c" },
+    { "target": "x86_64-pc-windows-msvc", "file": "tidemark-0.5.0-windows-x64.zip", "bytes": 4710400, "sha256": "7a9c1e3b5d7f9a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9b1d3f5a7c9e1b3d5f7a9c" }
+  ],
+  "checks": { "tests": 412, "failed": 0, "ignored": 3, "duration_s": 96.4 },
+  "notes": "Incremental indexing is on by default. A full rebuild runs only when the journal cannot be trusted.",
+  "yanked": false,
+  "previous": null
+}

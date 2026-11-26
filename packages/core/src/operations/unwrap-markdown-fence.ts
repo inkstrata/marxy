@@ -1,4 +1,4 @@
-// Unwrap a `markdown`-fenced document (E-06): the two fence lines go, every content byte stays.
+// Unwrap a `markdown`-fenced document: the two fence lines go, every content byte stays.
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 import { lineStartAt } from '../sourcemap/index.ts';
 import { sliceByBytes } from './text-helpers.ts';

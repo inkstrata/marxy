@@ -1,4 +1,4 @@
-// Source-map resolution over the AST: section ranges and block lookup at a byte (MARXY-41).
+// Source-map resolution over the AST: section ranges and block lookup at a byte.
 
 export { nodeAt, sectionRange } from './section.ts';
 export { blockEditRange } from './edit-range.ts';

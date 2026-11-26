@@ -1,4 +1,4 @@
-// Resolves EditorConfig tab width for Source mode and Rendered code (reader-artifacts handbook §04, V-16).
+// Resolves EditorConfig tab width for Source mode and Rendered code.
 // Follows https://spec.editorconfig.org: matching sections merge in file order and the later one wins,
 // files nearer the document win over those above, `root = true` stops the walk, and the walk never
 // leaves the indexed root (which already ends at a `.git`).
@@ -12,7 +12,7 @@ export interface EditorConfigSection {
   readonly tabWidth?: number;
   readonly indentSize?: number | 'tab';
   readonly indentStyle?: string;
-  /** `max_line_length` as a number of columns; `off` and `unset` are none (V-08: the Source column guide follows it). */
+  /** `max_line_length` as a number of columns; `off` and `unset` are none (the Source column guide follows it). */
   readonly maxLineLength?: number;
 }
 
@@ -306,7 +306,7 @@ export async function resolveTabWidth(
   return tabSizeFromSection(await resolveSettings(filePath, indexedRoot, readText, cache));
 }
 
-/** The file's `max_line_length` in columns, or null when no section gives one (V-08: the Source column guide). */
+/** The file's `max_line_length` in columns, or null when no section gives one (the Source column guide). */
 export async function resolveMaxLineLength(
   filePath: string,
   indexedRoot: string,

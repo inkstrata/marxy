@@ -1,5 +1,5 @@
-// Close while dirty: one notice, not a modal (docs/design/01-buffer.md, MARXY-49). Opening another
-// document while dirty takes the same path (MARXY-337). With two panes (D-08) the guard is per document:
+// Close while dirty: one notice, not a modal. Opening another
+// document while dirty takes the same path. With two panes the guard is per document:
 // the notice names the document being left, sits in the pane that shows it and saves that document;
 // quitting asks about each unsaved document in turn; closing a pane asks about its document.
 import { flushVersions } from './versions/recorder.ts';
@@ -33,6 +33,12 @@ export interface CloseGuardHost {
   panes(): readonly GuardPane[];
 }
 
+/** Stores with unsaved changes held outside the panes: the left section's staged files, which name themselves (left/held.ts). */
+let heldOutside: () => readonly DocumentStore[] = () => [];
+export function holdOutsidePanes(stores: () => readonly DocumentStore[]): void {
+  heldOutside = stores;
+}
+
 /** An unsaved document the guard asks about, and the pane its notice goes in. */
 export interface DirtyDocument {
   readonly store: DocumentStore;
@@ -45,6 +51,10 @@ export interface DirtyDocument {
   fold(): Promise<void>;
   /** Every other pane's Source text for it goes into the store, then it is saved through `pane`. */
   save(): Promise<SaveResult>;
+  /** Several stores asked about at once (the held files no pane shows): each is answered with the one question. */
+  readonly stores?: readonly DocumentStore[];
+  /** The question's sentence, where "<name> has changes that are not saved." does not fit. */
+  readonly sentence?: string;
 }
 
 interface Prompt {
@@ -84,7 +94,7 @@ function documentOf(pane: GuardPane, all: readonly GuardPane[]): DirtyDocument |
     },
     async save() {
       for (const p of showing()) await p.content.foldSource();
-      // A pane still holding Source text the store lacks (held apart from another pane's fold, D-11) would
+      // A pane still holding Source text the store lacks (held apart from another pane's fold) would
       // lose it to whatever is written: the save, and so the prompt's open or close, stops.
       if (showing().some((p) => p.view.sourceHasUnfoldedEdits())) {
         notify({ kind: 'refused', text: SOURCE_HELD_APART }, { pane: pane.host });
@@ -113,6 +123,42 @@ export function dirtyDocuments(panes: readonly GuardPane[]): DirtyDocument[] {
   return out;
 }
 
+/** Every unsaved document of the window: the panes', then the held stores no pane shows, asked about in the first pane. */
+function unsavedOf(host: CloseGuardHost): DirtyDocument[] {
+  const panes = host.panes();
+  const out = dirtyDocuments(panes);
+  const first = panes[0];
+  if (!first) return out;
+  const unseen = heldOutside().filter((store) => !panes.some((p) => p.content.store() === store) && store.snapshot().dirty);
+  if (unseen.length === 0) return out;
+  // Asked about once, every one of them named: none is in front of the reader to be asked about on its own.
+  const names = unseen.map((s) => documentName(s.snapshot().path) || 'a document');
+  out.push({
+    store: unseen[0]!,
+    stores: unseen,
+    path: unseen[0]!.snapshot().path,
+    name: names.join(', '),
+    sentence:
+      unseen.length === 1
+        ? `${names[0]} has changes that are not saved, and no pane shows it.`
+        : `${unseen.length} files no pane shows have changes that are not saved: ${names.join(', ')}.`,
+    pane: first,
+    isDirty: () => unseen.some((s) => s.snapshot().dirty),
+    fold: async () => {},
+    async save() {
+      let result: SaveResult = 'unchanged';
+      for (const s of unseen) {
+        if (!s.snapshot().dirty) continue;
+        const r = await s.save();
+        if (r.result === 'failed') return 'failed';
+        result = 'saved';
+      }
+      return result;
+    },
+  });
+  return out;
+}
+
 /**
  * What `pane` would lose by no longer showing its document: the document, when it is unsaved and no other
  * pane shows it, or when this pane holds Source text not yet in the store. Null when nothing would be lost.
@@ -120,7 +166,7 @@ export function dirtyDocuments(panes: readonly GuardPane[]): DirtyDocument[] {
 function lostByLeaving(pane: GuardPane, panes: readonly GuardPane[]): DirtyDocument | null {
   if (!pane.content.hasUnsavedChanges()) return null;
   const store = pane.content.store();
-  const elsewhere = store !== null && panes.some((p) => p !== pane && p.content.store() === store);
+  const elsewhere = store !== null && (panes.some((p) => p !== pane && p.content.store() === store) || heldOutside().includes(store));
   const unfolded = pane.view.sourceHasUnfoldedEdits();
   // Shown in another pane, the store stays, edits and all: only text typed here and not folded would go.
   if (elsewhere && !unfolded) return null;
@@ -138,13 +184,18 @@ interface Walk {
 
 let walk: Walk | null = null;
 
-const unanswered = (w: Walk, doc: DirtyDocument): boolean => w.discarded.get(doc.store) !== doc.store.snapshot().version;
+const unanswered = (w: Walk, doc: DirtyDocument): boolean => (doc.stores ?? [doc.store]).some((s) => w.discarded.get(s) !== s.snapshot().version);
 
-export function installCloseGuard(host: CloseGuardHost): void {
-  if (typeof window === 'undefined' || !host.shell.onCloseRequested) return;
+/** The window goes; the look a moment ago chosen is written by the shell's close, within its bound (app.ts, flushingOnExit). */
+async function closeWindow(host: CloseGuardHost): Promise<void> {
+  await host.shell.confirmClose();
+}
+
+export function installCloseGuard(host: CloseGuardHost): () => void {
+  if (typeof window === 'undefined' || !host.shell.onCloseRequested) return () => {};
   installed = host;
   walk = null;
-  host.shell.onCloseRequested(() => {
+  const offClose = host.shell.onCloseRequested(() => {
     const current = walk;
     if (current) {
       // A walk is under way: never a second one. A second close request while the notice up is the last
@@ -157,21 +208,29 @@ export function installCloseGuard(host: CloseGuardHost): void {
       // the walk goes on to ask about it once this notice is answered.
       const unfolded = (d: DirtyDocument): boolean =>
         panes.some((p) => p.content.store() === d.store && p.view.sourceHasUnfoldedEdits());
-      const rest = dirtyDocuments(panes).filter((d) => d.store !== shown && (unanswered(current, d) || unfolded(d)));
+      const rest = unsavedOf(host).filter((d) => d.store !== shown && (unanswered(current, d) || unfolded(d)));
       if (rest.length > 0) return;
       walk = null;
       notice.line.remove();
-      void host.shell.confirmClose();
+      void closeWindow(host);
       return;
     }
-    if (dirtyDocuments(host.panes()).length === 0) {
-      void host.shell.confirmClose();
+    if (unsavedOf(host).length === 0) {
+      void closeWindow(host);
       return;
     }
     const started: Walk = { discarded: new Map() };
     walk = started;
     void askNext(host, started);
   });
+  // Only if still this host's: a newer boot's guard is not cleared by the one it replaced.
+  return () => {
+    offClose();
+    if (installed === host) {
+      installed = null;
+      walk = null;
+    }
+  };
 }
 
 /**
@@ -183,10 +242,10 @@ async function askNext(host: CloseGuardHost, current: Walk): Promise<void> {
   // Source text typed in any pane goes into its store, so a store's version covers it.
   for (const pane of host.panes()) await pane.content.foldSource();
   if (walk !== current) return;
-  const doc = dirtyDocuments(host.panes()).find((d) => unanswered(current, d));
+  const doc = unsavedOf(host).find((d) => unanswered(current, d));
   if (!doc) {
     walk = null;
-    void host.shell.confirmClose();
+    void closeWindow(host);
     return;
   }
   showPrompt({
@@ -196,7 +255,7 @@ async function askNext(host: CloseGuardHost, current: Walk): Promise<void> {
     discardLabel: 'Close without saving',
     async discarded() {
       await doc.fold();
-      current.discarded.set(doc.store, doc.store.snapshot().version);
+      for (const s of doc.stores ?? [doc.store]) current.discarded.set(s, s.snapshot().version);
     },
     proceed: () => askNext(host, current),
     stop: () => {
@@ -223,7 +282,7 @@ export function confirmLeaveDocument(view: object, proceed: () => void | Promise
 }
 
 /**
- * Closing `pane` (`PaneSet.close`, D-08). Resolves true when nothing would be lost — the document is clean,
+ * Closing `pane` (`PaneSet.close`). Resolves true when nothing would be lost — the document is clean,
  * or another pane shows it (Source text typed here goes into its store first) — or once the reader has
  * chosen save or discard in the notice in that pane; false when they dismiss it or the save did not happen.
  */
@@ -248,8 +307,7 @@ export async function confirmClosePane(pane: GuardPane): Promise<boolean> {
 
 /**
  * Takes down the question over unsaved edits that closing `pane` put up, if it is still up: the close it held is
- * refused, as by Dismiss. For a close that no longer needs asking (a pane given back by a narrow window, F-106.1,
- * once the window is wide again).
+ * refused, as by Dismiss. For a close that no longer needs asking (a pane given back by a narrow window, * once the window is wide again).
  */
 export function withdrawClosePrompt(pane: GuardPane): void {
   if (noticeIsUp() && notice?.prompt.kind === 'pane' && notice.prompt.doc.pane === pane) notice.stop();
@@ -266,7 +324,7 @@ export interface GuardedPaneSet<P extends GuardPane> {
  * Closing a pane asks about its document (`confirmClosePane`) through the set's `beforeReplace`, and a
  * close refused for any reason but the reader's Dismiss says why in that pane. An open into an occupied
  * pane is let through `beforeReplace`: its open path asks in that pane (`confirmLeaveDocument`) and
- * `openIn` resolves at the notice, as D-01 specified.
+ * `openIn` resolves at the notice.
  */
 export function guardPaneClose<P extends GuardPane & { path(): string | null }>(set: GuardedPaneSet<P>): void {
   const close = set.close.bind(set);
@@ -299,7 +357,7 @@ export function guardPaneClose<P extends GuardPane & { path(): string | null }>(
   };
 }
 
-/** Why a pane the reader asked to close is still there, said in that pane (the D-01 review). */
+/** Why a pane the reader asked to close is still there, said in that pane. */
 export function showCloseRefused(pane: Pick<GuardPane, 'host'>, reason: string): void {
   placeNotice(ensureNoticesRegion(pane.host), noticeLine({ kind: 'refused', text: `This pane stays open: ${reason}` }));
 }
@@ -328,11 +386,11 @@ function showPrompt(prompt: Prompt): void {
     prompt.stop?.();
   }
 
-  // A decision (U-02): it stays until answered, takes focus on its first button, and is answered from the keyboard.
+  // A decision: it stays until answered, takes focus on its first button, and is answered from the keyboard.
   // Dismiss, and Esc on it, stop the action (`stop`), as the button always has.
   const line = noticeLine({
     kind: 'decision',
-    text: `${doc.name} has changes that are not saved.`,
+    text: doc.sentence ?? `${doc.name} has changes that are not saved.`,
     onDismiss: stop,
     actions: [
       {
@@ -349,7 +407,7 @@ function showPrompt(prompt: Prompt): void {
             // would drop it. Ask again.
             if (doc.isDirty()) showPrompt(prompt);
             else {
-              // Local versions (V-06): the copies queued for this document finish (at most a moment) before the window goes on.
+              // Local versions: the copies queued for this document finish (at most a moment) before the window goes on.
               await flushVersions();
               await prompt.proceed();
             }

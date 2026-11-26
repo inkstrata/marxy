@@ -1,4 +1,4 @@
-// D-15: a store opened over a parse and node map built in slices is the store opened over the whole parse:
+// a store opened over a parse and node map built in slices is the store opened over the whole parse:
 // the same snapshot, the same map in the same order, and an edit applied to it behaves as on the other.
 
 import { test } from 'node:test';
@@ -35,4 +35,36 @@ test('a store over a parse and node map made in slices equals the store that par
   assert.equal(await sliced.apply(edit), true);
   assert.equal(await whole.apply(edit), true);
   assert.equal(JSON.stringify(sliced.snapshot().ast), JSON.stringify(whole.snapshot().ast));
+});
+
+test('a lazy store takes a parse made in slices only for its bytes, only once, and never once closed', async () => {
+  const file = '/r/lazy.md';
+  const text = '# One\n\nText.\n';
+  const made = async (b: Uint8Array) => {
+    const ast = await parseMarkdownChunked(b, { file, yieldNow });
+    return { ast, nodeMap: await buildNodeMapInSlices(ast, yieldNow) };
+  };
+  const lazy = () => openDocumentStore(io, file, new TextEncoder().encode(text), undefined, { lazy: true });
+  const held = (store: ReturnType<typeof lazy>) => store.snapshot().buffer.bytes;
+
+  const other = lazy();
+  const copy = new TextEncoder().encode(text);
+  assert.equal(other.takeParse(copy, await made(copy)), false, 'equal bytes are not the bytes it holds');
+
+  const edited = lazy();
+  const before = held(edited);
+  const parse = await made(before);
+  assert.equal(await edited.apply({ range: { file, start: 0, end: 0 }, replacement: 'X', label: 'edit' }), true);
+  assert.equal(edited.takeParse(before, parse), false, 'the bytes changed while the slices ran');
+  assert.equal(edited.parsed(), false);
+
+  const closed = lazy();
+  const late = await made(held(closed));
+  closed.close();
+  assert.equal(closed.takeParse(held(closed), late), false, 'closed while the slices ran');
+
+  const open = lazy();
+  assert.equal(open.takeParse(held(open), await made(held(open))), true);
+  assert.equal(open.parsed(), true);
+  assert.equal(open.takeParse(held(open), await made(held(open))), false, 'only once');
 });

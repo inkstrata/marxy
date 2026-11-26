@@ -1,6 +1,5 @@
-// The library's shape and the fidelity property over every entry (J-03; ADR-0004, ADR-0065 item 4).
+// The library's shape and the fidelity property over every entry.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { parseMarkdown } from '../parse/parse.ts';
 import { corpusDocuments } from '../operations/testing/corpus.ts';
@@ -11,17 +10,10 @@ import { CATALOGUE, DEFINITION_IDS, NOT_YET, TRANSFORMS, runTransform, transform
 import ids from './ids.json' with { type: 'json' };
 import { nodesOf } from './prose.ts';
 
-const MOCK = new URL('../../../../docs/plan/direction-2026-10/mock-v2/06-clipboard.md', import.meta.url);
-
-test('the catalogue is the mockup\'s table: 50 ids and names, in order, each once', () => {
-  const table = readFileSync(MOCK, 'utf8')
-    .split('\n')
-    .filter((l) => /^\| (Clean|Convert|Lines|Case|Extract) \| `/.test(l))
-    .map((l) => l.split('|').map((c) => c.trim()))
-    .map((c) => ({ id: c[2]!.replaceAll('`', ''), name: c[3]!, group: c[1]! }));
-  assert.equal(table.length, 50);
-  assert.deepEqual(ids, table);
+test('the catalogue is ids.json: 50 ids and names, in order, each once', () => {
+  assert.equal(ids.length, 50);
   assert.equal(new Set(ids.map((e) => e.id)).size, 50, 'an id appears twice');
+  for (const e of ids) assert.ok(e.id && e.name && e.group, `${JSON.stringify(e)}: id, name and group`);
   assert.deepEqual(CATALOGUE, ids);
 });
 
@@ -141,7 +133,7 @@ test('mixed endings: every transform keeps each line\'s own ending', () => {
   }
 });
 
-// F-51: a block nested in a list or quote starts after its container's indent; the whole line, from its line start,
+// a block nested in a list or quote starts after its container's indent; the whole line, from its line start,
 // is the code's, so a prose transform that strips or rewrites the bytes before the block is a failure.
 function codeBlockRuns(text: string): string[][] {
   const doc = parseMarkdown(new TextEncoder().encode(text), { file: 'x' });
@@ -169,7 +161,7 @@ function assertCodeLinesKept(id: string, fn: (s: string) => string): void {
 }
 
 for (const t of TRANSFORMS.filter((x) => x.outsideCode)) {
-  test(`${t.id}: code nested in a list or quote keeps its lines from their line start (F-51)`, () => {
+  test(`${t.id}: code nested in a list or quote keeps its lines from their line start`, () => {
     assertCodeLinesKept(t.id, t.fn);
     assertCodeLinesKept(`${t.id} (CRLF)`, (s) => t.fn(crlf(s)).replace(/\r\n/g, '\n'));
   });

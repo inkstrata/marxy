@@ -1,4 +1,4 @@
-// The reader's place across modes, quit, reopen, a reload in Source and a resize (F-04).
+// The reader's place across modes, quit, reopen, a reload in Source and a resize.
 // In Source the window scrolls, not CodeMirror's scroller: every place below is read where the reader
 // reads it, on the reading line (40 % down the window), in both modes.
 import { strict as assert } from 'node:assert';
@@ -9,7 +9,7 @@ import { extname, join } from 'node:path';
 import { after, test as nodeTest } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -99,6 +99,17 @@ const sourceAtReadingLine = (page) => page.evaluate((y) => {
   return { text: line?.textContent ?? null, scrollY: window.scrollY, cmScrollTop: document.querySelector('.cm-scroller')?.scrollTop };
 }, READING_LINE);
 
+/**
+ * Scrolls Source's own scroller, to `top` or by `dy`. The frame fixes Source's mount under the head and the editor
+ * scrolls in it: the window does not move in Source.
+ */
+const scrollSourceTo = (page, top) => page.evaluate((top) => {
+  document.querySelector('#marxy-source .cm-scroller').scrollTop = top;
+}, top);
+const scrollSourceBy = (page, dy) => page.evaluate((dy) => {
+  document.querySelector('#marxy-source .cm-scroller').scrollTop += dy;
+}, dy);
+
 /** Polls positions.json until `ok` holds for it (or 5 s pass), and returns the last read. */
 async function positionsWhen(page, ok) {
   const deadline = Date.now() + 5000;
@@ -129,7 +140,7 @@ async function leaveSource(page) {
   await settle(page);
 }
 
-test('after an edit, leaving Source keeps the paragraph on the reading line (S-07-0002, S-05-0001)', async () => {
+test('after an edit, leaving Source keeps the paragraph on the reading line', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: VIEWPORT });
@@ -140,12 +151,17 @@ test('after an edit, leaving Source keeps the paragraph on the reading line (S-0
     await enterSource(page);
     // Three source lines further: the reading line is now on a line inside a paragraph, not its first.
     const lineHeight = await page.evaluate(() => document.querySelector('#marxy-source .cm-line').getBoundingClientRect().height);
-    await page.evaluate((dy) => window.scrollBy(0, dy), Math.round(3 * lineHeight));
+    await scrollSourceBy(page, Math.round(3 * lineHeight));
     await page.waitForTimeout(300);
     const inSource = await sourceAtReadingLine(page);
     assert.match(inSource.text ?? '', /^P\d{3} line [1-5] /, `an interior line on the reading line: ${JSON.stringify(inSource)}`);
-    assert.ok(inSource.scrollY > 1000, 'the window is what scrolls in Source');
-    await page.mouse.click(400, READING_LINE + 2);
+    assert.ok(inSource.cmScrollTop > 1000, "the editor's own scroller is what scrolls in Source");
+    // Into the line's own text: a fixed x now falls in the left section or the gutter beside it.
+    const x = await page.evaluate((y) => {
+      const line = [...document.querySelectorAll('#marxy-source .cm-line')].find((el) => { const r = el.getBoundingClientRect(); return r.top <= y + 2 && r.bottom > y; });
+      return line.getBoundingClientRect().left + 40;
+    }, READING_LINE);
+    await page.mouse.click(x, READING_LINE + 2);
     await page.keyboard.press('End');
     await page.keyboard.type(' Z');
     await leaveSource(page);
@@ -158,7 +174,7 @@ test('after an edit, leaving Source keeps the paragraph on the reading line (S-0
   }
 });
 
-for (const { label, eol } of [{ label: '', eol: '\n' }, { label: ' in a CRLF file (F-23)', eol: '\r\n' }]) {
+for (const { label, eol } of [{ label: '', eol: '\n' }, { label: ' in a CRLF file', eol: '\r\n' }]) {
 test(`scrolled in Source with no edit, leaving it lands where Source was read, not where it was entered${label}`, async () => {
   const browser = await launchWebkit();
   try {
@@ -170,7 +186,7 @@ test(`scrolled in Source with no edit, leaving it lands where Source was read, n
     const entered = await renderedAtReadingLine(page);
     await enterSource(page);
     const lineHeight = await page.evaluate(() => document.querySelector('#marxy-source .cm-line').getBoundingClientRect().height);
-    await page.evaluate((dy) => window.scrollBy(0, dy), Math.round(60 * lineHeight));
+    await scrollSourceBy(page, Math.round(60 * lineHeight));
     await page.waitForTimeout(300);
     const inSource = await sourceAtReadingLine(page);
     const paragraph = inSource.text.slice(0, 4);
@@ -205,14 +221,15 @@ for (const where of ['near the top', 'at the bottom']) {
   });
 }
 
-test('quit from Source stores the line on the reading line, and a source file reopens on it (S-08-0002, S-08-0001)', async () => {
+test('quit from Source stores the line on the reading line, and a source file reopens on it', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: VIEWPORT });
     const path = '/r/big.ts';
     await boot(page, { [path]: b64(codeTs) }, [path]);
-    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
-    await page.evaluate(() => window.scrollTo(0, 24000));
+    // Code lands in Read; the reader puts it in Source.
+    await enterSource(page);
+    await scrollSourceTo(page, 24000);
     await page.waitForTimeout(400);
     const inSource = await sourceAtReadingLine(page);
     assert.match(inSource.text ?? '', /^export const value\d{5}/);
@@ -222,10 +239,13 @@ test('quit from Source stores the line on the reading line, and a source file re
     assert.equal(stored?.mode, 'source', JSON.stringify(stored));
     assert.equal(stored?.byteOffset, lineStart, `stored ${JSON.stringify(stored)}, line on the reading line starts at ${lineStart}`);
     const positions = await page.evaluate(async () => [...await window.__marxyHandle.shell.readFile('/data/positions.json')]);
+    // The reader put the file in Source: readings.json keeps that, so it reopens there.
+    const readings = await page.evaluate(async () => [...await window.__marxyHandle.shell.readFile('/data/readings.json')]);
+    assert.deepEqual(JSON.parse(Buffer.from(readings).toString()).source, [path]);
     await page.close();
 
     const again = await browser.newPage({ viewport: VIEWPORT });
-    await boot(again, { [path]: b64(codeTs), '/data/positions.json': Buffer.from(positions).toString('base64') }, [path]);
+    await boot(again, { [path]: b64(codeTs), '/data/positions.json': Buffer.from(positions).toString('base64'), '/data/readings.json': Buffer.from(readings).toString('base64') }, [path]);
     await again.waitForFunction(() => document.body.dataset.marxyMode === 'source');
     await again.waitForTimeout(400);
     const reopened = await sourceAtReadingLine(again);
@@ -235,7 +255,7 @@ test('quit from Source stores the line on the reading line, and a source file re
   }
 });
 
-test('a markdown file left in Source reopens in Rendered at that paragraph (S-08-0001, S-08-0002)', async () => {
+test('a markdown file left in Source reopens in Rendered at that paragraph', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: VIEWPORT });
@@ -243,13 +263,13 @@ test('a markdown file left in Source reopens in Rendered at that paragraph (S-08
     await boot(page, { [path]: b64(wrappedMd) }, [path]);
     await settle(page);
     await enterSource(page);
-    await page.evaluate(() => window.scrollTo(0, 9000));
+    await scrollSourceTo(page, 9000);
     await page.waitForTimeout(400);
     let inSource = await sourceAtReadingLine(page);
     // The paragraphs are separated by blank lines, and where the reading line falls depends on the frame's inset: step a row
-    // down until it is on text (F-100 moved the inset by 4 px).
+    // down until it is on text.
     for (let step = 0; step < 3 && !/^P\d{3} line /.test(inSource.text ?? ''); step++) {
-      await page.evaluate(() => window.scrollBy(0, 21));
+      await scrollSourceBy(page, 21);
       await page.waitForTimeout(300);
       inSource = await sourceAtReadingLine(page);
     }
@@ -273,13 +293,14 @@ test('a markdown file left in Source reopens in Rendered at that paragraph (S-08
   }
 });
 
-test('scrolling in Source records the line on the reading line, mode source, with no quit (S-08-0002)', async () => {
+test('scrolling in Source records the line on the reading line, mode source, with no quit', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: VIEWPORT });
     const path = '/r/big.ts';
     await boot(page, { [path]: b64(codeTs) }, [path]);
-    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
+    // Code lands in Read; the reader puts it in Source.
+    await enterSource(page);
     await page.mouse.move(480, 400);
     await page.mouse.wheel(0, 15000);
     await page.waitForTimeout(400);
@@ -298,8 +319,9 @@ test('a file changed on disk while Source shows keeps the line on the reading li
     const page = await browser.newPage({ viewport: VIEWPORT });
     const path = '/r/big.ts';
     await boot(page, { [path]: b64(codeTs) }, [path]);
-    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
-    await page.evaluate(() => window.scrollTo(0, 24000));
+    // Code lands in Read; the reader puts it in Source.
+    await enterSource(page);
+    await scrollSourceTo(page, 24000);
     await page.waitForTimeout(400);
     const before = await sourceAtReadingLine(page);
     await page.evaluate(async ({ text }) => {
@@ -321,7 +343,7 @@ test('a file changed on disk while Source shows keeps the line on the reading li
 for (const width of [560, 720]) {
   // 560 narrows the article itself (every paragraph re-broken); 720 leaves it at its full measure and
   // reflows only what is wider than the measure.
-  test(`a resize to ${width} px keeps the block on the reading line (S-02-0001)`, async () => {
+  test(`a resize to ${width} px keeps the block on the reading line`, async () => {
     const browser = await launchWebkit();
     try {
       const page = await browser.newPage({ viewport: VIEWPORT });
@@ -348,7 +370,7 @@ test('no anchor listener is left on the window once a hold ends: open, reload, o
   try {
     const page = await browser.newPage({ viewport: VIEWPORT });
     // The anchor's listeners: one function on both `wheel` and `mousedown`, capturing, on the window.
-    // While any `wheel` listener is there, WebKit repaints the whole page after every layout (B-02.8).
+    // While any `wheel` listener is there, WebKit repaints the whole page after every layout.
     await page.addInitScript(() => {
       const live = new Map();
       const capture = (opts) => (typeof opts === 'boolean' ? opts : !!opts?.capture);
@@ -381,6 +403,8 @@ test('no anchor listener is left on the window once a hold ends: open, reload, o
     }, `${wrappedMd}\nAppended on disk.\n`);
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'live_reload'), undefined, { timeout: 10_000 });
     await settle(page);
+    // The hold lasts through the typesetter's passes, which run in small slices, so give it until they finish.
+    await page.waitForFunction(() => window.__anchorWheelListeners() === 0, undefined, { timeout: 60_000 }).catch(() => {});
     assert.equal(await count(), 0, 'the reload hold has ended');
 
     // Opened deep: held until the reader takes over, then released with its listeners.

@@ -1,11 +1,11 @@
-// Per-document HTML grants, blocked-content notices and truncation (MARXY-44).
+// Per-document HTML grants, blocked-content notices and truncation.
 import '../src/trust/trust.test.ts';
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
@@ -14,22 +14,23 @@ import { policyFor } from '../../../packages/core/src/sanitize/policy.ts';
 import { parseMarkdown } from '../../../packages/core/src/parse/parse.ts';
 import { renderDocumentSafeHtml } from '../../../packages/core/src/render/pipeline.ts';
 import { routeSkeleton } from './support/two-pane.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
-const testFixturesDir = new URL('./fixtures/', import.meta.url).pathname;
+const testFixturesDir = fileURLToPath(new URL('./fixtures/', import.meta.url));
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-trust-'));
 let server;
 let base;
 
 before(async () => {
   if (skip) return;
-  await build({ root: new URL('..', import.meta.url).pathname, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
+  await build({ root: fileURLToPath(new URL('..', import.meta.url)), logLevel: 'silent', build: { outDir, emptyOutDir: true } });
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png' };
   server = createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -47,9 +48,9 @@ function b64(path) {
   return readFileSync(path).toString('base64');
 }
 
-// The page is the app's shipped skeleton and CSS, as in the app (F-67): there a notice is a pill pinned at the pane's
+// The page is the app's shipped skeleton and CSS, as in the app: there a notice is a pill pinned at the pane's
 // foot. On the bare harness page the pill sat at the end of a 2400 px document, so a click had to scroll to it, and the
-// highlight pass that scroll set off (Rendered keeps the reader's place, B-26) moved the page 23 px between mouse-down
+// highlight pass that scroll set off (Rendered keeps the reader's place) moved the page 23 px between mouse-down
 // and mouse-up: the click landed on the pill's text, not the button, and the test waited 30 s for a grant never made.
 async function boot(page, files, argv) {
   await routeSkeleton(page, base);
@@ -75,7 +76,7 @@ function noticeActions(page) {
   );
 }
 
-test('10-hostile.md: one notice naming example.invalid once (MARXY-138 parity)', async () => {
+test('10-hostile.md: one notice naming example.invalid once', async () => {
   const docPath = '/corpus/10-hostile.md';
   const files = { [docPath]: b64(join(corpusDir, '10-hostile.md')) };
   const browser = await webkit.launch();
@@ -96,7 +97,7 @@ test('10-hostile.md: one notice naming example.invalid once (MARXY-138 parity)',
   }
 });
 
-nodeTest('javascript: inside details is stripped under WIDE_POLICY (MARXY-229 vector cited, not re-tested here)', () => {
+nodeTest('javascript: inside details is stripped under WIDE_POLICY (not re-tested here)', () => {
   const html = '<details><a href="javascript:alert(1)">x</a></details>';
   const ast = parseMarkdown(html, { file: '/t.md' });
   const { html: out } = renderDocumentSafeHtml(ast, policyFor({ html: true }));
@@ -254,6 +255,69 @@ test('grant HTML: wide elements appear, script absent, trust.json written, posit
   }
 });
 
+test('two panes: the offer in the unfocused pane grants and re-renders that pane\'s file, never the focused one\'s', async () => {
+  const a = '/notes/raw-a.md';
+  const b = '/notes/raw-b.md';
+  const doc = (name) => Buffer.from(`# ${name}\n\n<details><summary>${name} more</summary>raw html in ${name}</details>\n\ntext\n`).toString('base64');
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+    await boot(page, { [a]: doc('A'), [b]: doc('B') }, [a]);
+    await page.evaluate(async (b) => {
+      const panes = window.__marxyHandle.panes();
+      await panes.openIn('other', b);
+      panes.focus(panes.panes[0]);
+    }, b);
+    const offer = (slot) => `[data-marxy-pane="${slot}"] button.marxy-notice-action`;
+    await page.waitForFunction(() => [0, 1].every((s) =>
+      [...document.querySelectorAll(`[data-marxy-pane="${s}"] button.marxy-notice-action`)].some((el) => /HTML/.test(el.textContent ?? ''))));
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().focused.path()), a);
+    // Enter on a focused button: a click with no pointerdown, so focus stays in the left pane.
+    await page.evaluate((sel) => {
+      const button = [...document.querySelectorAll(sel)].find((el) => /HTML/.test(el.textContent ?? ''));
+      button.focus();
+      button.click();
+    }, offer(1));
+    await page.waitForFunction(() => document.querySelector('#doc-2 details'));
+    const written = await page.evaluate(() => {
+      const calls = window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && String(c.args[0]).endsWith('trust.json'));
+      return calls.map((c) => JSON.parse(new TextDecoder().decode(c.args[1])).documents);
+    });
+    assert.equal(written.length, 1);
+    assert.deepEqual(Object.keys(written[0]), [b]);
+    assert.equal(await page.evaluate(() => document.querySelector('#doc details') !== null), false, 'the focused pane stays blocked');
+    assert.ok(await page.evaluate((sel) => [...document.querySelectorAll(sel)].some((el) => /HTML/.test(el.textContent ?? '')), offer(0)), 'the focused pane keeps its offer');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('two panes showing one file: allowing its HTML in one reaches the other', async () => {
+  const a = '/notes/raw-a.md';
+  const doc = Buffer.from('# A\n\n<details><summary>A more</summary>raw html in A</details>\n\ntext\n').toString('base64');
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+    await boot(page, { [a]: doc }, [a]);
+    await page.evaluate(async (a) => {
+      const panes = window.__marxyHandle.panes();
+      await panes.openIn('other', a);
+      panes.focus(panes.panes[0]);
+    }, a);
+    const offer = (slot) => `[data-marxy-pane="${slot}"] button.marxy-notice-action`;
+    await page.waitForFunction(() => [0, 1].every((s) =>
+      [...document.querySelectorAll(`[data-marxy-pane="${s}"] button.marxy-notice-action`)].some((el) => /HTML/.test(el.textContent ?? ''))));
+    await page.evaluate((sel) => {
+      const button = [...document.querySelectorAll(sel)].find((el) => /HTML/.test(el.textContent ?? ''));
+      button.focus();
+      button.click();
+    }, offer(1));
+    await page.waitForFunction(() => document.querySelector('#doc-2 details') && document.querySelector('#doc details'));
+  } finally {
+    await browser.close();
+  }
+});
+
 test('trust.json with html grant: wide render without HTML action in notice', async () => {
   const docPath = '/corpus/02-readme-real-world.md';
   const trust = JSON.stringify({
@@ -346,7 +410,7 @@ test('revoke HTML grant restores default render and clears trust.json entry', as
   }
 });
 
-test('revoking a grant clears its grant-summary notice (MARXY-337)', async () => {
+test('revoking a grant clears its grant-summary notice', async () => {
   const docPath = '/corpus/02-readme-real-world.md';
   const files = { [docPath]: b64(join(corpusDir, '02-readme-real-world.md')) };
   const summaries = (page) =>

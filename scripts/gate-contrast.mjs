@@ -1,17 +1,21 @@
-// Contrast gate (H-02, ADR-0059 item 10). Reads every bundled theme (packages/theme/*/theme.css and its
+// Contrast gate. Reads every bundled theme (packages/theme/*/theme.css and its
 // theme.toml), resolves each variant and each [data-marxy-kind] scope to colours, composites translucent
 // colours over the ground beneath them, and fails on any pair below its WCAG 2.2 floor. Ratios are never
 // rounded: 4.499 fails. A role the theme does not declare is reported as "not yet declared", not passed
 // and not failed; an unparseable colour is a failure naming the token. The model is Galley's
-// docs/plan/direction-2026-10/galley/audit_contrast.py. usage: node scripts/gate-contrast.mjs [--md]
+// audit_contrast.py. usage: node scripts/gate-contrast.mjs [--md]
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { KINDS } from '../packages/core/src/contracts/kinds.ts';
+import { resolve as resolveLook } from '../packages/theme/src/look.ts';
+import { defaultLookState } from '../packages/theme/src/look-state.ts';
+import { LOOKS } from '../packages/theme/src/looks.ts';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const THEMES_DIR = join(ROOT, 'packages/theme');
 
-// ADR-0059 item 10, verbatim as data. Names drop the `--marxy-color-` prefix (`tok-*` keeps `tok-`).
+// Verbatim as data. Names drop the `--marxy-color-` prefix (`tok-*` keeps `tok-`).
 // A ground is a role, `surface-glass` (as surface, composited over bg), `sel@code-bg` (a role composited
 // over another) or `line@code-bg` (Source's active line: the selection mixed 40 % toward transparent over
 // code-bg; derived, not a token). A translucent ground with no `@` is composited over `bg`.
@@ -32,11 +36,11 @@ export const FLOORS = [
   { fg: ['tok-*', 'code-text'], floor: 4.5, grounds: ['code-bg', 'bg', 'selection@code-bg', 'line@code-bg', ...DIFFS.map(d => `${d}@code-bg`)] },
   { fg: ['edge', 'find-edge', 'divider-focus'], floor: 3, grounds: ['bg', 'surface', 'code-bg'] },
 ];
-// H-05: the high-contrast theme holds a stricter floor: 7:1 where the table says 4.5 (every text and code role on every
+// the high-contrast theme holds a stricter floor: 7:1 where the table says 4.5 (every text and code role on every
 // ground it meets), 4.5:1 where it says 3 (edges). Rows at 7 stay at 7.
 export const HIGH_CONTRAST_THEMES = ['high-contrast'];
 export const HIGH_CONTRAST_FLOORS = FLOORS.map(row => ({ ...row, floor: row.floor === 4.5 ? 7 : row.floor === 3 ? 4.5 : row.floor }));
-// W-22: the "more" pass. base.css points secondary and faint text at the body text and the rules at the edge role under
+// the "more" pass. base.css points secondary and faint text at the body text and the rules at the edge role under
 // Increase contrast (the first `html:root[data-marxy-contrast="more"]` rule, read here so the stylesheet is the one source);
 // the pass audits every theme and variant with those declarations laid over it. Secondary text holds 7:1 on the grounds it
 // sits on at rest (bg, surface, code-bg); rules, dividers and hairlines hold 3:1 (4.5 in the high-contrast theme, like edges).
@@ -283,8 +287,33 @@ export function findThemes(dir = THEMES_DIR) {
     });
 }
 
-export function auditAll(themes = findThemes(), overrides = moreOverrides()) {
-  const all = { checks: [], failures: [], undeclared: [], byTheme: {}, byThemeMore: {} };
+// The looks. A look is parameters, not a stylesheet, so each is resolved by the look engine
+// (packages/theme/src/look.ts) for day and night, as the window and as every kind's scope, with and without more
+// contrast (which the look itself holds, so base.css's "more" rule is not laid over it), and audited by the same rows.
+export function findLooks() {
+  const css = tokens => Object.entries(tokens).map(([k, v]) => `${k}: ${v};`).join(' ');
+  const state = defaultLookState();
+  const out = [];
+  for (const look of LOOKS) {
+    for (const scheme of ['day', 'night']) {
+      for (const more of [false, true]) {
+        const sheet = [`:root { ${css(resolveLook(state, { more }, { id: look.id, scheme, noRules: true }).tokens)} }`];
+        for (const kind of KINDS) sheet.push(`[data-marxy-kind="${kind}"] { ${css(resolveLook(state, { kind, more }, { id: look.id, scheme }).tokens)} }`);
+        out.push({ name: `look:${look.id}`, scheme, more, css: sheet.join('\n') });
+      }
+    }
+  }
+  return out;
+}
+
+export function auditAll(themes = findThemes(), overrides = moreOverrides(), looks = findLooks()) {
+  const all = { checks: [], failures: [], undeclared: [], byTheme: {}, byThemeMore: {}, byLook: {} };
+  for (const l of looks) {
+    const r = auditTheme(`${l.name} · ${l.scheme}`, l.css, ['dark'], l.more ? { mode: 'more', overrides: {} } : {});
+    all.checks.push(...r.checks.map(c => ({ theme: l.name, look: true, ...c })));
+    all.failures.push(...r.failures);
+    (all.byLook[l.name] ??= []).push(...r.checks);
+  }
   for (const t of themes) {
     const r = auditTheme(t.name, t.css, t.variants);
     const more = auditTheme(t.name, t.css, t.variants, { mode: 'more', overrides });
@@ -321,10 +350,10 @@ if (import.meta.main) {
   if (process.argv.includes('--md')) { console.log(markdown(all)); process.exit(all.failures.length ? 1 : 0); }
   const undeclaredCount = all.undeclared.reduce((n, u) => n + u.roles.length, 0);
   for (const u of all.undeclared) if (u.roles.length) console.log(`${u.theme} · ${u.variant} · root: not yet declared (${u.roles.length}): ${u.roles.join(', ')}`);
-  console.log(`gate-contrast: ${all.checks.length} pairs checked, ${all.failures.length} failing, ${undeclaredCount} roles not yet declared (${Object.keys(all.byTheme).length} themes)`);
+  console.log(`gate-contrast: ${all.checks.length} pairs checked, ${all.failures.length} failing, ${undeclaredCount} roles not yet declared (${Object.keys(all.byTheme).length} themes, ${Object.keys(all.byLook).length} looks)`);
   if (all.failures.length) {
     for (const f of all.failures) console.error(f);
-    console.error('    fix: change the colour (a taste story) or the theme, never the floor; node scripts/gate-contrast.mjs --md prints every ratio');
+    console.error('    fix: change the colour or the theme, never the floor; node scripts/gate-contrast.mjs --md prints every ratio');
     process.exit(1);
   }
 }

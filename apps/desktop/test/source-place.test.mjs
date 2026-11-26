@@ -1,4 +1,4 @@
-// Source's place and rows (V-12, ADR-0067; L-07's column): the numbers share their rows' tops, a code line scrolls and
+// Source's place and rows: the numbers share their rows' tops, a code line scrolls and
 // a Markdown line hangs, the text sits on the window's axis with the numbers hung left of it, on the page ground.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -7,15 +7,16 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const appRoot = join(repoRoot, 'apps', 'desktop');
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-source-place-'));
 let server;
@@ -69,6 +70,8 @@ async function boot(page, path, body) {
     const handle = await window.marxyApp.start(files, argv);
     await handle.ready;
     window.__marxyHandle = handle;
+    // Code lands in Read; this is about Source, one press away. Markdown is sent there by the test.
+    if (!argv[0].endsWith('.md') && document.body.dataset.marxyMode !== 'source') await handle.toggleMode();
   }, { files: { [path]: Buffer.from(body).toString('base64') }, argv: [path] });
 }
 
@@ -89,13 +92,15 @@ const colourOf = (page, css) => page.evaluate((c) => {
   return v;
 }, css);
 
-test('V-12 every row is one line box, and each number shares its row\'s top, over a long line, emoji, CJK, a tab and a stray byte', async () => {
+test('every row is one line box, and each number shares its row\'s top, over a long line, emoji, CJK, a tab and a stray byte', async () => {
   const browser = await launchWebkit();
   try {
     // Tall, so the editor draws the first 200 lines without scrolling.
     const page = await browser.newPage({ viewport: { width: 1280, height: 4800 } });
     await boot(page, '/src/a.py', python());
     await sourceReady(page);
+    // Fold markers follow the language's parse, which can trail the first lines on a busy machine.
+    await page.waitForFunction(() => [...document.querySelectorAll('#marxy-source .cm-foldGutter .cm-gutterElement')].filter((e) => e.style.visibility !== 'hidden' && e.textContent !== '').length > 20, null, { timeout: 15_000 }).catch(() => {});
     const seen = await page.evaluate(() => {
       const line = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-line-box-source'));
       const lines = [...document.querySelectorAll('#marxy-source .cm-line')].slice(0, 200);
@@ -128,7 +133,7 @@ test('V-12 every row is one line box, and each number shares its row\'s top, ove
   }
 });
 
-test('V-12 a code line does not wrap: it scrolls inside the editor, and the numbers stay on the left', async () => {
+test('a code line does not wrap: it scrolls inside the editor, and the numbers stay on the left', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -162,13 +167,13 @@ test('V-12 a code line does not wrap: it scrolls inside the editor, and the numb
   }
 });
 
-test('V-12 (F-100) a Markdown line wraps at the editor\'s right edge, with its continuation hung past its own indent', async () => {
+test('a Markdown line wraps at the editor\'s right edge, with its continuation hung past its own indent', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 640, height: 900 } });
     await boot(page, '/doc/a.md', MD);
     await page.waitForSelector('#doc .marxy-article, #doc');
-    await page.keyboard.press('Meta+E');
+    await page.keyboard.press('ControlOrMeta+E');
     await sourceReady(page);
     const m = await page.evaluate(() => {
       const content = document.querySelector('#marxy-source .cm-content');
@@ -200,7 +205,7 @@ test('V-12 (F-100) a Markdown line wraps at the editor\'s right edge, with its c
         nested: rows(pick('a nested item')),
       };
     });
-    // Source fills its pane (F-100): the text runs from a gutter's width in (84 px at 14 px) to the editor's right edge, not to Rendered's measure.
+    // Source fills its pane: the text runs from a gutter's width in (84 px at 14 px) to the editor's right edge, not to Rendered's measure.
     assert.ok(Math.abs(m.content.left - (m.editor.left + 84)) <= 1, `the text starts a gutter's width in (${m.content.left - m.editor.left})`);
     assert.ok(Math.abs(m.content.right - m.editor.right) <= 1, `the column runs to the editor's right edge (${m.content.right} vs ${m.editor.right})`);
     for (const [name, rows, indent] of [['paragraph', m.paragraph, 0], ['list item', m.item, 0], ['nested item', m.nested, 4]]) {
@@ -216,14 +221,14 @@ test('V-12 (F-100) a Markdown line wraps at the editor\'s right edge, with its c
   }
 });
 
-test('V-12 (F-100) the Markdown text starts a gutter in from the pane\'s edge with numbers on or off, at any width; the numbers hang left of it', async () => {
+test('the Markdown text starts a gutter in from the pane\'s edge with numbers on or off, at any width; the numbers hang left of it', async () => {
   const browser = await launchWebkit();
   try {
     const starts = [];
     for (const width of [960, 1280]) {
       const page = await browser.newPage({ viewport: { width, height: 800 } });
       await boot(page, '/doc/a.md', MD);
-      await page.keyboard.press('Meta+E');
+      await page.keyboard.press('ControlOrMeta+E');
       await sourceReady(page);
       const place = () => page.evaluate(() => {
         const c = document.querySelector('#marxy-source .cm-content').getBoundingClientRect();
@@ -259,7 +264,7 @@ test('V-12 (F-100) the Markdown text starts a gutter in from the pane\'s edge wi
   }
 });
 
-test('V-12 (F-100) a code file fills the editor: the gutter at its left edge, the text a gutter in, whatever the digits or the width', async () => {
+test('a code file fills the editor: the gutter at its left edge, the text a gutter in, whatever the digits or the width', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -293,7 +298,7 @@ test('V-12 (F-100) a code file fills the editor: the gutter at its left edge, th
   }
 });
 
-test('V-12 (L-07) Source is on the page ground in both variants, numbers included', async () => {
+test('Source is on the page ground in both variants, numbers included', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });

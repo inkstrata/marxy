@@ -1,8 +1,8 @@
-// K-09: a diff file is read hunk by hunk; a line's meaning comes from where it is, not from how it begins.
+// a diff file is read hunk by hunk; a line's meaning comes from where it is, not from how it begins.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DIFF_LINE_ADD as A, DIFF_LINE_DEL as D } from './line-classes.ts';
-import { DIFF_OUTSIDE, diffFileLineClasses, diffFileRead } from './diff-lines.ts';
+import { DIFF_OUTSIDE, diffFileLineClasses, diffFileRead, hunkWords } from './diff-lines.ts';
 
 const read = (text: string) => diffFileLineClasses(text.split(/\r\n|\r|\n/));
 const U = undefined;
@@ -39,7 +39,7 @@ test('the no-newline note is plain and does not end a hunk; a stripped blank con
   assert.deepEqual(read('@@ -1,3 +1,2 @@\n-a\n\\ No newline at end of file\n\n+b'), [U, D, U, U, A]);
 });
 
-test('a combined hunk: a + in any marker column adds, a - in any removes, the rest is plain (K-09.1)', () => {
+test('a combined hunk: a + in any marker column adds, a - in any removes, the rest is plain', () => {
   const text = [
     'diff --cc f', 'index 1,2..3', '--- a/f', '+++ b/f', '@@@ -1,6 -1,6 +1,7 @@@ fn',
     '  ctx', '++both', '+ first', ' +second', '--gone', '- one', ' -two', '  tail', '\\ No newline at end of file',
@@ -114,5 +114,67 @@ test('reading a diff piece by piece, each piece from the state the last ended in
       state = r.end;
     }
     assert.deepEqual(parts, whole, `seed ${seed}, pieces of ${size}`);
+  }
+});
+
+test('a plain hunk numbers its lines on both sides, across a cut, and says its head in words', () => {
+  const lines = ['--- a/x', '+++ b/x', '@@ -9,3 +9,4 @@ ## TL;DR', ' same', '-gone', '+new one', '+new two', ' same again'];
+  const whole = diffFileRead(lines);
+  assert.deepEqual(whole.numbers, [undefined, undefined, undefined, { a: 9, b: 9 }, { a: 10 }, { b: 10 }, { b: 11 }, { a: 11, b: 12 }]);
+  assert.equal(hunkWords(whole.heads[2]!), 'lines 9 to 11, now 9 to 12 · ## TL;DR');
+  const first = diffFileRead(lines.slice(0, 5));
+  const rest = diffFileRead(lines.slice(5), first.end);
+  assert.deepEqual([...first.numbers, ...rest.numbers], whole.numbers);
+});
+
+test('the no-newline note takes no number, inside a hunk or at its end, and a cut after it carries nothing on', () => {
+  const lines = ['@@ -1,2 +1,2 @@', '-a', '\\ No newline at end of file', '+b', ' c', '\\ No newline at end of file', '@@ -9 +9 @@', '-x', '+y'];
+  const whole = diffFileRead(lines);
+  assert.deepEqual(whole.numbers, [undefined, { a: 1 }, undefined, { b: 1 }, { a: 2, b: 2 }, undefined, undefined, { a: 9 }, { b: 9 }]);
+  for (let cut = 1; cut < lines.length; cut++) {
+    const first = diffFileRead(lines.slice(0, cut));
+    const rest = diffFileRead(lines.slice(cut), first.end);
+    assert.deepEqual([...first.numbers, ...rest.numbers], whole.numbers, `cut at ${cut}`);
+  }
+});
+
+test('a hunk that only adds or only removes says so; a combined hunk is not numbered', () => {
+  assert.equal(hunkWords({ a: 0, aLen: 0, b: 1, bLen: 2, rest: '' }), 'added as lines 1 to 2');
+  assert.equal(hunkWords({ a: 12, aLen: 1, b: 11, bLen: 0, rest: '' }), 'line 12, now gone');
+  const empty = diffFileRead(['@@ -0,0 +0,0 @@', 'diff --git a/y b/y']);
+  assert.equal(hunkWords(empty.heads[0]!), 'no lines on either side');
+  assert.deepEqual(empty.numbers, [undefined, undefined]);
+  const merge = diffFileRead(['@@@ -1,2 -1,2 +1,3 @@@', '  a', '+ b', ' -c', '  d']);
+  assert.ok(merge.numbers.every((n) => n === undefined));
+  assert.ok(merge.heads.every((h) => h === undefined));
+});
+
+test('the numbers of a unified diff name the very lines of the old and the new text, over generated edits', async () => {
+  const { unifiedDiff } = await import('../diff/unified.ts');
+  let seed = 11;
+  const rnd = (n: number): number => ((seed = (seed * 1103515245 + 12345) % 2147483648), seed % n);
+  const words = ['alpha', 'beta', 'gamma', 'delta', '', 'epsilon', '--- rule', '+++ plus', '@@ at', ' lead'];
+  for (let run = 0; run < 150; run++) {
+    const a = Array.from({ length: 1 + rnd(40) }, () => words[rnd(words.length)]!);
+    const b = a.flatMap((line) => {
+      const r = rnd(10);
+      if (r === 0) return [];
+      if (r === 1) return [line, words[rnd(words.length)]!];
+      if (r === 2) return [`${line} changed`];
+      return [line];
+    });
+    // A side with no lines is the empty text: "\n" would be one empty line.
+    const text = (l: readonly string[]): string => (l.length ? `${l.join('\n')}\n` : '');
+    const d = unifiedDiff(text(a), text(b));
+    if (!d || d.text === '') continue;
+    const lines = d.text.split('\n');
+    if (lines.at(-1) === '') lines.pop();
+    const read = diffFileRead(lines);
+    lines.forEach((line, i) => {
+      const no = read.numbers[i];
+      if (!no) return;
+      if (no.a !== undefined) assert.equal(a[no.a - 1], line.slice(1), `run ${run}, line ${i}: old ${no.a}`);
+      if (no.b !== undefined) assert.equal(b[no.b - 1], line.slice(1), `run ${run}, line ${i}: new ${no.b}`);
+    });
   }
 });

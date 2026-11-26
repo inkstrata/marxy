@@ -1,17 +1,10 @@
 # The Commonplace
 
 A commonplace book is what a reader keeps: passages copied out by hand, each with where it came
-from. This is Marxy's. When Marxy opens with nothing to read, it shows one of these, chosen at
-random and set like a page of a well-made book, with its source beneath it. The page is the
-text. Front matter, the names of the languages, and the translation licence are recorded in
-[`INFO.md`](INFO.md) and are not set on the page.
-
-The pieces are what Marxy is for. They are about truth as what is brought out of hiding
-(*alētheia*), about mind and spirit (*Geist*), about the senses and the forming of them, about
-people who read, think and make things together across centuries, and about the made book itself.
-Some are code, because code that mattered is a text too, and some are about machines that
-reckon, because Marxy reads what they write. Most are short enough to finish before you open
-something else.
+from. When Marxy opens with nothing to read, it shows one of these, chosen at random and
+typeset as a page, with its source beneath it. The page is the text. Front matter, the names of
+the languages, and the translation licence are recorded in [`INFO.md`](INFO.md) and are not set on
+the page.
 
 Every piece is a markdown file in [`pieces/`](pieces/), in the shape set out in
 [`FORMAT.md`](FORMAT.md): front matter a machine can check, then the text, then a colophon a
@@ -52,8 +45,8 @@ checked, and each `source` is the edition they follow.
 
 ## Judgement calls
 
-Two pieces are in on reasoning rather than arithmetic. Each was admitted on 2026-09-26 by the
-author's delegate, and either can be taken out by deleting the file and its row.
+Two pieces are in on reasoning rather than arithmetic. Either can be taken out by deleting the
+file and its row.
 
 - [`apollo-11-luminary.md`](pieces/apollo-11-luminary.md) is `public-domain-declared`. The code
   was written by the MIT Instrumentation Laboratory under a NASA contract, so it is not a work of

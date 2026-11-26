@@ -1,6 +1,7 @@
-// positions.json envelope: parse, LRU cap, version guard, corrupt quarantine (design §08, §11).
+// positions.json envelope: parse, LRU cap, version guard, corrupt quarantine.
 
 import type { ReadingPosition } from '../contracts/position.ts';
+import { normalizePath } from '../index-model/paths.ts';
 
 export const POSITIONS_FILE_VERSION = 1;
 export const POSITIONS_LRU_CAP = 5000;
@@ -11,6 +12,11 @@ export interface StoredPosition {
   readonly mode: ReadingPosition['mode'];
   /** Unix ms when this path was last read; drives LRU eviction. */
   readonly at: number;
+  /**
+   * What the bytes the offset counts were, for a place in a page made from the file rather than in the file itself (a
+   * book's Markdown): the place stands only while the page is made the same. Absent for a text document.
+   */
+  readonly stamp?: string;
 }
 
 export interface PositionsEnvelope {
@@ -55,7 +61,9 @@ export function parsePositionsFile(bytes: Uint8Array): LoadPositionsResult {
   if (raw && typeof raw === 'object') {
     for (const [path, entry] of Object.entries(raw as Record<string, unknown>)) {
       const stored = normalizeEntry(entry);
-      if (stored) positions[path] = stored;
+      // Builds before the shell spelled Windows paths with slashes kept backslash keys; the later read wins a clash.
+      const key = normalizePath(path);
+      if (stored && !(positions[key] && positions[key].at >= stored.at)) positions[key] = stored;
     }
   }
   const envelopeVersion = version > POSITIONS_FILE_VERSION ? version : POSITIONS_FILE_VERSION;
@@ -69,7 +77,8 @@ function normalizeEntry(entry: unknown): StoredPosition | null {
   if (e.mode !== 'rendered' && e.mode !== 'source') return null;
   const at = typeof e.at === 'number' ? e.at : Date.now();
   const fraction = Math.min(1, Math.max(0, e.fraction));
-  return { byteOffset: e.byteOffset, fraction, mode: e.mode, at };
+  const stamp = typeof e.stamp === 'string' && e.stamp.length <= 64 ? e.stamp : undefined;
+  return stamp === undefined ? { byteOffset: e.byteOffset, fraction, mode: e.mode, at } : { byteOffset: e.byteOffset, fraction, mode: e.mode, at, stamp };
 }
 
 export function serializePositionsFile(envelope: PositionsEnvelope): Uint8Array {
@@ -93,9 +102,12 @@ export function upsertStoredPosition(
   return { ...envelope, positions };
 }
 
-/** Whether a stored coordinate is still valid for a file of `byteLength` bytes. */
-export function canRestoreStored(byteLength: number, stored: StoredPosition): boolean {
-  return byteLength >= stored.byteOffset;
+/**
+ * Whether a stored coordinate is still valid for a file of `byteLength` bytes; for a place in a page made from the file,
+ * only when the page's `stamp` is the one stored with it.
+ */
+export function canRestoreStored(byteLength: number, stored: StoredPosition, stamp?: string): boolean {
+  return byteLength >= stored.byteOffset && stored.stamp === stamp;
 }
 
 export function readingPositionFromStored(
@@ -109,6 +121,12 @@ export function readingPositionFromStored(
     mode: stored.mode,
   };
 }
+
+/**
+ * A state file's read failed because there is no file: the only failure that may start the store empty. Any other
+ * (a permission error, a passing lock) leaves the reader's file as it is, read-only for the session.
+ */
+export const isNotFound = (e: unknown): boolean => (e as { code?: string } | null)?.code === 'not-found';
 
 export function quarantinePathFor(positionsPath: string, nowMs = Date.now()): string {
   return `${positionsPath}.bad-${nowMs}`;

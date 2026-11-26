@@ -1,0 +1,246 @@
+scripts\gate-aesthetics.mjs:78: * Where the gate's time goes: wall seconds per phase, and summed page-seconds per step inside the
+fixtures\demo\archives\make-held-kinds.mjs:2:// the readers that take an archive's entry from memory (archive page A6). Built by hand, as make-shared.mjs builds its
+fixtures\demo\archives\make-archives.mjs:1:// Builds the archive page's two sample archives (archive page A2, the board's samples) from files the demo already holds:
+apps\desktop\src\changes\state.ts:1:// The unsaved state of every open document, for whoever draws it: the window slice's unsaved chip
+packages\typeset\src\index.ts:114:/** The most a background slice takes while the reader is busy: each slice is sized to the scheduler's budget. */
+packages\typeset\src\index.ts:119: * What one background slice may hold the thread for while the reader is idle. Each slice is followed by a layout of the
+packages\typeset\src\index.ts:120: * whole article before the next can run, a cost that grows with the page and not with the slice, so slices of a
+packages\typeset\src\index.ts:121: * paragraph or two made a 1 MB page take 105 to 145 s to set whole (85 s at this). Input that arrives during a slice
+packages\typeset\src\index.ts:122: * waits for it, and the next slice is small again. At 40 ms the page was set in 40 to 60 s, but a frame at rest, the slice
+packages\typeset\src\index.ts:531:   * How many paragraphs an idle slice of IDLE_SLICE_MS takes, from what the last ones cost with the layout after them.
+packages\typeset\src\index.ts:532:   * Not a cost per paragraph: much of a slice is that layout, the same however many it set, so an average per paragraph
+packages\typeset\src\index.ts:879:      // An idle slice keeps to what is left of the engine's idle period where it says, and to IDLE_SLICE_MS.
+packages\typeset\src\index.ts:897:          // The layout the frame would do next, done here so the slice is timed with it.
+packages\typeset\src\index.ts:900:          // One more while a full slice comes in well under its budget; cut in proportion as soon as one runs over.
+packages\typeset\src\index.ts:927:   * A relayout's first background slice waits for the frame that paints its screen. A new width un-sets the whole page and
+packages\typeset\src\index.ts:928:   * lays it out again in the task before: in WebKit without idle callbacks a slice queued then ran before that frame, and
+apps\desktop\src\depths\dress.ts:1:// The four depths of looking at a part in Rendered (the prototype's `A.dress`): x-ray boxes in
+scripts\measure-reload.mjs:28://                   definition's `]:` and is not one (before the review of #467 it sent every reload
+apps\desktop\src\document\store.ts:118:   * block per slice of the bytes (`astOf`), not a Markdown parse of the text, and a transform reads the text as
+apps\desktop\scripts\tauri-check.mjs:395:  check('the image comes through marxy-file://', imageSrc.startsWith('http://marxy-file.localhost/'), imageSrc.slice(0, 48));
+apps\desktop\scripts\tauri-check.mjs:886:  // The archive page through the real shell: the survey opens as its lede and its plan to scale; the preview reads
+apps\desktop\scripts\tauri-check.mjs:900:  check('an archive opens as its page: the lede and the plan to scale', /^A ZIP archive: 25 files in 9 folders, all inside harbour-survey-2026\//.test(survey.lede) && su
+apps\desktop\scripts\tauri-check.mjs:930:  // The archive page's steps from here on each start from the survey's own page, as a list, with nothing laid
+apps\desktop\scripts\tauri-check.mjs:936:  /** `key` pressed in the archive page `name`, the pane focused first; false (and nothing pressed) when it is not the view. */
+apps\desktop\scripts\tauri-check.mjs:1126:  check('an archive inside the archive lists in the preview from the bytes held in memory', /^A tar archive, gzipped: 5 files in 2 folders, all inside notes\//.test(nes
+apps\desktop\src\document\entries.ts:104:// Entries held for an archive page's preview: a pool of their own, so following the cursor through an
+apps\desktop\src\commands\log.ts:131:  // first slice of the count or of the page's work runs. A later choice, or the document going, ends this one.
+apps\desktop\src\commands\log.ts:191: * file a slice at a time, so a pill says how far it has got while it reads, and a notice says what was hidden.
+apps\desktop\src\viewers\archive.ts:3:// the preview's head for the entry under the cursor (slice A3 fills the body under it). Listed by the shell from the
+apps\desktop\src\viewers\archive.ts:6:// folder, h out, z folds) and o opens one into memory in a tab of its own. Source is the hex view (decision 1).
+apps\desktop\src\viewers\archive.ts:1271:  // The preview's parts spliced under its entry's unit (decision 4, as a fenced part of a Markdown page is gone into):
+apps\desktop\src\startup\yield.ts:3:// not a timer: a timer nested a few deep waits at least four milliseconds, which at a slice every few
+apps\desktop\src\kinds\transcript-view.ts:14:// - **First text never waits for the whole file** (commitment 5). The first slice of lines is derived and its turns drawn
+apps\desktop\src\kinds\transcript-view.ts:15://   in the task that mounts the view; the rest is derived and drawn a few milliseconds a slice, the loop given back
+apps\desktop\src\kinds\transcript-view.ts:43:/** Bytes the first slice reads before anything is drawn: well over a screen of turns. */
+apps\desktop\src\kinds\transcript-view.ts:47:/** Bytes each later slice reads. */
+apps\desktop\src\kinds\transcript-view.ts:49:/** A slice of deriving and drawing holds the main thread about this long. */
+apps\desktop\src\kinds\transcript-view.ts:54:/** Gives the loop back through a message, not a timer (a timer's clamp would add 4 ms a slice). */
+apps\desktop\src\kinds\transcript-view.ts:521:  // In the capture phase on the document: ahead of the app's own copy listener, which reads a page's bytes.
+apps\desktop\src\selection\view.ts:87: * beside it (the prototype's `insec`).
+apps\desktop\src\selection\view.ts:840:   * focuses it first (pane/focus.ts listens in the capture phase above the article), so by the time these
+apps\desktop\src\kinds\table-lens.ts:14://   the rest is read a few milliseconds a slice with the loop given back between slices, and a sort or the stats of a
+apps\desktop\src\kinds\table-lens.ts:68:/** A slice of reading, sorting or counting holds the main thread about this long. */
+apps\desktop\src\kinds\table-lens.ts:81:/** A slice of work gives the loop back through a message, not a timer: a timer's clamp would make each slice cost 4 ms more. */
+apps\desktop\src\kinds\table-lens.ts:310:  /** Reads the file from its start: the first screen now, the rest a slice at a time. */
+apps\desktop\src\palette\view.ts:110:  /** The content phase only: the matches painted, in the order the shell returned them. */
+apps\desktop\src\palette\view.ts:112:  /** The empty phase only: `hits` is these sections' rows in order, so a row index never counts a label. */
+apps\desktop\src\palette\view.ts:114:  /** The empty phase only: commands listed after the sections as Suggested; selection runs on past `hits`. */
+apps\desktop\src\palette\view.ts:147:  /** Content search for `/` queries. Without it the `/` phase says so and finds nothing. */
+apps\desktop\src\palette\view.ts:1271:  // the latest answer of the content search. Only the `/` phase reads it.
+apps\desktop\src\palette\view.ts:1857:  // the capture phase, so a Source editor's own `Mod+/` (toggle comment) never sees the press.
+apps\desktop\src\palette\view.ts:1903:      // result list, or the operations phase, where `hits` is always []) — pin only a real hit.
+apps\desktop\src\kinds\log-view.ts:19:// milliseconds at a time, one slice a frame, nearest the reader first (`subscribe` reports the progress; the command says it
+apps\desktop\src\kinds\log-view.ts:41:/** The most script a slice runs; the page's own work after it is the page's. */
+apps\desktop\src\kinds\log-view.ts:74:  /** `cb` on each slice and when the work is done; returns what stops it. */
+apps\desktop\src\kinds\log-view.ts:361:  /** One slice: a few milliseconds of the work, then the page gets its frame. */
+apps\desktop\src\viewers\pdf.ts:3:// Fit width and Fit page in the bar; the paper as authored, white in Night too (decision 11). The panel's fourth card is
+apps\desktop\src\viewers\pdf.ts:5:// fields. Source is the bytes, the hex view, as for any file that is not text (decision 1). The bytes come a range at a
+apps\desktop\src\view\reading-rows.ts:2:// bytes a slice at a time and reads a row again from its bytes when it is drawn; this module keeps the table to the rows
+apps\desktop\src\view\reading-rows.ts:7:// Sorting, the row filter and find go through every row, a slice at a time, the loop given back between slices; a
+apps\desktop\src\view\reading-rows.ts:38:/** A slice of reading, sorting or finding holds the main thread about this long. */
+apps\desktop\src\view\reading-rows.ts:59:/** A slice of work gives the loop back through a message, not a timer: a timer's clamp would add 4 ms a slice. */
+packages\theme\src\looks\polar.ts:1:// Polar: the house theme of Ian's documents and dashboards (the polar-doc skill's polar.css), read as a page. Its night is
+apps\desktop\src\selection\verb-bar.ts:1:// The verb bar: one line at the foot of the focused pane while the cursor is set, as the prototype's
+apps\desktop\src\viewers\pdf-state.ts:2:// shown instead are kept per file in memory, as the archive page keeps its folds: a reload of the file or a tab opened
+apps\desktop\src\view\reading-lines.ts:7:// Find and the level filter go through every line of the file, a slice at a time, the loop given back between slices.
+apps\desktop\src\view\reading-lines.ts:27:/** A slice of finding or ranking holds the main thread about this long. */
+apps\desktop\src\view\reading-lines.ts:29:/** A slice of the heading scan holds the main thread about this long: under a long task, and few of them. */
+apps\desktop\src\view\reading-lines.ts:36:/** A slice of work gives the loop back through a message, not a timer: a timer's clamp would add 4 ms a slice. */
+apps\desktop\src\view\reading-lines.ts:92: * A Markdown file's headings read as lines, scanned from its lines a slice at a time (`heading-scan.ts`): null until they
+apps\desktop\src\view\reading-lines.ts:106:    // Longer slices than find's: the whole scan is a few hundred milliseconds of work, and each slice given back waits
+apps\desktop\src\kind-icons\icons.ts:3:// colour it. Glyph geometry follows the author's prototype (`GL`), except
+apps\desktop\src\kind-icons\icons.ts:4:// `html`, which the prototype has no kind for (see HTML_GUESS below).
+apps\desktop\src\kind-icons\icons.ts:20:  // A closed book with a cover (the prototype's glyph for book).
+apps\desktop\src\kind-icons\icons.ts:22:  // A bookmark (the prototype's glyph for docs).
+apps\desktop\src\kind-icons\icons.ts:31:  // A pencil (the prototype's glyph for notes).
+apps\desktop\src\kind-icons\icons.ts:33:  // Dotted list lines (the prototype's glyph for a changelog).
+apps\desktop\src\kind-icons\icons.ts:41:  // HTML_GUESS: not in the prototype. A window with a title rule: a rendered page, not a page outline.
+apps\desktop\src\selection\cursor.ts:31: * The parts `l` can go into. A table is one part in this slice. An item of a tight list is its own text: the paragraph
+apps\desktop\src\selection\cursor.ts:49: * so the cursor leaves a list for the part after it (the prototype's `R.cur.move`). Null at the document's edge.
+apps\desktop\src\selection\cursor.ts:109: * null at the edge of the container. The run is the hull of the two (the prototype's anchor and cursor).
+apps\desktop\src\selection\cursor.ts:212:/** `C`: the part's text as a quote, then where it is from (the prototype's form). */
+apps\desktop\src\versions\recorder.ts:3:// (`before reload`: what was on disk). Never when a file is opened (Ian, 2026-11-02: the data folder is not a record of what
+apps\desktop\src\selection\bind.ts:252: * pane chords (pane/keys.ts) run ahead of it, in the capture phase, and focus is bound to the handle's panes.
+apps\desktop\src\versions\recorder.test.ts:2:// save (`before save`: what was on disk) and at an outside change (`before reload`: what it replaced); never at an open (Ian,
+apps\desktop\src\palette\content.ts:5:// so typing never waits on a scan and the fuzzy matcher is never run for this phase.
+apps\desktop\src\palette\content.ts:21: * flagged character goes to the slice it starts in.
+apps\desktop\src\palette\content.ts:75:  /** The text after `/` (or null to leave the phase): starts, restarts or cancels a search. */
+apps\desktop\src\palette\content.test.ts:193:// What each slice shows: text as is, a flagged character as `<hex>`.
+apps\desktop\src\palette\content.test.ts:217:  // A ZWJ between plain letters is still flagged, in the slice it starts in.
+apps\desktop\src\pane\keys.ts:4:// `event.key`. The listener is on `window` in the capture phase, so it runs before anything on the page,
+apps\desktop\src\pane\keys.ts:6:// registry's bubble-phase dispatcher (`installCommandKeys`, selection/bind.ts) does not run it again.
+apps\desktop\src\pane\keys.ts:150:      // at the key, and stopped so the registry's bubble-phase dispatcher does not run it by `event.key`;
+packages\theme\src\frame.css:1048:/* The page's column ends left of the spine (the prototype's check 39). The room is every pane's from its first layout, spine or
+apps\desktop\src\source\stray-bytes.ts:91: * pasted before a stray `\udcff` encodes as F0 90 83 BF, not FF (the review of #584).
+apps\desktop\src\source\stray-bytes.test.mjs:89:// The second review of #576 (3a08c006): each of these wrote another stray's value in a stray's place.
+apps\desktop\src\source\stray-bytes.test.mjs:302:// The second review of #584: the private pasteboard type may name stray bytes and nothing else. A lone high surrogate
+apps\desktop\src\source\source-browser.test.mjs:352:    const edited = `${text.slice(0, 13)}/* ${text.slice(13)}`;
+apps\desktop\src\source\replace.ts:17://     `String.prototype.replace` does; a plain query's replacement is literal.
+apps\desktop\src\source\replace.ts:85:/** The index one character after `i`: a surrogate pair is one character, as `String.prototype.replace` steps with `u`. */
+apps\desktop\src\source\replace.ts:122: * `String.prototype.replace`'s GetSubstitution for one match: `$$`, `$&`, `` $` ``, `$'`, `$n`/`$nn` (two digits
+apps\desktop\test\cursor.test.mjs:3:// on it. The keys are the page's only: inert in a field, in Source, and with `verbs = false`. Ports the prototype's
+apps\desktop\test\cursor.test.mjs:4:// cursor checks (lab 25 test/check.mjs 04, 05, the ] [ walk and the copy checks).
+apps\desktop\src\left\doc-model.ts:259: * Read as…), is read from a line index a slice at a time, its places bytes: null until it is, and `ready` is called then
+packages\theme\src\base.css:1001:/* The cursor (the prototype's `.blk.cur`): a block under it is washed, the wash run 12 px into the margins,
+packages\theme\src\base.css:1018:/* The verb bar (the prototype's `.verbbar`): one line at the foot of the focused pane while the cursor is
+apps\desktop\src\source\replace.test.ts:7:// Replace all through the app gives exactly what JavaScript's own `String.prototype.replace` gives over the same text,
+apps\desktop\src\render\working.ts:2:// (decision 2), from the moment its bytes are in until its page is. The open path writes it on the pane;
+apps\desktop\test\changes.test.mjs:3:// kept beside the file, and Y lays the notes out as a reply. Ports the prototype's checks (lab 25 test/check.mjs) 09, 10a,
+apps\desktop\src\render\progressive.ts:58:   * when the caller built it a slice at a time. `html` then only says how large the document is.
+apps\desktop\src\render\progressive.ts:215: * pieces joined by a newline, with `prepare` run on what each slice parsed. For a document too large to parse
+apps\desktop\src\render\progressive.ts:231:    // As many pieces as the last slice's rate says the budget buys, with the newline `join('\n')` writes between them.
+apps\desktop\test\block-edit.test.mjs:42: * (shifted by the change in length) is the same. Returns the replaced slice of `after`.
+apps\desktop\src\source\harness-entry.ts:214:  // The second review of #584: a forged item whose readable text is one U+FFFD and whose type holds a lone surrogate
+apps\desktop\src\notes\anchor.ts:3:// found again by that line's text, nearest first, as the prototype's `reanchor` does; a line that is gone leaves the note
+apps\desktop\test\archive-sheet.test.mjs:1:// The archive page's sheet: every entry a tile that
+apps\desktop\src\render\invisibles-dom.ts:83: * Append `segments` (core's `invisibleSegments` of one string, or a slice of them) to `parent` with every
+apps\desktop\src\source\frame.ts:342:  /** Invisible and bidi characters, found a slice of lines at a time so a large file never holds the page. */
+apps\desktop\test\archive-preview.test.mjs:1:// The archive page's preview: the entry under the cursor
+apps\desktop\test\archive-page.test.mjs:1:// The archive page: the lede, the plan to scale with pictures as
+apps\desktop\test\archive-filter.test.mjs:1:// The archive page's filter: typed into
+apps\desktop\test\archive-more-kinds.test.mjs:1:// The archive page over the kinds only the desktop shell lists (a RAR, a Debian package, a cabinet, an ISO image):
+apps\desktop\test\archive-more-kinds.test.mjs:2:// each opens on the archive page with its form in the lede, the shell's note under it, and its entries; a RAR's
+apps\desktop\test\depths.test.mjs:3:// the rest back. Ports the prototype's checks 11a, 11b, 12, 14a, 14b and 15 (lab 25 test/check.mjs) by name, and adds
+apps\desktop\test\window.test.mjs:3:// the prototype's checks that cover it (lab 25 test/check.mjs 01, 34, 35c and 39) and adds the slice's own.
+apps\desktop\test\frame-book.test.mjs:4:// reopening, Read as reaching the archive page and back, a locked book said plainly, and a broken spine falling back to
+apps\desktop\test\frame-book.test.mjs:5:// the archive page with the sentence why. Every request is watched: none leaves for the network. WebKit, over the
+apps\desktop\test\view-guards.test.mjs:38:      // pane stops at its first slice with its page still empty, however fast or slow the parse runs. Only once its view
+apps\desktop\test\view-guards.test.mjs:62:        // while the second pane is still held at its first slice.
+apps\desktop\test\frame-archives.test.mjs:1:// An archive's page (its page as the archive page draws it, whose own
+apps\desktop\test\frame-archives.test.mjs:135:    // Source is the bytes (decision 1): the hex view, starting PK.
+apps\desktop\test\joins.test.mjs:4:// prototype's check 18 and check 12 by their numbers.
+packages\core\src\viewer\media.ts:52:/** Compressed audio is decoded by the webview for its waveform only up to this size and this length (decision 7). */
+apps\desktop\test\frame-viewers-live.test.mjs:3:// image page and the archive page, the created date on the card, and an open at a byte offset landing the hex view
+apps\desktop\test\images.test.mjs:417:// C3: a local SVG shows through <img>, sized from its root, and its script never runs.
+apps\desktop\test\live-reload.test.mjs:1090:    assert.equal(now.head, ['// Changed', '// Changed again', ...SOURCE_LINES.slice(0, 20)].join('\n').length + 1 + 7);
+apps\desktop\test\live-reload.test.mjs:1119:    const kept = [...SOURCE_LINES.slice(0, 20), '// tail', ...SOURCE_LINES.slice(23)];
+apps\desktop\test\kinds-pack-media.test.mjs:5:// prototype's K-pack 10 to 12 and 16 and K-media 02, 03 and 07 where they apply (lab 25, test/kinds-pack.mjs and
+apps\desktop\src\studio\studio.ts:5:// through the store. The theme pass (2026-11-17): every theme is a look, so Ink, Polar and the bundled themes are on the
+apps\desktop\test\transcript-lite.test.mjs:3:// only the new lines; commitment 4, a flagged character in a row drawn in a later slice (a reply, an image's words, a
+apps\desktop\test\transcript-lite.test.mjs:23:/** 3,000 exchanges; the 2,500th reply, far past the first slice, holds a bidi control in its text, an image's words and a link's title. */
+apps\desktop\test\palette-content.test.mjs:127:    // Typing in the content phase never runs the fuzzy matcher.
+apps\desktop\test\left-frame.test.mjs:4:// L-frame checks (lab 25 test/left-frame.mjs) by name where they apply to the app.
+apps\desktop\test\kinds-media2.test.mjs:4:// refuse. Ports the prototype's K-media checks where they apply (lab 25, test/kinds-media.mjs).
+apps\desktop\src\frame\spine-lines.ts:16:/** The first line of each run of consecutive lines: one edit mark per stretch, as the prototype draws them. */
+apps\desktop\test\left-doc.test.mjs:5:// checks (lab 25 test/left-doc.mjs) by name where they apply to the app. Playwright WebKit.
+apps\desktop\test\kinds-tables.test.mjs:4:// change verbs refusing. Ports the prototype's K-tables checks where they apply (lab 25, test/kinds-tables.mjs).
+apps\desktop\test\kinds-cursor.test.mjs:5:// is only read. Ports the prototype's K-frame, K-trees and K-pack checks where they apply (lab 25, test/kinds-*.mjs).
+apps\desktop\test\look.test.mjs:4:// prototype's checks 36a, 36b, 37 and P-look 01 and 03 (lab 25 test/check.mjs, test/kinds-palettes.mjs).
+apps\desktop\test\operations-copy.test.mjs:85:  // The clipboard is the source slice less its trailing blank lines: the last
+apps\desktop\test\log.test.mjs:890:    // The filter, chosen as a reader does. The page is worked through a slice a frame and stays live: the longest stretch the
+apps\desktop\test\log.test.mjs:904:      // What proves the filter is sliced, whatever the machine: how much of the file each slice (one frame's task) presented.
+packages\core\src\viewer\archive-filter.ts:1:// The archive page's filter (`=`): `= reading:picture size>1mb`. Bare words and `name:` match
+apps\desktop\test\phase-e-flow.test.mjs:102: * The criterion, once, on `doc` (the fixture with the file's line endings). `neutralise` serves the slice fold
+apps\desktop\test\phase-e-flow.test.mjs:243:// The verb menu's seven-row cap: the phase's operations rank below the copy verbs. The menu's order is
+packages\core\src\viewer\archive-filter.test.ts:1:// The archive page's filter: its grammar, and each term against an entry.
+apps\desktop\test\studio-code-adapts-file.test.mjs:1:// The Studio's Code, Adapts and File tabs in WebKit. Ports the prototype's P-look 09 (the Code
+apps\desktop\test\studio-code-adapts-file.test.mjs:2:// tab: a language puts its file on the canvas and its colours in the list), the File half of P-look 10 (the look's file
+apps\desktop\test\studio-code-adapts-file.test.mjs:3:// says which and how much), and STUDIO-BRIEF acceptance 4 for these tabs (each tab's controls change the canvas and the
+apps\desktop\test\source-csp.test.mjs:75:    if (/Refused to apply|Refused to load|Content Security Policy/i.test(m.text()) && !/data:font\//i.test(m.text())) refusals.push(m.text().slice(0, 140));
+apps\desktop\test\split-screen-criterion.test.mjs:1:// The phase's screen criterion, end to end: a README
+apps\desktop\test\split-runs.test.mjs:516:      // A copy across the cluster at the first alignment is the file's slice.
+apps\desktop\test\studio-tone-type-page.test.mjs:1:// The Studio's Tone, Type and Page tabs in WebKit. Ports STUDIO-BRIEF acceptance 3 (dragging
+apps\desktop\test\studio-compare-sheet-fit.test.mjs:1:// The Studio's Compare, specimen and Fit in WebKit. Ports STUDIO-BRIEF acceptance 6, 7 and 8 and
+apps\desktop\test\studio-compare-sheet-fit.test.mjs:2:// the sheet half of P-look 10 (lab 25 build/STUDIO-BRIEF.md, test/kinds-palettes.mjs). The theme pass (2026-11-17) made the
+packages\core\src\util\text.ts:3:// object read by a key from the file finds `constructor` and `__proto__` on its prototype; `own` does not. Pure.
+packages\core\src\util\text.ts:40:/** `table[key]` when the table itself holds `key`, never an inherited member of Object.prototype. */
+packages\core\src\util\prototype-keys.test.ts:3:// a query unit like any other unknown one, never a member of Object.prototype.
+packages\core\src\derive\jsonl-transcript.ts:6:// slice of lines per `step`, so the first screen of turns needs only the first lines (commitment 5). Each line is checked
+packages\core\src\derive\jsonl-transcript.ts:502: * A deriver over `bytes`, read a slice of lines per `step`. `file` names the file in every `Source`. A leading UTF-8
+packages\core\src\render\typography.ts:135: * (`code`, `kbd`, `samp`, `pre`) opened earlier in the same sibling list (handbook P06).
+packages\core\src\reading\rows.ts:2:// An index of where each row starts is built a slice at a time (a few bytes a row; no field is kept), and the rows the
+packages\core\src\reading\rows.ts:4:// same way, a slice at a time. Nothing here writes: the bytes stay the document, and every row drawn carries its range.
+packages\core\src\reading\rows.ts:170: * all ASCII a field is a slice of that text, which saves a decoder call a field, most of what reading every row costs.
+packages\core\src\reading\rows.ts:565: * Visits `order` (every row in file order when null) a slice of about `pace.budgetMs` at a time, giving the loop back
+packages\core\src\reading\rows.ts:691:/** `order` sorted by `keys`, a slice at a time; ties keep their order. */
+packages\core\src\reading\rows.ts:696:/** `sortByKeys` at once (Array.prototype.sort is stable: ties keep their order). */
+packages\core\src\parse\testing\oracle.ts:21:  /** A fixed parse slice size, in bytes (many slices of a small file); unset, the parse sizes its own. */
+packages\core\src\parse\testing\oracle.ts:23:  /** The render's slice budget in milliseconds; a budget no slice can meet makes each slice the smallest. Unset, the default. */
+packages\core\src\render\sliced.test.ts:16:// A budget no slice can meet, so each slice is the smallest (four blocks) and a document is cut many times.
+packages\core\src\render\sliced-oracle.test.ts:4://   - every corpus file, at the default slice size and the smallest;
+packages\core\src\render\sliced-oracle.test.ts:165:// on the last slice for front matter that never closes only moves a document that was never cut from `slices`
+packages\core\src\render\sliced-oracle.test.ts:166:// to `whole` in the stats (one slice is the whole parse), so it changes no byte; `chunked.test.ts` holds it.
+packages\core\src\data\table-view.ts:7:/** How a slice of slow work is paced: `yieldNow` gives the loop back; a slice runs about `budgetMs`. */
+packages\core\src\data\table-view.ts:14:  /** Told after each slice, with the share of the work done (0 to 1). */
+packages\core\src\data\table-view.ts:127: * The stats of column `col` over `rows` (record indexes; the header excluded by the caller), a slice at a time. Resolves
+packages\core\src\reading\notebook.ts:1:// A Jupyter notebook as Read sets it ("A Jupyter notebook" and decision 10): its cells in order, Markdown
+packages\core\src\parse\reparse.ts:228: * none (chunked.test.ts). For a previous parse that does not say, and for the parse in slices, which proves each slice too.
+packages\core\src\data\delimited.ts:5:// - a **scan** (`createScan`, `scanSome`): compact typed arrays of record and field ranges, filled a slice at a time from
+packages\core\src\parse\reparse.test.ts:186: * The structured generator (from the review of #467): documents built from block constructs that reach
+packages\core\src\reading\notebook-html.ts:1:// A notebook's HTML output, cleaned before it is shown (decision 10). It goes through the same sanitiser as
+packages\core\src\parse\provenance.test.ts:79:  assert.deepEqual(ranges(parsed('+++\n>- [link](http://a.example)', 'text')).slice(1, 2), [[4, 7, '>- ']]);
+packages\core\src\parse\provenance.test.ts:80:  assert.deepEqual(ranges(parsed(' -->\n\t> [ref]: http://r.example\n', 'text')).slice(1, 2), [[6, 15, '> [ref]: ']]);
+packages\core\src\reading\lines.ts:330: * before it. Worked a slice at a time; null when `pace` stops it.
+packages\core\src\reading\lines.ts:350:      // The clock is read once a block of lines, and a slice always does one block.
+packages\core\src\reading\lines.ts:387:/** The panels' summary of a log read as lines, read from its lines a slice at a time and kept on `lines`; null when stopped. */
+packages\core\src\index-model\paths.ts:26:  if (p.startsWith('//?/UNC/')) return `//${p.slice('//?/UNC/'.length)}`;
+packages\core\src\reading\index.ts:808: * first rows, and the page indexes the rest a slice at a time.
+packages\core\src\reading\heading-scan.ts:3:// level. One pass over the line index a slice at a time, never a tree, so the Outline of a 50 MB file costs the time it
+packages\core\src\reading\heading-scan.ts:146: * The headings of a Markdown file read as lines, a slice at a time; kept on `lines` (`headings`) once found. Null when
+packages\core\src\render\pipeline.ts:111:  /** What one slice may cost, in milliseconds; the next is sized from the last one's cost. Default 3. */
+apps\desktop\src-tauri\src\commands\search.rs:236:/// be a slice of the file reaching `PREVIEW_WINDOW` and a few bytes either side of the match;
+packages\core\src\kind\registry.test.ts:280:// B5 and C1: a file that is not a text buffer has a viewer of the app's own. Source is always the bytes.
+apps\desktop\src-tauri\src\commands\archive.rs:2://! the first bytes of many, for the archive page (`src/archive`). Like `image_facts` they read only what the page opened or scoped, judged as
+apps\desktop\src-tauri\src\commands\archive.rs:344:    /// What the archive page's preview asks: an entry's first 256 KB, or all of it, from a zip, a compressed tar and a
+packages\core\src\operations\registry.test.ts:107:// first in a menu. The menu's own order (`MENU_ORDER`) is desktop code, checked in `apps/desktop/test/phase-e-flow.test.mjs`.
+packages\core\src\buffer\fold-slice.test.ts:84:    // Only the changed middle differs, and it lies inside the slice.
+packages\core\src\buffer\fold-slice.test.ts:130:    // A slice never starts or ends between the CR and LF of one ending: a block does not.
+packages\core\src\buffer\fold-slice.test.ts:222:// the block editor's text is the slice's Source text, so an edit either side of a stray byte keeps it.
+packages\core\src\buffer\fold-text.property.test.ts:121:/** A piece of the edited file: an original cell (its slice of the Source text) or typed text. */
+packages\core\src\buffer\fold-text.property.test.ts:228:// The block editor's fold: the same files, edited inside one slice of them (a block: whole runs, from a
+packages\core\src\buffer\fold-text.property.test.ts:229:// line start), through the slice's Source text. The bytes outside the slice are untouched and the slice becomes exactly
+packages\core\src\buffer\fold-text.property.test.ts:230:// the bytes its edited text names. Line endings are uniform here (the slice fold converts a typed line break to the
+packages\core\src\buffer\fold-text.property.test.ts:231:// slice's own first ending, which is its documented rule and not what this test is about).
+packages\core\src\parse\chunked.ts:4:// to parse whole; no one slice here takes more than a frame's share of it.
+packages\core\src\parse\chunked.ts:7:// open, so the parse from there on is the parse of those bytes alone. A slice is the blocks from one
+packages\core\src\parse\chunked.ts:9:// blank one, outside a fence) and then proved by the parse itself: the slice is parsed through that
+packages\core\src\parse\chunked.ts:12:// line joins) moves the slice on to a later line, and a file the proof cannot split at all is one slice.
+packages\core\src\parse\chunked.ts:17:// log line or a time in a paragraph holds; each slice's own parse would find one the scan let through.
+packages\core\src\parse\chunked.ts:26:  /** What one slice may cost, in milliseconds; the next slice is sized from the last one's cost. Default 3. */
+packages\core\src\parse\chunked.ts:30:  /** A fixed size for every slice, in bytes, instead of one sized by `budgetMs`: for a test that wants many slices of a small file. */
+packages\core\src\parse\chunked.ts:105:  // The last slice: from the last fresh line to the end of the file.
+packages\core\src\parse\chunked.ts:116:/** The size of the next slice: what the budget buys at the rate the last one parsed. */
+packages\core\src\parse\chunked.ts:138: * Where a slice may end, by a scan of lines: the start of a line whose first byte is not blank, after a
+packages\core\src\buffer\fold-slice.ts:1:// The slice fold: the smallest splice that turns one slice of a buffer into the editor's text for it.
+packages\core\src\buffer\fold-slice.ts:3:// text is the slice's Source text (`sourceTextOfRange`): each byte that is not UTF-8 is its own code unit, so
+packages\core\src\buffer\fold-slice.ts:36: * Fold the editor's `text` for `slice` back into `buffer` as one splice: the bytes of the part that
+packages\core\src\buffer\fold-slice.ts:38: * bytes the text names, a stray byte's code unit as that byte and a U+FFFD as `EF BF BD`; bytes of the slice before and
+packages\core\src\buffer\fold-slice.ts:39: * after that part keep their own endings and their own (even invalid) bytes. A new line break (a bare LF) follows the slice's
+packages\core\src\buffer\fold-slice.ts:52:  // As `textOf`: a slice may not begin or end inside a character.
+packages\core\src\buffer\fold-slice.ts:72:  // Never cut a surrogate pair or a CRLF, in the editor's text or in the old slice's.
+packages\core\src\position\restore.ts:60: * not the first heading, so text prepended to the file stays above the held offset in view (ruling,
+packages\core\src\operations\offsets.ts:1:// Byte offsets (UTF-8) to and from string indices, for operations that act on a slice of text.
+packages\core\src\operations\offsets.ts:24:/** The UTF-8 byte count of `text.slice(0, index)`; throws `RangeError` if `index` is out of range or splits a surrogate pair. */
+packages\core\src\operations\copy-section.ts:17: * The slice without its trailing blank lines. The last content line keeps its own line ending
+packages\core\src\operations\copy-section.ts:50:    // The source slice less its trailing blank lines: never a newline the source did not have
+packages\core\src\render\boundary.test.ts:68:  // cannot reach outside its own directory passes vacuously — the round-1 finding, in a new shape.
+packages\core\src\render\boundary.test.ts:91:  // anything is the round-1 vacuity finding one level up, so the assertions are named here too.
+packages\core\src\position\blocks.ts:42: * (ruling, 2026-10-08); text written above it then leaves them at the top (`restore.ts`).
+packages\core\src\book\book.test.ts:206:  deep['OEBPS/nav.xhtml'] = `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc">${ol.rep
+packages\core\src\book\book.test.ts:210:  // A zip that lists more entries than a book is read from falls back to the archive page.
+packages\core\src\book\package.ts:52:/** Why the book cannot be read as a book: the archive page shows it instead, with this sentence. */
+packages\core\src\book\index.ts:68:  /** It cannot be read as a book: the archive page shows it, with this sentence. */
+packages\core\src\sanitize\policy.ts:111: * `id` and `name` values that would shadow a `window` or `document` property by named access (P02).
+packages\core\src\highlight\runs.test.ts:81:  const edited = `${text.slice(0, at)}\n/* opened${text.slice(at)}`;
+packages\core\src\highlight\session-view.test.ts:108:  session.update(`${text.slice(0, at)}/* opened ${text.slice(at)}`);

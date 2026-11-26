@@ -1,4 +1,4 @@
-// sectionRange table cases and a corpus property over every heading (MARXY-41, docs/design/03-selection-and-operations.md).
+// sectionRange table cases and a corpus property over every heading.
 
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -7,6 +7,7 @@ import type { Document, Heading, List, Node, Paragraph } from '../contracts/ast.
 import { parseMarkdown } from '../parse/parse.ts';
 import { copySection } from '../operations/copy-section.ts';
 import { nodeAt, sectionRange } from './section.ts';
+import { cpuNow } from '../testing/cpu-clock.ts';
 
 function parse(source: string, file = 'test.md'): Document {
   return parseMarkdown(source, { file });
@@ -221,7 +222,7 @@ test('sectionRange corpus property over every heading', () => {
   }
 });
 
-test('a section nested in a list item ends at the line of the next heading, before its marker (MARXY-337)', () => {
+test('a section nested in a list item ends at the line of the next heading, before its marker', () => {
   const source = '# A\n\n- ## B\n  b text\n- ## C\n  c\n';
   const doc = parse(source);
   const b = headingsOf(doc)[1]!;
@@ -231,14 +232,14 @@ test('a section nested in a list item ends at the line of the next heading, befo
   assert.equal(source.slice(sectionRange(doc, c).start, sectionRange(doc, c).end), '## C\n  c');
 });
 
-test('a section nested in a blockquote ends at the line of the next heading, before its marker (MARXY-337)', () => {
+test('a section nested in a blockquote ends at the line of the next heading, before its marker', () => {
   const source = '# A\n\n> ## B\n> b text\n>\n> ## C\n> c\n';
   const doc = parse(source);
   const range = sectionRange(doc, headingsOf(doc)[1]!);
   assert.equal(source.slice(range.start, range.end), '## B\n> b text\n>\n');
 });
 
-test('nested section ends at a line start with CRLF, a BOM and multibyte text before it (MARXY-337)', () => {
+test('nested section ends at a line start with CRLF, a BOM and multibyte text before it', () => {
   const source = '﻿# é\r\n\r\n> ## B\r\n> 日本\r\n> ## C\r\n> c\r\n';
   const bytes = new TextEncoder().encode(source);
   const doc = parseMarkdown(bytes, { file: 't.md' });
@@ -246,7 +247,7 @@ test('nested section ends at a line start with CRLF, a BOM and multibyte text be
   assert.equal(new TextDecoder().decode(bytes.subarray(range.start, range.end)), '## B\r\n> 日本\r\n');
 });
 
-test('copy-section of a nested section carries no container marker (MARXY-337)', () => {
+test('copy-section of a nested section carries no container marker', () => {
   for (const [source, text] of [
     ['# A\n\n- ## B\n  b text\n- ## C\n  c\n', '## B\n  b text\n'],
     ['# A\n\n> ## B\n> b text\n>\n> ## C\n> c\n', '## B\n> b text\n>\n'],
@@ -258,5 +259,20 @@ test('copy-section of a nested section carries no container marker (MARXY-337)',
     assert.equal(out.clipboard?.text, text);
     assert.match(out.clipboard!.html!, /<h2[^>]*>B<\/h2>/);
     assert.ok(!out.clipboard!.html!.includes('<h2>b text</h2>'));
+  }
+});
+
+test('every section of a 100,000-heading document in time in proportion to it, and the same as a scan', () => {
+  const source = Array.from({ length: 100_000 }, (_, i) => `${'#'.repeat(1 + (i % 3))} h ${i}\n\ntext\n\n`).join('');
+  const document = parseMarkdown(source);
+  const headings = document.children.filter((b): b is Heading => b.type === 'heading');
+  const t0 = cpuNow();
+  const ranges = headings.map((h) => sectionRange(document, h));
+  assert.ok(cpuNow() - t0 < 1000, `${(cpuNow() - t0).toFixed(0)} ms for every section`);
+  // The scan the sections replaced, for a sample from the end, where it was slowest.
+  for (let i = headings.length - 300; i < headings.length; i++) {
+    const h = headings[i]!;
+    const next = document.children.find((b) => b.src.start > h.src.start && b.type === 'heading' && b.level <= h.level);
+    assert.equal(ranges[i]!.end, next?.src.start ?? document.src.end);
   }
 });

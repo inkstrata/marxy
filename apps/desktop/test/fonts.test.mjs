@@ -1,4 +1,4 @@
-// The bundled faces in the built page (MARXY-21): both families load from the app bundle, text is
+// The bundled faces in the built page: both families load from the app bundle, text is
 // never painted in a fallback face, and each face ships with its licence. Builds the web half into a
 // temporary directory and serves it, with the app script blocked (there is no shell here).
 
@@ -10,11 +10,11 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { fileURLToPath } from 'node:url';
 
 /**
- * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+ * A run without Playwright's WebKit skips these tests and says why, unless
  * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
  */
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -52,7 +52,7 @@ test('each face ships with its OFL licence beside it', () => {
   }
 });
 
-test('the sans faces of the Classic set load from the bundle and are not the platform face (H-04.1)', async () => {
+test('the sans faces of the Classic set load from the bundle and are not the platform face', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage();
@@ -108,7 +108,7 @@ test('text is set in Literata and code in JetBrains Mono, and no frame shows a f
         code: getComputedStyle(p.querySelector('code')).fontFamily,
       };
     });
-    // The preloaded roman faces (H-04.3) are loaded whether or not this page sets text in them; no italic but Literata's is.
+    // The preloaded roman faces are loaded whether or not this page sets text in them; no italic but Literata's is.
     assert.deepEqual(result.loaded, ['Atkinson Hyperlegible Next/normal', 'Inter/normal', 'JetBrains Mono/normal', 'Literata/italic', 'Literata/normal', 'Source Serif 4/normal']);
     assert.deepEqual([...new Set(result.display)], ['block'], 'every face blocks rather than swapping in a fallback');
     assert.ok(result.literataIsNotSerif, 'the loaded face is not the system serif');
@@ -119,9 +119,9 @@ test('text is set in Literata and code in JetBrains Mono, and no frame shows a f
   }
 });
 
-// H-04.3: the faces a kind profile's first screen sets text in are read before first paint, so a report,
+// the faces a kind profile's first screen sets text in are read before first paint, so a report,
 // article or README does not swap face (and move) after it. Roman only; italics wait for the first emphasis.
-nodeTest('the roman faces of the Classic set are preloaded in the built page, the italics and licences are not (H-04.3)', { skip: skip && 'the build needs Vite only, but the suite shares its before hook' }, () => {
+nodeTest('the roman faces of the Classic set are preloaded in the built page, the italics and licences are not', { skip: skip && 'the build needs Vite only, but the suite shares its before hook' }, () => {
   const html = readFileSync(join(outDir, 'index.html'), 'utf8');
   const links = [...html.matchAll(/<link rel="preload" as="font"[^>]*href="\.\/(fonts\/[^"]+)"/g)].map((m) => m[1]).sort();
   assert.deepEqual(links, ['fonts/AtkinsonHyperlegibleNext.woff2', 'fonts/InterVariable.woff2', 'fonts/JetBrainsMono.ttf', 'fonts/Literata.ttf', 'fonts/SourceSerif4.ttf']);

@@ -1,8 +1,17 @@
-// Singleton Shiki core highlighter with lazy grammar loading from the allow-list (MARXY-27).
-import { createHighlighterCore, type HighlighterCore } from '@shikijs/core';
+// Singleton Shiki core highlighter with lazy grammar loading from the allow-list.
+import { createHighlighterCore, type GrammarState, type HighlighterCore, type ThemedToken } from '@shikijs/core';
 import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript';
-import { GRAMMAR_LOADERS, LANGUAGE_TO_GRAMMAR } from './languages.generated.ts';
+import { GRAMMAR_LOADERS } from './grammar-loaders.generated.ts';
+import { LANGUAGE_TO_GRAMMAR } from './languages.generated.ts';
 import { INTERNAL_THEME_NAME, internalScopeTheme } from './scopes.ts';
+import { own } from '../util/text.ts';
+
+/** The fields of a grammar registration the loader reads. */
+interface Grammar {
+  readonly name: string;
+  readonly embeddedLangs?: readonly string[];
+  readonly embeddedLangsLazy?: readonly string[];
+}
 
 let highlighter: HighlighterCore | undefined;
 const loadedGrammars = new Set<string>();
@@ -19,56 +28,50 @@ async function getHighlighter(): Promise<HighlighterCore> {
 
 async function ensureGrammar(grammarId: string): Promise<void> {
   if (loadedGrammars.has(grammarId)) return;
-  const load = GRAMMAR_LOADERS[grammarId];
+  const load = own(GRAMMAR_LOADERS, grammarId);
   if (!load) throw new Error(`grammar not allow-listed: ${grammarId}`);
   const mod = await load();
   const hi = await getHighlighter();
-  await hi.loadLanguage(mod.default as never);
+  // A grammar's module carries the grammars it embeds; one not on the allow-list (cpp and ruby embed GLSL, whose licence
+  // is unknown) is left out here, as the build leaves its module out of the bundle (vite.config.ts).
+  // Shiki refuses a grammar whose `embeddedLangs` names one it has not loaded, so the names go too; the grammar's
+  // include of the left-out scope then matches nothing, and that text is coloured as the grammar's own.
+  const allowed = (name: string): boolean => Object.hasOwn(GRAMMAR_LOADERS, name);
+  const grammars = (mod.default as readonly Grammar[]).filter((g) => allowed(g.name)).map((g) =>
+    [...(g.embeddedLangs ?? []), ...(g.embeddedLangsLazy ?? [])].every(allowed)
+      ? g
+      : { ...g, embeddedLangs: g.embeddedLangs?.filter(allowed), embeddedLangsLazy: g.embeddedLangsLazy?.filter(allowed) },
+  );
+  await hi.loadLanguage(...(grammars as never[]));
   loadedGrammars.add(grammarId);
 }
 
 export async function ensureLanguage(lang: string): Promise<string | null> {
-  const grammar = LANGUAGE_TO_GRAMMAR[lang];
+  const grammar = own(LANGUAGE_TO_GRAMMAR, lang);
   if (!grammar) return null;
   await ensureGrammar(grammar);
   return grammar;
 }
 
 export async function tokenizeWithAllowList(code: string, lang: string) {
+  return (await tokenizeFromState(code, lang))?.tokens ?? null;
+}
+
+/**
+ * Tokens for `code` begun in `state` (the grammar's state after the lines before it, from an earlier call), and the state
+ * after its last line, so a long text can be tokenised a piece at a time with the same result as all at once.
+ */
+export async function tokenizeFromState(
+  code: string,
+  lang: string,
+  state?: GrammarState,
+): Promise<{ readonly tokens: ThemedToken[][]; readonly state: GrammarState | undefined } | null> {
   const grammar = await ensureLanguage(lang);
   if (!grammar) return null;
   const hi = await getHighlighter();
   // 0 = no limit. Shiki's default (500 ms per line) stops tokenising mid-line when a cold grammar
   // is slow to compile its regexes, so the same code would get different colours on a busy machine.
   // Cost stays bounded by MAX_HIGHLIGHT_LINE_CHARS / MAX_HIGHLIGHT_BLOCK_CHARS, and runs in a worker.
-  return hi.codeToTokensBase(code, { lang: grammar, theme: INTERNAL_THEME_NAME, tokenizeTimeLimit: 0 });
-}
-
-/**
- * A line longer than its grammar's cap is left plain (B-21). The JS regex engine's cost is not linear
- * in line length for some grammars, and tokenising is never cut off by time (a time limit would colour
- * the same code differently on a busy machine), so the bound is on length: the same text always gets
- * the same colours. Worst line time measured on this machine (Node, warm grammar, 40+ adversarial
- * patterns: quotes, brackets, backticks, `$(`, `//`, `#include`, random mixes), at the cap and at the
- * old 2000-character cap:
- *
- *   cpp   400: 0.21 s (2000: 4.5 s)     c    400: 0.01 s (2000: 0.25 s)
- *   go    500: 0.07 s (2000: 5.1 s)     bash 500: 0.15 s (2000: 5.0 s)   (grammar `shellscript`)
- *   every other grammar, 1000: 0.17 s at most (typescript); yaml 0.08 s, html 0.08 s, toml 0.04 s.
- *
- * A minified bundle is far past 1000 characters on one line, so the global cap loses nothing that
- * 2000 kept. Keyed by grammar id, so every alias of a grammar shares its cap.
- */
-export const DEFAULT_LINE_CAP = 1_000;
-const GRAMMAR_LINE_CAPS: Readonly<Record<string, number>> = {
-  c: 400,
-  cpp: 400,
-  go: 500,
-  shellscript: 500,
-};
-
-/** The longest line, in characters, that is tokenised for a language id (an alias or a grammar id). */
-export function lineCapFor(lang: string): number {
-  const grammar = LANGUAGE_TO_GRAMMAR[lang] ?? lang;
-  return GRAMMAR_LINE_CAPS[grammar] ?? DEFAULT_LINE_CAP;
+  const tokens = hi.codeToTokensBase(code, { lang: grammar, theme: INTERNAL_THEME_NAME, tokenizeTimeLimit: 0, grammarState: state });
+  return { tokens, state: hi.getLastGrammarState(tokens) };
 }

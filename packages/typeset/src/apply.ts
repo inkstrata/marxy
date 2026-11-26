@@ -1,4 +1,4 @@
-// Steps 5 and 6 of docs/design/04-typeset.md: put the chosen breaks into the DOM, check that no line
+// Steps 5 and 6: put the chosen breaks into the DOM, check that no line
 // is overfull, and take them out again. Body text stays inline HTML. A break is an empty
 // `<span class="marxy-lb">` whose `::before` is a generated newline (base.css): generated content is
 // not text, so selection, copy and find see exactly the characters they saw before — a `<br>`, as
@@ -34,25 +34,78 @@ export function ensureHyphenStyle(doc: Document): void {
 
 /**
  * Inserts a `<span class="marxy-lb">` after each token index in `after` (a space, a dash, or a
- * hyphenation point), in reverse document order so every earlier (node, offset) stays valid while
- * later ones are split. A hyphenation break also inserts `.marxy-hyphen` so the line end shows a
+ * hyphenation point). A hyphenation break also inserts `.marxy-hyphen` so the line end shows a
  * hyphen that selection and find never see.
+ *
+ * Each text node a break falls in is replaced by new nodes holding its pieces, unless `inPlace`. WebKit
+ * lays out a text node whose data changed (a split keeps the head and shortens it) at a cost that grows
+ * with what follows it on the page: some 20 ms a paragraph in the middle of a 1 MB article, against 3 ms
+ * for new nodes (a property of the changed node, not of any style rule), and that was most of the time a background
+ * batch held the frame. The nodes the tokens
+ * name leave the paragraph, so tokens are taken again before the paragraph is set a second time.
+ * `inPlace` splits instead, in reverse document order so every earlier (node, offset) stays valid: a
+ * split moves a live Range at a point past it into the new node, where a replaced node takes the Range
+ * out of the text (to its parent), so a paragraph that holds the reader's selection or a highlight keeps
+ * its nodes.
  */
-export function applyBreaks(p: HTMLElement, tokens: readonly Token[], after: readonly number[]): void {
+export function applyBreaks(p: HTMLElement, tokens: readonly Token[], after: readonly number[], inPlace = false): void {
   ensureHyphenStyle(p.ownerDocument);
-  for (const index of [...after].sort((a, b) => b - a)) {
-    const token = tokens[index];
-    if (token === undefined || token.kind === 'piece') continue;
-    // After a space the space stays at the line's end, where it collapses; after a dash or hyphen
-    // the split is at the recorded offset.
-    const at = token.kind === 'space' ? token.offset + 1 : token.offset;
-    const rest = at < token.node.length ? token.node.splitText(at) : null;
-    const parent = token.node.parentNode!;
-    const mark = p.ownerDocument.createElement('span');
-    mark.className = token.kind === 'hyphen' ? `${LINE_BREAK} ${HYPHEN}` : LINE_BREAK;
-    parent.insertBefore(mark, rest ?? token.node.nextSibling);
+  const doc = p.ownerDocument;
+  const mark = (kind: Token['kind']): HTMLElement => {
+    const span = doc.createElement('span');
+    span.className = kind === 'hyphen' ? `${LINE_BREAK} ${HYPHEN}` : LINE_BREAK;
+    return span;
+  };
+  // After a space the space stays at the line's end, where it collapses; after a dash or hyphen
+  // the split is at the recorded offset.
+  const cutOf = (token: Exclude<Token, { kind: 'piece' }>): number => (token.kind === 'space' ? token.offset + 1 : token.offset);
+  if (inPlace) {
+    for (const index of [...after].sort((a, b) => b - a)) {
+      const token = tokens[index];
+      if (token === undefined || token.kind === 'piece') continue;
+      const at = cutOf(token);
+      const rest = at < token.node.length ? token.node.splitText(at) : null;
+      token.node.parentNode!.insertBefore(mark(token.kind), rest ?? token.node.nextSibling);
+    }
+  } else {
+    const cuts = new Map<Text, { at: number; kind: Token['kind'] }[]>();
+    for (const index of after) {
+      const token = tokens[index];
+      if (token === undefined || token.kind === 'piece') continue;
+      const list = cuts.get(token.node) ?? [];
+      list.push({ at: cutOf(token), kind: token.kind });
+      cuts.set(token.node, list);
+    }
+    for (const [node, list] of cuts) {
+      list.sort((a, b) => a.at - b.at);
+      // The nodes the splits would leave: the head always (empty or not), each piece between two
+      // breaks, and the tail only when it holds text.
+      const parts = doc.createDocumentFragment();
+      const text = node.data;
+      let from = 0;
+      for (const { at, kind } of list) {
+        parts.append(doc.createTextNode(text.slice(from, at)), mark(kind));
+        from = at;
+      }
+      if (from < text.length) parts.append(doc.createTextNode(text.slice(from)));
+      node.replaceWith(parts);
+    }
   }
   p.classList.add(SET);
+}
+
+/**
+ * Whether a live Range the page holds has an end inside `p`: the reader's selection, or a range of a
+ * `CSS.highlights` highlight (find's matches). Such a paragraph is set in place (`applyBreaks`).
+ */
+export function holdsRange(p: HTMLElement): boolean {
+  const doc = p.ownerDocument;
+  const inside = (r: AbstractRange): boolean => p.contains(r.startContainer) || p.contains(r.endContainer);
+  const sel = doc.getSelection?.() ?? null;
+  if (sel !== null) for (let i = 0; i < sel.rangeCount; i++) if (inside(sel.getRangeAt(i))) return true;
+  const registry = (doc.defaultView as (Window & { CSS?: { highlights?: Map<string, Set<AbstractRange>> } }) | null)?.CSS?.highlights;
+  if (registry !== undefined) for (const ranges of registry.values()) for (const r of ranges) if (inside(r)) return true;
+  return false;
 }
 
 /** Removes every break, hang span and hyphen mark, and rejoins the text nodes the breaks split. */

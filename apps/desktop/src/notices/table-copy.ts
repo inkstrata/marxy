@@ -1,4 +1,4 @@
-// What a table tool says when it declines a table it found under the caret (V-02.1), in the X-21 template
+// What a table tool says when it declines a table it found under the caret, in the template
 // "what happened · what is unchanged · what to do". Nothing is written on a refusal, so the second clause is always true.
 import type { TableRefusal } from '@marxy/core/src/source-edit/index.ts';
 

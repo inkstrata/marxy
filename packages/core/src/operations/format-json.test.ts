@@ -1,4 +1,4 @@
-// format-json (E-10): table rows in LF, CRLF, CR, no trailing newline and BOM; the corpus; token fidelity; refusals; properties.
+// format-json: table rows in LF, CRLF, CR, no trailing newline and BOM; the corpus; token fidelity; refusals; properties.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { CodeBlock, Document, Node } from '../contracts/ast.ts';

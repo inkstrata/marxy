@@ -1,4 +1,4 @@
-// *Show as* and the reader's rules against ADR-0060 item 9 (K-04): the precedence, the kinds.json envelope
+// *Show as* and the reader's rules: the precedence, the kinds.json envelope
 // (version guard, cap that refuses and never evicts, quarantine) and what the file may hold.
 
 import assert from 'node:assert/strict';
@@ -60,7 +60,7 @@ test('show as for one file leaves its neighbours alone', () => {
   assert.equal(detectFileKind({ path: '/Users/ian/.claude/projects/x/other.jsonl', head: enc(''), rules: RULES, choices }).kind, 'transcript');
 });
 
-test('rules match the way P-02 compares paths: case, ., .., //, Unicode normalisation', () => {
+test('rules match the way paths are compared: case, ., .., //, Unicode normalisation', () => {
   const rule = (glob: string): KindRule[] => [{ glob, is: 'log' }];
   const kind = (path: string, glob: string): string => detectFileKind({ path, head: enc(''), rules: rule(glob) }).kind;
   // Case: a case-insensitive volume names one folder two ways.
@@ -173,11 +173,17 @@ test('folderKindGlob writes the folder\'s tree with the home folder as ~', () =>
   assert.equal(folderKindGlob('/', '/Users/ian'), '/**');
 });
 
-test("a rule's read is the first matching rule's, matched as its kind is (K-12: a JSONL session opens in Read by a rule)", () => {
+test("a rule's read is the first matching rule's, matched as its kind is (a JSONL session opens in Read by a rule)", () => {
   assert.equal(ruleReadFor(JSONL, RULES), true, 'the transcript rule says read');
   assert.equal(ruleReadFor('/Users/ian/.claude/settings.json', RULES), undefined, 'the second rule matches and says nothing');
   assert.equal(ruleReadFor('/elsewhere/a.jsonl', RULES), undefined, 'no rule matches');
   assert.equal(ruleReadFor(JSONL.toUpperCase(), RULES), true, 'case folded as for the kind');
   assert.equal(ruleReadFor(JSONL, [{ glob: '/Users/ian/**', is: 'nonsense', read: false }, ...RULES]), true, 'a rule naming no kind is skipped');
   assert.equal(ruleReadFor(JSONL, [{ glob: '/Users/ian/**', is: 'data', read: false }, ...RULES]), false, 'the first match wins');
+});
+
+test('a choice kept under a backslash path by an earlier build is found under the slashed path', () => {
+  const loaded = parseKindsFile(new TextEncoder().encode(JSON.stringify({ version: 1, kinds: { 'C:\\Notes\\a.md': 'log' } })));
+  assert.equal(loaded.kind, 'ok');
+  assert.equal(showAsFor(loaded.envelope, 'C:/Notes/a.md'), 'log');
 });

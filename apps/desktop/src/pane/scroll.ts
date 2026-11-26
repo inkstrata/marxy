@@ -1,4 +1,4 @@
-// Each pane its own scroller (D-05; ADR-0057: scroll independent).
+// Each pane its own scroller: scroll independent.
 //
 // The model: **one pane scrolls the window, two panes scroll their own elements.** With one document
 // the window scrolls, as it always has: the scroll listener, the reading anchor, the persistence and
@@ -10,7 +10,7 @@
 // The cost is one transition each way, made here. When the second pane appears the first pane's view
 // moves from the window to its section; when the split closes the survivor (always the first pane, see
 // pane-set.ts) moves back to the window. Each move reads the reader's place as the view last saw it, a
-// byte coordinate (ADR-0018), and holds it on the new scroller through the relayout the new width
+// byte coordinate, and holds it on the new scroller through the relayout the new width
 // causes, so a pane that changes width and scroller keeps its place. The second pane's view is made on
 // its own section and never moves. Closing the left pane hands the right pane's place (fraction too) to
 // the first pane, which shows that document from then on.

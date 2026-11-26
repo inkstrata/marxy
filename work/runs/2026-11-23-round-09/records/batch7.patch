@@ -1,0 +1,65 @@
+diff --git a/.gitignore b/.gitignore
+index 0f0caa1a..96ec0cf9 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -2,6 +2,7 @@ node_modules/
+ dist/
+ demo-dist/
+ target/
++target-rust/
+ out/
+ .venv/
+ *.log
+diff --git a/scripts/check-registry.test.mjs b/scripts/check-registry.test.mjs
+index 0b410625..c0d72add 100644
+--- a/scripts/check-registry.test.mjs
++++ b/scripts/check-registry.test.mjs
+@@ -184,7 +184,7 @@ test('H-01: a source file using data-marxy-kind and data-marxy-lang passes the r
+         copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
+       }
+       writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...real, dataAttributes, customProperties: ['--marxy-tok-'] }));
+-      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
++      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'junction');
+       mkdirSync(join(dir, 'packages/theme'), { recursive: true });
+       copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
+       mkdirSync(join(dir, 'apps/desktop/src/pane'), { recursive: true });
+@@ -226,7 +226,7 @@ test('a design plate under docs/plan/<round>/studio/ is exempt; the same plate e
+       }
+       // A tree this small uses none of the private properties the real list holds.
+       writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...JSON.parse(readFileSync(join(repo, 'scripts/registry.json'), 'utf8')), customProperties: [] }));
+-      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
++      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'junction');
+       mkdirSync(join(dir, 'packages/theme'), { recursive: true });
+       copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
+       mkdirSync(join(dir, 'docs/plan/direction-2026-10', folder), { recursive: true });
+@@ -278,7 +278,7 @@ test('F-71: the gate run fails on an unlisted --marxy-* property in source and o
+       mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
+       for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
+       writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...real, customProperties }));
+-      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
++      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'junction');
+       mkdirSync(join(dir, 'packages/theme'), { recursive: true });
+       copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
+       mkdirSync(join(dir, 'apps/desktop/src/pane'), { recursive: true });
+@@ -328,7 +328,7 @@ test('F-75: the gate run fails on an assembled name and on a bare --marxy- entry
+       mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
+       for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
+       writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...real, customProperties }));
+-      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
++      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'junction');
+       mkdirSync(join(dir, 'packages/theme'), { recursive: true });
+       copyFileSync(join(repo, 'packages/theme/tokens.contract.json'), join(dir, 'packages/theme/tokens.contract.json'));
+       mkdirSync(join(dir, 'apps/desktop/src/pane'), { recursive: true });
+diff --git a/scripts/check.test.mjs b/scripts/check.test.mjs
+index fc89a5a3..991b42b8 100644
+--- a/scripts/check.test.mjs
++++ b/scripts/check.test.mjs
+@@ -64,7 +64,7 @@ test('A-08: a Node built-in imported into packages/core makes pnpm check exit 1
+     for (const f of ['check.mjs', 'check-boundaries.mjs']) cpSync(join(ROOT, 'scripts', f), join(dir, 'scripts', f));
+     cpSync(join(ROOT, 'scripts/lib'), join(dir, 'scripts/lib'), { recursive: true });
+     cpSync(join(ROOT, 'scripts/allowlists'), join(dir, 'scripts/allowlists'), { recursive: true });
+-    symlinkSync(join(ROOT, 'node_modules'), join(dir, 'node_modules'));
++    symlinkSync(join(ROOT, 'node_modules'), join(dir, 'node_modules'), 'junction');
+     mkdirSync(join(dir, 'packages/core/src'), { recursive: true });
+     writeFileSync(join(dir, 'packages/core/package.json'), '{"name":"@marxy/core"}\n');
+     const index = join(dir, 'packages/core/src/index.ts');

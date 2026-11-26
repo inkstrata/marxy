@@ -1,5 +1,5 @@
-// Deferred startup work after reading position is restored (MARXY-33): highlight, math, images.
-// The palette index is not here: it has an owner, apps/desktop/src/index/service.ts (A-04).
+// Deferred startup work after reading position is restored: highlight, math, images.
+// The palette index is not here: it has an owner, apps/desktop/src/index/service.ts.
 import { applyImages, pathsForDocument, resolveImageRoot, type ApplyImagesContext } from '../render/images.ts';
 import { applyMath } from '../render/math.ts';
 
@@ -7,7 +7,7 @@ export interface MarkShell {
   mark(name: string, t: number, data?: string): Promise<void>;
 }
 
-/** WebKitGTK (and Playwright's WebKit harness) often never fires rIC; §04 uses setTimeout there. */
+/** WebKitGTK (and Playwright's WebKit harness) often never fires rIC; setTimeout is used there. */
 function scheduleIdle(fn: () => void): void {
   if (typeof requestIdleCallback === 'function' && !/WebKit/i.test(navigator.userAgent)) {
     requestIdleCallback(fn, { timeout: 2000 });
@@ -29,7 +29,7 @@ export interface DeferredStartupContext {
   readonly shell: MarkShell;
   readonly file: string;
   readonly doc: HTMLElement;
-  /** The index service's `rootFor`: the repository root the document's images resolve against (ADR-0027 §5). */
+  /** The index service's `rootFor`: the repository root the document's images resolve against. */
   readonly rootFor?: (path: string) => Promise<string>;
   readonly imageCtx: Omit<ApplyImagesContext, 'documentPath' | 'documentDir' | 'imageRoot'>;
   /**
@@ -37,6 +37,8 @@ export interface DeferredStartupContext {
    * so the grid pass can run again: blocks below the change sit off the baseline grid until it does.
    */
   readonly onLayoutChanged?: (changed?: readonly HTMLElement[]) => void;
+  /** The document's bytes, for a code file's colour tier. */
+  readonly bytes?: () => Uint8Array | null;
 }
 
 /**
@@ -74,10 +76,22 @@ export async function runDeferredStartup(ctx: DeferredStartupContext): Promise<v
     }
   });
   await guarded('math', () => applyMath(doc));
+  await guarded('diagrams', async () => {
+    if (!doc.querySelector('pre[data-marxy-part="diagram"]')) return;
+    const { applyDiagrams } = await import('../render/diagram.ts');
+    await applyDiagrams(doc, regrid);
+  });
+  // After the diagrams, whose drawings move the lines below them: each note is placed beside its line once. A page with
+  // none is told too, so the article lets go of the page before it and its resizes cost nothing.
+  await guarded('margin notes', async () => {
+    const { placeMarginNotes } = await import('../proposals/notes-in-place.ts');
+    placeMarginNotes(doc);
+  });
   await guarded('highlight', async () => {
     const { startCodeHighlight } = await import('../render/highlight.ts');
     // The blocks are split and coloured as they come into view, after this pass: each batch asks again.
-    startCodeHighlight(doc, regrid);
+    const bytes = ctx.bytes?.();
+    startCodeHighlight(doc, regrid, bytes ? { path: file, bytes } : undefined);
     regrid();
   });
   await guarded('scrollers', () => focusableScrollers(doc));
@@ -94,7 +108,7 @@ async function guarded(step: string, fn: () => void | Promise<void>): Promise<vo
 
 /**
  * A table or display formula wider than its room scrolls; a scroll region with nothing focusable in it cannot be scrolled
- * from the keyboard in WebKit, so it takes a tab stop and a name (ADR-0033, WCAG 2.1.1). Ones that
+ * from the keyboard in WebKit, so it takes a tab stop and a name (WCAG 2.1.1). Ones that
  * fit get none: a tab stop on every table is noise.
  */
 export function focusableScrollers(doc: HTMLElement): void {

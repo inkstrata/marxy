@@ -1,4 +1,4 @@
-// A hidden-character line inside a 320 px window (B-02.3): fixtures/corpus/29-hidden-characters.md,
+// A hidden-character line inside a 320 px window: fixtures/corpus/29-hidden-characters.md,
 // rendered through the real app's gate entry at 320 px (the aesthetics gate's 320 px and 400 % zoom
 // reflow modes, WCAG 1.4.10: 400 % of a 1280 px window is 320 CSS px), has no horizontal scroll and
 // no line the typesetter set runs past the article. Playwright WebKit only.
@@ -10,7 +10,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'

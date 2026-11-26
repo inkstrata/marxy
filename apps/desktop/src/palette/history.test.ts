@@ -1,4 +1,4 @@
-// history.json keeps real open times, and is written on open rather than only at quit (A-06).
+// history.json keeps real open times, and is written on open rather than only at quit.
 
 import { test, mock, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,11 +12,13 @@ import {
   sessionFromHistory,
   trackDocumentOpen,
 } from './history.ts';
-import { emptySession, recordOpen } from './session.ts';
+import { adoptHistory, emptySession, recordOpen, setHydrationListener, setPaletteHydration, takePaletteHydration, togglePin, type PaletteSession } from './session.ts';
 import { createMemoryShell } from '../shell/memory.ts';
 
 afterEach(() => {
   resetPaletteHistoryMirror();
+  setHydrationListener(undefined);
+  takePaletteHydration();
   mock.timers.reset();
 });
 
@@ -125,4 +127,71 @@ test('a back/forward stamp on a path the history already knows reaches history.j
   const write = shell.calls.filter((c) => c.method === 'writeFileAtomic').at(-1)!;
   const { envelope } = parseHistoryFile(write.args[1] as Uint8Array);
   assert.ok(envelope.opens.some((o) => o.path === '/repo/a.md' && o.at > Date.now() + 9 * HOUR));
+});
+
+const stored = (opens: { path: string; at: number }[], pins: string[]) =>
+  createMemoryShell({ '/data/history.json': serializeHistoryFile({ version: 1, opens, pins, recentRoots: ['/r'] }) });
+
+test('a placeholder emptySession leaves the loaded history for the palette that mounts after it', async () => {
+  await loadPaletteHistory(stored([{ path: '/r/a.md', at: 1 }], ['/r/a.md']) as never, '/');
+  assert.deepEqual(emptySession('/').pinned, []);
+  assert.deepEqual(takePaletteHydration()?.pinned, ['/r/a.md']);
+  assert.equal(takePaletteHydration(), null);
+});
+
+test('history.json read after the palette mounted joins it, and its pins survive the quit flush', async () => {
+  const t0 = 1_700_000_000_000;
+  let live: PaletteSession = recordOpen(emptySession('/'), '/r/c.md', undefined, t0 + 2 * HOUR);
+  live = togglePin(live, '/r/c.md');
+  setHydrationListener((disk) => (live = adoptHistory(disk, live)));
+  const shell = stored([{ path: '/r/a.md', at: t0 }, { path: '/r/b.md', at: t0 + HOUR }], ['/r/a.md']);
+  trackDocumentOpen('/r/c.md', '/r');
+  await loadPaletteHistory(shell as never, '/');
+  assert.deepEqual(live.mru, ['/r/c.md', '/r/b.md', '/r/a.md'], 'the open tracked before the read is on top');
+  await flushPaletteHistoryFromApp(shell as never, live);
+  const write = shell.calls.filter((c) => c.method === 'writeFileAtomic').at(-1)!;
+  const { envelope } = parseHistoryFile(write.args[1] as Uint8Array);
+  assert.deepEqual(envelope.pins, ['/r/a.md', '/r/c.md']);
+  assert.deepEqual(envelope.opens.map((o) => o.path), ['/r/a.md', '/r/b.md', '/r/c.md']);
+});
+
+test('a hydration with no palette mounted waits for the mount', () => {
+  setPaletteHydration({ ...emptySession('/r'), pinned: ['/r/a.md'] });
+  let heard: PaletteSession | null = null;
+  setHydrationListener((s) => (heard = s));
+  assert.equal(heard, null);
+  assert.deepEqual(takePaletteHydration()?.pinned, ['/r/a.md']);
+});
+
+test('a history.json that is there but cannot be read is never written over this session', async () => {
+  const kept = serializeHistoryFile({ version: 1, opens: [{ path: '/r/a.md', at: 1 }], pins: ['/r/a.md'], recentRoots: ['/r'] });
+  const shell = createMemoryShell({ '/data/history.json': kept });
+  shell.readFile = async () => {
+    throw Object.assign(new Error('EACCES'), { code: 'permission' });
+  };
+  await loadPaletteHistory(shell as never, '/r');
+  trackDocumentOpen('/r/b.md', '/r');
+  await flushPaletteHistoryFromApp(shell as never, emptySession('/r'));
+  assert.equal(shell.calls.filter((c) => c.method === 'writeFileAtomic').length, 0);
+  assert.deepEqual(await shell.peekFile('/data/history.json'), kept);
+});
+
+test('paths kept with backslashes by an earlier build read as slashed paths: one file is one entry', () => {
+  const bytes = new TextEncoder().encode(
+    JSON.stringify({
+      version: 1,
+      opens: [
+        { path: 'C:\\n\\a.md', at: 1 },
+        { path: 'C:/n/a.md', at: 2 },
+      ],
+      pins: ['C:\\n\\a.md', 'C:/n/a.md'],
+      recentRoots: ['C:\\n', 'C:/n'],
+    }),
+  );
+  const { envelope, quarantine } = parseHistoryFile(bytes);
+  assert.equal(quarantine, false);
+  assert.deepEqual(envelope.opens.map((o) => o.path), ['C:/n/a.md', 'C:/n/a.md']);
+  assert.deepEqual(envelope.pins, ['C:/n/a.md']);
+  assert.deepEqual(envelope.recentRoots, ['C:/n']);
+  assert.deepEqual(sessionFromHistory(envelope, '/').mru, ['C:/n/a.md']);
 });

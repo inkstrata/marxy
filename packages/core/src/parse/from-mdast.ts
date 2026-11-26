@@ -1,4 +1,4 @@
-// Converts one mdast tree into the marxy AST, giving every node byte provenance (ADR-0003).
+// Converts one mdast tree into the marxy AST, giving every node byte provenance.
 // mdast is the shape micromark hands us; the AST in ../contracts/ast.ts is what the rest of marxy
 // reads. Nothing here re-scans or re-parses source text: positions come from mdast, offsets from
 // the one byte-offset table built for the document.
@@ -7,6 +7,7 @@ import type {
   Block, Document, Inline, Source, Heading, List, ListItem, TableCell, TableRow,
 } from '../contracts/ast.ts';
 import type { ByteOffsets } from './byte-offsets.ts';
+import { fenceWord } from '../kind/registry.ts';
 import { registerLineStarts } from '../sourcemap/line-starts.ts';
 import { LINE_ENDING, LINE_ENDINGS, nextLineEnding, splitLines } from './line-endings.ts';
 import type * as md from 'mdast';
@@ -21,12 +22,47 @@ export interface ConvertContext {
   readonly offsets: ByteOffsets;
 }
 
+/** Where a link reference leads: a link reference definition's destination and title. */
+export interface Target {
+  readonly url: string;
+  readonly title?: string | null | undefined;
+}
+
 interface Ctx extends ConvertContext {
   /** Link/image reference definitions, by normalised identifier. */
-  readonly definitions: Map<string, md.Definition>;
+  readonly definitions: ReadonlyMap<string, Target>;
   /** Whether the tree was built with `fencedCodeMarker`, without which no code block can be read. */
   readonly marked: boolean;
 }
+
+/** One link reference or footnote definition of a parse, wherever it sits (top level, quote, list item, footnote). */
+export interface DefinitionEntry {
+  readonly kind: 'link' | 'footnote';
+  /** mdast's identifier: the label with its whitespace collapsed, case-folded and lower-cased. */
+  readonly identifier: string;
+  /** A link definition's destination and title (`null` when it has none); unset for a footnote. */
+  readonly url?: string;
+  readonly title?: string | null;
+  /** Byte offsets in the file. */
+  readonly start: number;
+  readonly end: number;
+}
+
+/**
+ * Every definition of a file, as the reparse (reparse.ts) needs them to parse a region with the file's
+ * definitions known: the entries in document order, the targets references resolve to (the first
+ * definition of a label wins), and the labels as micromark's own lists held them when the whole file was
+ * parsed (`parser.defined` for links, `parser.gfmFootnotes` for footnotes), which decide while it
+ * tokenises whether `[x]` or `[^x]` is a reference at all.
+ */
+export interface DefinitionIndex {
+  readonly entries: readonly DefinitionEntry[];
+  readonly targets: ReadonlyMap<string, Target>;
+  readonly links: readonly string[];
+  readonly footnotes: readonly string[];
+}
+
+export const NO_DEFINITIONS: DefinitionIndex = { entries: [], targets: new Map(), links: [], footnotes: [] };
 
 /**
  * Whether a document's parse held a link reference definition or a footnote definition: the
@@ -38,18 +74,44 @@ const crossFile = new WeakMap<Document, boolean>();
 export const holdsDefinitions = (document: Document): boolean | undefined => crossFile.get(document);
 export const markDefinitions = (document: Document, holds: boolean): void => {
   crossFile.set(document, holds);
+  if (!holds) indexes.set(document, NO_DEFINITIONS);
 };
+
+/** The definitions a document's own tree held, in document order, as `documentFromMdast` found them. */
+const surveyed = new WeakMap<Document, readonly DefinitionEntry[]>();
+export const definitionEntries = (document: Document): readonly DefinitionEntry[] | undefined => surveyed.get(document);
+
+/**
+ * The file's definitions, for a document that is the parse of a whole file (parse.ts and reparse.ts set it).
+ * `'unknown'` when micromark's lists and the tree's definitions did not agree, so they cannot be trusted.
+ */
+const indexes = new WeakMap<Document, DefinitionIndex | 'unknown'>();
+export const definitionIndex = (document: Document): DefinitionIndex | 'unknown' | undefined => indexes.get(document);
+export const setDefinitionIndex = (document: Document, index: DefinitionIndex | 'unknown'): void => {
+  indexes.set(document, index);
+  crossFile.set(document, index === 'unknown' || index.entries.length > 0);
+};
+
+/** The targets of `entries`, the first definition of a label winning, as CommonMark has it. */
+export function targetsOf(entries: readonly DefinitionEntry[]): Map<string, Target> {
+  const targets = new Map<string, Target>();
+  for (const entry of entries) {
+    if (entry.kind === 'link' && !targets.has(entry.identifier)) targets.set(entry.identifier, { url: entry.url ?? '', title: entry.title });
+  }
+  return targets;
+}
 
 /**
  * The AST for an mdast tree. The tree must be built with `fencedCodeMarker` among its mdast
  * extensions (parse.ts always passes it): a tree that holds a code block but was built without it
- * is refused with an error.
+ * is refused with an error. `targets`, when given, are what link references resolve to instead of the
+ * tree's own definitions: a region of a file resolves against the whole file's.
  */
-export function documentFromMdast(root: md.Root, context: ConvertContext): Document {
-  const survey = surveyTree(root);
+export function documentFromMdast(root: md.Root, context: ConvertContext, targets?: ReadonlyMap<string, Target>): Document {
+  const survey = surveyTree(root, context);
   if (survey === 'too deep') return nestedTooDeepDocument(context);
-  const { definitions, footnotes } = survey;
-  const ctx: Ctx = { ...context, definitions, marked: markedTrees.has(root) };
+  const { entries } = survey;
+  const ctx: Ctx = { ...context, definitions: targets ?? targetsOf(entries), marked: markedTrees.has(root) };
   const document: Document = {
     type: 'document',
     src: { file: ctx.file, start: 0, end: ctx.offsets.byteLength },
@@ -57,7 +119,8 @@ export function documentFromMdast(root: md.Root, context: ConvertContext): Docum
     children: blocks(root.children, ctx),
   };
   registerLineStarts(document, () => lineStarts(ctx));
-  crossFile.set(document, definitions.size > 0 || footnotes);
+  crossFile.set(document, entries.length > 0);
+  surveyed.set(document, entries);
   return document;
 }
 
@@ -72,7 +135,7 @@ export function lineStarts(ctx: ConvertContext): number[] {
   return starts;
 }
 
-// --- nesting too deep to draw (F-54) -----------------------------------------------------------
+// --- nesting too deep to draw -----------------------------------------------------------
 
 /**
  * How many levels of block quote, list and footnote definition one document may nest and still be typeset.
@@ -103,7 +166,7 @@ export function nestedTooDeepDocument(context: ConvertContext): Document {
     children: text === '' ? [] : [{ type: 'codeBlock', src: whole, value: text, content: whole }],
   };
   registerLineStarts(document, () => lineStarts(context));
-  crossFile.set(document, false);
+  markDefinitions(document, false);
   tooDeep.set(document, text);
   return document;
 }
@@ -112,30 +175,36 @@ export function nestedTooDeepDocument(context: ConvertContext): Document {
 const LEVELS: ReadonlySet<string> = new Set(['blockquote', 'list', 'footnoteDefinition']);
 
 /**
- * One walk of the tree, with a stack of its own rather than the call stack: the link reference definitions
- * by identifier, whether any footnote definition is there, and `'too deep'` as soon as containers nest past
- * `MAX_NESTING_DEPTH`. It runs before anything recurses over the tree, so that recursion is bounded by the cap.
+ * One walk of the tree, with a stack of its own rather than the call stack: the link reference and footnote
+ * definitions in document order, and `'too deep'` as soon as containers nest past `MAX_NESTING_DEPTH`. It
+ * runs before anything recurses over the tree, so that recursion is bounded by the cap.
  */
-function surveyTree(root: md.Root): { definitions: Map<string, md.Definition>; footnotes: boolean } | 'too deep' {
-  const found = new Map<string, md.Definition>();
-  let footnotes = false;
+function surveyTree(root: md.Root, context: ConvertContext): { entries: DefinitionEntry[] } | 'too deep' {
+  const entries: DefinitionEntry[] = [];
   const pending: md.Nodes[] = [root];
   const depths: number[] = [0];
+  const bytes = (node: md.Nodes): { start: number; end: number } => {
+    const [start, end] = offsets(node, node.type, context);
+    return { start: context.offsets.at(start), end: context.offsets.at(end) };
+  };
   while (pending.length > 0) {
     const node = pending.pop()!;
     let depth = depths.pop()!;
-    if (node.type === 'definition' && !found.has(node.identifier)) found.set(node.identifier, node);
-    if (node.type === 'footnoteDefinition') footnotes = true;
+    if (node.type === 'definition') {
+      entries.push({ kind: 'link', identifier: node.identifier, url: node.url, title: node.title ?? null, ...bytes(node) });
+    }
+    if (node.type === 'footnoteDefinition') entries.push({ kind: 'footnote', identifier: node.identifier, ...bytes(node) });
     if (LEVELS.has(node.type) && ++depth > MAX_NESTING_DEPTH) return 'too deep';
     if ('children' in node) {
-      // Reversed, so the first child comes off the stack first and the first definition of a name still wins.
+      // Reversed, so the first child comes off the stack first: the entries are in document order, and the
+      // first definition of a name still wins.
       for (let i = node.children.length - 1; i >= 0; i--) {
         pending.push(node.children[i] as md.Nodes);
         depths.push(depth);
       }
     }
   }
-  return { definitions: found, footnotes };
+  return { entries };
 }
 
 // --- source ranges -----------------------------------------------------------------------------
@@ -157,14 +226,14 @@ export class ParseProvenanceError extends Error {
   readonly file: string;
 
   constructor(nodeType: string, file: string) {
-    super(`parse: a ${nodeType} node in ${file} has no source position, so it can carry no byte provenance (ADR-0003)`);
+    super(`parse: a ${nodeType} node in ${file} has no source position, so it can carry no byte provenance`);
     this.name = 'ParseProvenanceError';
     this.nodeType = nodeType;
     this.file = file;
   }
 }
 
-function offsets(node: Positioned, type: string, ctx: Ctx): [number, number] {
+function offsets(node: Positioned, type: string, ctx: ConvertContext): [number, number] {
   const start = node.position?.start.offset;
   const end = node.position?.end.offset;
   if (start === undefined || end === undefined) throw new ParseProvenanceError(type, ctx.file);
@@ -189,7 +258,7 @@ function utf16Range(node: Positioned & { type: string }, ctx: Ctx): [number, num
 /**
  * What holds a run of blocks, as far as code cares: a list item eats the whole of a blank line, so a
  * line of spaces alone in its code is an empty line (CommonMark's list-item continuation), while the
- * document and a block quote leave a blank line's indentation to the code (F-20.2).
+ * document and a block quote leave a blank line's indentation to the code.
  */
 type Container = 'root' | 'item' | 'other';
 
@@ -199,7 +268,7 @@ function blocks(nodes: readonly md.RootContent[], ctx: Ctx, container: Container
     const node = nodes[index]!;
     // micromark ends indented code at a blank line when the code follows a block quote's last line
     // (`>`, then `    x`, a blank line, `    y`), though a blank line never ends indented code: the
-    // run is one block, as CommonMark reads it (F-20.2).
+    // run is one block, as CommonMark reads it.
     let last = index;
     while (container !== 'other' && isIndentedCode(nodes[last]) && isIndentedCode(nodes[last + 1])
       && blankBetween(nodes[last]!, nodes[last + 1]!, ctx) !== undefined) last++;
@@ -233,10 +302,20 @@ function blankBetween(before: md.RootContent, after: md.RootContent, ctx: Ctx): 
   return { lines, endings };
 }
 
+/** Front matter, with the bytes of its value between the fence lines, so a value shown on the page can name its own bytes. */
+function frontmatter(node: md.Yaml, src: Source, ctx: Ctx): Block {
+  const [start, end] = utf16Range(node, ctx);
+  const raw = ctx.text.slice(start, end);
+  const first = nextLineEnding(raw, 0);
+  const at = first === undefined ? -1 : raw.indexOf(node.value, first.end);
+  if (at < 0) return { type: 'frontmatter', src, value: node.value };
+  return { type: 'frontmatter', src, value: node.value, content: span(start + at, start + at + node.value.length, ctx) };
+}
+
 function block(node: md.RootContent, ctx: Ctx, container: Container): Block | undefined {
   const src = range(node, ctx);
   // TOML frontmatter is a node type mdast-util-frontmatter adds without a type declaration.
-  if ((node.type as string) === 'toml') return { type: 'frontmatter', src, value: (node as md.Yaml).value };
+  if ((node.type as string) === 'toml') return frontmatter(node as md.Yaml, src, ctx);
   switch (node.type) {
     case 'paragraph':
       return { type: 'paragraph', src, children: inlines(node.children, ctx) };
@@ -257,7 +336,7 @@ function block(node: md.RootContent, ctx: Ctx, container: Container): Block | un
     case 'math':
       return { type: 'mathBlock', src, value: node.value };
     case 'yaml':
-      return { type: 'frontmatter', src, value: node.value };
+      return frontmatter(node, src, ctx);
     case 'footnoteDefinition':
       return { type: 'footnoteDefinition', src, label: node.label ?? node.identifier, children: blocks(node.children, ctx, 'other') };
     case 'table':
@@ -394,7 +473,7 @@ interface CodeLines { readonly lines: string[]; readonly endings: string[] }
  * cannot read).
  *
  * The value cannot simply be split: a CR, a line of indentation alone (which leaves no text) and an
- * LF read as one CRLF there, so the trim takes a blank line with it (F-20.1), and the line count is lost.
+ * LF read as one CRLF there, so the trim takes a blank line with it, and the line count is lost.
  */
 function readCodeLines(node: md.Code): CodeLines | undefined {
   const recorded = codeEndings.get(node);
@@ -428,7 +507,7 @@ const isBlank = (line: string): boolean => /^[ \t]*$/.test(line);
  * The value CommonMark gives a code block from its lines, joined by the document's own endings. A
  * blank line in a list item is empty, since the item's continuation takes all of its whitespace
  * (`- ```` then `    ` keeps no spaces); indented code drops its trailing blank lines, endings and
- * all, which micromark's range holds (`    a` then ` ` gives `a`, not `a\n`) (F-20.2).
+ * all, which micromark's range holds (`    a` then ` ` gives `a`, not `a\n`).
  */
 function joinCode({ lines, endings }: CodeLines, indented: boolean, container: Container): CodeText {
   const kept = container === 'item' ? lines.map((line) => (isBlank(line) ? '' : line)) : [...lines];
@@ -443,8 +522,8 @@ function joinCode({ lines, endings }: CodeLines, indented: boolean, container: C
  * A code block's value: its lines between the fences, or all of an indented block's lines. A fence's
  * text holds the opening fence's ending first, which is dropped with the empty line before it, and a
  * closed block's last ending, after which nothing is left. A block its container or the file ends
- * keeps its last line, empty or not, unless its range stops just past that line's ending (F-20.2:
- * `- ~~~` then four lines of spaces alone has five lines; mdast's trim took the last one).
+ * keeps its last line, empty or not, unless its range stops just past that line's ending:
+ * `- ~~~` then four lines of spaces alone has five lines; mdast's trim took the last one.
  */
 function codeValue(node: md.Code, fenced: boolean, container: Container, end: number): CodeText {
   const read = readCodeLines(node);
@@ -478,16 +557,18 @@ function codeBlock(node: md.Code, src: Source, ctx: Ctx, container: Container): 
     content: contentRange(raw, code, fenced, start, end, ctx),
   };
   const info = fenced ? infoString(raw) : undefined;
+  // A braced fence (Quarto's ```{r}, Pandoc's ```{.python}) names its language inside the brace; `info` keeps it as written.
+  const lang = node.lang?.startsWith('{') ? fenceWord(info ?? node.lang) : node.lang;
   return {
     ...base,
-    ...(node.lang ? { lang: node.lang } : {}),
+    ...(lang ? { lang } : {}),
     ...(info ? { info } : {}),
   };
 }
 
 /**
  * Indented code blocks micromark split at a blank line, as one block: the lines of each, with the
- * blank lines between, an indented block's four columns of indentation taken from each (F-20.2).
+ * blank lines between, an indented block's four columns of indentation taken from each.
  */
 function mergedCode(nodes: readonly md.Code[], ctx: Ctx, container: Container): Block {
   if (!ctx.marked) {
@@ -505,8 +586,8 @@ function mergedCode(nodes: readonly md.Code[], ctx: Ctx, container: Container): 
       });
     }
     const read = readCodeLines(node) ?? { lines: [node.value], endings: [] };
-    lines.push(...read.lines);
-    endings.push(...read.endings);
+    for (const line of read.lines) lines.push(line);
+    for (const ending of read.endings) endings.push(ending);
   });
   const start = utf16Range(nodes[0]!, ctx)[0];
   const end = utf16Range(nodes[nodes.length - 1]!, ctx)[1];
@@ -548,7 +629,7 @@ function contentRange(raw: string, { value, lines }: CodeText, fenced: boolean, 
   // value keeps the document's own endings (CR, CRLF or LF), one for each of the source's, so the two
   // are walked side by side. Counting on a bare LF would collapse a multi-line Classic Mac block to a
   // single line, and splitting the value on its own would read a CR, then a line of indentation
-  // alone, then an LF as one CRLF (F-20.1).
+  // alone, then an LF as one CRLF.
   for (let index = 0; ; ) {
     const ending = nextLineEnding(raw, cursor);
     if (ending === undefined) return span(start + offset, end, ctx);
@@ -583,29 +664,40 @@ function tableCell(node: md.TableCell, ctx: Ctx): TableCell {
 
 // --- inlines -----------------------------------------------------------------------------------
 
-function inlines(nodes: readonly md.PhrasingContent[], ctx: Ctx): Inline[] {
+/** Spans that hold spans: emphasis, strong, strikethrough and links. */
+const NESTING_INLINES: ReadonlySet<string> = new Set(['emphasis', 'strong', 'delete', 'link', 'linkReference']);
+
+/**
+ * `depth` is how many spans hold these nodes. One that would be held by more than `MAX_NESTING_DEPTH` is the text
+ * it was written as: the tree survey caps only block nesting, and `*` x 5,000 + `a` + `*` x 5,000 is
+ * 2,500 levels of strong that every walk of the AST would recurse through.
+ */
+function inlines(nodes: readonly md.PhrasingContent[], ctx: Ctx, depth = 0): Inline[] {
   const out: Inline[] = [];
-  for (const node of nodes) out.push(...inline(node, ctx));
+  for (const node of nodes) {
+    if (depth >= MAX_NESTING_DEPTH && NESTING_INLINES.has(node.type)) out.push(rawText(node, ctx));
+    else for (const converted of inline(node, ctx, depth + 1)) out.push(converted);
+  }
   return out;
 }
 
-function inline(node: md.PhrasingContent, ctx: Ctx): Inline[] {
+function inline(node: md.PhrasingContent, ctx: Ctx, depth: number): Inline[] {
   const src = range(node, ctx);
   switch (node.type) {
     case 'text':
       return textAndSoftBreaks(node, ctx);
     case 'emphasis':
-      return [{ type: 'emphasis', src, children: inlines(node.children, ctx) }];
+      return [{ type: 'emphasis', src, children: inlines(node.children, ctx, depth) }];
     case 'strong':
-      return [{ type: 'strong', src, children: inlines(node.children, ctx) }];
+      return [{ type: 'strong', src, children: inlines(node.children, ctx, depth) }];
     case 'delete':
-      return [{ type: 'strikethrough', src, children: inlines(node.children, ctx) }];
+      return [{ type: 'strikethrough', src, children: inlines(node.children, ctx, depth) }];
     case 'inlineCode':
       return [{ type: 'code', src, value: node.value }];
     case 'inlineMath':
       return [{ type: 'mathInline', src, value: node.value }];
     case 'link':
-      return [{ type: 'link', src, url: node.url, ...(node.title ? { title: node.title } : {}), children: inlines(node.children, ctx) }];
+      return [{ type: 'link', src, url: node.url, ...(node.title ? { title: node.title } : {}), children: inlines(node.children, ctx, depth) }];
     case 'image':
       return [{ type: 'image', src, url: node.url, alt: node.alt ?? '', ...(node.title ? { title: node.title } : {}) }];
     case 'linkReference': {
@@ -614,7 +706,7 @@ function inline(node: md.PhrasingContent, ctx: Ctx): Inline[] {
       return [{
         type: 'link', src, url: definition.url,
         ...(definition.title ? { title: definition.title } : {}),
-        children: inlines(node.children, ctx),
+        children: inlines(node.children, ctx, depth),
       }];
     }
     case 'imageReference': {

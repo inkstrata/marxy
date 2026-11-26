@@ -1,0 +1,14 @@
+{
+  "tier": "quick",
+  "base": "master",
+  "root": "C:\\Dev\\reader\\worktrees\\verify-lock",
+  "rows": [
+    {
+      "name": "unit-typeset",
+      "status": "pass",
+      "seconds": 54.471,
+      "tests": "90 pass, 0 fail",
+      "log": "C:\\Dev\\reader\\work\\wave3\\verify-lock-proof\\b\\01-unit-typeset.log"
+    }
+  ]
+}

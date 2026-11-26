@@ -1,6 +1,6 @@
 // The slice fold: the smallest splice that turns one slice of a buffer into the editor's text for it.
-// `foldText` does this for the whole file; this is the same rule for a block shown in place (ADR-0048). The editor's
-// text is the slice's Source text (`sourceTextOfRange`, ADR-0069): each byte that is not UTF-8 is its own code unit, so
+// `foldText` does this for the whole file; this is the same rule for a block shown in place. The editor's
+// text is the slice's Source text (`sourceTextOfRange`): each byte that is not UTF-8 is its own code unit, so
 // the fold is exact here as it is for the whole file, and a stray byte the reader did not edit keeps its bytes.
 
 import type { Source } from '../contracts/ast.ts';
@@ -38,7 +38,7 @@ function firstEnding(text: string): '\r\n' | '\n' | '\r' | undefined {
  * bytes the text names, a stray byte's code unit as that byte and a U+FFFD as `EF BF BD`; bytes of the slice before and
  * after that part keep their own endings and their own (even invalid) bytes. A new line break (a bare LF) follows the slice's
  * first line ending, else the file's if it is CRLF, else LF, unless the part replaced holds a bare LF of its own (a block
- * that mixes endings): then no ending in the text is rewritten (F-40). `replacement` is those bytes; `text` in the result is their
+ * that mixes endings): then no ending in the text is rewritten. `replacement` is those bytes; `text` in the result is their
  * reading decode. `null` if no byte differs. Pure; takes no DOM.
  */
 export function foldSlice(
@@ -78,11 +78,11 @@ export function foldSlice(
   // converted, and only when the part replaced has none of its own: otherwise the text cannot say which LF the
   // reader made, and a converted one would rewrite an ending the reader did not touch (a CRLF or a lone CR in the
   // middle is always the file's own, and stays). A new line break in a block that mixes endings, edited across one
-  // of its bare LFs, is so written as the editor made it (F-40).
+  // of its bare LFs, is so written as the editor made it.
   const oldMiddle = old.slice(prefix, old.length - suffix);
   // In a block that mixes endings the text names every ending as it is (a CR is a character there), so a cut
   // widened past a CRLF pulls the old text's own LF into the middle: that LF is matched, not typed, and stays
-  // (F-40.1: deleting only a CR of a CRLF was re-made as CRLF and the fold wrote nothing). A block with one kind of
+  // (deleting only a CR of a CRLF was re-made as CRLF and the fold wrote nothing). A block with one kind of
   // ending is edited as LF text, and its LFs are the block's own endings.
   const keep = mixedEndings(old);
   const typedFrom = keep ? Math.max(rawPrefix, prefix) : prefix;

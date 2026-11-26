@@ -1,5 +1,5 @@
 // The token check must go red for a name added, removed, re-kinded or stripped of its
-// comment, and stay green when only a value moves (ADR-0031).
+// comment, and stay green when only a value moves.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -12,7 +12,7 @@ const contract = JSON.parse(readFileSync('packages/theme/tokens.contract.json', 
 
 const DECL_VALUE = /^(\s*(--marxy-[a-z0-9-]+)\s*:\s*)([^;]+)(;.*)$/;
 
-/** Current value string for a `--marxy-*` token in committed tokens.css (MARXY-145). */
+/** Current value string for a `--marxy-*` token in committed tokens.css. */
 function valueOf(cssText, name) {
   for (const line of String(cssText).split(/\r?\n/)) {
     const m = DECL_VALUE.exec(line);
@@ -21,7 +21,7 @@ function valueOf(cssText, name) {
   assert.fail(`missing declaration ${name}`);
 }
 
-/** Replace one token's value without hard-coding the committed literal (MARXY-145). */
+/** Replace one token's value without hard-coding the committed literal. */
 function withValue(cssText, name, newValue) {
   let replaced = false;
   const out = String(cssText)
@@ -62,7 +62,7 @@ test('added token is red', () => {
 
 test('removed token is red', () => {
   const mutated = css.replace(/^\s*--marxy-size-code:.*\n/m, '');
-  // its system-owned root copy (--marxy-root-size-code, ADR-0059) reads it, so it is re-kinded with it
+  // its system-owned root copy (--marxy-root-size-code) reads it, so it is re-kinded with it
   const found = check(mutated, contract).filter(p => p.token !== '--marxy-root-size-code');
   assert.ok(found.some(p => p.kind === 'removed' && p.token === '--marxy-size-code'), found);
   assert.equal(found.length, 1);
@@ -119,7 +119,7 @@ test('the committed tree is green and the snapshot carries no values', () => {
   assert.match(run.stdout, new RegExp(`tokens-contract ok \\(${contract.length} tokens\\)`));
 });
 
-test('contract 2 (ADR-0059): the 27 names are in the snapshot with the kinds the ADR gives, each explained', () => {
+test('contract 2: the 27 names are in the snapshot with their kinds, each explained', () => {
   const want = {
     colour: [
       'color-surface', 'color-surface-glass', 'color-text-strong', 'color-text-faint', 'color-rule-strong', 'color-edge',
@@ -137,7 +137,7 @@ test('contract 2 (ADR-0059): the 27 names are in the snapshot with the kinds the
       const d = byName.get(`--marxy-${name}`);
       assert.ok(d, `${name} is not declared`);
       assert.equal(d.kind, kind, name);
-      assert.ok(d.comment, `${name} has no comment (ADR-0031)`);
+      assert.ok(d.comment, `${name} has no comment`);
       n++;
     }
   }
@@ -154,13 +154,13 @@ test('a contract-2 name removed from tokens.css is refused', () => {
   assert.deepEqual(reasons(mutated), ['removed:--marxy-color-edge']);
 });
 
-test('ADR-0068: the six roles V-13 adds are declared as colours, each explained, and Source paints every role from the table', () => {
+test('the six added roles are declared as colours, each explained, and Source paints every role from the table', () => {
   const byName = new Map(declarations(css).map(d => [d.name, d]));
   for (const name of ['builtin', 'property', 'decorator', 'self', 'escape', 'mark']) {
     const d = byName.get(`--marxy-tok-${name}`);
     assert.ok(d, `${name} is not declared`);
     assert.equal(d.kind, 'colour', name);
-    assert.ok(d.comment, `${name} has no comment (ADR-0031)`);
+    assert.ok(d.comment, `${name} has no comment`);
   }
   const src = readFileSync('apps/desktop/src/source/highlight-style.ts', 'utf8');
   assert.match(src, /color: tok\(role\)/);

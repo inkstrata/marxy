@@ -75,37 +75,37 @@ skips), three dated versions (one heading a link, one with its date in the same 
 looks like a release heading and is not one, and reference links at the end. Every name is invented; the links are <code data-marxy-s="6159" data-marxy-e="6176">example.invalid</code>.
 Its name does not begin <code data-marxy-s="6202" data-marxy-e="6213">CHANGELOG</code>, so the corpus reads it as an article; the tests open its bytes under a changelog’s name.</p>
 <h2 data-marxy-s="6305" data-marxy-e="6328">33-article-byline.md</h2>
-<p data-marxy-s="6330" data-marxy-e="6857">Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair
-of outer quotes the byline drops), a date and a web source with a path and a query, after a title, a description and a
-list of tags, so the byline’s rows move ahead of rows the bytes put first. Its opening paragraph is wholly in emphasis
-directly after the title; the description is the dek, so that paragraph stays a paragraph (the key wins). Every name is
-invented; the source is <code data-marxy-s="6832" data-marxy-e="6845">example.org</code> (RFC 2606).</p>
-<h2 id="sectionsmd-and-sections-crlfmd" data-marxy-s="6859" data-marxy-e="6894">sections.md and sections-crlf.md</h2>
-<p data-marxy-s="6896" data-marxy-e="7560">Original text written for W-10: the document the Outline tab’s moves are tried on, twice, the second with every line ending CRLF.
-It has front matter holding a <code data-marxy-s="7056" data-marxy-e="7059">#</code> line, an introduction before the first heading, two ATX sibling sections with a section of their
-own below one of them, a fence, a quote and a list item that each hold a <code data-marxy-s="7230" data-marxy-e="7233">#</code> line that is not a heading, a table, two setext
-headings (<code data-marxy-s="7292" data-marxy-e="7297">===</code> and <code data-marxy-s="7302" data-marxy-e="7307">---</code>), a heading indented by three spaces, and a last section with no final line ending and no full stop (so the file ends on a
+<p data-marxy-s="6330" data-marxy-e="6892">Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair
+of outer quotes the byline drops) and a date, after a title, a description and a list of tags, so the byline’s rows come
+after rows the bytes put first; a web source with a path and a query is the last key. Only the author and the date are
+drawn, under the title. Its opening paragraph is wholly in emphasis directly after the title, so it is the dek under the
+title and byline. Every name is invented; the source is <code data-marxy-s="6867" data-marxy-e="6880">example.org</code> (RFC 2606).</p>
+<h2 id="sectionsmd-and-sections-crlfmd" data-marxy-s="6894" data-marxy-e="6929">sections.md and sections-crlf.md</h2>
+<p data-marxy-s="6931" data-marxy-e="7595">Original text written for W-10: the document the Outline tab’s moves are tried on, twice, the second with every line ending CRLF.
+It has front matter holding a <code data-marxy-s="7091" data-marxy-e="7094">#</code> line, an introduction before the first heading, two ATX sibling sections with a section of their
+own below one of them, a fence, a quote and a list item that each hold a <code data-marxy-s="7265" data-marxy-e="7268">#</code> line that is not a heading, a table, two setext
+headings (<code data-marxy-s="7327" data-marxy-e="7332">===</code> and <code data-marxy-s="7337" data-marxy-e="7342">---</code>), a heading indented by three spaces, and a last section with no final line ending and no full stop (so the file ends on a
 text byte, in both, and a move of that section changes the file’s last byte on purpose). The goldens move only if the parse does.</p>
-<p data-marxy-s="7562" data-marxy-e="7982">The two files have no number on purpose: the numbered <code data-marxy-s="7616" data-marxy-e="7621">.md</code> files are the reading corpus, and each owes the aesthetics gate a screenshot baseline for
-each engine (<code data-marxy-s="7725" data-marxy-e="7741">packages/theme</code> tests, <code data-marxy-s="7749" data-marxy-e="7770">gate-aesthetics.mjs</code>, <code data-marxy-s="7772" data-marxy-e="7790">probe-layout.mjs</code>). These are text for operations and the save path to be tried on, not pages to be
+<p data-marxy-s="7597" data-marxy-e="8017">The two files have no number on purpose: the numbered <code data-marxy-s="7651" data-marxy-e="7656">.md</code> files are the reading corpus, and each owes the aesthetics gate a screenshot baseline for
+each engine (<code data-marxy-s="7760" data-marxy-e="7776">packages/theme</code> tests, <code data-marxy-s="7784" data-marxy-e="7805">gate-aesthetics.mjs</code>, <code data-marxy-s="7807" data-marxy-e="7825">probe-layout.mjs</code>). These are text for operations and the save path to be tried on, not pages to be
 judged, so the goldens, the fidelity gate and the operation tests read them and the aesthetics gate does not.</p>
-<h2 data-marxy-s="7983" data-marxy-e="8000">37-results.csv</h2>
-<p data-marxy-s="8002" data-marxy-e="8389">Original data written for K-10b: a benchmark table in the shape of the mock’s <code data-marxy-s="8080" data-marxy-e="8091">bench-csv</code> (a corpus name, five numbers and
-a host), eight rows under a header row of distinct words, so the table lens uses row 1 as its header. <code data-marxy-s="8227" data-marxy-e="8236">cold_ms</code> holds
-numbers whose text order is not their numeric order (<code data-marxy-s="8296" data-marxy-e="8302">9900</code> after <code data-marxy-s="8309" data-marxy-e="8317">118400</code> as text), which the sort test reads. Every name
+<h2 data-marxy-s="8018" data-marxy-e="8035">37-results.csv</h2>
+<p data-marxy-s="8037" data-marxy-e="8424">Original data written for K-10b: a benchmark table in the shape of the mock’s <code data-marxy-s="8115" data-marxy-e="8126">bench-csv</code> (a corpus name, five numbers and
+a host), eight rows under a header row of distinct words, so the table lens uses row 1 as its header. <code data-marxy-s="8262" data-marxy-e="8271">cold_ms</code> holds
+numbers whose text order is not their numeric order (<code data-marxy-s="8331" data-marxy-e="8337">9900</code> after <code data-marxy-s="8344" data-marxy-e="8352">118400</code> as text), which the sort test reads. Every name
 and number is invented.</p>
-<h2 data-marxy-s="8391" data-marxy-e="8408">38-awkward.csv</h2>
-<p data-marxy-s="8410" data-marxy-e="9101">Original data written for K-10b: every case the table lens must show honestly, in one CRLF file that starts with a UTF-8
-byte-order mark. A quoted field holding a comma; a doubled quote (<code data-marxy-s="8597" data-marxy-e="8615">"said ""hello"""</code>, a decoded cell); a quoted CRLF inside
-a field; empty fields; a short row and a long one (ragged); a byte after a closing quote (<code data-marxy-s="8745" data-marxy-e="8753">"Gil"x</code>, an unreadable row); a
-blank line; a bidi control (U+202E) and a zero-width space inside a quoted field; a space before a quote (<code data-marxy-s="8883" data-marxy-e="8894"> "spaced"</code>,
+<h2 data-marxy-s="8426" data-marxy-e="8443">38-awkward.csv</h2>
+<p data-marxy-s="8445" data-marxy-e="9136">Original data written for K-10b: every case the table lens must show honestly, in one CRLF file that starts with a UTF-8
+byte-order mark. A quoted field holding a comma; a doubled quote (<code data-marxy-s="8632" data-marxy-e="8650">&quot;said &quot;&quot;hello&quot;&quot;&quot;</code>, a decoded cell); a quoted CRLF inside
+a field; empty fields; a short row and a long one (ragged); a byte after a closing quote (<code data-marxy-s="8780" data-marxy-e="8788">&quot;Gil&quot;x</code>, an unreadable row); a
+blank line; a bidi control (U+202E) and a zero-width space inside a quoted field; a space before a quote (<code data-marxy-s="8918" data-marxy-e="8929"> &quot;spaced&quot;</code>,
 verbatim); an unclosed quote on a line of its own, with a well-formed row after it; and cells a spreadsheet would run
-(<code data-marxy-s="9015" data-marxy-e="9026">=SUM(…)</code>, <code data-marxy-s="9028" data-marxy-e="9034">+cmd</code>, <code data-marxy-s="9036" data-marxy-e="9043">@risk</code>) next to a plain <code data-marxy-s="9061" data-marxy-e="9065">-5</code>. Every name and number is invented.</p>
-<h2 data-marxy-s="9103" data-marxy-e="9122">40-session.jsonl</h2>
-<p data-marxy-s="9124" data-marxy-e="10086">Original data written for K-12: an agent session log, one JSON object per line, in the shape Claude Code writes (a <code data-marxy-s="9239" data-marxy-e="9245">type</code>, a
-<code data-marxy-s="9249" data-marxy-e="9258">message</code> with a <code data-marxy-s="9266" data-marxy-e="9272">role</code> and <code data-marxy-s="9277" data-marxy-e="9286">content</code> blocks, and the bookkeeping fields around them). The conversation is the mock’s
-<code data-marxy-s="9367" data-marxy-e="9381">indexer-chat</code>: three prompts and the agent’s replies, a thinking block, a <code data-marxy-s="9442" data-marxy-e="9448">Bash</code> call whose result is three lines later with a
-bookkeeping snapshot and a system line between, an <code data-marxy-s="9546" data-marxy-e="9552">Edit</code> call (with a boolean input the view counts and shows as written) and its result, a prompt that holds an image block, an escaped U+202E and U+200B in a reply, an ANSI
-escape in tool output, a lone surrogate (<code data-marxy-s="9760" data-marxy-e="9768">\ud800</code>) in a prompt, a summary line, a record of a type the deriver does not know, a
+(<code data-marxy-s="9050" data-marxy-e="9061">=SUM(…)</code>, <code data-marxy-s="9063" data-marxy-e="9069">+cmd</code>, <code data-marxy-s="9071" data-marxy-e="9078">@risk</code>) next to a plain <code data-marxy-s="9096" data-marxy-e="9100">-5</code>. Every name and number is invented.</p>
+<h2 data-marxy-s="9138" data-marxy-e="9157">40-session.jsonl</h2>
+<p data-marxy-s="9159" data-marxy-e="10121">Original data written for K-12: an agent session log, one JSON object per line, in the shape Claude Code writes (a <code data-marxy-s="9274" data-marxy-e="9280">type</code>, a
+<code data-marxy-s="9284" data-marxy-e="9293">message</code> with a <code data-marxy-s="9301" data-marxy-e="9307">role</code> and <code data-marxy-s="9312" data-marxy-e="9321">content</code> blocks, and the bookkeeping fields around them). The conversation is the mock’s
+<code data-marxy-s="9402" data-marxy-e="9416">indexer-chat</code>: three prompts and the agent’s replies, a thinking block, a <code data-marxy-s="9477" data-marxy-e="9483">Bash</code> call whose result is three lines later with a
+bookkeeping snapshot and a system line between, an <code data-marxy-s="9581" data-marxy-e="9587">Edit</code> call (with a boolean input the view counts and shows as written) and its result, a prompt that holds an image block, an escaped U+202E and U+200B in a reply, an ANSI
+escape in tool output, a lone surrogate (<code data-marxy-s="9795" data-marxy-e="9803">\ud800</code>) in a prompt, a summary line, a record of a type the deriver does not know, a
 line that is not JSON (a bad escape), a blank line, and an unfinished last line with no newline. The file is ASCII; the session
 id, model name, cost, token counts and times are invented and are what the derived goldens show are never read.</p>

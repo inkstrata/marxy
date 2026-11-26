@@ -1,12 +1,14 @@
-// The Settings page's schema (W-12, ADR-0075): every key `config.ts` parses, once, with the category it is drawn under, the
+// The Settings page's schema: every key `config.ts` parses, once, with the category it is drawn under, the
 // words a reader might search it by, its control, default, range and coupling rule. Pure: no DOM, no shell. The page draws
 // these rows and nothing else, so a setting with no key in config.toml cannot be drawn, and `settings-schema.test.ts` fails
 // for a key that `KNOWN_KEYS` lists and no row names (and for a row whose key `config.ts` does not parse).
 import { parse } from 'smol-toml';
 import { COPY_FORMATS, CHROME_SIZE_MAX, CHROME_SIZE_MIN, KNOWN_KEYS, parseConfig, tomlString } from './config.ts';
 import type { Config } from './config.ts';
+import { PROPOSALS } from './proposals.ts';
+import { LOOKS } from './looks.ts';
 
-export type CategoryId = 'general' | 'appearance' | 'reading' | 'source' | 'types' | 'collections' | 'accessibility' | 'privacy' | 'advanced';
+export type CategoryId = 'general' | 'appearance' | 'reading' | 'source' | 'types' | 'collections' | 'accessibility' | 'privacy' | 'proposals' | 'advanced';
 
 export interface Category {
   readonly id: CategoryId;
@@ -28,6 +30,7 @@ export const CATEGORIES: readonly Category[] = [
   { id: 'collections', title: 'Collections', blurb: 'The folders Marxy searches' },
   { id: 'accessibility', title: 'Accessibility', blurb: 'Contrast and transparency' },
   { id: 'privacy', title: 'Privacy', blurb: 'What Marxy keeps on this Mac, and what can leave it' },
+  { id: 'proposals', title: 'Proposals', blurb: 'Ways of working to try, each on or off' },
   { id: 'advanced', title: 'Advanced', blurb: 'The file itself' },
 ];
 
@@ -72,8 +75,6 @@ export interface SettingRow {
   /** The effective value in `config`, as the control shows it. */
   readonly read: (config: Config) => SettingValue;
   readonly coupling?: Coupling;
-  /** A sentence that is true of this key today and worth saying (a key Marxy reads and does not yet act on). */
-  readonly caveat?: string;
   /** False for a table: the dot and the reset do not apply, since the key is not one line. */
   readonly resettable: boolean;
 }
@@ -84,14 +85,14 @@ const yes: ChoiceOption[] = [
   { value: 'false', label: 'Off' },
 ];
 
-/** The five bundled themes (`apps/desktop/src/theme/bundled-themes.ts`, held equal by the page's own test); '' is Night and Paper. */
-export const THEME_OPTIONS: readonly ChoiceOption[] = [
-  { value: '', label: 'Night and Paper', unset: true },
-  { value: 'ink', label: 'Ink' },
-  { value: 'warm', label: 'Dusk and Sepia' },
-  { value: 'fjord', label: 'Fjord (dark only)' },
-  { value: 'high-contrast', label: 'High contrast' },
-];
+/**
+ * The bundled themes, one for each look that names a sheet, in the Studio's shelf order (`apps/desktop/src/theme/
+ * bundled-themes.ts` lists the same, held equal by the page's own test); '' is Ink, the default.
+ */
+const themeLabel = (l: (typeof LOOKS)[number]): string => (l.partner ? `${l.name} and ${l.partner}` : l.only === 'night' ? `${l.name} (dark only)` : l.name);
+export const THEME_OPTIONS: readonly ChoiceOption[] = LOOKS.filter((l) => l.theme).map((l) =>
+  l.theme === 'ink' ? { value: '', label: l.name, unset: true } : { value: l.theme!, label: themeLabel(l) },
+);
 
 const COPY_LABELS: Readonly<Record<string, string>> = {
   markdown: 'Markdown',
@@ -109,11 +110,11 @@ export const SETTINGS: readonly SettingRow[] = [
     key: 'external_editor',
     category: 'general',
     label: 'External editor',
-    description: 'The command Open in external editor runs. {file} and {line} are replaced; with none set, the system opens the file.',
+    description: 'The command Open in external editor runs. {file} and {line} are replaced; with none set, the system editor opens the file: Notepad on Windows. Set a command here for another editor.',
     words: ['vscode', 'code', 'editor', 'open with', 'command', 'program'],
     control: { kind: 'text', placeholder: 'code --goto {file}:{line}' },
     default: null,
-    defaultLabel: 'The system opener',
+    defaultLabel: 'The system editor',
     read: (c) => c.externalEditor,
     resettable: true,
   },
@@ -130,16 +131,15 @@ export const SETTINGS: readonly SettingRow[] = [
     resettable: true,
   },
   {
-    key: 'resident',
+    key: 'review_changes',
     category: 'general',
-    label: 'Stay running after the last window closes',
-    description: 'Keeps Marxy in the background so the next file opens at once.',
-    words: ['background', 'quit', 'close', 'dock', 'launch'],
+    label: 'Read the patch before saving',
+    description: 'Save first opens what it would change, as a patch beside the file (R opens it any time); saving from there writes it.',
+    words: ['save', 'patch', 'diff', 'review', 'changes', 'unsaved', 'confirm'],
     control: { kind: 'toggle' },
     default: false,
     defaultLabel: 'Off',
-    read: (c) => c.resident,
-    caveat: 'Marxy reads this key but does not act on it yet.',
+    read: (c) => c.reviewChanges,
     resettable: true,
   },
   {
@@ -147,11 +147,12 @@ export const SETTINGS: readonly SettingRow[] = [
     category: 'appearance',
     label: 'Theme',
     description: 'The look of the page. A theme folder named in config.toml is shown as it is and left alone.',
-    words: ['colour', 'color', 'night', 'paper', 'ink', 'dusk', 'sepia', 'fjord', 'dark', 'palette', 'look'],
+    words: ['colour', 'color', 'night', 'paper', 'ink', 'dusk', 'sepia', 'fjord', 'polar', 'midnight', 'black', 'ember', 'solarized', 'gruvbox', 'rose', 'pine', 'catppuccin', 'dark', 'palette', 'look'],
     control: { kind: 'choice', options: THEME_OPTIONS },
     default: '',
-    defaultLabel: 'Night and Paper',
-    read: (c) => c.theme ?? '',
+    defaultLabel: 'Ink',
+    // `theme = "ink"` names the default by name: shown as the default's option, not as a folder.
+    read: (c) => (c.theme?.trim() === 'ink' ? '' : (c.theme ?? '')),
     resettable: true,
   },
   {
@@ -222,6 +223,18 @@ export const SETTINGS: readonly SettingRow[] = [
     default: true,
     defaultLabel: 'On',
     read: (c) => c.typeset,
+    resettable: true,
+  },
+  {
+    key: 'verbs',
+    category: 'reading',
+    label: 'Single-key verbs',
+    description: 'On the page, single keys move a cursor over its parts (j, k, l, h) and act on the part under it (c copies it, e edits it), and a bar at the foot of the pane names the part and its verbs. Off, those keys do nothing and no bar is drawn; the chords stay.',
+    words: ['keys', 'keyboard', 'cursor', 'shortcuts', 'vim', 'bar', 'verbs', 'single key', 'j', 'k'],
+    control: { kind: 'toggle' },
+    default: true,
+    defaultLabel: 'On',
+    read: (c) => c.verbs,
     resettable: true,
   },
   {
@@ -319,14 +332,66 @@ export const SETTINGS: readonly SettingRow[] = [
   {
     key: 'versions',
     category: 'privacy',
-    label: 'Keep versions of the files you read',
-    description: 'Byte-exact copies of the files you read and save, kept in Marxy’s own folder, 20 per file for 30 days. Off keeps no new ones; the ones kept stay until they age out or you clear them.',
+    label: 'Keep a version before a file is replaced',
+    description: 'A byte-exact copy of a file from just before Marxy saves over it or another program changes it, kept in Marxy’s own folder, 20 per file for 30 days. Opening a file keeps nothing. Off keeps no new ones; the ones kept stay until they age out or you clear them.',
     words: ['history', 'snapshots', 'backup', 'local versions', 'undo', 'clear'],
     control: { kind: 'toggle' },
     default: true,
     defaultLabel: 'On',
     read: (c) => c.versions,
     resettable: true,
+  },
+  {
+    key: 'version_copies',
+    category: 'privacy',
+    label: 'Earlier copies kept of each file',
+    description: 'How many copies Versions keeps of one file before the oldest goes. A copy you keep for good never goes, and is not counted out.',
+    words: ['versions', 'history', 'backup', 'copies', 'limit', 'how many'],
+    control: { kind: 'choice', options: [{ value: '5', label: '5' }, { value: '20', label: '20', unset: true }, { value: '100', label: '100' }] },
+    default: '20',
+    defaultLabel: '20',
+    read: (c) => String(c.versionCopies),
+    resettable: true,
+  },
+  {
+    key: 'proposals',
+    category: 'proposals',
+    label: 'Proposals',
+    description: 'Ways of working to try, each on or off. Only the ones that differ from their defaults are written, as one inline table.',
+    words: ['minimap', 'glance', 'preview tabs', 'pairs', 'drag', 'inspector', 'character', 'paging', 'space', 'footnotes', 'sets', 'compare', 'table', 'time zone', 'experiments'],
+    control: { kind: 'table' },
+    default: null,
+    defaultLabel: 'Every proposal at its default',
+    read: (c) => PROPOSALS.filter((p) => c.proposals[p.id] !== p.default).map((p) => `${p.id} ${c.proposals[p.id] ? 'on' : 'off'}`).join(', ') || null,
+    resettable: true,
+  },
+  {
+    key: 'command',
+    category: 'advanced',
+    label: 'Your commands',
+    description: 'Programs Transform runs over the file or a part when you ask: [[command]] tables with a name and run = ["program", "arg", ...]. Each can do whatever that program does. Edited in config.toml.',
+    words: ['command', 'program', 'run', 'fold', 'sort', 'wc', 'jq', 'filter', 'pipe', 'transform', 'shell'],
+    control: { kind: 'table' },
+    default: null,
+    defaultLabel: 'None',
+    read: (c) => c.commands.length,
+    resettable: false,
+  },
+  {
+    key: 'syntax',
+    category: 'appearance',
+    label: 'Colour by language',
+    description: 'Code in its language’s own colours, the language’s colour on its name, and your own colours for a language: [syntax] and [syntax.rust] keyword = "#c45a22", one line each. Set in Look › By language.',
+    words: ['syntax', 'highlight', 'language', 'palette', 'rust', 'python', 'go', 'typescript', 'accent', 'token', 'colours'],
+    control: { kind: 'table' },
+    default: null,
+    defaultLabel: 'Each language in its own colours',
+    read: (c) => {
+      const yours = Object.values(c.syntax.langs).reduce((n, roles) => n + Object.keys(roles).length, 0);
+      const said = [c.syntax.byLanguage ? '' : 'by language off', c.syntax.accent ? '' : 'accent off', yours ? `${yours} of yours` : ''].filter(Boolean).join(', ');
+      return said || null;
+    },
+    resettable: false,
   },
   {
     key: 'linux',
@@ -393,6 +458,8 @@ export interface SettingsRead {
 function sameValue(raw: unknown, effective: SettingValue): boolean {
   if (raw === undefined) return true;
   if (typeof raw === 'number' && typeof effective === 'number') return raw === effective;
+  // A numeric choice (version_copies) is written as a string by the page and may be a bare number by hand.
+  if (typeof raw === 'number' && typeof effective === 'string') return String(raw) === effective;
   return raw === effective;
 }
 

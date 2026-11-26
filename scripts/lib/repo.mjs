@@ -1,21 +1,23 @@
-// Shared helpers for the hygiene scripts. No dependencies beyond Node.
+// Shared helpers for the check scripts. No dependencies beyond Node.
 import { execSync } from 'node:child_process';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readPlan } from './plan.mjs';
 
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export const registry = () => JSON.parse(readFileSync(join(ROOT, 'scripts/registry.json'), 'utf8'));
 export const sh = (cmd, opts = {}) => { try { return execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], ...opts }).trim(); } catch (e) { if (opts.soft) return ''; throw e; } };
 
-// `.claude` holds agent worktrees nested inside a checkout: whole second copies of the tree, git-excluded,
-// whose files would otherwise be judged as this checkout's (every registry rule failed twice over).
-export const SKIP_DIRS = new Set(['node_modules', 'dist', 'target', '.git', '.claude', 'results', 'out', '.venv', 'goldens', 'baselines']);
+// `.claude` can hold worktrees nested inside a checkout: whole second copies of the tree, git-excluded,
+// whose files would otherwise be judged as this checkout's. `work` holds tracking and run records (logs, probes,
+// copies of old code under review), which are not the software and answer to none of its rules.
+export const SKIP_DIRS = new Set(['node_modules', 'dist', 'target', '.git', '.claude', 'results', 'out', '.venv', 'goldens', 'baselines', 'work']);
+// The Reader Typography Handbook: a research corpus whose lab pages are experiments, not the app.
+export const SKIP_PATHS = new Set(['docs/research']);
 export function walk(dir, pred = () => true, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, e.name).split(sep).join('/');
-    if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(full, pred, out); }
+    if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name) && !SKIP_PATHS.has(rel(full))) walk(full, pred, out); }
     else if (pred(full)) out.push(full);
   }
   return out;
@@ -23,15 +25,11 @@ export function walk(dir, pred = () => true, out = []) {
 export const rel = p => relative(ROOT, p).split(sep).join('/');
 export const stripComments = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:\\])\/\/.*$/gm, '$1');
 
-/** Files changed on this branch relative to origin/main, plus working-tree changes; or only the staged ones. */
 /**
  * The staged files a commit is answerable for.
  *
- * In a merge commit that is not everything staged: a merge stages every file the other side brought,
- * and against the story's paths those read as a hundred violations the author never wrote. What the
- * author is answerable for is what they resolved — the files that differ from *both* parents. Without
- * this, every branch that falls behind can only get back to mergeable through `--no-verify`, which
- * skips the checks that do matter, and a guard that teaches people to bypass guards is worse than none.
+ * In a merge commit that is not everything staged: a merge stages every file the other side brought.
+ * What the author is answerable for is what they resolved, the files that differ from *both* parents.
  */
 export function stagedNames({ cwd = ROOT } = {}) {
   const names = r => new Set(sh(`git diff --cached --name-only --diff-filter=ACMR ${r}`, { cwd, soft: true }).split('\n').filter(Boolean));
@@ -42,72 +40,16 @@ export function stagedNames({ cwd = ROOT } = {}) {
   return [...head].filter(f => other.has(f)).join('\n');
 }
 
+/** Files changed in the working tree and the index, plus untracked ones; or only the staged ones. */
 export function changedFiles({ staged = false } = {}) {
   const set = new Set();
   const add = out => out.split('\n').filter(Boolean).forEach(f => set.add(f));
   if (staged) { add(stagedNames()); return [...set]; }
-  add(sh('git diff --name-only --diff-filter=ACMR origin/main...HEAD', { soft: true }));
   add(sh('git diff --name-only --diff-filter=ACMR', { soft: true }));
   add(sh('git diff --cached --name-only --diff-filter=ACMR', { soft: true }));
   add(sh('git ls-files --others --exclude-standard', { soft: true }));
   return [...set];
 }
 
-/** The story key for this branch: type/KEY-slug, or --key, or MARXY_STORY. */
-export function storyKey(argv = process.argv) {
-  const i = argv.indexOf('--key'); if (i >= 0) return argv[i + 1];
-  if (process.env.MARXY_STORY) return process.env.MARXY_STORY;
-  return keyFromBranch(branchName());
-}
-
-/**
- * The branch this change is on. A pull-request checkout is detached, so `rev-parse` answers "HEAD"
- * and no key can be read from it — which is why the CI story-boundary step could never pass and
- * was wrapped in `|| echo ::warning::` rather than fixed (MARXY-153). On a pull request the source
- * branch is GITHUB_HEAD_REF; GITHUB_REF_NAME covers a push. Local runs keep using the real branch.
- */
-export function branchName(env = process.env) {
-  return resolveBranch(sh('git rev-parse --abbrev-ref HEAD', { soft: true }), env);
-}
-
-/**
- * The resolution on its own, so it can be tested from both sides. Testing it through
- * `branchName()` cannot work: whether the checkout is detached is the very thing under test,
- * and the answer differs between a local run and a CI one (MARXY-153).
- */
-export function resolveBranch(local, env = {}) {
-  if (local && local !== 'HEAD') return local;
-  return env.GITHUB_HEAD_REF || env.GITHUB_REF_NAME || local;
-}
-
-/** Exported so the detached-checkout case can be tested without a detached checkout. */
-export function keyFromBranch(branch) {
-  const m = /\/(MARXY-(?:\d+|[0-9A-Z]{3}|R\d+))-/.exec(branch ?? '') || /^(MARXY-\d+)/.exec(branch ?? '');
-  return m ? m[1] : null;
-}
-
-export { parseCsv } from './plan.mjs';
-
-/** The plan row for a key (story file or CSV row); resolves Jira keys through orchestration/jira-map.json when the CSV still uses plan ids, and vice versa. */
-export function story(key) {
-  if (!key) return null;
-  const rows = readPlan({ root: ROOT })?.all ?? [];
-  let row = rows.find(r => r.Key === key);
-  const mapPath = join(ROOT, 'orchestration/jira-map.json');
-  if (!row && existsSync(mapPath)) {
-    const map = JSON.parse(readFileSync(mapPath, 'utf8')).keys || {};
-    const planId = Object.entries(map).find(([, v]) => v === key)?.[0];
-    row = rows.find(r => r.Key === planId) || rows.find(r => r.Key === map[key]);
-  }
-  return row || null;
-}
-export const pathsOf = row => (row?.Paths || '').split(',').map(s => s.trim()).filter(Boolean);
-export function allowedByPaths(file, paths) {
-  return paths.some(p => {
-    const q = p.replace(/\/$/, '');
-    if (q.includes('*')) { const re = new RegExp('^' + q.split('*').map(s => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*') + '(/|$)'); return re.test(file); }
-    return file === q || file.startsWith(q + '/');
-  });
-}
 export function fail(lines) { if (!lines.length) return false; for (const l of lines) console.error(`✗ ${l}`); return true; }
 export const fix = s => `\n    fix: ${s}`;

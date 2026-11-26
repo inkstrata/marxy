@@ -1,4 +1,4 @@
-// E-16: line diff. Every case is judged on bytes: apply the diff to A and demand B exactly.
+// line diff. Every case is judged on bytes: apply the diff to A and demand B exactly.
 
 import assert from 'node:assert/strict';
 import { Buffer as NodeBuffer } from 'node:buffer';
@@ -6,10 +6,10 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { performance } from 'node:perf_hooks';
 import { test } from 'node:test';
 import { diffLines, splitLines, type DiffOp } from './lines.ts';
 import { unifiedDiff } from './unified.ts';
+import { cpuNow } from '../testing/cpu-clock.ts';
 
 // ---------------------------------------------------------------- helpers
 
@@ -257,10 +257,10 @@ test('a 10,000-line file with scattered edits diffs; over maxLines returns null 
   const edited = [...lines];
   for (let i = 0; i < 100; i++) edited[Math.floor(r() * edited.length)] = `edited ${i}`;
   const b = `${edited.join('\n')}\n`;
-  const t0 = performance.now();
+  const t0 = cpuNow();
   const u = unifiedDiff(a, b);
-  const ms = performance.now() - t0;
-  console.log(`# E-16 10,000 lines, ~100 scattered edits: ${ms.toFixed(1)} ms, ${u?.added} added / ${u?.removed} removed`);
+  const ms = cpuNow() - t0;
+  console.log(`# 10,000 lines, ~100 scattered edits: ${ms.toFixed(1)} ms, ${u?.added} added / ${u?.removed} removed`);
   assert.ok(u && u.exact);
   assert.equal(applyUnified(a, u.text), b);
   assert.equal(diffLines(a, b, { maxLines: 9_999 }), null);
@@ -282,25 +282,25 @@ test('1 MB: a small edit is fast and exact; two unrelated files cannot hang (tim
   const ls = a.split('\n');
   for (let i = 0; i < 5; i++) ls[Math.floor(r() * ls.length)] = `small edit ${i}`;
   const small = ls.join('\n');
-  let t0 = performance.now();
+  let t0 = cpuNow();
   const s = unifiedDiff(a, small);
-  const smallMs = performance.now() - t0;
+  const smallMs = cpuNow() - t0;
   assert.ok(s?.exact);
   assert.equal(applyUnified(a, s.text), small);
 
   // Unrelated, but full of repeated lines: no histogram anchor is rare, so Myers runs until the budget ends it.
   const x = fixture1MB(11, 3, 40);
   const y = fixture1MB(12, 3, 40);
-  t0 = performance.now();
+  t0 = cpuNow();
   const w = unifiedDiff(x, y);
-  const worstMs = performance.now() - t0;
+  const worstMs = cpuNow() - t0;
   // Unrelated, no line in common at all.
   const p = `${'p'.repeat(20)}\n`.repeat(0) + fixture1MB(21, 1_000_000_000);
   const q = fixture1MB(22, 1_000_000_000).replace(/row/g, 'col');
-  t0 = performance.now();
+  t0 = cpuNow();
   const d = unifiedDiff(p, q);
-  const disjointMs = performance.now() - t0;
-  console.log(`# E-16 1 MB: small edit ${smallMs.toFixed(0)} ms; unrelated repetitive ${worstMs.toFixed(0)} ms (exact=${w?.exact}); disjoint ${disjointMs.toFixed(0)} ms`);
+  const disjointMs = cpuNow() - t0;
+  console.log(`# 1 MB: small edit ${smallMs.toFixed(0)} ms; unrelated repetitive ${worstMs.toFixed(0)} ms (exact=${w?.exact}); disjoint ${disjointMs.toFixed(0)} ms`);
   assert.ok(w);
   assert.equal(applyUnified(x, w.text), y, 'a coarse diff still applies');
   assert.ok(d);
@@ -357,8 +357,9 @@ test('git apply --check accepts the output for ten cases', { skip: spawnSync('gi
       assert.ok(u && u.text !== '', `case ${i} has a diff`);
       writeFileSync(join(dir, 'f.txt'), a);
       writeFileSync(join(dir, 'p.diff'), u.text);
-      execFileSync('git', ['apply', '--check', '-p1', 'p.diff'], { cwd: dir });
-      execFileSync('git', ['apply', '-p1', 'p.diff'], { cwd: dir });
+      // A global core.autocrlf (Windows' default) would write the applied file with CRLF.
+      execFileSync('git', ['-c', 'core.autocrlf=false', 'apply', '--check', '-p1', 'p.diff'], { cwd: dir });
+      execFileSync('git', ['-c', 'core.autocrlf=false', 'apply', '-p1', 'p.diff'], { cwd: dir });
       assert.ok(readFileSync(join(dir, 'f.txt')).equals(NodeBuffer.from(b, 'utf8')), `git applies case ${i} to B`);
     }
   } finally {

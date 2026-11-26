@@ -1,0 +1,65 @@
+/* A PDF's page: the bar, the column of pages, pdf.js's text layer over each canvas, the Pages card.
+   The paper is drawn as authored: white in Night too. */
+.marxy-pdfpage { display: flex; flex-direction: column; height: 100%; }
+.marxy-pdfbar {
+  flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 16px; min-height: 40px;
+  box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums;
+}
+.marxy-pdfbar-page { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; }
+.marxy-pdfbar-input {
+  width: 3.4em; padding: 2px 6px; border: 0; border-radius: 5px; text-align: center; font: inherit; color: var(--marxy-color-text-strong);
+  background: var(--marxy-frame-chrome); box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2);
+}
+.marxy-pdfbar-zoom { min-width: 50px; text-align: center; color: var(--marxy-color-text-strong); font-weight: 560; }
+.marxy-pdfbar .marxy-seg { margin-left: 8px; }
+.marxy-pdfbar .marxy-seg button { min-width: 0; }
+.marxy-pdfbar-facts { white-space: nowrap; }
+.marxy-pdf-stage { flex: 1 1 auto; min-height: 0; overflow: auto; outline: none; }
+.marxy-pdf-sheets { position: relative; min-width: 100%; margin: 0 auto; }
+.marxy-pdf-page {
+  position: absolute; left: 50%; transform: translateX(-50%); background: #fff; overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 6px 24px rgba(0, 0, 0, 0.28);
+}
+:root[data-marxy-variant="light"] .marxy-pdf-page { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12), 0 6px 20px rgba(40, 36, 30, 0.14); }
+.marxy-pdf-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* pdf.js's text layer (its pdf_viewer.css, cut to what the layer itself needs): transparent spans over the canvas, sized
+   from the custom properties pdf.js sets on them and the scale the page sets. */
+.marxy-pdf-text {
+  position: absolute; inset: 0; overflow: clip; line-height: 1; text-align: initial; opacity: 1;
+  letter-spacing: normal; word-spacing: normal; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; z-index: 0; caret-color: CanvasText;
+}
+.marxy-pdf-text :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; user-select: text; -webkit-user-select: text; }
+.marxy-pdf-text > :not(.markedContent), .marxy-pdf-text .markedContent span:not(.markedContent) {
+  z-index: 1;
+  font-size: calc(var(--total-scale-factor) * var(--min-font-size, 1) * var(--font-height, 0px));
+  transform: rotate(var(--rotate, 0deg)) scaleX(var(--scale-x, 1)) scale(calc(1 / var(--min-font-size, 1)));
+}
+.marxy-pdf-text .markedContent { display: contents; }
+.marxy-pdf-text span[role="img"] { user-select: none; -webkit-user-select: none; cursor: default; }
+.marxy-pdf-text ::selection { background: rgba(60, 110, 220, 0.3); color: transparent; }
+.marxy-pdf-text br::selection { background: transparent; }
+
+.marxy-pdf-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 10px 8px; }
+.marxy-pdf-thumb { display: flex; flex-direction: column; align-items: center; gap: 4px; font: inherit; color: var(--marxy-color-text-secondary); background: none; border: 0; padding: 0; cursor: pointer; }
+.marxy-pdf-thumb-sheet { display: block; width: 64px; background: #fff; box-shadow: 0 0 0 1px var(--marxy-frame-hair-2); border-radius: 2px; overflow: hidden; }
+.marxy-pdf-thumb-canvas { display: block; width: 100%; height: auto; }
+.marxy-pdf-thumb[aria-current="page"] .marxy-pdf-thumb-sheet { box-shadow: 0 0 0 2px var(--marxy-color-text-strong); }
+.marxy-pdf-thumb[aria-current="page"] { color: var(--marxy-color-text-strong); }
+.marxy-pdf-thumb-n { font-size: calc(11 * var(--marxy-c)); font-variant-numeric: tabular-nums; }
+.marxy-pdf-outline { display: flex; flex-direction: column; }
+.marxy-pdf-outline-entry {
+  text-align: left; padding: 3px 0 3px calc(var(--marxy-pdf-depth, 0) * 14px); font: inherit; color: var(--marxy-color-text);
+  background: none; border: 0; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.marxy-pdf-outline-entry:hover { color: var(--marxy-color-text-strong); text-decoration: underline; }
+
+/* A text block under the cursor: a box over its words, never over the paper's own ink. */
+.marxy-pdf-block { position: absolute; z-index: 2; pointer-events: none; border-radius: 2px; }
+.marxy-viewer-mount .marxy-pdf-block.marxy-selected { background: transparent; box-shadow: 0 0 0 1px var(--marxy-color-rule-strong); }
+.marxy-viewer-mount .marxy-pdf-block.marxy-cursor { background: transparent; box-shadow: 0 0 0 2px var(--marxy-color-accent); }
+.marxy-viewer-mount .marxy-pdf-block.marxy-cursor::before { content: ""; position: absolute; left: -10px; top: 0; bottom: 0; width: 3px; border-radius: 2px; background: var(--marxy-color-accent); }
+
+/* Find on paper: the page stays white in every look, so its marks are the paper's own, translucent over the words. */
+.marxy-pdf-text ::highlight(marxy-find) { background-color: rgba(255, 210, 60, 0.5); color: transparent; text-decoration: underline 2px rgba(150, 100, 0, 0.9); }
+.marxy-pdf-text ::highlight(marxy-find-current) { background-color: rgba(255, 150, 30, 0.55); color: transparent; text-decoration: underline overline 2px rgba(150, 70, 0, 1); }

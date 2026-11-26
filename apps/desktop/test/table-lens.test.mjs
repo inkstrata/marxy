@@ -1,4 +1,4 @@
-// The table lens (K-10b, ADR-0071), in WebKit over the shipped skeleton and the memory shell. A `.csv` in Source becomes a
+// The table lens, in WebKit over the shipped skeleton and the memory shell. A `.csv` in Source becomes a
 // grid from the strip's Table tool: its header row stays put on scroll, a number column is right-aligned, a sort by
 // `cold_ms` orders the rows as numbers and writes nothing, and Esc returns to Source at the row. The awkward fixture shows
 // every case honestly (a decoded cell marked, a line break and a bidi control as marks, an absent cell apart from an empty
@@ -23,7 +23,7 @@ const RESULTS = fixture('37-results.csv');
 const AWKWARD = fixture('38-awkward.csv');
 /** A table tall enough to scroll: a header and 300 rows. */
 const TALL = `n,label,value\n${Array.from({ length: 300 }, (_, i) => `${i + 1},row-${i + 1},${(i * 37) % 101}`).join('\n')}\n`;
-/** 3,000 columns by 40 rows: 1.5 million cells in the file, a few dozen in view (F-89). */
+/** 3,000 columns by 40 rows: 1.5 million cells in the file, a few dozen in view. */
 const WIDE_COLS = 3000;
 const wideCell = (r, c) => (r * 31 + c * 7) % 1000;
 const WIDE = `${Array.from({ length: WIDE_COLS }, (_, c) => `c${c}`).join(',')}\n${Array.from({ length: 40 }, (_, r) => Array.from({ length: WIDE_COLS }, (_, c) => wideCell(r, c)).join(',')).join('\n')}\n`;
@@ -55,6 +55,8 @@ async function withPage(fn, { width = 1280, height = 800 } = {}) {
 
 const boot = async (page, open, opts = {}) => {
   await bootTwoPanes(page, { files, open: [open], ...opts });
+  // A CSV opens in Read, as a table (Readings); the lens covers Source.
+  await page.evaluate(() => window.__marxyHandle.panes().focused.view.setMode('source'));
   await page.waitForFunction(() => window.__marxyHandle.panes().focused.view.mode === 'source', null, { timeout: 15_000 });
 };
 const open = (page, path) => page.evaluate(async (p) => {
@@ -98,16 +100,19 @@ const copied = (page) => page.evaluate(() => {
 const mod = (page) => page.evaluate(() => (navigator.platform === 'MacIntel' ? 'Meta' : 'Control'));
 const enc = (s) => [...new TextEncoder().encode(s)];
 
-test('the strip\'s Table tool shows a grid: the header stays put on scroll, numbers are right-aligned, a sort by cold_ms orders the rows as numbers, and nothing is written', () =>
+test('Table view shows a grid: the header stays put on scroll, numbers are right-aligned, a sort by cold_ms orders the rows as numbers, and nothing is written', () =>
   withPage(async (page) => {
     await boot(page, '/r/results.csv');
     const before = await bytesNow(page);
-    // Unfolded, so the strip is drawn: Table is its first tool, Column stats the second, Chart is not there.
-    await page.evaluate(() => window.__marxyHandle.workspace().unfold());
-    await page.waitForSelector('[data-marxy-workspace-region="strip"] button[data-tool="table"]');
-    const tools = await page.$$eval('[data-marxy-workspace-region="strip"] button[data-tool]', (bs) => bs.map((b) => b.dataset.tool));
-    assert.deepEqual(tools, ['table', 'column-stats']);
-    await page.click('[data-marxy-workspace-region="strip"] button[data-tool="table"]');
+    // There is no strip; its two tools are the palette's Table view and Column stats.
+    const tools = await page.evaluate(async () => {
+      const { buildAppContext } = await import('/src/selection/bind.ts');
+      const h = window.__marxyHandle;
+      const ctx = buildAppContext(h);
+      return h.commands().filter((c) => c.id.startsWith('data.') && c.when(ctx)).map((c) => c.id);
+    });
+    assert.deepEqual(tools, ['data.table-lens', 'data.column-stats']);
+    await run(page, 'data.table-lens');
     await page.waitForSelector('.marxy-table-lens-grid tbody tr[data-record]');
     await settled(page);
     const state = await lensState(page);
@@ -241,7 +246,7 @@ test('a cell: ⌘C copies its decoded value with no guard, Source field copies i
     await settled(page);
     const m = await mod(page);
     await page.click('td[data-marxy-decoded]');
-    // A cell is a derived node, never the app's selection: no registered operation applies while one is selected (ADR-0071 item 7).
+    // A cell is a derived node, never the app's selection: no registered operation applies while one is selected.
     const dispatch = await page.evaluate(async () => {
       const { buildAppContext } = await import('/src/selection/bind.ts');
       const h = window.__marxyHandle;
@@ -252,7 +257,7 @@ test('a cell: ⌘C copies its decoded value with no guard, Source field copies i
     await page.keyboard.press(`${m}+KeyC`);
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
     assert.equal(await copied(page), 'said "hello"');
-    // A formula-looking cell copies as it reads: one value the reader is looking at carries no guard (ADR-0071 item 5).
+    // A formula-looking cell copies as it reads: one value the reader is looking at carries no guard.
     await page.click('tr[data-record="1"] td[data-col="4"]');
     await page.keyboard.press(`${m}+KeyC`);
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').length === 2);
@@ -279,7 +284,7 @@ test('a cell: ⌘C copies its decoded value with no guard, Source field copies i
     assert.equal(tsv[6][4], '-5');
     assert.equal(tsv[1][2], 'said "hello"');
 
-    // The cell's menu, in ADR-0071 item 6's order; Jump to source selects the raw field in Source, byte for byte.
+    // The cell's menu, in order; Jump to source selects the raw field in Source, byte for byte.
     await page.click('td[data-marxy-decoded]', { button: 'right' });
     await page.waitForSelector('[data-row-key="table.jump"]');
     assert.deepEqual(await page.$$eval('.marxy-verb-menu-item .marxy-verb-menu-title', (i) => i.map((x) => x.textContent)), ['Copy', 'Copy as…', 'Source field (CSV)', 'Column stats', 'Sort by this column', 'Jump to source', 'Open in Source']);
@@ -330,8 +335,7 @@ test('Table view is offered for a CSV or TSV only, and the tool again returns to
 
 test('the stats of a column are recomputed after an external change reloads the file', () =>
   withPage(async (page) => {
-    await bootTwoPanes(page, { files, open: ['/r/results.csv'], guard: true });
-    await page.waitForFunction(() => window.__marxyHandle.panes().focused.view.mode === 'source');
+    await boot(page, '/r/results.csv', { guard: true });
     await run(page, 'data.column-stats');
     await settled(page);
     const cold = async () => (await lensState(page)).stats[3];
@@ -348,7 +352,7 @@ test('the stats of a column are recomputed after an external change reloads the 
     assert.equal(await page.$$eval('.marxy-table-lens-grid tbody tr[data-record]', (t) => t.length), 9);
   }));
 
-// ---- F-89: follow-ups from the review of K-10b -----------------------------------------------------------------------------
+// ---- follow-ups -----------------------------------------------------------------------------------------------------------
 
 test('a file of 3,000 columns draws the columns in view, not all of them: sort, stats, selection and scrolling across work on the cells that exist, and nothing is written', () =>
   withPage(async (page) => {
@@ -534,6 +538,31 @@ const LARGE_SOURCE = `
   };
 `;
 
+test("past the scroller's height limit, a change in the pane's height keeps the top row where it was", () =>
+  withPage(async (page) => {
+    // 800,000 rows at 24 px is past MAX_SCROLL_PX (16M px): the scroll is scaled, and the scale depends on the height.
+    const huge = `n,v\n${Array.from({ length: 800_000 }, (_, i) => `${i + 1},x`).join('\n')}\n`;
+    await boot(page, '/r/huge.csv', { files: { ...files, '/r/huge.csv': huge } });
+    await run(page, 'data.table-lens');
+    await page.waitForSelector('.marxy-table-lens-grid tbody tr[data-record]');
+    await settled(page);
+    const topRow = () => page.$eval('.marxy-table-lens-scroll', (s) => {
+      const head = s.querySelector('thead').getBoundingClientRect().bottom;
+      const tr = [...s.querySelectorAll('tbody tr[data-record]')].find((t) => t.getBoundingClientRect().bottom > head + 1);
+      return Number(tr.dataset.record);
+    });
+    await page.$eval('.marxy-table-lens-scroll', (s) => { s.scrollTop = 8_000_000; });
+    await page.waitForTimeout(150);
+    const before = await topRow();
+    assert.ok(before > 300_000, `scrolled into the middle (row ${before})`);
+    await page.setViewportSize({ width: 1280, height: 1200 });
+    await page.waitForTimeout(300);
+    assert.equal(await topRow(), before, 'taller: the same row is at the top');
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await page.waitForTimeout(300);
+    assert.equal(await topRow(), before, 'shorter: the same row is at the top');
+  }));
+
 test(`a CSV of ${process.env.MARXY_CSV_MB ?? 50} MB: its first rows are drawn before its last byte is read, and a sort and the stats give the window back`, () =>
   withPage(async (page) => {
     const mb = Number(process.env.MARXY_CSV_MB ?? 50);
@@ -551,6 +580,7 @@ test(`a CSV of ${process.env.MARXY_CSV_MB ?? 50} MB: its first rows are drawn be
       window.__marxyHandle = handle;
       return bytes.length;
     }, mb);
+    await page.evaluate(() => window.__marxyHandle.panes().focused.view.setMode('source'));
     await page.waitForFunction(() => window.__marxyHandle.panes().focused.view.mode === 'source', null, { timeout: 120_000 });
     await page.waitForTimeout(500);
     /** Runs `fn` in the page with a 4 ms heartbeat: how often the main thread came back, and the longest it was held. */
@@ -593,7 +623,7 @@ test(`a CSV of ${process.env.MARXY_CSV_MB ?? 50} MB: its first rows are drawn be
     console.log(`# csv ${mb} MB: sort by score, descending, ${timing.sort.ms.toFixed(0)} ms, held at most ${timing.sort.worst.toFixed(0)} ms (${timing.sort.beats} beats); stats ${timing.stats.ms.toFixed(0)} ms, held at most ${timing.stats.worst.toFixed(0)} ms (${timing.stats.beats} beats)`);
     assert.ok(timing.drawn > 0, 'rows are drawn at once');
     assert.ok(timing.first.bytesRead < timing.first.bytes / 100, `the first rows needed ${timing.first.bytesRead} of ${timing.first.bytes} bytes`);
-    // Slicing is asserted by structure, not the clock (ADR-0032): the main thread came back many times during each piece of work.
+    // Slicing is asserted by structure, not the clock: the main thread came back many times during each piece of work.
     // The work is time-budgeted, so a slow machine only makes more, smaller slices; one task doing it all is the failure.
     const cut = timing.slices;
     assert.ok(cut.read >= 5, `the file was read in ${cut.read} slices`);

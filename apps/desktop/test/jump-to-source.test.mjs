@@ -1,4 +1,4 @@
-// Palette jump-to-source lands on the selected element byte (MARXY-239).
+// Palette jump-to-source lands on the selected element byte.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -6,15 +6,16 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const appRoot = join(repoRoot, 'apps', 'desktop');
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-jump-source-'));
@@ -69,7 +70,7 @@ test('jump-to-source opens Source at data-marxy-s of the selected block', async 
   }
 });
 
-for (const { label, eol } of [{ label: '', eol: '\n' }, { label: ' in a CRLF file (F-23)', eol: '\r\n' }]) {
+for (const { label, eol } of [{ label: '', eol: '\n' }, { label: ' in a CRLF file', eol: '\r\n' }]) {
 test(`jump-to-source on a block far down a long document holds it at the reading line${label}`, async () => {
   const browser = await launchWebkit();
   try {
@@ -92,18 +93,19 @@ test(`jump-to-source on a block far down a long document holds it at the reading
     await page.evaluate(() => window.marxyRunCommand?.('view.jump-to-source'));
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('.cm-content'));
     await page.waitForTimeout(300);
-    // In Source the window scrolls (the .cm-scroller's own scrollTop stays 0): read what sits at the
-    // reading line, 40% down the window, as the reader sees it.
+    // In Source the editor's own scroller moves (the frame fixes Source's mount under the head; the window
+    // stays at 0): read what sits at the reading line, 40% down the window, as the reader sees it.
     const at = await page.evaluate(() => {
       const y = Math.round(window.innerHeight * 0.4) + 4;
       const line = [...document.querySelectorAll('#marxy-source .cm-line')].find((l) => {
         const r = l.getBoundingClientRect();
         return r.top <= y && r.bottom > y;
       });
-      return { scrollY: window.scrollY, line: line?.textContent ?? null, mode: window.__marxyHandle.sourceHarness().mode };
+      const scrollTop = document.querySelector('#marxy-source .cm-scroller').scrollTop;
+      return { scrollTop, line: line?.textContent ?? null, mode: window.__marxyHandle.sourceHarness().mode };
     });
     assert.equal(at.mode, 'source');
-    assert.ok(at.scrollY > 0, 'the window scrolled to the block');
+    assert.ok(at.scrollTop > 0, "Source's scroller moved to the block");
     assert.equal(at.line, 'Paragraph number 90 of the long document.');
   } finally {
     await browser.close();

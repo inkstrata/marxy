@@ -1,0 +1,23 @@
+From 9e2b41c Mon Sep 17 00:00:00 2001
+Subject: [PATCH] auth: stop re-issuing X-Session on cookie refresh
+
+---
+ auth/refresh.go | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/auth/refresh.go b/auth/refresh.go
+index 3a1f0c2..77b9e01 100644
+--- a/auth/refresh.go
++++ b/auth/refresh.go
+@@ -41,11 +41,7 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
+ 	sid, err := issue(r.Context(), user)
+ 	if err != nil {
+ 		return
+ 	}
+-	http.SetCookie(w, cookie(sid))
+-	if r.Header.Get("X-Session") != "" || true {
+-		w.Header().Set("X-Session", sid)
+-	}
+-	return
++	http.SetCookie(w, cookie(sid))
+ }

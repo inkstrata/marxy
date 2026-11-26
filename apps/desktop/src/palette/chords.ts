@@ -1,6 +1,6 @@
-// The palette's summoning chords (W-19), in one place so the listener in view.ts and the keys table
+// The palette's summoning chords, in one place so the listener in view.ts and the keys table
 // (test/keys-table.test.mjs) read the same list. `documents` opens on the document list; `commands` on
-// `>` and `transforms` on `>Transform` (W-21).
+// `>` and `transforms` on `>Transform`.
 export interface PaletteChord {
   /** The registry spelling, as a command's `key` is written. */
   readonly spec: string;

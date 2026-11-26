@@ -1,4 +1,4 @@
-// CM6 must not appear on the production startup import graph (MARXY-33 / MARXY-37).
+// CM6 must not appear on the production startup import graph.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

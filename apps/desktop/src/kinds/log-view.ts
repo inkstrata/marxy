@@ -1,4 +1,4 @@
-// The level filter's page half (K-08): which lines of a log the page hides, and the one line of words that stands for each
+// The level filter's page half: which lines of a log the page hides, and the one line of words that stands for each
 // run it hides. A view only: no byte of the document, and nothing about the filter, is written or remembered.
 //
 // A filter is a property of the whole document, not of the part of it the reader is looking at. A log in Read is pieces

@@ -1,5 +1,7 @@
-/* High contrast: white on black and black on white (H-05). Every text and code role holds 7:1 on every ground it meets and
-   edges hold 4.5:1 (scripts/gate-contrast.mjs, HIGH_CONTRAST_FLOORS). Values from mock-v2/shared/tokens.css (hc-dark, hc-light). */
+/* High contrast: White on black, every colour held to 7 : 1.
+   Written from packages/theme/src/looks/high-contrast.ts by packages/theme/scripts/write-theme-sheets.mjs: change that file
+   and run the script, never this one (theme-sheets.test.ts holds them equal).
+*/
 :root {
   --marxy-weight-body: 430;
   --marxy-weight-heading: 700;
@@ -63,6 +65,10 @@
   --marxy-tok-escape: #b6ff9e;
   --marxy-tok-mark: #cccccc;
   --marxy-tok-link: var(--marxy-color-link);
+  --marxy-frame-chrome: color-mix(in srgb, var(--marxy-color-bg) 94%, var(--marxy-color-text));
+  --marxy-frame-chrome-2: color-mix(in srgb, var(--marxy-color-bg) 89%, var(--marxy-color-text));
+  --marxy-frame-hair: color-mix(in srgb, var(--marxy-color-bg) 86%, var(--marxy-color-text));
+  --marxy-frame-hair-2: color-mix(in srgb, var(--marxy-color-bg) 79%, var(--marxy-color-text));
 }
 :root[data-marxy-variant="light"] {
   --marxy-weight-body: 450;

@@ -1,4 +1,4 @@
-// The Tauri shell's content search (C-16): what crosses to Rust is narrowed by the index walk's own
+// The Tauri shell's content search: what crosses to Rust is narrowed by the index walk's own
 // rules first, and an abort cancels the scan in Rust by its token.
 import { strict as assert } from 'node:assert';
 import { register } from 'node:module';

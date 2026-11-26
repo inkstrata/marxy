@@ -1,4 +1,4 @@
-// The in-place block editor (E-04, ADR-0048): a CodeMirror 6 editor over one block's bytes, mounted where
+// The in-place block editor: a CodeMirror 6 editor over one block's bytes, mounted where
 // the block was. It is built from the Source editor's own extensions (`baseExtensions`), so the code face,
 // the markdown grammar, the wrapping, the file's line separator and its marked stray bytes are Source's, and it keeps its own
 // compartments and its own view: it never calls `createSourceEditor`, which holds one editor per mount and
@@ -24,6 +24,8 @@ export interface BlockEditor {
 /** What the editor asks of its owner: leave (keep what was typed). Escape and Mod-Enter both mean it. */
 export interface BlockEditorKeys {
   leave(): void;
+  /** Where the caret starts, as an offset in the editor's text; the end of it when not given. */
+  caret?: number;
 }
 
 /** A registry chord (`Mod+Shift+L`) as CodeMirror names it (`Mod-Shift-l`). */
@@ -50,7 +52,7 @@ function structureKeymap(path: string): KeyBinding[] {
 /**
  * Opens an editor in `host` over `range` of `buffer`. The doc is exactly the block's bytes, decoded as Source decodes
  * them (`sourceTextOfRange`: each byte that is not UTF-8 is a code unit of its own, shown as a marked byte), so a stray
- * byte the reader does not edit keeps its bytes when the text is folded back (F-34.2).
+ * byte the reader does not edit keeps its bytes when the text is folded back.
  * `Escape` and `Mod-Enter` call `keys.leave()`; `Mod-s` and `Mod-Shift-s` stay Source's (they save, which
  * folds the block first).
  */
@@ -86,6 +88,9 @@ export async function openBlockEditor(
     ],
   });
   const view = new EditorView({ state, parent: host });
+  // At the end of the block's text, after any list or quote marker: typing continues the block rather than breaking its syntax.
+  const caret = Math.min(keys.caret ?? state.doc.length, state.doc.length);
+  view.dispatch({ selection: { anchor: caret, head: caret } });
   let destroyed = false;
   void attachLanguage(view, buffer, () => !destroyed, compartments.languageCompartment);
   return {

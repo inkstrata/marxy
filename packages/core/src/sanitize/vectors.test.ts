@@ -1,4 +1,4 @@
-// The acceptance criterion and its falsifiability (MARXY-12, ADR-0009). Two halves that only mean
+// The sanitiser's required behaviour and its falsifiability. Two halves that only mean
 // something together: every forbidden vector is absent from the hostile fixture once it has been
 // through the pipeline, and every one of those checks fails when the sanitiser is taken out of it.
 // A sanitiser suite that passes against a sanitiser that does nothing is the dangerous artifact.
@@ -23,13 +23,13 @@ test('the hostile fixture, rendered, trips no forbidden vector', () => {
   assert.deepEqual(checkAllVectors(safeHostile, RENDERED_POLICY), []);
 });
 
-test('the letter of the criterion: no script, iframe, object, form, meta or link element', () => {
+test('no script, iframe, object, form, meta or link element', () => {
   const forbidden = ['script', 'iframe', 'object', 'form', 'meta', 'link'];
   const present = elementsOf(safeHostile).filter((name) => forbidden.includes(name));
   assert.deepEqual(present, []);
 });
 
-test('the letter of the criterion: no javascript: or data: href', () => {
+test('no javascript: or data: href', () => {
   const hrefs = attributesOf(safeHostile).filter((attribute) => attribute.name === 'href');
   const offenders = hrefs.filter((attribute) => /^\s*(?:javascript|data)\s*:/i.test(attribute.decoded));
   assert.deepEqual(offenders, []);
@@ -92,8 +92,8 @@ test('the whole enumeration fails against the unsanitised hostile render', () =>
   assert.ok(failures.length >= 14, `expected the fixture to trip most vectors unsanitised; it tripped ${failures.length}`);
 });
 
-/** MARXY-229: reserved and clobbering identifiers, with and without forged public provenance. */
-const MARXY_229_RESERVED: readonly { readonly id: string; readonly html: string; readonly assert: (out: string) => void }[] = [
+/** reserved and clobbering identifiers, with and without forged public provenance. */
+const RESERVED_VECTORS: readonly { readonly id: string; readonly html: string; readonly assert: (out: string) => void }[] = [
   {
     id: 'marxy-id',
     html: '<h2 id="marxy-fn-1">x</h2>',
@@ -142,20 +142,20 @@ const MARXY_229_RESERVED: readonly { readonly id: string; readonly html: string;
   },
 ];
 
-for (const vector of MARXY_229_RESERVED) {
+for (const vector of RESERVED_VECTORS) {
   for (const [label, forged] of [['plain', ''], ['forged-provenance', ' data-marxy-s="0" data-marxy-e="1"']] as const) {
-    test(`MARXY-229 ${vector.id} ${label}: sanitiser refuses it`, () => {
+    test(`${vector.id} ${label}: sanitiser refuses it`, () => {
       const input = vector.html.replace(/^(<\w+)/, `$1${forged}`);
       vector.assert(sanitizeHtml(input, RENDERED_POLICY).html);
     });
-    test(`MARXY-229 ${vector.id} ${label}: pipeline refuses it`, () => {
+    test(`${vector.id} ${label}: pipeline refuses it`, () => {
       const doc = `${vector.html.replace(/^(<\w+)/, `$1${forged}`)}\n`;
       vector.assert(renderSafeHtml(doc, { file: `probe/${vector.id}-${label}.md` }).html);
     });
   }
 }
 
-test('MARXY-229: ordinary authored heading ids such as install are kept', () => {
+test('ordinary authored heading ids such as install are kept', () => {
   const out = renderSafeHtml('<h2 id="install">install</h2>\n', { file: 'install.md' }).html;
   assert.match(out, /\sid="install"/);
 });

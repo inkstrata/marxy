@@ -1,4 +1,4 @@
-// GFM with a bounded autolink literal (F-90).
+// GFM with a bounded autolink literal.
 //
 // micromark-extension-gfm-autolink-literal asks, on every candidate character, whether an unclosed `[`
 // (or `![`) sits earlier in the text (`previousUnbalanced`). When one does, its walk back over the events
@@ -9,8 +9,11 @@
 // autolink construct starts, a cached unclosed label token that is still in the events and still not
 // balanced means "no autolink here", exactly the nok the extension would have returned after its walk. In
 // every other case the construct runs untouched. Output is unchanged; only the repeated walk is skipped.
+//
+// Strikethrough's resolver is capped as attention's is (bounded-attention.ts).
 
 import { gfm } from 'micromark-extension-gfm';
+import { capped } from './bounded-attention.ts';
 
 type Extension = ReturnType<typeof gfm>;
 type Construct = { name?: string; tokenize: (this: any, effects: any, ok: any, nok: any) => any } & Record<string, unknown>;
@@ -37,8 +40,11 @@ function openLabelBefore(events: Event[]): boolean {
       unclosed.set(events, { index, token });
       return true;
     }
-    if (token._gfmAutolinkLiteralWalkedInto) return false;
+    if (token._gfmAutolinkLiteralWalkedInto) break;
   }
+  // Marked as the extension marks it, or a trigger its own checks turn away before walking (`_` before `a`
+  // in `_a_a…`) walks back over the whole paragraph each time.
+  if (events.length > 0) events[events.length - 1]![1]._gfmAutolinkLiteralWalkedInto = true;
   return false;
 }
 
@@ -52,13 +58,27 @@ function bounded(construct: Construct): Construct {
   };
 }
 
-/** `gfm()` with the autolink literal's repeated walk bounded. Same syntax, same events. */
+/** `gfm()` with the autolink literal's repeated walk and strikethrough's resolver bounded. Same syntax. */
 export function boundedGfm(): Extension {
-  const extension = gfm() as unknown as { text: Record<string, Construct | Construct[]> };
+  const extension = gfm() as unknown as { text: Record<string, Construct | Construct[]>; insideSpan: { null: Construct[] } };
+  // One object for the construct in `text` and in `insideSpan`, so its resolver still runs once per span.
+  const strikes = new Map<Construct, Construct>();
+  const strike = (c: Construct): Construct => {
+    let wrapped = strikes.get(c);
+    if (wrapped === undefined) {
+      const resolve = c.resolveAll as Parameters<typeof capped>[1];
+      wrapped = { ...c, resolveAll: capped('strikethroughSequenceTemporary', resolve) };
+      strikes.set(c, wrapped);
+    }
+    return wrapped;
+  };
+  const wrap = (c: Construct): Construct =>
+    c.name !== undefined && AUTOLINK.has(c.name) ? bounded(c) : c.name === 'strikethrough' ? strike(c) : c;
   for (const [code, value] of Object.entries(extension.text)) {
     const list = Array.isArray(value) ? value : [value];
-    const wrapped = list.map((c) => (c.name !== undefined && AUTOLINK.has(c.name) ? bounded(c) : c));
+    const wrapped = list.map(wrap);
     extension.text[code] = Array.isArray(value) ? wrapped : wrapped[0]!;
   }
+  extension.insideSpan.null = extension.insideSpan.null.map(wrap);
   return extension as unknown as Extension;
 }

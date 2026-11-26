@@ -1,4 +1,4 @@
-// Bundle size budget (ADR-0013). Also fails if importing the parser resolves katex (MARXY-60).
+// Bundle size budget. Also fails if importing the parser resolves katex.
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
@@ -106,7 +106,7 @@ export function entryChunks(distDir) {
  * Entry chunks that are KaTeX or contain it: a chunk named katex, or one holding the library's own
  * "KaTeX parse error" message. The app's entry chunk legitimately mentions katex (the `.katex` class
  * it styles and the lazy loaders for KaTeX's chunk and fonts), so the word alone is not the signal.
- * KaTeX loads lazily (design 02-render section 6), so this should be empty.
+ * KaTeX loads lazily, so this should be empty.
  */
 export function katexInEntry(distDir) {
   const entry = entryChunks(distDir);
@@ -116,7 +116,7 @@ export function katexInEntry(distDir) {
 }
 
 /**
- * Strings that only the test harness holds (B-16): the memory shell, the harness entries and the hooks
+ * Strings that only the test harness holds: the memory shell, the harness entries and the hooks
  * tests drive, and the names of the removed mutation switches. A release bundle that contains one has
  * shipped test plumbing.
  */
@@ -148,7 +148,7 @@ function filesUnder(dir, prefix = '') {
 }
 
 /**
- * What must not be in the shipped dist/ (B-16.1). Tauri embeds the directory whole
+ * What must not be in the shipped dist/. Tauri embeds the directory whole
  * (tauri.conf.json build.frontendDist), so a file there ships whether or not index.html reaches it:
  * any HTML file other than index.html is a second entry, and every file, chunk, worker or asset, is
  * scanned for TEST_ONLY_STRINGS. Returns `{ files, extraHtml, hits: [{ file, strings }] }`.
@@ -165,6 +165,17 @@ export function shippedDistProblems(distDir) {
 }
 
 /** Walk main.ts's relative import graph; returns absolute paths of memory shell / harness hits. */
+/**
+ * The source without the imports Vite drops from a production build: `if (x) void import('…')` where `x` is a const whose
+ * value needs `import.meta.env.DEV` (main.ts's browser-dev and demo harness). The dist check still greps the build itself.
+ */
+export function withoutDevOnlyImports(text) {
+  const guards = [...text.matchAll(/\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*\(?\s*import\.meta\.env\.DEV\b[^;\n]*/g)].map((m) => m[1]);
+  let out = text;
+  for (const g of guards) out = out.replace(new RegExp(`if\\s*\\(\\s*${g}\\s*\\)\\s*void\\s+import\\([^)]*\\);?`, 'g'), '');
+  return out;
+}
+
 export function memoryShellReachableFromMain(desktop) {
   const main = join(desktop, 'src', 'main.ts');
   if (!existsSync(main)) return { error: 'missing-main', memory: [] };
@@ -174,17 +185,18 @@ export function memoryShellReachableFromMain(desktop) {
     const file = queue.pop();
     if (seen.has(file) || !existsSync(file)) continue;
     seen.add(file);
-    const text = stripCommentsAst(readFileSync(file, 'utf8'), file);
+    const text = withoutDevOnlyImports(stripCommentsAst(readFileSync(file, 'utf8'), file));
     for (const spec of relativeImportSpecs(text)) queue.push(resolveRelativeModule(file, spec));
   }
-  const memory = [...seen].filter((f) => /src\/shell\/memory\.tsx?$/.test(f) || /src\/harness\//.test(f));
+  // Forward slashes: on Windows `join` gives backslashes, and the gate would pass a memory shell it never recognised.
+  const memory = [...seen].map((f) => f.replace(/\\/g, '/')).filter((f) => /src\/shell\/memory\.tsx?$/.test(f) || /src\/harness\//.test(f));
   return { error: null, memory, moduleCount: seen.size };
 }
 
 /**
  * The memory shell and the app harness must not ship. The import-graph walk from main.ts always runs
  * (including pre-build precheck); where `build:web` has run (CI's rust job), every file under dist/
- * is grepped for the test-only strings and a second HTML entry fails (B-16.1).
+ * is grepped for the test-only strings and a second HTML entry fails.
  */
 function assertProductionExcludesMemoryShell() {
   const desktop = join(root, 'apps', 'desktop');
@@ -230,7 +242,7 @@ assertProductionExcludesMemoryShell();
 
 const budgets = JSON.parse(readFileSync(new URL('../fixtures/perf-budgets.json', import.meta.url), 'utf8')).bundle_installed_mb;
 // `tauri build` writes installers to target/release/bundle, or target/<triple>/release/bundle when
-// the release workflow passes --target. PR CI builds with `cargo build --profile ci` and has neither,
+// the release workflow passes --target. CI builds with `cargo build --profile ci` and has neither,
 // so the size half runs only where installers exist; MARXY_BUNDLE_REQUIRED (the release workflow)
 // makes their absence a failure rather than a skip, so the budget cannot pass by measuring nothing.
 const target = fileURLToPath(new URL('../apps/desktop/src-tauri/target/', import.meta.url));

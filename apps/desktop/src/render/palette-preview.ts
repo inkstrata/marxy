@@ -1,5 +1,5 @@
-// The palette's preview column (W-13, mock-v2 04-palette §Previews): what the highlighted row would open or do, drawn
-// beside the list. A file shows its kind, its words or lines, a near-copies chip when the library's check (Q-06) already
+// The palette's preview column: what the highlighted row would open or do, drawn
+// beside the list. A file shows its kind, its words or lines, a near-copies chip when the library's check already
 // found some, and its first forty lines set in their own kind (a log as a log, code highlighted); a heading, its section;
 // a command, its group and key; a transform, its result on the selection or on the first 1,400 characters of the document.
 //
@@ -10,8 +10,9 @@
 // nothing and leaves nowhere; code goes through the code parse and the page's own highlighter. Text reaches the DOM as
 // `textContent` or as HTML that has been through the allow-list, never raw.
 import { DEFAULT_KIND, type IndexEntry, type Kind } from '@marxy/core';
-import { codeLanguageOf, detectKind, isCodeFile, KIND_HEAD_BYTES, parseCode, transformById } from '@marxy/core';
-import { measureText } from '@marxy/core/src/index-model/query-eval.ts';
+import { codeLanguageOf, detectKind, fileTypeFor, KIND_HEAD_BYTES, parseCode, parserOf, transformById } from '@marxy/core';
+import { countWords } from '@marxy/core/src/index-model/words.ts';
+import { carriesMarkdown } from '@marxy/core/src/reading/index.ts';
 import { renderDocumentSafeHtml, renderSafeHtml } from '@marxy/core/src/render/index.ts';
 import { applyInvisibleMarkers } from './invisibles-dom.ts';
 
@@ -159,19 +160,21 @@ export function withoutFrontMatter(text: string): { text: string; note?: string 
   return { text: text.slice(match[0].length), note: `Front matter · ${keys} ${keys === 1 ? 'key' : 'keys'}` };
 }
 
-const READ_AS_CODE_NOT_MARKDOWN = new Set(['html', 'htm', 'csv', 'tsv', 'jsonl']);
-
-/** How a file's text is set: as Markdown, or as code in a language (none: plain monospace). A reader's kind outranks the extension. */
-export function setAs(path: string, kind: Kind): { as: 'markdown' } | { as: 'code'; lang?: string } {
+/**
+ * How a file's text is set: as Markdown, or as code in a language (none: plain monospace). A reader's kind outranks the
+ * extension; plain text (`text`, when given) is Markdown only when it carries Markdown marks, and keeps its lines otherwise.
+ */
+export function setAs(path: string, kind: Kind, text?: string): { as: 'markdown' } | { as: 'code'; lang?: string } {
   if (kind === 'log') return { as: 'code', lang: 'log' };
   if (kind === 'diff') return { as: 'code', lang: 'diff' };
   if (kind === 'terminal') return { as: 'code' };
-  const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
-  if (kind === 'html' || READ_AS_CODE_NOT_MARKDOWN.has(ext) || isCodeFile(path)) {
-    const lang = kind === 'html' ? 'html' : codeLanguageOf(path);
-    return lang === undefined ? { as: 'code' } : { as: 'code', lang };
-  }
-  return { as: 'markdown' };
+  // An HTML file shows its source under any reader kind: set as Markdown it would be read as a page.
+  if (kind === 'html' || fileTypeFor(path).viewer === 'html') return { as: 'code', lang: 'html' };
+  const parser = parserOf(path);
+  if (parser === 'markdown' && text !== undefined && fileTypeFor(path).kind === 'text' && !carriesMarkdown(text)) return { as: 'code' };
+  if (parser === 'markdown') return { as: 'markdown' };
+  const lang = parser === 'code' ? codeLanguageOf(path) : undefined;
+  return lang === undefined ? { as: 'code' } : { as: 'code', lang };
 }
 
 /**
@@ -188,10 +191,9 @@ const decode = (bytes: Uint8Array): string => new TextDecoder('utf-8').decode(by
 
 /**
  * A file's preview from its first bytes. `head` is null for a file that was not read (over the large-file limit): the
- * preview then says what the index knows and "Too large to preview". `nearCopies` is how many copies the library's
- * check found, 0 when it has not run: the chip is shown only for a found one.
+ * preview then says what the index knows and "Too large to preview".
  */
-export function filePreview(entry: IndexEntry, head: Uint8Array | null, nearCopies = 0): FilePreview {
+export function filePreview(entry: IndexEntry, head: Uint8Array | null): FilePreview {
   const size = sizeLabel(entry.size);
   if (head === null) {
     const kind = kindOf(entry, new Uint8Array(0));
@@ -203,18 +205,17 @@ export function filePreview(entry: IndexEntry, head: Uint8Array | null, nearCopi
     return { type: 'file', title: entry.title, chips: [kindLabel(kind), size], notice: 'Not text, so there is nothing to show' };
   }
   const read = decode(head);
-  const how = setAs(entry.path, kind);
+  const how = setAs(entry.path, kind, read);
   const partial = head.length < entry.size;
   const chips: string[] = [kindLabel(kind)];
   if (how.as === 'markdown') {
-    const words = measureText(read, { markdown: true }).words;
+    const words = countWords(read, { markdown: true });
     chips.push(`${words.toLocaleString('en-US')}${partial ? '+' : ''} ${words === 1 && !partial ? 'word' : 'words'}`);
   } else {
     const lines = lineCount(read);
     chips.push(`${lines.toLocaleString('en-US')}${partial ? '+' : ''} ${lines === 1 && !partial ? 'line' : 'lines'}`);
   }
   chips.push(size);
-  if (nearCopies > 0) chips.push(`${nearCopies} near ${nearCopies === 1 ? 'copy' : 'copies'}`);
   let text = read;
   let frontMatter: string | undefined;
   if (how.as === 'markdown') {
@@ -262,7 +263,7 @@ export function sectionPreview(entry: IndexEntry, index: number, head: Uint8Arra
   const slice = head.subarray(range.start, Math.min(range.end, head.length));
   const text = decode(slice);
   const shown = firstLines(text, SECTION_LINES, SECTION_MAX_CHARS);
-  const words = measureText(text, { markdown: true }).words;
+  const words = countWords(text, { markdown: true });
   const partial = range.end > head.length;
   const chips = [`Level ${heading.level}`, `${words.toLocaleString('en-US')}${partial ? '+' : ''} ${words === 1 && !partial ? 'word' : 'words'}`];
   return {
@@ -326,7 +327,7 @@ function el<K extends keyof HTMLElementTagNameMap>(doc: Document, tag: K, classN
  * Makes parsed Markdown inert: an image becomes its alt text (a preview fetches nothing, a remote image already lost its
  * address in the allow-list, a local one never gets one), and a link loses its address (a click in the column goes nowhere).
  */
-export function neutralise(root: HTMLElement): void {
+export function neutralise(root: HTMLElement | DocumentFragment): void {
   for (const img of [...root.querySelectorAll('img, picture, source, video, audio, iframe, object, embed')]) {
     const alt = img instanceof HTMLImageElement ? img.alt : '';
     const note = root.ownerDocument.createElement('span');
@@ -338,6 +339,17 @@ export function neutralise(root: HTMLElement): void {
     a.removeAttribute('href');
     a.removeAttribute('target');
   }
+}
+
+/**
+ * `html` parsed where nothing loads, then made inert. WebKit starts an `<img>`'s fetch as it is parsed into the live
+ * document, attached or not, so neutralising after `innerHTML` was too late for a relative image.
+ */
+export function inertFragment(doc: Document, html: string): DocumentFragment {
+  const template = doc.createElement('template');
+  template.innerHTML = html;
+  neutralise(template.content);
+  return template.content;
 }
 
 async function highlightBlocks(host: HTMLElement): Promise<void> {
@@ -354,8 +366,7 @@ function drawBody(doc: Document, host: HTMLElement, body: PreviewBody): void {
     // Parsed and allow-listed as Read does it; the file's own folder is not given, so no image path is resolved.
     // The reading face, as the document sets it: on the element, since the palette's sheet carries no face but the chrome's.
     text.style.fontFamily = 'var(--marxy-font-text)';
-    text.innerHTML = renderSafeHtml(body.text, { file: body.path }).html;
-    neutralise(text);
+    text.append(inertFragment(doc, renderSafeHtml(body.text, { file: body.path }).html));
     applyInvisibleMarkers(text);
   } else {
     const bytes = new TextEncoder().encode(body.text);

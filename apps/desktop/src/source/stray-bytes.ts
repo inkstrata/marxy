@@ -1,4 +1,4 @@
-// Bytes that are not UTF-8, in the Source editor (F-34.1, ADR-0069). The editor's text holds each such byte as its
+// Bytes that are not UTF-8, in the Source editor. The editor's text holds each such byte as its
 // own code unit (U+DC80 to U+DCFF, `sourceTextOf`), so it can be edited, moved and kept exactly. That unit is a lone
 // surrogate, which must not leave the editor: here it is shown as a marked byte (commitment 4, nothing hidden), and
 // every copy, cut or drag out of the editor carries U+FFFD in its place, as Rendered shows it. The editor's own copy,
@@ -50,7 +50,7 @@ function specialCharMarker(description: string | null, placeholder: string): HTM
  * The pasteboard type the editor's own copy, cut or drag adds beside `text/plain` when the text holds stray bytes: the
  * exact text, as JSON (so a lone surrogate travels as the escape `\udcff`, never as itself). It is on the same pasteboard item as
  * the readable text, so another program's copy, which replaces the whole item, can never be taken for ours; WebKit
- * gives a page's own types back only to the same origin. Not a Copy as target (J-04): nothing else reads it.
+ * gives a page's own types back only to the same origin. Not a Copy as target: nothing else reads it.
  */
 export const SOURCE_TEXT_TYPE = 'application/x-marxy-source-text';
 
@@ -88,7 +88,7 @@ const LONE_UNITS = /[\uD800-\uDFFF]/gu;
  * Whether every lone surrogate in `text` is a stray byte's code unit (U+DC80 to U+DCFF). The private type is the only
  * way a lone surrogate enters the editor, so it may name stray bytes and nothing else. A lone high surrogate (or a lone
  * low one outside the range) would join a stray byte already in the text and make a valid pair: a forged `\ud800`
- * pasted before a stray `\udcff` encodes as F0 90 83 BF, not FF (the review of #584).
+ * pasted before a stray `\udcff` encodes as F0 90 83 BF, not FF.
  */
 export function holdsOnlyStrayLones(text: string): boolean {
   for (const m of text.matchAll(LONE_UNITS)) if (strayByteOf(m[0].charCodeAt(0)) < 0) return false;
@@ -148,7 +148,7 @@ const LONE = /[\uD800-\uDFFF]/u;
 /**
  * Marks the one change that reads the editor's own fold back (`replaceBuffer`): bytes the text already named, now
  * decoded as the file would be opened. The history joins it to the reader's last edit, so undoing that edit undoes the
- * read-back with it and the text it leaves is the text the reader had, byte for byte (F-34.2, ADR-0069).
+ * read-back with it and the text it leaves is the text the reader had, byte for byte.
  */
 export const readBack = Annotation.define<boolean>();
 
@@ -196,7 +196,7 @@ const readableFind = EditorState.transactionFilter.of((tr) => {
 /**
  * The editor's special characters (control characters, bidi and zero-width marks, as CodeMirror marks them) plus
  * stray bytes, the clipboard filters, and the find panel's. Replaces a bare `highlightSpecialChars()`: its options are
- * one per editor. The Source editor and the block editor (whose text is the block's Source text, F-34.2) both take it.
+ * one per editor. The Source editor and the block editor (whose text is the block's Source text) both take it.
  */
 export function strayBytes(): Extension {
   return [

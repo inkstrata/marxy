@@ -1,4 +1,4 @@
-// W-14: New file, New file here and Fork this file, end to end in WebKit over the memory shell. The memory shell's write log is the
+// New file, New file here and Fork this file, end to end in WebKit over the memory shell. The memory shell's write log is the
 // evidence for what these touch beside the reader's files: New file and New file here write nothing until Save As; Fork writes
 // one new file, never over one that is there, and never to the original. The real app, its palette and the shipped skeleton and
 // CSS, as test/sidebar.test.mjs boots them (the sidebar's rows come from the palette).
@@ -67,11 +67,11 @@ async function withPage(fn, { width = 1470, height = 900, open = ['/r/a.md'], da
 }
 
 const mod = async (page) => ((await page.evaluate(() => navigator.platform.toUpperCase().includes('MAC'))) ? 'Meta' : 'Control');
-const unfold = (page) => page.evaluate(() => window.__marxyHandle.workspace().unfold());
+const unfold = (page) => page.evaluate(() => window.__marxyHandle.frame().unfold());
 const settle = (page) => page.evaluate(() => new Promise((r) => setTimeout(r, 120)));
 /**
  * Writes beside the reader's files: the memory shell's write log without Marxy's own state (/data), both writes. A fork is a
- * create-only write (F-85, ADR-0074), a Save As the one that replaces; a `writeFileNew` call a name that was taken refused is
+ * create-only write, a Save As the one that replaces; a `writeFileNew` call a name that was taken refused is
  * included, and the bytes on disk (`diskBytes`) say which of them made a file. `replacingWrites` is the replacing ones alone.
  */
 const docWrites = (page) =>
@@ -139,19 +139,18 @@ test('New file is in the palette, and its row opens the same untitled document',
     assert.deepEqual(await docWrites(page), []);
   }));
 
-test('New file here, from a sidebar folder row\'s menu, opens an untitled document whose Save As starts in that folder, and writes nothing', () =>
+// There is no sidebar or toolbar, so no folder row menu and no + that opens a New menu (the
+// pane head's + finds a file to open, frame/head.ts). New file here is its palette row, on the open file's folder.
+test('New file here, from its palette row, opens an untitled document whose Save As starts in the open file\'s folder, and writes nothing', () =>
   withPage(async (page) => {
-    await unfold(page);
-    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/r"]');
-    await page.click('[role="treeitem"][data-marxy-sidebar-row="/r"]', { button: 'right' });
-    await page.waitForSelector('.marxy-verb-menu');
-    assert.equal(await menuLabel(page), 'Folder');
-    assert.deepEqual(await menuRows(page), ['New file here']);
-    await clickRow(page, 'New file here');
+    const key = await mod(page);
+    await page.keyboard.press(`${key}+Shift+KeyP`);
+    await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
+    await page.locator('#marxy-palette .marxy-palette-query').fill('>New file here');
+    await page.locator('#marxy-palette .marxy-palette-title').filter({ hasText: /^New file here$/ }).click();
     await waitForPath(page, 'untitled');
     assert.deepEqual(await docWrites(page), [], 'the folder was not written to');
-    // Save As asks where: its dialog starts in the folder the menu was opened on.
-    const key = await mod(page);
+    // Save As asks where: its dialog starts in the open file's folder.
     await page.evaluate(() => window.__marxyHandle.shell.queueSaveDialog(null));
     await page.keyboard.press(`${key}+KeyS`);
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'saveDialog'));
@@ -162,57 +161,6 @@ test('New file here, from a sidebar folder row\'s menu, opens an untitled docume
     await page.keyboard.press(`${key}+KeyS`);
     await page.waitForFunction(() => window.__marxyHandle.panes().focused.path() === '/r/fresh.md');
     assert.deepEqual(await docWrites(page), [['/r/fresh.md', []]]);
-  }));
-
-test('the folder row\'s menu opens from the keyboard too (the context-menu key and Shift+F10), and a file row has none', () =>
-  withPage(async (page) => {
-    await unfold(page);
-    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/r"]');
-    await page.focus('[role="treeitem"][data-marxy-sidebar-row="/r"]');
-    await page.keyboard.press('Shift+F10');
-    await page.waitForSelector('.marxy-verb-menu');
-    assert.deepEqual(await menuRows(page), ['New file here']);
-    await page.keyboard.press('Escape');
-    await page.waitForFunction(() => !document.querySelector('.marxy-verb-menu'));
-    await page.click('[role="treeitem"][data-marxy-sidebar-row="/r"]');
-    await page.waitForSelector('[role="treeitem"][data-marxy-sidebar-row="/r/b.md"]');
-    await page.click('[role="treeitem"][data-marxy-sidebar-row="/r/b.md"]', { button: 'right' });
-    await settle(page);
-    assert.equal(await page.evaluate(() => document.querySelector('.marxy-verb-menu') !== null), false, 'a file row has no folder menu');
-  }));
-
-test('the toolbar\'s + is drawn once its command exists and lists only what can run now; the tab bar\'s + opens the same menu', () =>
-  withPage(async (page) => {
-    await unfold(page);
-    await page.waitForSelector('[data-marxy-toolbar-item="new"] button');
-    await page.click('[data-marxy-toolbar-item="new"] button');
-    await page.waitForSelector('.marxy-verb-menu');
-    assert.equal(await menuLabel(page), 'New');
-    assert.deepEqual(await menuRows(page), ['New file', 'New file here', 'Fork this file'], 'with a file open all three can run');
-    await page.keyboard.press('Escape');
-    await page.waitForFunction(() => !document.querySelector('.marxy-verb-menu'));
-    // A second tab brings the tab bar; its + is the same menu.
-    await page.evaluate(() => window.__marxyHandle.open('/r/b.md'));
-    await waitForPath(page, '/r/b.md');
-    await page.waitForSelector('[data-marxy-tab-new]');
-    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-tab').length), 2, 'the + is not counted as a tab');
-    await page.click('[data-marxy-tab-new]');
-    await page.waitForSelector('.marxy-verb-menu');
-    assert.deepEqual(await menuRows(page), ['New file', 'New file here', 'Fork this file']);
-    const shut = await page.evaluate(() => {
-      const m = document.querySelector('.marxy-verb-menu').getBoundingClientRect();
-      const b = document.querySelector('[data-marxy-tab-new]').getBoundingClientRect();
-      return { below: m.top >= b.bottom - 1, near: Math.abs(m.left - b.left) < 40 };
-    });
-    assert.deepEqual(shut, { below: true, near: true }, 'under the + that opened it');
-    await clickRow(page, 'New file here');
-    await waitForPath(page, 'untitled');
-    // On a scratch document there is no file to be beside, so only the first row can run: the others are not drawn.
-    await page.click('[data-marxy-toolbar-item="new"] button');
-    await page.waitForSelector('.marxy-verb-menu');
-    assert.deepEqual(await menuRows(page), ['New file']);
-    await page.keyboard.press('Escape');
-    assert.deepEqual(await docWrites(page), []);
   }));
 
 test('Fork this file writes the open file\'s bytes beside it as name (fork).md, opens it, and says where; the original is not written', () =>
@@ -320,6 +268,36 @@ test('the fork holds a BOM and CRLF line endings exactly, and Fork is not offere
     assert.equal((await docWrites(page)).length, writesBefore);
     assert.equal(await focusedPath(page), 'untitled');
   }, { data: { '/r/crlf.md': Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('# Windows\r\n\r\nline one\r\nline two\r\n')]) } }));
+
+/** `text` as UTF-16LE with its byte-order mark, or big-endian. */
+const utf16 = (text, be = false) => {
+  const body = Buffer.from(text, 'utf16le');
+  if (be) body.swap16();
+  return Buffer.concat([Buffer.from(be ? [0xfe, 0xff] : [0xff, 0xfe]), body]);
+};
+const NOT_UTF8 = 'Field notes: Ærø and Åland, ½ tide, 3° colder.\n';
+
+for (const [name, bytesOf] of [
+  ['UTF-16LE', (t) => utf16(t)],
+  ['UTF-16BE', (t) => utf16(t, true)],
+  ['windows-1252', (t) => Buffer.from(t, 'latin1')],
+]) {
+  test(`the fork of a ${name} file is in that encoding, unsaved edits included`, () =>
+    withPage(async (page) => {
+      const key = await mod(page);
+      await page.evaluate(() => window.__marxyHandle.open('/r/n.txt'));
+      await waitForPath(page, '/r/n.txt');
+      // An unsaved edit, made in the page's text: the fork carries it, in the file's encoding.
+      await page.evaluate(() => {
+        const store = window.__marxyHandle.document();
+        return store.apply({ range: { file: store.snapshot().path, start: 0, end: 5 }, replacement: 'Shore', label: 'edit' });
+      });
+      await page.keyboard.press(`${key}+Shift+KeyN`);
+      await page.waitForFunction(() => window.__marxyHandle.shell.hasFile('/r/n (fork).txt'));
+      assert.deepEqual(await diskBytes(page, '/r/n (fork).txt'), [...bytesOf(`Shore${NOT_UTF8.slice(5)}`)]);
+      assert.deepEqual(await diskBytes(page, '/r/n.txt'), [...bytesOf(NOT_UTF8)], 'the original is as it was');
+    }, { data: { '/r/n.txt': bytesOf(NOT_UTF8) } }));
+}
 
 test('forking touches nothing outside the machine: no network request is made by New file or Fork', () =>
   withPage(async (page) => {

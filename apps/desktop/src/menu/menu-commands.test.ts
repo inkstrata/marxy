@@ -1,4 +1,4 @@
-// Menu clicks run registry commands through the registry, with the focused pane's context (W-20, ADR-0073).
+// Menu clicks run registry commands through the registry, with the focused pane's context.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

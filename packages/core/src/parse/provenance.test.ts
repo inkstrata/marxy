@@ -1,9 +1,9 @@
-// F-20: a text node's value is what its bytes decode to, and a code block's content is its code alone,
+// a text node's value is what its bytes decode to, and a code block's content is its code alone,
 // on small inputs as well as on the corpus. Each case below broke an AST_INVARIANTS entry before the
 // fix; the property at the end checks every entry (the same `checkInvariants` the golden gate runs)
 // over random short documents built from the fragments that found them.
 //
-// The property runs a fixed number of inputs on every pull request. A stress run takes more:
+// The property runs a fixed number of inputs on every run. A stress run takes more:
 // `pnpm --filter @marxy/core test:invariant-stress` (INVARIANT_INPUTS=400000).
 
 import { strict as assert } from 'node:assert';
@@ -16,7 +16,7 @@ import { documentFromMdast, fencedCodeMarker } from './from-mdast.ts';
 import { checkInvariants } from './invariants.ts';
 import { parseMarkdown } from './parse.ts';
 
-// commonmark.js 0.31.2, the reference implementation, is a devDependency: the oracle for code values (F-20.2).
+// commonmark.js 0.31.2, the reference implementation, is a devDependency: the oracle for code values.
 const { Parser } = createRequire(import.meta.url)('commonmark') as typeof import('commonmark');
 
 const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
@@ -37,13 +37,13 @@ function parsed(source: string | Uint8Array, type: Node['type']): Node[] {
 
 const ranges = (found: Node[]) => found.map((node) => [node.src.start, node.src.end, 'value' in node ? node.value : undefined]);
 
-test('a task marker that ends its line with CR: the next text starts past the indentation (F-20)', () => {
+test('a task marker that ends its line with CR: the next text starts past the indentation', () => {
   // GFM dropped the CR from the value and moved the start one code unit, onto the next line's space.
   assert.deepEqual(ranges(parsed('1. [x] \r -`', 'text')), [[9, 11, '-`']]);
   assert.deepEqual(ranges(parsed('- [ ]\n task', 'text')), [[7, 11, 'task']]);
 });
 
-test('a task marker that ends its line inside a block quote: the next text starts past the `>` (F-20)', () => {
+test('a task marker that ends its line inside a block quote: the next text starts past the `>`', () => {
   // GFM dropped the line ending and moved the start onto the next line's `>`, which the value lacks.
   assert.deepEqual(ranges(parsed('> - [ ]\n>   task two\n', 'text')), [[12, 20, 'task two']]);
   assert.deepEqual(ranges(parsed('> - [x]\n> b', 'text')), [[10, 11, 'b']]);
@@ -55,11 +55,11 @@ test('a task marker that ends its line inside a block quote: the next text start
   assert.deepEqual(ranges(parsed('> 1. [x]\n>    b', 'text')), [[14, 15, 'b']]);
 });
 
-test('a task marker that ends its line before an indented BOM: the text is the BOM alone (F-20)', () => {
+test('a task marker that ends its line before an indented BOM: the text is the BOM alone', () => {
   assert.deepEqual(ranges(parsed('- [x] \n    ﻿\t', 'text')), [[11, 14, '﻿']]);
 });
 
-test('`>` and a tab before a fence-like line make indented code, and its content is all of it (F-20)', () => {
+test('`>` and a tab before a fence-like line make indented code, and its content is all of it', () => {
   // The tab's leftover columns plus three spaces are five: indented code whose value is ` ```.
   const [single] = parsed('>\t   ```\n', 'codeBlock');
   assert.ok(single?.type === 'codeBlock');
@@ -73,28 +73,28 @@ test('`>` and a tab before a fence-like line make indented code, and its content
   assert.deepEqual([fenced.content.start, fenced.content.end, fenced.value, fenced.info], [8, 12, 'x', 'js']);
 });
 
-test('a continuation line whose `>` is text keeps it when trailing spaces end the text (F-20)', () => {
-  // The case B-23 met on a random edit of 11-empty.md: the line's trailing spaces belong to the value
+test('a continuation line whose `>` is text keeps it when trailing spaces end the text', () => {
+  // The case met on a random edit of 11-empty.md: the line's trailing spaces belong to the value
   // when an inline follows them, so the `>` was taken for a marker and left out of the text.
   assert.deepEqual(ranges(parsed('+++\n>- [link](http://a.example)', 'text')).slice(1, 2), [[4, 7, '>- ']]);
   assert.deepEqual(ranges(parsed(' -->\n\t> [ref]: http://r.example\n', 'text')).slice(1, 2), [[6, 15, '> [ref]: ']]);
   assert.deepEqual(ranges(parsed('x|===\n\t> |\u0000', 'text')).slice(1), [[7, 11, '> |�']]);
 });
 
-test('the leftover of an emphasis run before a NUL holds what its bytes say (F-20)', () => {
+test('the leftover of an emphasis run before a NUL holds what its bytes say', () => {
   // micromark serialised the whole `**` for the one `*` left over; CommonMark reads `**\0*` like `**a*`.
   assert.deepEqual(ranges(parsed('**\u0000*', 'text')), [[0, 1, '*'], [2, 3, '�']]);
   assert.deepEqual(ranges(parsed('___\u0000_', 'text')), [[0, 2, '__'], [3, 4, '�']]);
 });
 
-test('a fence line with a byte that is not UTF-8 counts that byte once (F-20)', () => {
+test('a fence line with a byte that is not UTF-8 counts that byte once', () => {
   // The checker re-encoded U+FFFD as three bytes and reported content that was in fact exact.
   const [block] = parsed(new Uint8Array([0x60, 0x60, 0x60, 0xff, 0x0a, 0x61]), 'codeBlock');
   assert.ok(block?.type === 'codeBlock');
   assert.deepEqual([block.content.start, block.content.end], [5, 6]);
 });
 
-test('a CR, a line of indentation alone and an LF inside code are two line endings, not one CRLF (F-20.1)', () => {
+test('a CR, a line of indentation alone and an LF inside code are two line endings, not one CRLF', () => {
   // The value reads `\r\n` there. Split on its own it is one CRLF, so the content stopped a line short;
   // at a fence, mdast's trim took the blank line with the opening fence's ending.
   const code = (source: string) => {
@@ -112,7 +112,7 @@ test('a CR, a line of indentation alone and an LF inside code are two line endin
   assert.deepEqual(code('- ```\n  \n  x\n  \n  ```'), [6, 16, '\nx\n']);
 });
 
-test('indented code ending in a CR and blank lines keeps no trailing ending (F-20.1 review)', () => {
+test('indented code ending in a CR and blank lines keeps no trailing ending', () => {
   // mdast's trim takes the CR and a blank line's LF as one CRLF; that is right for indented code,
   // whose trailing blank lines CommonMark drops, so nothing is put back.
   for (const [source, value] of [['    a\r \n    \nb', 'a'], ['\t    x\r  \n\t', '    x']] as const) {
@@ -146,7 +146,7 @@ const spellings = (text: string): string[] => {
   return [lf, lf.replace(/\n/g, '\r'), lf.replace(/\n/g, '\r\n')];
 };
 
-test('code values match commonmark.js on the reproducers of F-20.2, in every line-ending spelling', () => {
+test('code values match commonmark.js on the reproducers, in every line-ending spelling', () => {
   const cases: [string, string[]][] = [
     // (1) Indented code drops its trailing blank lines, endings and all.
     ['    a\n \n    \nb', ['a']],
@@ -170,7 +170,7 @@ test('code values match commonmark.js on the reproducers of F-20.2, in every lin
   }
 });
 
-test('code blocks keep the document\'s own endings and a range the checker accepts (F-20.2)', () => {
+test('code blocks keep the document\'s own endings and a range the checker accepts', () => {
   const code = (source: string) => {
     const [block] = parsed(source, 'codeBlock');
     assert.ok(block?.type === 'codeBlock', JSON.stringify(source));
@@ -187,7 +187,7 @@ test('code blocks keep the document\'s own endings and a range the checker accep
   assert.deepEqual([first.content.start, first.content.end], [6, 18]);
 });
 
-test('the checker reports a code range that ends partway through a line of the block (F-20.2)', () => {
+test('the checker reports a code range that ends partway through a line of the block', () => {
   const source = '- ~~~\r    \n\r\n\r \n  \r\n~~~|<!--';
   const bytes = encode(source);
   const document = parseMarkdown(bytes, { file: '/f20.md' });
@@ -216,7 +216,7 @@ const CODE_FRAGMENTS = [
 /** A fence in a list item, closed at the item's indent, with blank and indented lines of every width inside. */
 const ITEM_LINES = ['', ' ', '  ', '\t', '    ', '  x', 'x', ' x', '   ', '     '];
 
-test('code values match commonmark.js on random blank-line-heavy documents (F-20.2)', () => {
+test('code values match commonmark.js on random blank-line-heavy documents', () => {
   const next = random(0xf202);
   const failures: string[] = [];
   const inputs = Number(process.env.INVARIANT_INPUTS ?? 3000);
@@ -244,7 +244,7 @@ test('code values match commonmark.js on random blank-line-heavy documents (F-20
   assert.deepEqual(failures, []);
 });
 
-test('the checker reports a code range moved up onto a fence its code repeats (F-20)', () => {
+test('the checker reports a code range moved up onto a fence its code repeats', () => {
   // The review's mutation `offset = 0`: content starts at the opening fence and keeps the value's
   // line count, so it drops the last code line. Every line here copies the fence line, give or take
   // indentation, so only the opening-fence check can see it; each input must be reported.
@@ -271,7 +271,7 @@ test('the checker reports a code range moved up onto a fence its code repeats (F
   }
 });
 
-test('a tree built without fencedCodeMarker is refused when it holds code (F-20)', () => {
+test('a tree built without fencedCodeMarker is refused when it holds code', () => {
   // Without the marker every fence would read as indented code, and quietly so.
   const text = '```js\nx\n```\n';
   const context = { file: 'unmarked.md', text, offsets: byteOffsets(text) };
@@ -305,16 +305,16 @@ const FRAGMENTS: readonly (string | Uint8Array)[] = [
   '\n', '\r\n', '\r', ' ', '  ', '    ', '\t', 'x', '```\n', '```js\n', '~~~', '- ', '* ', '1. ', '> ', '>', '-',
   '===\n', '---\n', '# ', '$$\n', '`', '[x] ', '[ ] ', 'lazy\n', '﻿', 'ÿ', '\u0000', '**', '_', '|',
   '[link](http://a.example)', '<div>', '&amp;', '\\*', new Uint8Array([0xff]),
-  // A CR, then a line of indentation or a `>` alone, then an LF (F-20.1); `'\r'` above is the lone CR.
+  // A CR, then a line of indentation or a `>` alone, then an LF; `'\r'` above is the lone CR.
   '\r  \n', '\r\t\n', '\r>\n', '~~~\n', '    x',
-  // Blank lines in indented code and in a list item's fence (F-20.2).
+  // Blank lines in indented code and in a list item's fence.
   '- ~~~\n', '  \n', '\n\n', '\r \n',
 ];
 
 /** Inputs per run; the review found 4 breaks in 158k, so the stress run takes 400k. */
 const INPUTS = Number(process.env.INVARIANT_INPUTS ?? 20000);
 
-test('random short documents keep every AST_INVARIANTS entry (F-20)', () => {
+test('random short documents keep every AST_INVARIANTS entry', () => {
   const next = random(0xf20);
   const failures: string[] = [];
   for (let input = 0; input < INPUTS; input++) {

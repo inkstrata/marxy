@@ -1,12 +1,12 @@
-// D-15's equivalence oracle (04-phase-d.md, "Amended 2026-10-11"). The parse in slices and the render in slices
-// are a second road to the bytes the reader sees, beside the sanitiser's one pass (ADR-0023 Amendment 1), so
+// The equivalence oracle. The parse in slices and the render in slices
+// are a second road to the bytes the reader sees, beside the sanitiser's one pass, so
 // this holds them to the first, end to end the way the app uses them (the render of the sliced parse):
 //   - every corpus file, at the default slice size and the smallest;
-//   - documents of 256 KB and 1 MB (prose, a transcript, and each with a footnote, which the render declines);
+//   - documents of 256 KB and 1 MB (prose, a transcript, and each with a footnote and a link definition);
 //   - seeded fuzz documents with the hostile cases among them (raw HTML left open across blocks, footnotes,
 //     link definitions, fences and front matter that never close, remote images, scripts, repeated headings);
-//   - and the oracle has teeth: a slicer with the `rawTagsBalanced` guard, the footnote fall-back or the
-//     truncation guard taken out fails it.
+//   - and the oracle has teeth: a slicer with the `rawTagsBalanced` guard taken out, or that numbers each run's
+//     footnotes on its own, fails it.
 // `ORACLE_SEEDS=2000 node --test --experimental-strip-types packages/core/src/render/sliced-oracle.test.ts` runs more.
 
 import assert from 'node:assert/strict';
@@ -54,11 +54,11 @@ for (const [name, make] of large) {
     const body = make();
     const plain = await checkEquivalent(body, name);
     assert.deepEqual(plain, { parse: 'slices', render: 'sliced' } satisfies OracleVerdict, `${name}: the large document was really cut`);
-    // With a footnote and a link definition at the end: one parse and one render, whole, and the same bytes
-    // (at 256 KB; the 1 MB case would only be the same whole parse and render twice over).
+    // With a footnote and a link definition at the end: one parse, whole, and a render in slices, and the same bytes
+    // (at 256 KB; the 1 MB case would only be the same twice over).
     if (body.length > 512 * 1024) return;
     const withDefinitions = await checkEquivalent(`${body}\nA note.[^n] and [a link][l].\n\n[^n]: The note.\n\n[l]: https://example.com\n`, `${name} with definitions`);
-    assert.deepEqual(withDefinitions, { parse: 'whole', render: 'declined' } satisfies OracleVerdict);
+    assert.deepEqual(withDefinitions, { parse: 'whole', render: 'sliced' } satisfies OracleVerdict);
   });
 }
 
@@ -133,7 +133,7 @@ test('hostile documents written out: each is equal on both roads', async () => {
 // the oracle can tell apart.
 const mutants: Record<string, [from: string, to: string]> = {
   'the rawTagsBalanced guard dropped': ['if (!run.every(rawTagsBalanced)) return null;', ''],
-  'the footnote fall-back dropped': ["if (blocks.some((block) => block.type === 'footnoteDefinition')) return null;", ''],
+  "each run's footnotes numbered on their own": ['{ provenance: secret, headingIds, footnotes }', '{ provenance: secret, headingIds }'],
 };
 
 for (const [name, [from, to]] of Object.entries(mutants)) {

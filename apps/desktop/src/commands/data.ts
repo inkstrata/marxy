@@ -1,6 +1,6 @@
-// The data strip's two built tools (K-10b; ADR-0071 ruling 3, Table first): *Table view* covers a CSV's or TSV's Source
+// The data strip's two built tools (Table first): *Table view* covers a CSV's or TSV's Source
 // with a grid and takes it away again, and *Column stats* shows the stats of each column under it. Both are views: they
-// write nothing. The grid's module is loaded on first use, off the way to first text (MARXY-33).
+// write nothing. The grid's module is loaded on first use, off the way to first text.
 import type { Pane } from '../pane/pane-set.ts';
 import type { AppPane } from '../pane/index.ts';
 import { notify } from '../notices/index.ts';
@@ -21,7 +21,7 @@ function focusedTable(): Pane<AppPane> | null {
 
 const offered = (): boolean => focusedTable() !== null;
 
-/** Why a data tool is off: said on the strip's button (K-08's rule). */
+/** Why a data tool is off: said on the strip's button. */
 function why(): string | null {
   const pane = appHandle()?.panes().focused;
   if (!pane || pane.kind() !== 'data') return null;

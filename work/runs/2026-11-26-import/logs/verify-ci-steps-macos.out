@@ -1,0 +1,44 @@
+verify quick in /Users/<user>/Dev/marxy-wt/reader-architecture
+4105 files changed against main; unit suites: desktop, core, theme, typeset, scripts; browser files: 270; rust changed; unmapped: .claude/launch.json, .claude/skills/install-local/SKILL.md, .claude/skills/install-local/install.sh, .claude/skills/resolve-taste-queue/SKILL.md, .claude/skills/resolve-taste-queue/guides.json, ...
+logs in /tmp/claude-501/marxy-logs/verify-ci-mac
+
+PASS    install        0.4s      
+PASS    typecheck      5.7s      
+PASS    lint           1.2s      
+PASS    check          5.4s      10 pass, 0 fail
+PASS    golden         0.9s      
+PASS    fidelity       10.6s     
+PASS    licences       0.4s      
+PASS    unit-core      113.7s    4242 pass, 0 fail, 2 skip
+PASS    unit-theme     27.3s     305 pass, 0 fail
+PASS    unit-typeset   26.8s     90 pass, 0 fail
+PASS    unit-scripts   10.0s     271 pass, 0 fail
+PASS    unit-desktop   27.5s     1269 pass, 0 fail, 1 skip
+PASS    unit-desktop-browser 50.4s     45 pass, 0 fail
+PASS    lint-rust      2.4s      
+PASS    cargo          9.9s      650 pass, 0 fail, 6 skip
+PASS    build          110.5s    
+
+step                  result  wall    tests
+--------------------  ------  ------  -------------------------
+install               pass    0.4s
+typecheck             pass    5.7s
+lint                  pass    1.2s
+check                 pass    5.4s    10 pass, 0 fail
+golden                pass    0.9s
+fidelity              pass    10.6s
+licences              pass    0.4s
+unit-core             pass    113.7s  4242 pass, 0 fail, 2 skip
+unit-theme            pass    27.3s   305 pass, 0 fail
+unit-typeset          pass    26.8s   90 pass, 0 fail
+unit-scripts          pass    10.0s   271 pass, 0 fail
+unit-desktop          pass    27.5s   1269 pass, 0 fail, 1 skip
+unit-desktop-browser  pass    50.4s   45 pass, 0 fail
+lint-rust             pass    2.4s
+cargo                 pass    9.9s    650 pass, 0 fail, 6 skip
+build                 pass    110.5s
+--------------------  ------  ------  -------------------------
+total                         403.1s
+
+verify quick: 16/16 steps passed
+verify exit 0

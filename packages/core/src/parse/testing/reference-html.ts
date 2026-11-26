@@ -1,7 +1,7 @@
 // Test support only: renders the AST to CommonMark's reference HTML so the conformance suite can
-// compare it with the reference implementation's output and prove the AST lost nothing (MARXY-11).
+// compare it with the reference implementation's output and prove the AST lost nothing.
 //
-// marxy has no HTML renderer and never emits an HTML document — it typesets (ADR-0007). Nothing under
+// marxy has no HTML renderer and never emits an HTML document — it typesets. Nothing under
 // `src/` outside this `testing/` directory may import this file, and `dependencies.test.ts` enforces
 // that, which is also why `micromark-util-sanitize-uri` is a devDependency.
 //

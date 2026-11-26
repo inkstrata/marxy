@@ -1,5 +1,5 @@
 /**
- * The operation contract. Reviewed contract (ADR-0004, ADR-0045): changes by pull request; the
+ * The operation contract. Reviewed contract: changes need review; the
  * fidelity invariant is tested (`pnpm gate:fidelity`).
  *
  * An operation is a pure function from a byte range of one document to replacement text.

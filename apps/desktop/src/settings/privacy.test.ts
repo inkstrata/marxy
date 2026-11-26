@@ -1,4 +1,4 @@
-// The Privacy page's lists are computed from the code (W-12, ADR-0075): the "What can leave this Mac" table equals the shell's
+// The Privacy page's lists are computed from the code: the "What can leave this Mac" table equals the shell's
 // network-capable calls, every other call of the shell is placed as local, and the sentence "Nothing else leaves this Mac" is only drawn
 // beside a table that passes this file.
 import { strict as assert } from 'node:assert';
@@ -46,18 +46,26 @@ test('a row says whether the desktop shell has the call, and the shell source ag
   }
 });
 
-test('nothing else leaves: the Rust shell depends on no network crate', () => {
+test('nothing else leaves: the Rust shell depends on no network crate but the one the Privacy page lists', () => {
   const cargo = read('../../src-tauri/Cargo.toml');
   const deps = cargo.slice(cargo.indexOf('[dependencies]'));
-  for (const crate of ['reqwest', 'ureq', 'hyper', 'isahc', 'attohttpc', 'surf', 'curl', 'tokio-tungstenite', 'tungstenite', 'tauri-plugin-http', 'tauri-plugin-updater', 'tauri-plugin-websocket']) {
+  for (const crate of ['reqwest', 'hyper', 'isahc', 'attohttpc', 'surf', 'curl', 'tokio-tungstenite', 'tungstenite', 'tauri-plugin-http', 'tauri-plugin-updater', 'tauri-plugin-websocket']) {
     assert.ok(!new RegExp(`^${crate}\\s*=`, 'm').test(deps), `${crate} would be a way off this Mac that the Privacy page does not list`);
   }
+  // `ureq` is the remote-image row's fetch, and is used in that one file and nowhere else.
+  assert.ok(LEAVES_THIS_MAC.find((r) => r.id === 'remote-image')?.built);
+  const main = read('../../src-tauri/src/main.rs');
+  assert.match(read('../../src-tauri/src/remote.rs'), /ureq::/);
+  for (const rel of ['main.rs', 'file_scheme.rs', 'detect.rs', 'commands/fs.rs', 'commands/os.rs', 'commands/archive.rs', 'commands/run.rs', 'commands/search.rs']) {
+    assert.doesNotMatch(read(`../../src-tauri/src/${rel}`), /ureq::/, `${rel} reaches the network`);
+  }
+  assert.match(main, /remote::fetch_remote_image/);
   assert.equal(NOTHING_ELSE, 'Nothing else leaves this Mac.');
 });
 
 test('every file Marxy keeps has a row with what it holds, and the families match their own names only', () => {
   const ids = STORED_FILES.map((f) => f.id);
-  assert.deepEqual(ids, ['config', 'collection', 'positions', 'history', 'trust', 'workspace', 'layout', 'kinds', 'index', 'versions']);
+  assert.deepEqual(ids, ['config', 'collection', 'positions', 'history', 'trust', 'workspace', 'layout', 'kinds', 'readings', 'index', 'versions']);
   const versions = STORED_FILES.find((f) => f.id === 'versions')!;
   const sha = 'a'.repeat(40);
   assert.ok(versions.matches(`versions-${sha}.json`) && versions.matches(`versions-${sha}-01`) && versions.matches(`versions-${sha}-20`));

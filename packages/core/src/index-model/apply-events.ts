@@ -1,9 +1,8 @@
-// What a batch of watch events does to one root's index (C-11): which files to read again, which
+// What a batch of watch events does to one root's index: which files to read again, which
 // entries to drop, and whether an ignore file changed so the root must be walked again. Pure: the
 // app stats and reads; this only decides.
 
 import { isIgnored, parseIgnore, type IgnoreRule } from './ignore.ts';
-import { classify } from './kinds.ts';
 import { basename, normalizePath, pathUnder } from './paths.ts';
 
 /**
@@ -87,7 +86,8 @@ function insideSkippedFolder(rel: string, rules: readonly IgnoreRule[], deny: re
 
 /** Whether the walk would list `rel`: the same three tests `collectFiles` applies to a file. */
 function allowed(rel: string, rules: readonly IgnoreRule[], deny: readonly IgnoreRule[]): boolean {
-  if (classify(rel) === undefined) return false;
+  const name = rel.slice(rel.lastIndexOf('/') + 1);
+  if (name === '.gitignore' || name === '.ignore') return false;
   if (isIgnored(rel, false, rules)) return false;
   return deny.length === 0 || !isIgnored(rel, false, deny);
 }

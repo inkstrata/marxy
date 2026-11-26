@@ -1,6 +1,6 @@
 // The read-merge-write of `results/perf.json`, which the core parse test and the desktop palette test
-// both update and which `pnpm test` runs side by side (G-01, G-01.1). A record, never a gate
-// (ADR-0032), so the contract is small: a reader never sees a half-written file (every write is a
+// both update and which `pnpm test` runs side by side. A record, never a gate
+// so the contract is small: a reader never sees a half-written file (every write is a
 // temp file renamed into place) and a half-written or missing file reads as empty. The two writers
 // set different keys; a rare lost update between them is acceptable for a local record.
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
@@ -17,6 +17,22 @@ export function readRecord(path) {
 }
 
 /**
+ * Windows refuses to replace a file another process has open (EPERM, EBUSY or EACCES) for as long as that
+ * reader holds it, which is a few milliseconds: retry briefly rather than lose the write.
+ */
+function renameInto(from, to) {
+  const deadline = Date.now() + 2000;
+  for (;;) {
+    try {
+      renameSync(from, to);
+      return;
+    } catch (error) {
+      if (!['EPERM', 'EBUSY', 'EACCES'].includes(error.code) || Date.now() > deadline) throw error;
+    }
+  }
+}
+
+/**
  * Merge `update(existing)` over the record in `path` and replace the file atomically.
  * @param {string} path
  * @param {(existing: Record<string, unknown>) => Record<string, unknown>} update
@@ -29,7 +45,7 @@ export function updateRecord(path, update) {
   const temp = join(dirname(path), `.${process.pid}-${Math.random().toString(36).slice(2)}.tmp`);
   try {
     writeFileSync(temp, `${JSON.stringify(record, null, 2)}\n`);
-    renameSync(temp, path);
+    renameInto(temp, path);
   } catch (error) {
     rmSync(temp, { force: true });
     throw error;

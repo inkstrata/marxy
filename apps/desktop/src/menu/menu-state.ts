@@ -1,4 +1,4 @@
-// Keeps the native menu's enabled state true to the registry (W-20, ADR-0073): an item whose command cannot run now
+// Keeps the native menu's enabled state true to the registry: an item whose command cannot run now
 // is disabled, never hidden. Re-read when focus, the mode, the selection or a document changes, and sent to the
 // shell only when it differs from what the shell last had.
 import { menuStates, type MenuDeps } from './menu-commands.ts';

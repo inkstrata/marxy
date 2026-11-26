@@ -1,4 +1,4 @@
-// loadTheme warnings and clamping (docs/design/05-theme.md §Tests). MARXY-47.
+// loadTheme warnings and clamping.
 
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
@@ -10,7 +10,7 @@ const loaderSrc = readFileSync(fileURLToPath(new URL('./loader.ts', import.meta.
 
 const dir = '/fixtures/quiet';
 
-test('empty variants array is rejected with a warning naming the theme and file (MARXY-284)', async () => {
+test('empty variants array is rejected with a warning naming the theme and file', async () => {
   const files = new Map<string, Uint8Array>([
     ['theme.toml', new TextEncoder().encode('name = "bare"\ncontract = 1\nvariants = []\n')],
     ['theme.css', new TextEncoder().encode(':root { --marxy-measure: 68ch; }\n')],
@@ -71,7 +71,7 @@ test('remote url in theme css is stripped', async () => {
   assert.ok(warnings.some((w) => w.includes('not loaded')));
 });
 
-test('an out-of-range measure in characters is clamped to 45–80 with a warning (ADR-0033)', async () => {
+test('an out-of-range measure in characters is clamped to 45–80 with a warning', async () => {
   const files = new Map<string, Uint8Array>([
     ['theme.toml', new TextEncoder().encode('name = "wide"\ncontract = 1\n')],
     ['theme.css', new TextEncoder().encode(':root { --marxy-measure-chars: 120; }\n')],
@@ -85,7 +85,7 @@ test('an out-of-range measure in characters is clamped to 45–80 with a warning
   assert.ok(warnings.some((w) => w.includes('--marxy-measure-chars')));
 });
 
-// 2026-09-26 review (MARXY-246).
+// 2026-09-26 review.
 async function cssOf(sheet: string): Promise<{ css: string; warnings: string[] }> {
   const files = new Map<string, Uint8Array>([
     ['theme.toml', new TextEncoder().encode('name = "t"\ncontract = 1\n')],
@@ -125,7 +125,7 @@ test('a px value on a ch-bound property is dropped, not passed through unclamped
   assert.ok(warnings.some((w) => w.includes('--marxy-measure') && w.includes('ch units required')));
 });
 
-test('a comment between a clamped property and its colon does not escape the clamp (MARXY-337)', async () => {
+test('a comment between a clamped property and its colon does not escape the clamp', async () => {
   for (const [prop, bad, kept] of [
     ['--marxy-size-body', '4px', '13px'],
     ['--marxy-line-box', '4px', '20px'],
@@ -141,7 +141,7 @@ test('a comment between a clamped property and its colon does not escape the cla
   }
 });
 
-test('a raster data: url broken by a line break cannot carry a remote url past the loader (F-16)', async () => {
+test('a raster data: url broken by a line break cannot carry a remote url past the loader', async () => {
   const { css, warnings } = await cssOf(
     'x { background: url("data:image/png,(AA\n)}b{background:url(https://evil.example/p.png)}"); }\n',
   );
@@ -149,7 +149,7 @@ test('a raster data: url broken by a line break cannot carry a remote url past t
   assert.ok(warnings.length >= 1);
 });
 
-// H-03: contract 2 (ADR-0059). The loader's half of the contract; tokens.css is the other.
+// contract 2. The loader's half of the contract; tokens.css is the other.
 
 const tokensCss = readFileSync(fileURLToPath(new URL('./tokens.css', import.meta.url)), 'utf8');
 const baseCss = readFileSync(fileURLToPath(new URL('./base.css', import.meta.url)), 'utf8');
@@ -194,7 +194,7 @@ const V2_NAMES = [
   '--marxy-size-chrome',
 ];
 
-test('tokens.css declares the 27 contract-2 names and the system-owned root copies (ADR-0059 items 1, 2, 7)', () => {
+test('tokens.css declares the 27 contract-2 names and the system-owned root copies (2, 7)', () => {
   assert.equal(V2_NAMES.length, 27);
   const get = resolveRoot(tokensCss);
   for (const name of V2_NAMES) assert.notEqual(get(name), undefined, `${name} is not declared and resolvable`);
@@ -211,13 +211,13 @@ test('tokens.css declares the 27 contract-2 names and the system-owned root copi
 test('a theme-less page and the default theme resolve every v1 token alike, and no v1 token reads a v2 name', () => {
   const v1 = [...tokensCss.matchAll(/^\s*(--marxy-[\w-]+)\s*:\s*([^;]+);/gm)]
     .map((m) => ({ name: m[1]!, value: m[2]! }))
-    // ADR-0068's six roles are optional additions with fallbacks of their own, and may read the v1 roles and the v2 marker.
+    // The six newer roles are optional additions with fallbacks of their own, and may read the v1 roles and the v2 marker.
     .filter((d) => !V2_NAMES.includes(d.name) && !d.name.startsWith('--marxy-root-') && !/^--marxy-tok-(?:builtin|property|decorator|self|escape|mark)$/.test(d.name));
   assert.ok(v1.length >= 55, `${v1.length} v1 tokens`);
   const bare = resolveRoot(tokensCss);
   const withDefault = resolveRoot(tokensCss, readFileSync(fileURLToPath(new URL('../default/theme.css', import.meta.url)), 'utf8').replace(/:root\[data-marxy-variant="light"\]\s*\{[^}]*\}/, '').replace(/\[data-marxy-kind="[a-z]+"\]\s*\{[^}]*\}/g, ''));
-  // H-04: the default theme now owns the palette and the weights (Night and Paper); every other v1 token
-  // (rhythm, sizes, families, knobs) still resolves as the contract's own default. The kind scopes (K-05b) are not
+  // the default theme now owns the palette and the weights (Night and Paper); every other v1 token
+  // (rhythm, sizes, families, knobs) still resolves as the contract's own default. The kind scopes are not
   // :root and are held by the test at the end of this file.
   const themeSets = (name: string) => /^--marxy-(?:color-|tok-|weight-)/.test(name);
   for (const { name, value } of v1) {
@@ -320,24 +320,24 @@ test('the theme chrome size is held to 11-26 px', async () => {
 
 test('the kind scope computes --marxy-measure where its own measure-chars apply; :root keeps the v1 declaration', () => {
   assert.match(tokensCss, /^\s*--marxy-measure:\s*calc\(var\(--marxy-measure-chars\) \* var\(--marxy-avg-char\) \* 1em\)/m);
-  // A measure the reader wrote (--marxy-measure-user, W-12) beats the kind's own; unset, the kind's measure-chars stand.
+  // A measure the reader wrote (--marxy-measure-user) beats the kind's own; unset, the kind's measure-chars stand.
   assert.match(baseCss, /\[data-marxy-kind\]\s*\{[^}]*--marxy-measure:\s*calc\(var\(--marxy-measure-user, var\(--marxy-measure-chars\)\) \* var\(--marxy-avg-char\) \* 1em\)/);
 });
 
-test('a theme declaring 0.463 for a face that measures 0.52 warns once, naming theme, face and both numbers (H-06)', async () => {
+test('a theme declaring 0.463 for a face that measures 0.52 warns once, naming theme, face and both numbers', async () => {
   const css = ':root{--marxy-font-text:"Inter",sans-serif;--marxy-avg-char:0.463}';
   const warnings = await avgCharWarnings(css, 'sans', async (family) => (family.startsWith('"Inter"') ? 0.52 : null));
   assert.equal(warnings.length, 1);
   assert.match(warnings[0]!, /Theme 'sans'.*0\.463.*Inter.*0\.52/);
 });
 
-test('a declared avg-char within 3 % of the measured one is silent; just past 3 % warns (H-06)', async () => {
+test('a declared avg-char within 3 % of the measured one is silent; just past 3 % warns', async () => {
   const css = (n: number) => `:root{--marxy-font-text:"Literata",serif;--marxy-avg-char:${n}}`;
   assert.deepEqual(await avgCharWarnings(css(0.463), 't', async () => 0.4725), []);
   assert.equal((await avgCharWarnings(css(0.463), 't', async () => 0.4775)).length, 1);
 });
 
-test('the avg-char warning follows a face role, and is silent without a number, a face or a measurement (H-06)', async () => {
+test('the avg-char warning follows a face role, and is silent without a number, a face or a measurement', async () => {
   const roleCss = ':root{--marxy-face-article:"Source Serif 4",serif;--marxy-font-text:var(--marxy-face-article);--marxy-avg-char:0.4}';
   const seen: string[] = [];
   const w = await avgCharWarnings(roleCss, 't', async (f) => (seen.push(f), 0.5));
@@ -348,7 +348,7 @@ test('the avg-char warning follows a face role, and is silent without a number, 
   assert.deepEqual(await avgCharWarnings(':root{--marxy-font-text:"X";--marxy-avg-char:0.4}', 't', async () => null), []);
 });
 
-test('the avg-char check never rewrites the theme: loadTheme leaves the declared value as written (H-06)', async () => {
+test('the avg-char check never rewrites the theme: loadTheme leaves the declared value as written', async () => {
   const files = new Map<string, Uint8Array>([
     ['theme.toml', new TextEncoder().encode('name = "n"\ncontract = 2\n')],
     ['theme.css', new TextEncoder().encode(':root{--marxy-avg-char:0.9}')],
@@ -357,14 +357,14 @@ test('the avg-char check never rewrites the theme: loadTheme leaves the declared
   assert.match(css, /--marxy-avg-char:0\.9\}/);
 });
 
-test('the default theme gives article, readme, report, docs, changelog and transcript a profile, written as the loader would compile it (K-05b)', () => {
+test('the default theme gives article, readme, report, docs, changelog and transcript a profile, written as the loader would compile it', () => {
   const css = readFileSync(fileURLToPath(new URL('../default/theme.css', import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   const scopes = new Map([...css.matchAll(/\[data-marxy-kind="([a-z]+)"\]\s*\{([^}]*)\}/g)].map((m) => [m[1]!, m[2]!]));
   assert.deepEqual([...scopes.keys()].sort(), ['article', 'changelog', 'diff', 'docs', 'log', 'readme', 'report', 'terminal', 'transcript']);
   const globalOnly = ['--marxy-color-surface', '--marxy-shadow-surface', '--marxy-face-chrome', '--marxy-size-chrome', '--marxy-typeset'];
   const roots = ['--marxy-root-size-body', '--marxy-root-size-code', '--marxy-root-size-caption', '--marxy-root-line-box', '--marxy-root-line-box-code', '--marxy-root-lh-h1', '--marxy-root-lh-h2'];
   for (const [kind, body] of scopes) {
-    // A log (K-08) is code-like text as authored: it has a size and a line box, and no measure or text face of its own (a diff, K-09, and a terminal session, K-17, likewise).
+    // A log is code-like text as authored: it has a size and a line box, and no measure or text face of its own (a diff, and a terminal session, likewise).
     if (kind === 'log' || kind === 'diff' || kind === 'terminal') assert.ok(!/--marxy-(measure|font-text|avg-char)/.test(body), `${kind}: only the size and the line box`);
     else {
       const chars = Number(/--marxy-measure-chars:\s*([\d.]+)/.exec(body)?.[1]);
@@ -381,4 +381,28 @@ test('the default theme gives article, readme, report, docs, changelog and trans
       if (/line-box/.test(m[1]!)) assert.match(m[2]!, /^round\(.*,\s*2px\)$/, `${kind}: ${m[1]} is rounded to an even pixel`);
     }
   }
+});
+
+test('a language scope keeps its --marxy-tok-* names and drops any other Marxy name, naming the language', async () => {
+  const { css, warnings } = await cssOf('[data-marxy-lang="rust"] { --marxy-tok-keyword: #f00; --marxy-color-text: #0f0; --marxy-lang: #00f; }');
+  assert.match(css, /--marxy-tok-keyword: #f00/);
+  assert.doesNotMatch(css, /--marxy-color-text|--marxy-lang:/);
+  assert.ok(warnings.some((w) => w.includes("--marxy-color-text was #0f0 in language 'rust'")), warnings.join(' | '));
+  assert.ok(warnings.some((w) => w.includes('--marxy-lang was #00f')), warnings.join(' | '));
+});
+
+test('a language scope by any attribute operator or flag is clamped the same', async () => {
+  for (const sel of ['[data-marxy-lang^="r"]', '[data-marxy-lang|="rust"]', '[data-marxy-lang~=rust]', '[data-marxy-lang="rust" i]']) {
+    const { css } = await cssOf(`${sel} { --marxy-tok-keyword: #f00; --marxy-color-text: #0f0; }`);
+    assert.match(css, /--marxy-tok-keyword: #f00/, sel);
+    assert.doesNotMatch(css, /--marxy-color-text/, sel);
+  }
+});
+
+test('a language scope holding a nested scope is still clamped, and the nested one too', async () => {
+  const { css } = await cssOf('[data-marxy-lang="rust"] { --marxy-color-text: #0f0; --marxy-tok-string: #0a0; [data-marxy-lang="go"] & { --marxy-color-link: #00f; --marxy-tok-keyword: #f00; } }');
+  assert.doesNotMatch(css, /--marxy-color-text|--marxy-color-link/);
+  assert.match(css, /--marxy-tok-string: #0a0/);
+  assert.match(css, /--marxy-tok-keyword: #f00/);
+  assert.doesNotMatch(css, /__marxy_kind_/);
 });

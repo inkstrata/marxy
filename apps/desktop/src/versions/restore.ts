@@ -1,28 +1,35 @@
-// Restore to a copy (V-06, ADR-0072 item 7): an earlier version's bytes written beside the file as `name (version 14.32).md`, at
-// the first free name (`(version 14.32 2)` and on), and never over anything: the rule and the code of *Fork this file* (W-14,
-// `document/fork.ts`): each name is one create-only write (`writeFileNew`, ADR-0074, F-85), which the shell refuses `exists` when
-// anything is there, so a file another program puts at the chosen name is never replaced and there is no window between a look and
-// the write. The original is not read, written or named in any call.
-import { taggedPath, writeBeside, type ForkIo, type ForkOutcome } from '../document/fork.ts';
-
-/** The most names tried: `(version 14.32)`, then `(version 14.32 2)` to `(version 14.32 999)`. */
-export const MAX_VERSION_COPIES = 999;
+// Restore an earlier version: the kept copy's bytes staged over the file as one change, one undo
+// step, written only by Save. From the Versions panel and from a comparison's card alike.
+import { textOfFileBytes, type EncodingShell } from '../document/encoding.ts';
+import type { DocumentStore } from '../document/store.ts';
+import { chordText } from '../frame/branch-info.ts';
+import { notify } from '../notices/index.ts';
 
 const two = (n: number): string => String(n).padStart(2, '0');
 
-/** The local time of `time` as `14.32`: the hour and minute a version was kept, as its copy's name says them. */
+/** The local time of `time` as `14.32`: the hour and minute a version was kept. */
 export function hourMinute(time: number): string {
   const d = new Date(time);
   return `${two(d.getHours())}.${two(d.getMinutes())}`;
 }
 
-/** `notes.md` kept at 14.32 as `notes (version 14.32).md` for `n` of 1, `notes (version 14.32 2).md` for 2 and up. */
-export function versionCopyPath(path: string, time: number, n: number): string {
-  const tag = `version ${hourMinute(time)}`;
-  return taggedPath(path, n <= 1 ? tag : `${tag} ${n}`);
+/**
+ * Stages `copy`, the file's bytes kept at `time`, over `store`'s file: 'same' when it is what the store holds now (nothing is
+ * staged), 'moved' when the file changed while the copy was read. The copy is read as the open file is (another encoding's
+ * bytes become the store's text first), so a save writes the file's bytes back.
+ */
+export async function restoreCopy(store: DocumentStore, copy: Uint8Array, time: number, shell: EncodingShell): Promise<'staged' | 'same' | 'moved'> {
+  const bytes = await textOfFileBytes(shell, store.snapshot().path, copy);
+  const snap = store.snapshot();
+  if (snap.buffer.bytes.length === bytes.length && snap.buffer.bytes.every((b, i) => b === bytes[i])) return 'same';
+  const applied = await store.apply({ range: { file: snap.path, start: 0, end: snap.buffer.bytes.length }, replacement: bytes, label: `Restore the copy of ${hourMinute(time)}`, baseVersion: snap.version });
+  return applied ? 'staged' : 'moved';
 }
 
-/** Writes `bytes`, the version of `path` kept at `time`, at the first free copy name beside it. */
-export function restoreToCopy(io: ForkIo, path: string, bytes: Uint8Array, time: number): Promise<ForkOutcome> {
-  return writeBeside(io, (n) => versionCopyPath(path, time, n), bytes, { max: MAX_VERSION_COPIES, what: 'version copy names' });
+/** `restoreCopy`, and says what came of it. */
+export async function stageCopy(store: DocumentStore, copy: Uint8Array, time: number, shell: EncodingShell): Promise<void> {
+  const outcome = await restoreCopy(store, copy, time, shell);
+  if (outcome === 'same') notify({ kind: 'info', text: 'Nothing to restore: that copy is what the file holds now', fades: true });
+  else if (outcome === 'staged') notify({ kind: 'done', text: `The copy of ${hourMinute(time)} is staged over the file · ${chordText('Mod+S')} writes it; u undoes it` });
+  else notify({ kind: 'refused', text: 'Not restored: the file moved on while the copy was read · nothing changed' });
 }

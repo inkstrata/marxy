@@ -1,4 +1,4 @@
-// Content search in the memory shell (C-16): the shared cases Rust also runs, so the two
+// Content search in the memory shell: the shared cases Rust also runs, so the two
 // implementations cannot drift, and the privacy rules the index walk applies.
 
 import { test } from 'node:test';
@@ -47,7 +47,7 @@ for (const c of cases) {
     for (const [path, spec] of Object.entries(c.files)) files[path] = bytesOf(spec);
     const shell = createMemoryShell(files);
     const got = await shell.searchContent(c.paths, c.query, { roots: c.roots, ...c.opts });
-    assert.deepEqual(got, c.expect);
+    assert.deepEqual(got, { skippedFiles: 0, stopped: null, ...(c.expect as object) });
   });
 }
 

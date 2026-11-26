@@ -1,6 +1,6 @@
-// The Save As dialog, guarded (D-10.1). The path the reader picks may be one another pane shows through its own
+// The Save As dialog, guarded. The path the reader picks may be one another pane shows through its own
 // store: a second store for it would break one-store-per-path, and unsaved text in that pane would be thrown away.
-// Lifted out of open.ts so the data-safety walk (F-33.1) runs this code, not a copy of it.
+// Lifted out of open.ts so the data-safety walk runs this code, not a copy of it.
 
 import { notify } from '../notices/index.ts';
 import type { AppShell } from '../app.ts';

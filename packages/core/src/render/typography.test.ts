@@ -1,4 +1,4 @@
-// The D-A13 rule table, idempotence, and the acceptance criterion: 09-gfm-everything.md is set with
+// The rule table, idempotence, and the fidelity fixture: 09-gfm-everything.md is set with
 // typographic quotes, dashes, ellipses and a widont, while its source bytes stay as they are.
 
 import { strict as assert } from 'node:assert';
@@ -13,7 +13,7 @@ import { smarten, type SmartenContext } from './typography.ts';
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
 const gfmName = '09-gfm-everything.md';
 const gfmSource = readFileSync(new URL(gfmName, corpus), 'utf8');
-/** The HTML with its byte provenance taken out, for the tests that are about shape (ADR-0023). */
+/** The HTML with its byte provenance taken out, for the tests that are about shape. */
 const withoutProvenance = (html: string): string => html.replace(/ data-marxy-[se]="[0-9]+"/g, '');
 const html = (markdown: string): string => withoutProvenance(renderSafeHtml(markdown, { file: 'test.md' }).html);
 
@@ -93,7 +93,7 @@ test('a quote after a hard break and an em space opens (verse indents)', () => {
 
 test('code spans keep straight quotes, dashes and ellipses', () => {
   const out = html('See `"quotes"` and `a -- b` and `wait...`.\n');
-  assert.match(out, /<code>"quotes"<\/code>/);
+  assert.match(out, /<code>&quot;quotes&quot;<\/code>/);
   assert.match(out, /<code>a -- b<\/code>/);
   assert.match(out, /<code>wait\.\.\.<\/code>/);
 });
@@ -101,7 +101,7 @@ test('code spans keep straight quotes, dashes and ellipses', () => {
 test('kbd from raw HTML keeps straight quotes, dashes and ellipses', () => {
   const out = html('Run <kbd>--frozen-lockfile</kbd> and <kbd>"ok"...</kbd>.\n');
   assert.match(out, /<kbd>--frozen-lockfile<\/kbd>/);
-  assert.match(out, /<kbd>"ok"\.\.\.<\/kbd>/);
+  assert.match(out, /<kbd>&quot;ok&quot;\.\.\.<\/kbd>/);
   assert.ok(!out.includes('\u2013'));
   assert.ok(!out.includes('\u201c'));
   assert.ok(!out.includes('\u2026'));
@@ -116,7 +116,7 @@ test('samp from raw HTML is not a typography target', () => {
 
 test('pre from raw HTML is not a typography target', () => {
   const out = html('Text <pre>"x" -- y</pre> after.\n');
-  assert.match(out, /<pre>"x" -- y<\/pre>/);
+  assert.match(out, /<pre>&quot;x&quot; -- y<\/pre>/);
   assert.ok(!out.includes('\u2013'));
 });
 
@@ -127,7 +127,7 @@ test('a raw HTML code element keeps literal punctuation', () => {
 
 test('a fenced code block is not a typography target', () => {
   const out = html('```\nreturn "ok" -- done...\n```\n');
-  assert.match(out, /return "ok" -- done\.\.\./);
+  assert.match(out, /return &quot;ok&quot; -- done\.\.\./);
   assert.ok(!out.includes('\u201c'));
   assert.ok(!out.includes('\u2013'));
   assert.ok(!out.includes('\u2026'));
@@ -140,7 +140,7 @@ test('a link URL is written as the AST has it', () => {
 
 test('an HTML island is not a typography target', () => {
   const out = html('<p>"hello" -- dash...</p>\n');
-  assert.match(out, /"hello"/);
+  assert.match(out, /&quot;hello&quot;/);
   assert.match(out, / -- /);
   assert.match(out, /\.\.\./);
 });
@@ -159,8 +159,8 @@ test('smart typography is in the render, not the sanitiser', () => {
 });
 
 test(`${gfmName}: source bytes still carry the ASCII forms`, () => {
-  // The criterion is a render pass. If this file were rewritten, the fidelity gate would be
-  // testing a fixture that no longer has the marks the story asked us to substitute.
+  // The rule is a render pass. If this file were rewritten, the fidelity gate would be
+  // testing a fixture that no longer has the marks we were asked to substitute.
   assert.match(gfmSource, /"smart quotes"/);
   assert.match(gfmSource, /'singles'/);
   assert.match(gfmSource, / -- /);
@@ -249,7 +249,7 @@ test('URL text is not smartened, prose beside it still is', () => {
   assert.match(html('[www.a.com/x--y](https://www.a.com/x--y)\n'), />www\.a\.com\/x--y</);
 });
 
-test('F-53: rendering a paragraph reads each inline of the list once, not once per text node', () => {
+test('rendering a paragraph reads each inline of the list once, not once per text node', () => {
   const lines = 3200;
   const source = Array.from({ length: lines }, (_, i) => `line ${i} "quoted" -- done`).join('\n') + '\n';
   const document = parseMarkdown(source);

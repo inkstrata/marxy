@@ -1,4 +1,4 @@
-// Display-only markers for invisible and bidirectional characters (handbook ch.7, MARXY-236).
+// Display-only markers for invisible and bidirectional characters (handbook ch.7).
 
 import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
 
@@ -94,7 +94,7 @@ export function invisibleHexLabel(cp: number): string {
 }
 
 /**
- * What a marker draws in its box: the hex label, except for ESC, which is the control picture `␛` (K-08). An ANSI
+ * What a marker draws in its box: the hex label, except for ESC, which is the control picture `␛`. An ANSI
  * escape sequence is one ESC and then ordinary characters, and the picture is what a terminal user knows it by; every
  * other control keeps its hex label. The byte is never interpreted: a marker is only ever drawn over it.
  */
@@ -102,7 +102,7 @@ export function invisibleLabel(cp: number): string {
   return cp === 0x1b ? '\u241b' : invisibleHexLabel(cp);
 }
 
-/** True for the markers that draw the ESC picture, which the theme sets bare in the comment colour (K-08). */
+/** True for the markers that draw the ESC picture, which the theme sets bare in the comment colour. */
 export function isEscape(cp: number): boolean {
   return cp === 0x1b;
 }

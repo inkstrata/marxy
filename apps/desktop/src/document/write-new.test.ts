@@ -1,6 +1,6 @@
-// F-85 (ADR-0074): every write Marxy makes beside a reader's file rather than over it is create-only. These are the callers over the
+// Every write Marxy makes beside a reader's file rather than over it is create-only. These are the callers over the
 // memory shell, with a creator that makes the name between the caller's look and its write: *Fork this file*, *Keep mine as a
-// copy* (`writeCopy`), and the shared `writeBeside` that *Restore to a copy* (V-06) writes through. On `main` the write was
+// copy* (`writeCopy`), and the shared `writeBeside` that *Restore to a copy* writes through. On `main` the write was
 // `writeFileAtomic`, whose rename replaces whatever is at the name, so each of these fails there.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -112,11 +112,10 @@ test('Keep mine: when the write is refused for any other reason it fails with th
   assert.ok(store.conflict(), 'the choice is still pending');
 });
 
-// ---- Restore to a copy (V-06) ----------------------------------------------------------------------------------
+// ---- Restore to a copy ----------------------------------------------------------------------------------
 
 test('writeBeside, the writer Restore to a copy goes through: a creator at the version copy name keeps its bytes', async () => {
-  // V-06's `restoreToCopy` is `writeBeside` with `versionCopyPath` as the namer. V-06 (#717) is not on main when this lands, so its own
-  // caller test is V-06's to add; this holds the rule it inherits.
+  // Restore to a copy now stages the copy over the file instead; the rule still holds for writeBeside's other callers.
   const shell = createMemoryShell({ [PATH]: enc.encode('now\n') });
   const name = (n: number): string => `/r/x (version 14.32${n > 1 ? ` ${n}` : ''}).md`;
   shell.beforeWriteNew((path) => {

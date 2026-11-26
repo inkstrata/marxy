@@ -1,4 +1,4 @@
-// The kit's own tests (E-01): one passing operation and a broken twin per property, each wrapped in canFail.
+// The kit's own tests: one passing operation and a broken twin per property, each wrapped in canFail.
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { test } from 'node:test';
@@ -209,7 +209,7 @@ test('corpusProperties checks idempotence and inverse', () => {
   const bang = op('bang', (t) => t.replace(/(\r?\n)?$/, (m) => `!${m}`));
   const unbang = op('unbang', (t) => t.replace(/!(\r?\n)?$/, '$1'));
   // ATX headings only: a `!` after a setext heading's underline is no longer an underline, so the heading is not the same node to
-  // undo the edit on (the corpus holds setext headings since W-10; this test is about the kit's properties, not about those).
+  // undo the edit on (the corpus holds setext headings; this test is about the kit's properties, not about those).
   const atx = (n: Node): boolean => accepts(n) && ((n.children ?? []).length === 0 || n.children![0]!.src.start > n.src.start);
   canFail(() => corpusProperties(bang, { targets: whole, accepts: atx, idempotent: true }));
   const ok = corpusProperties(bang, { targets: whole, accepts: atx, inverse: unbang });
