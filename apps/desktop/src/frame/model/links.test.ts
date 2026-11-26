@@ -89,6 +89,8 @@ test('a large page\'s links are found after it is painted, and said found; a sma
   const off = onLinksFound(() => heard++);
   assert.equal(linksSoon(bigStore), undefined, 'not walked on the way to first text');
   assert.equal(linksSoon(bigStore), undefined, 'asked again, still once');
+  // The walk waits for a frame and a task; on a loaded machine that can take far longer than a few ms.
+  for (const until = Date.now() + 5000; heard === 0 && Date.now() < until; ) await new Promise((r) => setTimeout(r, 10));
   await new Promise((r) => setTimeout(r, 20));
   off();
   assert.equal(heard, 1);

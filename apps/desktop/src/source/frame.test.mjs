@@ -45,7 +45,8 @@ async function boot(page, files, open, { source = true } = {}) {
     window.__shell = shell;
   }, { encoded, open });
   if (source && (await page.evaluate(() => document.body.dataset.marxyMode)) !== 'source') await page.keyboard.press('ControlOrMeta+E');
-  await page.waitForSelector('#marxy-source .cm-line');
+  // A file's first boot on a slow CI runner has taken over 30 s (Playwright's default) to reach its first line.
+  await page.waitForSelector('#marxy-source .cm-line', { timeout: 90_000 });
   await page.evaluate(() => document.fonts.ready);
 }
 
