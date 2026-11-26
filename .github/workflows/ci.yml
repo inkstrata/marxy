@@ -35,6 +35,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # verify finds the merge base with the base branch even at `full`
       - uses: jdx/mise-action@v2
         with:
           cache: true
@@ -46,8 +48,10 @@ jobs:
       - name: WebKit for the desktop unit files that start it
         run: pnpm exec playwright install webkit
       - name: Verify (every step that passes on macOS)
+        env:
+          BASE: origin/${{ github.base_ref || 'main' }}
         run: >-
-          node scripts/verify.mjs --tier full --no-lock --logs "$RUNNER_TEMP/verify"
+          node scripts/verify.mjs --tier full --base "$BASE" --no-lock --logs "$RUNNER_TEMP/verify"
           --only install,typecheck,lint,check,golden,fidelity,licences,unit-core,unit-theme,unit-typeset,unit-scripts,unit-desktop,unit-desktop-browser,lint-rust,cargo,build
       - uses: actions/upload-artifact@v4
         if: always()
