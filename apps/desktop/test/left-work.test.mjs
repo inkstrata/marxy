@@ -498,6 +498,42 @@ test('Transforms: End the file with a newline adds exactly one byte', async () =
   });
 });
 
+for (const [ends, eol] of [['LF', '\n'], ['CRLF', '\r\n']]) {
+test(`Transforms: Alt+6 on a half-megabyte Markdown file with ${ends} line ends never stops the window for long, and every count fills in`, async () => {
+  // The shape of a long page: per section a heading, a paragraph with a link, a numbered list, tasks and a table.
+  let big = '';
+  for (let h = 0; h < 3000; h++) big += `## Heading ${h}\n\nSome plain prose for section ${h}, with a [link](https://e.com/${h}).\n\n1. one\n3. two\n\n- [ ] task\n- [x] done\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n`.replace(/\n/g, eol);
+  const BIG = '/w/notes/long-page.md';
+  await withFrame({ files: { ...FILES, [BIG]: big }, open: [BIG] }, async (page) => {
+    await page.waitForFunction(() => window.__marxyHandle.document()?.parsed());
+    // A beat the page keeps while the counts are worked out: the longest gap between two beats is the longest the window stopped.
+    await page.evaluate(() => {
+      window.__beat = { last: performance.now(), worst: 0 };
+      window.__beat.timer = setInterval(() => {
+        const now = performance.now();
+        window.__beat.worst = Math.max(window.__beat.worst, now - window.__beat.last);
+        window.__beat.last = now;
+      }, 10);
+    });
+    await page.keyboard.press('Alt+6');
+    await drawerShows(page, 'transforms');
+    await page.waitForFunction(
+      () => {
+        const rows = [...document.querySelectorAll('.marxy-drawer .marxy-l-prow[data-marxy-left-row^="t:"] .marxy-l-as')];
+        return rows.length > 0 && rows.every((r) => r.textContent !== '…');
+      },
+      undefined,
+      { timeout: 90_000 },
+    );
+    const worst = await page.evaluate(() => (clearInterval(window.__beat.timer), window.__beat.worst));
+    assert.ok(worst < 3000, `the window stopped for ${Math.round(worst)} ms at most; one row was one task of many seconds before`);
+    assert.deepEqual(await asOf(page, 't:renumber-list'), { as: '3000 lines', dim: false });
+    assert.deepEqual(await asOf(page, 't:tick-all'), { as: '3000 lines', dim: false });
+    assert.deepEqual(await asOf(page, 't:table-align'), { as: '9000 lines', dim: false });
+  });
+});
+}
+
 test('Transforms: a JSON file shows the JSON group and not the Markdown group', async () => {
   await withFrame({ files: FILES, open: [JSONF] }, async (page) => {
     await transforms(page);

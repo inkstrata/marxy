@@ -9,6 +9,8 @@ import type { Operation, OperationInput, OperationResult } from '../contracts/op
 import { parseMarkdown } from '../parse/parse.ts';
 import { itemSpans } from './list-item-spans.ts';
 import { replaceSpans, textIndex } from './text-helpers.ts';
+import { parentOf } from './parents.ts';
+import { lineStartBefore } from '../util/text.ts';
 import { pushAll } from '../util/spread.ts';
 
 export interface MarkerSpan {
@@ -108,15 +110,6 @@ function reindentEdits(text: string, from: number, to: number, markerLen: number
   return edits;
 }
 
-function parentOf(root: Node, target: Node): Node | undefined {
-  for (const child of root.children ?? []) {
-    if (child === target) return root;
-    const found = parentOf(child as Node, target);
-    if (found) return found;
-  }
-  return undefined;
-}
-
 /**
  * A list of kind `ordered` directly beside `list` (nothing between): converting `list` to that kind would merge the two.
  * A caller asking for many lists passes each one's `parent`, so the tree is not searched once per list.
@@ -168,7 +161,7 @@ function rewrite(input: OperationInput, plan: Plan): OperationResult {
       const item = lines?.[i];
       const shift = old.length - next.length;
       if (!item || shift <= 0) return refuse(`${plan.noun} would re-indent a nested item`);
-      const lineStart = Math.max(input.text.lastIndexOf('\n', item.marker.start - 1), input.text.lastIndexOf('\r', item.marker.start - 1)) + 1;
+      const lineStart = lineStartBefore(input.text, item.marker.start);
       const margin = i === 0 ? 0 : item.marker.start - lineStart;
       if (i > 0 && input.text.slice(lineStart, item.marker.start).trim() !== '') return refuse(`${plan.noun} would re-indent a nested item`);
       const moves = reindentEdits(input.text, item.marker.start, item.content.end, old.length, shift, margin);

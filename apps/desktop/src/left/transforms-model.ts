@@ -2,9 +2,10 @@
 // function from a file's text, or the lines of a selection in it, to the text it would leave, with the lines it changes.
 // Core's transforms and operations do the work where they have it; the few it adds that core has no form of
 // (trailing spaces, tabs, ticks, sorted keys, line ends, the final newline, invisible characters) are here. Pure.
-import { parseMarkdown, unifiedDiff, type Document, type Node } from '@marxy/core';
+import { parseMarkdown, unifiedDiff, type Document, type Node, type ParsedText } from '@marxy/core';
 import { alignTablePipes } from '@marxy/core/src/operations/align-table-pipes.ts';
 import { renumberList } from '@marxy/core/src/operations/list-markers.ts';
+import { parseText, utf8Length } from '@marxy/core/src/transforms/prose.ts';
 import { runTransform } from '@marxy/core/src/transforms/registry.ts';
 import { joinLines, splitLines } from './search-model.ts';
 
@@ -29,7 +30,28 @@ export interface TxItem {
   readonly group: TxGroup;
   /** Asks which before it stages (Remove invisible characters…). */
   readonly ask?: boolean;
-  fx(text: string, sel: LineSel | null): Effect;
+  /**
+   * The effect worked out in pieces: each `next()` does a bounded share of the work and the last returns the effect, so
+   * a caller with a time budget can stop between pieces. `parsed`, when given, is the document store's parse of `text`:
+   * a row that reads structure uses it and does not parse again.
+   */
+  steps(text: string, sel: LineSel | null, parsed?: ParsedText | null): Steps;
+  /** `steps` run to the end at once. */
+  fx(text: string, sel: LineSel | null, parsed?: ParsedText | null): Effect;
+}
+
+/** A row's work in pieces: yields between them, returns the effect. */
+export type Steps = Generator<void, Effect, void>;
+
+/** Lines or nodes worked between two pauses: small enough that a piece of a large file stays well inside a frame. */
+const PIECE = 2048;
+
+/** Runs `steps` to the end. */
+export function drain(steps: Steps): Effect {
+  for (;;) {
+    const r = steps.next();
+    if (r.done) return r.value;
+  }
 }
 
 /** Lines with their endings; a final ending leaves no empty last piece. */
@@ -94,8 +116,8 @@ export function changedOld(a: string, b: string): number[] {
   return [...new Set(out)].filter((l) => l >= 0).sort((x, y) => x - y);
 }
 
-/** Runs `run` on the selection's lines (or the whole text) and puts the result back in their place. */
-function onRegion(text: string, sel: LineSel | null, run: (part: string) => string): Effect {
+/** Runs `run` on the selection's lines (or the whole text) and puts the result back in their place; the count is a piece of its own. */
+function* onRegion(text: string, sel: LineSel | null, run: (part: string) => string): Steps {
   const { from, to } = region(text, sel);
   let out: string;
   try {
@@ -103,37 +125,58 @@ function onRegion(text: string, sel: LineSel | null, run: (part: string) => stri
   } catch {
     return { text, c: 0, d: 0 };
   }
+  yield;
   return measure(text, text.slice(0, from) + out + text.slice(to));
 }
 
-/** Each line's own ending kept: `run` sees and gives back the lines alone. */
-function eachLine(text: string, sel: LineSel | null, run: (line: string, i: number) => string): Effect {
+/** Each line's own ending kept: `run` sees and gives back the lines alone, a piece of lines at a time. */
+function* eachLine(text: string, sel: LineSel | null, run: (line: string, i: number) => string): Steps {
   const sp = splitLines(text);
   const lines = sp.lines.slice();
   const a = sel?.a ?? 0;
   const b = Math.min(sel?.b ?? lines.length, lines.length);
-  for (let i = a; i < b; i++) lines[i] = run(lines[i]!, i);
+  for (let i = a; i < b; i++) {
+    if ((i - a) % PIECE === PIECE - 1) yield;
+    lines[i] = run(lines[i]!, i);
+  }
+  yield;
   return measure(text, joinLines(lines, sp.eols));
 }
 
-const core = (id: string) => (text: string, sel: LineSel | null): Effect => onRegion(text, sel, (part) => runTransform(id, part));
+// Core takes the parse only when it is of exactly the text it reads (`withParse`): the whole file, not a selection's lines.
+// Core's transform is one call; the parse it would otherwise make is the costly part, and the store's parse spares it.
+const core = (id: string) => (text: string, sel: LineSel | null, parsed?: ParsedText | null): Steps =>
+  onRegion(text, sel, (part) => runTransform(id, part, parsed ? { parsed } : undefined));
+
+/** The last parse made here of a text core's cache does not take (one with a CR or a byte-order mark). */
+let own: { readonly text: string; readonly doc: Document } | null = null;
+
+/**
+ * The Markdown parse of `text`: the store's when it is of this very text (CRLF or CR line ends included: its offsets are
+ * the bytes of `text`), else one parse per text shared by every row: core's cache (`parseText`) for LF text, which core's
+ * transforms read too, or the one kept here for the rest.
+ */
+function parseOf(text: string, parsed: ParsedText | null | undefined): Document {
+  if (parsed && parsed.text === text && parsed.doc.src.end === utf8Length(text)) return parsed.doc;
+  if (!text.includes('\r') && !text.startsWith('\uFEFF')) return parseText(text);
+  if (own?.text !== text) own = { text, doc: parseMarkdown(encoder.encode(text)) };
+  return own.doc;
+}
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
 
-function eachNode(node: Node | Document, visit: (n: Node) => void): void {
-  for (const child of ((node as { children?: readonly Node[] }).children ?? [])) {
-    visit(child);
-    eachNode(child, visit);
-  }
-}
-
-/** Byte splices on `text`, made from its Markdown parse; only nodes wholly inside the selection's bytes. */
-function byNodes(text: string, sel: LineSel | null, pick: (n: Node, doc: Document, bytes: Uint8Array) => { start: number; end: number; replacement: string } | null): Effect {
+/** Byte splices on `text`, made from its Markdown parse; only nodes wholly inside the selection's bytes. A piece of nodes at a time. */
+function* byNodes(
+  text: string,
+  sel: LineSel | null,
+  parsed: ParsedText | null | undefined,
+  pick: (n: Node, doc: Document, bytes: Uint8Array) => { start: number; end: number; replacement: string } | null,
+): Steps {
   const bytes = encoder.encode(text);
   let doc: Document;
   try {
-    doc = parseMarkdown(bytes);
+    doc = parseOf(text, parsed);
   } catch {
     return { text, c: 0, d: 0 };
   }
@@ -141,11 +184,16 @@ function byNodes(text: string, sel: LineSel | null, pick: (n: Node, doc: Documen
   const lo = sel ? encoder.encode(text.slice(0, from)).length : 0;
   const hi = sel ? lo + encoder.encode(text.slice(from, to)).length : bytes.length;
   const splices: { start: number; end: number; replacement: string }[] = [];
-  eachNode(doc, (n) => {
-    if (n.src.start < lo || n.src.end > hi) return;
+  // Document order, depth first, without recursion: a deep parse cannot overflow the stack.
+  const stack: Node[] = [...((doc.children ?? []) as readonly Node[])].reverse();
+  for (let seen = 1; stack.length > 0; seen++) {
+    if (seen % PIECE === 0) yield;
+    const n = stack.pop()!;
+    for (let i = (n.children?.length ?? 0) - 1; i >= 0; i--) stack.push(n.children![i] as Node);
+    if (n.src.start < lo || n.src.end > hi) continue;
     const s = pick(n, doc, bytes);
     if (s) splices.push(s);
-  });
+  }
   // Nested matches (a list in a list) are made from the same bytes: the outer one is kept.
   splices.sort((x, y) => x.start - y.start || y.end - x.end);
   const kept: typeof splices = [];
@@ -157,6 +205,7 @@ function byNodes(text: string, sel: LineSel | null, pick: (n: Node, doc: Documen
     at = s.end;
   }
   out += decoder.decode(bytes.subarray(at));
+  yield;
   return measure(text, out);
 }
 
@@ -254,6 +303,10 @@ export function invisibleCounts(text: string, sel: LineSel | null): Record<strin
 }
 
 export function removeInvisible(text: string, sel: LineSel | null, kinds: readonly string[]): Effect {
+  return drain(removingInvisible(text, sel, kinds));
+}
+
+function removingInvisible(text: string, sel: LineSel | null, kinds: readonly string[]): Steps {
   return eachLine(text, sel, (line, i) => {
     const bom = i === 0 && line.startsWith('﻿');
     let s = bom ? line.slice(1) : line;
@@ -262,41 +315,46 @@ export function removeInvisible(text: string, sel: LineSel | null, kinds: readon
   });
 }
 
-function allLf(text: string, sel: LineSel | null): Effect {
+function* allLf(text: string, sel: LineSel | null): Steps {
   const sp = splitLines(text);
   const eols = sp.eols.slice();
   const a = sel?.a ?? 0;
   const b = Math.min(sel?.b ?? eols.length, eols.length);
   for (let i = a; i < b; i++) if (eols[i] !== '' && eols[i] !== '\n') eols[i] = '\n';
+  yield;
   return measure(text, joinLines(sp.lines, eols));
 }
 
-function finalNewline(text: string, sel: LineSel | null): Effect {
+function* finalNewline(text: string, sel: LineSel | null): Steps {
   const last = splitLines(text).lines.length - 1;
   if (text === '' || /[\r\n]$/.test(text) || (sel && sel.b <= last)) return { text, c: 0, d: 0 };
   return measure(text, text + eolOf(text));
 }
 
-const ITEMS: readonly TxItem[] = [
-  { id: 'trim-trailing', label: 'Trim trailing spaces', group: 'Space', fx: (t, s) => eachLine(t, s, (l) => l.replace(/[ \t]+$/, '')) },
-  { id: 'tabs-to-spaces', label: 'Tabs to spaces', group: 'Space', fx: (t, s) => eachLine(t, s, untab) },
-  { id: 'unwrap', label: 'Unwrap paragraphs', group: 'Lines', fx: core('unwrap') },
-  { id: 'wrap-80', label: 'Wrap at 80 columns', group: 'Lines', fx: core('wrap-80') },
-  { id: 'sort-lines', label: 'Sort lines', group: 'Lines', fx: core('sort') },
-  { id: 'dedupe-lines', label: 'Remove duplicate lines', group: 'Lines', fx: core('dedupe') },
-  { id: 'promote', label: 'Promote every heading', group: 'Markdown', fx: core('promote') },
-  { id: 'demote', label: 'Demote every heading', group: 'Markdown', fx: core('demote') },
-  { id: 'renumber-list', label: 'Renumber the lists', group: 'Markdown', fx: (t, s) => byNodes(t, s, operation(renumberList)) },
-  { id: 'table-align', label: 'Align the tables', group: 'Markdown', fx: (t, s) => byNodes(t, s, operation(alignTablePipes)) },
-  { id: 'tick-all', label: 'Tick every task', group: 'Markdown', fx: (t, s) => byNodes(t, s, ticks(true)) },
-  { id: 'untick-all', label: 'Untick every task', group: 'Markdown', fx: (t, s) => byNodes(t, s, ticks(false)) },
-  { id: 'json-format', label: 'Format JSON', group: 'JSON', fx: core('json-pretty') },
-  { id: 'json-sort-keys', label: 'Sort the keys', group: 'JSON', fx: (t, s) => onRegion(t, s, jsonSorted) },
-  { id: 'json-minify', label: 'Minify JSON', group: 'JSON', fx: core('json-min') },
-  { id: 'eol-lf', label: 'Line ends, all LF', group: 'Bytes', fx: allLf },
-  { id: 'final-newline', label: 'End the file with a newline', group: 'Bytes', fx: finalNewline },
-  { id: 'invisible', label: 'Remove invisible characters…', group: 'Bytes', ask: true, fx: (t, s) => removeInvisible(t, s, INVISIBLE.map((k) => k[0])) },
+type Row = Omit<TxItem, 'fx'>;
+
+const ROWS: readonly Row[] = [
+  { id: 'trim-trailing', label: 'Trim trailing spaces', group: 'Space', steps: (t, s) => eachLine(t, s, (l) => l.replace(/[ \t]+$/, '')) },
+  { id: 'tabs-to-spaces', label: 'Tabs to spaces', group: 'Space', steps: (t, s) => eachLine(t, s, untab) },
+  { id: 'unwrap', label: 'Unwrap paragraphs', group: 'Lines', steps: core('unwrap') },
+  { id: 'wrap-80', label: 'Wrap at 80 columns', group: 'Lines', steps: core('wrap-80') },
+  { id: 'sort-lines', label: 'Sort lines', group: 'Lines', steps: core('sort') },
+  { id: 'dedupe-lines', label: 'Remove duplicate lines', group: 'Lines', steps: core('dedupe') },
+  { id: 'promote', label: 'Promote every heading', group: 'Markdown', steps: core('promote') },
+  { id: 'demote', label: 'Demote every heading', group: 'Markdown', steps: core('demote') },
+  { id: 'renumber-list', label: 'Renumber the lists', group: 'Markdown', steps: (t, s, p) => byNodes(t, s, p, operation(renumberList)) },
+  { id: 'table-align', label: 'Align the tables', group: 'Markdown', steps: (t, s, p) => byNodes(t, s, p, operation(alignTablePipes)) },
+  { id: 'tick-all', label: 'Tick every task', group: 'Markdown', steps: (t, s, p) => byNodes(t, s, p, ticks(true)) },
+  { id: 'untick-all', label: 'Untick every task', group: 'Markdown', steps: (t, s, p) => byNodes(t, s, p, ticks(false)) },
+  { id: 'json-format', label: 'Format JSON', group: 'JSON', steps: core('json-pretty') },
+  { id: 'json-sort-keys', label: 'Sort the keys', group: 'JSON', steps: (t, s) => onRegion(t, s, jsonSorted) },
+  { id: 'json-minify', label: 'Minify JSON', group: 'JSON', steps: core('json-min') },
+  { id: 'eol-lf', label: 'Line ends, all LF', group: 'Bytes', steps: allLf },
+  { id: 'final-newline', label: 'End the file with a newline', group: 'Bytes', steps: finalNewline },
+  { id: 'invisible', label: 'Remove invisible characters…', group: 'Bytes', ask: true, steps: (t, s) => removingInvisible(t, s, INVISIBLE.map((k) => k[0])) },
 ];
+
+const ITEMS: readonly TxItem[] = ROWS.map((r) => ({ ...r, fx: (t, s, p) => drain(r.steps(t, s, p)) }));
 
 export type FileFamily = 'markdown' | 'json' | 'other';
 
