@@ -364,7 +364,8 @@ test('12. the preview\'s head follows the cursor; with no cursor it is the READM
     await keys(page, 'l');
     await page.waitForFunction(() => document.querySelector('.marxy-arch-pname')?.textContent === 'notes-backup.tar.gz');
     assert.equal(await page.textContent('.marxy-arch-pdir'), 'backups/');
-    assert.match(await page.textContent('.marxy-arch-pfacts'), /^An archive · 811 bytes · stored as it is · 14 Oct 2026, 18:00$/);
+    // The checksum is checked as the entry is read, a moment after the row is: the line may or may not have it yet.
+    assert.match(await page.textContent('.marxy-arch-pfacts'), /^An archive · 811 bytes · stored as it is · 14 Oct 2026, 18:00( · checksum agrees)?$/);
     await keys(page, 'Escape');
     await page.waitForFunction(() => document.querySelector('.marxy-arch-pname')?.textContent === 'README.md');
   });
