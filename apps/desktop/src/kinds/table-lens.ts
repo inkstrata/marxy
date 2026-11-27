@@ -60,6 +60,8 @@ import { writeCopy } from '../commands/copy-write.ts';
 import { notify } from '../notices/index.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import { closeVerbMenu, openVerbMenu, type MenuAnchor, type VerbMenuRow } from '../selection/verb-menu.ts';
+import { isMac } from '../platform.ts';
+import { plural } from '../frame/dom.ts';
 
 /** The mount's attribute while a lens covers its Source (scripts/registry.json). */
 const LENS_ATTRIBUTE = 'data-marxy-lens';
@@ -90,7 +92,6 @@ function yieldNow(): Promise<void> {
   });
 }
 
-const plural = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 
 /** What an unreadable row says of the lines its quote reached into: they are drawn as rows, and may belong to it. */
 const swallowedNote = (lines: number, reason: 'unclosed-quote' | 'after-quote'): string =>
@@ -1075,7 +1076,7 @@ function createLens(pane: Pane<AppPane>, store: DocumentStore): TableLens {
   }
 
   // ---- events --------------------------------------------------------------------------------------------------------
-  const mac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+  const mac = isMac();
   const isMod = (e: KeyboardEvent | MouseEvent): boolean => (mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey);
 
   root.addEventListener('keydown', (event) => {

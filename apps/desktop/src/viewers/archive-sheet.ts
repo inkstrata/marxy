@@ -9,7 +9,7 @@ import { FILE_TYPES } from '@marxy/core/src/kind/registry.ts';
 import type { ArchiveEntry, ArchiveListing } from '@marxy/shell-api';
 import type { AppShell } from '../app-types.ts';
 import { holdTile, releaseTiles } from '../document/entries.ts';
-import { el } from '../frame/dom.ts';
+import { el, plural } from '../frame/dom.ts';
 import { setMarked, spokenText } from '../frame/model/metadata-marks.ts';
 import { entryShell } from './archive-entries.ts';
 import { createEmbed, type Embed } from './embed.ts';
@@ -38,7 +38,6 @@ const LET_GO_AFTER = 1000;
 const FOLDER_TILES = 120;
 
 const n2 = (n: number): string => n.toLocaleString('en-GB');
-const plural = (n: number, one: string): string => `${n2(n)} ${n === 1 ? one : `${one}s`}`;
 
 /** What the sheet asks of the archive's page. */
 export interface TileDeps {

@@ -9,6 +9,7 @@ import { appHandle } from '../commands/app-handle.ts';
 import { notify, paneOf, type NoticeKind } from '../notices/index.ts';
 import { CONVERTED_NOTICE, NOTHING_TO_PASTE, pasteShellOf, readConverted, readForPaste, type PasteShell } from '../paste/read-clipboard.ts';
 import { readableText } from '@marxy/core';
+import { isMac } from '../platform.ts';
 
 /**
  * What `text` becomes in `state`: no U+FEFF, every line break (LF, CRLF, CR) written as the document's own, and no
@@ -102,7 +103,6 @@ export async function pastePlainText(view: EditorView, shell: PasteShell): Promi
   if (!insertPasted(view, got.text ?? '')) say(view, NOTHING_TO_PASTE, 'info', true);
 }
 
-const isMac = (): boolean => typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 
 /** The editor's paste handling: the `paste` event with HTML, and `Mod+Alt+Shift+V` by physical key. */
 export function pasteExtension(): Extension {

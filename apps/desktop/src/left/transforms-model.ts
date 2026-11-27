@@ -2,10 +2,10 @@
 // function from a file's text, or the lines of a selection in it, to the text it would leave, with the lines it changes.
 // Core's transforms and operations do the work where they have it; the few it adds that core has no form of
 // (trailing spaces, tabs, ticks, sorted keys, line ends, the final newline, invisible characters) are here. Pure.
-import { parseMarkdown, parseMarkdownSteps, unifiedDiff, type Document, type Node, type ParsedText } from '@marxy/core';
+import { parseMarkdown, parseMarkdownSteps, unifiedDiff, utf8Length, type Document, type Node, type ParsedText } from '@marxy/core';
 import { alignTablePipes } from '@marxy/core/src/operations/align-table-pipes.ts';
 import { renumberList } from '@marxy/core/src/operations/list-markers.ts';
-import { parseText, utf8Length } from '@marxy/core/src/transforms/prose.ts';
+import { parseText } from '@marxy/core/src/transforms/prose.ts';
 import { runTransform, transformById } from '@marxy/core/src/transforms/registry.ts';
 import { joinLines, splitLines } from './search-model.ts';
 

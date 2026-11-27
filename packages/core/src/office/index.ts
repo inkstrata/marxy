@@ -11,6 +11,7 @@ import { readSlides } from './slides.ts';
 import { readWord } from './word.ts';
 import { OFFICE_LIMITS } from './xml.ts';
 import { pushAll } from '../util/spread.ts';
+import { plural } from '../util/count.ts';
 
 export { IMAGE_SCHEME, escapeText, sourceRangeOf, writeMarkdown, type OfficeMarks, type OfficeMarkdown, type SourceSpan } from './markdown.ts';
 export { RTF_LIMITS, startsAsRtf, type RtfOptions } from './rtf.ts';
@@ -68,7 +69,6 @@ function reading(doc: OfficeDoc): OfficeReading {
 }
 
 const n = (x: number): string => x.toLocaleString('en-GB');
-const plural = (x: number, one: string, many = `${one}s`): string => `${n(x)} ${x === 1 ? one : many}`;
 
 export const FORMAT_WORDS: Readonly<Record<OfficeFormat, string>> = {
   docx: 'Word document',
