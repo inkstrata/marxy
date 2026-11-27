@@ -24,13 +24,20 @@ which implements the `Shell` interface of `packages/shell-api`.
 
 ### File associations on macOS
 
-`bundle.fileAssociations` in `tauri.conf.json` becomes `CFBundleDocumentTypes` in `Info.plist`. Markdown is the
-only group at `LSHandlerRank = Default`: it declares `net.daringfireball.markdown` (conforming to
-`public.plain-text`), so a double-click on `.md` opens Marxy and Open With lists it reliably. Every other group is
-`Alternate`, so Marxy is offered in Open With and "Choose another app" but never takes the double-click from an editor or
-a browser: "Source and text" (text, source, scripts, data, logs, diffs, `.html`, `.xml`), PDF, and the common images
-(PNG, JPEG, GIF, WebP, HEIC, TIFF, BMP, SVG). Archives, Word and Office files, audio and video, fonts and the other
-kinds the reader opens are not declared on macOS yet. Windows is separate and unchanged (below).
+`bundle.fileAssociations` in `tauri.conf.json` becomes `CFBundleDocumentTypes` in `Info.plist`, in three tiers.
+
+- **Default** (a double-click opens Marxy): Markdown, which declares `net.daringfireball.markdown` (conforming to
+  `public.plain-text`) because macOS has no type for it; and "Logs, data and mail" (`log`, `jsonl`, `ndjson`, `diff`,
+  `patch`, `ipynb`, `eml`, `yaml`, `yml`, `toml`), which macOS opens in a plain editor or a mail client at best and Marxy
+  reads better.
+- **Alternate** (offered in Open With, never the default): "Source and text" (code, scripts, `json`, `html`, `xml`, `css`,
+  `csv`, `tsv` and the rest), because editors, browsers and spreadsheets own those; PDF and images, because Preview owns
+  them; and archives, Word, Excel, PowerPoint and OpenDocument files, audio and video, fonts and EPUB, so Marxy is
+  listed for everything it reads without claiming any of it.
+- **Not declared**: programs, installers and packages (`app`, `pkg`, `dmg`, `exe`, `apk`, `deb`, `rpm`, `iso`, `jar`),
+  which Marxy only describes, never opens as a document.
+
+Windows is separate and unchanged (below).
 
 ### File associations on Windows
 

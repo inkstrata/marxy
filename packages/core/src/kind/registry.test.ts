@@ -95,13 +95,20 @@ test('exact names and the extension-less text family', () => {
 test('the Tauri file associations list what the table calls markdown, text and source', () => {
   const conf = JSON.parse(readFileSync(new URL('../../../../apps/desktop/src-tauri/tauri.conf.json', import.meta.url), 'utf8'));
   const assoc = conf.bundle.fileAssociations as { name: string; ext: string[] }[];
-  const listed = assoc.filter((a) => a.name !== 'PDF document' && a.name !== 'Image').flatMap((a) => a.ext).sort();
+  const textGroups = ['Markdown', 'Logs, data and mail', 'Source and text'];
+  // Notebooks and mail are page viewers, not in the table, but are offered with the logs.
+  const listed = assoc.filter((a) => textGroups.includes(a.name)).flatMap((a) => a.ext).filter((e) => e !== 'ipynb' && e !== 'eml').sort();
   const wanted = tableExtensions().sort();
   assert.deepEqual(listed, wanted);
-  // The PDF and image groups are offered in Open With: every extension in them is one the registry opens in a page viewer.
-  for (const a of assoc.filter((x) => x.name === 'PDF document' || x.name === 'Image')) {
-    for (const e of a.ext) assert.equal(fileTypeOf(`/r/sample.${e}`)?.viewer, a.name === 'Image' ? 'image' : 'pdf', e);
+  // Every other group is offered in Open With: each extension is one the registry opens in the group's page viewer.
+  const viewers: Record<string, string[]> = {
+    'PDF document': ['pdf'], Image: ['image'], Archive: ['archive'], 'Office document': ['office', 'sheet'],
+    'Audio and video': ['media'], Font: ['font'], Book: ['book'],
+  };
+  for (const a of assoc.filter((x) => !textGroups.includes(x.name))) {
+    for (const e of a.ext) assert.ok((viewers[a.name] ?? []).includes(fileTypeOf(`/r/sample.${e}`)?.viewer ?? ''), `${a.name}: ${e}`);
   }
+  assert.ok(assoc.filter((a) => !textGroups.includes(a.name)).every((a) => a.name in viewers));
 });
 
 // Windows hands Markdown to Tauri's own association (it takes the default) and offers every other type Marxy has a page
