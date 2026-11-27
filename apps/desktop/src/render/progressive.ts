@@ -209,7 +209,9 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
     });
     if (added.length > 0) opts.onChunk?.(added);
     if (from.firstChild === null) finish();
-    else void nextFrame().then(() => whenIdle(step));
+    // After a frame, the idle queue; when no frame came (a hidden or minimised window), the step at once: a window that
+    // throttles timers would otherwise charge two throttled waits a chunk.
+    else void nextFrame().then((framed) => (framed ? whenIdle(step) : step()));
   };
   if (!done) void Promise.resolve(opts.start).then(() => whenIdle(step), () => whenIdle(step));
 
@@ -270,18 +272,18 @@ export async function parseInertInSlices(
 /** A block and the elements inside it. */
 const sizeOf = (el: Element): number => 1 + el.getElementsByTagName('*').length;
 
-/** Resolves at the next frame, or after FRAME_WAIT_MS when none comes. */
-function nextFrame(): Promise<void> {
+/** Resolves true at the next frame, or false after FRAME_WAIT_MS when none comes. */
+function nextFrame(): Promise<boolean> {
   return new Promise((resolve) => {
     let settled = false;
-    const go = (): void => {
+    const go = (framed: boolean): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve();
+      resolve(framed);
     };
-    const timer = setTimeout(go, FRAME_WAIT_MS);
-    requestAnimationFrame(go);
+    const timer = setTimeout(() => go(false), FRAME_WAIT_MS);
+    requestAnimationFrame(() => go(true));
   });
 }
 

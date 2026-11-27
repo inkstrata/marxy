@@ -613,7 +613,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     // words paint and the window answers. Any document past SLICED_ALONE_BYTES is parsed, rendered and put in the page in
     // slices, and past SLICED_BYTES when another pane is on screen, before this pane's page is touched.
     const large = bytes.length >= LARGE_OPEN_BYTES;
-    if (large) {
+    // From SLICED_ALONE_BYTES the open is read in slices, behind the last page: the head says so from there.
+    if (large || bytes.length >= SLICED_ALONE_BYTES) {
       paneHostOf().setAttribute(WORKING, readingWords(bytes.length));
       await paintThenGo();
     }

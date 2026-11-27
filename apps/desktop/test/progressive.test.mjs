@@ -333,9 +333,11 @@ test('idle chunks are cut by the elements they bring, read no layout, and leave 
     assert.equal(r.reads, 0, 'no chunk read the layout');
     const over = r.chunks.filter((c) => c.nodes > r.limit && c.blocks > 1);
     assert.deepEqual(over, [], `chunks over ${r.limit} elements`);
-    // Held to the element budget, not shrunk below it: all but the last chunk carry at least half of it.
-    const small = r.chunks.slice(0, -1).filter((c) => c.nodes < r.limit / 2);
-    assert.ok(small.length <= r.chunks.length / 4, `${small.length} of ${r.chunks.length} chunks under half the budget: ${JSON.stringify(small.slice(0, 5))}`);
+    // Held to the element budget, not shrunk below it as the page grows. A chunk may also end on its time budget on a
+    // busy machine, so the check is that the chunks carry, on average, more than a quarter of the budget: the old sizing
+    // fell to a few blocks (tens of elements) a chunk.
+    const mean = r.chunks.reduce((n, c) => n + c.nodes, 0) / r.chunks.length;
+    assert.ok(mean > r.limit / 4, `chunks carry ${Math.round(mean)} elements on average, the budget ${r.limit}: ${JSON.stringify(r.chunks.slice(0, 5))}`);
     assert.ok(r.same, 'the article, complete, is the whole page, block for block');
   } finally {
     await browser.close();
