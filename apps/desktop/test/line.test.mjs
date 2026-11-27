@@ -159,6 +159,37 @@ test("26b Line: @ lists this document's headings; Enter puts the cursor on one",
   });
 });
 
+const manyHeadings = (n, pad = '') => Array.from({ length: n }, (_, i) => `## Heading ${i}\n\nBody ${i}. ${pad}\n`).join('\n');
+
+test('26b2 Line: @ draws the first 200 of a document with thousands of headings, and typing reaches the rest', async () => {
+  await withFrame({ files: { '/r/many.md': manyHeadings(6000) }, open: ['/r/many.md'] }, async (page, { mod }) => {
+    await summon(page, mod, '@');
+    let s = await lineRows(page);
+    assert.equal(s.rows.length, 200, 'a window of rows, not one per heading');
+    assert.equal(s.rows[0].t, 'Heading 0');
+    assert.match(s.notice, /The first 200 headings: keep typing to narrow them/);
+    await page.keyboard.type('heading 5999');
+    await page.waitForTimeout(250);
+    s = await lineRows(page);
+    assert.equal(s.rows[0].t, 'Heading 5999', 'the field reaches a heading past the window');
+    assert.ok(s.rows.length < 200);
+  });
+});
+
+test('26b3 Line: @ on a Markdown file read as lines (over 5 MiB) lists its headings from the scan and never parses the file', async () => {
+  const text = manyHeadings(30_000, 'x'.repeat(170));
+  assert.ok(text.length > 5 * 1024 * 1024, `${text.length} bytes`);
+  await withFrame({ files: { '/r/huge.md': text }, open: ['/r/huge.md'] }, async (page, { mod }) => {
+    await page.waitForFunction(() => document.querySelector('[data-marxy-lines]'));
+    await summon(page, mod, '@');
+    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length === 200, null, { timeout: 30_000 });
+    const s = await lineRows(page);
+    assert.equal(s.rows[0].t, 'Heading 0');
+    assert.match(s.rows[0].d, /^line \d+$/);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.document().parsed()), false, 'no parse was made for the list');
+  });
+});
+
 test('26c Line: :120 then Enter puts the cursor on the part holding line 120; a range and a line past the end', async () => {
   await withFrame({ files: FILES, open: [PLAN] }, async (page, { mod }) => {
     await summon(page, mod, ':999');

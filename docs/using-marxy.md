@@ -111,7 +111,7 @@ the scope:
 | --- | --- | --- |
 | none | files, open tabs, headings and commands, ranked by match and by how recently they were read | open (Mod+Enter beside) |
 | `>` | every command, grouped | run it |
-| `@` | headings in this document | go there |
+| `@` | headings in this document (the first 200 that hold the words; a long document's headings come from a scan of its lines, not a parse) | go there |
 | `:` | a line or range, `40` or `40-52` | put the cursor there |
 | `/` | find in this document; `/re/flags` for a regular expression, a capital letter for exact case | go there; Alt+Enter shows only what matches |
 | `#` | search the text of every file in scope | open at the line |

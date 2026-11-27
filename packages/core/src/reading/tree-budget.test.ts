@@ -5,7 +5,7 @@
 // parsers read what they read before, a number of any length and a character reference past U+10FFFF included.
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { describeColumn, READING_MAX_COLUMNS, READING_MAX_ROWS, readingOf, TREE_MAX_VALUES } from './index.ts';
+import { describeColumn, READING_MAX_COLUMNS, READING_MAX_ROWS, readingOf, TREE_MAX_VALUES, WRITTEN_LINES_FROM } from './index.ts';
 import { indexSome, parseSome, READING_MAX_KEYS, recordRows } from './rows.ts';
 import { parseJson, parseToml, parseXml, parseYaml, TOML_MAX_KEY_STEPS, TREE_MAX_DEPTH, TreeError } from './tree.ts';
 import { cpuNow } from '../testing/cpu-clock.ts';
@@ -86,7 +86,8 @@ test('a file nested deeper than the tree reads is set as written, at 100,000 lev
   ];
   for (const [path, text] of cases) {
     const read = readingOf(path, enc(text))!;
-    assert.equal(read.id, 'written', path);
+    // From WRITTEN_LINES_FROM the lines are windowed (the Lines page) rather than all drawn: the reason is kept either way.
+    assert.equal(read.id, enc(text).length >= WRITTEN_LINES_FROM ? 'lines' : 'written', path);
     assert.match(read.failed!.why, new RegExp(`nesting more than ${TREE_MAX_DEPTH} levels deep`), path);
   }
   const deepest = `${'['.repeat(TREE_MAX_DEPTH)}${']'.repeat(TREE_MAX_DEPTH)}`;
@@ -179,7 +180,7 @@ test('TOML of 150,000 table headers reads in a bounded time, each header found b
 test('TOML that names more tables than the parse looks up is set as written, and says so', () => {
   const toml = Array.from({ length: TOML_MAX_KEY_STEPS / 2 + 1 }, (_, i) => `[a.t${i}]`).join('\n');
   const read = within(3000, 'past the key steps', () => readingOf('s.toml', enc(toml)))!;
-  assert.equal(read.id, 'written');
+  assert.equal(read.id, enc(toml).length >= WRITTEN_LINES_FROM ? 'lines' : 'written');
   assert.match(read.failed!.why, /more than 250,000 table names to look up/);
 });
 

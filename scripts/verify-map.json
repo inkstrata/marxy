@@ -18,7 +18,7 @@
     "apps/desktop/src/harness": ["app-harness.test.mjs","demo-tour.test.mjs","frame-tables.test.mjs","gate-entry.test.mjs","layout-shift-window.test.mjs","module-state.test.mjs","reading-rows.test.mjs"],
     "apps/desktop/src/index": ["index-service.test.mjs","open-in-folder.test.mjs","palette-index.test.mjs"],
     "apps/desktop/src/kind-icons": ["frame-tabs.test.mjs"],
-    "apps/desktop/src/kinds": ["data-by-content.test.mjs","data-tree-budget.test.mjs","data-tree-cap.test.mjs","diff-file.test.mjs","elided-note.test.mjs","kind-at-open.test.mjs","kind-profiles.test.mjs","kinds-cursor.test.mjs","kinds-docs.test.mjs","kinds-media2.test.mjs","kinds-pack-media.test.mjs","kinds-rest.test.mjs","kinds-tables.test.mjs","log.test.mjs","table-lens.test.mjs","transcript-jsonl.test.mjs","transcript-lite.test.mjs","transcript.test.mjs"],
+    "apps/desktop/src/kinds": ["data-by-content.test.mjs","data-tree-budget.test.mjs","data-tree-cap.test.mjs","data-unreadable-large.test.mjs","diff-file.test.mjs","elided-note.test.mjs","kind-at-open.test.mjs","kind-profiles.test.mjs","kinds-cursor.test.mjs","kinds-docs.test.mjs","kinds-media2.test.mjs","kinds-pack-media.test.mjs","kinds-rest.test.mjs","kinds-tables.test.mjs","log.test.mjs","table-lens.test.mjs","transcript-jsonl.test.mjs","transcript-lite.test.mjs","transcript.test.mjs"],
     "apps/desktop/src/layout": ["command-scope.test.mjs","keys-table.test.mjs","layout-restore.test.mjs","layout-shift-window.test.mjs"],
     "apps/desktop/src/left": ["frame-book.test.mjs","left-doc.test.mjs","left-frame.test.mjs","left-out.test.mjs","left-search-big.test.mjs","left-work.test.mjs","open-in-folder.test.mjs","large-open-panel.test.mjs","outline-rows.test.mjs"],
     "apps/desktop/src/line": ["line.test.mjs"],
