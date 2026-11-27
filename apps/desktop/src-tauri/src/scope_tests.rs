@@ -147,7 +147,7 @@ fn reading_a_head_never_makes_a_file_servable() {
     read_head_in(&set, &t.s("inside/.env"), 8).unwrap();
     read_file_in(&set, &t.s("inside/a.md")).unwrap();
     // A root is the commands' only: `marxy-file://` serves neither, since no folder was scoped for a document.
-    let served = |rel: &str| file_scheme::resolve(&set, Path::new(&t.s(rel)));
+    let served = |rel: &str| served::resolve(&set, Path::new(&t.s(rel)));
     assert_eq!(served("inside/.env"), Err(Refusal::Outside));
     assert_eq!(served("inside/a.md"), Err(Refusal::Outside));
     open_file(&set, &t.s("inside/a.md"));
@@ -717,4 +717,108 @@ fn on_windows_a_short_name_outside_is_refused() {
         code(read_head_in(&set, &format!(r"{short}\secret.md"), 8)),
         "outside"
     );
+}
+
+/// `inside/d/a.md` judged by `judge`, then the folder `inside/d` swapped for a link to `inside/e`, which holds an
+/// `a.md` too: the open of the judged path lands on `inside/e/a.md`. The judged path, the handle, and where it landed.
+fn swapped_after_judging(
+    t: &Tree,
+    judge: impl FnOnce(&str) -> PathBuf,
+) -> (PathBuf, File, PathBuf) {
+    fs::create_dir_all(t.0.join("inside/d")).unwrap();
+    fs::create_dir_all(t.0.join("inside/e")).unwrap();
+    fs::write(t.0.join("inside/d/a.md"), b"judged\n").unwrap();
+    fs::write(t.0.join("inside/e/a.md"), b"elsewhere\n").unwrap();
+    let judged = judge(&t.s(&format!("inside{0}d{0}a.md", std::path::MAIN_SEPARATOR)));
+    fs::rename(t.0.join("inside/d"), t.0.join("inside/d-was")).unwrap();
+    assert!(
+        link_dir(&t.0.join("inside/e"), &t.0.join("inside/d")),
+        "could not make a link or a junction"
+    );
+    let file = File::open(&judged).unwrap();
+    let landed = dunce::canonicalize(&judged).unwrap();
+    (judged, file, landed)
+}
+
+#[test]
+fn a_handle_open_on_another_held_file_than_the_one_checked_is_refused() {
+    let t = Tree::new("swap-held");
+    let set = rooted(&t);
+    let (judged, file, landed) =
+        swapped_after_judging(&t, |raw| check(&set, raw, Need::Read).unwrap());
+    assert_ne!(spelling(&landed), spelling(&judged));
+    // Where the open landed is in scope as well, so judging only the landing would let it through.
+    assert!(holds(&set, &landed, Need::Read));
+    assert!(!handle_in(&set, &file, &judged, Need::Read));
+    assert!(!handle_is(&file, &judged));
+    let fair = File::open(&landed).unwrap();
+    assert!(handle_in(&set, &fair, &landed, Need::Read));
+    assert!(handle_is(&fair, &landed));
+}
+
+#[test]
+fn a_handle_open_on_another_served_file_than_the_one_resolved_is_refused() {
+    let t = Tree::new("swap-served");
+    let set = RwLock::new(OpenedSet::default());
+    let inside = t.0.join("inside");
+    set.write().unwrap().add_folder(&inside, inside.clone());
+    let (judged, file, landed) =
+        swapped_after_judging(&t, |raw| served::resolve(&set, Path::new(raw)).unwrap());
+    assert!(
+        set.read().unwrap().holds(&landed),
+        "where the open landed is served as well"
+    );
+    assert!(!served::handle_served(&set, &file, &judged));
+    let fair = File::open(&landed).unwrap();
+    assert!(served::handle_served(&set, &fair, &landed));
+}
+
+#[test]
+fn a_handle_on_a_file_outside_scope_is_refused_by_every_judgement() {
+    let t = Tree::new("handle-outside");
+    let set = rooted(&t);
+    set.write()
+        .unwrap()
+        .add_folder(&t.0.join("inside"), t.0.join("inside"));
+    let secret = t.0.join("outside/secret.md");
+    let file = File::open(&secret).unwrap();
+    assert!(!handle_in(&set, &file, &secret, Need::Read));
+    assert!(!served::handle_served(&set, &file, &secret));
+    // Asked about a path in scope, the handle is still where it was opened.
+    let a = t.0.join("inside/a.md");
+    assert!(!handle_in(&set, &file, &a, Need::Read));
+    assert!(!handle_is(&file, &a));
+    assert!(!served::handle_served(&set, &file, &a));
+}
+
+#[test]
+fn read_file_refuses_a_repository_probe_that_read_head_answers() {
+    // `read_file` judges its handle against the set, which a probe is not in; `read_head` judges the handle only
+    // against the path `check` admitted, so it answers the probe the index makes.
+    let t = Tree::new("probe-read");
+    fs::create_dir_all(t.0.join(".git")).unwrap();
+    fs::write(t.0.join(".git/HEAD"), b"ref: refs/heads/main\n").unwrap();
+    let set = RwLock::new(OpenedSet::default());
+    open_file(&set, &t.s("inside/a.md"));
+    let head = t.s(&format!(".git{}HEAD", std::path::MAIN_SEPARATOR));
+    assert!(check(&set, &head, Need::Read).is_ok());
+    assert!(read_head_in(&set, &head, 64).is_ok());
+    assert_eq!(code(read_file_in(&set, &head)), "outside");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_path_with_no_spelling_is_never_the_one_judged() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+    let odd = Path::new(OsStr::from_bytes(b"/tmp/\xff.md"));
+    assert!(!same_place(odd, odd));
+    assert!(same_place(Path::new("/tmp/a.md"), Path::new("/tmp/a.md")));
+    // Where the file system takes such a name (APFS does not), a handle on it is refused as well.
+    let t = Tree::new("unspelled");
+    let name = t.0.join(OsStr::from_bytes(b"\xff.md"));
+    if fs::write(&name, b"x").is_ok() {
+        let file = File::open(&name).unwrap();
+        assert!(!handle_is(&file, &name));
+    }
 }

@@ -10,7 +10,7 @@ use imagesize::{reader_size, ImageError};
 use serde::Serialize;
 
 use crate::error::ShellError;
-use crate::file_scheme::OpenedSet;
+use crate::scope::OpenedSet;
 use crate::scope::{self, Need};
 use std::sync::RwLock;
 
@@ -290,7 +290,7 @@ fn image_size_checked(
 ) -> Result<Option<ImageDimensions>, ShellError> {
     absolute(&path)?;
     let p = Path::new(&path);
-    let file = crate::file_scheme::open_unblocked(p).map_err(|e| {
+    let file = crate::scope::open_unblocked(p).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             ShellError::not_found(&path, format!("{path}: no such file"))
         } else {
@@ -312,18 +312,18 @@ fn image_size_checked(
         }
     };
     if matches!(measured, Ok(Some(_))) {
-        crate::file_scheme::open_measured_image(crate::file_scheme::opened(), &path);
+        crate::scope::served::open_measured_image(crate::scope::opened(), &path);
     }
     measured
 }
 
-/// Adds a folder, recursively, to what `marxy-file://` serves this session (src/file_scheme.rs).
+/// Adds a folder, recursively, to what `marxy-file://` serves this session (src/scope/served.rs).
 #[tauri::command]
 pub async fn allow_asset_scope(dir: String) -> Result<(), ShellError> {
     let probe = dir.clone();
     off_main_shell(&dir, move || {
         scope_directory(&probe)?;
-        crate::file_scheme::open_folder(&probe)
+        crate::scope::served::open_folder(&probe)
             .map(drop)
             .map_err(|_| ShellError::invalid(&probe, "not a folder that can be opened"))
     })
@@ -651,11 +651,12 @@ pub(crate) async fn off_main_shell<T: Send + 'static>(
     off_main(work).await.map_err(|e| ShellError::io(path, e))?
 }
 
-/// `read_file`'s body: a file in scope, its handle judged again once opened (a link swapped in meanwhile).
+/// `read_file`'s body: a file in scope, its handle judged again once opened: open on the file the check judged (a link
+/// swapped in meanwhile), and still held.
 pub fn read_file_in(set: &RwLock<OpenedSet>, path: &str) -> Result<Vec<u8>, ShellError> {
-    scope::check(set, path, Need::Read)?;
+    let canonical = scope::check(set, path, Need::Read)?;
     read_regular_file_checked(path, MAX_OPEN_BYTES, |file| {
-        scope::handle_in(set, file, Path::new(path), Need::Read)
+        scope::handle_in(set, file, &canonical, Need::Read)
     })
 }
 
@@ -750,7 +751,7 @@ pub(crate) fn stat_judged(path: String, canonical: &Path) -> Result<Option<FileS
 #[tauri::command]
 pub async fn image_size(path: String) -> Result<Option<ImageDimensions>, ShellError> {
     off_main_shell(&path.clone(), move || {
-        image_size_in(crate::file_scheme::opened(), path)
+        image_size_in(crate::scope::opened(), path)
     })
     .await
 }
@@ -758,7 +759,7 @@ pub async fn image_size(path: String) -> Result<Option<ImageDimensions>, ShellEr
 #[tauri::command]
 pub async fn read_dir(dir: String) -> Result<Vec<FileStat>, ShellError> {
     off_main_shell(&dir.clone(), move || {
-        read_dir_in(crate::file_scheme::opened(), dir)
+        read_dir_in(crate::scope::opened(), dir)
     })
     .await
 }
@@ -766,17 +767,14 @@ pub async fn read_dir(dir: String) -> Result<Vec<FileStat>, ShellError> {
 #[tauri::command]
 pub async fn real_path(path: String) -> Result<String, ShellError> {
     off_main_shell(&path.clone(), move || {
-        real_path_in(crate::file_scheme::opened(), path)
+        real_path_in(crate::scope::opened(), path)
     })
     .await
 }
 
 #[tauri::command]
 pub async fn stat_file(path: String) -> Result<Option<FileStat>, ShellError> {
-    off_main_shell(&path.clone(), move || {
-        stat_in(crate::file_scheme::opened(), path)
-    })
-    .await
+    off_main_shell(&path.clone(), move || stat_in(crate::scope::opened(), path)).await
 }
 
 #[cfg(test)]

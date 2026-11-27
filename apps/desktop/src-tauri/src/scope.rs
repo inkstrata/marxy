@@ -1,21 +1,27 @@
-//! What the path commands answer for: `read_file`, `read_head`, `read_dir`, `stat_file`, `real_path`, `image_size`,
-//! `detect_files`, `search_content`, the watches and the two writes. A path is in scope when it is a file the reader
-//! opened, or lies in a place the reader chose (a folder scoped for a document, an index root, a collection's folder,
-//! a folder picked in the picker), or in Marxy's own data and config folders. Reading a file never puts it in scope:
-//! only `mark_opened`, the launch arguments, a second launch, a drop and the pickers do, so what the index reads stays
-//! the index's and `marxy-file://` (src/file_scheme.rs) never serves a file because it was indexed. Writing is narrower
-//! than reading: a file the reader opened or named, a folder they picked, Marxy's own folders, and a new name beside an
-//! opened file; an index root, a theme folder or a folder scoped for a document is read-only.
+//! Which paths and handles the shell may touch, and for what: the one place that decides it. The opened set (src/scope/
+//! set.rs) records what the reader opened or chose; this module judges it for the path commands by `Need`, and
+//! src/scope/served.rs judges it for what a document may load (`marxy-file://` and the readers of a file the page
+//! shows). Every handle opened after a judgement is judged again here (`handle_on`), whichever rule admitted it.
 //!
-//! Judged the way `file_scheme::resolve` judges: by spelling first, so a path outside never reaches the disk (a share's
-//! name would be looked up with the reader's credentials); then canonical, so a `..`, a symlink or a junction that leads
-//! out is refused. A write is judged again by its folder's handle, held open through the write (`hold_parent`): on
-//! Windows the folder and those above it cannot be renamed or swapped for a junction while it is held. Every read judges
-//! the handle it opened, not the name: `read_file`, `read_head` (and `detect_files`, which reads through it),
-//! `image_size` and `stat_file` read from that handle, `read_dir` lists a folder it holds open (on Unix the listing is by
-//! name once the handle is judged), and `real_path` answers with the path the check judged rather than resolving it
-//! again. A database's `-wal` and `-shm` are judged the same way before SQLite may read them (src/tables/sqlite.rs).
-//! Paths compare by `file_scheme::spelling`: one separator, no verbatim prefix, and one case on Windows.
+//! The path commands: `read_file`, `read_head`, `read_dir`, `stat_file`, `real_path`, `image_size`, `detect_files`,
+//! `search_content`, the watches and the two writes. A path is in scope when it is a file the reader opened, or lies in
+//! a place the reader chose (a folder scoped for a document, an index root, a collection's folder, a folder picked in
+//! the picker), or in Marxy's own data and config folders. Reading a file never puts it in scope: only `mark_opened`,
+//! the launch arguments, a second launch, a drop and the pickers do, so what the index reads stays the index's and
+//! `marxy-file://` never serves a file because it was indexed. Writing is narrower than reading: a file the reader
+//! opened or named, a folder they picked, Marxy's own folders, and a new name beside an opened file; an index root, a
+//! theme folder or a folder scoped for a document is read-only.
+//!
+//! Judged as the served rule judges: by spelling first, so a path outside never reaches the disk (a share's name would
+//! be looked up with the reader's credentials); then canonical, so a `..`, a symlink or a junction that leads out is
+//! refused. A write is judged again by its folder's handle, held open through the write (`hold_parent`): on Windows the
+//! folder and those above it cannot be renamed or swapped for a junction while it is held. Every read judges the handle
+//! it opened, not the name, and the handle must be open on the very path the check judged: `read_file`, `read_head`
+//! (and `detect_files`, which reads through it), `image_size` and `stat_file` read from that handle, `read_dir` lists a
+//! folder it holds open (on Unix the listing is by name once the handle is judged), and `real_path` answers with the
+//! path the check judged rather than resolving it again. Content search judges each file it reads with `holds` before
+//! opening it. A database's `-wal` and `-shm` are judged the same way before SQLite may read them (src/tables/sqlite.rs).
+//! Paths compare by `spelling`: one separator, no verbatim prefix, and one case on Windows.
 //!
 //! The set is fed by the page, so it bounds what a document can make the page reach, not what a compromised page can.
 
@@ -25,7 +31,13 @@ use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
 use crate::error::ShellError;
-use crate::file_scheme::{self, push_folder, spelling, Folder, OpenedSet, Refusal};
+
+pub mod served;
+mod set;
+
+use set::held;
+pub(crate) use set::{canonical, plain, push_folder, spelling, Folder};
+pub use set::{opened, OpenedSet, Refusal};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Need {
@@ -263,10 +275,6 @@ impl OpenedSet {
     }
 }
 
-fn held(set: &RwLock<OpenedSet>, judge: impl FnOnce(&OpenedSet) -> bool) -> bool {
-    set.read().map(|s| judge(&s)).unwrap_or(false)
-}
-
 /// Whether `dir` (a key) is the nearest repository above some place the probe climbs from: no folder between holds a
 /// `.git`. A probe stops at the first repository it meets, as the index's own search does, so nothing further up is read.
 fn nearest_repository(starts: &[PathBuf], dir: &Path) -> bool {
@@ -290,12 +298,12 @@ fn resolved(raw: &Path, need: Need) -> Result<PathBuf, Refusal> {
         let (Some(parent), Some(name)) = (raw.parent(), raw.file_name()) else {
             return Err(Refusal::Outside);
         };
-        Ok(file_scheme::canonical(parent)?.join(name))
+        Ok(canonical(parent)?.join(name))
     };
     match need {
-        Need::Read | Need::List | Need::Folder => file_scheme::canonical(raw),
+        Need::Read | Need::List | Need::Folder => canonical(raw),
         Need::Create => beside(),
-        Need::Write => match file_scheme::canonical(raw) {
+        Need::Write => match canonical(raw) {
             Err(Refusal::NotFound) => beside(),
             other => other,
         },
@@ -347,59 +355,70 @@ pub fn check(set: &RwLock<OpenedSet>, raw: &str, need: Need) -> Result<PathBuf, 
 
 /// `check` against the session's set.
 pub fn admit(raw: &str, need: Need) -> Result<PathBuf, ShellError> {
-    check(file_scheme::opened(), raw, need)
+    check(opened(), raw, need)
 }
 
-/// Whether the file behind `file`, opened from `path`, is still in scope: a link swapped in between the check and the
-/// open would have led the open elsewhere.
-pub fn handle_in(set: &RwLock<OpenedSet>, file: &File, path: &Path, need: Need) -> bool {
+/// Whether `canonical`, as the canonical judgement spells it, is held for `need`: no disk is asked. For a caller that
+/// has already made sure what it opens is that very path, as content search does; a repository probe is not held.
+pub fn holds(set: &RwLock<OpenedSet>, canonical: &Path, need: Need) -> bool {
+    held(set, |s| s.holds_canonical(canonical, need))
+}
+
+/// Where `file`, opened from the canonical path `path`, is open, asked of the handle: on Windows the handle names its
+/// own path; on Unix the path is resolved again and must be the file the handle is open on, by device and inode. None
+/// when the handle cannot say. Every handle judgement starts here.
+fn handle_on(file: &File, path: &Path) -> Option<PathBuf> {
     #[cfg(windows)]
     {
         let _ = path;
-        file_scheme::final_path(file).is_some_and(|p| held(set, |s| s.holds_canonical(&p, need)))
+        final_path(file)
     }
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
-        let (Ok(opened), Ok(again)) = (file.metadata(), dunce::canonicalize(path)) else {
-            return false;
-        };
-        let same = std::fs::metadata(&again)
-            .is_ok_and(|m| m.dev() == opened.dev() && m.ino() == opened.ino());
-        same && held(set, |s| s.holds_canonical(&again, need))
+        let opened = file.metadata().ok()?;
+        let again = dunce::canonicalize(path).ok()?;
+        let named = std::fs::metadata(&again).ok()?;
+        (named.dev() == opened.dev() && named.ino() == opened.ino()).then_some(again)
     }
     #[cfg(not(any(windows, unix)))]
     {
         let _ = file;
-        held(set, |s| s.holds_canonical(path, need))
+        Some(path.to_path_buf())
     }
 }
 
+/// Whether two paths name one place, compared as the set compares keys. A path with no spelling (not UTF-8, say) is the
+/// same as nothing, itself included: the set could never have held it.
+fn same_place(a: &Path, b: &Path) -> bool {
+    let key = |p: &Path| spelling(&plain(p));
+    key(a).is_some_and(|k| key(b).as_ref() == Some(&k))
+}
+
+/// Whether `file` is open on `canonical`, the path a judgement admitted, and the set still admits where it is open by
+/// `judge`.
+pub(crate) fn handle_judged(
+    set: &RwLock<OpenedSet>,
+    file: &File,
+    canonical: &Path,
+    judge: impl FnOnce(&OpenedSet, &Path) -> bool,
+) -> bool {
+    handle_on(file, canonical)
+        .is_some_and(|on| same_place(&on, canonical) && held(set, |s| judge(s, &on)))
+}
+
+/// Whether `file`, opened from `canonical` (the path `check` judged), is open on that very file and the set still holds
+/// it for `need`: a link swapped in between the check and the open would have led the open elsewhere, and a place let go
+/// of meanwhile no longer answers. A repository probe is not held, so this refuses one; `handle_is` does not.
+pub fn handle_in(set: &RwLock<OpenedSet>, file: &File, canonical: &Path, need: Need) -> bool {
+    handle_judged(set, file, canonical, |s, on| s.holds_canonical(on, need))
+}
+
 /// Whether `file` is open on `canonical`, the path `check` judged: a link swapped in at the path, or onto a folder above
-/// it, between the check and the open would have led the open elsewhere. Narrower than `handle_in`, so it also holds for
-/// a repository probe, which `check` admits by more than the set.
+/// it, between the check and the open would have led the open elsewhere. It asks nothing of the set, so it also holds for
+/// a repository probe, which `check` admits by more than the set, and for a database's companions beside a held file.
 pub fn handle_is(file: &File, canonical: &Path) -> bool {
-    let key = |p: &Path| spelling(&file_scheme::plain(p));
-    #[cfg(windows)]
-    {
-        file_scheme::final_path(file)
-            .is_some_and(|p| key(&p).is_some() && key(&p) == key(canonical))
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        let (Ok(opened), Ok(again)) = (file.metadata(), dunce::canonicalize(canonical)) else {
-            return false;
-        };
-        let same = std::fs::metadata(&again)
-            .is_ok_and(|m| m.dev() == opened.dev() && m.ino() == opened.ino());
-        same && key(&again) == key(canonical)
-    }
-    #[cfg(not(any(windows, unix)))]
-    {
-        let _ = (file, key, canonical);
-        true
-    }
+    handle_on(file, canonical).is_some_and(|on| same_place(&on, canonical))
 }
 
 /// Opens a file or folder for reading so that, on Windows, it cannot be renamed, deleted or replaced while the handle is
@@ -419,7 +438,53 @@ pub fn open_held(path: &Path) -> std::io::Result<File> {
     }
     #[cfg(not(windows))]
     {
-        file_scheme::open_unblocked(path)
+        open_unblocked(path)
+    }
+}
+
+/// Opens `path` to read without waiting on it: a FIFO swapped in for a file would hold the open until a writer came
+/// (Unix). Every caller then checks the handle is a regular file.
+pub fn open_unblocked(path: &Path) -> std::io::Result<File> {
+    let mut options = File::options();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NONBLOCK);
+    }
+    options.open(path)
+}
+
+/// The path of the file a handle is open on, as the canonicalisation spells it.
+#[cfg(windows)]
+pub(crate) fn final_path(file: &File) -> Option<PathBuf> {
+    use std::ffi::{c_void, OsString};
+    use std::os::windows::ffi::OsStringExt;
+    use std::os::windows::io::AsRawHandle;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetFinalPathNameByHandleW(
+            file: *mut c_void,
+            path: *mut u16,
+            len: u32,
+            flags: u32,
+        ) -> u32;
+    }
+    let mut buf = vec![0u16; 512];
+    loop {
+        // SAFETY: the handle is open for as long as `file` is, and `buf` holds `buf.len()` u16s.
+        let n = unsafe {
+            GetFinalPathNameByHandleW(file.as_raw_handle(), buf.as_mut_ptr(), buf.len() as u32, 0)
+        } as usize;
+        if n == 0 {
+            return None;
+        }
+        if n < buf.len() {
+            let path = PathBuf::from(OsString::from_wide(&buf[..n]));
+            return Some(dunce::simplified(&path).to_path_buf());
+        }
+        buf.resize(n + 1, 0);
     }
 }
 
@@ -440,7 +505,7 @@ pub fn open_for_stat(path: &Path) -> std::io::Result<File> {
     }
     #[cfg(not(windows))]
     {
-        file_scheme::open_unblocked(path)
+        open_unblocked(path)
     }
 }
 
@@ -466,7 +531,7 @@ pub fn hold_parent(
     #[cfg(windows)]
     let (folder, at) = {
         let folder = open_held(parent).map_err(|e| ShellError::io(&shown, e.to_string()))?;
-        let at = file_scheme::final_path(&folder).ok_or_else(|| ShellError::outside(&shown))?;
+        let at = final_path(&folder).ok_or_else(|| ShellError::outside(&shown))?;
         (folder, at)
     };
     #[cfg(not(windows))]
@@ -512,7 +577,7 @@ pub fn open_file(set: &RwLock<OpenedSet>, raw: &str) {
 /// An existing folder that may be a place: never a drive's or a share's root.
 fn place(raw: &str) -> Result<PathBuf, ShellError> {
     crate::commands::fs::absolute(raw)?;
-    let c = file_scheme::canonical(Path::new(raw)).map_err(|_| ShellError::outside(raw))?;
+    let c = canonical(Path::new(raw)).map_err(|_| ShellError::outside(raw))?;
     if !c.is_dir() || c.parent().is_none() {
         return Err(ShellError::outside(raw));
     }
@@ -588,11 +653,11 @@ pub async fn mark_opened(
     let shown = path.clone();
     crate::commands::fs::off_main(move || {
         if indexed.unwrap_or(false) {
-            open_index_root(file_scheme::opened(), &path).map(drop)
+            open_index_root(opened(), &path).map(drop)
         } else if root.unwrap_or(false) {
-            open_root(file_scheme::opened(), &path).map(drop)
+            open_root(opened(), &path).map(drop)
         } else {
-            open_file(file_scheme::opened(), &path);
+            open_file(opened(), &path);
             Ok(())
         }
     })
@@ -605,7 +670,7 @@ pub async fn mark_opened(
 pub async fn forget_root(path: String) -> Result<(), ShellError> {
     crate::commands::fs::absolute(&path)?;
     let shown = path.clone();
-    crate::commands::fs::off_main(move || drop_root(file_scheme::opened(), &path))
+    crate::commands::fs::off_main(move || drop_root(opened(), &path))
         .await
         .map_err(|e| ShellError::io(&shown, e))
 }
