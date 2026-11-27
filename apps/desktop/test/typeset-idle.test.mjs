@@ -7,8 +7,8 @@ import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { closeHarness, harnessBase, routeSkeleton } from './support/two-pane.mjs';
+import { frames, openBrowser, scrollSettled } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -91,7 +91,7 @@ async function openMarkdown(page, text) {
 }
 
 test('a page whose paragraphs are all set sets none again at rest or through a scroll down and back', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const opened = await openMarkdown(page, markdown(120));
@@ -101,7 +101,8 @@ test('a page whose paragraphs are all set sets none again at rest or through a s
     assert.ok(set > 100, `${set} of ${opened.paragraphs} paragraphs set`);
 
     await page.evaluate(WATCH);
-    await page.waitForTimeout(2000);
+    // The window the typesetter is watched through is counted in painted frames, not in time.
+    await frames(page, 120);
     const idle = await page.evaluate(() => window.__typesetWrites());
     assert.ok(idle.writes <= MOST_WRITES, `at rest the typesetter wrote ${idle.writes} times into ${idle.paragraphs} paragraphs`);
 
@@ -110,13 +111,14 @@ test('a page whose paragraphs are all set sets none again at rest or through a s
     const height = await page.evaluate(() => document.documentElement.scrollHeight);
     for (let y = 0; y < height; y += 600) {
       await page.mouse.wheel(0, 600);
-      await page.waitForTimeout(16);
+      await frames(page, 1);
     }
     for (let y = height; y > 0; y -= 1200) {
       await page.mouse.wheel(0, -1200);
-      await page.waitForTimeout(16);
+      await frames(page, 1);
     }
-    await page.waitForTimeout(1500);
+    await scrollSettled(page);
+    await frames(page, 90);
     const scrolled = await page.evaluate(() => window.__typesetWrites());
     assert.ok(scrolled.writes <= MOST_WRITES, `through the scroll the typesetter wrote ${scrolled.writes} times into ${scrolled.paragraphs} paragraphs`);
   } finally {
@@ -128,7 +130,7 @@ test('a page whose paragraphs are all set sets none again at rest or through a s
 // screen first shows them, and leaves most of its margin to the queue. A screen and a half back up at once, those
 // paragraphs of the margin are on screen before the idle chunks can have set them: they are set as they arrive.
 test('End on a large page still being set, then back up: the paragraphs on screen are set within two frames', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await openMarkdown(page, markdown(1024));

@@ -2,7 +2,7 @@
   "_note": "Maps changed paths to the browser test files (apps/desktop/test) that cover them; `pnpm verify` reads it. A key is a folder (longest prefix wins); apps/desktop/src alone is the files directly in src. An empty list means covered by other checks (unit tests, cargo, docs). `fallback` runs when a changed path has no key; every browser test file must appear in some entry, and `--tier full` runs them all regardless. `node scripts/verify.mjs --check-map` lists stale names, unlisted test files and unmapped source folders.",
   "fallback": ["app-harness.test.mjs","view-lifecycle.test.mjs","view-modes.test.mjs","paint-signal.test.mjs","settings.test.mjs"],
   "map": {
-    "apps/desktop/src": ["app-harness.test.mjs","app-page-keys.test.mjs","close-guard.test.mjs","close-joins.test.mjs","data-loss.test.mjs","paint-signal.test.mjs","save-as-onto-open.test.mjs","save-close.test.mjs","save-trust.test.mjs","save.test.mjs","import-cycles.test.mjs","lifetimes.test.mjs"],
+    "apps/desktop/src": ["app-harness.test.mjs","app-page-keys.test.mjs","close-guard.test.mjs","close-joins.test.mjs","data-loss.test.mjs","paint-signal.test.mjs","save-as-onto-open.test.mjs","save-close.test.mjs","save-trust.test.mjs","save.test.mjs","import-cycles.test.mjs","lifetimes.test.mjs","kit.test.mjs"],
     "apps/desktop/src-tauri": [],
     "apps/desktop/src/changes": ["changes.test.mjs","close-joins.test.mjs"],
     "apps/desktop/src/collection": ["collection.test.mjs","index-service.test.mjs"],

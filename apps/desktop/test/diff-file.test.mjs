@@ -8,8 +8,8 @@ import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { bootTwoPanes, closeHarness, harnessBase, routeSkeleton } from './support/two-pane.mjs';
+import { openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -25,7 +25,7 @@ const crlf = '--- a/x.txt\r\n+++ b/x.txt\r\n@@ -1,3 +1,3 @@\r\n keep\r\n-gone\r\
 const files = { '/r/change.diff': fixture, '/r/fix.patch': crlf, '/r/note.md': '# Note\n\nSome words to read.\n' };
 
 async function withPage(fn, { width = 1280, height = 900 } = {}) {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width, height } });
     await fn(page);

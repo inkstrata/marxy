@@ -41,7 +41,7 @@ checks another one).
 CI (`.github/workflows/ci.yml`) runs this tool and nothing of its own, in two jobs, and a third, `ci` (the check branch
 protection requires), passes when both do. A pull request runs `--tier changed`, so it pays only for the suites its diff
 touches; a push to `main` runs `--tier full`. Both leave out `browser` and `tauri` with `--skip` (the browser suite takes
-two hours on a hosted runner and 14 of its files fail there; `work/todo.md`, M4/M5). macOS also skips
+two hours on a hosted runner and 14 of its files fail there). A pull request also runs the browser smoke set, a job of its own (see "Tests that wait for conditions"). macOS also skips
 `unit-desktop-browser`, whose first WebKit boot misses its budget on a hosted macOS runner (Windows runs it), and runs
 the release build on `main` only; Windows skips the build. A manual run takes any tier on Windows, browser suite
 included. Each job uploads its step logs as an artifact.
@@ -147,9 +147,37 @@ node --test --test-concurrency=1 --experimental-strip-types test/save.test.mjs
 - For a wider run, three files at a time (`--test-concurrency=3`) in batches that finish within about
   ten minutes; many files at once starve each other and time out. Do not edit app source while browser
   tests run: the dev server serves the source live and the builds are made from it.
-- `test/support/` holds the helpers: `two-pane.mjs` (start the harness, boot panes), `frame.mjs` (tab,
+- `test/support/` holds the helpers: `kit.mjs` (the shared kit, below), `two-pane.mjs` (start the harness, boot panes), `frame.mjs` (tab,
   panel and card readers), `store-walk.mjs` (a seeded random walk over the document store), stubs that
   run `src/shell/tauri.ts` under Node.
+
+### Tests that wait for conditions: `test/support/kit.mjs`
+
+A browser test a hosted runner must pass waits for what the reader would see or the app announces, never for a number of
+milliseconds. The kit holds what such a test needs:
+
+| Need | Kit |
+| --- | --- |
+| One browser per file, a context per test | `withApp({ files, open }, (page, app) => …)` boots the app (`bootApplication` on the shipped skeleton over the memory shell) in a fresh context of the file's one browser and waits for the first document to be complete. A test that makes its own pages uses `openBrowser()` where it used `launchWebkit()`: the same `newPage` and `close`, over the shared browser. `closeKit` runs by itself when the file ends |
+| Wait for a condition | `until(page, fn, arg)` (polled on animation frames, 60 s ceiling), `present` / `absent` (an element), `markSeen(page, name)` (a startup mark of `scripts/registry.json` the shell was told), `contentComplete`, `typesetIdle` |
+| Wait for motion to stop | `scrollSettled` (the scroll position held for six frames), `quiet` (nothing under a root changed for thirty frames), `idle` (nothing under `<body>` changed for twelve: the step after an action that should change nothing), `frames(page, n)` (painted frames, for a window a test observes through) |
+| Read what the reader sees | `sees` (title, mode, paths, headings, text, tabs, notices), `textsOf`, `fileText` |
+| Timings | `recordTiming(name, ms)` prints `# timing …` and, with `MARXY_TIMINGS=<file>`, appends a JSON line; `holdBudget(assert, name, ms, limit)` records and fails above `limit` times `MARXY_BUDGET_SCALE` |
+
+Rules for a test that uses it:
+
+- No `waitForTimeout` and no timer wait. If nothing observable names the moment, wait for the window to go quiet (`idle`,
+  `quiet`), or add a test hook and register it in `scripts/registry.json`.
+- A timing is recorded. It fails a test only when the budget is what the test is for, and then its limit is set so far
+  above a hosted runner's time that only a real slowdown crosses it.
+- A debounce or a timer the app itself runs (a save after 500 ms, a polling interval) is the thing under test: such a
+  file keeps its clock and stays out of the smoke set.
+
+`scripts/browser-smoke.json` lists the files a pull request runs on a hosted macOS runner (the `browser-smoke` job in
+`ci.yml`, `--jobs 2`, `MARXY_BROWSER_TESTS_REQUIRED=1`; its timings are uploaded as an artifact).
+`scripts/browser-smoke.test.mjs` fails when a listed file is gone, is in no map entry, sleeps, or launches its own
+browser. A file joins the list once it has passed on the hosted runner three runs in a row; the rest of the suite
+(`pnpm verify --tier full`) is converted a slice at a time.
 
 Size and seed knobs for the heavier tests:
 

@@ -10,8 +10,8 @@ import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from './support/shared-vite.mjs';
 import { contentHash } from '@marxy/core';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { fileURLToPath } from 'node:url';
+import { idle, openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -98,7 +98,7 @@ after(() => server?.close());
 
 /** Boots A with the palette mounted and B in the palette's index; the handle is `window.__h`. */
 async function withApp(fn) {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
     await page.goto(`${base}test/palette-boot.html`);
@@ -181,11 +181,11 @@ test('open with `at` inside B\'s third heading lands on that heading after types
   withApp(async (page) => {
     await page.evaluate((at) => window.__h.open('/r/B.md', { at }), thirdHeading + 4);
     // Background typesetting and its coalesced grid passes run after open returns.
-    await page.waitForTimeout(600);
+    await idle(page);
     const at = await page.evaluate(() => window.__h.sourceHarness().byteOffset);
     // A narrower column re-breaks every paragraph above the heading; the anchor holds it.
     await page.setViewportSize({ width: 620, height: 760 });
-    await page.waitForTimeout(800);
+    await idle(page);
     const afterResize = await page.evaluate(() => window.__h.sourceHarness().byteOffset);
     assert.ok(afterResize >= thirdHeading && afterResize < thirdHeadingEnd, `after resize: reading offset ${afterResize}`);
     assert.ok(at >= thirdHeading && at < thirdHeadingEnd, `reading offset ${at}, heading ${thirdHeading}-${thirdHeadingEnd}`);
