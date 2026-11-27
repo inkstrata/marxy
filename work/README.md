@@ -11,7 +11,7 @@ outside this folder. Nothing in `apps/`, `packages/`, `scripts/` or `docs/` refe
 | `todo.md` | the tracker: open work in sections (Next, To try in a real window, Waiting on the owner, Later, Housekeeping) | every branch that takes, finishes or adds a row |
 | `STATE.md` | where `main` stands now: what the app does, platforms, latest verify, performance, open work, risks | rewritten by the branch that lands a run |
 | `ledger.md` | one row per landing, oldest first: date, run, pull request or commit, what changed for the reader, verify | appended by the branch that lands a run |
-| `runs/<date>-<kind>-<nn>/` | one orchestration run (a `wave` or a `round`): the branches cut together, built, reviewed and landed as one | the run's orchestrator |
+| `runs/<date>-<kind>-<nn>/` | one orchestration run (a `wave` or a `round`): the branches cut together, built, reviewed and landed as one; or a `hunt`: a bug-catch cycle whose output is tracker rows | the run's orchestrator |
 | `reports/<date>-<slug>/` or `reports/<date>-<slug>.md` | evaluations, plans, handoffs, spikes and reviews that are not one run | whoever wrote it |
 | `questions/<date>-<slug>/` | a set of questions for the owner (`pnpm work ask`) and the answers | `pnpm work ask` and the owner |
 
@@ -25,6 +25,21 @@ outside this folder. Nothing in `apps/`, `packages/`, `scripts/` or `docs/` refe
 | `logs/` | verify and measurement logs, as text; a step-per-file verify run keeps its `verify-full-logs*/` folder |
 | `records/` | measurement output (`interactions-*.json`, startup and perf records) and saved patches |
 | `tools/` | small scripts the run used to drive itself (a verify queue, a measurement patch) |
+
+### Inside a hunt folder
+
+A hunt is the bug cycle: catchers append candidate findings, verifiers who did not catch them append a
+verdict for each, and the orchestrator triages the verified ones into `todo.md` rows. The steps are the
+`bug-catch`, `bug-verify` and `bug-triage` skills in `.claude/skills/`; the block format is
+`.claude/skills/bug-catch/format.md`.
+
+| Path | What it holds |
+| --- | --- |
+| `README.md` | the hunt's account: domains, the owner's reports, counts of findings, verdicts and rows, what was not reached |
+| `findings.md` | append-only: one block per candidate finding, written only through `.claude/skills/bug-catch/finding.mjs` |
+| `verification.md` | append-only: one verdict block per finding, through the same helper |
+| `triage.md` | every finding's outcome: the row it became, the row it merged into, or why it was dropped |
+| `briefs/`, `probes/<PREFIX>/` | the brief each agent was given; the scenarios, probe tests and output behind each finding and verdict |
 
 ## Rules
 
