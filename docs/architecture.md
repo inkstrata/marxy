@@ -115,6 +115,15 @@ heading, which the parse has already bounded. A web page's title is read in one
 pass from its first `<title>`, and its tags are taken out in one pass, so a page of unclosed titles or a title of `<` is
 linear.
 
+Lines of text are bounded by their length as well as their count. A paste is judged to be Markdown, or JSON to fence,
+by one forward pass over each line of its first 4 MB (`PASTE_LOOK_CHARS`, counted with a budget), with no pattern that
+backtracks, so one line of spaces or `[` is as cheap as any other; a longer paste is read to that point only and is never
+fenced as JSON, since the whole of it would have to be parsed to know, and it goes in as text. A JSON Lines record is
+parsed to 1 MB (`READING_MAX_RECORD`); a longer one is not read past its first bytes, and its row says its size and
+shows its head. Cut rows are counted apart from lines that are not records (the first line says "1 record cut"), they
+sort last and Export leaves them out as unreadable rows are, and they are not records for deciding that a file is JSON
+Lines at all: a file with fewer than two records under the limit is shown line by line as written.
+
 ## Documents, edits and saves
 
 - **One store per path** (`apps/desktop/src/document/store.ts`, registry in `document/registry.ts`). A

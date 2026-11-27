@@ -149,3 +149,26 @@ test('Saving a long file as a web page stays quick, and the page answers a key r
     assert.match(await fileText(page, '/out/long.html'), /Section 599/);
   });
 });
+
+test('Print to a PDF keeps its print rules until the system says the print is over', async () => {
+  await withFrame({ files: FILES, open: [PLAN] }, async (page) => {
+    await openExport(page);
+    await choose(page, 'pdf');
+    // The sheet may draw after print() returns, so the page must still wear its rules then.
+    await page.evaluate(() => {
+      window.__printCalls = 0;
+      window.__sheets = document.adoptedStyleSheets.length;
+      window.print = () => {
+        window.__printCalls++;
+      };
+    });
+    await page.click('.marxy-drawer .marxy-l-btns .marxy-l-pri');
+    await page.waitForFunction(() => window.__printCalls === 1);
+    const worn = (p) => p.evaluate(() => ({ attr: 'marxyPrint' in document.documentElement.dataset, sheets: document.adoptedStyleSheets.length - window.__sheets, pane: !!document.querySelector('[data-marxy-print-pane]') }));
+    assert.deepEqual(await worn(page), { attr: true, sheets: 1, pane: true });
+    await page.waitForTimeout(2000);
+    assert.deepEqual(await worn(page), { attr: true, sheets: 1, pane: true }, 'still worn 2 s after print() returned');
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    assert.deepEqual(await worn(page), { attr: false, sheets: 0, pane: false });
+  });
+});

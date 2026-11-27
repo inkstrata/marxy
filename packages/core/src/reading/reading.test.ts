@@ -327,3 +327,16 @@ test('setsPlainReading says whether readingOf sets verse, prose or as written, w
     }
   }
 });
+
+test('JSON Lines with a record past the bytes read: the head line says it was cut, and the other records read', () => {
+  const big = `{"k":"${'x'.repeat(1024 * 1024 + 5)}"}`;
+  const r = readingOf('big.jsonl', enc(`{"a":1}\n${big}\n{"a":2}\n`), 'data');
+  assert.equal(r?.id, 'records');
+  assert.match(r?.html ?? '', /1 record cut/);
+  assert.match(r?.html ?? '', /marxy-records-bad[^>]*>.*line 2: record of 1\.0 MB/);
+});
+
+test('a file with fewer than two records under the limit is not JSON Lines, however many are over it', () => {
+  const big = `{"k":"${'x'.repeat(1024 * 1024 + 5)}"}`;
+  assert.notEqual(readingOf('all-big.jsonl', enc(`${big}\n${big}\n{"a":1}\n`), 'data')?.id, 'records');
+});
