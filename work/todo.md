@@ -16,10 +16,31 @@ checkout, and none is on GitHub yet (row M1).
 | # | What | Why | Size | Branch |
 | --- | --- | --- | --- | --- |
 | M1 | Push the Windows checkout's unlanded branches to GitHub as `agent/<name>`: round 16's integration (`1f141eb1`: `budgets-4`, `budgets-5`, `teardown-2`), wave 5's (`0a9eeb68`: `geometry-table`, `near-typeset`), `web-shell` and `open-with`; rebase each on `main` | That work exists on one disk only; `main` here is wave 4 | S | |
-| M2 | Run the app on macOS by hand: open the demo files, Read and Source, save, the window and the menu | The import built and passed its checks on macOS, but no person has used the Mac build | S | |
+| M2 | Run the app on macOS by hand, on the release dry-run DMG: the checklist in `reports/2026-11-26-release-readiness/README.md`, step 5 (opening from Finder and the Dock, the demo tour, Cmd keys, quits with an unsaved edit, light and dark, full screen, a tagged and an iCloud file) | The import built and passed its checks on macOS, but no person has used the Mac build | S | |
 | M3 | First Linux build and run (Linux CI runner and a desktop) | Never built on Linux; `cfg(unix)` paths such as the save sweep have run nowhere | M | |
 | M4 | 14 browser test files fail on macOS WebKit, alone as well as in the suite (2026-11-26): capability (`frame-fonts`, `frame-media`, `frame-viewers`: macOS WebKit draws or plays what Windows WebKit could not), layout and metrics (`page-states`, `splice-all`, `source-fold-stale`, `source-structure`, `paste-source`, `leave-split`, `demo-tour`), timing (`large-open-panel`, `markdown-lines`, `tail-follow`, `frame-pdf`). Logs in `runs/2026-11-26-import/` | The suite has only ever been green on Windows; CI runs it there until these pass, then adds `browser` to the macOS job | M | |
 | M5 | 14 browser test files fail on a hosted Windows runner (GitHub's `windows-latest`, 2026-11-26), all green on the Windows desktop: timing budgets (`archive-page`, `data-tree-budget` ×2, `left-search-big`, `paragraph-restyle`, `large-open-panel`, `progressive-large`, `frame-pdf`, `tail-follow`), layout or environment (`demo-tour`, `frame-viewers`, `source-place`, `reading-rows`: a ResizeObserver warning, `operations-copy`: a drag fetched two grammar chunks, `pane-close-guard`). Five overlap M4 (`demo-tour`, `frame-viewers`, `frame-pdf`, `large-open-panel`, `tail-follow`). The suite took 103 minutes there. Logs in `runs/2026-11-26-import/logs/verify-ci-windows-*` | CI runs no browser suite until these pass on a hosted runner (or the budgets scale with the machine); a person runs it on a Windows desktop | M | |
+
+## Release
+
+The first tag of the reader architecture: v0.2.0, a macOS pre-release. The plan, its order and gates, and the
+investigation behind these rows are in `reports/2026-11-26-release-readiness/`. M1, M2 and round 16 (P11, P12, F24)
+are part of it; R10 and R11 block the tag only if they turn out real.
+
+| # | What | Why | Size | Branch |
+| --- | --- | --- | --- | --- |
+| R1 | CI on `main` is red on macOS: the first test of `apps/desktop/src/source/frame.test.mjs` times out on every hosted run. A cold Vite cache found the highlight worker's grammars only when a page first coloured code and re-bundled mid-run; pages booting then never mounted Source | Nothing can be shown green, and every pull request is blocked | S | `mac-installer` |
+| R3 | A Dock Quit, a logout or an Apple-event quit on macOS exits at once, without the unsaved-changes prompt: the run closure in `src-tauri/src/main.rs` has no `ExitRequested` arm, so only the menu's Quit and the close box ask | A reader can lose an edit; `docs/using-marxy.md` promises otherwise | S | |
+| R4 | macOS file associations: the "Source and text" group claims Default rank for about 60 extensions (json, html, xml, css among them); Markdown has no UTI; PDFs, images, archives and documents are not offered in Open With at all | Marxy should be offered for what it reads, not take double-click from other apps | S | |
+| R5 | The version is still 0.1.0, which the earlier architecture shipped: set 0.2.0 in `tauri.conf.json`, `src-tauri/Cargo.toml`, `Cargo.lock` and `apps/desktop/package.json` | The tag, the DMG name and the About box must agree | S | |
+| R6 | Release notes and a README "Install a release" section: macOS 13 or later, Apple silicon only, not notarised (Open Anyway, or `xattr -dr com.apple.quarantine`), what is new since v0.1.0, known limits | The release body's one instruction, "right-click, Open", no longer works on macOS 15 and later; there is no changelog | S | |
+| R7 | `release.yml` checks the tag against the version, requires `ci` green on the tagged commit, and runs `codesign --verify` and `gate:bundle` before it publishes | A tag on a red `main` would publish, and a failing gate leaves a published release | S | |
+| R8 | `LICENSE` and the third-party notices are not in the bundle (`tauri.conf.json` has no `bundle.resources`) | MIT and OFL notices must travel with the binary | S | |
+| R9 | Dry run of `release.yml` by `workflow_dispatch` on the version branch: size, seal and notices of the artifact, then install from a download on a clean account | The workflow has not run since v0.1.0 | S | |
+| R10 | Leaving Split loses the reading place on macOS WebKit (`leave-split`: offset 2021 became 0): a real loss or a test that reads too early? | A reader would lose their place | S | |
+| R11 | After a fold or a paste in Source, the page differs from a fresh render on macOS WebKit (hanging-punctuation spans in one and not the other; `source-fold-stale`, `paste-source`): real or compared too early? | It could be a stale page | S | |
+| R12 | The macOS pasteboard test has never run: `cargo test -- --ignored pasteboard_live` | Copy as HTML, RTF and text to other apps is unproved on a Mac | S | |
+| R13 | A 1 MB Markdown file takes about 78 s to open (Windows: the progressive mount lays out per chunk); never measured on macOS | Long files are a stated use | M | |
 
 ## Next
 
@@ -46,6 +67,8 @@ checkout, and none is on GitHub yet (row M1).
 
 | # | What | Where |
 | --- | --- | --- |
+| R2 | Disable the `nightly` workflow: deleted from `main` by the import, it is still scheduled from an old commit and fails every day (`gh workflow disable nightly -R inkstrata/marxy`) | GitHub, Actions |
+| R14 | Decide the release: v0.2.0, a pre-release, round 16 before the tag, wave 5 after it, the file-association set, ad-hoc signing for now | `reports/2026-11-26-release-readiness/README.md`, "Decisions for the owner" |
 
 ## Later
 
@@ -59,12 +82,20 @@ checkout, and none is on GitHub yet (row M1).
 | P5 | `one-view`: split the view's main function and route keys once | See S9 | L, gradual |
 | P6 | `invites`: `.ics` and `.vcf` as cards; the usable parser is MPL or large | Held | S |
 | P7 | `read-aloud`: the page read by a local Windows voice | Held | M |
+| R15 | iCloud Drive placeholder ("dataless") files are not recognised: a read, the index walk or a save may stall while the file downloads | Unverified; try it in M2 | S |
+| R16 | Every save on macOS gives the file a new creation date (the replace is a new inode) | Finder's "Created" resets | S |
+| R17 | Browser files on macOS overran their waits by minutes (`frame-media`, `frame-viewers`, `frame-pdf`); the runs coincided with the laptop sleeping, so re-run them held awake (`caffeinate -i`) before calling any of it a hang | Settles whether the browser suite can join the macOS CI job (M4) | S |
+| R18 | Round 16's review residue: the held-open queues are unbounded while no boot listens, a live open can land before older held batches, pastes over 4 MB paste as text, a file of only over-long records is no longer JSON Lines (`runs/2026-11-24-round-16/README.md`) | After round 16 lands | S |
+| R19 | Waves 1 to 4 residue: the warm store is lost after a same-tab link and Back and after a cross-file replace; `typeset-view`'s block-list patch applies in about half the cases (`STATE.md`, "Risks") | Speed, not correctness | S |
+| R20 | The mail and HTML viewers log two console errors each ("Blocked script execution in 'about:srcdoc'") | Noise that hides real errors | S |
+| R21 | macOS startup has never been measured (Windows: 774 ms median to first text) | For the release notes, not a gate | S |
 
 ## Housekeeping
 
-Both rows are about the Windows machine's workspace, not this repository.
+About the machines' workspaces, not this repository: H4 and H5 the Windows machine, H6 the Mac.
 
 | # | What | State |
 | --- | --- | --- |
 | H4 | `worktrees\furniture` and `worktrees\shortcuts` could not be deleted (a file in each held open) | Retry after a restart |
 | H5 | `worktrees\exe` holds another session's uncommitted `hex.ts` and `frame.css` edits on `a6032b26`, so the installer script refuses it | That session's to clear |
+| H6 | About 570 worktrees beside the Mac checkout are from the earlier architecture, 93 with uncommitted edits, and its main checkout holds 345 untracked files under `orchestration/` | After the tag: a patch per dirty worktree, then remove; every branch is tagged `archive/branch/<name>`; never `git clean` the checkout |
