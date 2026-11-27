@@ -14,7 +14,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { accessSync, constants, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, delimiter, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const APP = 'Marxy.app';
@@ -58,18 +58,20 @@ export function buildFolderName(date, sha) {
   return `${date.getFullYear()}${p(date.getMonth() + 1)}${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}-${sha}`;
 }
 
+// The path helpers below use POSIX rules: they describe macOS paths, and their tests also run on Windows.
+
 /** Where to install: `--dest`, else /Applications when Marxy is already there or it is writable, else ~/Applications. */
 export function pickDest(dest, { home = homedir(), exists = existsSync, writable = isWritable } = {}) {
-  if (dest) return resolve(dest);
-  if (exists(join('/Applications', APP)) || writable('/Applications')) return '/Applications';
-  return join(home, 'Applications');
+  if (dest) return posix.resolve(dest);
+  if (exists(posix.join('/Applications', APP)) || writable('/Applications')) return '/Applications';
+  return posix.join(home, 'Applications');
 }
 
 /** Where the `marxy` command goes: `--cli-dir`, else ~/.local/bin when it is on the PATH, else nowhere (null). */
 export function pickCliDir(cliDir, { home = homedir(), path = process.env.PATH ?? '' } = {}) {
-  if (cliDir) return resolve(cliDir);
-  const local = join(home, '.local', 'bin');
-  return path.split(delimiter).some(d => d && resolve(d) === local) ? local : null;
+  if (cliDir) return posix.resolve(cliDir);
+  const local = posix.join(home, '.local', 'bin');
+  return path.split(posix.delimiter).some(d => d && posix.resolve(d) === local) ? local : null;
 }
 
 /** The `marxy` command: opens its arguments in the installed app through Launch Services, as Finder would. */
