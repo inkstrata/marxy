@@ -28,6 +28,12 @@ it is; file paths are relative to the repository root.
 | [Testing and checks](testing.md) | test layers, `pnpm verify`, the real-window check, `pnpm check`, gates, fixtures, measurement tools |
 | [Working on Marxy](working.md) | the workspace around the checkout, the tracker, the cycle from picking work to clearing its worktree, pictures of a change, `pnpm work` |
 
+## Releases
+
+| Document | Covers |
+| --- | --- |
+| [0.2.0](releases/0.2.0.md) | the first release of this code base: macOS on Apple silicon, how to install it, known limits |
+
 ## Research behind the design
 
 | Folder | Holds |
