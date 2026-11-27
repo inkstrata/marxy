@@ -7,6 +7,7 @@
 import { inlineText, type Block, type Inline, type OfficeDoc, type Run } from './model.ts';
 import { maxOf } from '../util/spread.ts';
 import { figure } from '../util/budget.ts';
+import { utf8Length } from '../util/count.ts';
 
 export interface OfficeMarks {
   /** A comment or speaker notes: the Markdown bytes its blocks were written to. */
@@ -76,20 +77,6 @@ const PUNCT = /[!#$&()*+\-.:<=>@[\\\]^_`{|}~]/g;
 export function escapeText(s: string): string {
   return s.replace(/[\r\n\t\v\f]+/g, ' ').replace(PUNCT, (c) => (c === '|' ? '&#124;' : `\\${c}`));
 }
-
-const utf8Length = (s: string): number => {
-  let n = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    if (c < 0x80) n += 1;
-    else if (c < 0x800) n += 2;
-    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length) {
-      n += 4;
-      i++;
-    } else n += 3;
-  }
-  return n;
-};
 
 const sameLook = (a: Run, b: Run): boolean => !!a.b === !!b.b && !!a.i === !!b.i && !!a.s === !!b.s && !!a.code === !!b.code && !!a.sub === !!b.sub && !!a.sup === !!b.sup;
 
