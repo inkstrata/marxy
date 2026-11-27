@@ -107,3 +107,21 @@ test('Save… writes where the save dialog says, as HTML or as the file\'s own b
     assert.equal(await fileText(page, '/out/plan copy.md'), TEXT);
   });
 });
+
+test('Saving a long file as a web page stays quick, and the page answers a key right after', async () => {
+  const long = Array.from({ length: 600 }, (_, i) => `## Section ${i}\n\nParagraph ${i} with some *words* and a [link](x.md) to read.\n`).join('\n');
+  await withFrame({ files: { '/r/long.md': long }, open: ['/r/long.md'] }, async (page) => {
+    await openExport(page);
+    await page.evaluate(() => window.__marxyHandle.shell.queueSaveDialog('/out/long.html'));
+    const t = await page.evaluate(async () => {
+      const wrote = () => window.__marxyHandle.shell.calls.some((c) => c.method === 'writeFileAtomic' && c.args[0] === '/out/long.html');
+      const start = performance.now();
+      document.querySelector('.marxy-drawer .marxy-l-btns .marxy-l-pri').click();
+      while (!wrote()) await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => { document.addEventListener('keydown', r, { once: true }); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'j' })); });
+      return performance.now() - start;
+    });
+    assert.ok(t < 2000, `the save and a key press took ${Math.round(t)} ms`);
+    assert.match(await fileText(page, '/out/long.html'), /Section 599/);
+  });
+});
