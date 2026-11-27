@@ -1,18 +1,21 @@
 ---
 name: bug-catch
-description: Use when the owner asks for a bug hunt, a bug-catch fleet or cycle, "find bugs in X", or reports a bug to fold into a hunt in Marxy. Starts a hunt run, sends parallel Sonnet catchers across separate domains of the app, each appending findings to one shared file, then hands the file to bug-verify and bug-triage.
+description: Use when the owner asks for a bug hunt, a bug-catch fleet or cycle, "find bugs in X", or reports a bug to fold into a hunt in Marxy. Starts a hunt run, plans its axes (areas, past-bug causes, rules, input shapes), sends one Sonnet catcher per axis in parallel, each appending findings to one shared file, hands the file to bug-verify and bug-triage, and runs further rounds while new axes keep finding bugs no other axis found.
 ---
 
 # Bug catch: the first step of the bug cycle
 
 The cycle has three steps, each its own skill, and one file the steps add to:
 
-1. **Catch** (this skill): Sonnet catchers, one per domain, run in parallel and append candidate findings
-   to `findings.md`.
+1. **Catch** (this skill): an axis plan, then Sonnet catchers, one per axis, run in parallel and append
+   candidate findings to `findings.md`.
 2. **Verify** (`bug-verify`): Sonnet verifiers who did not catch them try to reproduce each finding and
    append a verdict to `verification.md`.
 3. **Triage** (`bug-triage`): the orchestrating session turns confirmed findings into ready rows in
    `work/todo.md`, and the hunt lands as one pull request.
+
+A hunt runs in rounds: plan, catch, verify, read the yield, and plan again from it, until a round stops
+finding bugs that only one axis found (section 5). Triage runs once, after the last round.
 
 The file format, the severities and the append helper are in [format.md](format.md). Read it first.
 
@@ -23,23 +26,38 @@ git fetch
 pnpm work start hunt-<nn> --from origin/main     # <nn>: the next hunt number in work/runs, two digits
 ```
 
-In the worktree make `work/runs/<date>-hunt-<nn>/` with `README.md` (goal, domains, the owner's reports),
+In the worktree make `work/runs/<date>-hunt-<nn>/` with `README.md` (goal, the owner's reports),
 `findings.md` (a heading and one line: "Append-only. Write through .claude/skills/bug-catch/finding.mjs."),
 `verification.md` (the same), `briefs/` and `probes/`. Commit it, so every catcher starts from one tree.
 
 **Owner reports come first, and keep coming.** A report the owner sends after the fleet has started is
-appended the same way and sent to the running catcher of its domain with `SendMessage`, with where it falls
+appended the same way and sent to the running catcher of its axis with `SendMessage`, with where it falls
 in that catcher's order; a freeze or data loss goes ahead of what the catcher was doing.
 
 **Owner reports, in order.** A bug the owner named ("the Export tab freezes the app") is written as a
 finding by the orchestrator before the fleet starts, `Confidence: low` until a probe shows it, `Found by:
-owner`. Give it to the catcher of its domain as lead number one.
+owner`. Give it to the catcher of the axis it belongs to as lead number one.
 
-## 2. Pick the domains
+## 2. Plan the axes
 
-Four to six per hunt, from the table, chosen for what changed lately (`git log --since`), what the owner
-reported, and what earlier hunts did not cover (their `README.md`). Each domain has a prefix that only its
-catcher writes, which is what keeps the ids from colliding.
+An axis is what one catcher looks for and where; the format is under "Axes" in [format.md](format.md).
+The hunts so far say why this step exists: the best yield came from an axis that cut across domains (hunt 01's
+note "long unbroken input is the richest seam" became hunt 03: 38 findings, 33 confirmed), and that hunt's
+catchers each had a lens for big files, not the generic list. Until now the next hunt's axes came from a few
+hand-written lines in the last README, and no one could tell which lens found what.
+
+1. Send the planner: one Opus agent at medium effort, from [planner-brief.md](planner-brief.md). It reads the
+   earlier hunts' findings, verdicts and yield, the rules in `AGENTS.md` and `docs/`, and what changed since
+   the last hunt, and writes up to twelve ranked axes to `axes.md`. For a narrow hunt (one owner report, one
+   area) skip it and write two to four axes yourself.
+2. Decide. The plan is a proposal: cut overlaps, put the owner's reports first, and keep the axes for this
+   round to what can run at once (six, less any verifiers already running). The rest wait in `axes.md` for
+   the next round, `Round:` left empty. Choosing the axes is judgement, so it stays with the orchestrator.
+3. Give each axis a prefix no axis in this hunt has used. A domain axis may reuse the table's prefix; any
+   other takes a new one (`LNG`, `PAR`, `MOV`: two to four capital letters, no digits). Only that axis's catcher writes it,
+   which keeps ids from colliding and lets the yield table credit each finding to its axis.
+
+The domain table is one source of axes and the map of where things live:
 
 | Prefix | Domain | Start in |
 | --- | --- | --- |
@@ -56,9 +74,14 @@ Paths under `src/` are `apps/desktop/src/`. Add a row here when a hunt finds an 
 
 ## 3. Send the catchers
 
-One Sonnet agent per domain, `model: "sonnet"`, effort medium, in the background, all in one message. Six
-at most at once; the machine's ceiling is the browser probes, not the agents. Write each brief from
-[catcher-brief.md](catcher-brief.md) into `briefs/<PREFIX>.md` and send its text as the prompt.
+One agent per axis, with the axis's model (`sonnet` unless `axes.md` says `haiku`), effort medium, in the
+background, all in one message. Six at most at once, verifiers included; the machine's ceiling is the
+browser probes, not the agents. Write each brief from [catcher-brief.md](catcher-brief.md) into
+`briefs/<PREFIX>.md`, the axis's lens in it, and send its text as the prompt.
+
+Cheap catchers do not make a cheap hunt: every finding costs a Sonnet verifier's probe, and the machine runs
+few of those at once. A `haiku` axis whose precision in the yield table falls under one half does not get a
+second round.
 
 While they run, do not edit the hunt's worktree yourself: the catchers serve its source live.
 
@@ -70,9 +93,32 @@ While they run, do not edit the hunt's worktree yourself: the catchers serve its
 2. Remove any `*.lock` left in the run folder only if no agent is still writing.
 3. Commit `findings.md`, `briefs/` and `probes/` on the hunt branch and push it, so the hunt survives the
    laptop sleeping.
-4. Add the catch counts to the hunt's `README.md` (findings per domain and severity, catchers that ran
+4. Add the catch counts to the hunt's `README.md` (findings per axis and severity, catchers that ran
    out of budget, areas not reached).
-5. Go on to `bug-verify`.
+5. Go on to `bug-verify`, then come back to section 5.
+
+## 5. Rounds, and when to stop
+
+When every finding of the round has a verdict, read the yield:
+
+```bash
+node .claude/skills/bug-catch/finding.mjs yield <run>/findings.md <run>/verification.md
+```
+
+Copy the table into the README under the round. Then:
+
+- **Another round** when the round's axes found two or more bugs alone (confirmed or plausible, not found by
+  any other axis or known before). Send the planner again with the table (its **Last round** paragraph):
+  extend the axes that found bugs alone, drop those that found none, and run the axes still waiting.
+- **Stop** when they found fewer than two, or when a round's findings were only duplicates. Saying "a round
+  found nothing" about a cheap model says more about the model than the code, so the README names the areas
+  covered and found clean by two or more axes ("Converged"). Each goes one of three ways, written down: one
+  Opus catcher on the riskiest (the reader core, the big-file guards, anything holding an S1 before), the
+  real window or WebKit (`scripts/browser-tests.mjs`) for what headless Chromium cannot show, or closed.
+- **Three rounds at most** per hunt without the owner's word; a hunt that is still finding bugs after three
+  is a sign of a structural problem to raise, not a reason for a fourth.
+
+Then go on to `bug-triage`.
 
 ## Rules for the whole cycle
 
@@ -81,8 +127,8 @@ While they run, do not edit the hunt's worktree yourself: the catchers serve its
   Nobody fixes anything in a hunt; fixes are the tracker rows that triage writes.
 - Findings already in `work/todo.md` are not new findings. New evidence for a row is appended as a
   finding that says "Adds to todo row <id>".
-- Every committed log replaces `/Users/<name>` with `/Users/<user>` (the repository is public). Scrub a
-  domain's `probes/` once its agents are done, and `findings.md` or `verification.md` only when no agent is
+- Every committed log replaces `/Users/<name>` with `/Users/<user>` (the repository is public). Scrub an
+  axis's `probes/` once its agents are done, and `findings.md` or `verification.md` only when no agent is
   writing to it: an in-place rewrite (`sed -i`) during an append can drop the appended block.
 - The orchestrator never appends findings of its own beyond the owner's reports, and never verifies a
   finding it wrote down.

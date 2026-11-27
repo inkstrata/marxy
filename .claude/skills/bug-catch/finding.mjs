@@ -6,7 +6,12 @@
 //   node finding.mjs add <file> < block.md    append a finding (### EXP-04 · ...) after checking its fields
 //   node finding.mjs verdict <file> < block   append a verdict (### EXP-04 verdict) after checking its fields
 //   node finding.mjs list <file>              one line per block: id, severity or verdict, title
+//   node finding.mjs yield <findings> <verification>
+//                                             a Markdown table of what each axis (prefix) found: verdicts,
+//                                             findings no other axis found, overlaps, and totals per round
+//                                             when axes.md sits beside the findings file
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 const FINDING_FIELDS = ['Severity', 'Domain', 'Where', 'Repro', 'Expected', 'Actual', 'Evidence', 'Confidence', 'Found by'];
 const VERDICT_FIELDS = ['Verdict', 'Proof', 'Checked by'];
@@ -78,8 +83,95 @@ const append = (file, block, kind) => {
   process.stdout.write(`appended ${m[1]} to ${file}\n`);
 };
 
+const blocks = (text) => text.split(/^(?=### )/m).filter((b) => b.startsWith('### '));
+const ID = /[A-Z]{2,4}-\d{2,}/;
+
+// Yield per axis. An axis is one catcher, so its prefix names it. A finding counts for its axis unless the
+// owner reported it or the verdict is a duplicate of the same axis's own later finding (a supersede). A
+// duplicate of another axis's finding is an overlap: both axes found it, so neither found it alone.
+const yieldTable = (findingsFile, verificationFile) => {
+  const verdicts = new Map();
+  for (const b of blocks(read(verificationFile))) {
+    const id = b.match(/^### (\S+) verdict/)?.[1];
+    if (id) verdicts.set(id, field(b, 'Verdict') ?? ''); // the later verdict wins, as in triage
+  }
+  const findings = blocks(read(findingsFile))
+    .map((b) => ({ id: b.match(/^### (\S+) · /)?.[1], owner: /^owner\b/i.test(field(b, 'Found by') ?? '') }))
+    .filter((f) => f.id && !f.owner)
+    .map((f) => {
+      const v = verdicts.get(f.id) ?? '';
+      const kind = v.split(/[\s(]/)[0] || 'NONE';
+      // Only the id right after "of" is the target; the rest of the line may name other findings.
+      const target = kind === 'DUPLICATE' ? v.match(new RegExp(`^DUPLICATE of (${ID.source})\\b`))?.[1] ?? null : null;
+      return { ...f, prefix: f.id.split('-')[0], kind, target };
+    })
+    .filter((f) => !(f.kind === 'DUPLICATE' && f.target?.split('-')[0] === f.prefix));
+  const byId = new Map(findings.map((f) => [f.id, f]));
+  // Overlap pairs: a finding that duplicates another axis's finding, followed to the finding it rests on.
+  const overlaps = new Map(); // id of the kept finding -> prefixes of the axes that also found it
+  for (const f of findings) {
+    if (f.kind !== 'DUPLICATE' || !f.target) continue;
+    let t = byId.get(f.target);
+    for (let hops = 0; t?.kind === 'DUPLICATE' && t.target && hops < 10; hops++) t = byId.get(t.target);
+    if (!t) continue;
+    overlaps.set(t.id, [...(overlaps.get(t.id) ?? []), f.prefix]);
+  }
+  const axes = new Map(); // prefix -> { name, round }
+  const axesFile = join(dirname(findingsFile), 'axes.md');
+  for (const b of blocks(read(axesFile))) {
+    const m = b.match(/^### ([A-Z]{2,4}) · (.+)$/m);
+    if (m) axes.set(m[1], { name: m[2].trim(), round: field(b, 'Round') ?? '' });
+  }
+  const rows = new Map();
+  for (const f of findings) {
+    const r = rows.get(f.prefix) ?? { found: 0, CONFIRMED: 0, PLAUSIBLE: 0, dupKnown: 0, dupOther: 0, other: 0, alone: 0, shared: 0 };
+    r.found++;
+    if (f.kind === 'CONFIRMED' || f.kind === 'PLAUSIBLE') {
+      r[f.kind]++;
+      if (overlaps.has(f.id)) r.shared++;
+      else r.alone++;
+    } else if (f.kind === 'DUPLICATE') {
+      if (f.target && byId.has(f.target)) r.dupOther++;
+      else r.dupKnown++;
+    } else r.other++;
+    rows.set(f.prefix, r);
+  }
+  const pct = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : '–');
+  const out = [
+    '| Axis | Round | Findings | Confirmed | Plausible | Alone | Shared | Dup. of known | Dup. of another axis | Not reproduced, by design, no verdict | Precision |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  ];
+  const order = [...rows.keys()].sort((a, b) => (rows.get(b).alone - rows.get(a).alone) || a.localeCompare(b));
+  for (const p of order) {
+    const r = rows.get(p);
+    const a = axes.get(p);
+    out.push(`| ${p}${a ? ` · ${a.name}` : ''} | ${a?.round || '–'} | ${r.found} | ${r.CONFIRMED} | ${r.PLAUSIBLE} | ${r.alone} | ${r.shared} | ${r.dupKnown} | ${r.dupOther} | ${r.other} | ${pct(r.CONFIRMED + r.PLAUSIBLE, r.found)} |`);
+  }
+  const rounds = new Map();
+  for (const p of order) {
+    const round = axes.get(p)?.round;
+    if (!round) continue;
+    const t = rounds.get(round) ?? { axes: 0, found: 0, alone: 0 };
+    t.axes++;
+    t.found += rows.get(p).found;
+    t.alone += rows.get(p).alone;
+    rounds.set(round, t);
+  }
+  if (rounds.size) {
+    out.push('', '| Round | Axes | Findings | Found by one axis alone (confirmed or plausible) |', '| --- | --- | --- | --- |');
+    for (const [round, t] of [...rounds].sort()) out.push(`| ${round} | ${t.axes} | ${t.found} | ${t.alone} |`);
+  }
+  if (overlaps.size) {
+    out.push('', 'Overlaps (one finding, several axes):');
+    for (const [id, ps] of overlaps) out.push(`- ${id}: also ${[...new Set(ps)].join(', ')}`);
+  }
+  const missing = findings.filter((f) => f.kind === 'NONE').map((f) => f.id);
+  if (missing.length) out.push('', `No verdict yet: ${missing.join(', ')}`);
+  process.stdout.write(`${out.join('\n')}\n`);
+};
+
 const [cmd, file, prefix] = process.argv.slice(2);
-if (!cmd || !file) fail('usage: next <file> <PREFIX> | add <file> | verdict <file> | list <file>');
+if (!cmd || !file) fail('usage: next <file> <PREFIX> | add <file> | verdict <file> | list <file> | yield <findings> <verification>');
 
 if (cmd === 'next') {
   if (!/^[A-Z]{2,4}$/.test(prefix ?? '')) fail('a prefix is two to four capital letters');
@@ -89,8 +181,11 @@ if (cmd === 'next') {
   append(file, stdin(), 'finding');
 } else if (cmd === 'verdict') {
   append(file, stdin(), 'verdict');
+} else if (cmd === 'yield') {
+  if (!prefix) fail('usage: yield <findings.md> <verification.md>');
+  yieldTable(file, prefix);
 } else if (cmd === 'list') {
-  for (const block of read(file).split(/^(?=### )/m).filter((b) => b.startsWith('### '))) {
+  for (const block of blocks(read(file))) {
     const head = block.split('\n')[0].slice(4);
     const tag = field(block, 'Verdict') ?? field(block, 'Severity') ?? '';
     process.stdout.write(`${head.split(' ')[0]}\t${tag.split(/\s/)[0]}\t${head.replace(/^\S+ (· )?/, '')}\n`);

@@ -46,8 +46,16 @@ put S2 rows that touch no promised behaviour under **Later** and say so in `tria
 (`B4`, `merged into B4`, `adds to R10`, `dropped: not reproduced in 3 runs`). Below it, what no catcher
 reached.
 
-The hunt's `README.md` gains the counts: findings, verdicts, rows made, and per domain how productive it
-was, so the next hunt can choose its domains.
+The hunt's `README.md` gains the counts: findings, verdicts and rows made, and the yield per axis from
+`node .claude/skills/bug-catch/finding.mjs yield <run>/findings.md <run>/verification.md`, with a column
+for the rows each axis's findings became. The next hunt's planner reads this table first.
+
+It ends with **For the next hunt**, in three short lists the planner can act on:
+- **Extend**: axes that found bugs alone, and the variant to try (narrower, a sibling area, the same cause
+  elsewhere).
+- **Drop**: axes that found nothing alone, and why (no bugs there, or a lens the model could not use).
+- **Converged**: areas two or more axes covered and found clean, and which way each went (an Opus catcher,
+  the real window or WebKit, or closed).
 
 ## 4. Land the hunt
 

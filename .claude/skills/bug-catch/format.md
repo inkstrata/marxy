@@ -5,7 +5,8 @@ own worktree. Its files:
 
 | File | Written by | How |
 | --- | --- | --- |
-| `README.md` | the orchestrator | the hunt's account: domains, catchers, counts, what was triaged, what was not checked |
+| `README.md` | the orchestrator | the hunt's account: axes, catchers, counts, yield, what was triaged, what was not checked |
+| `axes.md` | the planner, then the orchestrator | one block per axis, round by round (below) |
 | `findings.md` | catchers | append-only, one block per finding, through `finding.mjs add` |
 | `verification.md` | verifiers | append-only, one verdict block per finding, through `finding.mjs verdict` |
 | `triage.md` | the orchestrator | one row per finding: verdict, outcome (tracker row, merged into another, dropped and why) |
@@ -24,7 +25,42 @@ node $H add work/runs/2026-11-27-hunt-01/findings.md <<'EOF'
 ...block...
 EOF
 node $H list work/runs/2026-11-27-hunt-01/findings.md
+node $H yield work/runs/2026-11-27-hunt-01/findings.md work/runs/2026-11-27-hunt-01/verification.md
 ```
+
+## Axes
+
+An axis is one catcher's slice of the hunt: an area, a cause, a rule or an input shape. Its prefix is the
+prefix of every finding its catcher writes, so a finding's id says which axis found it. `axes.md` holds one
+block per axis; the orchestrator edits it freely (it is not append-only), but never reuses a prefix within a
+hunt, so round 2's axes take new prefixes even when they extend round 1's.
+
+```markdown
+### LNG · one long unbroken line, every reading path
+- Round: 1
+- Type: shape
+- Source: hunt-01 B2, B3, B9 and its "For the next hunt"
+- Lens: Assume a single 2 MB line reaches each reading path. Find every step whose work grows faster than the line, or that holds the main thread past 1 s.
+- Start in: apps/desktop/src/render/, packages/typeset/, apps/desktop/src/viewers/
+- Model: sonnet
+```
+
+- **Type**: `domain` (an area of the app, from the domain table), `pattern` (a cause found before, looked for
+  elsewhere), `invariant` (a rule in `AGENTS.md` or `docs/`, assumed broken), `spec` (what a doc promises
+  against what the code does), `shape` (an input across domains: size, one long line, empty, encoding,
+  rapid keys) or `environment` (WebKit, Windows, the real window, sleep and resume).
+- **Lens**: an order to the catcher, one to three sentences. It replaces the generic "What to look for" of
+  the catcher brief, so it says what to look for, not only where.
+- **Model**: `sonnet`, or `haiku` for a `pattern` axis a search can find whose earlier findings were all
+  confirmed.
+
+`finding.mjs yield` reads `axes.md` beside the findings file for each prefix's name and round. Its columns,
+per axis: findings (owner reports and findings superseded by the same axis left out), the verdicts,
+**Alone** (confirmed or plausible, and no other axis's finding is a duplicate of it), **Shared** (confirmed or
+plausible, and another axis found it too), duplicates of something already known, duplicates of another
+axis's finding, the rest, and precision (confirmed or plausible over findings). A verifier who finds that two
+axes met one bug marks the later `DUPLICATE of <the other id>`; that is the only way the table learns of an
+overlap, so name the id.
 
 ## A finding
 
