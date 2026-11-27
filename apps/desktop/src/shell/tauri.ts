@@ -109,7 +109,7 @@ function hear<T>(event: string, cb: (payload: T) => void): Promise<void> {
   current.set(event, cb as (payload: never) => void);
   let live = listening.get(event);
   if (!live) {
-    live = listen<T>(event, (e) => (current.get(event) as ((payload: T) => void) | undefined)?.(e.payload)).then(() => undefined);
+    live = listen<T>(event, (e) => arrived(event, e.payload)).then(() => undefined);
     listening.set(event, live);
     live.catch(() => listening.delete(event));
   }
@@ -121,12 +121,37 @@ function unhear(event: string, cb: (payload: never) => void): void {
   if (current.get(event) === cb) current.delete(event);
 }
 
-/** Opens taken from the queue while no boot was subscribed: kept for the next boot, which Rust no longer holds them for. */
+/**
+ * Opens held for the next boot: those taken from Rust's queue while no boot was subscribed, and those Rust emitted live
+ * in that gap. Rust no longer holds either, so the shell does; a boot takes them once, oldest first.
+ */
 const unclaimedOpens: string[][] = [];
+/** Subscriptions to open-files that have not finished taking the held and queued opens. */
+let settling = 0;
+/** Opens emitted live while one does: they come after everything held or queued, so they wait to be delivered last. */
+const lateOpens: string[][] = [];
+
+/** One callback gets one payload, alone: a throw is logged and costs only that payload. */
+function call<T>(event: string, cb: ((payload: T) => void) | undefined, payload: T): void {
+  try {
+    cb?.(payload);
+  } catch (error) {
+    console.error(`marxy: a handler for ${event} threw`, error);
+  }
+}
 
 /** Hands a payload to whichever callback hears `event` now. */
 function deliver<T>(event: string, payload: T): void {
-  (current.get(event) as ((payload: T) => void) | undefined)?.(payload);
+  call(event, current.get(event) as ((payload: T) => void) | undefined, payload);
+}
+
+/** A payload Tauri emitted live. With no boot to hear an open, or a boot still taking the older ones, it is held. */
+function arrived<T>(event: string, payload: T): void {
+  if (event === 'marxy:open-files') {
+    if (settling > 0) return void lateOpens.push(payload as unknown as string[]);
+    if (!current.has(event)) return void unclaimedOpens.push(payload as unknown as string[]);
+  }
+  deliver(event, payload);
 }
 
 /**
@@ -729,16 +754,28 @@ export const shell: Pick<
     const signal = subscribe('open-files');
     listenForFileDrops(signal);
     const heard = (paths: string[]) => cb(paths.map(normalizePath));
+    settling++;
     void (async () => {
-      await hear<string[]>('marxy:open-files', heard);
-      if (signal.aborted) return;
-      for (const paths of unclaimedOpens.splice(0)) deliver('marxy:open-files', paths);
-      const pending = await invoke<string[][]>('take_pending_opens');
-      // To whoever listens now: a boot that came and went while the queue was being taken must not get the batches,
-      // and with none listening they wait for the next, since the queue is already emptied.
-      for (const paths of pending) {
-        if (current.has('marxy:open-files')) deliver('marxy:open-files', paths);
-        else unclaimedOpens.push(paths);
+      const batches: string[][] = [];
+      try {
+        await hear<string[]>('marxy:open-files', heard);
+        // A boot that is gone by now takes nothing: calling take_pending_opens is what makes Rust emit live, so a dead boot
+        // must not (the next boot's own take does), and what is held stays for the next.
+        if (!signal.aborted) {
+          pushAll(batches, unclaimedOpens.splice(0));
+          pushAll(batches, await invoke<string[][]>('take_pending_opens'));
+        }
+      } catch (error) {
+        console.error('marxy: the opens waiting at launch could not be taken', error);
+      } finally {
+        settling--;
+        if (settling === 0) pushAll(batches, lateOpens.splice(0));
+        // To whoever listens now: a boot that came and went while the queue was being taken must not get the batches,
+        // and with none listening they wait for the next, since the queue is already emptied.
+        for (const paths of batches) {
+          if (current.has('marxy:open-files')) deliver('marxy:open-files', paths);
+          else unclaimedOpens.push(paths);
+        }
       }
     })();
     return () => {

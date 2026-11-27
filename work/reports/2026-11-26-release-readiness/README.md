@@ -157,3 +157,13 @@ architecture (93 with uncommitted edits; every branch is tagged `archive/branch/
 | Wave 5 before the tag | no | red integration, a possible place regression, performance only |
 | File associations | Markdown Default; text and source Alternate; add PDFs and images at Alternate | Marxy should be offered, not take over `.json` or `.html` |
 | Signing | ad-hoc now; Developer ID later | notarisation needs an Apple developer account; until then the notes give the steps |
+
+## Startup on macOS CI (2026-11-27)
+
+The CI smoke launch (`apps/desktop/scripts/smoke-cli-open.mjs`) now launches the README fixture five times and prints
+the median time from spawning the binary to the `first_text` stamp. On a hosted `macos-latest` runner (not a laptop):
+**3285 ms median over 5 launches** (5996 for the first, then 3530, 3218, 3285, 3275). The same check on a hosted
+`ubuntu-latest` runner under Xvfb: 484 ms median (1373, 456, 484, 473, 501). The Windows 774 ms median is from
+`measure-startup.mjs` on a workstation and is not like for like; the runner's slow first launch and shared CPU make this
+an upper bound for a laptop. No laptop number exists yet. Later runs print it in the build log (`smoke-cli-open startup:`),
+on `main` pushes.
