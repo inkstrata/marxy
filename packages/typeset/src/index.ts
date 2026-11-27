@@ -1091,7 +1091,17 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     stats,
     adopt,
     relayout(reason) {
+      // Un-setting every paragraph lays the page out at the old width's un-set size, and WebKit answers by taking the
+      // scroller to its top (a scroll no reader made, with the page then taller than before). The place goes back at once,
+      // in this task, so no frame and no listener sees the jump: otherwise a hold that a key press released meanwhile
+      // finds the page at 0 and has nothing to put back.
+      const root = scroller();
+      const top = root?.scrollTop ?? 0;
       restoreAll();
+      if (root !== null && top > 0 && root.scrollTop !== top) {
+        root.scrollTop = top;
+        keptTop = root.scrollTop;
+      }
       // Every paragraph is set again: `done` waits for this layout's background too, not the one before it.
       reopenDone();
       // Full flush on face/theme reload; resize re-reads computed size lazily in FontSizes.of.
