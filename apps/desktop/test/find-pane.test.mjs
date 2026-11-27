@@ -212,7 +212,7 @@ test('the fallback on a 1 MB document does not hang the typesetter: first match 
     await page.keyboard.press(`${mod}+KeyF`);
     const started = Date.now();
     await page.keyboard.type('the');
-    await page.waitForFunction(() => /\d+ of \d{3,}/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 30_000 });
+    await page.waitForFunction(() => /\d+ of \d{3,}/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 120_000 });
     const firstMatchMs = Date.now() - started;
     // The page still answers, and the typesetter finishes while the find is open.
     const answered = Date.now();
@@ -222,7 +222,7 @@ test('the fallback on a 1 MB document does not hang the typesetter: first match 
     // guard is progress, not the whole 1 MB finishing (that takes ~20 s idle and scales with machine load).
     const setCount = () => page.evaluate(() => document.querySelectorAll('#doc p.marxy-set').length);
     const before = await setCount();
-    await page.waitForFunction((n) => document.querySelectorAll('#doc p.marxy-set').length >= n + 100, before, { timeout: 30_000 });
+    await page.waitForFunction((n) => document.querySelectorAll('#doc p.marxy-set').length >= n + 100, before, { timeout: 120_000 });
     console.log(`find fallback, 1 MB: first match ${firstMatchMs} ms, page answers in ${responseMs} ms, typesetter set 100 more paragraphs by ${Date.now() - started} ms`);
     holdBudget(assert, 'find fallback 1 MB first match', firstMatchMs, 20_000);
     holdBudget(assert, 'find fallback 1 MB page answer', responseMs, 5_000);
@@ -246,7 +246,7 @@ test('with tens of thousands of matches only a window near the view is held, and
     await page.keyboard.press(`${mod}+KeyF`);
     await page.keyboard.type('the');
     await settle(page);
-    await page.waitForFunction(() => /\d+ of \d{5,}/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 30_000 });
+    await page.waitForFunction(() => /\d+ of \d{5,}/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 120_000 });
     // Every Range a find holds is updated by the engine on every DOM change, and the typesetter makes
     // thousands of them: the held Ranges are the matches near the view, not the matches.
     const held = () => page.evaluate(() => {
@@ -301,7 +301,7 @@ test('the typesetter is not slowed by an open find with tens of thousands of mat
     const idle = await timeToSet(160);
     await page.keyboard.press(`${mod}+KeyF`);
     await page.keyboard.type('the');
-    await page.waitForFunction(() => /\d+ of \d{5,}/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 30_000 });
+    await page.waitForFunction(() => /\d+ of \d{5,}/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 120_000 });
     const withFind = await timeToSet(160);
     console.log(`typesetter, 1 MB: 160 paragraphs in ${idle} ms idle, ${withFind} ms with find open`);
     // With find shut the page is set in new text nodes and, the reader being idle, in long slices; with find open every

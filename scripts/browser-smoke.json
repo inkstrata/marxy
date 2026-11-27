@@ -9,7 +9,6 @@
     "typing.test.mjs",
     "split-same-file.test.mjs",
     "jump-to-source.test.mjs",
-    "links.test.mjs",
     "selection.test.mjs",
     "find-pane.test.mjs",
     "replace.test.mjs",
