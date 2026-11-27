@@ -14,7 +14,7 @@
 
 import { Abandoned } from '@marxy/core';
 import { whenIdle } from '../startup/idle-work.ts';
-import { appendAll } from '@marxy/core/src/util/spread.ts';
+import { appendAll, pushAll } from '@marxy/core/src/util/spread.ts';
 
 export interface ProgressiveMount {
   /** Resolves when every top-level block is in the article, or when the mount is cancelled. */
@@ -164,7 +164,7 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
         }
       }
       if (target === null) {
-        added.push(...moveWhile((el) => !reaches(el, byte)));
+        pushAll(added, moveWhile((el) => !reaches(el, byte)));
         const last = added[added.length - 1];
         if (last !== undefined && reaches(last, byte)) target = last;
       }
@@ -177,7 +177,7 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
         if (last.getBoundingClientRect().bottom - top >= need) break;
       }
       let n = 0;
-      added.push(...moveWhile(() => ++n < FILL_BATCH));
+      added.push(...moveWhile(() => ++n < FILL_BATCH)); // scale: at most FILL_BATCH blocks
     }
     return added;
   };
