@@ -8,9 +8,9 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from './support/shared-vite.mjs';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { parseMarkdown } from '../../../packages/core/src/index.ts';
 import { fileURLToPath } from 'node:url';
+import { idle, openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -105,7 +105,7 @@ async function toggle(page, i) {
   }, start);
   await page.waitForFunction((b) => window.__boot.handle.openDocument().buffer.bytes.join() !== b, before);
   // let the re-render (and its mutation observers) settle
-  await page.waitForTimeout(150);
+  await idle(page);
 }
 
 async function modKey(page, key) {
@@ -114,7 +114,7 @@ async function modKey(page, key) {
 }
 
 async function withPage(fn) {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     const docPath = await boot(page);
@@ -155,7 +155,7 @@ test('two operations then two undos restore both', () =>
     assert.ok(same(await bufferBytes(page), flipped(0, 1)));
     await modKey(page, 'KeyZ');
     await page.waitForFunction((b) => window.__boot.handle.openDocument().buffer.bytes.join() === b, [...flipped(0)].join());
-    await page.waitForTimeout(150);
+    await idle(page);
     await modKey(page, 'KeyZ');
     await page.waitForFunction((b) => window.__boot.handle.openDocument().buffer.bytes.join() === b, [...orig].join());
     assert.equal(await page.evaluate(() => window.marxyDocumentEdit().dirty), false, 'undone to the saved state is clean');
@@ -167,7 +167,7 @@ test('after a save the document is clean and a second Mod+S writes nothing', () 
     assert.equal(await page.evaluate(() => window.marxyHarnessSave()), 'saved');
     assert.equal(await page.evaluate(() => window.marxyDocumentEdit().dirty), false);
     await modKey(page, 'KeyS');
-    await page.waitForTimeout(200);
+    await idle(page);
     assert.equal((await writes(page, docPath)).length, 1);
     // an edit after the save is dirty again, and undo across the save still works
     await toggle(page, 1);
@@ -186,11 +186,11 @@ test('an external change re-baselines: clean afterwards, and Mod+S writes nothin
       shell.emit([{ kind: 'modified', path }]);
     }, { path: docPath, bytes: [...external] });
     await page.waitForFunction((b) => window.__boot.handle.openDocument().buffer.bytes.join() === b, [...external].join());
-    await page.waitForTimeout(200);
+    await idle(page);
     assert.equal(await page.evaluate(() => window.marxyDocumentEdit().dirty), false);
     const before = (await writes(page, docPath)).length;
     await modKey(page, 'KeyS');
-    await page.waitForTimeout(200);
+    await idle(page);
     assert.equal((await writes(page, docPath)).length, before);
     // and a toggle on the reloaded document saves on top of the external bytes
     await toggle(page, 0);

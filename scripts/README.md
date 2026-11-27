@@ -92,6 +92,7 @@ in [docs/testing.md](../docs/testing.md#measurement-tools).
 | `playwright-webkit.mjs` | the WebKit launch every gate and browser test uses (`MARXY_BROWSER_HEADED=1` shows the window) |
 | `registry.json` | registered names: startup marks, `marxy:` events, `data-marxy-*` attributes, private properties, files allowed to set markup from strings |
 | `verify-map.json` | which browser test files cover which source folders |
+| `browser-smoke.json` | the browser test files a pull request runs on a hosted macOS runner (`ci.yml`, job `browser-smoke`); `browser-smoke.test.mjs` keeps them sleep-free |
 | `lib/repo.mjs` | the repository root, a file walk, staged and changed files, the checks' failure format |
 | `lib/imports.mjs` | import specifiers and `invoke(` calls read from the TypeScript syntax tree |
 | `lib/machine-lock.mjs` | lock files in the OS temp folder for what one machine can run once (`check:tauri`'s port) or a few at a time (`verify`'s turn) |
