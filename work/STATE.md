@@ -106,26 +106,27 @@ installed-size budgets are in `fixtures/perf-budgets.json` (25 MB Linux, 30 MB m
 All of it is in `todo.md`.
 
 - **Carry over:**
-  - M1: push the Windows checkout's unlanded branches.
+  - M1: the Windows checkout's unlanded branches are lost; their rows are rebuilt on `main`.
   - M2: use the app on macOS.
   - M3: build it on Linux.
   - M4: the 14 browser test files that fail on macOS.
   - M5: the 14 browser test files that fail on a hosted Windows runner.
 - **Next:**
-  - S17: web shell over the File System Access API. The spike and its report exist (`reports/2026-11-23-reach-beyond-desktop/`), but the branch is not here.
-  - P11, P12: lines-of-text and container budgets. Built in round 16, which is not landed.
-  - E22, E23: geometry table and near-reader typesetting. Built in wave 5; its integration is red.
-  - F24: the rest of teardown.
+  - P11, P12: lines-of-text and container budgets. Built in round 16, lost, being rebuilt.
+  - E22, E23: geometry table and near-reader typesetting. Built in wave 5, lost, being rebuilt.
+  - F24: the rest of teardown. Built in round 16, lost, being rebuilt.
 - **To try in a real window:** W5 to W9 (Windows).
-- **Later:** F5, F6, S9, S10, P4 to P7.
+- **Later:** F5, F6, F25, S9, S10, S17, P4 to P7.
 
-Not landed, with where they stand:
+Lost with the Windows checkout (M1), and what survives of each:
 
-- **Round 16:** integration `1f141eb1`, verified 16/17, the three browser reds pass alone
-  (`runs/2026-11-24-round-16/README.md`).
-- **Wave 5:** integration `0a9eeb68`, full verify 17/18. Five browser tests fail alone: `live-reload`,
-  three in `mode-swap` and one in `splice-all`. Treat them as real. Both of wave 5's reviewers missed an
-  earlier `outline-rows` regression that the orchestrator caught (`runs/2026-11-26-wave-05/README.md`).
+- **Round 16:** integration `1f141eb1`, verified 16/17, the three browser reds passed alone. Its briefs,
+  account and reviews are in `runs/2026-11-24-round-16/README.md`.
+- **Wave 5:** integration `0a9eeb68`, full verify 17/18. Five browser tests failed alone: `live-reload`,
+  three in `mode-swap` and one in `splice-all`. Both of wave 5's reviewers missed an `outline-rows`
+  regression that the orchestrator caught. Its account, reports, reviews and measurements are in
+  `runs/2026-11-26-wave-05/`; the rebuild has to answer those five reds.
+- **`web-shell`** (S17) and **`open-with`** (F25): notes under Later.
 - **The waves plan:** the queue after wave 5 is in `reports/2026-11-24-waves-handoff/00-handoff.md`, with
   briefs 02 to 05 and the experiments X1 to X10. No experiment reports beyond those cited there exist.
 

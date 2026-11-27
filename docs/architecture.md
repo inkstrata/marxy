@@ -46,7 +46,8 @@ path ─ shell.detectFiles (head) ─ shell.readFile ─ decode if not UTF-8 ─
 4. **Parse.** `parseMarkdown` (`packages/core/src/parse/parse.ts`) runs micromark with GFM, front matter
    and maths and converts the result to Marxy's tree, in which every node carries `src: {file, start,
    end}`, a byte range in the file (`packages/core/src/contracts/ast.ts`). Code and plain text become
-   pieces of up to 200 lines (`parseCode`). Large files are parsed in slices; an edit reparses only the
+   pieces of up to 200 lines (`parseCode`). Markdown from 256 KB (from 64 KB with another pane on screen) is parsed,
+   rendered and put in the page in slices, the event loop given back between them; an edit reparses only the
    region it touched (`reparseMarkdown`), with the same result as a whole parse. Link reference and
    footnote definitions reach across the file, so each parse keeps an index of them (label, target,
    place) and the region is parsed with the file's labels and targets known; an edit that adds, removes
@@ -66,7 +67,8 @@ path ─ shell.detectFiles (head) ─ shell.readFile ─ decode if not UTF-8 ─
    is written under per-render secret attribute names and published as `data-marxy-s` / `data-marxy-e`
    only on the sanitised output, so a document cannot forge them.
 7. **Mount.** `apps/desktop/src/view/rendered-view.ts` puts the page into the pane: two screens from the
-   landing place at once, the rest in idle slices (`render/progressive.ts`); after any change to the bytes
+   landing place at once, the rest in idle slices (`render/progressive.ts`), one a frame, each cut by the elements it
+   brings (3,000) and put in with one insertion, with no layout read inside it; after any change to the bytes
    (an operation, undo, redo, a Source commit, a reload), only the changed blocks are replaced when that can be
    proved equal (`render/incremental.ts`), and the page is set whole when it cannot. With footnotes that holds while
    every label keeps its number: the changed blocks take the document's numbers, and only the items of the list of
