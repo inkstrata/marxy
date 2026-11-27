@@ -22,9 +22,18 @@ table, a coloured listing, a card of facts, a viewer, or the bytes.
 - **Local.** Settings are a `config.toml`; state is plain JSON in the app's data folder. Nothing is sent
   anywhere; remote images in a document load only when you allow them.
 
+## Install a release
+
+Releases are on the [releases page](https://github.com/inkstrata/marxy/releases), for macOS 13 or
+later on Apple silicon. The build is not notarised, so macOS refuses it the first time: open System
+Settings, Privacy and Security, and choose Open Anyway, or run
+`xattr -dr com.apple.quarantine /Applications/Marxy.app`. Each release's notes are in
+[docs/releases](docs/releases/). There is no Windows or Linux download yet.
+
 ## Quick start
 
-Requires Node 24, pnpm 11, Rust (stable) and, on Windows, the Visual Studio C++ build tools.
+Building from source requires Node 24, pnpm 11, Rust (stable) and, on Windows, the Visual Studio C++
+build tools.
 
 ```bash
 pnpm install

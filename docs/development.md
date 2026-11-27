@@ -190,6 +190,23 @@ self-signed result reads `UnknownError`, the script prints the two `Import-Certi
 make this machine trust the certificate. They add a trusted root, so they are for the machine's owner
 to run.
 
+## Releasing
+
+`.github/workflows/release.yml` builds the macOS release, an ad-hoc signed DMG for Apple silicon.
+
+- **A dry run**: dispatch the workflow on any branch (`gh workflow run release.yml --ref <branch>`). It
+  builds the DMG, checks it and offers it as a workflow artifact; it makes no tag and no release.
+- **A release**: set the same version in `apps/desktop/src-tauri/tauri.conf.json`,
+  `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src-tauri/Cargo.lock` and
+  `apps/desktop/package.json`, write the notes as `docs/releases/<version>.md`, land both on `main`,
+  wait for `ci` to pass there, then push the tag `v<version>` on that commit.
+
+A tag publishes nothing until it passes: the workflow stops if the tag and the four version strings
+differ, if the notes are missing, or if no `ci` run passed on the tagged commit. The release is made as a
+draft; it is published, with the notes as its text, only after the bundle's seal is verified, `LICENSE`
+and `THIRD_PARTY_NOTICES.md` are found in `Marxy.app/Contents/Resources`, and `pnpm gate:bundle` passes.
+A failed run leaves a draft to inspect or delete.
+
 ## Environment variables
 
 | Variable | Effect |

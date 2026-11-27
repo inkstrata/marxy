@@ -2,12 +2,18 @@ name: release
 # A tag push builds the DMG and publishes a pre-release with it attached. A manual dispatch builds
 # the same DMG and offers it as a workflow artifact only: with no tagName, tauri-action creates no
 # release and no tag, so a dry run is safe on any branch.
+#
+# A tag publishes nothing until it has passed: the tag must name the version the app carries, `ci`
+# must have passed on the tagged commit, and the release is made as a draft that is published only
+# after the bundle's seal, its notices and the bundle gate are checked. A failure leaves a draft to
+# inspect or delete, never a published release.
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
 permissions:
   contents: write # a release needs it; nothing else in this workflow writes
+  actions: read # to find the ci runs of the tagged commit
 jobs:
   build:
     strategy:
@@ -23,6 +29,32 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      # The tag, the DMG's name and the About box must agree, so all four version strings are compared.
+      - name: Check the tag names the version the app carries
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          conf=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)
+          pkg=$(jq -r .version apps/desktop/package.json)
+          crate=$(awk -F'"' '/^version = / { print $2; exit }' apps/desktop/src-tauri/Cargo.toml)
+          lock=$(awk '/^name = "marxy"$/ { getline; gsub(/version = |"/, ""); print; exit }' apps/desktop/src-tauri/Cargo.lock)
+          echo "tag $want; tauri.conf.json $conf; package.json $pkg; Cargo.toml $crate; Cargo.lock $lock"
+          for got in "$conf" "$pkg" "$crate" "$lock"; do
+            [ "$got" = "$want" ] || { echo "::error::the tag says $want but a version string says $got"; exit 1; }
+          done
+          [ -f "docs/releases/$want.md" ] || { echo "::error::no release notes at docs/releases/$want.md"; exit 1; }
+      # A tag on a commit whose checks failed, or never ran, would publish an untested build.
+      - name: Require ci to have passed on the tagged commit
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          passed=$(gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$GITHUB_SHA" --status success --json databaseId --jq length)
+          if [ "$passed" -lt 1 ]; then
+            echo "::error::no passing ci run on $GITHUB_SHA; tag a commit of main whose ci is green"
+            gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$GITHUB_SHA" || true
+            exit 1
+          fi
       - uses: jdx/mise-action@v2
       - run: pnpm install --frozen-lockfile
       # tauri.conf.json's beforeBuildCommand is empty, so the bundle would ship without a frontend
@@ -57,8 +89,9 @@ jobs:
           # Empty on a dispatch, which makes the action build without creating a release.
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('marxy {0}', github.ref_name) || '' }}
-          releaseBody: 'Pre-release. The macOS build is ad-hoc signed, not notarized: open it with right-click, Open the first time.'
-          releaseDraft: false
+          # The notes are set from docs/releases/<version>.md when the draft is published, below.
+          releaseBody: 'Release notes follow when the checks pass.'
+          releaseDraft: true
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} -- --locked
       # A bundle with only the linker's ad-hoc signature has no sealed resources, and Apple silicon
@@ -70,6 +103,10 @@ jobs:
           mnt=$(mktemp -d)
           hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg"
           codesign --verify --deep --strict --verbose=2 "$mnt/Marxy.app"
+          # MIT and the font licences must travel with the binary (the OFL files sit beside the fonts).
+          for notice in LICENSE THIRD_PARTY_NOTICES.md; do
+            [ -f "$mnt/Marxy.app/Contents/Resources/$notice" ] || { echo "::error::$notice is not in the bundle"; hdiutil detach "$mnt"; exit 1; }
+          done
           hdiutil detach "$mnt"
       - name: Offer the DMG as an artifact (dry run)
         if: github.event_name == 'workflow_dispatch'
@@ -83,3 +120,9 @@ jobs:
       # (After the upload, so a failing gate still leaves the DMG to inspect.)
       - run: pnpm gate:bundle
         env: { MARXY_BUNDLE_REQUIRED: '1' }
+      - name: Publish the release with its notes
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --notes-file "docs/releases/${GITHUB_REF_NAME#v}.md" --prerelease --draft=false
