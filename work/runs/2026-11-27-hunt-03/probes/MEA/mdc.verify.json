@@ -1,0 +1,234 @@
+[
+ {
+  "kind": "md-prose",
+  "bytes": 502027,
+  "name": "big-md-prose-500k.md",
+  "steps": {
+   "open": {
+    "firstMs": 876,
+    "completeMs": 1775,
+    "openReturnMs": 934,
+    "busyUntilIdleMs": 28056,
+    "taskMs": 25888,
+    "layouts": 1422,
+    "longestMs": 891,
+    "nodes": 44532
+   },
+   "key": {
+    "wallMs": 1350,
+    "taskMs": 106,
+    "scriptMs": 37,
+    "layoutMs": 3,
+    "layouts": 4,
+    "recalcs": 4,
+    "longestMs": 69,
+    "nodes": 45131
+   },
+   "scrollMid": {
+    "wallMs": 1343,
+    "taskMs": 89,
+    "scriptMs": 11,
+    "layoutMs": 1,
+    "layouts": 2,
+    "recalcs": 4,
+    "longestMs": 78,
+    "nodes": 45453
+   },
+   "scrollEnd": {
+    "wallMs": 2636,
+    "taskMs": 555,
+    "scriptMs": 7,
+    "layoutMs": 2,
+    "layouts": 2,
+    "recalcs": 4,
+    "longestMs": 0,
+    "nodes": 40306
+   },
+   "toSource": {
+    "wallMs": 6414,
+    "taskMs": 2223,
+    "scriptMs": 212,
+    "layoutMs": 21,
+    "layouts": 20,
+    "recalcs": 55,
+    "longestMs": 198,
+    "nodes": 34672
+   },
+   "toRead": {
+    "wallMs": 3211,
+    "taskMs": 697,
+    "scriptMs": 34,
+    "layoutMs": 170,
+    "layouts": 14,
+    "recalcs": 32,
+    "longestMs": 478,
+    "nodes": 41631
+   },
+   "editUndo": {
+    "edit": {
+     "wallMs": 6182,
+     "taskMs": 2908,
+     "scriptMs": 210,
+     "layoutMs": 89,
+     "layouts": 39,
+     "recalcs": 114,
+     "longestMs": 539,
+     "nodes": 43128
+    },
+    "undo": {
+     "wallMs": 4399,
+     "taskMs": 2126,
+     "scriptMs": 116,
+     "layoutMs": 32,
+     "layouts": 13,
+     "recalcs": 20,
+     "longestMs": 478,
+     "nodes": 41672
+    }
+   },
+   "reload": {
+    "wallMs": 4340,
+    "taskMs": 2067,
+    "scriptMs": 100,
+    "layoutMs": 37,
+    "layouts": 13,
+    "recalcs": 15,
+    "longestMs": 316,
+    "nodes": 43096
+   },
+   "find": {
+    "wallMs": 3542,
+    "taskMs": 2000,
+    "scriptMs": 297,
+    "layoutMs": 99,
+    "layouts": 28,
+    "recalcs": 66,
+    "longestMs": 597,
+    "nodes": 49800
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "md-prose",
+  "bytes": 1004138,
+  "name": "big-md-prose-1000k.md",
+  "steps": {
+   "open": {
+    "firstMs": 2374,
+    "completeMs": 31725,
+    "openReturnMs": 2478,
+    "busyUntilIdleMs": 123543,
+    "taskMs": 120764,
+    "layouts": 3098,
+    "longestMs": 10186,
+    "nodes": 56650,
+    "neverQuiet": true
+   },
+   "key": {
+    "wallMs": 1655,
+    "taskMs": 344,
+    "scriptMs": 93,
+    "layoutMs": 6,
+    "layouts": 4,
+    "recalcs": 4,
+    "longestMs": 224,
+    "nodes": 83319
+   },
+   "scrollMid": {
+    "wallMs": 1333,
+    "taskMs": 190,
+    "scriptMs": 18,
+    "layoutMs": 1,
+    "layouts": 2,
+    "recalcs": 4,
+    "longestMs": 172,
+    "nodes": 83879
+   },
+   "scrollEnd": {
+    "wallMs": 1133,
+    "taskMs": 131,
+    "scriptMs": 19,
+    "layoutMs": 0,
+    "layouts": 2,
+    "recalcs": 4,
+    "longestMs": 118,
+    "nodes": 83883
+   },
+   "toSource": {
+    "wallMs": 8625,
+    "taskMs": 4218,
+    "scriptMs": 371,
+    "layoutMs": 33,
+    "layouts": 17,
+    "recalcs": 50,
+    "longestMs": 661,
+    "nodes": 66930
+   },
+   "toRead": {
+    "wallMs": 2410,
+    "taskMs": 1392,
+    "scriptMs": 48,
+    "layoutMs": 413,
+    "layouts": 13,
+    "recalcs": 29,
+    "longestMs": 1087,
+    "nodes": 80892
+   },
+   "editUndo": {
+    "edit": {
+     "wallMs": 9774,
+     "taskMs": 5900,
+     "scriptMs": 328,
+     "layoutMs": 177,
+     "layouts": 33,
+     "recalcs": 108,
+     "longestMs": 1071,
+     "nodes": 80692
+    },
+    "undo": {
+     "wallMs": 7199,
+     "taskMs": 3888,
+     "scriptMs": 225,
+     "layoutMs": 46,
+     "layouts": 13,
+     "recalcs": 20,
+     "longestMs": 802,
+     "nodes": 81620
+    }
+   },
+   "reload": {
+    "wallMs": 7011,
+    "taskMs": 3724,
+    "scriptMs": 112,
+    "layoutMs": 48,
+    "layouts": 13,
+    "recalcs": 15,
+    "longestMs": 477,
+    "nodes": 83282
+   },
+   "find": {
+    "wallMs": 4660,
+    "taskMs": 3437,
+    "scriptMs": 562,
+    "layoutMs": 154,
+    "layouts": 26,
+    "recalcs": 64,
+    "longestMs": 1518,
+    "nodes": 90341
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "md-prose",
+  "bytes": 2007597,
+  "name": "big-md-prose-2000k.md",
+  "steps": {
+   "open": {
+    "err": "STALLED >90000ms at open"
+   }
+  },
+  "errors": []
+ }
+]

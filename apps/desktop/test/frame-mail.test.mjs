@@ -8,12 +8,11 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { after, test as nodeTest } from 'node:test';
-import { closeHarness } from './support/two-pane.mjs';
-import { cardText, cardsOf, rowOf, showCardPanel, skip, withFrame } from './support/frame.mjs';
+import { test as nodeTest } from 'node:test';
+import { idle, skip, withApp } from './support/kit.mjs';
+import { cardText, cardsOf, rowOf, showCardPanel } from './support/frame.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
-after(() => closeHarness());
 
 const demo = join(fileURLToPath(new URL('../../../', import.meta.url)), 'fixtures', 'demo', 'mail');
 const NOTICE = '/r/mail/low-water-notice.eml';
@@ -50,7 +49,7 @@ const frameReady = (page) =>
   });
 
 test('a message reads as a letter: its head, its HTML part cleaned in a sandbox on its own paper, nothing from the network', async () => {
-  await withFrame({ files: FILES, open: ['/r/README.md'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/README.md'] }, async (page) => {
     const off = watchNetwork(page);
     await open(page, NOTICE);
     await page.waitForSelector('.marxy-mailpage');
@@ -109,7 +108,7 @@ test('a message reads as a letter: its head, its HTML part cleaned in a sandbox 
     const said = async () => (await noticeTexts(page)).filter((t) => /not followed/.test(t)).length;
     const before = await said();
     await page.mouse.click(link.x + link.width + 40, link.y + link.height / 2);
-    await page.waitForTimeout(200);
+    await idle(page);
     assert.ok((await said()) <= before);
     // Metadata: Reading, Headers, Facts; Outline: Message; Links: Links.
     assert.deepEqual((await cardsOf(page)).map((c) => c.title), ['Reading', 'Facts', 'Headers', 'Message', 'Links']);
@@ -151,7 +150,7 @@ test('a message reads as a letter: its head, its HTML part cleaned in a sandbox 
 });
 
 test('images from the network load only when asked, for that message until its tab closes; opened again, they are blocked again', async () => {
-  await withFrame({ files: FILES, open: ['/r/README.md'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/README.md'] }, async (page) => {
     const off = watchNetwork(page);
     await open(page, NOTICE);
     await frameReady(page);
@@ -192,7 +191,7 @@ test('images from the network load only when asked, for that message until its t
 });
 
 test('a text-only reply: quotes set in a level per >, the signature apart, and every header as written on request', async () => {
-  await withFrame({ files: FILES, open: [REPLY] }, async (page) => {
+  await withApp({ files: FILES, open: [REPLY] }, async (page) => {
     await page.waitForSelector('.marxy-mail-text');
     assert.equal(await page.textContent('.marxy-mail-kicker'), 'A mail message · text/plain · 1 part');
     assert.match(await page.innerText('.marxy-mail-bar'), /sent as text only\s+All 13 headers/);
@@ -218,7 +217,7 @@ test('a text-only reply: quotes set in a level per >, the signature apart, and e
 });
 
 test('attachments are file cards, and one opens into memory in a tab of its own: never written, not in the Library', async () => {
-  await withFrame({ files: FILES, open: [NOTICE] }, async (page) => {
+  await withApp({ files: FILES, open: [NOTICE] }, async (page) => {
     await frameReady(page);
     const cards = await page.$$eval('.marxy-mail-card', (bs) => bs.map((b) => [b.dataset.marxyAttach, b.querySelector('.marxy-mail-card-sub').textContent, b.querySelector('img') ? 'picture' : b.querySelector('.marxy-mail-card-kind').textContent]));
     assert.deepEqual(cards, [
@@ -248,7 +247,7 @@ test('attachments are file cards, and one opens into memory in a tab of its own:
 });
 
 test('a message with no extension is found from its headers, and said as a guess', async () => {
-  await withFrame({ files: FILES, open: ['/r/mail/saved-message'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/mail/saved-message'] }, async (page) => {
     await page.waitForSelector('.marxy-mail-text');
     assert.equal(await page.textContent('.marxy-mail-subject'), 'Re: Gauge readings at Lock Gate');
     await page.waitForFunction(() => document.querySelector('[data-marxy-head="0"] .marxy-guess')?.textContent === 'mail · guessed');
@@ -257,7 +256,7 @@ test('a message with no extension is found from its headers, and said as a guess
 });
 
 test('Export offers the message as it is, its text, and its HTML cleaned', async () => {
-  await withFrame({ files: FILES, open: [NOTICE] }, async (page) => {
+  await withApp({ files: FILES, open: [NOTICE] }, async (page) => {
     await frameReady(page);
     const built = await page.evaluate(async () => {
       const v = window.__marxyHandle.panes().focused.content.viewer();
@@ -284,7 +283,7 @@ const outlookReady = (page) =>
   });
 
 test('an Outlook message reads as a mail: its head, the HTML Outlook wrapped in its RTF, attachments, the message it answers', async () => {
-  await withFrame({ files: OUTLOOK, open: ['/r/README.md'] }, async (page) => {
+  await withApp({ files: OUTLOOK, open: ['/r/README.md'] }, async (page) => {
     const off = watchNetwork(page);
     await open(page, MSG);
     await page.waitForSelector('.marxy-mailpage');
@@ -319,7 +318,7 @@ test('an Outlook message reads as a mail: its head, the HTML Outlook wrapped in 
 });
 
 test('an Outlook message’s Source is its bytes, and Export offers them and the message as an .eml', async () => {
-  await withFrame({ files: OUTLOOK, open: [MSG] }, async (page) => {
+  await withApp({ files: OUTLOOK, open: [MSG] }, async (page) => {
     await outlookReady(page);
     const built = await page.evaluate(async () => {
       const v = window.__marxyHandle.panes().focused.content.viewer();
@@ -338,7 +337,7 @@ test('an Outlook message’s Source is its bytes, and Export offers them and the
 });
 
 test('an Outlook message the build cannot read is the file card, which says why', async () => {
-  await withFrame({ files: OUTLOOK, open: ['/r/mail/other.msg'] }, async (page) => {
+  await withApp({ files: OUTLOOK, open: ['/r/mail/other.msg'] }, async (page) => {
     await page.waitForSelector('.marxy-fcard-kicker');
     assert.equal(await page.textContent('.marxy-fcard-kicker'), 'An Outlook message the app cannot read');
     assert.match(await page.textContent('.marxy-fcard-why'), /This build reads only the demo’s own Outlook messages/);

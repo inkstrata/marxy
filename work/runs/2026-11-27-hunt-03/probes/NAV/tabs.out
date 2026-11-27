@@ -1,0 +1,24 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/tabs.mjs --browser chromium
+=== three 2 MB files; heap at start 148MB
+open /big-md-prose-2000k.md: wall 4467ms task 4434ms script 382ms layout 441ms(146) style#180 nodes 65638
+ heap 148MB
+open -md-technical-2000k.md: wall 30622ms task 30508ms script 5392ms layout 3959ms(1016) style#1050 nodes 229429
+ heap 148MB
+open md-transcript-2000k.md: wall 37631ms task 37495ms script 5338ms layout 2490ms(1232) style#1268 nodes 200503
+ heap 148MB
+switch to /big-md-prose-2000k.md: wall 1025ms task 1034ms script 88ms layout 165ms(58) style#93 nodes 212811
+ heap 148MB nodes 223327
+switch to -md-technical-2000k.md: wall 1298ms task 1315ms script 141ms layout 103ms(58) style#93 nodes 256153
+ heap 148MB nodes 176883
+switch to md-transcript-2000k.md: wall 1336ms task 1344ms script 99ms layout 106ms(63) style#100 nodes 325495
+ heap 148MB nodes 155167
+switch to /big-md-prose-2000k.md: wall 910ms task 907ms script 83ms layout 144ms(54) style#88 nodes 220495
+ heap 148MB nodes 231011
+switch to -md-technical-2000k.md: wall 1248ms task 1251ms script 92ms layout 101ms(68) style#103 nodes 389810
+ heap 148MB nodes 171586
+switch to md-transcript-2000k.md: wall 1255ms task 1257ms script 75ms layout 101ms(59) style#96 nodes 319357
+ heap 148MB nodes 229045
+split same file beside: wall 5708ms task 5689ms script 972ms layout 929ms(278) style#318 nodes 323163
+ heap 148MB nodes 351749
+key in split: wall 339ms task 342ms script 107ms layout 35ms(28) style#41 nodes 355098
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1044

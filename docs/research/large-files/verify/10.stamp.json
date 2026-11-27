@@ -1,0 +1,73 @@
+{
+ "chapter": "10-guardrails.md",
+ "pass": 3,
+ "stamped": "2026-11-27",
+ "findings": {
+  "GRD-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "0dd1fe59acc2"
+  },
+  "GRD-02": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "7d2f21f578f6"
+  },
+  "GRD-03": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "bf8dde174129"
+  },
+  "GRD-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "a5a6ea10d02d"
+  },
+  "GRD-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "8e399ad04802"
+  },
+  "GRD-06": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "066e1296566a"
+  },
+  "GRD-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "f82c6cfe354d"
+  },
+  "GRD-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "054725ad2cdb"
+  },
+  "GRD-09": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "4085d1cc157d"
+  },
+  "GRD-10": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "4695dfffda10"
+  },
+  "GRD-11": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "8b39edef22ed"
+  }
+ }
+}

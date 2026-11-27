@@ -1,0 +1,24 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/tabs.mjs --browser chromium
+=== three 4.9 MB files; heap at start 167MB
+open /big-md-prose-4900k.md: wall 6882ms task 6853ms script 370ms layout 438ms(140) style#174 nodes 160188
+ heap 167MB
+open -md-technical-4900k.md: wall 60012ms task 60140ms script 11654ms layout 7647ms(1674) style#1675 nodes 206951 STALL>60000ms open -md-technical-4900k.md
+ heap 167MB
+open md-transcript-4900k.md: wall 60022ms task 59879ms script 8562ms layout 3597ms(1935) style#1969 nodes 417877 STALL>60000ms open md-transcript-4900k.md
+ heap 167MB
+switch to /big-md-prose-4900k.md: wall 1344ms task 1384ms script 136ms layout 178ms(64) style#99 nodes 906947
+ heap 167MB nodes 932665
+switch to -md-technical-4900k.md: wall 2444ms task 2440ms script 109ms layout 96ms(77) style#112 nodes 441446
+ heap 167MB nodes 440845
+switch to md-transcript-4900k.md: wall 2810ms task 2803ms script 84ms layout 108ms(61) style#98 nodes 796683
+ heap 167MB nodes 815920
+switch to /big-md-prose-4900k.md: wall 1443ms task 1457ms script 145ms layout 164ms(52) style#87 nodes 972709
+ heap 167MB nodes 178939
+switch to -md-technical-4900k.md: wall 1910ms task 1994ms script 107ms layout 88ms(68) style#103 nodes 557592
+ heap 167MB nodes 576609
+switch to md-transcript-4900k.md: wall 3486ms task 3487ms script 88ms layout 97ms(63) style#100 nodes 373486
+ heap 167MB nodes 393586
+split same file beside: wall 14890ms task 14859ms script 2925ms layout 2204ms(558) style#594 nodes 744977
+ heap 167MB nodes 821588
+key in split: wall 524ms task 533ms script 151ms layout 61ms(33) style#42 nodes 825756
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1049

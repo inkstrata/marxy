@@ -1,0 +1,4205 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+microsoft
+
+vscode
+
+Repository navigation
+
+Code
+
+Issues5k+ ( 5k+ )
+
+Pull requests3.2k ( 3.2k )
+
+Actions
+
+Projects
+
+Wiki
+
+Security and quality81 ( 81 )
+
+Insights
+
+More items
+
+Files Expand file tree
+
+main
+
+Breadcrumbs
+
+vscode
+
+/src
+
+/vs
+
+/editor
+
+/common
+
+/config
+
+/
+editorOptions.ts
+
+Copy path
+
+Blame
+
+More file actions
+
+Blame
+
+More file actions
+
+Latest commit
+
+History
+History
+
+History
+
+7115 lines (6563 loc) · 254 KB
+
+main
+
+Breadcrumbs
+
+vscode
+
+/src
+
+/vs
+
+/editor
+
+/common
+
+/config
+
+/
+editorOptions.ts
+
+Copy path
+
+Top
+
+File metadata and controls
+
+Code
+
+Blame
+
+7115 lines (6563 loc) · 254 KB
+
+Raw
+
+Copy raw file
+
+Download raw file
+
+Open symbols panel
+Edit and raw actions
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9
+
+10
+
+11
+
+12
+
+13
+
+14
+
+15
+
+16
+
+17
+
+18
+
+19
+
+20
+
+21
+
+22
+
+23
+
+24
+
+25
+
+26
+
+27
+
+28
+
+29
+
+30
+
+31
+
+32
+
+33
+
+34
+
+35
+
+36
+
+37
+
+38
+
+39
+
+40
+
+41
+
+42
+
+43
+
+44
+
+45
+
+46
+
+47
+
+48
+
+49
+
+50
+
+51
+
+52
+
+53
+
+54
+
+55
+
+56
+
+57
+
+58
+
+59
+
+60
+
+61
+
+62
+
+63
+
+64
+
+65
+
+66
+
+67
+
+68
+
+69
+
+70
+
+71
+
+72
+
+73
+
+74
+
+75
+
+76
+
+77
+
+78
+
+79
+
+80
+
+81
+
+82
+
+83
+
+84
+
+85
+
+86
+
+87
+
+88
+
+89
+
+90
+
+91
+
+92
+
+93
+
+94
+
+95
+
+96
+
+97
+
+98
+
+99
+
+100
+
+101
+
+102
+
+103
+
+104
+
+105
+
+106
+
+107
+
+108
+
+109
+
+110
+
+111
+
+112
+
+113
+
+114
+
+115
+
+116
+
+117
+
+118
+
+119
+
+120
+
+121
+
+122
+
+123
+
+124
+
+125
+
+126
+
+127
+
+128
+
+129
+
+130
+
+131
+
+132
+
+133
+
+134
+
+135
+
+136
+
+137
+
+138
+
+139
+
+140
+
+141
+
+142
+
+143
+
+144
+
+145
+
+146
+
+147
+
+148
+
+149
+
+150
+
+151
+
+152
+
+153
+
+154
+
+155
+
+156
+
+157
+
+158
+
+159
+
+160
+
+161
+
+162
+
+163
+
+164
+
+165
+
+166
+
+167
+
+168
+
+169
+
+170
+
+171
+
+172
+
+173
+
+174
+
+175
+
+176
+
+177
+
+178
+
+179
+
+180
+
+181
+
+182
+
+183
+
+184
+
+185
+
+186
+
+187
+
+188
+
+189
+
+190
+
+191
+
+192
+
+193
+
+194
+
+195
+
+196
+
+197
+
+198
+
+199
+
+200
+
+201
+
+202
+
+203
+
+204
+
+205
+
+206
+
+207
+
+208
+
+209
+
+210
+
+211
+
+212
+
+213
+
+214
+
+215
+
+216
+
+217
+
+218
+
+219
+
+220
+
+221
+
+222
+
+223
+
+224
+
+225
+
+226
+
+227
+
+228
+
+229
+
+230
+
+231
+
+232
+
+233
+
+234
+
+235
+
+236
+
+237
+
+238
+
+239
+
+240
+
+241
+
+242
+
+243
+
+244
+
+245
+
+246
+
+247
+
+248
+
+249
+
+250
+
+251
+
+252
+
+253
+
+254
+
+255
+
+256
+
+257
+
+258
+
+259
+
+260
+
+261
+
+262
+
+263
+
+264
+
+265
+
+266
+
+267
+
+268
+
+269
+
+270
+
+271
+
+272
+
+273
+
+274
+
+275
+
+276
+
+277
+
+278
+
+279
+
+280
+
+281
+
+282
+
+283
+
+284
+
+285
+
+286
+
+287
+
+288
+
+289
+
+290
+
+291
+
+292
+
+293
+
+294
+
+295
+
+296
+
+297
+
+298
+
+299
+
+300
+
+301
+
+302
+
+303
+
+304
+
+305
+
+306
+
+307
+
+308
+
+309
+
+310
+
+311
+
+312
+
+313
+
+314
+
+315
+
+316
+
+317
+
+318
+
+319
+
+320
+
+321
+
+322
+
+323
+
+324
+
+325
+
+326
+
+327
+
+328
+
+329
+
+330
+
+331
+
+332
+
+333
+
+334
+
+335
+
+336
+
+337
+
+338
+
+339
+
+340
+
+341
+
+342
+
+343
+
+344
+
+345
+
+346
+
+347
+
+348
+
+349
+
+350
+
+351
+
+352
+
+353
+
+354
+
+355
+
+356
+
+357
+
+358
+
+359
+
+360
+
+361
+
+362
+
+363
+
+364
+
+365
+
+366
+
+367
+
+368
+
+369
+
+370
+
+371
+
+372
+
+373
+
+374
+
+375
+
+376
+
+377
+
+378
+
+379
+
+380
+
+381
+
+382
+
+383
+
+384
+
+385
+
+386
+
+387
+
+388
+
+389
+
+390
+
+391
+
+392
+
+393
+
+394
+
+395
+
+396
+
+397
+
+398
+
+399
+
+400
+
+401
+
+402
+
+403
+
+404
+
+405
+
+406
+
+407
+
+408
+
+409
+
+410
+
+411
+
+412
+
+413
+
+414
+
+415
+
+416
+
+417
+
+418
+
+419
+
+420
+
+421
+
+422
+
+423
+
+424
+
+425
+
+426
+
+427
+
+428
+
+429
+
+430
+
+431
+
+432
+
+433
+
+434
+
+435
+
+436
+
+437
+
+438
+
+439
+
+440
+
+441
+
+442
+
+443
+
+444
+
+445
+
+446
+
+447
+
+448
+
+449
+
+450
+
+451
+
+452
+
+453
+
+454
+
+455
+
+456
+
+457
+
+458
+
+459
+
+460
+
+461
+
+462
+
+463
+
+464
+
+465
+
+466
+
+467
+
+468
+
+469
+
+470
+
+471
+
+472
+
+473
+
+474
+
+475
+
+476
+
+477
+
+478
+
+479
+
+480
+
+481
+
+482
+
+483
+
+484
+
+485
+
+486
+
+487
+
+488
+
+489
+
+490
+
+491
+
+492
+
+493
+
+494
+
+495
+
+496
+
+497
+
+498
+
+499
+
+500
+
+501
+
+502
+
+503
+
+504
+
+505
+
+506
+
+507
+
+508
+
+509
+
+510
+
+511
+
+512
+
+513
+
+514
+
+515
+
+516
+
+517
+
+518
+
+519
+
+520
+
+521
+
+522
+
+523
+
+524
+
+525
+
+526
+
+527
+
+528
+
+529
+
+530
+
+531
+
+532
+
+533
+
+534
+
+535
+
+536
+
+537
+
+538
+
+539
+
+540
+
+541
+
+542
+
+543
+
+544
+
+545
+
+546
+
+547
+
+548
+
+549
+
+550
+
+551
+
+552
+
+553
+
+554
+
+555
+
+556
+
+557
+
+558
+
+559
+
+560
+
+561
+
+562
+
+563
+
+564
+
+565
+
+566
+
+567
+
+568
+
+569
+
+570
+
+571
+
+572
+
+573
+
+574
+
+575
+
+576
+
+577
+
+578
+
+579
+
+580
+
+581
+
+582
+
+583
+
+584
+
+585
+
+586
+
+587
+
+588
+
+589
+
+590
+
+591
+
+592
+
+593
+
+594
+
+595
+
+596
+
+597
+
+598
+
+599
+
+600
+
+601
+
+602
+
+603
+
+604
+
+605
+
+606
+
+607
+
+608
+
+609
+
+610
+
+611
+
+612
+
+613
+
+614
+
+615
+
+616
+
+617
+
+618
+
+619
+
+620
+
+621
+
+622
+
+623
+
+624
+
+625
+
+626
+
+627
+
+628
+
+629
+
+630
+
+631
+
+632
+
+633
+
+634
+
+635
+
+636
+
+637
+
+638
+
+639
+
+640
+
+641
+
+642
+
+643
+
+644
+
+645
+
+646
+
+647
+
+648
+
+649
+
+650
+
+651
+
+652
+
+653
+
+654
+
+655
+
+656
+
+657
+
+658
+
+659
+
+660
+
+661
+
+662
+
+663
+
+664
+
+665
+
+666
+
+667
+
+668
+
+669
+
+670
+
+671
+
+672
+
+673
+
+674
+
+675
+
+676
+
+677
+
+678
+
+679
+
+680
+
+681
+
+682
+
+683
+
+684
+
+685
+
+686
+
+687
+
+688
+
+689
+
+690
+
+691
+
+692
+
+693
+
+694
+
+695
+
+696
+
+697
+
+698
+
+699
+
+700
+
+701
+
+702
+
+703
+
+704
+
+705
+
+706
+
+707
+
+708
+
+709
+
+710
+
+711
+
+712
+
+713
+
+714
+
+715
+
+716
+
+717
+
+718
+
+719
+
+720
+
+721
+
+722
+
+723
+
+724
+
+725
+
+726
+
+727
+
+728
+
+729
+
+730
+
+731
+
+732
+
+733
+
+734
+
+735
+
+736
+
+737
+
+738
+
+739
+
+740
+
+741
+
+742
+
+743
+
+744
+
+745
+
+746
+
+747
+
+748
+
+749
+
+750
+
+751
+
+752
+
+753
+
+754
+
+755
+
+756
+
+757
+
+758
+
+759
+
+760
+
+761
+
+762
+
+763
+
+764
+
+765
+
+766
+
+767
+
+768
+
+769
+
+770
+
+771
+
+772
+
+773
+
+774
+
+775
+
+776
+
+777
+
+778
+
+779
+
+780
+
+781
+
+782
+
+783
+
+784
+
+785
+
+786
+
+787
+
+788
+
+789
+
+790
+
+791
+
+792
+
+793
+
+794
+
+795
+
+796
+
+797
+
+798
+
+799
+
+800
+
+801
+
+802
+
+803
+
+804
+
+805
+
+806
+
+807
+
+808
+
+809
+
+810
+
+811
+
+812
+
+813
+
+814
+
+815
+
+816
+
+817
+
+818
+
+819
+
+820
+
+821
+
+822
+
+823
+
+824
+
+825
+
+826
+
+827
+
+828
+
+829
+
+830
+
+831
+
+832
+
+833
+
+834
+
+835
+
+836
+
+837
+
+838
+
+839
+
+840
+
+841
+
+842
+
+843
+
+844
+
+845
+
+846
+
+847
+
+848
+
+849
+
+850
+
+851
+
+852
+
+853
+
+854
+
+855
+
+856
+
+857
+
+858
+
+859
+
+860
+
+861
+
+862
+
+863
+
+864
+
+865
+
+866
+
+867
+
+868
+
+869
+
+870
+
+871
+
+872
+
+873
+
+874
+
+875
+
+876
+
+877
+
+878
+
+879
+
+880
+
+881
+
+882
+
+883
+
+884
+
+885
+
+886
+
+887
+
+888
+
+889
+
+890
+
+891
+
+892
+
+893
+
+894
+
+895
+
+896
+
+897
+
+898
+
+899
+
+900
+
+901
+
+902
+
+903
+
+904
+
+905
+
+906
+
+907
+
+908
+
+909
+
+910
+
+911
+
+912
+
+913
+
+914
+
+915
+
+916
+
+917
+
+918
+
+919
+
+920
+
+921
+
+922
+
+923
+
+924
+
+925
+
+926
+
+927
+
+928
+
+929
+
+930
+
+931
+
+932
+
+933
+
+934
+
+935
+
+936
+
+937
+
+938
+
+939
+
+940
+
+941
+
+942
+
+943
+
+944
+
+945
+
+946
+
+947
+
+948
+
+949
+
+950
+
+951
+
+952
+
+953
+
+954
+
+955
+
+956
+
+957
+
+958
+
+959
+
+960
+
+961
+
+962
+
+963
+
+964
+
+965
+
+966
+
+967
+
+968
+
+969
+
+970
+
+971
+
+972
+
+973
+
+974
+
+975
+
+976
+
+977
+
+978
+
+979
+
+980
+
+981
+
+982
+
+983
+
+984
+
+985
+
+986
+
+987
+
+988
+
+989
+
+990
+
+991
+
+992
+
+993
+
+994
+
+995
+
+996
+
+997
+
+998
+
+999
+
+1000
+
+/*---------------------------------------------------------------------------------------------
+
+* Copyright (c) Microsoft Corporation. All rights reserved.
+
+* Licensed under the MIT License. See License.txt in the project root for license information.
+
+*--------------------------------------------------------------------------------------------*/
+
+import * as arrays from '../../../base/common/arrays.js';
+
+import { IMarkdownString } from '../../../base/common/htmlContent.js';
+
+import { IJSONSchema } from '../../../base/common/jsonSchema.js';
+
+import * as objects from '../../../base/common/objects.js';
+
+import * as platform from '../../../base/common/platform.js';
+
+import { ScrollbarVisibility } from '../../../base/common/scrollable.js';
+
+import { Constants } from '../../../base/common/uint.js';
+
+import { EDITOR_FONT_DEFAULTS, FONT_VARIATION_OFF, FONT_VARIATION_TRANSLATE, FontInfo } from './fontInfo.js';
+
+import { EDITOR_MODEL_DEFAULTS } from '../core/misc/textModelDefaults.js';
+
+import { USUAL_WORD_SEPARATORS } from '../core/wordHelper.js';
+
+import * as nls from '../../../nls.js';
+
+import { AccessibilitySupport } from '../../../platform/accessibility/common/accessibility.js';
+
+import { IConfigurationPropertySchema } from '../../../platform/configuration/common/configurationRegistry.js';
+
+//#region typed options
+
+/**
+
+* Configuration options for auto closing quotes and brackets
+
+*/
+
+export type EditorAutoClosingStrategy = 'always' | 'languageDefined' | 'beforeWhitespace' | 'never';
+
+/**
+
+* Configuration options for auto wrapping quotes and brackets
+
+*/
+
+export type EditorAutoSurroundStrategy = 'languageDefined' | 'quotes' | 'brackets' | 'never';
+
+/**
+
+* Configuration options for typing over closing quotes or brackets
+
+*/
+
+export type EditorAutoClosingEditStrategy = 'always' | 'auto' | 'never';
+
+type Unknown<T> = { [K in keyof T]: unknown };
+
+/**
+
+* Configuration options for auto indentation in the editor
+
+*/
+
+export const enum EditorAutoIndentStrategy {
+
+None = 0,
+
+Keep = 1,
+
+Brackets = 2,
+
+Advanced = 3,
+
+Full = 4
+
+}
+
+/**
+
+* Configuration options for the editor.
+
+*/
+
+export interface IEditorOptions {
+
+/**
+
+* This editor is used inside a diff editor.
+
+*/
+
+inDiffEditor?: boolean;
+
+/**
+
+* This editor is allowed to use variable line heights.
+
+*/
+
+allowVariableLineHeights?: boolean;
+
+/**
+
+* This editor is allowed to use variable font-sizes and font-families
+
+*/
+
+allowVariableFonts?: boolean;
+
+/**
+
+* This editor is allowed to use variable font-sizes and font-families in accessibility mode
+
+*/
+
+allowVariableFontsInAccessibilityMode?: boolean;
+
+/**
+
+* The aria label for the editor's textarea (when it is focused).
+
+*/
+
+ariaLabel?: string;
+
+/**
+
+* Whether the aria-required attribute should be set on the editors textarea.
+
+*/
+
+ariaRequired?: boolean;
+
+/**
+
+* Control whether a screen reader announces inline suggestion content immediately.
+
+*/
+
+screenReaderAnnounceInlineSuggestion?: boolean;
+
+/**
+
+* The `tabindex` property of the editor's textarea
+
+*/
+
+tabIndex?: number;
+
+/**
+
+* Render vertical lines at the specified columns.
+
+* Defaults to empty array.
+
+*/
+
+rulers?: (number | IRulerOption)[];
+
+/**
+
+* Locales used for segmenting lines into words when doing word related navigations or operations.
+
+*
+
+* Specify the BCP 47 language tag of the word you wish to recognize (e.g., ja, zh-CN, zh-Hant-TW, etc.).
+
+* Defaults to empty array
+
+*/
+
+wordSegmenterLocales?: string | string[];
+
+/**
+
+* A string containing the word separators used when doing word navigation.
+
+* Defaults to `~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?
+
+*/
+
+wordSeparators?: string;
+
+/**
+
+* Enable Linux primary clipboard.
+
+* Defaults to true.
+
+*/
+
+selectionClipboard?: boolean;
+
+/**
+
+* Control the rendering of line numbers.
+
+* If it is a function, it will be invoked when rendering a line number and the return value will be rendered.
+
+* Otherwise, if it is a truthy, line numbers will be rendered normally (equivalent of using an identity function).
+
+* Otherwise, line numbers will not be rendered.
+
+* Defaults to `on`.
+
+*/
+
+lineNumbers?: LineNumbersType;
+
+/**
+
+* Controls the minimal number of visible leading and trailing lines surrounding the cursor.
+
+* Defaults to 0.
+
+*/
+
+cursorSurroundingLines?: number;
+
+/**
+
+* Controls when `cursorSurroundingLines` should be enforced
+
+* Defaults to `default`, `cursorSurroundingLines` is not enforced when cursor position is changed
+
+* by mouse.
+
+*/
+
+cursorSurroundingLinesStyle?: 'default' | 'all';
+
+/**
+
+* Render last line number when the file ends with a newline.
+
+* Defaults to 'on' for Windows and macOS and 'dimmed' for Linux.
+
+*/
+
+renderFinalNewline?: 'on' | 'off' | 'dimmed';
+
+/**
+
+* Remove unusual line terminators like LINE SEPARATOR (LS), PARAGRAPH SEPARATOR (PS).
+
+* Defaults to 'prompt'.
+
+*/
+
+unusualLineTerminators?: 'auto' | 'off' | 'prompt';
+
+/**
+
+* Should the corresponding line be selected when clicking on the line number?
+
+* Defaults to true.
+
+*/
+
+selectOnLineNumbers?: boolean;
+
+/**
+
+* Control the width of line numbers, by reserving horizontal space for rendering at least an amount of digits.
+
+* Defaults to 5.
+
+*/
+
+lineNumbersMinChars?: number;
+
+/**
+
+* Enable the rendering of the glyph margin.
+
+* Defaults to true in vscode and to false in monaco-editor.
+
+*/
+
+glyphMargin?: boolean;
+
+/**
+
+* The width reserved for line decorations (in px).
+
+* Line decorations are placed between line numbers and the editor content.
+
+* You can pass in a string in the format floating point followed by "ch". e.g. 1.3ch.
+
+* Defaults to 10.
+
+*/
+
+lineDecorationsWidth?: number | string;
+
+/**
+
+* When revealing the cursor, a virtual padding (px) is added to the cursor, turning it into a rectangle.
+
+* This virtual padding ensures that the cursor gets revealed before hitting the edge of the viewport.
+
+* Defaults to 30 (px).
+
+*/
+
+revealHorizontalRightPadding?: number;
+
+/**
+
+* Render the editor selection with rounded borders.
+
+* Defaults to true.
+
+*/
+
+roundedSelection?: boolean;
+
+/**
+
+* Class name to be added to the editor.
+
+*/
+
+extraEditorClassName?: string;
+
+/**
+
+* Should the editor be read only. See also `domReadOnly`.
+
+* Defaults to false.
+
+*/
+
+readOnly?: boolean;
+
+/**
+
+* The message to display when the editor is readonly.
+
+*/
+
+readOnlyMessage?: IMarkdownString;
+
+/**
+
+* Should the textarea used for input use the DOM `readonly` attribute.
+
+* Defaults to false.
+
+*/
+
+domReadOnly?: boolean;
+
+/**
+
+* Enable linked editing.
+
+* Defaults to false.
+
+*/
+
+linkedEditing?: boolean;
+
+/**
+
+* deprecated, use linkedEditing instead
+
+*/
+
+renameOnType?: boolean;
+
+/**
+
+* Should the editor render validation decorations.
+
+* Defaults to editable.
+
+*/
+
+renderValidationDecorations?: 'editable' | 'on' | 'off';
+
+/**
+
+* Control the behavior and rendering of the scrollbars.
+
+*/
+
+scrollbar?: IEditorScrollbarOptions;
+
+/**
+
+* Control the behavior of sticky scroll options
+
+*/
+
+stickyScroll?: IEditorStickyScrollOptions;
+
+/**
+
+* Control the behavior and rendering of the minimap.
+
+*/
+
+minimap?: IEditorMinimapOptions;
+
+/**
+
+* Control the behavior of the find widget.
+
+*/
+
+find?: IEditorFindOptions;
+
+/**
+
+* Display overflow widgets as `fixed`.
+
+* Defaults to `false`.
+
+*/
+
+fixedOverflowWidgets?: boolean;
+
+/**
+
+* Allow content widgets and overflow widgets to overflow the editor viewport.
+
+* Defaults to `true`.
+
+*/
+
+allowOverflow?: boolean;
+
+/**
+
+* The number of vertical lanes the overview ruler should render.
+
+* Defaults to 3.
+
+*/
+
+overviewRulerLanes?: number;
+
+/**
+
+* Controls if a border should be drawn around the overview ruler.
+
+* Defaults to `true`.
+
+*/
+
+overviewRulerBorder?: boolean;
+
+/**
+
+* Control the cursor animation style, possible values are 'blink', 'smooth', 'phase', 'expand' and 'solid'.
+
+* Defaults to 'blink'.
+
+*/
+
+cursorBlinking?: 'blink' | 'smooth' | 'phase' | 'expand' | 'solid';
+
+/**
+
+* Zoom the font in the editor when using the mouse wheel in combination with holding Ctrl.
+
+* Defaults to false.
+
+*/
+
+mouseWheelZoom?: boolean;
+
+/**
+
+* Control the mouse pointer style, either 'text' or 'default' or 'copy'
+
+* Defaults to 'text'
+
+*/
+
+mouseStyle?: 'text' | 'default' | 'copy';
+
+/**
+
+* Enable smooth caret animation.
+
+* Defaults to 'off'.
+
+*/
+
+cursorSmoothCaretAnimation?: 'off' | 'explicit' | 'on';
+
+/**
+
+* Control the cursor style in insert mode.
+
+* Defaults to 'line'.
+
+*/
+
+cursorStyle?: 'line' | 'block' | 'underline' | 'line-thin' | 'block-outline' | 'underline-thin';
+
+/**
+
+* Control the cursor style in overtype mode.
+
+* Defaults to 'block'.
+
+*/
+
+overtypeCursorStyle?: 'line' | 'block' | 'underline' | 'line-thin' | 'block-outline' | 'underline-thin';
+
+/**
+
+* Controls whether paste in overtype mode should overwrite or insert.
+
+*/
+
+overtypeOnPaste?: boolean;
+
+/**
+
+* Control the width of the cursor when cursorStyle is set to 'line'
+
+*/
+
+cursorWidth?: number;
+
+/**
+
+* Control the height of the cursor when cursorStyle is set to 'line'
+
+*/
+
+cursorHeight?: number;
+
+/**
+
+* Enable font ligatures.
+
+* Defaults to false.
+
+*/
+
+fontLigatures?: boolean | string;
+
+/**
+
+* Enable font variations.
+
+* Defaults to false.
+
+*/
+
+fontVariations?: boolean | string;
+
+/**
+
+* Controls whether to use default color decorations or not using the default document color provider
+
+*/
+
+defaultColorDecorators?: 'auto' | 'always' | 'never';
+
+/**
+
+* Disable the use of `transform: translate3d(0px, 0px, 0px)` for the editor margin and lines layers.
+
+* The usage of `transform: translate3d(0px, 0px, 0px)` acts as a hint for browsers to create an extra layer.
+
+* Defaults to false.
+
+*/
+
+disableLayerHinting?: boolean;
+
+/**
+
+* Disable the optimizations for monospace fonts.
+
+* Defaults to false.
+
+*/
+
+disableMonospaceOptimizations?: boolean;
+
+/**
+
+* Should the cursor be hidden in the overview ruler.
+
+* Defaults to false.
+
+*/
+
+hideCursorInOverviewRuler?: boolean;
+
+/**
+
+* Enable that scrolling can go one screen size after the last line.
+
+* Defaults to true.
+
+*/
+
+scrollBeyondLastLine?: boolean;
+
+/**
+
+* Scroll editor on middle click
+
+*/
+
+scrollOnMiddleClick?: boolean;
+
+/**
+
+* Enable that scrolling can go beyond the last column by a number of columns.
+
+* Defaults to 5.
+
+*/
+
+scrollBeyondLastColumn?: number;
+
+/**
+
+* Enable that the editor animates scrolling to a position.
+
+* Defaults to false.
+
+*/
+
+smoothScrolling?: boolean;
+
+/**
+
+* Enable that the editor will install a ResizeObserver to check if its container dom node size has changed.
+
+* Defaults to false.
+
+*/
+
+automaticLayout?: boolean;
+
+/**
+
+* Control the wrapping of the editor.
+
+* When `wordWrap` = "off", the lines will never wrap.
+
+* When `wordWrap` = "on", the lines will wrap at the viewport width.
+
+* When `wordWrap` = "wordWrapColumn", the lines will wrap at `wordWrapColumn`.
+
+* When `wordWrap` = "bounded", the lines will wrap at min(viewport width, wordWrapColumn).
+
+* Defaults to "off".
+
+*/
+
+wordWrap?: 'off' | 'on' | 'wordWrapColumn' | 'bounded';
+
+/**
+
+* Control whether an indicator is rendered at the wrapping column of soft wrapped lines.
+
+* Defaults to false.
+
+*/
+
+wordWrapIndicator?: boolean;
+
+/**
+
+* Override the `wordWrap` setting.
+
+*/
+
+wordWrapOverride1?: 'off' | 'on' | 'inherit';
+
+/**
+
+* Override the `wordWrapOverride1` setting.
+
+*/
+
+wordWrapOverride2?: 'off' | 'on' | 'inherit';
+
+/**
+
+* Control the wrapping of the editor.
+
+* When `wordWrap` = "off", the lines will never wrap.
+
+* When `wordWrap` = "on", the lines will wrap at the viewport width.
+
+* When `wordWrap` = "wordWrapColumn", the lines will wrap at `wordWrapColumn`.
+
+* When `wordWrap` = "bounded", the lines will wrap at min(viewport width, wordWrapColumn).
+
+* Defaults to 80.
+
+*/
+
+wordWrapColumn?: number;
+
+/**
+
+* Control indentation of wrapped lines. Can be: 'none', 'same', 'indent' or 'deepIndent'.
+
+* Defaults to 'same' in vscode and to 'none' in monaco-editor.
+
+*/
+
+wrappingIndent?: 'none' | 'same' | 'indent' | 'deepIndent';
+
+/**
+
+* Controls the wrapping strategy to use.
+
+* Defaults to 'simple'.
+
+*/
+
+wrappingStrategy?: 'simple' | 'advanced';
+
+/**
+
+* Create a softwrap on every quoted "\n" literal.
+
+* Defaults to false.
+
+*/
+
+wrapOnEscapedLineFeeds?: boolean;
+
+/**
+
+* Configure word wrapping characters. A break will be introduced before these characters.
+
+*/
+
+wordWrapBreakBeforeCharacters?: string;
+
+/**
+
+* Configure word wrapping characters. A break will be introduced after these characters.
+
+*/
+
+wordWrapBreakAfterCharacters?: string;
+
+/**
+
+* Sets whether line breaks appear wherever the text would otherwise overflow its content box.
+
+* When wordBreak = 'normal', Use the default line break rule.
+
+* When wordBreak = 'keepAll', Word breaks should not be used for Chinese/Japanese/Korean (CJK) text. Non-CJK text behavior is the same as for normal.
+
+*/
+
+wordBreak?: 'normal' | 'keepAll';
+
+/**
+
+* Performance guard: Stop rendering a line after x characters.
+
+* Defaults to 10000.
+
+* Use -1 to never stop rendering
+
+*/
+
+stopRenderingLineAfter?: number;
+
+/**
+
+* Configure the editor's hover.
+
+*/
+
+hover?: IEditorHoverOptions;
+
+/**
+
+* Controls which remote images Markdown rendered by the editor may load,
+
+* for example in hovers, suggestion details and parameter hints.
+
+*/
+
+markdownImages?: IEditorMarkdownImagesOptions;
+
+/**
+
+* Enable detecting links and making them clickable.
+
+* Defaults to true.
+
+*/
+
+links?: boolean;
+
+/**
+
+* Enable inline color decorators and color picker rendering.
+
+*/
+
+colorDecorators?: boolean;
+
+/**
+
+* Controls what is the condition to spawn a color picker from a color dectorator
+
+*/
+
+colorDecoratorsActivatedOn?: 'clickAndHover' | 'click' | 'hover';
+
+/**
+
+* Controls the max number of color decorators that can be rendered in an editor at once.
+
+*/
+
+colorDecoratorsLimit?: number;
+
+/**
+
+* Control the behaviour of comments in the editor.
+
+*/
+
+comments?: IEditorCommentsOptions;
+
+/**
+
+* Enable custom contextmenu.
+
+* Defaults to true.
+
+*/
+
+contextmenu?: boolean;
+
+/**
+
+* A multiplier to be used on the `deltaX` and `deltaY` of mouse wheel scroll events.
+
+* Defaults to 1.
+
+*/
+
+mouseWheelScrollSensitivity?: number;
+
+/**
+
+* FastScrolling mulitplier speed when pressing `Alt`
+
+* Defaults to 5.
+
+*/
+
+fastScrollSensitivity?: number;
+
+/**
+
+* Enable that the editor scrolls only the predominant axis. Prevents horizontal drift when scrolling vertically on a trackpad.
+
+* Defaults to true.
+
+*/
+
+scrollPredominantAxis?: boolean;
+
+/**
+
+* Make scrolling inertial - mostly useful with touchpad on linux.
+
+*/
+
+inertialScroll?: boolean;
+
+/**
+
+* Enable that the selection with the mouse and keys is doing column selection.
+
+* Defaults to false.
+
+*/
+
+columnSelection?: boolean;
+
+/**
+
+* The modifier to be used to add multiple cursors with the mouse.
+
+* Defaults to 'alt'
+
+*/
+
+multiCursorModifier?: 'ctrlCmd' | 'alt';
+
+/**
+
+* Merge overlapping selections.
+
+* Defaults to true
+
+*/
+
+multiCursorMergeOverlapping?: boolean;
+
+/**
+
+* Configure the behaviour when pasting text with a line count equal to the cursor count or when pasting column selections into a single cursor.
+
+* Defaults to 'spread'.
+
+*/
+
+multiCursorPaste?: 'spread' | 'full';
+
+/**
+
+* Controls the max number of text cursors that can be in an active editor at once.
+
+*/
+
+multiCursorLimit?: number;
+
+/**
+
+* Enables middle mouse button to open links and Go To Definition
+
+*/
+
+mouseMiddleClickAction?: MouseMiddleClickAction;
+
+/**
+
+* Configure the editor's accessibility support.
+
+* Defaults to 'auto'. It is best to leave this to 'auto'.
+
+*/
+
+accessibilitySupport?: 'auto' | 'off' | 'on';
+
+/**
+
+* Controls the number of lines in the editor that can be read out by a screen reader
+
+*/
+
+accessibilityPageSize?: number;
+
+/**
+
+* Suggest options.
+
+*/
+
+suggest?: ISuggestOptions;
+
+inlineSuggest?: IInlineSuggestOptions;
+
+/**
+
+* Smart select options.
+
+*/
+
+smartSelect?: ISmartSelectOptions;
+
+/**
+
+*
+
+*/
+
+gotoLocation?: IGotoLocationOptions;
+
+/**
+
+* Enable quick suggestions (shadow suggestions)
+
+* Defaults to true.
+
+*/
+
+quickSuggestions?: boolean | QuickSuggestionsValue | IQuickSuggestionsOptions;
+
+/**
+
+* Quick suggestions show delay (in ms)
+
+* Defaults to 10 (ms)
+
+*/
+
+quickSuggestionsDelay?: number;
+
+/**
+
+* Controls the spacing around the editor.
+
+*/
+
+padding?: IEditorPaddingOptions;
+
+/**
+
+* Parameter hint options.
+
+*/
+
+parameterHints?: IEditorParameterHintOptions;
+
+/**
+
+* Options for auto closing brackets.
+
+* Defaults to language defined behavior.
+
+*/
+
+autoClosingBrackets?: EditorAutoClosingStrategy;
+
+/**
+
+* Options for auto closing comments.
+
+* Defaults to language defined behavior.
+
+*/
+
+autoClosingComments?: EditorAutoClosingStrategy;
+
+/**
+
+* Options for auto closing quotes.
+
+* Defaults to language defined behavior.
+
+*/
+
+autoClosingQuotes?: EditorAutoClosingStrategy;
+
+/**
+
+* Options for pressing backspace near quotes or bracket pairs.
+
+*/
+
+autoClosingDelete?: EditorAutoClosingEditStrategy;
+
+/**
+
+* Options for typing over closing quotes or brackets.
+
+*/
+
+autoClosingOvertype?: EditorAutoClosingEditStrategy;
+
+/**
+
+* Options for auto surrounding.
+
+* Defaults to always allowing auto surrounding.
+
+*/
+
+autoSurround?: EditorAutoSurroundStrategy;
+
+/**
+
+* Controls whether the editor should automatically adjust the indentation when users type, paste, move or indent lines.
+
+* Defaults to advanced.
+
+*/
+
+autoIndent?: 'none' | 'keep' | 'brackets' | 'advanced' | 'full';
+
+/**
+
+* Boolean which controls whether to autoindent on paste
+
+*/
+
+autoIndentOnPaste?: boolean;
+
+/**
+
+* Boolean which controls whether to autoindent on paste within a string when autoIndentOnPaste is enabled.
+
+*/
+
+autoIndentOnPasteWithinString?: boolean;
+
+/**
+
+* Emulate selection behaviour of tab characters when using spaces for indentation.
+
+* This means selection will stick to tab stops.
+
+*/
+
+stickyTabStops?: boolean;
+
+/**
+
+* Enable format on type.
+
+* Defaults to false.
+
+*/
+
+formatOnType?: boolean;
+
+/**
+
+* Enable format on paste.
+
+* Defaults to false.
+
+*/
+
+formatOnPaste?: boolean;
+
+/**
+
+* Controls the width used to render full-width characters.
+
+* Defaults to 'font'.
+
+*/
+
+fullwidthCharacterWidth?: 'font' | 'twoCells';
+
+/**
+
+* Controls whether double-clicking next to a bracket or quote selects the content inside.
+
+* Defaults to true.
+
+*/
+
+doubleClickSelectsBlock?: boolean;
+
+/**
+
+* Controls if the editor should allow to move selections via drag and drop.
+
+* Defaults to false.
+
+*/
+
+dragAndDrop?: boolean;
+
+/**
+
+* Enable the suggestion box to pop-up on trigger characters.
+
+* Defaults to true.
+
+*/
+
+suggestOnTriggerCharacters?: boolean;
+
+/**
+
+* Accept suggestions on ENTER.
+
+* Defaults to 'on'.
+
+*/
+
+acceptSuggestionOnEnter?: 'on' | 'smart' | 'off';
+
+/**
+
+* Accept suggestions on provider defined characters.
+
+* Defaults to true.
+
+*/
+
+acceptSuggestionOnCommitCharacter?: boolean;
+
+/**
+
+* Enable snippet suggestions. Default to 'true'.
+
+*/
+
+snippetSuggestions?: 'top' | 'bottom' | 'inline' | 'none';
+
+/**
+
+* Copying without a selection copies the current line.
+
+*/
+
+emptySelectionClipboard?: boolean;
+
+/**
+
+* Syntax highlighting is copied.
+
+*/
+
+copyWithSyntaxHighlighting?: boolean;
+
+/**
+
+* The history mode for suggestions.
+
+*/
+
+suggestSelection?: 'first' | 'recentlyUsed' | 'recentlyUsedByPrefix';
+
+/**
+
+* The font size for the suggest widget.
+
+* Defaults to the editor font size.
+
+*/
+
+suggestFontSize?: number;
+
+/**
+
+* The line height for the suggest widget.
+
+* Defaults to the editor line height.
+
+*/
+
+suggestLineHeight?: number;
+
+/**
+
+* Enable tab completion.
+
+*/
+
+tabCompletion?: 'on' | 'off' | 'onlySnippets';
+
+/**
+
+* Enable selection highlight.
+
+* Defaults to true.
+
+*/
+
+selectionHighlight?: boolean;
+
+/**
+
+* Enable selection highlight for multiline selections.
+
+* Defaults to false.
+
+*/
+
+selectionHighlightMultiline?: boolean;
+
+/**
+
+* Maximum length (in characters) for selection highlights.
+
+* Set to 0 to have an unlimited length.
+
+*/
+
+selectionHighlightMaxLength?: number;
+
+/**
+
+* Controls how occurrences of selected text are matched for occurrence selection and highlighting.
+
+* Defaults to 'findOptions', which uses the Find widget's match case and whole word settings.
+
+*/
+
+selectedTextMatchMode?: 'findOptions' | 'caseSensitive' | 'caseInsensitive';
+
+/**
+
+* Enable semantic occurrences highlight.
+
+* Defaults to 'singleFile'.
+
+* 'off' disables occurrence highlighting
+
+* 'singleFile' triggers occurrence highlighting in the current document
+
+* 'multiFile' triggers occurrence highlighting across valid open documents
+
+*/
+
+occurrencesHighlight?: 'off' | 'singleFile' | 'multiFile';
+
+/**
+
+* Controls delay for occurrences highlighting
+
+* Defaults to 250.
+
+* Minimum value is 0
+
+* Maximum value is 2000
+
+*/
+
+occurrencesHighlightDelay?: number;
+
+/**
+
+* Merge single-document highlights from all matching providers.
+
+* Defaults to false.
+
+*/
+
+occurrencesHighlightFromAllProviders?: boolean;
+
+/**
+
+* Show code lens
+
+* Defaults to true.
+
+*/
+
+codeLens?: boolean;
+
+/**
+
+* Code lens font family. Defaults to editor font family.
+
+*/
+
+codeLensFontFamily?: string;
+
+/**
+
+* Code lens font size. Default to 90% of the editor font size
+
+*/
+
+codeLensFontSize?: number;
+
+/**
+
+* Control the behavior and rendering of the code action lightbulb.
+
+*/
+
+lightbulb?: IEditorLightbulbOptions;
+
+/**
+
+* Timeout for running code actions on save.
+
+*/
+
+codeActionsOnSaveTimeout?: number;
+
+/**
+
+* Enable code folding.
+
+* Defaults to true.
+
+*/
+
+folding?: boolean;
+
+/**
+
+* Selects the folding strategy. 'auto' uses the strategies contributed for the current document, 'indentation' uses the indentation based folding strategy.
+
+* Defaults to 'auto'.
+
+*/
+
+foldingStrategy?: 'auto' | 'indentation';
+
+/**
+
+* Enable highlight for folded regions.
+
+* Defaults to true.
+
+*/
+
+foldingHighlight?: boolean;
+
+/**
+
+* Auto fold imports folding regions.
+
+* Defaults to true.
+
+*/
+
+foldingImportsByDefault?: boolean;
+
+/**
+
+* Maximum number of foldable regions.
+
+* Defaults to 5000.
+
+*/
+
+foldingMaximumRegions?: number;
+
+/**
+
+* Controls whether the fold actions in the gutter stay always visible or hide unless the mouse is over the gutter.
+
+* Defaults to 'mouseover'.
+
+*/
+
+showFoldingControls?: 'always' | 'never' | 'mouseover';
+
+/**
+
+* Controls whether clicking on the empty content after a folded line will unfold the line.
+
+* Defaults to false.
+
+*/
+
+unfoldOnClickAfterEndOfLine?: boolean;
+
+/**
+
+* Enable highlighting of matching brackets.
+
+* Defaults to 'always'.
+
+*/
+
+matchBrackets?: 'never' | 'near' | 'always';
+
+/**
+
+* Enable experimental rendering using WebGPU.
+
+* Defaults to 'off'.
+
+*/
+
+experimentalGpuAcceleration?: 'on' | 'off';
+
+/**
+
+* Enable experimental whitespace rendering.
+
+* Defaults to 'svg'.
+
+*/
+
+experimentalWhitespaceRendering?: 'svg' | 'font' | 'off';
+
+/**
+
+* Enable rendering of whitespace.
+
+* Defaults to 'selection'.
+
+*/
+
+renderWhitespace?: 'none' | 'boundary' | 'selection' | 'trailing' | 'all';
+
+/**
+
+* Enable rendering of control characters.
+
+* Defaults to true.
+
+*/
+
+renderControlCharacters?: boolean;
+
+/**
+
+* Enable rendering of current line highlight.
+
+* Defaults to all.
+
+*/
+
+renderLineHighlight?: 'none' | 'gutter' | 'line' | 'all';
+
+/**
+
+* Control if the current line highlight should be rendered only the editor is focused.
+
+* Defaults to false.
+
+*/
+
+renderLineHighlightOnlyWhenFocus?: boolean;
+
+/**
+
+* Inserting and deleting whitespace follows tab stops.
+
+*/
+
+useTabStops?: boolean;
+
+/**
+
+* Controls whether the editor should automatically remove indentation whitespace when joining lines with Delete.
+
+* Defaults to false.
+
+*/
+
+trimWhitespaceOnDelete?: boolean;
+
+/**
+
+* The font family
+
+*/
+
+fontFamily?: string;
+
+/**
+
+* The font weight
+
+*/
+
+fontWeight?: string;
+
+/**
+
+* The font size
+
+*/
+
+fontSize?: number;
+
+/**
+
+* The line height
+
+*/
+
+lineHeight?: number;
+
+/**
+
+* The letter spacing
+
+*/
+
+letterSpacing?: number;
+
+/**
+
+* Controls fading out of unused variables.
+
+*/
+
+showUnused?: boolean;
+
+/**
+
+* Controls whether to focus the inline editor in the peek widget by default.
+
+* Defaults to false.
+
+*/
+
+peekWidgetDefaultFocus?: 'tree' | 'editor';
+
+/**
+
+* Sets a placeholder for the editor.
+
+* If set, the placeholder is shown if the editor is empty.
+
+*/
+
+placeholder?: string | undefined;
+
+/**
+
+* Controls whether the definition link opens element in the peek widget.
+
+* Defaults to false.
+
+*/
+
+definitionLinkOpensInPeek?: boolean;
+
+/**
+
+* Controls strikethrough deprecated variables.
+
+*/
+
+showDeprecated?: boolean;
+
+/**
+
+* Controls whether suggestions allow matches in the middle of the word instead of only at the beginning
+
+*/
+
+matchOnWordStartOnly?: boolean;
+
+/**
+
+* Control the behavior and rendering of the inline hints.
+
+*/
+
+inlayHints?: IEditorInlayHintsOptions;
+
+/**
+
+* Control if the editor should use shadow DOM.
+
+*/
+
+useShadowDOM?: boolean;
+
+/**
+
+* Controls the behavior of editor guides.
+
+*/
+
+guides?: IGuidesOptions;
+
+/**
+
+* Controls the behavior of the unicode highlight feature
+
+* (by default, ambiguous and invisible characters are highlighted).
+
+*/
+
+unicodeHighlight?: IUnicodeHighlightOptions;
+
+/**
+
+* Configures bracket pair colorization (disabled by default).
+
+*/
+
+bracketPairColorization?: IBracketPairColorizationOptions;
+
+/**
+
+* Controls dropping into the editor from an external source.
+
+*
+
+* When enabled, this shows a preview of the drop location and triggers an `onDropIntoEditor` event.
+
+*/
+
+dropIntoEditor?: IDropIntoEditorOptions;
+
+/**
+
+* Sets whether the new experimental edit context should be used instead of the text area.
+
+*/
+
+editContext?: boolean;
+
+/**
+
+* Controls whether to render rich HTML screen reader content when the EditContext is enabled
+
+*/
+
+renderRichScreenReaderContent?: boolean;
+
+/**
+
+* Controls support for changing how content is pasted into the editor.
+
+*/
+
+pasteAs?: IPasteAsOptions;
+
+/**
+
+* Controls whether the editor / terminal receives tabs or defers them to the workbench for navigation.
+
+*/
+
+tabFocusMode?: boolean;
+
+/**
+
+* Controls whether the accessibility hint should be provided to screen reader users when an inline completion is shown.
+
+*/
+
+inlineCompletionsAccessibilityVerbose?: boolean;
+
+}
+
+/**
+
+* @internal
+
+* The width of the minimap gutter, in pixels.
+
+*/
+
+export const MINIMAP_GUTTER_WIDTH = 8;
+
+export type DiffEditorViewMode = 'inline' | 'sideBySide' | 'automatic';
+
+export interface IDiffEditorBaseOptions {
+
+/**
+
+* Allow the user to resize the diff editor split view.
+
+* Defaults to true.
+
+*/
+
+enableSplitViewResizing?: boolean;
+
+/**
+
+* The default ratio when rendering side-by-side editors.
+
+* Must be a number between 0 and 1, min sizes apply.
+
+* Defaults to 0.5
+
+*/
+
+splitViewDefaultRatio?: number;
+
+/**
+
+* Render the differences in two side-by-side editors.
+
+* Defaults to true.
+
+*/
+
+renderSideBySide?: boolean;
+
+/**
+
+* When `renderSideBySide` is enabled, `useInlineViewWhenSpaceIsLimited` is set,
+
+* and the diff editor has a width less than `renderSideBySideInlineBreakpoint`, the inline view is used.
+
+*/
+
+renderSideBySideInlineBreakpoint?: number | undefined;
+
+/**
+
+* When `renderSideBySide` is enabled, `useInlineViewWhenSpaceIsLimited` is set,
+
+* and the diff editor has a width less than `renderSideBySideInlineBreakpoint`, the inline view is used.
+
+*/
+
+useInlineViewWhenSpaceIsLimited?: boolean;
+
+/**
+
+* If set, the diff editor is optimized for small views.
+
+* Defaults to `false`.
+
+*/
+
+compactMode?: boolean;
+
+/**
+
+* If set, the original editor's line numbers are hidden in the inline view.
+
+* Defaults to `false`.
+
+* @internal
+
+*/
+
+hideOriginalLineNumbers?: boolean;
+
+/**
+
+* Timeout in milliseconds after which diff computation is cancelled.
+
+* Defaults to 5000.
+
+*/
+
+maxComputationTime?: number;
+
+/**
+
+* Maximum supported file size in MB.
+
+* Defaults to 50.
+
+*/
+
+maxFileSize?: number;
+
+/**
+
+* Compute the diff by ignoring leading/trailing whitespace
+
+* Defaults to true.
+
+*/
+
+ignoreTrimWhitespace?: boolean;
+
+/**
+
+* Render +/- indicators for added/deleted changes.
+
+* Defaults to true.
+
+*/
+
+renderIndicators?: boolean;
+
+/**
+
+* Shows icons in the glyph margin to revert changes.
+
+* Default to true.
+
+*/
+
+renderMarginRevertIcon?: boolean;
+
+/**
+
+* Indicates if the gutter menu should be rendered.
+
+*/
+
+renderGutterMenu?: boolean;
+
+/**
+
+* Original model should be editable?
+
+* Defaults to false.
+
+*/
+
+originalEditable?: boolean;
+
+/**
+
+* Should the diff editor enable code lens?
+
+* Defaults to false.
+
+*/
+
+diffCodeLens?: boolean;
+
+/**
+
+* Is the diff editor should render overview ruler
+
+* Defaults to true
+
+*/
+
+renderOverviewRuler?: boolean;
+
+/**
+
+* Control the wrapping of the diff editor.
+
+*/
+
+diffWordWrap?: 'off' | 'on' | 'inherit';
+
+/**
+
+* Diff Algorithm
+
+*/
+
+diffAlgorithm?: 'legacy' | 'advanced' | 'advanced-external' | 'advanced-wasm';
+
+View remainder of file in raw view
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

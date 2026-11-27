@@ -5,6 +5,9 @@
 // On Windows the OS charges CPU time in scheduler ticks of about 15.6 ms, so a reading is a multiple of that: use
 // it for budgets of 100 ms or more, and for async or browser work keep the wall clock, which CPU time would miss.
 
+/** The step a CPU-time reading moves in, in milliseconds: a scheduler tick on Windows, too small to matter elsewhere. */
+export const CPU_TICK_MS = process.platform === 'win32' ? 15.625 : 0;
+
 /** Milliseconds of CPU time this thread has used; subtract two readings to time the work between them. */
 export function cpuNow(): number {
   const { user, system } = process.threadCpuUsage?.() ?? process.cpuUsage();

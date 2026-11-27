@@ -20,6 +20,7 @@ it is; file paths are relative to the repository root.
 | [The desktop shell](desktop-shell.md) | the Rust side: startup, commands, file access, watching, archives and decoders, OS integration |
 | [Themes, looks and type](themes-and-type.md) | theme sheets, the look engine, tokens, the Studio, colour per language, typesetting, fonts |
 | [What Marxy keeps on disk](data-on-disk.md) | the config and data folders and every file in them |
+| [Big files](big-files.md) | what a 1 to 5 MB file goes through, the rules every feature follows so it stays usable, and the checks that hold them |
 
 ## Working on it
 
@@ -41,6 +42,7 @@ it is; file paths are relative to the repository root.
 | --- | --- |
 | [research/reader-typography](research/reader-typography/) | the Reader Typography Handbook: how a reading page is set, with sources and lab pages |
 | [research/reader-artifacts](research/reader-artifacts/) | the Reader Artifacts Handbook: reading tasks and the artifacts agents produce (transcripts, structured output, code, diffs): how a reader should present them |
+| [research/large-files](research/large-files/) | big files in a desktop reader: best practice for 1 to 50 MB in a webview, how editors, Markdown apps, e-book readers and data viewers handle them, and how projects keep scale from regressing; the research behind [Big files](big-files.md) |
 | [research/audit-2026-10](research/audit-2026-10/) | an audit of the earlier architecture (October 2026); kept as history, not a description of this code |
 
 The tracker and the records of how the work was carried out are in [work/](../work/README.md), not here.

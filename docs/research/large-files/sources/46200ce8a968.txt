@@ -1,0 +1,39 @@
+Obsidian Forum
+
+Live Preview: When Opening Note, Render Viewport In One Chunk
+
+Feature requests
+
+Fross
+
+November 15, 2025, 4:25am
+
+1
+
+Use case or problem
+
+When using Live Preview mode and clicking into a note, a flash of unstyled text can occur when Obsidian renders only a chunk of the note instantly, then the rest a second later.
+
+Example (Headings 1 and 2 render instantly, later headings do not):
+
+https://forum.obsidian.md/t/delayed-markdown-syntax-rendering-in-live-preview/107962
+
+Proposed solution
+
+It would be ideal if Obsidian, in its first chunk of progressive rendering, rendered all of what is in the viewport when opening a note.
+
+1 Like
+
+Delayed Markdown Syntax Rendering in Live Preview
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Privacy Policy
+
+Powered by Discourse, best viewed with JavaScript enabled

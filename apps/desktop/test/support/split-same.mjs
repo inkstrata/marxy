@@ -2,15 +2,11 @@
 // adversarial interleaving. Booted on the shipped skeleton over the memory shell (support/two-pane.mjs),
 // with the stale-write guard of the Tauri shell emulated (`guard: true`).
 import { strict as assert } from 'node:assert';
-import { existsSync } from 'node:fs';
 import { test as nodeTest } from 'node:test';
-import { webkit } from 'playwright';
-import { launchWebkit } from '../../../../scripts/playwright-webkit.mjs';
 import { bootTwoPanes } from './two-pane.mjs';
+import { idle, inFreshPage, modKey, skip } from './kit.mjs';
 
-export const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
-  ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
-  : false;
+export { skip };
 // A guard that waits for an answer no test gives would hang: the timeout makes that a failure.
 export const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
 
@@ -25,17 +21,12 @@ export const files = {
   '/r/L.md': Array.from({ length: 12 }, (_, i) => `line${i + 1} hello world`).join('\n') + '\n',
 };
 
-/** A page on `open` (one or two paths), with the guard emulated; `fn(page, mod)` runs, the browser closes after. */
-export async function withPanes(open, fn, { guard = true, extra = {} } = {}) {
-  const browser = await launchWebkit();
-  try {
-    const page = await browser.newPage({ viewport: { width: 1470, height: 900 } });
+/** A page on `open` (one or two paths), with the guard emulated; `fn(page, mod)` runs in a fresh page of the file's one browser. */
+export function withPanes(open, fn, { guard = true, extra = {} } = {}) {
+  return inFreshPage({ viewport: { width: 1470, height: 900 } }, async (page) => {
     await bootTwoPanes(page, { files: { ...files, ...extra }, open, guard });
-    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
-    await fn(page, mod);
-  } finally {
-    await browser.close();
-  }
+    await fn(page, await modKey(page));
+  });
 }
 
 /** The pane's notices, as `{ text, buttons }`; slot 0's region is `#marxy-notices`, slot 1's `#marxy-notices-2`. */
@@ -116,8 +107,7 @@ export async function tickTask(page, slot) {
   }, slot);
 }
 
-export async function untilSettled(page, ms = 400) {
-  await page.waitForTimeout(ms);
-}
+/** For the step after an action that should change nothing: the window stopped changing (`idle` of the kit). */
+export const untilSettled = (page) => idle(page);
 
 export { assert };

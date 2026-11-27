@@ -1,0 +1,841 @@
+Mozilla Home
+
+Privacy
+
+Cookies
+
+Legal
+
+Bugzilla
+
+Quick Search Tips
+Advanced Search
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Log In
+
+Log In with GitHub
+
+or
+
+Remember me
+
+Create an Account
+·
+Forgot Password
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Copy Summary
+▾
+
+Markdown
+
+Markdown (bug number)
+
+Plain Text
+
+HTML
+
+View ▾
+
+Reset Sections
+
+Expand All Sections
+
+Collapse All Sections
+
+History
+
+JSON
+
+XML
+
+Open
+
+Bug 1363222
+
+Opened 9 years ago
+Updated 1 year ago
+
+JSON Viewer is slow for large JSON
+
+*
+Summary:
+
+JSON Viewer is slow for large JSON
+
+Categories
+
+(DevTools :: JSON Viewer, enhancement, P2)
+
+Product:
+
+DevTools
+▾
+
+DevTools
+
+For bugs in Firefox DevTools, the developer tools within the Firefox web browser. This includes issues about the user interface of the toolbox, special pages such as about:debugging and about:devtools, and developer-related APIs.
+
+See Open Bugs in This Product
+
+File New Bug in This Product
+
+Watch This Product
+
+Component:
+
+JSON Viewer
+▾
+
+DevTools :: JSON Viewer
+
+File bugs here for Firefox's built-in JSON Viewer.
+
+See Open Bugs in This Component
+
+Recently Fixed Bugs in This Component
+
+File New Bug in This Component
+
+Watch This Component
+
+Version:
+
+unspecified
+
+Platform:
+
+Unspecified
+
+Unspecified
+
+Type:
+
+enhancement
+
+Priority:
+
+P2
+
+Severity:
+
+S3
+
+Points:
+
+---
+
+Tracking
+
+(Not tracked)
+
+Status:
+
+NEW
+
+Status:
+
+NEW
+
+---
+
+Mark as Assigned
+
+Milestone:
+
+---
+
+Iteration:
+
+---
+
+Project Flags:
+
+a11y-review
+
+---
+
+Accessibility Severity
+
+---
+
+Performance Impact
+
+---
+
+Webcompat Priority
+
+---
+
+Webcompat Score
+
+---
+
+Tracking Flags:
+
+Tracking
+Status
+
+relnote-firefox
+
+---
+
+firefox-esr115
+
+---
+
+---
+
+firefox-esr153
+
+---
+
+---
+
+firefox161
+
+---
+
+---
+
+firefox162
+
+---
+
+---
+
+firefox163
+
+---
+
+---
+
+People
+
+(Reporter: Oriol, Unassigned)
+
+Assignee:
+
+Unassigned
+
+Assignee:
+
+Reset Assignee to default
+
+Mentors:
+
+---
+
+QA Contact:
+
+Reset QA Contact to default
+
+Reporter:
+
+Oriol
+
+Triage Owner:
+
+nchevobbe
+
+CC:
+
+14 people
+
+References
+
+(Blocks 1 open bug)
+
+Depends on:
+
+1363224
+
+Blocks:
+
+devtools-performance
+
+Dependency tree
+/ graph
+
+Regressions:
+
+---
+
+Regressed by:
+
+---
+
+Duplicates:
+
+1281490, 1804655
+
+1752756
+
+URL:
+
+See Also:
+
+1901215
+
+Details
+
+Alias:
+
+---
+
+Keywords:
+
+---
+
+Whiteboard:
+
+---
+
+QA Whiteboard:
+
+---
+
+Has STR:
+
+---
+
+Change Request:
+
+---
+
+Votes:
+
+2
+
+Bug Flags:
+
+behind-pref
+
+firefox-backlog
+
+sec-bounty
+
+?
+
+sec-bounty-hof
+
+in-qa-testsuite
+
+in-testsuite
+
+qe-verify
+
+Crash Data
+
+Signature:
+
+None
+
+Security
+
+(public)
+
+This bug is publicly visible.
+
+User Story
+
+Attachments
+
+(6 files)
+
+with-jsonviewer.png
+
+9 years ago
+
+Oriol Brufau [:Oriol]
+
+69.77 KB,
+image/png
+
+Details
+
+without-jsonviewer.png
+
+9 years ago
+
+Oriol Brufau [:Oriol]
+
+53.83 KB,
+image/png
+
+Details
+
+profile-with-json-viewer.json
+
+9 years ago
+
+Oriol Brufau [:Oriol]
+
+675.12 KB,
+application/json
+
+Details
+
+Video of browser freezing
+
+7 years ago
+
+jonkoops
+
+893.67 KB,
+video/mp4
+
+Details
+
+ZIP file with JSON example
+
+7 years ago
+
+jonkoops
+
+2.25 MB,
+application/zip
+
+Details
+
+image.png
+
+7 years ago
+
+Jan Honza Odvarko [:Honza] (always need-info? me)
+
+62.51 KB,
+image/png
+
+Details
+
+Bottom &darr;
+
+Tags ▾
+
+Reset
+
+Timeline ▾
+
+Reset
+
+Collapse All
+
+Expand All
+
+Comments Only
+
+Oriol Brufau [:Oriol]
+
+Reporter
+
+Description
+
+&bull;
+
+9 years ago
+
+JSON Viewer is painfully slow to load.
+
+To measure it, I loaded https://a.4cdn.org/boards.json
+
+With JSON Viewer enable, the total load took more than 10 seconds. Among these, 4 seconds were wasted in this call:
+
+let theApp = render(MainTabbedArea(input), content);
+
+(in render, not in MainTabbedArea).
+
+Disabling the JSON Viewer loads that page in a fraction of a second.
+
+We need to get rid of react and use fast vanilla javascript.
+
+Not sure if this is the same as bug 1281490, the linked example in there is no longer available.
+
+Oriol Brufau [:Oriol]
+
+Reporter
+
+Comment 1
+
+&bull;
+
+9 years ago
+
+Attached image
+
+with-jsonviewer.png
+— Details
+
+Oriol Brufau [:Oriol]
+
+Reporter
+
+Comment 2
+
+&bull;
+
+9 years ago
+
+Attached image
+
+without-jsonviewer.png
+— Details
+
+Oriol Brufau [:Oriol]
+
+Reporter
+
+Comment 3
+
+&bull;
+
+9 years ago
+
+Attached file
+
+profile-with-json-viewer.json
+— Details
+
+Oriol Brufau [:Oriol]
+
+Reporter
+
+Updated
+
+&bull;
+
+9 years ago
+
+Depends on: 1363224
+
+J. Ryan Stinnett [:jryans] (Use needinfo, replies may be slow)
+
+Comment 4
+
+&bull;
+
+9 years ago
+
+(Copying from bug 1363224, since investigating the performance in a general sense seems worthwhile.)
+
+Using React has greatly improved the team's efficiency and ability to share UI components. It also greatly simplifies state management compared to pure JS UI code. DevTools is a small team trying to do a lot, so we need as many wins like this as we can find.
+
+I agree there are various places where React's performance is slower than we'd like. Rather than trying to dump React entirely since it has other advantages we'd quite like to preserve, we should try our best to profile and optimize slow paths where we can.
+
+BMO Automation
+
+Updated
+
+&bull;
+
+8 years ago
+
+Product: Firefox &rarr; DevTools
+
+jonkoops
+
+Comment 5
+
+&bull;
+
+7 years ago
+
+I understand that there is a small team working on the DevTools, however it seems new features are prioritized over existing problems like this one. The one and only reason why I have to continue to switch back to Chrome for development is the fact that I cannot inspect JSON payloads in Firefox DevTools. Inspecting a reasonably sized JSON payload of ~20mb causes the inspector to freeze the whole browser for at least 4 seconds.
+
+I strongly believe this issue should be prioritized as it would increase developer's willingness to use DevTools over Chrome. This is not even limited to large JSON files as simply clicking through the list of files I noticed a lot of them are quite slow to show the preview, blocking the main thread in the process.
+
+Jan Honza Odvarko [:Honza] (always need-info? me)
+
+Comment 6
+
+&bull;
+
+7 years ago
+
+Raising the priority here.
+
+Honza
+
+Priority: -- &rarr; P2
+
+:Harald Kirschner :digitarald
+
+Comment 7
+
+&bull;
+
+7 years ago
+
+Test file that provides 6Mb to load: https://data.ct.gov/api/views/2fi9-sgi3/rows.json . Using this I have not seen any severe hangs in Nightly for either Network panel or JSON viewer.
+
+Jon, do you have an STR that you could share?
+
+Flags: needinfo?(jonkoops)
+
+:Harald Kirschner :digitarald
+
+Updated
+
+&bull;
+
+7 years ago
+
+Blocks: devtools-performance
+
+jonkoops
+
+Comment 8
+
+&bull;
+
+7 years ago
+
+Attached video
+
+Video of browser freezing
+— Details
+
+Here is a video of the browser freezing up after selecting a large JSON file. As I move the cursor around the screen none of the hover states trigger and clicking the tabs has no effect whatsoever.
+
+Flags: needinfo?(jonkoops)
+
+jonkoops
+
+Comment 9
+
+&bull;
+
+7 years ago
+
+Attached file
+
+ZIP file with JSON example
+— Details
+
+Here is the JSON file in question that is causing the browser to freeze up.
+
+jonkoops
+
+Comment 10
+
+&bull;
+
+7 years ago
+
+I am running this in Firefox Nightly 70.0a1 (2019-08-21) (64-bit) on Fedora Workstation 30.
+
+:Harald Kirschner :digitarald
+
+Comment 11
+
+&bull;
+
+7 years ago
+
+I wonder if codemirror is biting us here.
+
+Honza, should we use this bug to disable code mirror syntax highlighting for truncated responses?
+
+Flags: needinfo?(odvarko)
+
+Jan Honza Odvarko [:Honza] (always need-info? me)
+
+Comment 12
+
+&bull;
+
+7 years ago
+
+(In reply to :Harald Kirschner :digitarald from comment #11)
+
+I wonder if codemirror is biting us here.
+
+Honza, should we use this bug to disable code mirror syntax highlighting for truncated responses?
+
+CodeMirror is already entirely disabled (not used) for rendering responses in the Response side panel bigger than devtools.netmonitor.response.ui.limit (10240B by default)
+
+Note that I couldn't reproduce the UI Freeze when selecting the points JSON request in the request list.
+
+Honza
+
+Flags: needinfo?(odvarko)
+
+Jan Honza Odvarko [:Honza] (always need-info? me)
+
+Comment 13
+
+&bull;
+
+7 years ago
+
+Attached image
+
+image.png
+— Details
+
+@Alex: I tried to load the file from comment #9 (as top level document) to see how fast/slow the JSON viewer is.
+
+Here is my recorded profile:
+
+https://perfht.ml/2o7u5DN
+
+I can see that ~5s is spent in reflow. But, not sure what is causing that. Any tips?
+
+Honza
+
+Flags: needinfo?(poirot.alex)
+
+Alexandre Poirot [:ochameau]
+
+Comment 14
+
+&bull;
+
+7 years ago
+
+you profiler link doesn't work.
+
+If you go to MarkerChart, you will see a "Reflow" line.
+
+Then, if you mouse over the reflows, you should see the stack.
+
+If the stack is cut too short, you have a context menu to get the full one.
+
+The stack will tell you what code is triggering the reflow.
+
+If you many reflows, that's an issue and you should try to figure out how to do less.
+
+If you have just one or a couple, you would need to understand why the reflow is so slow: slow CSS rule? too many DOM elements?
+
+Flags: needinfo?(poirot.alex)
+
+Oriol Brufau [:Oriol]
+
+Reporter
+
+Comment 15
+
+&bull;
+
+7 years ago
+
+I think https://searchfox.org/mozilla-central/rev/35cc00a25c4471993fdaa5761952bd3afd4f1731/devtools/client/jsonview/converter-child.js#168 may be the culprit. (Well, one of the culprits, since I filed this bug before adding that line)
+
+Before bug 1417035, the data was sent to the native HTML parser. To avoid parsing it as HTML, there was a <plaintext> element, but that had its own problems as well.
+
+I used the paint flashing devtool and it seemed that using CharacterData.prototype.appendData to insert the data with JS would only repaint the last part. However, I suspect it causes synchronous reflows, unlike the native HTML parser.
+
+So if you have a huge JSON file loaded from the disk, the stream converter receives lots of chucks in a short amount of time, and the JS inserts them synchronously, and this causes a reflow, which takes some time because the chunk is big, and before the reflow finishes, the converter receives another big chuck to insert. This ends up freezing the process.
+
+I suspect performance could improve by caching the received data in some variable in converter-child.js instead of immediately inserting it into the page. And then only insert the data at the end if the data is loaded at high speed (like from the disk). But for slow servers that send tiny amounts of data little by little, we could still flush every second or so (using a setTimeout to detect that the process is not busy).
+
+:Harald Kirschner :digitarald
+
+Comment 16
+
+&bull;
+
+7 years ago
+
+However, I suspect it causes synchronous reflows, unlike the native HTML parser.
+
+Just my 2c from looking at https://perfht.ml/2o7u5DN , it seems to show only 2 heavy reflows, so not sure if chunked responses are the issue here.
+
+BMO Automation
+
+Updated
+
+&bull;
+
+4 years ago
+
+Severity: normal &rarr; S3
+
+Jan Honza Odvarko [:Honza] (always need-info? me)
+
+Updated
+
+&bull;
+
+3 years ago
+
+Duplicate of this bug: 1804655
+
+Zac Svoboda :zacnomore
+
+Updated
+
+&bull;
+
+2 years ago
+
+Summary: JSON Viewer is painfully slow &rarr; JSON Viewer is slow for large JSON
+
+Alexandre Poirot [:ochameau]
+
+Updated
+
+&bull;
+
+1 year ago
+
+Duplicate of this bug: 1752756
+
+Alexandre Poirot [:ochameau]
+
+Updated
+
+&bull;
+
+1 year ago
+
+See Also: &rarr; 1901215
+
+You need to log in
+before you can comment on or make changes to this bug.
+
+Top &uarr;
+
+Attachment
+
+Hide Details
+
+General
+
+Creator:
+Oriol Brufau [:Oriol]
+
+Created:
+
+Updated:
+
+Size:
+
+Description
+
+File Name
+
+Content Type
+
+Raw
+Diff
+Splinter Review

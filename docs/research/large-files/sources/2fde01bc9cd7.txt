@@ -1,0 +1,476 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+micromark
+
+micromark
+
+Repository navigation
+
+Code
+
+Issues19 ( 19 )
+
+Pull requests28 ( 28 )
+
+Discussions
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+Block quotes, nested lists, and setext headings take quadratic time in 4.0.3 #246
+
+New issue
+Copy link
+
+New issue
+Copy link
+
+Open
+
+#249
+
+Open
+
+Block quotes, nested lists, and setext headings take quadratic time in 4.0.3#246
+
+#249
+
+Copy link
+
+Labels
+
+🏁 area/perfThis affects performance🤞 phase/openPost is being triaged manually
+
+Description
+
+ChristianMurphy
+
+opened on Sep 28, 2026
+
+Issue body actions
+
+Affected packages and versions
+
+micromark 4.0.3, with micromark-core-commonmark 2.0.4 and micromark-util-edit-map 1.0.0. micromark 4.0.2, with micromark-core-commonmark 2.0.3, isn't affected.
+
+Steps to reproduce
+
+import {micromark} from 'micromark'
+
+// 32 KB of block quotes, each followed by a blank line.
+const value = '> a\n\n'.repeat(6554)
+
+console.time('micromark')
+micromark(value)
+console.timeEnd('micromark')
+
+Expected behavior
+
+Time that grows linearly with the input, as in 4.0.2, which takes 168 ms here.
+
+Actual behavior
+
+4.0.3 takes 3.2 s. Four times the input takes 20 to 25 times as long:
+
+Input
+Size
+4.0.2
+4.0.3
+4.0.3 with the fix below
+
+'> a\n\n'.repeat(n)
+8 KB
+40 ms
+132 ms
+39 ms
+
+32 KB
+168 ms
+3.2 s
+192 ms
+
+'- a\n - b\n'.repeat(n)
+8 KB
+44 ms
+76 ms
+44 ms
+
+32 KB
+167 ms
+1.5 s
+177 ms
+
+'a\n=\n'.repeat(n)
+8 KB
+40 ms
+296 ms
+41 ms
+
+32 KB
+149 ms
+7.5 s
+153 ms
+
+Sections, see below
+256 KB
+140 ms
+369 ms
+134 ms
+
+Times are for micromark(value), the fastest of 3 runs. Each section is a setext heading, two paragraphs, a block quote, and a two-item list:
+
+const p = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\n'
+const section = (i) => `Section ${i}\n----------\n\n${p}${p}\n> ${p}\n- Item\n- Item\n\n`
+
+Commit 90c8d3e, which added micromark-util-edit-map, moved three edits from splice to EditMap:
+
+resolveToSetextUnderline, once per setext heading.
+
+documentContinue, when a new list item closes containers inside the previous one.
+
+writeToChild, when a line without > closes a block quote, such as a blank line.
+
+Each ends in EditMap.consume, which rebuilds the whole event list, including the events before the first edit. 4.0.2 spliced near the end of the list instead, so one rebuild per heading, quote, or list item makes the total quadratic.
+
+A possible fix, in packages/micromark-util-edit-map/dev/index.js: after the loop, events holds only the untouched prefix, so consume can keep it instead of copying it. Each call then copies only the events after the first edit, which sits near the end at these three places.
+
+events.length = this.map[index][0]
+}
+
+- vecs.push(events.slice())
+- events.length = 0
+-
+let slice = vecs.pop()
+
+The table's last column shows that it restores 4.0.2's times. HTML and event offsets match unpatched 4.0.3 on 652 CommonMark spec examples, 8,711 local Markdown files, and 100,000 random inputs.
+
+#244 rewrites consume for peak memory but still copies the whole list on every call.
+
+Runtime
+
+Node.js 24.15.0
+
+Package manager
+
+npm 11.12.1
+
+Operating system
+
+Ubuntu 24.04.5 on WSL2, x86-64
+
+Build and bundle tools
+
+None
+
+Activity
+
+github-actions
+added
+👋 phase/newPost is being triaged automatically
+
+🤞 phase/openPost is being triaged manually
+and removed
+👋 phase/newPost is being triaged automatically
+on Sep 28, 2026
+
+ChristianMurphy
+added
+🏁 area/perfThis affects performance
+on Sep 29, 2026
+
+Murderlon
+added a commit that references this issue on Oct 31, 2026
+
+Add test, docs for untouched prefix in `EditMap#consume`
+
+...
+
+e016b82
+
+Murderlon
+marked EditMap.consume repeatedly recopies unchanged event prefixes, causing quadratic work #256 as a duplicate of this issue on Oct 31, 2026
+
+d4wei
+added a commit that references this issue on Nov 8, 2026
+
+document(markdown): patch micromark's array truncation, quadratic in …
+
+...
+
+69b5de6
+
+jfgailleur
+added 2 commits that reference this issue on Nov 10, 2026
+
+Pin micromark to 4.0.2: 4.0.3 parses block quotes in quadratic time
+
+...
+
+47bca26
+
+Large documents: no serialising per keystroke, async file commands, p…
+
+...
+
+125a8b5
+
+onmax commented on Nov 17, 2026
+
+onmax
+
+on Nov 17, 2026
+
+More actions
+
+Chat SDK 4.44.0's release notes tell users to keep micromark at 4.0.2 because of this. That only covers block quotes and lists. The setext heading part comes from micromark-core-commonmark 2.0.4, and micromark@4.0.2 accepts ^2.0.0, so a fresh install of 4.0.2 today gets 2.0.4 and stays slow on setext headings.
+
+micromark(value) on the inputs above at 32 KB, median of 5 runs, ms:
+
+Input
+4.0.2, core 2.0.3
+4.0.2, core 2.0.4
+4.0.3
+4.0.3 with #249
+
+'> a\n\n'
+232
+223
+5809
+269
+
+'- a\n - b\n'
+213
+289
+2556
+257
+
+'a\n=\n'
+195
+11154
+11365
+235
+
+Node 24.21.0, Linux. Each variant has its own lockfile: https://github.com/onmax/repros/tree/repro/micromark-4-0-3-slowdown/micromark-4-0-3-slowdown
+
+#249 brings all three back to 4.0.2 times with the same HTML. micromark 4.0.3 and micromark-core-commonmark 2.0.4 both depend on micromark-util-edit-map@^1.0.0, so a patch release of that package alone would reach everyone on their next lockfile refresh.
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+🏁 area/perfThis affects performance🤞 phase/openPost is being triaged manually
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

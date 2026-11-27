@@ -1,0 +1,451 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+micromark
+
+micromark
+
+Repository navigation
+
+Code
+
+Issues19 ( 19 )
+
+Pull requests28 ( 28 )
+
+Discussions
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+Performance: larger MDX files are unmanagably slow to parse #169
+
+New issue
+Copy link
+
+New issue
+Copy link
+
+Closed
+
+Closed
+
+Performance: larger MDX files are unmanagably slow to parse#169
+
+Copy link
+
+Labels
+
+💪 phase/solvedPost is done
+
+Description
+
+robsimmons
+
+opened on Mar 26, 2024
+
+Issue body actions
+
+Initial checklist
+
+I read the support docs
+
+I read the contributing guide
+
+I agree to follow the code of conduct
+
+I searched issues and couldn’t find anything (or linked relevant results below)
+
+Affected packages and versions
+
+mdast-util-from-markdown 2.0.0, micromark-extension-mdjs 3.0.0
+
+Link to runnable example
+
+Link to code and sandbox
+
+Steps to reproduce
+
+Run the following code (node v20.10.0 / npm v10.2.3), which generates and parses progressively larger mdx files up to about 180k lines
+
+import { fromMarkdown } from "mdast-util-from-markdown";
+import { mdxjs } from "micromark-extension-mdxjs";
+
+/* Generate test data */
+const NUM_LINES_IN_CODE_SEG = 10000;
+function generateTestData(size) {
+let file = [];
+for (let i = 0; i < size; i++) {
+file.push("", "<DummyComponent code={`");
+for (let j = 0; j < NUM_LINES_IN_CODE_SEG; j++) {
+file.push(crypto.randomUUID());
+}
+file.push("`} />", "");
+}
+return file.join("\n");
+}
+
+/* Return the number of milliseconds need to parse a test case */
+function testPerformance(size) {
+const file = generateTestData(size);
+const start = performance.now();
+fromMarkdown(file, { extensions: [mdxjs()] });
+const end = performance.now();
+return end - start;
+}
+
+for (let reps = 0; reps < 3; reps++) {
+for (let size = 3; size < 20; size = Math.floor(size * 1.35)) {
+console.log(`${size}, ${testPerformance(size)}`);
+}
+}
+
+Expected behavior
+
+Parser is able to handle these files - reported running times grow linearally
+
+Actual behavior
+
+Parser is very slow, and reported running times suggest parsing time scales quadratically or worse with the input file size.
+
+Runtime
+
+Other (please specify in steps to reproduce)
+
+Package manager
+
+Other (please specify in steps to reproduce)
+
+OS
+
+macOS
+
+Build and bundle tools
+
+No response
+
+Activity
+
+github-actions
+added
+👋 phase/newPost is being triaged automatically
+
+🤞 phase/openPost is being triaged manually
+and removed
+👋 phase/newPost is being triaged automatically
+on Mar 26, 2024
+
+robsimmons commented on Mar 26, 2024
+
+robsimmons
+
+on Mar 26, 2024
+
+ContributorAuthor
+
+More actions
+
+I suspect this is related to #23 - the code spends almost 100% of its time in this while loop.
+
+While this is synthetic data, but I came across this issue through Astro, as the MDX-parsing step for twelf.org was taking 60 minutes due to a 500kb generated markdown file. We have a workaround for that, but even on much smaller files MDX parsing is the slowest part of the site building process.
+
+robsimmons
+changed the title [-]Performance: larger MDX files are parsed unmanagably slow[/-] [+]Performance: larger MDX files are unmanagably slow to parse[/+] on Mar 26, 2024
+
+wooorm commented on Mar 27, 2024
+
+wooorm
+
+on Mar 27, 2024
+
+Member
+
+More actions
+
+Why do you generate a 500kb markdown file, and call it .mdx instead of .md 🤔
+
+robsimmons commented on Mar 27, 2024
+
+robsimmons
+
+on Mar 27, 2024
+
+Last edited by robsimmons
+
+ContributorAuthor
+
+More actions
+
+It's actually MDX - the content is all in a <DummyComponent />. The MDX usage is probably a red herring for the performance issues, but the place where I was encountering 60-minute parse times came from a file that had the structure of >90% of the content in large template strings passed to MDX components.
+
+👍React with 👍1Reacted by Titus
+
+wooorm
+closed this as completedin ef86838on Apr 15, 2024
+
+github-actions commented on Apr 15, 2024
+
+github-actionsBot
+
+on Apr 15, 2024 – with GitHub Actions · Hidden as resolved
+
+Last edited by github-actions
+
+show comment More actions
+
+wooorm
+added
+💪 phase/solvedPost is done
+on Apr 15, 2024
+
+github-actions
+removed
+🤞 phase/openPost is being triaged manually
+on Apr 15, 2024
+
+pull
+added a commit that references this issue on Apr 15, 2024
+
+Refactor to improve postprocess performance
+
+...
+
+This issue will close once commit ef86838 is merged into the 'main' branch.
+
+ef86838
+
+robsimmons commented on Apr 16, 2024
+
+robsimmons
+
+on Apr 16, 2024
+
+ContributorAuthor
+
+More actions
+
+Just to close the loop, here are those two graphs again with a fresh npm install that grabs the updated subcomponent-2.0.1:
+
+❤️React with ❤️4Reacted by Remco Haszing, Merlijn Vos, Titus and Chris Swithinbank
+
+🚀React with 🚀2Reacted by Titus and Chris Swithinbank
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+💪 phase/solvedPost is done
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

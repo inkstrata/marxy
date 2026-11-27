@@ -1,0 +1,636 @@
+Skip to content
+
+CircleCI
+
+Product
+
+Overview
+
+Product
+
+Demo
+
+Product roadmap
+
+Documentation
+
+Features
+
+Execution environments
+
+Chunk
+
+MCP server New
+
+Build images
+
+Build optimization
+
+Autoscaling
+
+Technical services
+
+View all features
+
+Integrations
+
+GitHub
+
+GitLab
+
+Bitbucket
+
+Origin New
+
+AWS
+
+GCP
+
+Kubernetes
+
+View all integrations
+
+Solutions
+
+Role
+
+Developers
+
+Platform engineers
+
+Security engineers
+
+Engineering managers
+
+Business leaders
+
+AI agents
+
+Use case
+
+Automation
+
+Continuous integration
+
+Mobile
+
+AI
+
+Release orchestration
+
+Security & compliance
+
+View all use cases
+
+Company size
+
+Enterprise
+
+SMB
+
+Startup
+
+Resources
+
+Developers
+
+Documentation
+
+Support center
+
+Orbs registry
+
+Image registry
+
+Explore
+
+Customer stories
+
+Reports & guides
+
+Podcast
+
+Blog
+
+Topics
+
+Changelog
+
+Community
+
+Events
+
+Discuss forum
+
+Feature requests
+
+Open source
+
+Why CircleCI
+
+Benefits
+
+Calculate your ROI
+
+Boost dev productivity
+
+Benchmark your team
+
+See customer wins
+
+Compare
+
+CircleCI vs GitHub Actions
+
+CircleCI vs Harness
+
+CircleCI vs Buildkite
+
+CircleCI vs Jenkins
+
+CircleCI vs Bitrise
+
+Company
+
+About us
+
+Careers
+
+Partners
+
+Pricing
+
+Search
+
+Log in
+
+Sign up
+
+Go to application
+
+Menu
+
+close
+
+Sign up
+
+Log in
+
+Go to application
+
+Product
+
+Solutions
+
+Resources
+
+Why CircleCI
+
+Pricing
+
+Search
+
+Back
+
+Product
+
+close
+
+Overview
+
+Product
+
+Demo
+
+Product roadmap
+
+Documentation
+
+Features
+
+Execution environments
+
+Chunk
+
+MCP server New
+
+Build images
+
+Build optimization
+
+Autoscaling
+
+Technical services
+
+View all features
+
+Integrations
+
+GitHub
+
+GitLab
+
+Bitbucket
+
+Origin New
+
+AWS
+
+GCP
+
+Kubernetes
+
+View all integrations
+
+Sign up
+
+Log in
+
+Go to application
+
+Search
+
+Back
+
+Solutions
+
+close
+
+Role
+
+Developers
+
+Platform engineers
+
+Security engineers
+
+Engineering managers
+
+Business leaders
+
+AI agents
+
+Use case
+
+Automation
+
+Continuous integration
+
+Mobile
+
+AI
+
+Release orchestration
+
+Security & compliance
+
+View all use cases
+
+Company size
+
+Enterprise
+
+SMB
+
+Startup
+
+Sign up
+
+Log in
+
+Go to application
+
+Search
+
+Back
+
+Resources
+
+close
+
+Developers
+
+Documentation
+
+Support center
+
+Orbs registry
+
+Image registry
+
+Explore
+
+Customer stories
+
+Reports & guides
+
+Podcast
+
+Blog
+
+Topics
+
+Changelog
+
+Community
+
+Events
+
+Discuss forum
+
+Feature requests
+
+Open source
+
+Sign up
+
+Log in
+
+Go to application
+
+Search
+
+Back
+
+Why CircleCI
+
+close
+
+Benefits
+
+Calculate your ROI
+
+Boost dev productivity
+
+Benchmark your team
+
+See customer wins
+
+Compare
+
+CircleCI vs GitHub Actions
+
+CircleCI vs Harness
+
+CircleCI vs Buildkite
+
+CircleCI vs Jenkins
+
+CircleCI vs Bitrise
+
+Company
+
+About us
+
+Careers
+
+Partners
+
+Sign up
+
+Log in
+
+Go to application
+
+Search
+
+Back
+
+Search
+
+close
+
+close
+
+Results from:…
+
+Site
+
+Blog
+
+Docs
+
+Images
+
+Orbs
+
+Resources
+
+Site
+
+Blog
+
+Docs
+
+Images
+
+Orbs
+
+Resources
+
+Site
+
+Blog
+
+Docs
+
+Images
+
+Orbs
+
+Resources
+
+Site
+
+Blog
+
+Docs
+
+Images
+
+Orbs
+
+Resources
+
+Explore
+
+Blog
+
+Documentation
+
+Reports & guides
+
+Image registry
+
+Orbs registry
+
+&ensp;View entire changelog
+
+Find (CMD+F) Now Working in the New UI
+
+Feb 24, 2020
+
+Maintenance
+
+What’s New
+
+As we build the new UI, faster page-load is important to us. We initially built the Step Output section to load with react-virtualized, meaning that only the visible rows were rendered. This allowed us to show colorized output with an even faster load/scrolling time than the old UI. In theory it was brilliant, in practice it broke the ability to use native browser search tools like CMD+F to find specific words before or after the rendered text. During user research, we watched many CircleCI users attempt to CMD+F in the Step Output, and not find what we were looking for. As a result we pulled out react-virtualized and enhanced colorized output from the step output. Color we can compromise on, usability we cannot.
+
+Previous changes
+
+Feb 23, 2020
+
+Maintenance
+
+Feb 23, 2020
+
+February Docker Convenience Images Updates
+
+Maintenance
+
+Images
+
+Feb 21, 2020
+
+Maintenance
+
+Feb 21, 2020
+
+Resource Class Now Available in New UI
+
+Maintenance
+
+CircleCI
+
+Product
+
+Overview
+
+Integrations
+
+Customer stories
+
+Changelog
+
+Hosting options
+
+Cloud
+
+Runner (hybrid)
+
+Server (on-prem)
+
+Solutions
+
+Continuous integration
+
+Platform teams
+
+DevSecOps
+
+AI
+
+Mobile
+
+Startup
+
+SMB
+
+Enterprise
+
+Resources
+
+Get started
+
+Documentation
+
+Developer portal
+
+Blog
+
+Topics
+
+Events
+
+Get support
+
+Discuss forum
+
+Pricing
+
+Build for free
+
+Pricing plans
+
+Using credits
+
+Pricing calculator
+
+Support plans
+
+Startup program
+
+Company
+
+About us
+
+Careers
+
+Partners
+
+CircleCI brand
+
+Security
+
+© 2026 Circle Internet Services, Inc.
+
+Terms of Use
+
+Privacy Policy
+
+Cookie Policy
+
+Cookie Preferences
+
+Do Not Sell or Share My Personal Information
+
+RSS
+
+LinkedIn
+
+GitHub
+
+Twitch
+
+close
+
+close
+
+Do Not Sell or Share My Personal Information
+
+CircleCI doesn't sell your personal information. We share some of it with advertising partners for cross-context behavioral advertising. Opt out to stop that sharing on this browser.
+
+You have opted out of the sale and sharing of your personal information on this browser.
+
+Opt out
+
+Cookie Preferences
+
+Choose which cookies CircleCI can use on this browser.
+
+Cookie Preferences
+
+Necessary (always on)
+
+Preferences
+
+Statistics
+
+Marketing
+
+Save
+
+To opt out, email us at privacy@circleci.com
+
+Privacy Policy
+Cookie Preferences

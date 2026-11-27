@@ -1,0 +1,120 @@
+Groups
+Groups
+
+Search
+
+Conversations
+
+All groups and messages
+
+Send feedback to Google
+
+Help
+
+Training
+
+Sign in
+
+Groups
+Groups
+
+blink-dev
+
+Conversations
+
+About
+
+Privacy &bull; Terms
+
+
+
+
+
+
+
+
+
+Web-Facing PSA: Remove 64k Text Node Splitting
+
+56 views
+
+Skip to first unread message
+
+
+
+Kurt Catti-Schmidt (SCHMIDT)
+
+unread,
+Jun 22, 2026, 1:10:34 PMJun 22
+
+
+
+
+
+
+
+Reply to author
+
+Sign in to reply to author
+
+Forward
+
+Sign in to forward
+
+Delete
+
+You do not have permission to delete messages in this group
+
+Copy link
+
+Report message
+
+Show original message
+
+Either email addresses are anonymous for this group or you need the view member email addresses permission to view the original message
+
+to blink-dev
+
+Historically, Blink has split large text nodes that are longer than 64k. This behavior is non-standard and was added in WebKit back in 2007 to address a specific performance concern around text selection at the time (see commit
+
+f6d7c1c6fb65ee928f38934c601ffed72c02bbbd
+for details).
+
+Many of Blink's optimizations since this time actually make this text node splitting a net-negative today (e.g. the parser fast path, LayoutNG, etc).
+
+In Chrome 151, we are removing this text splitting behavior. A Blink flag was added to restore the old behavior called "SplitLargeTextNodes", which can be enabled via adding `--enable-blink-features=SplitLargeTextNodes` to the command line arguments. This flag
+will be removed in M153.
+
+There is no visible change with this behavior - even with split nodes, the adjacent Text nodes were merged into a single layout box. The only developer-facing behavior is in the DOM structure (e.g. a node with 65k characters would have previously been automatically
+split into two Text nodes and now it won't be).
+
+A note on compatibility - WebKit still splits text at 64k, while Gecko does not. An incredibly small number of sites have text nodes this large, so we do not expect any live sites to depend on this behavior. The main use case is large plain-text documents.
+
+There are no web-tests for this behavior, as 64k is very large and the value is arbitrary. There are unit tests validating our behavior with and without the flag enabled.
+
+Bug:
+https://issues.chromium.org/issues/525278782
+
+PR (merged today):
+Remove text node splitting at 64k (7932253) · Gerrit Code Review
+
+Reply all
+
+Reply to author
+
+Forward
+
+
+0 new messages
+
+
+
+Search
+
+Clear search
+
+Close search
+
+Google apps
+
+Main menu

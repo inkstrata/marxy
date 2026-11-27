@@ -7,8 +7,8 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from './support/shared-vite.mjs';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { fileURLToPath } from 'node:url';
+import { idle, openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -39,7 +39,7 @@ before(async () => {
 after(() => server?.close());
 
 test('jump-to-source opens Source at data-marxy-s of the selected block', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     const mdPath = '/doc/sample.md';
@@ -72,7 +72,7 @@ test('jump-to-source opens Source at data-marxy-s of the selected block', async 
 
 for (const { label, eol } of [{ label: '', eol: '\n' }, { label: ' in a CRLF file', eol: '\r\n' }]) {
 test(`jump-to-source on a block far down a long document holds it at the reading line${label}`, async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     const mdPath = '/doc/long.md';
@@ -92,7 +92,7 @@ test(`jump-to-source on a block far down a long document holds it at the reading
     await page.waitForFunction(() => window.marxySelection?.getSelectionState().selection.kind !== 'none');
     await page.evaluate(() => window.marxyRunCommand?.('view.jump-to-source'));
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('.cm-content'));
-    await page.waitForTimeout(300);
+    await idle(page);
     // In Source the editor's own scroller moves (the frame fixes Source's mount under the head; the window
     // stays at 0): read what sits at the reading line, 40% down the window, as the reader sees it.
     const at = await page.evaluate(() => {

@@ -1,0 +1,11 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/apps/desktop/../../work/runs/2026-11-27-hunt-03/probes/NAV/keys.verify.mjs --browser chromium
+uptime 3:23  up 1 day,  6:41, 1 user, load averages: 38.20 38.39 40.04
+0.5 MB run0 blocks 1552: type 157ms, type 125ms, type 129ms, type 120ms, Enter 26ms, Enter 30ms, Enter 23ms, Backspace 151ms
+0.5 MB run1 blocks 1552: type 146ms, type 132ms, type 127ms, type 132ms, Enter 17ms, Enter 27ms, Enter 25ms, Backspace 134ms
+0.75 MB run0 blocks 2327: type 593ms, type 564ms, type 495ms, type 504ms, Enter 459ms, Enter 507ms, Enter 441ms, Backspace 469ms
+0.75 MB run1 blocks 2327: type 535ms, type 523ms, type 583ms, type 551ms, Enter 483ms, Enter 526ms, Enter 470ms, Backspace 573ms
+1 MB run0 blocks 3103: type 584ms, type 430ms, type 541ms, type 491ms, Enter 486ms, Enter 485ms, Enter 483ms, Backspace 550ms
+1 MB run1 blocks 3103: type 579ms, type 579ms, type 506ms, type 696ms, Enter 533ms, Enter 510ms, Enter 424ms, Backspace 540ms
+1.5 MB run0 blocks 4653: type 666ms, type 767ms, type 635ms, type 616ms, Enter 521ms, Enter 436ms, Enter 512ms, Backspace 576ms
+1.5 MB run1 blocks 4653: type 534ms, type 467ms, type 458ms, type 441ms, Enter 448ms, Enter 491ms, Enter 530ms, Backspace 515ms
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1123

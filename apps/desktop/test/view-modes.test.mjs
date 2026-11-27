@@ -3,14 +3,14 @@
 import { strict as assert } from 'node:assert';
 import { after } from 'node:test';
 import { closeHarness } from './support/two-pane.mjs';
-import { paths, test, texts, withPanes } from './support/split-same.mjs';
+import { paths, test, texts, untilSettled, withPanes } from './support/split-same.mjs';
 
 after(() => closeHarness());
 
 const modes = (page) => page.evaluate(() => window.__marxyHandle.panes().panes.map((p) => p.view.mode));
 const focused = (page) => page.evaluate(() => window.__marxyHandle.panes().focused.slot);
 const place = (page, slot) => page.evaluate((slot) => window.__marxyHandle.panes().panes[slot].view.position().byteOffset, slot);
-const settle = (page) => page.waitForTimeout(400);
+const settle = (page) => untilSettled(page);
 
 test('Mod+3 makes a Rendered pane Source and Mod+1 makes it Rendered, each a no-op when already there', async () => {
   await withPanes(['/r/A.md'], async (page, mod) => {

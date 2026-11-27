@@ -1,0 +1,472 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+wooorm
+
+markdown-rs
+
+Repository navigation
+
+Code
+
+Issues38 ( 38 )
+
+Pull requests69 ( 69 )
+
+Discussions
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+Performance: larger MDX files are unmanagably slow to parse #113
+
+New issue
+Copy link
+
+New issue
+Copy link
+
+Open
+
+#197
+
+Open
+
+Performance: larger MDX files are unmanagably slow to parse#113
+
+#197
+
+Copy link
+
+Description
+
+robsimmons
+
+opened on Apr 17, 2024
+
+Issue body actions
+
+Bad news @wooorm - micromark/micromark#169, or something like it, is an issue here as well - I haven't yet grokked your edit maps, but either they don't solve the quadratic-complexity parsing problems or there's a separate performance bug in markdown-rs.
+
+The constant factors are better, but the asymptotic complexity means that we're back to 60-second parse times on files that are just an order of magnitude bigger than the ones that caused 60-second parses in micromark-js.
+
+For comparison, the "JS" lines on these graphs show micromark's performance using subtokenize 2.0.1, which picks up the fix in micromark/micromark#171.
+
+Data collection sources
+
+Run with node main.mjs and cargo run --release
+
+package.json
+
+{
+"dependencies": {
+"mdast-util-from-markdown": "^2.0.0",
+"micromark-extension-mdxjs": "^3.0.0"
+}
+}
+
+main.mjs
+
+import { fromMarkdown } from "mdast-util-from-markdown";
+import { mdxjs } from "micromark-extension-mdxjs";
+
+/* Generate test data */
+const NUM_LINES_IN_CODE_SEG = 10000;
+function generateTestData(size) {
+let file = [];
+for (let i = 0; i < size; i++) {
+file.push("", "<DummyComponent code={`");
+for (let j = 0; j < NUM_LINES_IN_CODE_SEG; j++) {
+file.push(crypto.randomUUID());
+}
+file.push("`} />", "");
+}
+return file.join("\n");
+}
+
+/* Return the number of milliseconds need to parse a test case */
+function testPerformance(size) {
+const file = generateTestData(size);
+const start = performance.now();
+fromMarkdown(file, { extensions: [mdxjs()] });
+const end = performance.now();
+return end - start;
+}
+
+for (let reps = 0; reps < 3; reps++) {
+for (let size = 4; size < 40; size = Math.floor(size * 1.35)) {
+console.log(`${size}, ${testPerformance(size)}`);
+}
+}
+
+Cargo.toml
+
+[package]
+name = "tmp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+markdown = "1.0.0-alpha.16"
+
+[dependencies.uuid]
+version = "1.8.0"
+features = [
+"v4", # Lets you generate random UUIDs
+"fast-rng", # Use a faster (but still sufficiently random) RNG
+]
+
+src/main.rs
+
+const NUM_LINES_IN_CODE_SEG: i32 = 10000;
+
+fn main() -> Result<(), String> {
+for _ in 0..3 {
+let mut reps = 3;
+loop {
+reps = ((reps as f64) * 1.35) as i32;
+if reps > 40 {
+break;
+}
+let mut result = String::new();
+for _ in 1..reps {
+result.push_str("\n<DummyComponent code={`\n");
+for _ in 0..NUM_LINES_IN_CODE_SEG {
+result.push_str(&uuid::Uuid::new_v4().to_string());
+result.push('\n');
+}
+result.push_str("`}/>\n\n");
+}
+let start = std::time::Instant::now();
+let mdast = markdown::to_mdast(&result, &markdown::ParseOptions::mdx())?;
+let end = std::time::Instant::now();
+let duration = (end - start).as_millis();
+println!("{},{},{:?}", reps, duration, mdast.position());
+}
+}
+Ok(())
+}
+
+Activity
+
+robsimmons commented on Apr 17, 2024
+
+robsimmons
+
+on Apr 17, 2024
+
+Author
+
+More actions
+
+Figured out how to get Rust profiling working, and 99% of the time for that benchmark is spent in the add_impl function of src/util/edit_map.rs - it seems like this loop is creating the same quadratic behavior as the repeated slice operations in the JavaScript implementation. Maybe the edit map concept can be modified to avoid this quadratic repeated-splices, but right now it seems like it's merely delaying the quadratic repeated-splices.
+
+wooorm commented on Apr 17, 2024
+
+wooorm
+
+on Apr 17, 2024
+
+Last edited by wooorm
+
+Owner
+
+More actions
+
+Definitely possible that there are performance improvements to be made in rust and edit maps too! Cool that you’re investigating! Note that here you are specifically also generating strings that relate to JSX and SWC. Might be that there are things happening there.
+
+robsimmons commented on Apr 17, 2024
+
+robsimmons
+
+on Apr 17, 2024
+
+Last edited by robsimmons
+
+Author
+
+More actions
+
+That was worth investigating. What's SWC?
+
+If I comment out
+
+result.push_str("\n<DummyComponent code={`\n");
+
+and
+
+result.push_str("`}/>\n\n");
+
+and change markdown::ParseOptions::mdx() to markdown::ParseOptions::default()), then I'm literally just parsing a file of line-separated UUIDs. The performance is actually worse, though only by a constant factor:
+
+ChristianMurphy commented on Apr 17, 2024
+
+ChristianMurphy
+
+on Apr 17, 2024
+
+Collaborator
+
+More actions
+
+What's SWC?
+
+Speedy Web Compiler https://github.com/swc-project/swc
+
+It handles much of the JS/JSX parsing inside MDX
+
+👍React with 👍1Reacted by Robert J. Simmons
+
+robsimmons commented on Apr 17, 2024
+
+robsimmons
+
+on Apr 17, 2024
+
+Author
+
+More actions
+
+Thanks for the Speedy Web Response @ChristianMurphy. Yeah, this and the profiling result suggests that it's the edit maps generating the same repeated-splice behavior the JS implementation was dealing with.
+
+😄React with 😄4Reacted by Titus, Christian Murphy, Merlijn Vos and Chris Krycho
+
+wooorm commented on Apr 17, 2024
+
+wooorm
+
+on Apr 17, 2024
+
+Owner
+
+More actions
+
+The performance is actually worse, though only by a constant factor:
+
+That makes sense. Because then it has to parse paragraphs that are 10k lines long. There could be many things, links, emphasis, escapes, in there.
+
+A JSX element itself is much simpler.
+
+The expression you pass is somewhat complex too, as it’s JavaScript, and thus means 2 parsers have to work together.
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+No labels
+
+No labels
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.
