@@ -1,0 +1,12 @@
+4900000 source open ms 3277 cm true
+4900000 key ms 79,38,33,30,21,38,59,19,32,31,110,103,85,16,19,37,30,34,13,22 script/key ms 7.3 task/key 14.2 layouts 62
+4900000 heap MB before leave 177
+4900000 leave source ms 960
+4900000 undo ms 537
+4900000 cycle 0 leave ms 1128 heap MB 177
+4900000 cycle 1 leave ms 910 heap MB 177
+4900000 cycle 2 leave ms 589 heap MB 177
+4900000 cycle 3 leave ms 757 heap MB 177
+4900000 cycle 4 leave ms 609 heap MB 177
+4900000 cycle 5 leave ms 706 heap MB 177
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1047

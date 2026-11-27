@@ -1,0 +1,559 @@
+{
+  "about": "Shapes that grow with the file or fail on a big one, with no `scale:` comment, per file and rule of the app and the packages: may shrink, never grow (scripts/check-scale.mjs, docs/big-files.md).",
+  "files": {
+    "apps/desktop/src/changes/page.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/changes/patch.ts": {
+      "line-split": 1
+    },
+    "apps/desktop/src/commands/copy-as.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/commands/kind-tools.ts": {
+      "line-split": 1
+    },
+    "apps/desktop/src/commands/log.ts": {
+      "layout-in-loop": 2
+    },
+    "apps/desktop/src/document/fork.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/find/query.ts": {
+      "dynamic-regexp": 1
+    },
+    "apps/desktop/src/find/view.ts": {
+      "layout-in-loop": 10,
+      "query-in-loop": 1,
+      "spread-call": 1
+    },
+    "apps/desktop/src/frame/address.ts": {
+      "queue-in-loop": 1
+    },
+    "apps/desktop/src/frame/branches/look-by-language.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/frame/cards/file.ts": {
+      "line-split": 1
+    },
+    "apps/desktop/src/frame/crumbs.ts": {
+      "layout-in-loop": 1
+    },
+    "apps/desktop/src/frame/folder-page.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/frame/frame.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/frame/hue-test.ts": {
+      "spread-call": 3
+    },
+    "apps/desktop/src/frame/spine.ts": {
+      "layout-in-loop": 1
+    },
+    "apps/desktop/src/frame/tab-row.ts": {
+      "layout-in-loop": 7,
+      "query-in-loop": 4,
+      "spread-call": 2
+    },
+    "apps/desktop/src/frame/window-tabs.ts": {
+      "queue-in-loop": 1
+    },
+    "apps/desktop/src/frontispiece/pieces.ts": {
+      "line-split": 1
+    },
+    "apps/desktop/src/frontispiece/shape.ts": {
+      "queue-in-loop": 1,
+      "spread-call": 1
+    },
+    "apps/desktop/src/harness/layout-shift.ts": {
+      "layout-in-loop": 2,
+      "queue-in-loop": 1
+    },
+    "apps/desktop/src/harness/test-hooks.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/kinds/log-view.ts": {
+      "layout-in-loop": 1,
+      "line-split": 1,
+      "queue-in-loop": 2
+    },
+    "apps/desktop/src/kinds/quiet-dates.ts": {
+      "query-in-loop": 1,
+      "spread-call": 1
+    },
+    "apps/desktop/src/kinds/table-lens.ts": {
+      "spread-call": 3
+    },
+    "apps/desktop/src/kinds/transcript-view.ts": {
+      "line-split": 1,
+      "query-in-loop": 2
+    },
+    "apps/desktop/src/left/aria.ts": {
+      "query-in-loop": 2
+    },
+    "apps/desktop/src/left/doc-links.ts": {
+      "line-split": 1
+    },
+    "apps/desktop/src/left/doc-model.ts": {
+      "line-split": 1
+    },
+    "apps/desktop/src/left/frame.ts": {
+      "query-in-loop": 1
+    },
+    "apps/desktop/src/left/panels/metadata.ts": {
+      "line-split": 1,
+      "spread-call": 1
+    },
+    "apps/desktop/src/left/panels/outline.ts": {
+      "layout-in-loop": 2
+    },
+    "apps/desktop/src/left/panels/places.ts": {
+      "queue-in-loop": 1
+    },
+    "apps/desktop/src/left/row-window.ts": {
+      "layout-in-loop": 1,
+      "spread-call": 1
+    },
+    "apps/desktop/src/left/search-model.ts": {
+      "dynamic-regexp": 3,
+      "line-split": 1
+    },
+    "apps/desktop/src/left/transforms-model.ts": {
+      "line-split": 1
+    },
+    "apps/desktop/src/line/go.ts": {
+      "queue-in-loop": 1
+    },
+    "apps/desktop/src/line/refs.ts": {
+      "dynamic-regexp": 1
+    },
+    "apps/desktop/src/line/scopes-rows.ts": {
+      "line-split": 1
+    },
+    "apps/desktop/src/look/paint.ts": {
+      "layout-in-loop": 2
+    },
+    "apps/desktop/src/notes/margin.ts": {
+      "layout-in-loop": 2
+    },
+    "apps/desktop/src/notes/part-notes.ts": {
+      "layout-in-loop": 8,
+      "query-in-loop": 2
+    },
+    "apps/desktop/src/notices/disk.ts": {
+      "query-in-loop": 2
+    },
+    "apps/desktop/src/notices/index.ts": {
+      "query-in-loop": 2
+    },
+    "apps/desktop/src/palette/history.ts": {
+      "queue-in-loop": 2
+    },
+    "apps/desktop/src/palette/view.ts": {
+      "queue-in-loop": 1,
+      "spread-call": 1
+    },
+    "apps/desktop/src/parts/commands.ts": {
+      "layout-in-loop": 1
+    },
+    "apps/desktop/src/parts/cursor.ts": {
+      "layout-in-loop": 2
+    },
+    "apps/desktop/src/parts/kind-reveal.ts": {
+      "line-split": 1,
+      "query-in-loop": 6
+    },
+    "apps/desktop/src/parts/reading-parts.ts": {
+      "query-in-loop": 1
+    },
+    "apps/desktop/src/parts/tree-folds.ts": {
+      "query-in-loop": 1,
+      "queue-in-loop": 1
+    },
+    "apps/desktop/src/paste/html-to-markdown.ts": {
+      "line-split": 3
+    },
+    "apps/desktop/src/proposals/inspector.ts": {
+      "layout-in-loop": 1,
+      "spread-call": 1
+    },
+    "apps/desktop/src/proposals/minimap.ts": {
+      "dynamic-regexp": 1,
+      "layout-in-loop": 2,
+      "spread-call": 1
+    },
+    "apps/desktop/src/proposals/notes-in-place.ts": {
+      "layout-in-loop": 3
+    },
+    "apps/desktop/src/proposals/table-aids.ts": {
+      "layout-in-loop": 2
+    },
+    "apps/desktop/src/render/diagram.ts": {
+      "query-in-loop": 1
+    },
+    "apps/desktop/src/render/highlight-queue.ts": {
+      "queue-in-loop": 1
+    },
+    "apps/desktop/src/render/highlight.ts": {
+      "layout-in-loop": 1,
+      "line-split": 3
+    },
+    "apps/desktop/src/render/link-dest.ts": {
+      "query-in-loop": 1
+    },
+    "apps/desktop/src/render/log-page.ts": {
+      "line-split": 1,
+      "query-in-loop": 1
+    },
+    "apps/desktop/src/render/math.ts": {
+      "line-split": 1,
+      "query-in-loop": 2
+    },
+    "apps/desktop/src/render/palette-preview.ts": {
+      "line-split": 1
+    },
+    "apps/desktop/src/render/post.ts": {
+      "layout-in-loop": 6
+    },
+    "apps/desktop/src/render/progressive.ts": {
+      "layout-in-loop": 2
+    },
+    "apps/desktop/src/render/tasks.ts": {
+      "layout-in-loop": 1
+    },
+    "apps/desktop/src/render/wide-tables.ts": {
+      "layout-in-loop": 6,
+      "query-in-loop": 4
+    },
+    "apps/desktop/src/render/word-diff.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/selection/copy-html.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/selection/verb-bar.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/selection/view.ts": {
+      "layout-in-loop": 1
+    },
+    "apps/desktop/src/settings/settings.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/shell/memory.ts": {
+      "queue-in-loop": 1
+    },
+    "apps/desktop/src/source/editorconfig.ts": {
+      "dynamic-regexp": 1,
+      "line-split": 1
+    },
+    "apps/desktop/src/source/format-ops.ts": {
+      "dynamic-regexp": 2,
+      "line-split": 1
+    },
+    "apps/desktop/src/source/harness-entry.ts": {
+      "layout-in-loop": 1
+    },
+    "apps/desktop/src/source/notes.ts": {
+      "line-split": 1
+    },
+    "apps/desktop/src/source/replace-sheet.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/source/replace.ts": {
+      "dynamic-regexp": 1
+    },
+    "apps/desktop/src/source/structure.ts": {
+      "dynamic-regexp": 1
+    },
+    "apps/desktop/src/startup/idle-work.ts": {
+      "layout-in-loop": 4
+    },
+    "apps/desktop/src/studio/compare.ts": {
+      "layout-in-loop": 2
+    },
+    "apps/desktop/src/studio/dials.ts": {
+      "spread-call": 2
+    },
+    "apps/desktop/src/studio/fit.ts": {
+      "spread-call": 2
+    },
+    "apps/desktop/src/studio/galley.ts": {
+      "layout-in-loop": 1,
+      "line-split": 1,
+      "spread-call": 1
+    },
+    "apps/desktop/src/studio/shelf.ts": {
+      "spread-call": 2
+    },
+    "apps/desktop/src/studio/studio.ts": {
+      "spread-call": 2
+    },
+    "apps/desktop/src/studio/tab-adapts.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/studio/tab-code.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/studio/tab-tone.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/studio/tab-type.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/versions/store.ts": {
+      "queue-in-loop": 1
+    },
+    "apps/desktop/src/view/block-list.ts": {
+      "layout-in-loop": 2,
+      "query-in-loop": 1
+    },
+    "apps/desktop/src/view/reading-lines.ts": {
+      "layout-in-loop": 3,
+      "spread-call": 1
+    },
+    "apps/desktop/src/view/reading-rows.ts": {
+      "layout-in-loop": 3,
+      "spread-call": 1
+    },
+    "apps/desktop/src/view/rendered-view.ts": {
+      "layout-in-loop": 1,
+      "line-split": 1,
+      "query-in-loop": 1
+    },
+    "apps/desktop/src/viewers/archive-reveal.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/viewers/archive-sheet.ts": {
+      "queue-in-loop": 1
+    },
+    "apps/desktop/src/viewers/archive.ts": {
+      "query-in-loop": 1,
+      "queue-in-loop": 1,
+      "spread-call": 2
+    },
+    "apps/desktop/src/viewers/book.ts": {
+      "layout-in-loop": 3
+    },
+    "apps/desktop/src/viewers/card.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/viewers/font.ts": {
+      "query-in-loop": 2
+    },
+    "apps/desktop/src/viewers/hex.ts": {
+      "spread-call": 2
+    },
+    "apps/desktop/src/viewers/image-chunks.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/viewers/image.ts": {
+      "line-split": 1,
+      "query-in-loop": 4,
+      "spread-call": 1
+    },
+    "apps/desktop/src/viewers/mail.ts": {
+      "line-split": 5,
+      "spread-call": 3
+    },
+    "apps/desktop/src/viewers/media.ts": {
+      "spread-call": 1
+    },
+    "apps/desktop/src/viewers/office.ts": {
+      "layout-in-loop": 1,
+      "query-in-loop": 1,
+      "spread-call": 1
+    },
+    "apps/desktop/src/viewers/page-find.ts": {
+      "layout-in-loop": 1,
+      "spread-call": 1
+    },
+    "apps/desktop/src/viewers/pdf-blocks.ts": {
+      "spread-call": 4
+    },
+    "apps/desktop/src/viewers/pdf.ts": {
+      "query-in-loop": 1,
+      "queue-in-loop": 1,
+      "spread-call": 2
+    },
+    "apps/desktop/src/viewers/sandbox.ts": {
+      "layout-in-loop": 1,
+      "spread-call": 1
+    },
+    "apps/desktop/src/viewers/sheet.ts": {
+      "layout-in-loop": 2
+    },
+    "apps/desktop/src/viewers/sqlite.ts": {
+      "layout-in-loop": 1,
+      "queue-in-loop": 1
+    },
+    "apps/desktop/src/viewers/table-cards.ts": {
+      "line-split": 1
+    },
+    "packages/core/src/book/index.ts": {
+      "spread-call": 1
+    },
+    "packages/core/src/book/xhtml.ts": {
+      "queue-in-loop": 1
+    },
+    "packages/core/src/buffer/source-text.ts": {
+      "spread-call": 1
+    },
+    "packages/core/src/data/table-view.ts": {
+      "queue-in-loop": 1
+    },
+    "packages/core/src/derive/transcript-html.ts": {
+      "line-split": 2
+    },
+    "packages/core/src/highlight/session.ts": {
+      "line-split": 1
+    },
+    "packages/core/src/index-model/entry.ts": {
+      "dynamic-regexp": 1
+    },
+    "packages/core/src/index-model/ignore.ts": {
+      "dynamic-regexp": 1,
+      "line-split": 1
+    },
+    "packages/core/src/kind/detect.ts": {
+      "dynamic-regexp": 1,
+      "line-split": 3
+    },
+    "packages/core/src/kind/registry.ts": {
+      "dynamic-regexp": 1
+    },
+    "packages/core/src/log/head.ts": {
+      "dynamic-regexp": 5
+    },
+    "packages/core/src/log/summary.ts": {
+      "line-split": 1
+    },
+    "packages/core/src/mail/mime.ts": {
+      "line-split": 2,
+      "queue-in-loop": 1,
+      "spread-call": 1
+    },
+    "packages/core/src/mail/sniff.ts": {
+      "line-split": 1
+    },
+    "packages/core/src/office/markdown.ts": {
+      "line-split": 2
+    },
+    "packages/core/src/office/rtf.ts": {
+      "spread-call": 3
+    },
+    "packages/core/src/office/slides.ts": {
+      "spread-call": 1
+    },
+    "packages/core/src/office/xml.ts": {
+      "dynamic-regexp": 1,
+      "queue-in-loop": 1
+    },
+    "packages/core/src/operations/front-matter-value.ts": {
+      "dynamic-regexp": 1
+    },
+    "packages/core/src/operations/plain-text.ts": {
+      "line-split": 1
+    },
+    "packages/core/src/parse/byte-offsets.ts": {
+      "spread-call": 1
+    },
+    "packages/core/src/reading/notebook.ts": {
+      "line-split": 6
+    },
+    "packages/core/src/reading/part-choices.ts": {
+      "queue-in-loop": 1
+    },
+    "packages/core/src/reading/tree-jsonc.ts": {
+      "dynamic-regexp": 1
+    },
+    "packages/core/src/reading/tree.ts": {
+      "dynamic-regexp": 1,
+      "line-split": 1
+    },
+    "packages/core/src/sanitize/sanitize-html.ts": {
+      "spread-call": 1
+    },
+    "packages/core/src/source-edit/lines.ts": {
+      "line-split": 2,
+      "queue-in-loop": 1
+    },
+    "packages/core/src/transforms/clean.ts": {
+      "line-split": 2
+    },
+    "packages/core/src/transforms/convert.ts": {
+      "line-split": 1
+    },
+    "packages/core/src/transforms/extract.ts": {
+      "line-split": 2
+    },
+    "packages/core/src/transforms/markup.ts": {
+      "line-split": 1
+    },
+    "packages/core/src/transforms/prose.ts": {
+      "line-split": 1
+    },
+    "packages/core/src/transforms/registry.ts": {
+      "line-split": 1
+    },
+    "packages/core/src/viewer/archive-read.ts": {
+      "queue-in-loop": 1
+    },
+    "packages/core/src/viewer/cert.ts": {
+      "spread-call": 3
+    },
+    "packages/core/src/viewer/image-facts.ts": {
+      "dynamic-regexp": 1
+    },
+    "packages/core/src/viewer/pdf.ts": {
+      "line-split": 1
+    },
+    "packages/core/src/viewer/picture-facts.ts": {
+      "dynamic-regexp": 1,
+      "line-split": 1
+    },
+    "packages/core/src/viewer/program.ts": {
+      "spread-call": 1
+    },
+    "packages/core/src/viewer/tables.ts": {
+      "spread-call": 1
+    },
+    "packages/theme/src/config.ts": {
+      "spread-call": 1
+    },
+    "packages/theme/src/css-urls.ts": {
+      "dynamic-regexp": 1
+    },
+    "packages/theme/src/lang-palettes.ts": {
+      "spread-call": 3
+    },
+    "packages/theme/src/loader.ts": {
+      "dynamic-regexp": 3,
+      "spread-call": 1
+    },
+    "packages/theme/src/look-state.ts": {
+      "line-split": 1
+    },
+    "packages/typeset/src/apply.ts": {
+      "layout-in-loop": 1,
+      "queue-in-loop": 1
+    },
+    "packages/typeset/src/grid.ts": {
+      "layout-in-loop": 5,
+      "query-in-loop": 1
+    },
+    "packages/typeset/src/hang.ts": {
+      "query-in-loop": 1
+    },
+    "packages/typeset/src/index.ts": {
+      "layout-in-loop": 9,
+      "query-in-loop": 3,
+      "queue-in-loop": 1,
+      "spread-call": 1
+    },
+    "packages/typeset/src/measure.ts": {
+      "layout-in-loop": 1
+    }
+  }
+}

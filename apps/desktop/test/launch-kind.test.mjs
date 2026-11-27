@@ -10,8 +10,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { b64, closeHarness, harnessBase, shippedSkeleton } from './support/two-pane.mjs';
+import { openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -118,7 +118,7 @@ const state = (page) =>
   });
 
 async function withBrowser(fn) {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     await fn(browser);
   } finally {

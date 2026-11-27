@@ -1,0 +1,656 @@
+Skip to main content
+
+Resources
+
+Web Platform
+
+Dive into the web platform, at your pace.
+
+HTML
+
+CSS
+
+JavaScript
+
+User experience
+
+Learn how to build better user experiences.
+
+Performance
+
+Accessibility
+
+Identity
+
+Learn
+
+Get up to speed on web development.
+
+Learn HTML
+
+Learn CSS
+
+Learn JavaScript
+
+Learn AI
+
+Learn Performance
+
+Learn Accessibility
+
+More courses
+
+Additional resources
+
+Explore content collections, patterns, and more.
+
+AI and the web
+
+Explore
+
+PageSpeed Insights
+
+Podcasts & shows
+
+Developer Newsletter
+
+About web.dev
+
+Discover
+
+Baseline
+
+How to use Baseline
+
+Blog
+
+Case Studies
+
+/
+
+English
+
+Deutsch
+
+Español – América Latina
+
+Français
+
+Indonesia
+
+Italiano
+
+Polski
+
+Português – Brasil
+
+Tiếng Việt
+
+Türkçe
+
+Русский
+
+עברית
+
+العربيّة
+
+فارسی
+
+हिंदी
+
+বাংলা
+
+ภาษาไทย
+
+中文 – 简体
+
+中文 – 繁體
+
+日本語
+
+한국어
+
+Sign in
+
+Resources
+
+AI and the web
+
+Fast load times
+
+Learn Core Web Vitals
+
+Identity
+
+Progressive Web Apps
+
+Payments
+
+Notifications
+
+How to optimize INP
+
+Network reliability
+
+React
+
+Animations
+
+Mini apps
+
+Media
+
+Safe and secure
+
+WebAssembly
+
+Devices
+
+Easily discoverable
+
+Test automation
+
+Angular
+
+Resources
+
+More
+
+AI and the web
+
+Fast load times
+
+Learn Core Web Vitals
+
+Identity
+
+Progressive Web Apps
+
+Payments
+
+Notifications
+
+How to optimize INP
+
+Network reliability
+
+React
+
+Animations
+
+Mini apps
+
+Media
+
+Safe and secure
+
+WebAssembly
+
+Devices
+
+Easily discoverable
+
+Test automation
+
+Angular
+
+Discover
+
+Baseline
+
+How to use Baseline
+
+Blog
+
+Case Studies
+
+Familiarize yourself with INP and how to optimize it
+
+Interaction to Next Paint (INP)
+
+Optimize Interaction to Next Paint
+
+Troubleshooting
+
+Find slow interactions in the field
+
+Manually diagnose slow interactions in the lab
+
+Optimize poor INP caused by JavaScript
+
+Optimize long tasks
+
+Optimize input delay
+
+Script evaluation and long tasks
+
+Use web workers to run JavaScript off the browser's main thread
+
+Optimize poor INP caused by rendering
+
+Avoid large, complex layouts and layout thrashing
+
+Reduce the scope and complexity of style calculations
+
+How large DOM sizes affect interactivity, and what you can do about it
+
+Client-side rendering of HTML and interactivity
+
+Web Platform
+
+HTML
+
+CSS
+
+JavaScript
+
+User experience
+
+Performance
+
+Accessibility
+
+Identity
+
+Learn
+
+Learn HTML
+
+Learn CSS
+
+Learn JavaScript
+
+Learn AI
+
+Learn Performance
+
+Learn Accessibility
+
+More courses
+
+Additional resources
+
+AI and the web
+
+Explore
+
+PageSpeed Insights
+
+Podcasts &amp; shows
+
+Developer Newsletter
+
+About web.dev
+
+Modern Web Guidance is now stable! Upgrade your coding agents with expert-vetted web development best practices. Read the announcement.
+
+web.dev
+
+Resources
+
+How to optimize INP
+
+Optimize long tasks
+
+Stay organized with collections
+
+Save and categorize content based on your preferences.
+
+You've been told "don't block the main thread" and "break up your long tasks",
+but what does it mean to do those things?
+
+Jeremy Wagner
+
+Brendan Kenny
+
+Published: September 30, 2022, Last updated: December 19, 2024
+
+Common advice for keeping JavaScript apps fast tends to boil down to the following advice:
+
+"Don't block the main thread."
+
+"Break up your long tasks."
+
+This is great advice, but what work does it involve? Shipping less JavaScript is good, but does that automatically equate to more responsive user interfaces? Maybe, but maybe not.
+
+To understand how to optimize tasks in JavaScript, you first need to know what tasks are, and how the browser handles them.
+
+What is a task?
+
+A task is any discrete piece of work that the browser does. That work includes rendering, parsing HTML and CSS, running JavaScript, and other types of work you may not have direct control over. Of all of this, the JavaScript you write is perhaps the largest source of tasks.
+
+A task started by a click event handler in, shown in Chrome DevTools' performance profiler.
+
+Tasks associated with JavaScript impact performance in a couple of ways:
+
+When a browser downloads a JavaScript file during startup, it queues tasks to parse and compile that JavaScript so it can be executed later.
+
+At other times during the life of the page, tasks are queued when JavaScript does work such as responding to interactions through event handlers, JavaScript-driven animations, and background activity such as analytics collection.
+
+All of this stuff—with the exception of web workers and similar APIs—happens on the main thread.
+
+What is the main thread?
+
+The main thread is where most tasks run in the browser, and where almost all JavaScript you write is executed.
+
+The main thread can only process one task at a time. Any task that takes longer than 50 milliseconds is a long task. For tasks that exceed 50 milliseconds, the task's total time minus 50 milliseconds is known as the task's blocking period.
+
+The browser blocks interactions from occurring while a task of any length is running, but this is not perceptible to the user as long as tasks don't run for too long. When a user attempts to interact with a page when there are many long tasks, however, the user interface will feel unresponsive, and possibly even broken if the main thread is blocked for very long periods of time.
+
+A long task as depicted in Chrome's performance profiler. Long tasks are indicated by a red triangle in the corner of the task, with the blocking portion of the task filled in with a pattern of diagonal red stripes.
+
+To prevent the main thread from being blocked for too long, you can break up a long task into several smaller ones.
+
+A visualization of a single long task versus that same task broken up into five shorter tasks.
+
+This matters because when tasks are broken up, the browser can respond to higher-priority work much sooner—including user interactions. Afterward, remaining tasks then run to completion, ensuring the work you initially queued up gets done.
+
+A visualization of what happens to interactions when tasks are too long and the browser can't respond quickly enough to interactions, versus when longer tasks are broken up into smaller tasks.
+
+At the top of the preceding figure, an event handler queued up by a user interaction had to wait for a single long task before it could begin, This delays the interaction from taking place. In this scenario, the user might have noticed lag. At the bottom, the event handler can begin to run sooner, and the interaction might have felt instant.
+
+Now that you know why it's important to break up tasks, you can learn how to do so in JavaScript.
+
+Task management strategies
+
+A common piece of advice in software architecture is to break up your work into smaller functions:
+
+function saveSettings () {
+validateForm();
+showSpinner();
+saveToDatabase();
+updateUI();
+sendAnalytics();
+}
+
+In this example, there's a function named saveSettings() that calls five functions to validate a form, show a spinner, send data to the application backend, update the user interface, and send analytics.
+
+Conceptually, saveSettings() is well-architected. If you need to debug one of these functions, you can traverse the project tree to figure out what each function does. Breaking up work like this makes projects easier to navigate and maintain.
+
+A potential problem here, though, is that JavaScript doesn't run each of these functions as separate tasks because they are executed within the saveSettings() function. This means that all five functions will run as one task.
+
+A single function saveSettings() that calls five functions. The work is run as part of one long monolithic task, blocking any visual response until all five functions are complete.
+
+In the best case scenario, even just one of those functions can contribute 50 milliseconds or more to the task's total length. In the worst case, more of those tasks can run much longer—especially on resource-constrained devices.
+
+In this case, saveSettings() is triggered by a user click, and because the browser isn't able to show a response until the entire function is finished running, the result of this long task is a slow and unresponsive UI, and will be measured as a poor Interaction to Next Paint (INP).
+
+Key point: JavaScript works this way because it uses the run-to-completion model of task execution. This means that each task will run until it finishes, regardless of how long it may block the main thread.
+
+Manually defer code execution
+
+To make sure important user-facing tasks and UI responses happen before lower-priority tasks, you can yield to the main thread by briefly interrupting your work to give the browser opportunities to run more important tasks.
+
+One method developers have used to break up tasks into smaller ones involves setTimeout(). With this technique, you pass the function to setTimeout(). This postpones execution of the callback into a separate task, even if you specify a timeout of 0.
+
+function saveSettings () {
+// Do critical work that is user-visible:
+validateForm();
+showSpinner();
+updateUI();
+
+// Defer work that isn't user-visible to a separate task:
+setTimeout(() => {
+saveToDatabase();
+sendAnalytics();
+}, 0);
+}
+
+This is known as yielding, and it works best for a series of functions that need to run sequentially.
+
+Key point: When you yield to the main thread, you're giving it an opportunity to handle more important tasks than the ones that were initially queued up. You should ideally yield to the main thread whenever you have user-facing work—such as updating the user interface—that should execute sooner than if you didn't yield.
+
+However, your code may not always be organized this way. For example, you could have a large amount of data that needs to be processed in a loop, and that task could take a very long time if there are many iterations.
+
+function processData () {
+for (const item of largeDataArray) {
+// Process the individual item here.
+}
+}
+
+Using setTimeout() here is problematic because of developer ergonomics, and after five rounds of nested setTimeout()s, the browser will start imposing a minimum 5 millisecond delay for each additional setTimeout().
+
+setTimeout also has another drawback when it comes to yielding: when you yield to the main thread by deferring code to run in a subsequent task using setTimeout, that task gets added to the end of the queue. If there are other tasks waiting, they will run before your deferred code.
+
+A dedicated yielding API: scheduler.yield()
+
+Browser Support
+
+129
+
+129
+
+142
+
+x
+
+Source
+
+scheduler.yield() is an API specifically designed for yielding to the main thread in the browser.
+
+It's not language-level syntax or a special construct; scheduler.yield() is just a function that returns a Promise that will be resolved in a future task. Any code chained to run after that Promise is resolved (either in an explicit .then() chain or after awaiting it in an async function) will then run in that future task.
+
+In practice: insert an await scheduler.yield() and the function will pause execution at that point and yield to the main thread. The execution of the rest of the function—called the continuation of the function—will be scheduled to run in a new event-loop task. When that task starts, the awaited promise will be resolved, and the function will continue executing where it left off.
+
+async function saveSettings () {
+// Do critical work that is user-visible:
+validateForm();
+showSpinner();
+updateUI();
+
+// Yield to the main thread:
+await scheduler.yield()
+
+// Work that isn't user-visible, continued in a separate task:
+saveToDatabase();
+sendAnalytics();
+}
+
+The execution of the function saveSettings() is now split over two tasks. As a result, layout and paint can run between the tasks, giving the user a quicker visual response, as measured by the now much shorter pointer interaction.
+
+Key point: You don't have to yield after every function call. For example, if you run two functions that both result in critical updates to the user interface, you probably don't want to yield in between them. If you can, let that work run first, then consider yielding in between functions that do less critical or background work that the user doesn't see.
+
+The real benefit of scheduler.yield() over other yielding approaches, though, is that its continuation is prioritized, which means that if you yield in the middle of a task, the continuation of the current task will run before any other similar tasks are started.
+
+This avoids code from other task sources from interrupting the order of your code's execution, such as tasks from third-party scripts.
+
+When you use scheduler.yield(), the continuation picks up where it left off before moving on to other tasks.
+
+Cross-browser support
+
+scheduler.yield() is not yet supported in all browsers, so a fallback is needed.
+
+One solution is to drop the scheduler-polyfill into your build, and then scheduler.yield() can be used directly; the polyfill will handle falling back to other task-scheduling functions so it works similarly across browsers.
+
+Alternatively, a less sophisticated version can be written in a few lines, using only setTimeout wrapped in a Promise as a fallback if scheduler.yield() isn't available.
+
+function yieldToMain () {
+if (globalThis.scheduler?.yield) {
+return scheduler.yield();
+}
+
+// Fall back to yielding with setTimeout.
+return new Promise(resolve => {
+setTimeout(resolve, 0);
+});
+}
+
+Caution: Make sure to to check for both the global scheduler and that it has a yield method on it.
+
+While browsers without scheduler.yield() support won't get the prioritized continuation, they will still yield for the browser to stay responsive.
+
+Finally, there may be cases where your code can't afford to yield to the main thread if its continuation isn't prioritized (for instance, a known-busy page where yielding risks not completing work for some time). In that case, scheduler.yield() could be treated as a kind of progressive enhancement: yield in browsers where scheduler.yield() is available, otherwise continue.
+
+This can be done by both feature detecting and falling back to waiting a single microtask in a handy one-liner:
+
+// Yield to the main thread if scheduler.yield() is available.
+await globalThis.scheduler?.yield?.();
+
+Break up long-running work with scheduler.yield()
+
+The benefit of using any of these methods of using scheduler.yield() is that you can await it in any async function.
+
+For example, if you have an array of jobs to run that often end up adding up to a long task, you can insert yields to break up the task.
+
+async function runJobs(jobQueue) {
+for (const job of jobQueue) {
+// Run the job:
+job();
+
+// Yield to the main thread:
+await yieldToMain();
+}
+}
+
+Key point: scheduler.yield() only schedules a task, it's the await that actually pauses execution to wait for that new task to start. Don't forget the await, and beware iterative methods like Array.prototype.forEach, which don't wait for each callback to resolve before moving to the next iteration.
+
+The continuation of runJobs() will be prioritized, but still allow higher-priority work like visually responding to user input to run, not have to wait for the potentially long list of jobs to finish.
+
+However, this is not an efficient use of yielding. scheduler.yield() is quick and efficient, but it does have some overhead. If some of the jobs in jobQueue are very short, then the overhead could quickly add up to more time spent yielding and resuming than executing the actual work.
+
+One approach is to batch the jobs, only yielding between them if it's been long enough since the last yield. A common deadline is 50 milliseconds to try to keep tasks from becoming long tasks, but it can be adjusted as a tradeoff between responsiveness and time to complete the job queue.
+
+async function runJobs(jobQueue, deadline=50) {
+let lastYield = performance.now();
+
+for (const job of jobQueue) {
+// Run the job:
+job();
+
+// If it's been longer than the deadline, yield to the main thread:
+if (performance.now() - lastYield > deadline) {
+await yieldToMain();
+lastYield = performance.now();
+}
+}
+}
+
+The result is that the jobs are broken up to never take too long to run, but the runner only yields to the main thread about every 50 milliseconds.
+
+Jobs batched into multiple tasks.
+
+Don't use isInputPending()
+
+Browser Support
+
+87
+
+87
+
+x
+
+x
+
+Source
+
+The isInputPending() API provides a way of checking if a user has attempted to interact with a page and only yield if an input is pending.
+
+This lets JavaScript continue if no inputs are pending, instead of yielding and ending up at the back of the task queue. This can result in impressive performance improvements, as detailed in the Intent to Ship, for sites that might otherwise not yield back to the main thread.
+
+However, since the launch of that API, our understanding of yielding has increased, particularly with the introduction of INP. We no longer recommend using this API, and instead recommend yielding regardless of whether input is pending or not for a number of reasons:
+
+isInputPending() may incorrectly return false despite a user having interacted in some circumstances.
+
+Input isn't the only case where tasks should yield. Animations and other regular user interface updates can be equally important to providing a responsive web page.
+
+More comprehensive yielding APIs have since been introduced which address yielding concerns, such as scheduler.postTask() and scheduler.yield().
+
+Conclusion
+
+Managing tasks is challenging, but doing so ensures that your page responds more quickly to user interactions. There's no one single piece of advice for managing and prioritizing tasks, but rather a number of different techniques. To reiterate, these are the main things you'll want to consider when managing tasks:
+
+Yield to the main thread for critical, user-facing tasks.
+
+Use scheduler.yield() (with a cross-browser fallback) to ergonomically yield and get prioritized continuations
+
+Finally, do as little work as possible in your functions.
+
+To learn more about scheduler.yield(), its explicit task-scheduling relative scheduler.postTask(), and task prioritization, see the Prioritized Task Scheduling API docs.
+
+With one or more of these tools, you should be able to structure the work in your application so that it prioritizes the user's needs, while ensuring that less critical work still gets done. That's going to create a better user experience which is more responsive and more enjoyable to use.
+
+Special thanks to Philip Walton for his technical vetting of this guide.
+
+Except as otherwise noted, the content of this page is licensed under the Creative Commons Attribution 4.0 License, and code samples are licensed under the Apache 2.0 License. For details, see the Google Developers Site Policies. Java is a registered trademark of Oracle and/or its affiliates.
+
+Last updated 2024-12-19 UTC.
+
+web.dev
+
+web.dev
+
+We want to help you build beautiful, accessible, fast, and secure websites that work cross-browser, and for all of your users. This site is our home for content to help you on that journey, written by members of the Chrome team, and external experts.
+
+Contribute
+
+File a bug
+
+See open issues
+
+Related Content
+
+Chrome for Developers
+
+Chromium updates
+
+Case studies
+
+Podcasts & shows
+
+Follow
+
+@ChromiumDev on X
+
+YouTube
+
+Chrome for Developers on LinkedIn
+
+RSS
+
+Terms
+
+Privacy
+
+Manage cookies
+
+English
+
+Deutsch
+
+Español – América Latina
+
+Français
+
+Indonesia
+
+Italiano
+
+Polski
+
+Português – Brasil
+
+Tiếng Việt
+
+Türkçe
+
+Русский
+
+עברית
+
+العربيّة
+
+فارسی
+
+हिंदी
+
+বাংলা
+
+ภาษาไทย
+
+中文 – 简体
+
+中文 – 繁體
+
+日本語
+
+한국어

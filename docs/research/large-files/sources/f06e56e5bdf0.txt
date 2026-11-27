@@ -1,0 +1,87 @@
+Marked Support
+
+Questions
+
+Tags
+
+Users
+
+Badges
+
+Print Preview Rendering Speed is Very, Very Slow
+
+Darin Warling
+
+7
+
+Created Sep 4
+
+Viewed 34
+
+Follow
+
+I have a large document (244 pages, 330KB Markdown, 18KB CSS) and print preview rendering is incredibly slow. On my M3 MacBook Air with 24GB of RAM it takes 33 minutes to render, using approximately 12.5% of my CPU (according to iStatMenus). Is this expected, or unusual?
+
+general
+
+rendering
+
+print-preview
+
+performance
+
+printing
+
+0
+
+0
+
+Add comment+
+
+Share
+
+1 Answers
+
+This seems excessive, but rendering large documents is definitely slow. A document like that usually takes ~15m on my M5.
+
+Marked 3 can't use the built-in print system, as with the WebKit 1 that Marked uses it crashes immediately when setting up print headers. So I have to use a hidden web view and extensive JavaScript to paginate the document, which is a very complex process and takes considerable time on large documents.
+
+0
+
+Accepted
+
+edited Sep 4
+
+Brett Terpstra2711
+
+answered Sep 4
+
+Related
+
+Styling PDF export to look like my client's Word documents
+
+1 answers
+
+Marked3 license is not found on 2nd computer.
+
+2 answers
+
+iA Writer Content Blocks
+
+2 answers
+
+Dark mode - changing code colour
+
+1 answers
+
+Header links not jumping
+
+[SOLVED] Callouts in Exports?
+
+2 answers
+
+Terms of service
+
+Privacy policy
+
+Powered by Answer

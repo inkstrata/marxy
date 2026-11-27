@@ -1,0 +1,83 @@
+Obsidian Forum
+
+Obsidian reading view keeps modifying the DOM in long notes
+
+Help
+
+ui-ux
+
+holroy
+
+February 3, 2023, 4:51pm
+
+1
+
+I’m not sure if this should be in the Help category, or possibly the Bug reports (or Developer & API) category, but let us start here.
+
+Description of issue
+
+I’m noticing that in a given a note with around 16 paragraphs of around 100 words each, then not all of the paragraphs (aka <div>'s) are loaded at once in the DOM in reading view. And when you scroll down through the document the first paragraphs are unloaded from the DOM, and the later paragraphs are loaded.
+
+This causes an issue when trying to float elements, like ITS callout box (floating div element) disappears after scrolling - #5 by Inoshiro90, where one relies on the <div> to be loaded all the time when this note is being viewed. As it is, the upper part of the document is simply unloaded, and as a result the floating box is also removed.
+
+How to reproduce this behaviour
+
+DOM changes.md (10.3 KB)
+
+Create a longer document (or use the attached document), and open it up in reading view. Now open up the Developer Tools with the Elements pane open, and do the following:
+
+Search for .workspace-leaf.mod-active .markdown-preview-section, and it should highlight the entire pane. Open up the div, if it’s not open, and you’ll see a list of the <div>'s with the various paragraphs.
+
+Open up one of them, like the 5th or 6th paragraph, and you should see the text of a paragraph showing in your window
+
+Leave it open, and go back to the document and start scrolling
+
+Now you’ll see, that <div>'s are being added, and when you go far enough down, the opened <div> will disappear. (And if you have my document, you’ll also notice that the floating box disappears)
+
+Is this behaviour to be expected? Is it a bug? Can it be prevented somehow, so that one could have one or more elements always open when viewing a document?
+
+Prevent Removing Elements with position: sticky or position: fixed from the DOM
+
+Plugin which permanently renders div elements even if outside the viewport
+
+joethei
+
+February 3, 2023, 4:55pm
+
+2
+
+This is the correct behavior, and cannot be disabled.
+
+This is done for performance reasons.
+
+holroy
+
+February 3, 2023, 4:57pm
+
+3
+
+So then it’s impossible to add a floating div to a given document, as well, right?
+
+ITS callout box (floating div element) disappears after scrolling
+
+joethei
+
+February 3, 2023, 10:46pm
+
+4
+
+A plugin could do it, but that’s the only option afaik
+
+Plugin which permanently renders div elements even if outside the viewport
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Privacy Policy
+
+Powered by Discourse, best viewed with JavaScript enabled

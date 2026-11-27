@@ -1,0 +1,405 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+krevis
+
+HexFiend
+
+Repository navigation
+
+Code
+
+Pull requests
+
+Actions
+
+Projects
+
+Security and quality
+
+Insights
+
+More items
+
+HexFiend
+Public
+
+forked from HexFiend / HexFiend
+
+NotificationsYou must be signed in to change notification settings
+
+Fork1 (1)
+
+Star1 (1)You must be signed in to star a repository
+
+About
+
+A fast and clever hex editor for macOS
+
+ridiculousfish.com/hexfiend/
+
+Resources
+
+Readme
+
+BSD-2-Clause license
+
+Activity
+
+Stars
+
+1 star
+
+Watchers
+
+0 watching
+
+Forks
+
+1 fork
+
+Report repository
+
+master
+
+Branches Tags
+
+Go to file
+
+Code
+Open more actions menu
+
+Latest commit
+
+History
+1,494 Commits
+
+1,494 Commits
+
+Folders and files
+
+Name Name
+Last commit message
+
+Last commit date
+
+.github/workflows
+
+.github/workflows
+
+Hex Fiend Tests
+
+Hex Fiend Tests
+
+app
+
+app
+
+configs
+
+configs
+
+docs
+
+docs
+
+documentation_tools
+
+documentation_tools
+
+framework
+
+framework
+
+helper_subprocess
+
+helper_subprocess
+
+hexf
+
+hexf
+
+sample_code/HexFiendling
+
+sample_code/HexFiendling
+
+templates
+
+templates
+
+.gitignore
+
+.gitignore
+
+.gitmodules
+
+.gitmodules
+
+License.txt
+
+License.txt
+
+Makefile
+
+Makefile
+
+README.md
+
+README.md
+
+dist.sh
+
+dist.sh
+
+version.h
+
+version.h
+
+View all files
+
+Repository files navigation
+
+README
+
+BSD-2-Clause license
+
+More items
+
+Hex Fiend
+
+A fast and clever open source hex editor for macOS.
+
+Download the latest version from the releases page.
+
+Features
+
+Insert, delete, rearrange. Hex Fiend does not limit you to in-place changes like some hex editors.
+
+Work with huge files. Hex Fiend can handle as big a file as you’re able to create. It’s been tested on files as large as 118 GB.
+
+Small footprint. Hex Fiend does not keep your files in memory. You won’t dread launching or working with Hex Fiend even on low-RAM machines.
+
+Fast. Open a huge file, scroll around, copy and paste, all instantly. Find what you’re looking for with fast searching.
+
+Binary diff. Hex Fiend can show the differences between files, taking into account insertions or deletions. Simply open two files in Hex Fiend and then use the File > Compare menus.
+
+Smart saving. Hex Fiend knows not to waste time overwriting the parts of your files that haven’t changed, and never needs temporary disk space.
+
+Data inspector. Interpret data as integer or floating point, signed or unsigned, big or little endian.
+
+Binary templates. Visualize the structure of a file through scripting. See documentation.
+
+Embeddable! It’s really easy to incorporate Hex Fiend’s hex or data views into your app using the Hex Fiend framework. Its permissive BSD-style license won’t burden you. See the API reference for details. Check out the projects using Hex Fiend.
+
+About
+
+A fast and clever hex editor for macOS
+
+ridiculousfish.com/hexfiend/
+
+Resources
+
+Readme
+
+BSD-2-Clause license
+
+Activity
+
+Stars
+
+1 star
+
+Watchers
+
+0 watching
+
+Forks
+
+1 fork
+
+Report repository
+
+Releases
+
+Packages
+
+Contributors
+
+Languages
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

@@ -1,0 +1,21 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/apps/desktop/../../work/runs/2026-11-27-hunt-03/probes/NAV/mount.verify.mjs --browser chromium
+uptime 3:19  up 1 day,  6:37, 1 user, load averages: 35.14 37.55 40.44
+=== 2 MB bytes 2007597 true "the " matches 32442
+ find at +6s {"blocks":4132,"lastBlockByte":"1336790","count":"1 of 21072"}
+ End1 cpu task ms 1575 {"blocks":4197,"lastBlockByte":"1357830","midByte":"1338922"}
+ End again {"blocks":4684,"lastBlockByte":"1515261","midByte":"1500902"}
+ End again {"blocks":5070,"lastBlockByte":"1640505","midByte":"1628404"}
+ End again {"blocks":5416,"lastBlockByte":"1752291","midByte":"1741497"}
+ End again {"blocks":5766,"lastBlockByte":"1865619","midByte":"1851606"}
+ End again {"blocks":6112,"lastBlockByte":"1977668","midByte":"1965028"}
+ End again {"blocks":6204,"lastBlockByte":"2007302","midByte":"2007108"}
+=== 3 MB bytes 3011354 true "the " matches 48662
+ find at +6s {"blocks":4253,"lastBlockByte":"1375924","count":"1 of 21692"}
+ End1 cpu task ms 1616 {"blocks":4309,"lastBlockByte":"1394123","midByte":"1376794"}
+ End again {"blocks":4733,"lastBlockByte":"1531604"}
+ End again {"blocks":5133,"lastBlockByte":"1660806","midByte":"1649444"}
+ End again {"blocks":5485,"lastBlockByte":"1774742","midByte":"1763930"}
+ End again {"blocks":5801,"lastBlockByte":"1876854","midByte":"1866998"}
+ End again {"blocks":6135,"lastBlockByte":"1985142","midByte":"1973638"}
+ End again {"blocks":6421,"lastBlockByte":"2077718","midByte":"2070244"}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1119

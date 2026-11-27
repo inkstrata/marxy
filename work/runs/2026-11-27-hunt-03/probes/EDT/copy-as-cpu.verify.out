@@ -1,0 +1,5 @@
+ 3:04  up 1 day,  6:22, 1 user, load averages: 40.53 39.44 45.80
+md-prose 500000 title/parse cpu 528 wall 2566 slack:cpu506/wall2744 html:cpu108/wall219 rich:cpu100/wall423
+md-prose 1000000 title/parse cpu 928 wall 5065 slack:cpu758/wall1416 html:cpu174/wall862 rich:cpu156/wall851
+md-prose 2000000 title/parse cpu 1633 wall 6617 slack:cpu1716/wall11032 html:cpu318/wall1929 rich:cpu313/wall1358
+ 3:05  up 1 day,  6:23, 1 user, load averages: 38.80 38.99 45.34

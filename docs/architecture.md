@@ -57,7 +57,7 @@ path ─ shell.detectFiles (head) ─ shell.readFile ─ decode if not UTF-8 ─
    `readingOf` (`packages/core/src/reading/`) as escaped HTML whose elements carry their byte ranges. A table's or
    records' rows are indexed from the bytes a slice at a time (`reading/rows.ts`); Read keeps the rows near the screen
    on the page and draws the rest from the index as it scrolls, and sorts, filters and finds over every row
-   (`view/reading-rows.ts`). A log, plain text, code or Markdown from 5 MB is read as lines the same way: indexed by
+   (`view/reading-rows.ts`). A log, plain text, code or Markdown from 5 MiB is read as lines the same way: indexed by
    where each line begins and ends in the bytes (`reading/lines.ts`), the lines on screen drawn and the rest
    drawn as the page scrolls (`view/reading-lines.ts`). Markdown read so is not parsed: its Outline comes from a
    scan of the line index (`reading/heading-scan.ts`), and Show rendered (`read-as/show-rendered.ts`) opens it
@@ -93,9 +93,9 @@ nested, steps taken. The shared shape is a budget (`packages/core/src/util/budge
 `take(n)` counts work against it and refuses what would pass it, `give(n)` hands back a level on the way out, and
 `hit` and `refused` say afterwards that the reader stopped early and how much it left. A reader that stops says so to
 the reader in its own words, as the page's notes already do (`Only the first 500 parts are read.`, `The first 100 columns
-of more than 10,000; Source has them all.`), and never fails the page. The mail parser, the RTF reader and JSON Lines'
-keys count this way; other readers still hold their own constants and counters, listed with their limits in
-[file-kinds.md](file-kinds.md#size-limits) and, for the shell, [desktop-shell.md](desktop-shell.md).
+of more than 10,000; Source has them all.`), and never fails the page. The mail parser (its parts and its delimiter
+index), the RTF reader, JSON Lines' keys and the certificate check count this way; other readers still hold their own
+constants and counters, listed with their limits in [file-kinds.md](file-kinds.md#size-limits) and, for the shell, [desktop-shell.md](desktop-shell.md).
 
 Bytes that come in packed or encoded are bounded before they are unpacked, not after. A gzip stream in the page's
 archive reader is asked of the injected `Inflate` only one byte past what may be kept (`ArchiveLimits.stream` for a
@@ -114,6 +114,28 @@ as the heading scan of a big file does, and the panel says it lists the first 20
 heading, which the parse has already bounded. A web page's title is read in one
 pass from its first `<title>`, and its tags are taken out in one pass, so a page of unclosed titles or a title of `<` is
 linear.
+
+Lines of text are bounded by their length as well as their count. A paste is judged to be Markdown, or JSON to fence,
+by one forward pass over each line of its first 4 MB (`PASTE_LOOK_CHARS`, counted with a budget), with no pattern that
+backtracks, so one line of spaces or `[` is as cheap as any other; a longer paste is read to that point only and is never
+fenced as JSON, since the whole of it would have to be parsed to know, and it goes in as text. A JSON Lines record is
+parsed to 1 MB (`READING_MAX_RECORD`); a longer one is not read past its first bytes, and its row says its size and
+shows its head. Cut rows are counted apart from lines that are not records (the first line says "1 record cut"), they
+sort last and Export leaves them out as unreadable rows are, and they are not records for deciding that a file is JSON
+Lines at all: a file with fewer than two records under the limit is shown line by line as written.
+
+Containers are walked once, whatever their nesting. An archive's folders are counted as a tree of path segments, not by
+joining every prefix of every path, and each node's path is made from its parent's, so a listing of 100,000 entries 64
+deep sums in a tenth of a second. The office XML `find` is breadth first over a queue read by index, so a list 250,000
+wide is searched in its size, not its square. A book's contents stop at 8 levels of nesting counted by the lists
+themselves, so headings without links (which add no level to the Outline) cannot carry the walk past it. A message's
+lines that begin `--` are indexed once, on the first multipart body, and every level's delimiters are looked for among
+them, not by a rescan of its range: a message nested 12 deep in 64 MB reads in tens of milliseconds. That index is a
+budget (`MAIL_LIMITS.dashLines`, 1,000,000 lines); past it, a part whose end is not known is left out, since running
+it to the end of its parent would show the parts after it as its body, and the page says so (`Past 1,000,000 lines
+beginning “--”, a part whose end was not found is not read.`). A certificate's whole-tree check of lengths and nesting
+counts each element against one budget for the file (`CERT_NODES_MAX`, 100,000) and stops there; the facts are still
+read, and the card's `checked` row says the rest was not.
 
 ## Documents, edits and saves
 
@@ -162,7 +184,7 @@ linear.
   match, and the store's `append` splices the new bytes on at the end (a `reload` transition with `appended`).
   A file that shrank, was rotated or rewritten, is held in another encoding or has unsaved edits takes the
   whole read above; the first and last 64 KB held are both checked, only logs are followed (a big edited text
-  file is read whole), and from 5 MB a followed file keeps no "compare since reload" copy (`previousDisk`).
+  file is read whole), and from 5 MiB a followed file keeps no "compare since reload" copy (`previousDisk`).
   The view stays at the end when it was at the end (`atEnd`, `followEnd`).
 - **Closing** (`apps/desktop/src/close.ts`): unsaved work is asked about by a notice in its pane, never a
   modal; quitting walks every unsaved document.
@@ -211,7 +233,7 @@ the part (and the document it shows) for as long as the page. The app instance, 
 create one `AbortController` where they start, give its `signal` to their window and document listeners, and abort it in
 `destroy`; the frame also aborts the disposers its installers return. The command keys, the verb bar and the palette's chords are the app's too: `destroy` takes them off, and what stays counted
 (the parts cursor's click handler, the file-drop listener, the viewers' key handler) is installed once for the window. A second `startApp` in the same page (the tests
-start several) destroys the first, which then leaves nothing listening. The same holds for the shell: the native menu, the close guard and the open-files subscription return disposers that `destroy` calls, a stale disposer never clears a newer boot's, and opens taken from the shell's queue while no boot is subscribed wait for the next one. `check-listeners` keeps the count of window and
+start several) destroys the first, which then leaves nothing listening. The same holds for the shell: the native menu, the close guard and the open-files subscription return disposers that `destroy` calls, a stale disposer never clears a newer boot's, and opens taken from the shell's queue or emitted live while no boot is subscribed wait for the next one (handed over once, oldest first; a handler that throws loses only its own batch and is logged). The menu's document signal has its own `destroy`, called by the menu's disposer. `check-listeners` keeps the count of window and
 document listeners with no signal and no remove from growing, and `apps/desktop/test/lifetimes.test.mjs` opens
 documents of many kinds, splits and closes panes and restarts the app, and checks that listeners, observers and
 intervals come back to their count and that a closed pane's view, page and document can be collected.

@@ -39,7 +39,7 @@ test('pnpm check runs exactly these checks, each an existing script', () => {
   assert.deepEqual(CHECKS.map(c => c.name), [
     'check-boundaries', 'check-registry', 'check-deps', 'check-one-parse', 'check-tokens',
     'gate-font-attrs', 'gate-contrast', 'check-csp', 'check-commonplace',
-    'check-listeners',
+    'check-listeners', 'check-scale',
   ]);
   for (const c of CHECKS) assert.ok(existsSync(join(ROOT, 'scripts', c.script)), c.script);
 });

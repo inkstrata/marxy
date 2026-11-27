@@ -1,0 +1,120 @@
+<!--
+{
+  "documentType" : "article",
+  "framework" : "Safari Technology Preview Release Notes",
+  "identifier" : "/documentation/Safari-Technology-Preview-Release-Notes/stp-release-238",
+  "metadataVersion" : "0.1.0",
+  "role" : "article",
+  "title" : "Safari Technology Preview 238 Release Notes"
+}
+-->
+
+# Safari Technology Preview 238 Release Notes
+
+Learn about the latest web technology updates in Safari Technology Preview: Animations, CSS, Editing, Forms, Networking, Rendering, SVG, Scrolling, Web API, Web Inspector, WebAssembly, and WebRTC.
+
+## Overview
+
+[Safari Technology Preview](https://webkit.org/blog/6017/introducing-safari-technology-preview/) Release 238 is now [available for download](https://developer.apple.com/safari/resources/) for macOS Tahoe and macOS Sequoia. If you already have Safari Technology Preview installed, you can update it in System Settings under General → Software Update.
+
+This release includes WebKit changes between: [306596@main…307618@main](https://github.com/WebKit/WebKit/compare/a908742cd775de5fa23dbf408618449db7f5fefb...b73f15088293cec470e0c2ceddd58bcd0b8480e5).
+
+### Animations
+
+#### New Features
+
+- Enabled threaded time-based animation resolution, synchronizing accelerated time-based animations with scroll-driven animations while preserving enhanced performance by running animations off the main thread. This also allows CSS Motion Path animations to be accelerated. ([307252@main](https://commits.webkit.org/307252@main))  (170131323)
+
+### CSS
+
+#### New Features
+
+- Added support for the CSS `:open` pseudo-class, which matches form elements and other elements in an open state. ([307295@main](https://commits.webkit.org/307295@main))  (170108337)
+
+#### Resolved Issues
+
+- Fixed scrollable overflow computation for block containers to account for `padding-inline-end`, aligning with the CSS Overflow specification. ([307212@main](https://commits.webkit.org/307212@main))  (144312078)
+- Fixed rendering of linear gradients when all color stops are at the same position. ([306823@main](https://commits.webkit.org/306823@main))  (169063497)
+
+### Editing
+
+#### New Features
+
+- Added menu items to convert editable text between Simplified and Traditional Chinese characters in the “Transformations” submenu. ([306761@main](https://commits.webkit.org/306761@main))  (156354464)
+
+### Forms
+
+#### New Features
+
+- Enabled the customizable `<select>` element, allowing custom styling and content in `<select>` dropdowns using `appearance: base-select`. ([307548@main](https://commits.webkit.org/307548@main))  (170328089)
+
+### Networking
+
+#### Resolved Issues
+
+- Fixed an issue where Safari’s address bar could display an internationalized domain name (IDN) homograph as a visually identical legitimate Latin domain, enabling potential phishing attacks. ([307005@main](https://commits.webkit.org/307005@main))  (166796168)
+- Fixed incorrect URL query percent-encoding when using non-UTF-8 character encodings such as `iso-8859-2`, `windows-1250`, and `gbk`. ([306768@main](https://commits.webkit.org/306768@main))  (169566553)
+
+### Rendering
+
+#### Resolved Issues
+
+- Fixed a performance issue causing a hang when rendering tables with a large number of `rowspan="0"` cells. ([306891@main](https://commits.webkit.org/306891@main))  (146056348)
+
+### SVG
+
+#### Resolved Issues
+
+- Fixed: Updated the default values of `fx` and `fy` attributes on `SVGRadialGradientElement` to `50%` to align with the SVG2 specification. ([306811@main](https://commits.webkit.org/306811@main))  (169645572)
+- Fixed `SVGAnimatedRect.baseVal` to ignore invalid values set on the `viewBox` attribute, such as negative width or height, aligning with Firefox and Chrome. ([307463@main](https://commits.webkit.org/307463@main))  (170214971)
+- Fixed SVG length attributes to reset to their default values when removed, rather than retaining previously set values. ([307585@main](https://commits.webkit.org/307585@main))  (170360351)
+
+### Scrolling
+
+#### New Features
+
+- Enabled scroll anchoring, which prevents visible jumps in scroll position when content is inserted or removed above the viewport. ([307475@main](https://commits.webkit.org/307475@main))  (170279026)
+
+### Web API
+
+#### New Features
+
+- Added support for `ReadableStream.from()` to create a `ReadableStream` from an async iterable or iterable. ([306786@main](https://commits.webkit.org/306786@main))  (169605740)
+- Added support for transferring `ReadableStream` objects via `postMessage()`. ([307068@main](https://commits.webkit.org/307068@main))  (169950592)
+
+#### Resolved Issues
+
+- Fixed an issue where Speculation Rules did not trigger prefetches for anchor elements that were not themselves visible but had visible descendants. ([306730@main](https://commits.webkit.org/306730@main))  (169561588)
+- Fixed `NavigateEvent.canIntercept` to correctly return `false` when navigating to a URL with a different port, aligning with the Navigation API specification. ([307316@main](https://commits.webkit.org/307316@main))  (169845691)
+
+### Web Inspector
+
+#### New Features
+
+- Improved discoverability of color formats and gamuts in the color picker by adding explicit format and gamut toggle controls. ([306691@main](https://commits.webkit.org/306691@main))  (168216591)
+
+#### Resolved Issues
+
+- Fixed an issue where the text filter in the Sources tab did not apply to Local Overrides and Console Snippets sections. ([306647@main](https://commits.webkit.org/306647@main))  (169443917)
+- Fixed an issue where tree outlines in Web Inspector would intermittently show blank content while scrolling when a filter was active. ([306680@main](https://commits.webkit.org/306680@main))  (169502061)
+- Fixed an issue in the Timelines tab where rows containing object previews were sometimes not visible in the heap snapshot data grid. ([307358@main](https://commits.webkit.org/307358@main))  (170164522)
+- Fixed context menu items in the Elements tab to only display relevant options when multiple DOM nodes are selected. ([307485@main](https://commits.webkit.org/307485@main))  (170307979)
+
+### WebAssembly
+
+#### New Features
+
+- Added support for JavaScript Promise Integration (JSPI) for WebAssembly, enabling WebAssembly code to suspend and resume execution while waiting for JavaScript promises. ([307404@main](https://commits.webkit.org/307404@main))  (170260385)
+
+### WebRTC
+
+#### Resolved Issues
+
+- Fixed `RTCRtpSynchronizationSource.timestamp` to use the correct time base, aligning with the WebRTC specification. ([307063@main](https://commits.webkit.org/307063@main))  (169679084)
+- Fixed `RTCIceCandidate.toJSON()` to include the `usernameFragment` field in the serialized output. ([306845@main](https://commits.webkit.org/306845@main))  (169679947)
+- Fixed `RTCRtpTransceiver.setCodecPreferences()` to accept codec entries regardless of the `mimeType` case, aligning with Firefox and the specification. ([307062@main](https://commits.webkit.org/307062@main))  (169789074)
+- Fixed `RTCRtpSender` to allow a `maxFramerate` encoding parameter value of `0`, aligning with the specification and other browsers. ([307034@main](https://commits.webkit.org/307034@main))  (169863687)
+
+---
+
+Copyright &copy; 2026 Apple Inc. All rights reserved. | [Terms of Use](https://www.apple.com/legal/internet-services/terms/site.html) | [Privacy Policy](https://www.apple.com/privacy/privacy-policy)

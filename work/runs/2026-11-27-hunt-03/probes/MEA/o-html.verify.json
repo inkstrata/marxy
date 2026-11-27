@@ -1,0 +1,203 @@
+[
+ {
+  "kind": "html",
+  "bytes": 1000154,
+  "name": "big-html-1000k.html",
+  "steps": {
+   "open": {
+    "firstMs": 350,
+    "completeMs": 2579,
+    "openReturnMs": 2579,
+    "busyUntilIdleMs": 4368,
+    "taskMs": 1960,
+    "layouts": 28,
+    "longestMs": 354,
+    "nodes": 95399
+   },
+   "key": {
+    "skipped": true
+   },
+   "scrollMid": {
+    "skipped": true
+   },
+   "scrollEnd": {
+    "skipped": true
+   },
+   "toSource": {
+    "wallMs": 3964,
+    "taskMs": 944,
+    "scriptMs": 158,
+    "layoutMs": 8,
+    "layouts": 13,
+    "recalcs": 37,
+    "longestMs": 448,
+    "nodes": 42383
+   },
+   "toRead": {
+    "wallMs": 1727,
+    "taskMs": 626,
+    "scriptMs": 5,
+    "layoutMs": 306,
+    "layouts": 9,
+    "recalcs": 10,
+    "longestMs": 234,
+    "nodes": 89205
+   },
+   "reload": {
+    "wallMs": 3310,
+    "taskMs": 1475,
+    "scriptMs": 21,
+    "layoutMs": 333,
+    "layouts": 10,
+    "recalcs": 13,
+    "longestMs": 774,
+    "nodes": 49063
+   },
+   "find": {
+    "wallMs": 1570,
+    "taskMs": 91,
+    "scriptMs": 26,
+    "layoutMs": 14,
+    "layouts": 11,
+    "recalcs": 20,
+    "longestMs": 0,
+    "nodes": 49110
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "html",
+  "bytes": 2000144,
+  "name": "big-html-2000k.html",
+  "steps": {
+   "open": {
+    "firstMs": 720,
+    "completeMs": 2643,
+    "openReturnMs": 2643,
+    "busyUntilIdleMs": 5470,
+    "taskMs": 4438,
+    "layouts": 39,
+    "longestMs": 708,
+    "nodes": 174993
+   },
+   "key": {
+    "skipped": true
+   },
+   "scrollMid": {
+    "skipped": true
+   },
+   "scrollEnd": {
+    "skipped": true
+   },
+   "toSource": {
+    "wallMs": 2773,
+    "taskMs": 1232,
+    "scriptMs": 212,
+    "layoutMs": 8,
+    "layouts": 12,
+    "recalcs": 35,
+    "longestMs": 719,
+    "nodes": 82439
+   },
+   "toRead": {
+    "wallMs": 2950,
+    "taskMs": 1433,
+    "scriptMs": 5,
+    "layoutMs": 602,
+    "layouts": 10,
+    "recalcs": 11,
+    "longestMs": 448,
+    "nodes": 95794
+   },
+   "reload": {
+    "wallMs": 4643,
+    "taskMs": 3544,
+    "scriptMs": 13,
+    "layoutMs": 786,
+    "layouts": 12,
+    "recalcs": 15,
+    "longestMs": 1960,
+    "nodes": 190386
+   },
+   "find": {
+    "wallMs": 1383,
+    "taskMs": 104,
+    "scriptMs": 24,
+    "layoutMs": 13,
+    "layouts": 11,
+    "recalcs": 20,
+    "longestMs": 0,
+    "nodes": 190433
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "html",
+  "bytes": 4900118,
+  "name": "big-html-4900k.html",
+  "steps": {
+   "open": {
+    "firstMs": 1546,
+    "completeMs": 2206,
+    "openReturnMs": 2206,
+    "busyUntilIdleMs": 7583,
+    "taskMs": 6175,
+    "layouts": 36,
+    "longestMs": 1530,
+    "nodes": 230050
+   },
+   "key": {
+    "skipped": true
+   },
+   "scrollMid": {
+    "skipped": true
+   },
+   "scrollEnd": {
+    "skipped": true
+   },
+   "toSource": {
+    "wallMs": 1849,
+    "taskMs": 421,
+    "scriptMs": 91,
+    "layoutMs": 5,
+    "layouts": 11,
+    "recalcs": 31,
+    "longestMs": 244,
+    "nodes": 230325
+   },
+   "toRead": {
+    "wallMs": 6769,
+    "taskMs": 4680,
+    "scriptMs": 7,
+    "layoutMs": 2242,
+    "layouts": 15,
+    "recalcs": 16,
+    "longestMs": 1349,
+    "nodes": 459105
+   },
+   "reload": {
+    "wallMs": 12401,
+    "taskMs": 10478,
+    "scriptMs": 19,
+    "layoutMs": 2797,
+    "layouts": 16,
+    "recalcs": 18,
+    "longestMs": 4492,
+    "nodes": 656213
+   },
+   "find": {
+    "wallMs": 1509,
+    "taskMs": 128,
+    "scriptMs": 46,
+    "layoutMs": 20,
+    "layouts": 11,
+    "recalcs": 20,
+    "longestMs": 0,
+    "nodes": 656260
+   }
+  },
+  "errors": []
+ }
+]

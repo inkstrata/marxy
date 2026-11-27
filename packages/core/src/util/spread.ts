@@ -30,5 +30,5 @@ export function minOf(values: Iterable<number>, ceiling = Infinity): number {
 /** `parent.append(...nodes)` in chunks, so the call never carries more than `chunk` arguments. A live list (childNodes) is copied first, as moving a node out of it shifts it. */
 export function appendAll(parent: ParentNode, nodes: ArrayLike<Node | string>, chunk = 5000): void {
   const list = Array.from(nodes);
-  for (let i = 0; i < list.length; i += chunk) parent.append(...list.slice(i, i + chunk));
+  for (let i = 0; i < list.length; i += chunk) parent.append(...list.slice(i, i + chunk)); // scale: at most `chunk` arguments a call
 }

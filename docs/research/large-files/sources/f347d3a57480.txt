@@ -1,0 +1,35 @@
+discuss.CodeMirror
+
+Improve Scroll / Performance tradeoff
+
+v6
+
+awendel
+
+November 19, 2024, 11:42pm
+
+1
+
+CodeMirror seems to optimize performance via not rendering / removing lines from the DOM that are not in the viewport and instead replacing it with a “cm-gap” element that takes the height of the non visible elements.
+
+Is there a way to customize or disable this behaviour? For example if I scroll fast on a large file there would often be frames with no lines rendered / scrollbar behaving eradically as a result. I assume the code uses IntersectionObserver behind the scenes, perhaps there would be a way to change the threshold / that it renders more lines outside of the viewport so that there are no empty frames?
+
+marijn
+
+November 20, 2024, 6:47am
+
+2
+
+No, there’s no way to change this. The system’s performance is designed about the viewport being of limited size, and making it bigger would make the editor less responsive.
+
+1 Like
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Powered by Discourse, best viewed with JavaScript enabled

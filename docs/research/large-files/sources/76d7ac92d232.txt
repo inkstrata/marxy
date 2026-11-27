@@ -1,0 +1,291 @@
+Skip to main content
+
+Skip to content
+
+GitHub Docs
+
+Search or ask Copilot/
+Menu
+
+Collapse sidebar
+
+Expand sidebar
+
+Home
+
+Pull requests
+
+Reference
+
+Branches
+
+Pull requests
+
+Get started
+
+About pull requests
+
+About stacked PRs
+
+About forks
+
+Pull request quickstart
+
+Stacked PRs quickstart
+
+Review quickstart
+
+Concepts
+
+Write code
+
+Help others review your changes
+
+Give reviews
+
+Resolve reviews
+
+Deploy code
+
+How-tos
+
+Commit changes
+
+Manage branches
+
+Commit to PR branch from fork
+
+Create a commit with multiple authors
+
+Change a commit message
+
+Compare commits
+
+Troubleshoot commits
+
+Create pull requests
+
+Create a pull request
+
+Create stacked PRs
+
+Create a PR from a fork
+
+Draft pull requests
+
+Manage stacked PRs
+
+Update the head branch
+
+Change the base branch
+
+Request a PR review
+
+Stacked pull requests
+
+Review pull requests
+
+Check out a PR locally
+
+Review proposed changes
+
+Review stacked PRs
+
+Review dependency changes
+
+Comment on a PR
+
+Approve PRs
+
+View a PR review
+
+Dismiss a PR review
+
+Incorporate feedback
+
+Merge and close
+
+Resolve merge conflicts
+
+Resolve merge conflicts in Git
+
+Troubleshoot status checks
+
+Troubleshoot stacked PRs
+
+Merge a pull request
+
+Merge PR with merge queue
+
+Merge PR automatically
+
+Merge stacked PRs
+
+CI for stacked PRs
+
+Revert a pull request
+
+Close a pull request
+
+Work with forks
+
+Fork a repository
+
+Configure a remote repository
+
+Sync a fork
+
+Allow changes to a branch
+
+Detach a fork
+
+Reference
+
+Pull requests
+
+Stacked pull requests
+
+Stacked PRs CLI commands
+
+Stacked PRs APIs and webhooks
+
+Branches
+
+Forks
+
+Commits
+
+Stacked PRs and other tools
+
+Using query parameters to create a pull request
+
+PR reviews
+
+Status checks
+
+Pull request merges
+
+Merge conflicts
+
+Manage and standardize pull requests
+
+Tutorials
+
+Stack pull requests
+
+Roll out stacked PRs
+
+In this article
+
+Branches
+
+Use branches in GitHub to isolate development work, manage default branches, and collaborate effectively using pull requests and branch protections.
+
+Copy markdown
+
+In this article
+
+About branches
+
+About the default branch
+
+Working with protected branches
+
+Comparing branches in pull requests
+
+Further reading
+
+About branches
+
+Branches let you develop features, fix bugs, or safely experiment with new ideas in a contained area of your repository.
+
+You always create a branch from an existing branch. Typically, you might create a new branch from the default branch of your repository. You can then work on this new branch in isolation from changes that other people are making to the repository.
+
+A branch you create to build a feature is commonly called a feature branch or topic branch. See Managing branches within your repository.
+
+You can also use a branch to publish a GitHub Pages site. See What is GitHub Pages?.
+
+You must have write access to a repository to create a branch, open a pull request, or delete and restore branches in a pull request. See Access permissions on GitHub.
+
+About the default branch
+
+When you create a repository with content on GitHub, GitHub creates the repository with a single branch. This first branch in the repository is the default branch. The default branch is the branch that GitHub displays when anyone visits your repository. The default branch is also the initial branch that Git checks out locally when someone clones the repository. Unless you specify a different branch, the default branch in a repository is the base branch for new pull requests and code commits.
+
+By default, GitHub names the default branch main in any new repository.
+
+You can change the default branch for an existing repository. For more information, see Changing the default branch.
+
+You can set the name of the default branch for new repositories. For more information, see Managing the default branch name for your repositories, Managing the default branch name for repositories in your organization, and Enforcing repository management policies in your enterprise.
+
+Working with protected branches
+
+Protected branches help maintainers enforce rules on important branches. A protected branch can block force pushes or deletion, require status checks, require reviews, require code owner approval, or require signed commits before changes can merge.
+
+These protections help teams keep important branches stable and make expectations clear before a pull request is merged. To see whether your pull request can be merged, check the merge box at the bottom of the pull request's Conversation tab. See About protected branches.
+
+Note
+
+If you're a repository administrator, you can merge pull requests on branches with branch protections enabled even if the pull request does not meet the requirements, unless branch protections have been set to "Include administrators."
+
+Comparing branches in pull requests
+
+A pull request compares the proposed changes on the head branch with the base branch. When you create your pull request, you can change the base branch that you're comparing your changes against. The Files changed tab shows what would change if the pull request merged.
+
+Diff views help reviewers understand the changes without reading every commit. You can view a unified diff, split diff, rich diff, or source diff; ignore whitespace changes; or filter files to focus on the most relevant changes.
+
+Diffs may not display if a pull request exceeds repository diff limits or if a file is hidden by a rule in the repository's .gitattributes file. See Repository limits and Customizing how changed files appear on GitHub.
+
+Three-dot and two-dot Git diff comparisons
+
+The git diff command supports two comparison methods. Pull requests on GitHub show a three-dot diff.
+
+Method Command What it compares
+
+Three-dot git diff A...B The most recent common commit of both branches (merge base) and the most recent version of the topic branch.
+
+Two-dot git diff A..B The most recent state of the base branch (for example, main) and the most recent version of the topic branch.
+
+A two-dot diff compares two Git committish references, such as SHAs or OIDs (Object IDs), directly with each other. On GitHub, the Git committish references in a two-dot diff comparison must be pushed to the same repository or its forks.
+
+See Git diff options from the Pro Git book site.
+
+About three-dot comparison on GitHub
+
+Because the three-dot comparison uses the merge base, it focuses on "what a pull request introduces."
+
+When you use a two-dot comparison, the diff changes when the base branch is updated, even if you haven't made any changes to the topic branch. A two-dot comparison also focuses on the base branch, which can make the changes introduced by the topic branch harder to understand.
+
+In contrast, a three-dot comparison keeps showing the changes introduced by the topic branch since the branches diverged.
+
+Merging often
+
+To avoid confusion, merge the base branch (for example, main) into your topic branch frequently. When you merge the base branch, the diffs shown by two-dot and three-dot comparisons are the same. We recommend merging a pull request as soon as possible. This encourages contributors to make pull requests smaller, which we recommend in general.
+
+Further reading
+
+Pull requests
+
+GitHub glossary in the GitHub glossary
+
+Branches in a Nutshell in the Git documentation
+
+Forks
+
+Back to top
+
+Help and support
+
+Was this Doc helpful?
+
+YesNo
+
+Help us make GitHub Docs great!
+
+All Docs are open source. See something that's wrong or unclear? Submit a pull request.
+Make a contribution
+
+Still need help?
+
+Ask the GitHub communityContact supportExpert servicesBlog
+
+GitHub Inc. © 2026TermsPrivacyStatusPricing

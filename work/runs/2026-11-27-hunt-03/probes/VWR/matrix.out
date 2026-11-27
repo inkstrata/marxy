@@ -1,0 +1,35 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/VWR/matrix.mjs --browser chromium
+{"kind":"json-pretty","bytes":1000023,"openMs":1785,"pingMs":10,"keyMs":135,"task":1.88,"script":0.18,"layout":0.12,"nodes":19511,"err":"","txt":"pg16-upgrade-plan.md big-json-pretty-1000k.json Aa Places by"}
+{"kind":"json-pretty","bytes":2000025,"openMs":2430,"pingMs":272,"keyMs":228,"task":2.47,"script":0.2,"layout":0.24,"nodes":19511,"err":"","txt":"pg16-upgrade-plan.md big-json-pretty-2000k.json Aa Places by"}
+{"kind":"json-pretty","bytes":4900084,"openMs":2416,"pingMs":24,"keyMs":51,"task":2.27,"script":0.23,"layout":0.18,"nodes":19511,"err":"","txt":"pg16-upgrade-plan.md big-json-pretty-4900k.json Aa Places by"}
+{"kind":"json-minified","bytes":1000050,"openMs":1022,"pingMs":75,"keyMs":99,"task":1.13,"script":0.15,"layout":0.06,"nodes":18378,"err":"","txt":"pg16-upgrade-plan.md big-json-minified-1000k.json Aa Places "}
+{"kind":"json-minified","bytes":2000041,"openMs":1225,"pingMs":19,"keyMs":95,"task":1.31,"script":0.16,"layout":0.08,"nodes":18378,"err":"","txt":"pg16-upgrade-plan.md big-json-minified-2000k.json Aa Places "}
+{"kind":"json-minified","bytes":4900053,"openMs":1385,"pingMs":85,"keyMs":136,"task":1.39,"script":0.16,"layout":0.09,"nodes":18378,"err":"","txt":"pg16-upgrade-plan.md big-json-minified-4900k.json Aa Places "}
+{"kind":"json-deep","bytes":666665,"openMs":329,"pingMs":3,"keyMs":59,"task":0.36,"script":0.03,"layout":0.18,"nodes":669,"err":"","txt":"pg16-upgrade-plan.md big-json-deep-1000k.json Aa Places by n"}
+{"kind":"json-deep","bytes":1333329,"openMs":601,"pingMs":14,"keyMs":113,"task":0.65,"script":0.05,"layout":0.35,"nodes":832,"err":"","txt":"pg16-upgrade-plan.md big-json-deep-2000k.json Aa Places by n"}
+{"kind":"json-deep","bytes":3266665,"openMs":749,"pingMs":245,"keyMs":169,"task":1.02,"script":0.06,"layout":0.49,"nodes":503,"err":"","txt":"pg16-upgrade-plan.md big-json-deep-4900k.json Aa Places by n"}
+{"kind":"csv","bytes":1000055,"openMs":313,"pingMs":23,"keyMs":211,"task":0.4,"script":0.05,"layout":0.02,"nodes":939,"err":"","txt":"pg16-upgrade-plan.md big-csv-1000k.csv Aa Places by name ▾ 2"}
+{"kind":"csv","bytes":2000031,"openMs":363,"pingMs":2,"keyMs":111,"task":0.41,"script":0.05,"layout":0.03,"nodes":939,"err":"","txt":"pg16-upgrade-plan.md big-csv-2000k.csv Aa Places by name ▾ 2"}
+{"kind":"csv","bytes":4900007,"openMs":363,"pingMs":4,"keyMs":94,"task":0.39,"script":0.07,"layout":0.03,"nodes":939,"err":"","txt":"pg16-upgrade-plan.md big-csv-4900k.csv Aa Places by name ▾ 2"}
+{"kind":"csv-quoted-newlines","bytes":1000023,"openMs":251,"pingMs":3,"keyMs":73,"task":0.29,"script":0.03,"layout":0.01,"nodes":756,"err":"","txt":"pg16-upgrade-plan.md big-csv-quoted-newlines-1000k.csv Aa Pl"}
+{"kind":"csv-quoted-newlines","bytes":2000013,"openMs":388,"pingMs":25,"keyMs":58,"task":0.42,"script":0.04,"layout":0.03,"nodes":756,"err":"","txt":"pg16-upgrade-plan.md big-csv-quoted-newlines-2000k.csv Aa Pl"}
+{"kind":"csv-quoted-newlines","bytes":4900023,"openMs":244,"pingMs":3,"keyMs":132,"task":0.3,"script":0.05,"layout":0.02,"nodes":756,"err":"","txt":"pg16-upgrade-plan.md big-csv-quoted-newlines-4900k.csv Aa Pl"}
+{"kind":"jsonl","bytes":1000017,"openMs":270,"pingMs":6,"keyMs":113,"task":0.25,"script":0.05,"layout":0.02,"nodes":769,"err":"","txt":"pg16-upgrade-plan.md big-jsonl-1000k.jsonl Aa Places by name"}
+{"kind":"jsonl","bytes":2000033,"openMs":359,"pingMs":10,"keyMs":139,"task":0.37,"script":0.07,"layout":0.04,"nodes":769,"err":"","txt":"pg16-upgrade-plan.md big-jsonl-2000k.jsonl Aa Places by name"}
+{"kind":"jsonl","bytes":4900061,"openMs":422,"pingMs":24,"keyMs":110,"task":0.48,"script":0.05,"layout":0.04,"nodes":770,"err":"","txt":"pg16-upgrade-plan.md big-jsonl-4900k.jsonl Aa Places by name"}
+{"kind":"log","bytes":1000050,"openMs":303,"pingMs":27,"keyMs":82,"task":0.25,"script":0.05,"layout":0.03,"nodes":1608,"err":"","txt":"pg16-upgrade-plan.md big-log-1000k.log Aa Places by name ▾ 2"}
+{"kind":"log","bytes":2000093,"openMs":194,"pingMs":55,"keyMs":131,"task":0.31,"script":0.06,"layout":0.04,"nodes":1718,"err":"","txt":"pg16-upgrade-plan.md big-log-2000k.log Aa Places by name ▾ 2"}
+{"kind":"log","bytes":4900044,"openMs":385,"pingMs":28,"keyMs":472,"task":0.93,"script":0.1,"layout":0.06,"nodes":2036,"err":"","txt":"pg16-upgrade-plan.md big-log-4900k.log Aa Places by name ▾ 2"}
+{"kind":"diff","bytes":1000131,"openMs":141,"pingMs":73,"keyMs":66,"task":0.42,"script":0.06,"layout":0.02,"nodes":1237,"err":"","txt":"pg16-upgrade-plan.md big-diff-1000k.diff Aa Places by name ▾"}
+{"kind":"diff","bytes":2000158,"openMs":200,"pingMs":107,"keyMs":75,"task":0.43,"script":0.06,"layout":0.03,"nodes":1623,"err":"","txt":"pg16-upgrade-plan.md big-diff-2000k.diff Aa Places by name ▾"}
+{"kind":"diff","bytes":4900026,"openMs":312,"pingMs":29,"keyMs":163,"task":3.53,"script":0.2,"layout":0.14,"nodes":1728,"err":"","txt":"pg16-upgrade-plan.md big-diff-4900k.diff Aa Places by name ▾"}
+{"kind":"html","bytes":1000154,"openMs":3074,"pingMs":13,"keyMs":354,"task":1.51,"script":0.07,"layout":0.5,"nodes":512,"err":"","txt":"pg16-upgrade-plan.md big-html-1000k.html Aa Places by name ▾"}
+{"kind":"html","bytes":2000144,"openMs":2250,"pingMs":701,"keyMs":55,"task":2.64,"script":0.05,"layout":1.02,"nodes":512,"err":"","txt":"pg16-upgrade-plan.md big-html-2000k.html Aa Places by name ▾"}
+{"kind":"html","bytes":4900118,"openMs":2189,"pingMs":206,"keyMs":118,"task":4.35,"script":0.04,"layout":1.55,"nodes":512,"err":"","txt":"pg16-upgrade-plan.md big-html-4900k.html Aa Places by name ▾"}
+{"kind":"yaml","bytes":1000019,"openMs":1574,"pingMs":14,"keyMs":85,"task":1.72,"script":0.17,"layout":0.09,"nodes":18854,"err":"","txt":"pg16-upgrade-plan.md big-yaml-1000k.yaml Aa Places by name ▾"}
+{"kind":"yaml","bytes":2000025,"openMs":201,"pingMs":85,"keyMs":165,"task":2.51,"script":0.19,"layout":0.1,"nodes":2680,"err":"","txt":"pg16-upgrade-plan.md big-yaml-2000k.yaml Aa Places by name ▾"}
+{"kind":"yaml","bytes":4900043,"openMs":260,"pingMs":40,"keyMs":194,"task":3.51,"script":0.19,"layout":0.13,"nodes":1706,"err":"","txt":"pg16-upgrade-plan.md big-yaml-4900k.yaml Aa Places by name ▾"}
+{"kind":"code-ts","bytes":1006322,"openMs":245,"pingMs":10,"keyMs":47,"task":0.35,"script":0.04,"layout":0.02,"nodes":3617,"err":"","txt":"pg16-upgrade-plan.md big-code-ts-1000k.ts Aa Places by name "}
+{"kind":"code-ts","bytes":2003768,"openMs":2313,"pingMs":13,"keyMs":81,"task":0.49,"script":0.16,"layout":0.05,"nodes":1953,"err":"","txt":"pg16-upgrade-plan.md big-code-ts-2000k.ts Aa Places by name "}
+{"kind":"code-ts","bytes":4906246,"openMs":579,"pingMs":10,"keyMs":17,"task":0.43,"script":0.09,"layout":0.02,"nodes":2117,"err":"","txt":"pg16-upgrade-plan.md big-code-ts-4900k.ts Aa Places by name "}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1012

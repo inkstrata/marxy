@@ -8,8 +8,8 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from './support/shared-vite.mjs';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { fileURLToPath } from 'node:url';
+import { idle, openBrowser, scrollSettled } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -81,7 +81,7 @@ test('hash link scrolls; relative opens; external calls openExternal; back retur
     [`/repo/outside.md`]: Buffer.from('# Outside\n', 'utf8').toString('base64'),
     [`/repo/.git/HEAD`]: Buffer.from('ref: refs/heads/main\n', 'utf8').toString('base64'),
   };
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await boot(page, files, [`${root}/index.md`]);
@@ -150,7 +150,7 @@ const landed = (id = 'late-heading') => {
 
 test('a same-page link to a heading not yet mounted lands it at the reading line', async () => {
   const files = { '/d/big.md': Buffer.from(BIG, 'utf8').toString('base64') };
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await page.goto(`${base}app.html`);
@@ -174,7 +174,7 @@ test('a cross-document link to a late heading lands it at the reading line', asy
     '/d/from.md': Buffer.from(FROM, 'utf8').toString('base64'),
     '/d/big.md': Buffer.from(BIG, 'utf8').toString('base64'),
   };
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await page.goto(`${base}app.html`);
@@ -206,7 +206,7 @@ async function bootBig(page) {
 }
 
 test('a link to a heading halfway down lands before the document has finished mounting', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootBig(page);
@@ -220,7 +220,7 @@ test('a link to a heading halfway down lands before the document has finished mo
 });
 
 test('a landing never pulls the page after the reader has scrolled on', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootBig(page);
@@ -228,10 +228,10 @@ test('a landing never pulls the page after the reader has scrolled on', async ()
     await page.waitForFunction(landed, 'mid-heading', { timeout: 10000 });
     await page.mouse.move(400, 400);
     await page.mouse.wheel(0, 300);
-    await new Promise((r) => setTimeout(r, 300));
+    await scrollSettled(page);
     const before = await page.evaluate(() => document.documentElement.scrollTop);
     await page.evaluate(() => window.__marxyTestHandle.contentComplete());
-    await new Promise((r) => setTimeout(r, 800));
+    await idle(page);
     const after = await page.evaluate(() => document.documentElement.scrollTop);
     // A grid pass over the late blocks may move the page a line or two; a yank is thousands of px.
     assert.ok(Math.abs(after - before) < 100, `the page stayed where the reader left it (${before} -> ${after})`);
@@ -241,7 +241,7 @@ test('a landing never pulls the page after the reader has scrolled on', async ()
 });
 
 test('a link to an id the document has no heading for does nothing', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootBig(page);

@@ -11,6 +11,8 @@ export const MAIL_LIMITS = {
   depth: 12,
   headers: 1_000,
   headerBytes: 256 * 1024,
+  /** Lines beginning `--` indexed in one message, for every level's delimiters to be looked for among. */
+  dashLines: 1_000_000,
 } as const;
 
 export interface MailHeader {
@@ -201,13 +203,18 @@ function parseHeaders(text: string, capped: string[]): MailHeader[] {
   const out: MailHeader[] = [];
   const lines = text.split(/\r?\n/);
   let current: string | null = null;
+  // Set by a header past the limit, not by reaching it: a part of exactly the limit lost nothing.
+  let over = false;
   const push = (): void => {
     if (current === null) return;
     const colon = current.indexOf(':');
     if (colon > 0) {
       const name = current.slice(0, colon).trim();
       const raw = current.slice(colon + 1).trim();
-      if (/^[\x21-\x39\x3b-\x7e]+$/.test(name)) out.push({ name, raw, value: decodeWords(raw) });
+      if (/^[\x21-\x39\x3b-\x7e]+$/.test(name)) {
+        if (out.length >= MAIL_LIMITS.headers) over = true;
+        else out.push({ name, raw, value: decodeWords(raw) });
+      }
     }
     current = null;
   };
@@ -217,13 +224,11 @@ function parseHeaders(text: string, capped: string[]): MailHeader[] {
       continue;
     }
     push();
-    if (out.length >= MAIL_LIMITS.headers) {
-      capped.push(`Only the first ${MAIL_LIMITS.headers.toLocaleString('en-GB')} headers of a part are read.`);
-      break;
-    }
+    if (over) break;
     if (line !== '') current = line;
   }
   push();
+  if (over) capped.push(`Only the first ${MAIL_LIMITS.headers.toLocaleString('en-GB')} headers of a part are read.`);
   return out;
 }
 
@@ -299,34 +304,91 @@ export function parseParams(value: string): { value: string; params: Record<stri
 
 const headerOf = (headers: readonly MailHeader[], name: string): MailHeader | undefined => headers.find((h) => h.name.toLowerCase() === name);
 
-/** The first `most` delimiter lines of a multipart body: each `--boundary` line's start and the byte after its line end. */
-function delimiters(bytes: Uint8Array, from: number, to: number, boundary: string, most: number): { start: number; next: number; close: boolean }[] {
+/**
+ * The lines of a message that begin `--`, the only lines a delimiter can be, found once for every level of nesting.
+ * Looking for each level's delimiters line by line instead rescans its whole range once per level. At most
+ * `MAIL_LIMITS.dashLines` are kept; `to` is where the index stops being whole (the message's end unless it was cut).
+ */
+interface DashLines {
+  readonly from: number;
+  readonly at: number[];
+  readonly to: number;
+}
+
+function dashLines(bytes: Uint8Array, from: number): DashLines {
+  const at: number[] = [];
+  const room = budget(MAIL_LIMITS.dashLines);
+  let to = bytes.length;
+  // Looked for by the dash, not the line break: most lines of a message do not hold one.
+  for (let p = bytes.indexOf(0x2d, from + 1); p !== -1; p = bytes.indexOf(0x2d, p + 2)) {
+    // A dash that does not begin a line leaves the byte after it no line start either: the search goes on past both.
+    if (bytes[p - 1] !== 0x0a || bytes[p + 1] !== 0x2d) continue;
+    if (!room.take()) {
+      to = p;
+      break;
+    }
+    at.push(p);
+  }
+  return { from, at, to };
+}
+
+/** The first index in `xs` (ascending) whose value is greater than `v`. */
+function firstAbove(xs: readonly number[], v: number): number {
+  let lo = 0;
+  let hi = xs.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (xs[mid]! > v) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
+
+interface Delimiter {
+  readonly start: number;
+  readonly next: number;
+  readonly close: boolean;
+}
+
+/**
+ * The first `most` delimiter lines of a multipart body: each `--boundary` line's start and the byte after its line end.
+ * `cut` when the dash-line index stopped inside the range before a closing delimiter or `most` was reached: what
+ * follows the last delimiter found has no known end.
+ */
+function delimiters(w: Walk, from: number, to: number, boundary: string, most: number): { marks: Delimiter[]; cut: boolean } {
+  const bytes = w.bytes;
   const mark = Uint8Array.from(`--${boundary}`, (c) => c.charCodeAt(0) & 0xff);
-  const out: { start: number; next: number; close: boolean }[] = [];
-  let lineStart = from;
-  while (lineStart < to && out.length < most) {
+  // The outermost body comes first and every other lies inside it, so one index from there serves them all.
+  if (!w.dash || from < w.dash.from) w.dash = dashLines(bytes, from);
+  const dash = w.dash;
+  const known = Math.min(to, dash.to);
+  const marks: Delimiter[] = [];
+  const at = (lineStart: number): boolean => {
     let lineEnd = bytes.indexOf(0x0a, lineStart);
     if (lineEnd === -1 || lineEnd >= to) lineEnd = to;
-    let match = lineEnd - lineStart >= mark.length;
-    for (let k = 0; match && k < mark.length; k++) if (bytes[lineStart + k] !== mark[k]) match = false;
-    if (match) {
-      const after = lineStart + mark.length;
-      const close = bytes[after] === 0x2d && bytes[after + 1] === 0x2d;
-      // Only white space may follow the boundary (or its closing `--`) on its line.
-      let k = close ? after + 2 : after;
-      while (k < lineEnd && (bytes[k] === 0x20 || bytes[k] === 0x09 || bytes[k] === 0x0d)) k++;
-      if (k === lineEnd) {
-        // The line break before a delimiter belongs to it, not to the part above.
-        let start = lineStart;
-        if (start > from && bytes[start - 1] === 0x0a) start--;
-        if (start > from && bytes[start - 1] === 0x0d) start--;
-        out.push({ start, next: Math.min(to, lineEnd + 1), close });
-        if (close) break;
-      }
-    }
-    lineStart = lineEnd + 1;
+    if (lineEnd - lineStart < mark.length) return false;
+    for (let j = 0; j < mark.length; j++) if (bytes[lineStart + j] !== mark[j]) return false;
+    const after = lineStart + mark.length;
+    const close = bytes[after] === 0x2d && bytes[after + 1] === 0x2d;
+    // Only white space may follow the boundary (or its closing `--`) on its line.
+    let j = close ? after + 2 : after;
+    while (j < lineEnd && (bytes[j] === 0x20 || bytes[j] === 0x09 || bytes[j] === 0x0d)) j++;
+    if (j !== lineEnd) return false;
+    // The line break before a delimiter belongs to it, not to the part above.
+    let start = lineStart;
+    if (start > from && bytes[start - 1] === 0x0a) start--;
+    if (start > from && bytes[start - 1] === 0x0d) start--;
+    marks.push({ start, next: Math.min(to, lineEnd + 1), close });
+    return close;
+  };
+  // The range's own first line, then the indexed line starts inside it.
+  if (from < known && at(from)) return { marks, cut: false };
+  for (let k = firstAbove(dash.at, from); k < dash.at.length && marks.length < most; k++) {
+    const lineStart = dash.at[k]!;
+    if (lineStart >= known) break;
+    if (at(lineStart)) return { marks, cut: false };
   }
-  return out;
+  return { marks, cut: marks.length < most && known < to };
 }
 
 function decodeBody(bytes: Uint8Array, encoding: string): Uint8Array {
@@ -340,6 +402,8 @@ interface Walk {
   readonly capped: string[];
   /** Parts read, the message's own included. */
   readonly parts: Budget;
+  /** The lines that begin `--`, indexed on the first multipart body read. */
+  dash?: DashLines;
 }
 
 function readPart(w: Walk, from: number, to: number, id: string, depth: number, parentType: string | null): MailPart {
@@ -365,10 +429,16 @@ function readPart(w: Walk, from: number, to: number, id: string, depth: number, 
     if (depth >= MAIL_LIMITS.depth) w.capped.push(`Parts nested past ${MAIL_LIMITS.depth} levels are not read.`);
     else {
       // One more delimiter than the parts still allowed: it ends the last part read, or shows there were more.
-      const marks = delimiters(w.bytes, bodyStart, to, boundary, w.parts.limit - w.parts.used + 1);
+      const { marks, cut } = delimiters(w, bodyStart, to, boundary, w.parts.limit - w.parts.used + 1);
       for (let i = 0; i < marks.length; i++) {
         const open = marks[i]!;
         if (open.close) break;
+        // Past the index, a last part has no known end: running it to the parent's end would show the parts after it
+        // as its body, so it is left out.
+        if (cut && i + 1 === marks.length) {
+          w.capped.push(`Past ${figure(MAIL_LIMITS.dashLines)} lines beginning “--”, a part whose end was not found is not read.`);
+          break;
+        }
         const end = i + 1 < marks.length ? marks[i + 1]!.start : to;
         if (!w.parts.take()) {
           w.capped.push(`Only the first ${figure(w.parts.limit)} parts are read.`);

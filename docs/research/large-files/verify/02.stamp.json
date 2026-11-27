@@ -1,0 +1,86 @@
+{
+ "chapter": "02-markdown-apps.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "MDA-01": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "4e64e25cba91"
+  },
+  "MDA-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "f46809919755"
+  },
+  "MDA-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "ffc6be5b4860"
+  },
+  "MDA-04": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "9ef48fde148d"
+  },
+  "MDA-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "7bb03c299c5a"
+  },
+  "MDA-06": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "a177045139bb"
+  },
+  "MDA-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "7eccc0667705"
+  },
+  "MDA-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "458e4d5413b6"
+  },
+  "MDA-09": {
+   "tags": [
+    "confirmed",
+    "unverified"
+   ],
+   "hash": "217b7038eb78"
+  },
+  "MDA-10": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "02e701f26f50"
+  },
+  "MDA-11": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "e103ae4dda0f"
+  },
+  "MDA-12": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "60387691a309"
+  },
+  "MDA-13": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "40632ec59883"
+  }
+ }
+}

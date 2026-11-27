@@ -1,0 +1,602 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+remarkjs
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+remark
+
+Overview
+
+Repositories
+
+Discussions
+
+Packages
+
+People
+
+More
+
+Overview
+
+Repositories
+
+Discussions
+
+Packages
+
+People
+
+[remark-gfm] Parsing long tables is very slow
+
+#978
+
+Answered
+
+by
+wooorm
+
+Maniload
+
+asked this question in
+Q&A
+
+[remark-gfm] Parsing long tables is very slow
+
+#978
+
+Maniload
+
+Mar 30, 2022
+·
+4 comments
+·
+7 replies
+
+Answered
+
+by
+wooorm
+
+Return to top
+
+Discussion options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+Maniload
+
+Mar 30, 2022
+
+Hey 👋 I'm relatively new to using remark, so I'm not sure if I'm doing something wrong, but I noticed that parsing long tables with remark-gfm can get very slow. Tables with around 400 rows begin to take over one second to parse. In my (probably rare) use case I have a table with ~2000 rows, which takes around two minutes to parse.
+
+I wrote a simple script to reproduce this:
+
+import { remark } from "remark";
+import remarkGfm from "remark-gfm";
+
+let input = "Column 1 | Column 2 | Column 3\n--- | --- | ---";
+
+for (let rows = 1; rows <= 1000; rows++) {
+input += "\nCell 1 | Cell 2 | Cell 3";
+
+console.time(`Rows: ${rows}`);
+
+remark().use(remarkGfm).processSync(input);
+
+console.timeEnd(`Rows: ${rows}`);
+}
+
+Is there something I can do to speed up the parsing or is this an issue with remark-gfm?
+
+1
+You must be logged in to vote
+
+All reactions
+
+Answered by
+
+wooorm
+
+Mar 30, 2022
+
+Hey! GFM tables are tough to parse, they are different than other markdown constructs and require looking ahead further.
+
+That being said, there are likely things to improve where they are parsed: https://github.com/micromark/micromark-extension-gfm-table. Perhaps you can profile and help there?
+
+View full answer
+
+Replies:
+
+4 comments
+
+·
+
+7 replies
+
+Oldest
+
+Newest
+
+Top
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+ChristianMurphy
+
+Mar 30, 2022
+
+Maintainer
+
+Welcome @ManuelDevelopment!
+
+A few things to note, your example doesn't just parse a thousand line table.
+
+It parses increasingly large tables a thousand times, re-instantiating remark each time, and likely some garbage collection from the JS engine.
+
+It's also worth noting that long and complex content takes longer to parse than simple and short content, period. 🙂
+
+In terms of what can be done to trim extra time.
+
+If you don't need any remark plugins, and just want GFM to be converted to HTML, you could use a lower level library offered by the same team behind remark, micromark
+
+https://github.com/micromark/micromark#github-flavored-markdown-gfm
+
+micromark example with timing: https://stackblitz.com/edit/github-fhpurw?file=src%2Findex.js
+
+remark example with timing: https://stackblitz.com/edit/github-fhpurw-yulrbu?file=src%2Findex.js
+
+That said, in my testing, in the sandbox (which has extra overhead over native node.js) both remark and micromark take under 30 seconds to process a table with 2000 rows.
+
+1
+You must be logged in to vote
+
+👍
+1
+
+All reactions
+
+👍
+1
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+wooorm
+
+Mar 30, 2022
+
+Maintainer
+
+Hey! GFM tables are tough to parse, they are different than other markdown constructs and require looking ahead further.
+
+That being said, there are likely things to improve where they are parsed: https://github.com/micromark/micromark-extension-gfm-table. Perhaps you can profile and help there?
+
+Marked as answer
+
+2
+You must be logged in to vote
+
+👍
+1
+
+All reactions
+
+👍
+1
+
+4 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+Maniload
+
+Mar 30, 2022
+
+Author
+
+Thanks for the pointer! I tried profiling this and it appears that most time is spent with garbage collection. I'm not really experienced in profiling JS, so I'm not really sure where to go from here. Do you have an idea what could be causing this?
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+wooorm
+
+Mar 31, 2022
+
+Maintainer
+
+Do you have an idea what could be causing this?
+
+I do not have a precise idea.
+
+You can for example try different versions of micromark-extension-gfm-table and micromark to understand if this is something that was introduced at some point or if it was already present from the start.
+
+You can also try different markdown input, to see if the problem might be lines or columns or long cells or what.
+
+You can change states to switch to the nok state, to see if that magically solves everything (of course, nok stops parsing, so it also breaks everything).
+
+You can read in particular the Architecture section in the micromark readme for more on how the project works.
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+shtse8
+
+Jul 31, 2022
+
+it took 300ms to parse 187 rows table. causing it hard to use it in production with remark-gfm@3.0.1 and micromark@3.0.10
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+wooorm
+
+Jul 31, 2022
+
+Maintainer
+
+There is an open issue. Please comment there, if it adds anything, or help work on a solution!
+
+All reactions
+
+Answer selected by
+ChristianMurphy
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+charliematters
+
+Jun 13, 2022
+
+I'm coming from a duplicate (ish) bug where I'm trying to just parse text and no tables. I'm getting these results:
+
+micromark-extension-gfm-table@1.0.3
+
+Processing without gfmTable: 30.86ms
+Processing with gfmTable: 34.455ms
+
+micromark-extension-gfm-table@1.0.4
+
+Processing without gfmTable: 31.696ms
+Processing with gfmTable: 10.622s
+
+So I'm assuming the regression happened in 1.0.4?
+
+1
+You must be logged in to vote
+
+👀
+1
+
+All reactions
+
+👀
+1
+
+3 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+charliematters
+
+Jun 13, 2022
+
+I notice that going back to 1.0.3 still has the behaviour I reported here: micromark/micromark-extension-gfm-table#4. Maybe it was the fix for my original bug which broke it? That would be some karma!
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+pjkaufman
+
+Apr 21, 2023
+
+I am not sure if this would help, but is it possible to look for the table separator row first and then if something matches that, check for a header row, validate that it has a proper row count and then find remaining tables rows? It requires being able to check the previous and next lines of text, but it could speed things up if it is trying to match any possible table values without first finding something that has to be present to have a table.
+
+Maybe this has already been done or has a flaw, but I thought I would suggest it just in case it would be helpful.
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+wooorm
+
+Apr 27, 2023
+
+Maintainer
+
+No, the architecture is per line. You can’t look for a line, and then look for the previous line.
+
+Though, being able to do that, I don’t think it would make things faster: two lines need to be checked anyway, and then it has to be checked that they have the same number of cells.
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+punkpeye
+
+Jun 2, 2026
+
+Identified the underlying issue and proposed a fix in this thread: micromark/micromark-extension-gfm-table#16
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Sign up for free
+to join this conversation on GitHub.
+Already have an account?
+Sign in to comment
+
+Category
+
+🙏
+
+Q&A
+
+Labels
+
+None yet
+
+7 participants
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

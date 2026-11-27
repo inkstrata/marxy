@@ -1,0 +1,8 @@
+{"kind":"md-references","size":500000,"parse":616,"blocks":2744,"mark":4,"render":83,"reparse":712,"rp":"{\"kind\":\"whole\",\"reason\":\"the change adds, removes or changes a definition, which applies across the file\",\"parsed\":500225,\"attempts\":0}"}
+{"kind":"md-references","size":1000000,"parse":1232,"blocks":5444,"mark":4,"render":154,"reparse":1325,"rp":"{\"kind\":\"whole\",\"reason\":\"the change adds, removes or changes a definition, which applies across the file\",\"parsed\":1000270,\"attempts\":0}"}
+{"kind":"md-references","size":2000000,"parse":2618,"blocks":10826,"mark":4,"render":270,"reparse":3018,"rp":"{\"kind\":\"whole\",\"reason\":\"the change adds, removes or changes a definition, which applies across the file\",\"parsed\":2000278,\"attempts\":0}"}
+{"kind":"md-references","size":4900000,"parse":6942,"blocks":26310,"mark":18,"render":701,"reparse":8231,"rp":"{\"kind\":\"whole\",\"reason\":\"the change adds, removes or changes a definition, which applies across the file\",\"parsed\":4900053,\"attempts\":0}"}
+{"kind":"md-technical","size":500000,"parse":680,"blocks":2275,"mark":0,"render":86,"reparse":5,"rp":"{\"kind\":\"region\",\"parsed\":959,\"attempts\":1}"}
+{"kind":"md-technical","size":1000000,"parse":1763,"blocks":4550,"mark":1,"render":210,"reparse":6,"rp":"{\"kind\":\"region\",\"parsed\":1125,\"attempts\":1}"}
+{"kind":"md-technical","size":2000000,"parse":2799,"blocks":9009,"mark":2,"render":387,"reparse":15,"rp":"{\"kind\":\"region\",\"parsed\":2484,\"attempts\":1}"}
+{"kind":"md-technical","size":4900000,"parse":6193,"blocks":21931,"mark":8,"render":918,"reparse":93,"rp":"{\"kind\":\"region\",\"parsed\":786,\"attempts\":1}"}

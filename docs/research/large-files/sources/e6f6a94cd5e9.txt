@@ -1,0 +1,160 @@
+Skip to content
+
+Docs
+
+Releases
+
+Pricing
+
+Credits
+
+Blog
+
+GitHub
+
+Install →
+
+Install
+
+Data exploration at your fingertips.
+
+VisiData is an interactive multitool for tabular data. It combines the clarity of a spreadsheet, the efficiency of the terminal, and the power of Python, into a lightweight utility which can handle millions of rows with ease.
+
+Install →
+Tutorial
+
+When you have
+
+comma-separated values (CSV)
+wikipedia table
+structured log file
+tab-separated values (TSV)
+fixed width text
+Excel file (.xls/xlsx)
+JSON (or JSON-Lines)
+HTML
+YAML
+HDF5
+NumPy (.npy/.npz)
+Pandas DataFrame
+SAS/SPSS/Stata (.xpt/sas7bdat/sav/dta)
+Shapefile (.shp)
+packet capture (.pcap)
+Sqlite database (.db)
+.zip archive
+git repository
+any kind of tabular data
+
+but you need
+
+a delightful terminal interface
+to explore the data quickly
+to get some quick insights
+to compute Python for each row
+tab-separated values (TSV)
+comma-separated values (CSV)
+fixed width text
+to clean up the data
+plain text
+JSON
+JSON (newline-delimited)
+GeoJSON
+HTML <table>
+Sqlite database
+Markdown
+Markdown (org-mode)
+Numpy (.npy) file
+
+$
+vd -b input.csv
+
+Support us on Patreon
+
+Become a Patron →
+
+Any data format
+
+Open 1m+ rows in the blink of an eye.
+
+Instant histogram with one keystroke
+
+Scatterplots in the terminal
+
+Save sessions for replay later
+
+Adhoc data pipelines in batch mode.
+
+Get started with VisiData
+
+Install →
+Quick Reference Guide →
+Documentation →
+Video Case Studies →
+Lightning Demo →
+10 Ways to Use VisiData →
+
+I wonder if @visidata can.... Yes, yes it can. I love this tool.
+
+-Luke Plant
+
+A remarkably powerful and well-designed tool.
+
+-Yoz Grahame
+
+The tool I reach for first when I encounter a new dataset.
+
+-Jeremy Singer-Vine
+
+Releases
+
+v3.5
+
+Oct 27, 2026
+
+v3.4
+
+Jun 30, 2026
+
+v3.3
+
+Sep 7, 2025
+
+v3.2
+
+Jun 15, 2025
+
+Older Releases →
+
+Blog
+
+Using AI to Contribute to Open Source
+
+Mar 21, 2026
+
+Help improve VisiData documentation!
+
+Feb 12, 2024
+
+Introducing Guides
+
+Jan 19, 2024
+
+Older Posts →
+
+Corporate Sponsors
+
+Sponsor saulpw on Github
+
+VisiData © 2017 - 2026 Saul Pwanson.
+
+Licensed under GPLv3.
+
+Privacy Policy
+
+@VisiData@fosstodon.org
+
+@VisiData on Twitter
+
+VisiData source code
+
+#visidata chat on irc.libera.chat

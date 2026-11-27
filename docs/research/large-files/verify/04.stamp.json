@@ -1,0 +1,73 @@
+{
+ "chapter": "04-dom-rendering.md",
+ "pass": 3,
+ "stamped": "2026-11-27",
+ "findings": {
+  "DOM-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "6978cb663c0b"
+  },
+  "DOM-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "833987858837"
+  },
+  "DOM-03": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "48ab9805ace8"
+  },
+  "DOM-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "b9ad77634c5d"
+  },
+  "DOM-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "91d2bac094a2"
+  },
+  "DOM-06": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "be13f58d6436"
+  },
+  "DOM-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "bf1377d78641"
+  },
+  "DOM-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "f88e9cd3b166"
+  },
+  "DOM-09": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "9bcce323bd5f"
+  },
+  "DOM-10": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "8e1c17d57bd4"
+  },
+  "DOM-11": {
+   "tags": [
+    "unverified"
+   ],
+   "hash": "56c1f9b15810"
+  }
+ }
+}
