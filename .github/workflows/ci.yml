@@ -55,7 +55,7 @@ jobs:
           BASE: origin/${{ github.base_ref || 'main' }}
         run: >-
           node scripts/verify.mjs --tier "$TIER" --base "$BASE" --no-lock --logs "$RUNNER_TEMP/verify"
-          --skip unit-desktop-browser,browser
+          --only build # TEMP: measure macOS startup
       - uses: actions/upload-artifact@v4
         if: always()
         with:
