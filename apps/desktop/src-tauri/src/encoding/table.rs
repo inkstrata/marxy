@@ -35,6 +35,7 @@ fn put(out: &mut Vec<u8>, mut v: u32) {
     out.push(v as u8);
 }
 
+#[cfg(test)]
 fn get(runs: &[u8], at: &mut usize) -> u32 {
     let (mut v, mut shift) = (0u32, 0);
     while let Some(&b) = runs.get(*at) {
@@ -65,7 +66,7 @@ impl Table {
         let Some((du, df, n)) = self.pending.take() else {
             return;
         };
-        if self.records % GROUP == 0 {
+        if self.records.is_multiple_of(GROUP) {
             self.index
                 .extend_from_slice(&[self.start.0, self.start.1, self.runs.len() as u32]);
         }
@@ -98,11 +99,13 @@ impl Table {
         self
     }
 
-    /// Bytes the map holds.
+    /// Bytes the map holds. (The lookups are for tests: the page does them, in `byte-map.ts`.)
+    #[cfg(test)]
     pub fn byte_len(&self) -> usize {
         self.index.len() * 4 + self.runs.len()
     }
 
+    #[cfg(test)]
     /// The last pair whose UTF-8 offset (`by_file` false) or file offset (true) is at most `value`; (0, bom) if none.
     pub fn seek(&self, by_file: bool, value: u64) -> (u64, u64) {
         let key = |u: u64, f: u64| if by_file { f } else { u };
