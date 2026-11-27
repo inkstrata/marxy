@@ -205,5 +205,7 @@ test('open with `at` on a code file lands on that line in Read, and Source opens
     await page.waitForSelector('#doc pre code');
     await page.keyboard.press(`${mod}+KeyE`);
     await page.waitForFunction(() => document.querySelector('#marxy-source .cm-editor'));
+    // Source places itself once its editor has laid out: wait for the place, then say it is the line asked for.
+    await page.waitForFunction((at) => window.__h.sourceHarness()?.byteOffset === at, markerOffset, { timeout: 60_000, polling: 'raf' }).catch(() => {});
     assert.equal(await page.evaluate(() => window.__h.sourceHarness()?.byteOffset), markerOffset);
   }));
