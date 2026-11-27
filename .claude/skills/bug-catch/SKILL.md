@@ -27,7 +27,11 @@ In the worktree make `work/runs/<date>-hunt-<nn>/` with `README.md` (goal, domai
 `findings.md` (a heading and one line: "Append-only. Write through .claude/skills/bug-catch/finding.mjs."),
 `verification.md` (the same), `briefs/` and `probes/`. Commit it, so every catcher starts from one tree.
 
-**Owner reports come first.** A bug the owner named ("the Export tab freezes the app") is written as a
+**Owner reports come first, and keep coming.** A report the owner sends after the fleet has started is
+appended the same way and sent to the running catcher of its domain with `SendMessage`, with where it falls
+in that catcher's order; a freeze or data loss goes ahead of what the catcher was doing.
+
+**Owner reports, in order.** A bug the owner named ("the Export tab freezes the app") is written as a
 finding by the orchestrator before the fleet starts, `Confidence: low` until a probe shows it, `Found by:
 owner`. Give it to the catcher of its domain as lead number one.
 

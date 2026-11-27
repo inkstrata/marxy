@@ -11,6 +11,10 @@ not catch it. The verdicts, the proof they need and the helper are in
 
 ## 1. Batch the findings
 
+Start as soon as a catcher reports, not when the whole fleet has: a domain's batch can be verified while
+other catchers still run, as long as catchers and verifiers together stay at six. Owner reports wait for
+the catcher's own finding that supersedes them.
+
 `node .claude/skills/bug-catch/finding.mjs list <findings.md>` lists them. Group by prefix, S1 first.
 A batch is one prefix, or up to eight findings; split a big prefix into two batches. Low-confidence S3
 findings may share a batch across prefixes. Findings superseded by a later block of the same catcher are
