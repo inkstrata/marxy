@@ -34,6 +34,7 @@ import { inferHomeFromConfig } from '../theme/user-theme.ts';
 import { walkPolicy, nameOf, HOME_WALK_BUDGET, type WalkPolicy } from './home-sized.ts';
 import { whenIdle, type MarkShell } from '../startup/idle-work.ts';
 import { rootFor as detectRoot, walkRoot, type IndexLoadShell } from './walk.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 /**
  * What one batch of watch events changed in one root: entries added or replaced, and the paths of
@@ -820,7 +821,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       next.push(replaced ?? entry);
       fresh.delete(entry.path);
     }
-    next.push(...fresh.values());
+    pushAll(next, fresh.values());
     state.entries = next;
     publish({ root, upserted: [...upserted.values()], removed: [...removed] });
     persistSoon(root, state);
@@ -869,7 +870,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       if (!state) continue;
       const mine = events.filter((e) => isUnder(e.path, root) || (e.to !== undefined && isUnder(e.to, root)));
       if (mine.length === 0) continue;
-      state.events.push(...mine);
+      pushAll(state.events, mine);
       if (state.patchQueued) continue;
       state.patchQueued = true;
       state.pending = state.pending.then(() => patch(root, state));

@@ -7,6 +7,7 @@
 // A fence's `diff` is a snippet with no headers, so it keeps `lineClassForFenceLine`; this is for a whole file only.
 
 import { DIFF_LINE_ADD, DIFF_LINE_DEL } from './line-classes.ts';
+import { pushAll } from '../util/spread.ts';
 
 const HUNK = /^(@@+) ((?:-\d+(?:,\d+)? )+)\+\d+(?:,(\d+))? \1(?!@)/;
 const RANGE = /-\d+(?:,(\d+))?/g;
@@ -100,7 +101,7 @@ export function diffFileRead(
       const counts = [...m[2]!.matchAll(RANGE)].map((r) => (r[1] === undefined ? 1 : Number(r[1])));
       if (counts.length === m[1]!.length - 1) {
         left.length = 0;
-        left.push(...counts);
+        pushAll(left, counts);
         newLeft = m[3] === undefined ? 1 : Number(m[3]);
         const plain = PLAIN_HUNK.exec(line);
         if (plain) {

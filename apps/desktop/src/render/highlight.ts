@@ -22,6 +22,7 @@ import { applyInvisibleMarkers, ELIDED_NOTE, sourceTextFromCode } from './invisi
 import { applyLinkDestinations } from './link-dest.ts';
 import { drawLogPiece } from './log-page.ts';
 import { type DiffRow, markWordChanges } from './word-diff.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 const LANGUAGE_PREFIX = 'language-';
 const LINE = 'marxy-line';
@@ -514,7 +515,7 @@ export function startCodeHighlight(article: HTMLElement, onLayoutChanged?: (chan
         if (each(code)) changed.push(code);
         if (watched) void settled(code).then(() => code.dataset.marxyDone === 'highlight' && observer.unobserve(code));
       }
-      if (whole && entered.length > 0) changed.push(...whole.show(entered));
+      if (whole && entered.length > 0) pushAll(changed, whole.show(entered));
       if (left.length > 0) dropJobsOf(left);
       // In the same frame the blocks were split, so no frame is painted with the blocks below them off the grid.
       if (changed.length > 0) onLayoutChanged?.(changed);
@@ -707,6 +708,7 @@ class FileColour {
       (box.bottom > 0 && box.top < h ? onScreen : rest).push(k);
     }
     const ranges: LineRange[] = [];
+    // scale: onScreen is the lines in one viewport, a few hundred at most
     if (onScreen.length > 0) ranges.push([this.firstLine[Math.min(...onScreen)]!, this.firstLine[Math.max(...onScreen) + 1]!]);
     for (const k of rest.sort((a, b) => a - b)) ranges.push([this.firstLine[k]!, this.firstLine[k + 1]!]);
     this.channel.view(ranges);

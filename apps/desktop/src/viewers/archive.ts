@@ -52,6 +52,7 @@ import { createHexView, type HexView } from './hex.ts';
 import { nextViewerId, viewerChanged } from './signal.ts';
 import type { PaneViewer, PartTree, PartUnit, ViewerPlace, ViewerRows, ViewMode } from './types.ts';
 import { treeParts } from '../parts/moves.ts';
+import { appendAll } from '@marxy/core/src/util/spread.ts';
 
 const n2 = (n: number): string => n.toLocaleString('en-GB');
 const plural = (n: number, one: string, many = `${one}s`): string => `${n2(n)} ${n === 1 ? one : many}`;
@@ -680,7 +681,8 @@ export function createArchiveViewer(o: ArchiveOptions): PaneViewer {
       out.push(row);
       if (!r.node.dir && r.node.entry) files.push(r.node.entry.index);
     }
-    rowsEl.replaceChildren(...out);
+    rowsEl.replaceChildren();
+    appendAll(rowsEl, out);
     want(files);
   }
 

@@ -24,6 +24,8 @@ export class FontSizes {
   private fonts = new WeakMap<Element, Font>();
   private readonly spaces = new Map<string, number>();
   private readonly hyphens = new Map<string, number>();
+  /** Hang spans' advances, by grapheme and style (`applyHang`). */
+  readonly advances = new Map<string, number>();
 
   of(el: Element): Font {
     const cs = getComputedStyle(el);
@@ -63,6 +65,7 @@ export class FontSizes {
     this.fonts = new WeakMap();
     this.spaces.clear();
     this.hyphens.clear();
+    this.advances.clear();
   }
 }
 

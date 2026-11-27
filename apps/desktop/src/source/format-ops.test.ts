@@ -402,3 +402,11 @@ test('Code on text with backticks uses a longer run, pads at an edge, and unwrap
   assert.equal(r.steps, 1);
   assert.deepEqual([...r.undo()], [...bytes]);
 });
+
+test('Format as code over a selection with 300,000 code spans wraps it in a longer run', () => {
+  const body = 'a `b` '.repeat(300_000);
+  const outcome = wrapSelection(body, { from: 0, to: body.length }, 'code');
+  assert.ok('edit' in outcome);
+  const { text } = applyEdit(body, outcome.edit);
+  assert.ok(text.startsWith('``') && text.length > body.length + 3 && text.includes(body.trim()), 'the code span is two backticks, the run longer than any inside');
+});

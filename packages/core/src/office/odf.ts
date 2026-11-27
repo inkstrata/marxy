@@ -5,6 +5,7 @@
 import { inlineText, run, type Block, type Inline, type OfficeDoc, type OfficeFormat, type OfficeImage, type OfficeNote } from './model.ts';
 import { odfProps, openPackage, resolvePart, type PartRead } from './parts.ts';
 import { kid, kidsOf, newBudget, OfficeError, textOf, type XmlElement } from './xml.ts';
+import { pushAll } from '../util/spread.ts';
 
 const MONO = /mono|courier|consolas|menlo|monaco|source code|liberation mono|dejavu sans mono/i;
 const CODE_STYLE = /code|preformatted|source|verbatim|listing/i;
@@ -121,7 +122,7 @@ function inlinesOf(ctx: Ctx, el: XmlElement, look: Look, out: Inline[] = []): In
         const body = kid(k, 'note-body');
         ctx.notes.push({ label, blocks: [] });
         const note = ctx.notes[ctx.notes.length - 1]!;
-        note.blocks.push(...blocksOf(ctx, body));
+        pushAll(note.blocks, blocksOf(ctx, body));
         out.push({ t: 'note', label });
         break;
       }
@@ -133,7 +134,7 @@ function inlinesOf(ctx: Ctx, el: XmlElement, look: Look, out: Inline[] = []): In
         break;
       }
       case 'frame':
-        out.push(...frame(ctx, k));
+        pushAll(out, frame(ctx, k));
         break;
       case 'bookmark':
       case 'bookmark-start':
@@ -175,7 +176,7 @@ function frame(ctx: Ctx, f: XmlElement): Inline[] {
   for (const b of blocksOf(ctx, box)) {
     if (b.t !== 'para' && b.t !== 'heading') continue;
     if (out.length > 0) out.push({ t: 'br' });
-    out.push(...b.kids);
+    pushAll(out, b.kids);
   }
   return out;
 }
@@ -231,7 +232,7 @@ function tableBlock(ctx: Ctx, table: XmlElement): Block | null {
         const words = b.t === 'para' || b.t === 'heading' ? b.kids : b.t === 'list' ? b.items.flatMap((i) => i.flatMap((x) => (x.t === 'para' ? [run('• '), ...x.kids] : []))) : [];
         if (words.length === 0) continue;
         if (out.length > 0) out.push({ t: 'br' });
-        out.push(...words);
+        pushAll(out, words);
       }
       cells.push(out);
     }
@@ -244,7 +245,7 @@ function tableBlock(ctx: Ctx, table: XmlElement): Block | null {
 function blocksOf(ctx: Ctx, body: XmlElement | null): Block[] {
   const out: Block[] = [];
   const asides = (): void => {
-    if (ctx.comments.length > 0) out.push(...ctx.comments.splice(0));
+    if (ctx.comments.length > 0) pushAll(out, ctx.comments.splice(0));
   };
   for (const k of kidsOf(body)) {
     let b: Block | null = null;
@@ -252,15 +253,15 @@ function blocksOf(ctx: Ctx, body: XmlElement | null): Block[] {
     else if (k.name === 'list') b = listBlock(ctx, k, undefined, 0);
     else if (k.name === 'table') b = tableBlock(ctx, k);
     else if (k.name === 'section' || k.name === 'index-body' || k.name === 'deletion') {
-      if (k.name !== 'deletion') out.push(...blocksOf(ctx, k));
+      if (k.name !== 'deletion') pushAll(out, blocksOf(ctx, k));
       continue;
     } else if (/-index$|^table-of-content$/.test(k.name)) {
-      out.push(...blocksOf(ctx, kid(k, 'index-body')));
+      pushAll(out, blocksOf(ctx, kid(k, 'index-body')));
       continue;
     } else if (k.name === 'tracked-changes') continue;
     const last = out[out.length - 1];
     if (b?.t === 'code' && last?.t === 'code') out[out.length - 1] = { t: 'code', text: `${last.text}\n${b.text}` };
-    else if (b?.t === 'quote' && last?.t === 'quote') last.blocks.push(...b.blocks);
+    else if (b?.t === 'quote' && last?.t === 'quote') pushAll(last.blocks, b.blocks);
     else if (b) out.push(b);
     asides();
   }
@@ -296,7 +297,7 @@ function pageBlocks(ctx: Ctx, page: XmlElement, n: number): { blocks: Block[]; n
         const blocks = blocksOf(ctx, box);
         // An outline frame's paragraphs are its bullets, as the master draws them.
         if (cls === 'outline' && blocks.length > 0 && blocks.every((b) => b.t === 'para')) body.push({ t: 'list', ordered: false, start: 1, items: blocks.map((b) => [b]) });
-        else body.push(...blocks);
+        else pushAll(body, blocks);
         continue;
       }
       const pic = frame(ctx, k);
@@ -329,7 +330,7 @@ export async function readOdf(format: OfficeFormat, read: PartRead): Promise<Off
       if (page.attrs.visibility === 'hidden') counts.hiddenSlides += 1;
       const got = pageBlocks(ctx, page, counts.slides);
       if (got.noted) counts.speakerNotes += 1;
-      blocks.push(...got.blocks);
+      pushAll(blocks, got.blocks);
     }
   } else {
     const text = kid(body, 'text');

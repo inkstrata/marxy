@@ -5,6 +5,7 @@ import { parse } from 'smol-toml';
 import { type CaptureRule, parseCaptures } from './capture.ts';
 import { type IgnoreRule, parseIgnore } from './ignore.ts';
 import { isWindowsPath, normalizePath } from './paths.ts';
+import { pushAll } from '../util/spread.ts';
 
 export interface CollectionRoot {
   readonly path: string;
@@ -149,7 +150,7 @@ export function parseCollection(bytes: Uint8Array, ctx: { readonly home: string;
   }
   const queries = parseQueries(raw.query, warnings, unknown);
   const cap = parseCaptures(raw.capture, { home: ctx.home, ownFolders: ctx.ownFolders ?? [], denyGlobs, resolvePath: resolveRootPath });
-  warnings.push(...cap.warnings);
+  pushAll(warnings, cap.warnings);
   for (const k of cap.unknownKeys) unknown.add(k);
   return { collection: { roots, denyGlobs, queries, captures: cap.captures }, warnings, unknownKeys: [...unknown] };
 }
