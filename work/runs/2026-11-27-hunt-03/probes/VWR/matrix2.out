@@ -1,0 +1,17 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/VWR/matrix.mjs --browser chromium
+{"kind":"diff","bytes":500095,"openMs":119,"pingMs":158,"keyMs":57,"task":0.21,"script":0.04,"layout":0.02,"nodes":1043,"err":"","txt":"pg16-upgrade-plan.md big-diff-500k.diff Aa Places by name ▾ "}
+{"kind":"diff","bytes":1000131,"openMs":149,"pingMs":38,"keyMs":250,"task":0.31,"script":0.06,"layout":0.02,"nodes":1237,"err":"","txt":"pg16-upgrade-plan.md big-diff-1000k.diff Aa Places by name ▾"}
+{"kind":"diff","bytes":1400046,"openMs":163,"pingMs":44,"keyMs":193,"task":0.39,"script":0.06,"layout":0.03,"nodes":1391,"err":"","txt":"pg16-upgrade-plan.md big-diff-1400k.diff Aa Places by name ▾"}
+{"kind":"diff","bytes":3000184,"openMs":400,"pingMs":103,"keyMs":169,"task":2.07,"script":0.13,"layout":0.1,"nodes":1854,"err":"","txt":"pg16-upgrade-plan.md big-diff-3000k.diff Aa Places by name ▾"}
+{"kind":"diff","bytes":4900026,"openMs":322,"pingMs":39,"keyMs":182,"task":3.54,"script":0.19,"layout":0.13,"nodes":1870,"err":"","txt":"pg16-upgrade-plan.md big-diff-4900k.diff Aa Places by name ▾"}
+{"kind":"yaml","bytes":500006,"openMs":1284,"pingMs":36,"keyMs":263,"task":1.41,"script":0.17,"layout":0.08,"nodes":18854,"err":"","txt":"pg16-upgrade-plan.md big-yaml-500k.yaml Aa Places by name ▾ "}
+{"kind":"yaml","bytes":1000019,"openMs":1849,"pingMs":66,"keyMs":228,"task":1.8,"script":0.23,"layout":0.09,"nodes":18854,"err":"","txt":"pg16-upgrade-plan.md big-yaml-1000k.yaml Aa Places by name ▾"}
+{"kind":"yaml","bytes":1400008,"openMs":1733,"pingMs":139,"keyMs":200,"task":1.82,"script":0.2,"layout":0.11,"nodes":18854,"err":"","txt":"pg16-upgrade-plan.md big-yaml-1400k.yaml Aa Places by name ▾"}
+{"kind":"yaml","bytes":3000026,"openMs":156,"pingMs":28,"keyMs":263,"task":3.55,"script":0.16,"layout":0.12,"nodes":1934,"err":"","txt":"pg16-upgrade-plan.md big-yaml-3000k.yaml Aa Places by name ▾"}
+{"kind":"yaml","bytes":4900043,"openMs":294,"pingMs":46,"keyMs":216,"task":3.6,"script":0.19,"layout":0.12,"nodes":1652,"err":"","txt":"pg16-upgrade-plan.md big-yaml-4900k.yaml Aa Places by name ▾"}
+{"kind":"json-pretty","bytes":500110,"openMs":2079,"pingMs":20,"keyMs":179,"task":2.26,"script":0.23,"layout":0.17,"nodes":19511,"err":"","txt":"pg16-upgrade-plan.md big-json-pretty-500k.json Aa Places by "}
+{"kind":"json-pretty","bytes":1000023,"openMs":2945,"pingMs":422,"keyMs":148,"task":2.68,"script":0.27,"layout":0.18,"nodes":19511,"err":"","txt":"pg16-upgrade-plan.md big-json-pretty-1000k.json Aa Places by"}
+{"kind":"json-pretty","bytes":1400004,"openMs":2212,"pingMs":82,"keyMs":178,"task":2.23,"script":0.2,"layout":0.2,"nodes":19511,"err":"","txt":"pg16-upgrade-plan.md big-json-pretty-1400k.json Aa Places by"}
+{"kind":"json-pretty","bytes":3000100,"openMs":2424,"pingMs":60,"keyMs":160,"task":2.54,"script":0.25,"layout":0.2,"nodes":19511,"err":"","txt":"pg16-upgrade-plan.md big-json-pretty-3000k.json Aa Places by"}
+{"kind":"json-pretty","bytes":4900084,"openMs":2113,"pingMs":18,"keyMs":417,"task":2.22,"script":0.21,"layout":0.19,"nodes":19511,"err":"","txt":"pg16-upgrade-plan.md big-json-pretty-4900k.json Aa Places by"}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1028

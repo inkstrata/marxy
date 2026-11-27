@@ -1,0 +1,11 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/VWR/matrix.mjs --browser chromium
+{"kind":"json-pretty","bytes":20050,"openMs":286,"pingMs":12,"keyMs":98,"task":0.3,"script":0.04,"layout":0.03,"nodes":5329,"err":"","txt":"pg16-upgrade-plan.md big-json-pretty-20k.json Aa Places by n"}
+{"kind":"json-pretty","bytes":100062,"openMs":1861,"pingMs":59,"keyMs":187,"task":2.04,"script":0.19,"layout":0.16,"nodes":19511,"err":"","txt":"pg16-upgrade-plan.md big-json-pretty-100k.json Aa Places by "}
+{"kind":"json-pretty","bytes":300106,"openMs":1718,"pingMs":44,"keyMs":63,"task":1.81,"script":0.18,"layout":0.15,"nodes":19511,"err":"","txt":"pg16-upgrade-plan.md big-json-pretty-300k.json Aa Places by "}
+{"kind":"yaml","bytes":20043,"openMs":431,"pingMs":17,"keyMs":104,"task":0.51,"script":0.08,"layout":0.04,"nodes":8511,"err":"","txt":"pg16-upgrade-plan.md big-yaml-20k.yaml Aa Places by name ▾ 2"}
+{"kind":"yaml","bytes":100002,"openMs":1334,"pingMs":190,"keyMs":113,"task":1.47,"script":0.17,"layout":0.07,"nodes":18854,"err":"","txt":"pg16-upgrade-plan.md big-yaml-100k.yaml Aa Places by name ▾ "}
+{"kind":"yaml","bytes":300034,"openMs":1498,"pingMs":42,"keyMs":86,"task":1.56,"script":0.18,"layout":0.08,"nodes":18854,"err":"","txt":"pg16-upgrade-plan.md big-yaml-300k.yaml Aa Places by name ▾ "}
+{"kind":"html","bytes":20292,"openMs":1231,"pingMs":20,"keyMs":28,"task":0.14,"script":0.03,"layout":0.02,"nodes":512,"err":"","txt":"pg16-upgrade-plan.md big-html-20k.html Aa Places by name ▾ 2"}
+{"kind":"html","bytes":100278,"openMs":192,"pingMs":33,"keyMs":80,"task":0.21,"script":0.03,"layout":0.03,"nodes":512,"err":"","txt":"pg16-upgrade-plan.md big-html-100k.html Aa Places by name ▾ "}
+{"kind":"html","bytes":300038,"openMs":1383,"pingMs":78,"keyMs":45,"task":0.49,"script":0.03,"layout":0.1,"nodes":512,"err":"","txt":"pg16-upgrade-plan.md big-html-300k.html Aa Places by name ▾ "}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1057

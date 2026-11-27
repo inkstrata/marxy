@@ -1,0 +1,8 @@
+ 3:05  up 1 day,  6:23, 1 user, load averages: 36.12 38.51 45.29
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/RDR/a.verify.mjs --browser chromium
+{"kind":"md-technical","size":1300000,"first":28,"resolved":3143,"cpuTask":6.07,"cpuScript":0.57,"cpuLayout":0.29,"cpuStyle":2.08,"nodes":105827,"maxLong":0,"nLong":0}
+{"kind":"md-technical","size":2000000,"first":46,"resolved":17449,"cpuTask":20.45,"cpuScript":2.38,"cpuLayout":1.03,"cpuStyle":8.96,"nodes":170819,"maxLong":60,"nLong":1}
+{"kind":"md-dense","size":500000,"first":4405,"resolved":5634,"cpuTask":8.92,"cpuScript":0.69,"cpuLayout":0.22,"cpuStyle":2.47,"nodes":266236,"maxLong":4312,"nLong":4}
+{"kind":"md-dense","size":1000000,"first":14089,"resolved":15318,"cpuTask":18.51,"cpuScript":0.78,"cpuLayout":0.22,"cpuStyle":2.53,"nodes":481041,"maxLong":13918,"nLong":2}
+{"kind":"md-dense","size":2000000,"first":39,"resolved":67078,"cpuTask":70.09,"cpuScript":4.51,"cpuLayout":1.22,"cpuStyle":14.18,"nodes":920670,"maxLong":24526,"nLong":77}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1105

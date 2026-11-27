@@ -1,0 +1,10 @@
+ 3:02  up 1 day,  6:20, 1 user, load averages: 27.90 39.48 46.79
+1000 files run0: cpu 0.006s wall 130.204875ms (diff 0)
+1000 files run1: cpu 0.006s wall 6.585291ms (diff 0)
+1000 files run2: cpu 0.006s wall 6.103667ms (diff 0)
+10000 files run0: cpu 0.076s wall 167.335625ms (diff 0)
+10000 files run1: cpu 0.079s wall 170.756459ms (diff 0)
+10000 files run2: cpu 0.072s wall 310.156375ms (diff 0)
+50000 files run0: cpu 0.459s wall 576.892333ms (diff 0)
+50000 files run1: cpu 0.474s wall 671.189292ms (diff 0)
+50000 files run2: cpu 0.448s wall 578.557125ms (diff 0)

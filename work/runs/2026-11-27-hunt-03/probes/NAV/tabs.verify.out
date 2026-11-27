@@ -1,0 +1,27 @@
+ 3:22  up 1 day,  6:40, 1 user, load averages: 44.31 39.21 40.43
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/tabs.verify.mjs --browser chromium
+=== 1 MB x3, gap 6000 ms
+open /big-md-prose-1000k.md: wall 2998ms task 2979ms script 325ms layout 397ms(136) style#177 nodes 39190
+open -md-technical-1000k.md: wall 3599ms task 3613ms script 239ms layout 170ms(156) style#191 nodes 136601
+open md-transcript-1000k.md: wall 3698ms task 3709ms script 400ms layout 399ms(148) style#180 nodes 108253
+switch /big-md-prose-1000k.md: wall 538ms task 554ms script 98ms layout 115ms(48) style#75 nodes 118326
+switch -md-technical-1000k.md: wall 593ms task 587ms script 67ms layout 89ms(51) style#80 nodes 209468
+switch md-transcript-1000k.md: wall 515ms task 523ms script 75ms layout 91ms(59) style#90 nodes 170218
+split same: wall 4552ms task 4540ms script 813ms layout 804ms(217) style#254 nodes 176853
+=== 2 MB x3, gap 6000 ms
+open /big-md-prose-2000k.md: wall 4783ms task 4756ms script 347ms layout 446ms(149) style#183 nodes 70815
+open -md-technical-2000k.md: wall 34667ms task 34533ms script 6285ms layout 4467ms(1116) style#1150 nodes 192333
+open md-transcript-2000k.md: wall 44853ms task 44715ms script 6520ms layout 2620ms(1401) style#1432 nodes 303774
+switch /big-md-prose-2000k.md: wall 1840ms task 1833ms script 235ms layout 327ms(102) style#137 nodes 280340
+switch -md-technical-2000k.md: wall 1321ms task 1346ms script 84ms layout 100ms(60) style#95 nodes 281675
+switch md-transcript-2000k.md: wall 1959ms task 2040ms script 251ms layout 125ms(60) style#93 nodes 448919
+split same: wall 13638ms task 13607ms script 2860ms layout 2043ms(469) style#506 nodes 356595
+=== 2 MB x3, gap 20000 ms
+open /big-md-prose-2000k.md: wall 4999ms task 4969ms script 386ms layout 458ms(150) style#184 nodes 70832
+open -md-technical-2000k.md: wall 40760ms task 40648ms script 7693ms layout 5265ms(1184) style#1217 nodes 252794
+open md-transcript-2000k.md: wall 51671ms task 51555ms script 7983ms layout 3060ms(1454) style#1486 nodes 314798
+switch /big-md-prose-2000k.md: wall 963ms task 970ms script 88ms layout 150ms(51) style#86 nodes 217312
+switch -md-technical-2000k.md: wall 1235ms task 1239ms script 121ms layout 87ms(55) style#90 nodes 380017
+switch md-transcript-2000k.md: wall 1258ms task 1288ms script 155ms layout 96ms(58) style#91 nodes 320073
+split same: wall 6394ms task 6386ms script 1221ms layout 1014ms(280) style#317 nodes 311141
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1122

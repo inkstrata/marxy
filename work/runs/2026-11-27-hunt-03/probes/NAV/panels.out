@@ -1,0 +1,14 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/panels.mjs --browser chromium
+=== md-headings 1 MB
+show outline panel: wall 1016ms task 1041ms script 158ms layout 146ms(47) style#50 nodes 92228
+ outline rows 0
+scroll outline: wall 542ms task 555ms script 109ms layout 83ms(23) style#23 nodes 95512
+show search panel: wall 864ms task 862ms script 160ms layout 173ms(60) style#69 nodes 101273
+type in search: wall 1938ms task 1958ms script 430ms layout 313ms(71) style#71 nodes 79237
+=== md-headings 2 MB
+show outline panel: wall 1181ms task 1261ms script 155ms layout 180ms(48) style#51 nodes 157627
+ outline rows 0
+scroll outline: wall 633ms task 639ms script 132ms layout 114ms(24) style#24 nodes 152645
+show search panel: wall 1082ms task 1093ms script 232ms layout 163ms(52) style#61 nodes 159217
+type in search: wall 1727ms task 1746ms script 357ms layout 310ms(71) style#71 nodes 169890
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1041
