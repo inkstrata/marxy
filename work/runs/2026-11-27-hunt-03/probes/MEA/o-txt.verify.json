@@ -1,0 +1,136 @@
+[
+ {
+  "kind": "txt",
+  "bytes": 1000024,
+  "name": "big-txt-1000k.txt",
+  "steps": {
+   "open": {
+    "firstMs": 156,
+    "completeMs": 19150,
+    "openReturnMs": 234,
+    "busyUntilIdleMs": 20559,
+    "taskMs": 19333,
+    "layouts": 234,
+    "longestMs": 6626,
+    "nodes": 76752
+   },
+   "key": {
+    "skipped": true
+   },
+   "scrollMid": {
+    "skipped": true
+   },
+   "scrollEnd": {
+    "skipped": true
+   },
+   "toSource": {
+    "wallMs": 5039,
+    "taskMs": 2729,
+    "scriptMs": 279,
+    "layoutMs": 9,
+    "layouts": 14,
+    "recalcs": 43,
+    "longestMs": 1899,
+    "nodes": 76915
+   },
+   "toRead": {
+    "wallMs": 3111,
+    "taskMs": 1989,
+    "scriptMs": 199,
+    "layoutMs": 631,
+    "layouts": 6,
+    "recalcs": 8,
+    "longestMs": 1412,
+    "nodes": 76916
+   },
+   "reload": {
+    "wallMs": 14679,
+    "taskMs": 13659,
+    "scriptMs": 1062,
+    "layoutMs": 616,
+    "layouts": 202,
+    "recalcs": 210,
+    "longestMs": 5004,
+    "nodes": 152427
+   },
+   "find": {
+    "wallMs": 3347,
+    "taskMs": 2269,
+    "scriptMs": 332,
+    "layoutMs": 64,
+    "layouts": 15,
+    "recalcs": 37,
+    "longestMs": 1098,
+    "nodes": 158523
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "txt",
+  "bytes": 2000052,
+  "name": "big-txt-2000k.txt",
+  "steps": {
+   "open": {
+    "firstMs": 253,
+    "completeMs": 35643,
+    "openReturnMs": 373,
+    "busyUntilIdleMs": 37086,
+    "taskMs": 35910,
+    "layouts": 506,
+    "longestMs": 3529,
+    "nodes": 152254
+   },
+   "key": {
+    "skipped": true
+   },
+   "scrollMid": {
+    "skipped": true
+   },
+   "scrollEnd": {
+    "skipped": true
+   },
+   "toSource": {
+    "wallMs": 6345,
+    "taskMs": 4833,
+    "scriptMs": 494,
+    "layoutMs": 6,
+    "layouts": 14,
+    "recalcs": 44,
+    "longestMs": 3448,
+    "nodes": 152417
+   },
+   "toRead": {
+    "wallMs": 3927,
+    "taskMs": 2778,
+    "scriptMs": 332,
+    "layoutMs": 1010,
+    "layouts": 6,
+    "recalcs": 8,
+    "longestMs": 2120,
+    "nodes": 152418
+   },
+   "reload": {
+    "wallMs": 49912,
+    "taskMs": 48395,
+    "scriptMs": 6531,
+    "layoutMs": 2298,
+    "layouts": 510,
+    "recalcs": 519,
+    "longestMs": 7712,
+    "nodes": 304498
+   },
+   "find": {
+    "wallMs": 8105,
+    "taskMs": 5589,
+    "scriptMs": 982,
+    "layoutMs": 95,
+    "layouts": 16,
+    "recalcs": 38,
+    "longestMs": 2006,
+    "nodes": 310701
+   }
+  },
+  "errors": []
+ }
+]

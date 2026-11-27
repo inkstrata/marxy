@@ -1,0 +1,12 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/place.mjs --browser chromium
+=== md-prose 2 MB, bytes 2007597
+End key: wall 1706ms task 1745ms script 425ms layout 264ms(93) style#108 nodes 84291
+ after End {"scrollTop":0,"scrollHeight":0,"midByte":"1434313","article":4878}
+ 6s later {"scrollTop":0,"scrollHeight":0,"midByte":"1434313","article":5331}
+End again: wall 1633ms task 1696ms script 386ms layout 268ms(90) style#110 nodes 89541
+  {"scrollTop":0,"scrollHeight":0,"midByte":"1727420","article":5420}
+back to big file: wall 2021ms task 2050ms script 149ms layout 440ms(79) style#123 nodes 91759
+ back +1 {"scrollTop":0,"scrollHeight":0,"midByte":"1727420","article":5514}
+ back +4 {"scrollTop":0,"scrollHeight":0,"midByte":"1727420","article":5703}
+ back +10 {"scrollTop":0,"scrollHeight":0,"midByte":"1727420","article":5880}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1053

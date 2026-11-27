@@ -1,0 +1,80 @@
+{
+ "chapter": "09-buffers-memory.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "BUF-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "5943194d5dd0"
+  },
+  "BUF-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "8ada75c7d369"
+  },
+  "BUF-03": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "1ae6117ae980"
+  },
+  "BUF-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "4b8ff12cc666"
+  },
+  "BUF-05": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "93ff6b433594"
+  },
+  "BUF-06": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "5075ac305e4f"
+  },
+  "BUF-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "2a8bdb0a3636"
+  },
+  "BUF-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "76746bb88931"
+  },
+  "BUF-09": {
+   "tags": [
+    "confirmed",
+    "unverified"
+   ],
+   "hash": "1aeda8426968"
+  },
+  "BUF-10": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "b7f66a74c8a3"
+  },
+  "BUF-11": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "09a10b8f1471"
+  },
+  "BUF-12": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "398f00df66a1"
+  }
+ }
+}

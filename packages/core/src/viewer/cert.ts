@@ -3,7 +3,9 @@
 // here checks a signature or a chain, and nothing asks a CA or a revocation list. A private key in the file is only
 // noticed (by its PEM label or its DER shape) and never decoded, so none of its material reaches a fact. The bytes are
 // untrusted: lengths are checked against the file, indefinite lengths and nesting past 16 are damage, the file is read
-// to at most `CERT_READ_MAX` and a bundle lists at most `CERT_LIST_MAX`. Pure: no DOM, no I/O.
+// to at most `CERT_READ_MAX`, a bundle lists at most `CERT_LIST_MAX`, and the check of the whole tree stops after
+// `CERT_NODES_MAX` elements across the file. Pure: no DOM, no I/O.
+import { type Budget, budget, figure } from '../util/budget.ts';
 
 /** The most of a file that is read. */
 export const CERT_READ_MAX = 1024 * 1024;
@@ -11,6 +13,8 @@ export const CERT_READ_MAX = 1024 * 1024;
 export const CERT_LIST_MAX = 100;
 /** DER nesting past this is damage. */
 export const CERT_DEPTH_MAX = 16;
+/** The most DER elements the whole-tree check walks, across every certificate in the file; past it, the rest go unchecked. */
+export const CERT_NODES_MAX = 100_000;
 /** A name or other string is shown cut at this many characters. */
 export const CERT_STRING_SHOWN = 200;
 
@@ -49,6 +53,8 @@ export interface CertFile {
   readonly holdsKey: boolean;
   /** The file is longer than what was read. */
   readonly cut: boolean;
+  /** The whole-tree check stopped at `CERT_NODES_MAX` elements: lengths and nesting past them were not checked. */
+  readonly stopped: boolean;
 }
 
 export type CertRead =
@@ -114,10 +120,24 @@ function kids(b: Uint8Array, n: Node, depth: number): Node[] {
   return out;
 }
 
-/** Walks the whole tree once, so depth and lengths are checked everywhere, not only where facts are read. */
-function checkTree(b: Uint8Array, n: Node, depth: number): void {
-  if (!n.constructed) return;
-  for (const k of kids(b, n, depth)) checkTree(b, k, depth + 1);
+/**
+ * Walks the whole tree once, so depth and lengths are checked everywhere, not only where facts are read. Each element
+ * is counted against `nodes`, shared by the file; when it runs out the walk stops there and answers false.
+ */
+function checkTree(b: Uint8Array, n: Node, depth: number, nodes: Budget): boolean {
+  if (!n.constructed) return true;
+  if (depth > CERT_DEPTH_MAX) bad('it nests deeper than 16 levels');
+  // As `kids` does (every child read before any is walked, so damage is found in the same order), but each child is
+  // counted as it is read: a wide list is not read whole before the count stops it.
+  const out: Node[] = [];
+  for (let at = n.s; at < n.e; ) {
+    if (!nodes.take()) return false;
+    const k = node(b, at, n.e);
+    out.push(k);
+    at = k.next;
+  }
+  for (const k of out) if (!checkTree(b, k, depth + 1, nodes)) return false;
+  return true;
 }
 
 function oid(b: Uint8Array, n: Node): string {
@@ -250,8 +270,8 @@ function basicCa(b: Uint8Array, exts: Node, depth: number): boolean | null {
   return null;
 }
 
-/** One certificate from its DER. */
-function certificate(b: Uint8Array): CertFacts {
+/** One certificate from its DER; its whole-tree check counts against `nodes`. */
+function certificate(b: Uint8Array, nodes: Budget): CertFacts {
   const top = node(b, 0, b.length);
   if (top.tag !== 0x30) bad('it is not a certificate: it does not begin with a sequence');
   if (top.next !== b.length) {
@@ -259,7 +279,7 @@ function certificate(b: Uint8Array): CertFacts {
     if (!b.subarray(top.next).every((x) => x === 0x20 || x === 0x09 || x === 0x0a || x === 0x0d)) bad('bytes follow the end of the certificate');
     b = b.subarray(0, top.next);
   }
-  checkTree(b, top, 1);
+  checkTree(b, top, 1, nodes);
   const [tbs] = kids(b, top, 1);
   if (!tbs || tbs.tag !== 0x30) return bad('it is not a certificate: no certificate body');
   const f = kids(b, tbs, 2);
@@ -330,9 +350,9 @@ function base64(text: string): Uint8Array {
   return out;
 }
 
-const entry = (der: () => Uint8Array): CertEntry => {
+const entry = (der: () => Uint8Array, nodes: Budget): CertEntry => {
   try {
-    return { ok: true, facts: certificate(der()) };
+    return { ok: true, facts: certificate(der(), nodes) };
   } catch (e) {
     if (e instanceof Damaged) return { ok: false, reason: e.message };
     throw e;
@@ -348,6 +368,7 @@ export function readCertificates(bytes: Uint8Array, total: number = bytes.length
   const b = bytes.length > CERT_READ_MAX ? bytes.subarray(0, CERT_READ_MAX) : bytes;
   let text = '';
   for (let i = 0; i < b.length; i += 8192) text += String.fromCharCode(...b.subarray(i, Math.min(b.length, i + 8192)));
+  const nodes = budget(CERT_NODES_MAX);
   if (text.indexOf(BEGIN) >= 0) {
     const entries: CertEntry[] = [];
     let more = 0;
@@ -395,17 +416,17 @@ export function readCertificates(bytes: Uint8Array, total: number = bytes.length
         continue;
       }
       const body = text.slice(bodyStart, end).replace(/^[^\n]*:[^\n]*\n/gm, '');
-      entries.push(entry(() => base64(body)));
+      entries.push(entry(() => base64(body), nodes));
     }
     if (entries.length === 0 && !holdsKey) return { ok: false, reason: others > 0 ? 'It holds PEM blocks that are not certificates (a public key or a request, say), which the app does not read here.' : 'It has no certificate in it.' };
     if (!holdsKey && entries.every((e) => !e.ok)) return { ok: false, reason: (entries[0] as { reason: string }).reason };
-    return { ok: true, file: { entries, more, holdsKey, cut } };
+    return { ok: true, file: { entries, more, holdsKey, cut, stopped: nodes.hit } };
   }
   if (b.length > 0 && b[0] === 0x30) {
-    if (derKey(b)) return { ok: true, file: { entries: [], more: 0, holdsKey: true, cut } };
-    const e = entry(() => b);
+    if (derKey(b)) return { ok: true, file: { entries: [], more: 0, holdsKey: true, cut, stopped: false } };
+    const e = entry(() => b, nodes);
     if (!e.ok) return { ok: false, reason: e.reason };
-    return { ok: true, file: { entries: [e], more: 0, holdsKey: false, cut } };
+    return { ok: true, file: { entries: [e], more: 0, holdsKey: false, cut, stopped: nodes.hit } };
   }
   return { ok: false, reason: 'It is neither a PEM file nor a DER certificate.', notCert: true };
 }
@@ -476,5 +497,6 @@ export function certRows(file: CertFile, now: number): CertRow[] {
   }
   if (file.holdsKey) rows.push({ label: 'private key', value: 'This file holds a private key.', note: 'The card shows none of it.' });
   if (file.cut) rows.push({ label: 'read', value: `Only the first ${CERT_READ_MAX / 1024 / 1024} MB were read.` });
+  if (file.stopped) rows.push({ label: 'checked', value: `Only the first ${figure(CERT_NODES_MAX)} elements were checked.`, note: 'Lengths and nesting past them were not; the facts above were still read.' });
   return rows;
 }

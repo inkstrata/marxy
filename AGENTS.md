@@ -80,6 +80,14 @@ elsewhere and pointed in with `-C` refuses to run.
 - **Tests and tools are mapped**: a new browser test file goes in `scripts/verify-map.json`, and a new
   script in its level's `README.md` (`scripts/verify.test.mjs` and `scripts/readme-index.test.mjs` fail
   otherwise).
+- **Big files are ordinary** (`check-scale`, [docs/big-files.md](docs/big-files.md)): a file of 1 to 5 MB
+  must stay usable. Work for a key, scroll, hover or panel is bounded by the screen or the change, never
+  the file; whole-file work runs once per version of the bytes, yields and can be cancelled, and features
+  reuse the store's parse, line index and readings instead of parsing again. No DOM query or layout read
+  in a loop, no `shift`/`concat`/sort in a loop, no array spread into call arguments, no whole-text
+  `split('\n')`, no unbounded pattern from the reader on the main thread; a bounded one says why on its
+  line (`// scale: <why>`). A function that takes a whole document gets a growth case in
+  `packages/core/src/scale.test.ts`. The checklist is the `big-files` skill.
 
 ## Design principles
 

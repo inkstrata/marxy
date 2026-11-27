@@ -1,0 +1,242 @@
+WebKit Bugzilla
+
+New
+
+Browse
+
+Search+
+
+Log In
+
+&times;
+
+Sign in with GitHub
+
+or
+
+Remember my login
+
+Create Account
+
+·
+
+Forgot Password
+
+Forgotten password account recovery
+
+NEW99524
+
+zooming with text-rendering: geometricPrecision is very janky
+https://bugs.webkit.org/show_bug.cgi?id=99524
+
+Summary
+
+zooming with text-rendering: geometricPrecision is very janky
+
+Eric Seidel (no email)
+
+Reported
+2012-10-16 16:29:30 PDT
+
+zooming with text-rendering: geometricPrecision is very janky
+
+It appears that you get sent down the complex-text path with geometricPrecision (not too surprising), and thus we end up in malloc-city!
+
+https://bug-99383-attachments.webkit.org/attachment.cgi?id=168805 is the SVG in question, I'll attach a version of it with text-rendering: geometricPrecision enabled.
+
+Attachments
+
+attachment 168805 with text-rendering: geometricPrecision set on the root element (note how laggy zooming is!)
+
+(103.72 KB,
+image/svg+xml)
+
+2012-10-16 16:30 PDT,
+
+Eric Seidel (no email)
+
+no flags
+
+Details
+
+sample of attachment 168805 zooming (fast-text path)
+
+(734.42 KB,
+application/zip)
+
+2012-10-16 16:31 PDT,
+
+Eric Seidel (no email)
+
+no flags
+
+Details
+
+sample of attachment 169052 zooming (complex text path), notice all the mallocs in under ComplexTextController
+
+(843.61 KB,
+application/zip)
+
+2012-10-16 16:32 PDT,
+
+Eric Seidel (no email)
+
+no flags
+
+Details
+
+View All
+
+Add attachment
+proposed patch, testcase, etc.
+
+Eric Seidel (no email)
+
+Comment 1
+2012-10-16 16:30:33 PDT
+
+Created attachment 169052 [details]
+attachment 168805 [details] with text-rendering: geometricPrecision set on the root element (note how laggy zooming is!)
+
+Eric Seidel (no email)
+
+Comment 2
+2012-10-16 16:31:22 PDT
+
+Created attachment 169053 [details]
+sample of attachment 168805 [details] zooming (fast-text path)
+
+Eric Seidel (no email)
+
+Comment 3
+2012-10-16 16:32:29 PDT
+
+Created attachment 169055 [details]
+sample of attachment 169052 [details] zooming (complex text path), notice all the mallocs in under ComplexTextController
+
+Eric Seidel (no email)
+
+Comment 4
+2012-10-16 16:49:42 PDT
+
+I see. geometricPrecision enables ligatures/kerning typesetting features:
+
+TypesettingFeatures typesettingFeatures() const
+{
+...
+case GeometricPrecision:
+case OptimizeLegibility:
+features |= Kerning | Ligatures;
+break;
+
+Which then causes us to go down the complex text path:
+
+Font::CodePath Font::codePath(const TextRun& run) const
+{
+...
+if (run.length() > 1 && !WidthIterator::supportsTypesettingFeatures(*this))
+return Complex;
+
+I suspect that this is "expected" behavior. Although perhaps it's possible to optimize this case, or the complex text path in general. Mitz would know much better than I.
+
+I should note that I was turning on geometric-precision to get around the font-stair-stepping, which is covered by bug 60317.
+
+Note
+You need to
+log in
+before you can comment on or make changes to this bug.
+
+Status
+
+NEW
+
+Resolution
+
+Priority
+
+P2
+
+Severity
+
+Normal
+
+Classification
+
+Unclassified
+
+Version
+
+528+ (Nightly build)
+
+Hardware
+
+Unspecified
+
+OS
+
+Unspecified
+
+Product
+
+WebKit
+
+Component
+
+Layout and Rendering
+
+Assignee
+
+Nobody
+
+Reported
+
+2012-10-16 16:29 PDT
+
+Modified
+
+2012-10-16 17:43 PDT
+History
+
+CC List
+
+4
+users
+
+Show
+
+eae
+leviw
+mitz
+thorton
+
+URL
+
+Keywords
+
+Depends on
+
+Blocks
+
+See Also
+
+Alias
+
+None
+
+Top of Page
+
+Format For Printing
+
+XML
+
+Clone This Bug
+
+New
+
+Browse
+
+Search+
+
+Reports
+
+Requests

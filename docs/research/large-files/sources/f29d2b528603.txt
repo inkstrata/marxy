@@ -1,0 +1,508 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+micromark
+
+micromark
+
+Repository navigation
+
+Code
+
+Issues19 ( 19 )
+
+Pull requests28 ( 28 )
+
+Discussions
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+Trade-off between extensibility and performance #9
+
+New issue
+Copy link
+
+New issue
+Copy link
+
+Closed
+
+Closed
+
+Trade-off between extensibility and performance#9
+
+Copy link
+
+Labels
+
+🙋 no/questionThis does not need any changes
+
+Description
+
+wooorm
+
+opened on Sep 7, 2019
+
+Issue body actions
+
+Say we take:
+
+Indented code: it ends when there is a bogus line. But there could be infinity blank lines before that bogus line.
+
+HTML blocks of kind 6 or 7: one blank line ends it.
+
+Do we backtrack to before the blank lines, and check all the tokenisers again (blank line is last probably), or is there a knowledge of what other tokenisers are enabled and can we “eat” every blank line directly?
+
+The trade-off here is that either, with knowledge of other tokens, we can be more performant and scan the buffer fewer times, or that we are more extensible, allowing blank lines to be turned off, or alternative tokenisers from extensions dealing with them?
+
+Activity
+
+wooorm
+added
+🙋 no/questionThis does not need any changes
+
+🙉 open/needs-infoThis needs some more info
+on Sep 7, 2019
+
+ChristianMurphy commented on Sep 7, 2019
+
+ChristianMurphy
+
+on Sep 7, 2019
+
+Member
+
+More actions
+
+This sounds related to #8
+
+Do we backtrack to before the blank lines, and check all the tokenisers again
+
+If possible let's avoid backtracking entirely. http://marijnhaverbeke.nl/blog/lezer.html
+
+is there a knowledge of what other tokenisers are enabled and can we “eat” every blank line directly
+
+This may be more complex, but will likely be a better approach for performance. 👍
+
+👍React with 👍1Reacted by Titus
+
+wooorm commented on Sep 8, 2019
+
+wooorm
+
+on Sep 8, 2019
+
+Last edited by wooorm
+
+MemberAuthor
+
+More actions
+
+Am I correct in assuming that with lezer / tree-parser you don‘t backtrack, but instead parse multiple syntax trees? Or how would it, more practically, work?
+
+I think those two are very interesting, but they have very different roles/goals:
+
+The document is constantly changing.
+
+typically not true for micromark
+
+You can't do anything expensive. If the parsing works takes too long, it'll introduce latency that makes editing feel slugglish and unresponsive.
+
+micromark needs to be complete, perfect, can take a while to get there (but preferably fast/small)
+
+The input is often not in a finished, syntactically correct form. But you still have to make some
+
+sense of it—nobody wants an editor where most features stop working when you have a syntax
+
+error in your document.
+
+typically not true for micromark
+
+You often want to be able to mix several languages/grammars in a single document (think
+
+HTML with JavaScript and CSS embedded in it).
+
+Markdown doesn’t depend on valid HTML, rather, a simplified black box.
+
+ChristianMurphy commented on Sep 8, 2019
+
+ChristianMurphy
+
+on Sep 8, 2019
+
+Last edited by ChristianMurphy
+
+Member
+
+More actions
+
+Am I correct in assuming that with lezer / tree-parser you don‘t backtrack, but instead parse multiple syntax trees?
+
+Sort of, GLR parsers fork whenever an ambiguity is encountered.
+
+For example, parsing
+
+## Hello World ##
+
+When it is parsed
+
+## Hello World ##
+--*--------------*--
+| |
+*--------------*
+^ ^
+| ambiguity resolved, when newline is reached
+|
+ambiguity start, there may or may not be an ATX closing to header,
+parser forks and tries parsing both ways
+
+Or how would it, more practically, work?
+
+GLR parsers work, by implementing the GLR algorithm.
+
+These papers detail the algorithm:
+
+Original Paper https://www.ijcai.org/Proceedings/85-2/Papers/014.pdf
+
+Royal Holloway, University of London follow up paper https://www.cs.rhul.ac.uk/research/languages/publications/tomita_style_1.ps
+
+The document is constantly changing.
+
+typically not true for micromark
+
+The input is often not in a finished, syntactically correct form. But you still have to make some sense of it—nobody wants an editor where most features stop working when you have a syntax error in your document.
+
+typically not true for micromark
+
+Micromark is intended as the base for remark and by extension MDX correct?
+
+Editor projects like https://github.com/blocks/blocks will be continuously changing the document.
+
+You can't do anything expensive. If the parsing works takes too long, it'll introduce latency that makes editing feel slugglish and unresponsive.
+
+micromark needs to be complete, perfect, can take a while to get there (but preferably fast/small)
+
+In what sense "complete" and "perfect"?
+
+The way I look at it, Micromark is a lexer/tokenizer.
+
+Looking at it from that sense, it is by definition incomplete, as an intermediate representation for remark to build on.
+
+You often want to be able to mix several languages/grammars in a single document (think HTML with JavaScript and CSS embedded in it).
+
+Markdown doesn’t depend on valid HTML, rather, a simplified black box.
+
+Right, not on HTML, but MDX does depend on valid JSX.
+
+👍React with 👍1Reacted by Titus
+
+johno commented on Sep 9, 2019
+
+johno
+
+on Sep 9, 2019
+
+Member
+
+More actions
+
+Micromark is intended as the base for remark and by extension MDX correct? Editor projects like https://github.com/blocks/blocks will be continuously changing the document.
+
+Blocks, in particular, has an intermediary schema (via Slate) for editing, so the parsing really only occurs when deserializing/serializing the document. Serialization would really only occur once and deserialization whenever one wants to output the MD which can be trivially debounced.
+
+You often want to be able to mix several languages/grammars in a single document (think HTML with JavaScript and CSS embedded in it).
+
+Markdown doesn’t depend on valid HTML, rather, a simplified black box.
+
+Right, not on HTML, but MDX does depend on valid JSX.
+
+I'm not sure I 100% understand what you mean by a "simplified black box" @wooorm. As in the HTML string isn't parsed itself and is instead put into an HTML node with its raw contents?
+
+As @ChristianMurphy states, MDX depends on valid JSX, which essentially will hard fail when not properly written (because babel or JS evaluation will go 💥). It doesn't have the built in "recovery" that browsers have for HTML documents. For MDX, this will require knowledge of the JSX language/grammar, which would be pretty complex to handle.
+
+Would the approach be that MDX extends/replaces micromark's HTML tokenizer/parser/compiler and replaces it with its own (likely using Babel)?
+
+Personally I'd lean towards being more robust/correct than being the fastest thing ever for the first release. Once it's "correct" we can profile bottlenecks and optimize. Not to mention some of these considerations are pretty edge-casey. Also, a lot of end users of unified (like Gatsby) can, and do, implement their own layers of caching.
+
+👍React with 👍2Reacted by Christian Murphy and Titus
+
+wooorm commented on Sep 9, 2019
+
+wooorm
+
+on Sep 9, 2019
+
+MemberAuthor
+
+More actions
+
+@ChristianMurphy Thanks for explaining, even though I write a lot of parsing things I really don’t know these basics!
+
+In what sense "complete" and "perfect"?
+
+[What] way I look at it, Micromark is a lexer/tokenizer. Looking at it from that sense, it is by definition incomplete, as an intermediate representation for remark to build on.
+
+— @ChristianMurphy
+
+That’s true. One example I can think of that CM requires entities to be valid: &foo; is literal, &amp; is &. A simpler tokeniser could treat any alphanumerical value as an entity to be simpler, whereas micromark should probably make the distinction between valid and invalid named character references. (Although, maybe we can have a probablyNamedCharacterReference token and defer this to remark/etc 🤷‍♂️)
+
+As in the HTML string isn't parsed itself and is instead put into an HTML node with its raw contents?
+
+— @johno
+
+Typically, languages have other languages inside them. The two examples here are HTML in Markdown and JSX in MDX. The difference is that Markdown doesn’t parse HTML, it parses some XML-like structures. Whereas MDX indeed seems to parse (in the future?) only valid JSX.
+
+This may be a bit of a problem: HTML/MD don’t have “invalid” content, that throws a parse error and crashes. JSX/MDX do have that.
+
+Would the approach be that MDX extends/replaces micromark's HTML tokenizer/parser/compiler and replaces it with its own (likely using Babel)?
+
+— @johno
+
+Correct! I think there’s two crucial examples of extensions for micromark: 1: GFM, 2: MDX. The first is probably easier and also very ubiquitous and can function as a proof of concept, the second is necessary but can take a bit longer as its probably a bit hard.
+
+The gist of it is that we need to figure out what the “hooks” are for extensions to plug into. Can they add/remove new inlines/blocks? Can they inject into the states of a context?
+
+wooorm commented on Sep 30, 2019
+
+wooorm
+
+on Sep 30, 2019
+
+MemberAuthor
+
+More actions
+
+CMSM does not define backtracking. This therefore removes the possibility of extensions in favour of performance.
+
+I see two possibilities of extensions: a) define useful extensions in CMSM enable them with flags, or b) allow some form of hooks.
+
+I’d like to table this for now: first priority is to get micromark working (keeping extensions in mind), actually supporting extensions comes after that.
+
+wooorm
+closed this as completedon Sep 30, 2019
+
+wooorm
+removed
+🙉 open/needs-infoThis needs some more info
+on Dec 1, 2019
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+🙋 no/questionThis does not need any changes
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

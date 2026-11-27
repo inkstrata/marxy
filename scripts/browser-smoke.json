@@ -1,0 +1,30 @@
+{
+  "_note": "The browser test files a pull request runs on a hosted macOS runner (ci.yml, job browser-smoke): the core reading paths, each written without fixed sleeps over apps/desktop/test/support/kit.mjs. A file joins once it has passed on the hosted runner three runs in a row. docs/testing.md has the rules.",
+  "files": [
+    "kit.test.mjs",
+    "open-path.test.mjs",
+    "launch-kind.test.mjs",
+    "open-in-folder.test.mjs",
+    "view-modes.test.mjs",
+    "typing.test.mjs",
+    "split-same-file.test.mjs",
+    "jump-to-source.test.mjs",
+    "selection.test.mjs",
+    "find-pane.test.mjs",
+    "replace.test.mjs",
+    "save.test.mjs",
+    "explicit-save.test.mjs",
+    "source-format.test.mjs",
+    "source-cr-endings.test.mjs",
+    "frame-tabs.test.mjs",
+    "frame-mail.test.mjs",
+    "frame-notebooks.test.mjs",
+    "frame-tables.test.mjs",
+    "diff-file.test.mjs",
+    "terminal.test.mjs",
+    "transcript.test.mjs",
+    "kind-profiles.test.mjs",
+    "settings.test.mjs",
+    "typeset-idle.test.mjs"
+  ]
+}

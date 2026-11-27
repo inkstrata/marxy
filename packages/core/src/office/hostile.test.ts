@@ -10,7 +10,8 @@ import { run } from './model.ts';
 import { openPackage } from './parts.ts';
 import { deckParts, partsReader, wordParts } from './testing/samples.ts';
 import { RTF_LIMITS } from './rtf.ts';
-import { OfficeError, readXml } from './xml.ts';
+import { OfficeError, find, readXml, textOf, type XmlElement } from './xml.ts';
+import { cpuNow } from '../testing/cpu-clock.ts';
 
 const html = (md: string): string => renderSafeHtml(md, { file: 'office.md' }).html;
 const X = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -207,4 +208,47 @@ test('raw bytes after \\bin inside a group past the depth cap are stepped over, 
   const deep = RTF_LIMITS.depth + 50;
   const r = readRtfOffice(rtfBytes(`{\\rtf1 a ${'{'.repeat(deep)}\\bin3 }}}${'}'.repeat(deep)} b\\par}`));
   assert.match(rtfText(r), /a\s+b/);
+});
+
+test('find looks breadth first, the nearest level before document order, and a wide tree costs its size (minutes before)', () => {
+  const el = (name: string, kids: (XmlElement | string)[] = []): XmlElement => ({ name, attrs: {}, full: {}, kids });
+  // A deep match early in the document loses to a shallow one later.
+  const tree = el('root', [el('a', [el('b', [el('t', ['deep'])])]), 'text', el('t', ['near'])]);
+  assert.equal(textOf(find(tree, 't')), 'near');
+  assert.equal(find(tree, 'missing'), null);
+  assert.equal(find(null, 't'), null);
+  // 250,000 items wide, each holding one element, and the match one level below the last.
+  const items = Array.from({ length: 250_000 }, () => el('li', [el('span')]));
+  items.push(el('li', [el('target', ['found'])]));
+  const t = cpuNow();
+  const hit = find(el('ol', items), 'target');
+  const took = cpuNow() - t;
+  assert.equal(textOf(hit), 'found');
+  assert.ok(took < 1000, `${Math.round(took)} ms`);
+});
+
+test('find answers as the walk that shifted its queue did, on seeded trees', () => {
+  const shifted = (root: XmlElement, name: string): XmlElement | null => {
+    const todo: XmlElement[] = [root];
+    while (todo.length > 0) {
+      for (const k of todo.shift()!.kids) {
+        if (typeof k === 'string') continue;
+        if (k.name === name) return k;
+        todo.push(k);
+      }
+    }
+    return null;
+  };
+  let a = 7;
+  const next = (): number => ((a = (Math.imul(a, 1103515245) + 12345) >>> 0) / 4294967296);
+  const grow = (depth: number): XmlElement => ({
+    name: 'abc'[Math.floor(next() * 3)]!,
+    attrs: {},
+    full: {},
+    kids: depth > 5 ? [] : Array.from({ length: Math.floor(next() * 4) }, () => (next() < 0.2 ? 'text' : grow(depth + 1))),
+  });
+  for (let i = 0; i < 2000; i++) {
+    const root = grow(0);
+    for (const name of ['a', 'b', 'c', 'd']) assert.equal(find(root, name), shifted(root, name), `tree ${i}, ${name}`);
+  }
 });

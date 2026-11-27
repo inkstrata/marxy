@@ -1,0 +1,95 @@
+Obsidian Forum
+
+Improve support for very large notes - markdown files (greater than 1 MB)
+
+Feature requests
+
+valuable
+
+WhiteNoise
+
+May 14, 2026, 4:11pm
+
+1
+
+Currently, there is no enforced hard cap on the maximum size of a single markdown file.
+
+However, as a markdown file gets larger, different problems start to become apparent.
+
+There are performance slowdowns first, likely due to the indexing process struggling to parse the file.
+
+The automatic savings strategy, along with file recovery snapshots and syncing frequency should also be fine tuned for these cases.
+
+Beyond a certain point, large files can cause OOM problems, especially on mobile.
+
+Renderer exits and window turns black while indexing large Markdown files (Obsidian crash)
+
+Out of memory crash for a file 100k lines 40mb
+
+Renderer exits and window turns black while indexing large Markdown files (Obsidian crash)
+
+Renderer exits and window turns black while indexing large Markdown files (Obsidian crash)
+
+For those with huge vaults: anything you’d do differently or wish you’d known before starting?
+
+Android: renderer crashes on every vault open when initial metadata indexing exceeds the WebView heap limit (~2,000 files, 32 MB, no plugins)
+
+alexenglishsays
+
+October 19, 2026, 3:11am
+
+2
+
+Sharing this in case it saves someone a week. Our vault (about 11,000 notes) started crashing on every launch. The window went blank 25–30 seconds in, while “Indexing vault” was showing. macOS 27.0.1, Apple M2 with 24 GB of memory, Obsidian 1.13.7.
+
+What the crash looked like. I sampled the memory of the window process (“Obsidian Helper (Renderer)”) every half second. On a crashing launch it went 844 → 1,597 → 2,789 → 3,403 → 3,959 → 4,373 MB in about three seconds, and then the window died. The crash report shows EXC_BREAKPOINT. The size of that burst varied from launch to launch on identical files (2.9 to 4.5 GB), which is why the crash looked random: some launches squeaked under the limit.
+
+What did NOT fix it. I tested each of these on a copy of the vault, with a fresh cache on every launch:
+
+Obsidian 1.12.7, 1.13.7 and 1.14.4: all crashed.
+
+--disable-gpu, --js-flags=--jitless, --js-flags=--max-old-space-size=8192: still crashed. The memory ceiling did not move.
+
+Sync and File Recovery turned off, cache cleared, other apps quit: still crashed.
+
+The “Excluded files” setting: still crashed. Excluded notes are still indexed, so excluding a problem note does not stop it from being parsed.
+
+Removing the biggest notes by size (long email threads, 17 MB between them): still crashed.
+
+What it actually was. A handful of notes with an enormous amount of structure: tens of thousands of list items, table rows, headings and links. These were machine-generated logs that had been appended to for months. Size in bytes was not the signal. Those 17 MB of email threads carried only about 3,400 list items, headings, links and table rows between them, and caused no trouble. One 3.6 MB log carried about 16,000 and was the main culprit. The three notes we cut carried roughly 16,000, 7,800 and 7,300 such items. In our vault a note with about 6,400 coexisted fine. I don’t know whether those numbers carry over to other machines.
+
+What fixed it. We cut those notes down to their recent entries and moved the older entries, unchanged, into files inside a folder whose name starts with a dot (.archive/ or similar). Obsidian does not index dot-folders, so the history is still on disk for scripts and search tools, but Obsidian never parses it. Afterwards, the real vault opened 5 times in a row on a fresh cache with no crash, and peak window-process memory was 1.2–1.6 GB, down from crashing at about 4.4 GB.
+
+How to find the culprits in your own vault. This short Python script ranks notes by how much structure they carry (run it from the vault folder; it skips dot-folders the way Obsidian does):
+
+import os, re
+rows = []
+for root, dirs, files in os.walk("."):
+dirs[:] = [d for d in dirs if not d.startswith(".")]
+for f in files:
+if f.endswith(".md"):
+t = open(os.path.join(root, f), encoding="utf-8", errors="replace").read()
+n = (t.count("[[") + len(re.findall(r"(?m)^#{1,6} ", t))
++ len(re.findall(r"(?m)^\s*(?:[-*+]|\d+\.) ", t))
++ len(re.findall(r"(?m)^\s*\|", t)))
+rows.append((n, len(t) // 1024, os.path.join(root, f)))
+for n, kb, p in sorted(rows, reverse=True)[:20]:
+print(f"{n:7d} items {kb:6d} KB {p}")
+
+If the top few are far above everything else, those are worth testing first.
+
+How to test without guessing. Work on a copy of the vault. Launch with a fresh cache each time (registering the copy as a new vault does that). Repeat 3–5 times per change, because one clean launch proves nothing when the crash is intermittent. Splitting the notes in half and testing each half finds the cause quickly.
+
+Hope this helps someone, and if the team is looking at large-file support, notes with very many list items or table rows may be a better test case than notes with very many bytes.
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Privacy Policy
+
+Powered by Discourse, best viewed with JavaScript enabled

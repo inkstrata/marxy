@@ -265,7 +265,9 @@ page still being drawn copies the whole document, not only the part drawn so far
 carries HTML (from a browser, Word, Teams or a chat tool) is read through the shell and goes in as
 Markdown, with its links, lists, headings, tables and code; Mod+Alt+Shift+V pastes the plain text
 unconverted. This needs the native clipboard of macOS or Windows; on Linux the editor pastes the plain
-text. A clipboard a password manager marked concealed is never read.
+text. A clipboard a password manager marked concealed is never read. Whether pasted text is already Markdown is
+decided from its first 4 MB (4,194,304 characters), and a paste longer than that is never set as a JSON code block: past
+the limit it goes in as the text it is.
 
 ## Pages that are not documents
 

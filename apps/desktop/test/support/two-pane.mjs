@@ -97,7 +97,7 @@ export async function bootTwoPanes(page, { files, open, guard = false, full = fa
   // Tests find the app's own module URLs on the resource timeline. The dev server serves about 250 modules
   // unbundled, and WebKit keeps only the first 250 entries, so a module fetched late under load fell off it.
   await page.addInitScript(() => performance.setResourceTimingBufferSize(10_000));
-  await page.goto(`${base}app.html`);
+  await page.goto(`${base}app.html`, { timeout: 120_000 });
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   const encoded = Object.fromEntries(Object.entries(files).map(([path, text]) => [path, b64(text)]));
   return page.evaluate(

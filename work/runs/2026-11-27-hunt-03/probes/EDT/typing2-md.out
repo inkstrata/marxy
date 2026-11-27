@@ -1,0 +1,23 @@
+2000000 source open ms 3074 cm true
+2000000 key ms 55,46,16,33,19,96,57,113,105,177,132,23,44,80,43,46,187,124,155,34 script/key ms 7.3 task/key 24.0 layouts 65
+2000000 heap MB before leave 188
+2000000 leave source ms 1106
+2000000 undo ms 727
+2000000 cycle 0 leave ms 954 heap MB 188
+2000000 cycle 1 leave ms 829 heap MB 188
+2000000 cycle 2 leave ms 1013 heap MB 188
+2000000 cycle 3 leave ms 874 heap MB 188
+2000000 cycle 4 leave ms 1248 heap MB 188
+2000000 cycle 5 leave ms 2152 heap MB 188
+4900000 source open ms 208 cm true
+4900000 key ms 116,63,59,42,64,40,179,82,161,14,18,32,19,65,281,38,79,22,30,147 script/key ms 6.4 task/key 25.8 layouts 65
+4900000 heap MB before leave 188
+4900000 leave source ms 1163
+4900000 undo ms 711
+4900000 cycle 0 leave ms 1189 heap MB 188
+4900000 cycle 1 leave ms 1107 heap MB 188
+4900000 cycle 2 leave ms 990 heap MB 188
+4900000 cycle 3 leave ms 1705 heap MB 188
+4900000 cycle 4 leave ms 1068 heap MB 188
+4900000 cycle 5 leave ms 884 heap MB 188
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1049

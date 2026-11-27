@@ -1,0 +1,385 @@
+Docs.rs
+
+comrak-0.52.0
+
+Platform
+
+x86_64-unknown-linux-gnu
+
+Feature flags
+
+docs.rs
+
+About docs.rs
+
+Badges
+
+Builds
+
+Metadata
+
+Shorthand URLs
+
+Download
+
+Rustdoc JSON
+
+Build queue
+
+Privacy policy
+
+Rust
+
+Rust website
+
+The Book
+
+Standard Library API Reference
+
+Rust by Example
+
+The Cargo Guide
+
+Clippy Documentation
+
+comrak 0.52.0
+
+A 100% CommonMark-compatible GitHub Flavored Markdown parser and formatter
+
+Crate
+
+Source
+
+Builds
+
+Feature flags
+
+Documentation
+
+Hide files
+
+..
+
+fixtures
+
+alerts.rs
+
+autolink.rs
+
+block_directive.rs
+
+cjk_friendly_emphasis.rs
+
+code.rs
+
+commonmark.rs
+
+compact_html.rs
+
+core.rs
+
+description_lists.rs
+
+empty.rs
+
+escape.rs
+
+escaped_char_spans.rs
+
+footnotes.rs
+
+front_matter.rs
+
+fuzz.rs
+
+greentext.rs
+
+header_id_prefix.rs
+
+highlight.rs
+
+html.rs
+
+inline_footnotes.rs
+
+insert.rs
+
+math.rs
+
+multiline_block_quotes.rs
+
+options.rs
+
+pathological.rs
+
+phoenix_heex.rs
+
+plugins.rs
+
+raw.rs
+
+regressions.rs
+
+rewriter.rs
+
+shortcodes.rs
+
+sourcepos.rs
+
+sourcepos_chars.rs
+
+spoiler.rs
+
+strikethrough.rs
+
+subscript.rs
+
+subtext.rs
+
+supersubscript.rs
+
+table.rs
+
+tagfilter.rs
+
+tasklist.rs
+
+underline.rs
+
+wikilinks.rs
+
+xml.rs
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+
+#![cfg(not(target_arch = "riscv64"))]
+
+use super::*;
+use ntest::timeout;
+
+// input: python3 -c 'n = 50000; print("*a_ " * n)'
+#[test]
+#[timeout(4000)]
+fn pathological_emphases() {
+let n = 50_000;
+let input = "*a_ ".repeat(n);
+let mut exp = format!("<p>{}", input);
+// Right-most space is trimmed in output.
+exp.pop();
+exp += "</p>\n";
+
+html(&input, &exp);
+}
+
+// input: python3 -c 'n = 10000; print("|" + "x|" * n + "\n|" + "-|" * n)'
+#[test]
+#[timeout(4000)]
+fn pathological_table_columns_1() {
+let n = 100_000;
+let input = format!("{}{}{}{}", "|", "x|".repeat(n), "\n|", "-|".repeat(n));
+let exp = format!("<p>{}</p>\n", input);
+
+html_opts!([extension.table], &input, &exp);
+}
+
+// input: python3 -c 'n = 70000; print("|" + "x|" * n + "\n|" + "-|" * n + "\n" + "a\n" * n)'
+#[test]
+#[timeout(4000)]
+fn pathological_table_columns_2() {
+let n = 100_000;
+let input = format!(
+"{}{}{}{}{}{}",
+"|",
+"x|".repeat(n),
+"\n|",
+"-|".repeat(n),
+"\n",
+"a\n".repeat(n)
+);
+
+let extension = parser::options::Extension {
+table: true,
+..Default::default()
+};
+
+// Not interested in the actual html, just that we don't timeout
+markdown_to_html(
+&input,
+&Options {
+extension,
+..Default::default()
+},
+);
+}
+
+// input: python3 -c 'n = 10000; print("[^1]:" * n + "\n" * n)'
+#[test]
+#[timeout(4000)]
+fn pathological_footnotes() {
+let n = 10_000;
+let input = format!("{}{}", "[^1]:".repeat(n), "\n".repeat(n));
+let exp = "";
+
+html_opts!([extension.footnotes], &input, exp);
+}
+
+#[test]
+fn pathological_recursion() {
+let n = 5_000;
+let input = format!("{}{}", "*a **a ".repeat(n), " a** a*".repeat(n));
+let exp = format!(
+"<p>{}{}</p>\n",
+"<em>a <strong>a ".repeat(n),
+" a</strong> a</em>".repeat(n)
+);
+
+// The footnote code happened to be the cause of the pathological recursion, but it didn't
+// actually depend on any footnotes being present; it was the search that caused it.
+html_opts!([extension.footnotes], &input, &exp);
+}
+
+#[test]
+fn pathological_recursion_inline_footnotes() {
+let n = 5_000;
+let input = format!("{}{}", "^[a ".repeat(n), " b]".repeat(n));
+let exp = format!(
+"{}{}{}{}",
+concat!(
+"<p><sup class=\"footnote-ref\"><a href=\"#fn-__inline_1\" id=\"fnref-__inline_1\" data-footnote-ref>1</a></sup></p>\n",
+"<section class=\"footnotes\" data-footnotes>\n<ol>\n",
+"<li id=\"fn-__inline_1\">\n<p>a <sup class=\"footnote-ref\"><a href=\"#fn-__inline_2\" id=\"fnref-__inline_2\" data-footnote-ref>5</a></sup> b <a href=\"#fnref-__inline_1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">↩</a></p>\n</li>\n",
+"<li id=\"fn-__inline_5\">\n<p>a ",
+),
+"^[a ".repeat(4995),
+" b]".repeat(4995),
+concat!(
+" b <a href=\"#fnref-__inline_5\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"2\" aria-label=\"Back to reference 2\">↩</a></p>\n</li>\n",
+"<li id=\"fn-__inline_4\">\n<p>a <sup class=\"footnote-ref\"><a href=\"#fn-__inline_5\" id=\"fnref-__inline_5\" data-footnote-ref>2</a></sup> b <a href=\"#fnref-__inline_4\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"3\" aria-label=\"Back to reference 3\">↩</a></p>\n</li>\n",
+"<li id=\"fn-__inline_3\">\n<p>a <sup class=\"footnote-ref\"><a href=\"#fn-__inline_4\" id=\"fnref-__inline_4\" data-footnote-ref>3</a></sup> b <a href=\"#fnref-__inline_3\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"4\" aria-label=\"Back to reference 4\">↩</a></p>\n</li>\n",
+"<li id=\"fn-__inline_2\">\n<p>a <sup class=\"footnote-ref\"><a href=\"#fn-__inline_3\" id=\"fnref-__inline_3\" data-footnote-ref>4</a></sup> b <a href=\"#fnref-__inline_2\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"5\" aria-label=\"Back to reference 5\">↩</a></p>\n</li>\n",
+"</ol>\n</section>\n"
+)
+);
+
+html_opts!(
+[extension.footnotes, extension.inline_footnotes],
+&input,
+&exp,
+no_roundtrip
+);
+}

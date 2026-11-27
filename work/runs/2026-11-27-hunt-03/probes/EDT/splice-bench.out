@@ -1,0 +1,14 @@
+md-prose 1000000 one-byte splice median ms 39.6 max 388.6
+md-prose 2000000 one-byte splice median ms 36.4 max 517.6
+md-prose 4900000 one-byte splice median ms 500.5 max 1021.5
+txt 1000000 one-byte splice median ms 14.8 max 443.9
+txt 2000000 one-byte splice median ms 38.6 max 464.8
+txt 4900000 one-byte splice median ms 536.6 max 1070.3
+heap MB 11
+md-prose 1000000 one-byte splice median ms 154.7 max 557.9
+md-prose 2000000 one-byte splice median ms 33.5 max 598.3
+md-prose 4900000 one-byte splice median ms 640.4 max 913.5
+txt 1000000 one-byte splice median ms 26.0 max 367.8
+txt 2000000 one-byte splice median ms 110.1 max 510.5
+txt 4900000 one-byte splice median ms 431.2 max 650.4
+heap MB 11

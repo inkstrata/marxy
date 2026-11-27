@@ -1,0 +1,354 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+micromark
+
+micromark
+
+Repository navigation
+
+Code
+
+Issues19 ( 19 )
+
+Pull requests28 ( 28 )
+
+Discussions
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+Lazy continuation lines in a list item or block quote take quadratic time #265
+
+New issue
+Copy link
+
+New issue
+Copy link
+
+Open
+
+Open
+
+Lazy continuation lines in a list item or block quote take quadratic time#265
+
+Copy link
+
+Labels
+
+🤞 phase/openPost is being triaged manually
+
+Description
+
+jhh3
+
+opened on Nov 12, 2026
+
+Issue body actions
+
+Initial checklist
+
+I read the support docs
+
+I read the contributing guide
+
+I agree to follow the code of conduct
+
+I searched issues and discussions and couldn't find anything (or linked relevant results below)
+
+Related but different: #246 (4.0.3 regression, blank-line separated containers) and #263 (closing many containers). This one is a single open container followed by many lazy continuation lines. It reproduces in 4.0.2.
+
+Affected package
+
+micromark@4.0.2
+
+Steps to reproduce
+
+import {micromark} from 'micromark'
+
+for (const n of [1000, 2000, 4000, 8000]) {
+const value = '- a\n' + 'a\n'.repeat(n) // or '> a\n' + 'a\n'.repeat(n)
+const runs = [0, 1, 2].map(() => {
+const start = performance.now()
+micromark(value)
+return performance.now() - start
+})
+console.log(n, Math.min(...runs).toFixed(1), 'ms')
+}
+
+Expected behavior
+
+Time that grows linearly with the number of lines.
+
+Actual behavior
+
+Each doubling takes about four times as long (Node 24, fastest of 3):
+
+n lazy lines
+- a list item
+> a block quote
+
+1000
+67 ms
+55 ms
+
+2000
+198 ms
+128 ms
+
+4000
+791 ms
+764 ms
+
+8000
+3.0 s
+3.3 s
+
+For each lazy continuation line, the document tokenizer appears to scan back through every earlier event of the open paragraph to find the one that keeps the line in it. That makes n lazy lines cost O(n²). Remembering the event matched for the previous lazy line, and checking it first before falling back to the full scan, made this linear in our local experiment without changing output on a large random corpus. We didn't ship that patch, but we're happy to send a PR if that approach sounds right.
+
+Runtime
+
+Node v24
+
+Package manager
+
+pnpm
+
+OS
+
+Linux
+
+Build and bundle tools
+
+Other (please specify in steps to reproduce)
+
+Activity
+
+github-actions
+added
+👋 phase/newPost is being triaged automatically
+
+🤞 phase/openPost is being triaged manually
+and removed
+👋 phase/newPost is being triaged automatically
+on Nov 12, 2026
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+🤞 phase/openPost is being triaged manually
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

@@ -4,12 +4,10 @@
 // opened for another pane never takes the keys. Each word is made of verb keys (c copy, e edit, t tick, l in, j next),
 // so a key that reached the page would show.
 import { strict as assert } from 'node:assert';
-import { after, test as nodeTest } from 'node:test';
-import { closeHarness } from './support/two-pane.mjs';
-import { skip, withFrame } from './support/frame.mjs';
+import { test as nodeTest } from 'node:test';
+import { idle, skip, withApp } from './support/kit.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
-after(() => closeHarness());
 
 const WORD = 'jetcell';
 const DOC = [
@@ -81,7 +79,7 @@ const blockAtReadingLine = (page) =>
 async function scrollRead(page) {
   await page.mouse.move(600, 400);
   await page.mouse.wheel(0, 2400);
-  await page.waitForTimeout(400);
+  await idle(page);
   const at = await blockAtReadingLine(page);
   assert.ok(at > 500, `Read is scrolled: the block at the reading line starts at byte ${at}`);
   return at;
@@ -98,7 +96,7 @@ async function typeInSourceThenLeave(page, mod, before, at) {
 }
 
 test('Mod+E from a scrolled page puts the caret in the editor at the block on the reading line; a typed word is text', async () => {
-  await withFrame({ files: { '/r/long.md': LONG }, open: ['/r/long.md'] }, async (page, { mod }) => {
+  await withApp({ files: { '/r/long.md': LONG }, open: ['/r/long.md'] }, async (page, { mod }) => {
     const at = await scrollRead(page);
     await blur(page);
     await page.keyboard.press(`${mod}+e`);
@@ -107,7 +105,7 @@ test('Mod+E from a scrolled page puts the caret in the editor at the block on th
 });
 
 test('the Source button from a scrolled page puts the caret at the block on the reading line; a typed word is text', async () => {
-  await withFrame({ files: { '/r/long.md': LONG }, open: ['/r/long.md'] }, async (page, { mod }) => {
+  await withApp({ files: { '/r/long.md': LONG }, open: ['/r/long.md'] }, async (page, { mod }) => {
     const at = await scrollRead(page);
     await page.click('.marxy-rs-source');
     await typeInSourceThenLeave(page, mod, LONG, at);
@@ -115,7 +113,7 @@ test('the Source button from a scrolled page puts the caret at the block on the 
 });
 
 test('the caret the reader left in Source is kept across Read and back when Read was not scrolled', async () => {
-  await withFrame({ files: { '/r/long.md': LONG }, open: ['/r/long.md'] }, async (page, { mod }) => {
+  await withApp({ files: { '/r/long.md': LONG }, open: ['/r/long.md'] }, async (page, { mod }) => {
     await blur(page);
     await page.keyboard.press(`${mod}+e`);
     await inMode(page, 'source');
@@ -133,11 +131,11 @@ test('the caret the reader left in Source is kept across Read and back when Read
 });
 
 test('Mod+2 opens Source in the right pane and leaves the keys, and focus, in the left one', async () => {
-  await withFrame({ files: FILES, open: ['/r/notes.md'] }, async (page, { mod }) => {
+  await withApp({ files: FILES, open: ['/r/notes.md'] }, async (page, { mod }) => {
     await blur(page);
     await page.keyboard.press(`${mod}+2`);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 2 && window.__marxyHandle.panes().panes[1].view.mode === 'source');
-    await page.waitForTimeout(300);
+    await idle(page);
     const where = await page.evaluate(() => ({
       right: document.querySelector('[data-marxy-pane="1"]')?.contains(document.activeElement) ?? false,
       leftHasFocus: document.querySelector('[data-marxy-pane="0"]')?.hasAttribute('data-marxy-focus') ?? false,
@@ -164,19 +162,19 @@ async function editAndType(page, text, path, end) {
 const endOf = (line) => DOC.indexOf(line) + line.length;
 
 test('e on a list item: the word goes after the item\'s text, the marker intact', async () => {
-  await withFrame({ files: FILES, open: ['/r/notes.md'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/notes.md'] }, async (page) => {
     await editAndType(page, 'two item', ['j', 'j', 'l', 'j'], endOf('- two item'));
   });
 });
 
 test('e on a task item: the word goes after the task\'s text, so the box and the item above are intact', async () => {
-  await withFrame({ files: FILES, open: ['/r/notes.md'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/notes.md'] }, async (page) => {
     await editAndType(page, 'second task', ['j', 'j', 'l', 'j', 'j', 'j'], endOf('- [ ] second task'));
   });
 });
 
 test('e on a quote: the word goes after the quote\'s text, the marker intact', async () => {
-  await withFrame({ files: FILES, open: ['/r/notes.md'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/notes.md'] }, async (page) => {
     await editAndType(page, 'a quote line', ['j', 'j', 'j'], endOf('> a quote line'));
   });
 });
@@ -205,14 +203,14 @@ for (const [name, marker, type, end, into] of [
   ['a list item with a nested list: the word ends the item\'s own text', '- parent', 'listItem', SYNTAX.indexOf('- parent') + '- parent'.length, ['l']],
 ]) {
   test(`e keeps the syntax of ${name}`, async () => {
-    await withFrame({ files: { '/r/syntax.md': SYNTAX }, open: ['/r/syntax.md'] }, async (page, { mod }) => {
+    await withApp({ files: { '/r/syntax.md': SYNTAX }, open: ['/r/syntax.md'] }, async (page, { mod }) => {
       await editAt(page, mod, marker, type, end, into);
     });
   });
 }
 
 test('Mod+P with the Line open selects its text; Esc closes it; a word typed after is the Line\'s', async () => {
-  await withFrame({ files: FILES, open: ['/r/notes.md'] }, async (page, { mod }) => {
+  await withApp({ files: FILES, open: ['/r/notes.md'] }, async (page, { mod }) => {
     await blur(page);
     await page.keyboard.press(`${mod}+p`);
     await page.waitForFunction(() => document.querySelector('#marxy-palette')?.open === true);
@@ -229,7 +227,7 @@ test('Mod+P with the Line open selects its text; Esc closes it; a word typed aft
 });
 
 test('the Enter menu names every verb the verb bar does, each once, with the bar\'s key on the row that does the same', async () => {
-  await withFrame({ files: FILES, open: ['/r/notes.md'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/notes.md'] }, async (page) => {
     await cursorOn(page, 'second task', ['j', 'j', 'l', 'j', 'j', 'j']);
     const bar = await page.evaluate(() => [...document.querySelectorAll('.marxy-verb-bar [data-marxy-verb]')].map((b) => b.getAttribute('data-marxy-verb')).filter((id) => id !== 'cursor.menu'));
     await page.keyboard.press('Enter');

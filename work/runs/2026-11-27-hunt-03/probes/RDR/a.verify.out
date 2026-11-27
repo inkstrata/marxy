@@ -1,0 +1,8 @@
+ 3:03  up 1 day,  6:21, 1 user, load averages: 25.19 37.57 45.81
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/RDR/a.verify.mjs --browser chromium
+{"kind":"md-references","size":1000000,"inpage":{"parse":1127,"defEdit":263,"rp":"{\"kind\":\"region\",\"parsed\":150290,\"attempts\":1}","bodyEdit":10,"rp2":"{\"kind\":\"region\",\"parsed\":659,\"attempts\":1}"},"first":1437,"resolved":2644,"cpuTask":5.82,"cpuScript":0.46,"cpuLayout":1.08,"cpuStyle":0.73,"nodes":54219,"maxLong":1397,"nLong":6}
+{"kind":"md-references","size":2000000,"inpage":{"parse":2417,"defEdit":582,"rp":"{\"kind\":\"region\",\"parsed\":300287,\"attempts\":1}","bodyEdit":9,"rp2":"{\"kind\":\"region\",\"parsed\":654,\"attempts\":1}"},"first":33,"resolved":4121,"cpuTask":7.36,"cpuScript":0.81,"cpuLayout":0.88,"cpuStyle":0.58,"nodes":115734,"maxLong":2330,"nLong":4}
+{"kind":"md-technical","size":1000000,"first":1601,"resolved":2803,"cpuTask":6.02,"cpuScript":0.61,"cpuLayout":0.32,"cpuStyle":2.05,"nodes":88283,"maxLong":1520,"nLong":1}
+{"kind":"md-technical","size":2000000,"first":30,"resolved":22675,"cpuTask":25.62,"cpuScript":2.99,"cpuLayout":1.38,"cpuStyle":10.78,"nodes":166807,"maxLong":74,"nLong":4}
+{"kind":"md-dense","size":1000000,"first":12054,"resolved":13264,"cpuTask":16.26,"cpuScript":0.79,"cpuLayout":0.3,"cpuStyle":2.25,"nodes":473700,"maxLong":11917,"nLong":6}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1103

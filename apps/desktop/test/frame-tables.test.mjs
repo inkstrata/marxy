@@ -8,12 +8,11 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { after, test as nodeTest } from 'node:test';
-import { closeHarness } from './support/two-pane.mjs';
-import { cardText, cardsOf, rowOf, showCardPanel, showPanel, skip, withFrame } from './support/frame.mjs';
+import { test as nodeTest } from 'node:test';
+import { skip, withApp } from './support/kit.mjs';
+import { cardText, cardsOf, rowOf, showCardPanel, showPanel } from './support/frame.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
-after(() => closeHarness());
 
 const demo = join(fileURLToPath(new URL('../../../', import.meta.url)), 'fixtures', 'demo');
 const bytes = (rel) => readFileSync(join(demo, rel));
@@ -58,7 +57,7 @@ const pickPart = async (page, name) => {
 const gridRow = (page, i) => page.$eval(`.marxy-tbl-grid tbody tr:nth-child(${i + 1})`, (tr) => [...tr.children].map((c) => c.textContent));
 
 test('a database opens as the table page: its parts in the bar at the foot, Schema last, columns with their declared types, NULL said, a BLOB as its size', async () => {
-  await withFrame({ files: FILES, open: ['/r/data/gauges.sqlite'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/data/gauges.sqlite'] }, async (page) => {
     await page.waitForSelector('.marxy-tbl-grid tbody tr');
     assert.equal(await page.getAttribute('[data-marxy-viewer]', 'data-marxy-viewer'), 'sqlite');
     assert.equal(await page.textContent('.marxy-tbl-line'), 'SQLite 3 · 4 tables, 2 views, 2 indexes, 1 trigger · 300.0 KB');
@@ -89,7 +88,7 @@ test('a database opens as the table page: its parts in the bar at the foot, Sche
 });
 
 test('a BLOB picked is the passing Cell card: its first bytes, what it seems to be, and Open it, into memory in a tab of its own', async () => {
-  await withFrame({ files: FILES, open: ['/r/data/gauges.sqlite'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/data/gauges.sqlite'] }, async (page) => {
     await page.waitForSelector('.marxy-tbl-grid tbody tr');
     await page.click('.marxy-tbl-grid tbody tr:nth-child(2) td[data-marxy-col="6"]');
     await showPanel(page, 'metadata');
@@ -119,7 +118,7 @@ test('a BLOB picked is the passing Cell card: its first bytes, what it seems to 
 });
 
 test('rows come 200 at a time with Earlier, Later and Go to row; a view runs and says what it is; the schema says triggers never run', async () => {
-  await withFrame({ files: FILES, open: ['/r/data/gauges.sqlite'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/data/gauges.sqlite'] }, async (page) => {
     await page.waitForSelector('.marxy-tbl-grid tbody tr');
     await pickPart(page, 'readings');
     await page.waitForFunction(() => document.querySelector('.marxy-tbl-pager-label')?.textContent === 'Rows 1 to 200 of 1,240');
@@ -164,7 +163,7 @@ test('rows come 200 at a time with Earlier, Later and Go to row; a view runs and
 });
 
 test('a WAL database is read with its log, said in grey in the head and above the rows; the file alone is a choice, said as yours', async () => {
-  await withFrame({ files: FILES, open: ['/r/data/journal.sqlite'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/data/journal.sqlite'] }, async (page) => {
     await page.waitForSelector('.marxy-tbl-grid tbody tr');
     await page.waitForFunction(() => document.querySelector('.marxy-guess')?.textContent === 'With its WAL');
     assert.deepEqual(await head(page), { text: 'With its WAL', tier: true });
@@ -187,11 +186,20 @@ test('a WAL database is read with its log, said in grey in the head and above th
           return null;
         }
       });
-    let alone = null;
-    for (let i = 0; i < 40 && alone === null; i++) {
-      alone = await keptAlone();
-      if (alone === null) await page.waitForTimeout(100);
-    }
+    // The write is the app's own, after the click: poll on frames until the file says it, the test's timeout bounding it.
+    await page.evaluate(async () => {
+      const kept = async () => {
+        const shell = window.__marxyHandle.shell;
+        const paths = await shell.configPaths();
+        try {
+          return JSON.parse(new TextDecoder().decode(await shell.readFile(`${paths.data}/readings.json`))).alone != null;
+        } catch {
+          return false;
+        }
+      };
+      while (!(await kept())) await new Promise((r) => requestAnimationFrame(r));
+    });
+    const alone = await keptAlone();
     assert.deepEqual(alone, ['/r/data/journal.sqlite'], 'the choice is kept in readings.json');
     await page.click('.marxy-tbl-state button:has-text("Read it with its WAL")');
     await page.waitForFunction(() => document.querySelector('.marxy-tbl-sub')?.textContent === 'table · 52 rows · 3 columns');
@@ -199,14 +207,14 @@ test('a WAL database is read with its log, said in grey in the head and above th
 });
 
 test('a locked database is read from a copy in memory, said; an encrypted one falls to the file card and the head stays quiet; its log names it', async () => {
-  await withFrame({ files: FILES, open: ['/r/data/tidemark-cache.db'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/data/tidemark-cache.db'] }, async (page) => {
     await page.waitForSelector('.marxy-tbl-grid tbody tr');
     await page.waitForFunction(() => document.querySelector('.marxy-guess')?.textContent === 'A copy in memory · the file is locked');
     assert.match(await page.textContent('.marxy-tbl-state'), /^Another program holds this database for itself alone, so it cannot be opened in place\. It is read from a copy of its bytes taken into memory/);
     assert.equal(await page.$eval('.marxy-tbl-grid thead th', (th) => th.textContent), 'rowid', 'a TEXT key: the rowid is a column of its own');
     assert.equal((await factsOf(page, 'frontmatter')).locked, 'by another program: read from a copy in memory');
   });
-  await withFrame({ files: FILES, open: ['/r/data/vault.db'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/data/vault.db'] }, async (page) => {
     await page.waitForSelector('.marxy-fcard');
     assert.equal(await page.getAttribute('[data-marxy-viewer]', 'data-marxy-viewer'), 'card');
     const card = await page.innerText('.marxy-fcard');
@@ -217,7 +225,7 @@ test('a locked database is read from a copy in memory, said; an encrypted one fa
     assert.equal(await head(page), null);
     assert.equal((await calls(page, 'tablesOpen')).length, 0, 'no SQLite header: nothing asked of SQLite');
   });
-  await withFrame({ files: FILES, open: ['/r/data/journal.sqlite-wal'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/data/journal.sqlite-wal'] }, async (page) => {
     await page.waitForSelector('.marxy-fcard');
     const card = await page.innerText('.marxy-fcard');
     assert.match(card, /a SQLite write-ahead log/);
@@ -229,7 +237,7 @@ test('a locked database is read from a copy in memory, said; an encrypted one fa
 });
 
 test('Source is the bytes, SQLite’s header underlined; Export offers the database, a table as CSV and the schema', async () => {
-  await withFrame({ files: FILES, open: ['/r/data/gauges.sqlite'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/data/gauges.sqlite'] }, async (page) => {
     await page.waitForSelector('.marxy-tbl-grid tbody tr');
     const names = await page.evaluate(() => window.__marxyHandle.panes().focused.content.viewer().exports('rendered').map((e) => e.name));
     assert.deepEqual(names, ['The database, as it is', 'stations as CSV', 'The schema']);
@@ -243,7 +251,7 @@ test('Source is the bytes, SQLite’s header underlined; Export offers the datab
 });
 
 test('a workbook: values as saved in its own formats, a formula’s corner mark, merges drawn merged, errors and missing values as saved, the Cell card', async () => {
-  await withFrame({ files: FILES, open: ['/r/sheets/tide-log-2026.xlsx'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/sheets/tide-log-2026.xlsx'] }, async (page) => {
     await page.waitForSelector('.marxy-tbl-sheet tbody tr');
     assert.equal(await page.getAttribute('[data-marxy-viewer]', 'data-marxy-viewer'), 'sheet');
     assert.equal(await page.textContent('.marxy-tbl-line'), 'Excel workbook · 5 sheets, 2 of them hidden');
@@ -280,7 +288,7 @@ test('a workbook: values as saved in its own formats, a formula’s corner mark,
 });
 
 test('Formulas shows each formula as written for this tab; hidden sheets sit in the bar in italic, marked; 2,000 rows are drawn, then the step', async () => {
-  await withFrame({ files: FILES, open: ['/r/sheets/tide-log-2026.xlsx'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/sheets/tide-log-2026.xlsx'] }, async (page) => {
     await page.waitForSelector('.marxy-tbl-sheet tbody tr');
     await page.click('.marxy-tbl-segb:has-text("Formulas")');
     await page.waitForFunction(() => document.querySelector('td[data-marxy-cell="B5"]')?.textContent === '=COUNTIF(Readings!B:B,A5)');
@@ -315,7 +323,7 @@ test('Formulas shows each formula as written for this tab; hidden sheets sit in 
 });
 
 test('an ods and an xls read the same way: an ods’s merges from its spans and its hidden sheet; an xls’s BIFF cells and its compound file', async () => {
-  await withFrame({ files: FILES, open: ['/r/sheets/tide-log-2026.ods'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/sheets/tide-log-2026.ods'] }, async (page) => {
     await page.waitForSelector('.marxy-tbl-sheet tbody tr');
     assert.match(await page.textContent('.marxy-tbl-line'), /^OpenDocument spreadsheet · 3 sheets, 1 of them hidden/);
     assert.equal(await page.$eval('td[data-marxy-cell="A1"]', (td) => td.colSpan > 1), true);
@@ -325,7 +333,7 @@ test('an ods and an xls read the same way: an ods’s merges from its spans and 
     assert.match(await page.textContent('td[data-marxy-cell="C5"]'), /^3\.18/);
     assert.match(await page.textContent('td[data-marxy-cell="B13"]'), /^2026-10-02 18:38/);
   });
-  await withFrame({ files: FILES, open: ['/r/sheets/harbour-dues-1999.xls'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/sheets/harbour-dues-1999.xls'] }, async (page) => {
     await page.waitForSelector('.marxy-tbl-sheet tbody tr');
     assert.match(await page.textContent('.marxy-tbl-line'), /^Excel 97 to 2003 workbook · 2 sheets, 1 of them hidden/);
     await page.click('td[data-marxy-cell="D12"]');

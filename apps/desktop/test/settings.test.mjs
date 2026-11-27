@@ -8,8 +8,8 @@ import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { b64, closeHarness, harnessBase, shippedSkeleton } from './support/two-pane.mjs';
+import { idle, openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -27,7 +27,7 @@ const CONFIG = '# Marxy configuration. Edit freely; Marxy re-reads this file whe
 
 async function withPage(fn, { config = CONFIG, data = {}, width = 1280, height = 900, open = '/r/A.md' } = {}) {
   inGroup = null;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width, height } });
     const base = await harnessBase();
@@ -67,8 +67,10 @@ async function withPage(fn, { config = CONFIG, data = {}, width = 1280, height =
   }
 }
 
-const settle = (page, ms = 250) => page.evaluate((t) => new Promise((r) => setTimeout(r, t)), ms);
+const settle = (page) => idle(page);
 const config = (page) => page.evaluate(() => window.__config());
+/** Waits, on frames, until config.toml's text is `text`: the app writes it after the press, the test's timeout bounds the wait. */
+const configBecomes = (page, text) => page.evaluate(async (t) => { while ((await window.__config()) !== t) await new Promise((r) => requestAnimationFrame(r)); }, text);
 const isOpen = (page) => page.evaluate(() => document.querySelector('[data-marxy-settings]') !== null);
 const TITLES = { general: 'General', appearance: 'Appearance', reading: 'Reading', source: 'Source', types: 'Content types', accessibility: 'Accessibility', privacy: 'Privacy', proposals: 'Proposals', advanced: 'Advanced' };
 /** The group `rowKeys` reads: every group is drawn at once, so a category is a group to look in, not a page to go to. */
@@ -76,7 +78,7 @@ let inGroup = null;
 const openByKey = async (page) => {
   await page.keyboard.press('ControlOrMeta+Comma');
   await page.waitForSelector('[data-marxy-settings]');
-  await settle(page, 80);
+  await settle(page);
 };
 const rowKeys = (page) => page.evaluate((title) => {
   const groups = [...document.querySelectorAll('[data-marxy-settings] .marxy-settings-group')];
@@ -86,13 +88,13 @@ const rowKeys = (page) => page.evaluate((title) => {
 const category = async (page, id) => {
   inGroup = TITLES[id];
   await page.locator('[data-marxy-settings] .marxy-settings-group', { has: page.locator('.marxy-dlab span', { hasText: TITLES[id] }) }).first().scrollIntoViewIfNeeded();
-  await settle(page, 80);
+  await settle(page);
 };
 const FIELD = '[data-marxy-settings] input[type="search"]';
 const search = async (page, text) => {
   inGroup = null;
   await page.fill(FIELD, text);
-  await settle(page, 120);
+  await settle(page);
 };
 const row = (key) => `[data-marxy-setting="${key}"]`;
 const pillTexts = (page) => page.evaluate(() => [...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent));
@@ -162,14 +164,14 @@ test('typing "whitespace" shows Show whitespace; turning it on writes one line, 
     assert.equal(await page.locator(`${row('show_whitespace')} .marxy-setting-label`).textContent(), 'Show whitespace');
     assert.equal(await page.locator(`${row('show_whitespace')} [data-marxy-dot]`).count(), 0, 'unchanged: no dot');
     await page.locator(`${row('show_whitespace')} input[role="switch"]`).check();
-    await settle(page, 200);
+    await settle(page);
     assert.equal(await config(page), CONFIG.replace('[linux]', 'show_whitespace = true\n[linux]'),
       'one line is added before the first table, and no other byte moves');
     assert.equal(await marks(), true, 'the Source pane shows whitespace at once');
     assert.equal(await page.locator(`${row('show_whitespace')} [data-marxy-dot]`).count(), 1, 'the dot appears');
     assert.equal(await page.locator(`${row('show_whitespace')} [data-marxy-dot]`).getAttribute('aria-label'), 'Reset Show whitespace to its default, Off');
     await page.click(`${row('show_whitespace')} [data-marxy-dot]`);
-    await settle(page, 200);
+    await settle(page);
     assert.equal(await config(page), CONFIG, 'the file\'s bytes are exactly what they were');
     assert.equal(await marks(), false);
     assert.equal(await page.locator(`${row('show_whitespace')} [data-marxy-dot]`).count(), 0);
@@ -206,11 +208,12 @@ test('a changed value carries the dot already in the file: size = 22 is changed,
     assert.match(await page.locator(`${row('size')} .marxy-setting-meta`).textContent(), /Changed/);
     // Resetting it removes its line, comment and all, and nothing else; Undo puts it back.
     await page.click(`${row('size')} [data-marxy-dot]`);
-    await settle(page, 200);
+    await configBecomes(page, CONFIG.replace('size = 22   # my eyes\n', ''));
+    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => /Reset Text size/.test(n.textContent)));
     assert.equal(await config(page), CONFIG.replace('size = 22   # my eyes\n', ''));
     assert.ok((await pillTexts(page)).some((t) => /Reset Text size/.test(t)));
     await page.click('.marxy-notice .marxy-notice-action');
-    await settle(page, 200);
+    await configBecomes(page, CONFIG);
     assert.equal(await config(page), CONFIG, 'Undo puts the line back exactly, its comment included');
   });
 });
@@ -221,7 +224,7 @@ test('Typeset off disables Measure, and the control says why', async () => {
     await category(page, 'reading');
     assert.equal(await page.locator(`${row('measure')} input[type="range"]`).isDisabled(), false);
     await page.locator(`${row('typeset')} input[role="switch"]`).uncheck();
-    await settle(page, 200);
+    await settle(page);
     assert.match(await config(page), /typeset = false/);
     assert.equal(await page.locator(`${row('measure')} input[type="range"]`).isDisabled(), true);
     const why = await page.locator(`${row('measure')} .marxy-setting-why`).textContent();
@@ -230,7 +233,7 @@ test('Typeset off disables Measure, and the control says why', async () => {
     const described = await page.locator(`${row('measure')} input[type="range"]`).getAttribute('aria-describedby');
     assert.ok(described.split(' ').some((id) => id.endsWith('-why')));
     await page.locator(`${row('typeset')} input[role="switch"]`).check();
-    await settle(page, 200);
+    await settle(page);
     assert.equal(await page.locator(`${row('measure')} input[type="range"]`).isDisabled(), false);
     // The column guide's rule is a sentence, not a switch.
     await category(page, 'source');
@@ -243,18 +246,18 @@ test('Measure and Variant are applied at once, and written as one line each', as
     await openByKey(page);
     await category(page, 'reading');
     await page.locator(`${row('measure')} input[type="range"]`).fill('58');
-    await settle(page, 250);
+    await settle(page);
     assert.match(await config(page), /\nmeasure = 58\n/);
     assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--marxy-measure-chars')), '58');
     await category(page, 'appearance');
     await page.locator(`${row('variant')} input[value="light"]`).check();
-    await settle(page, 250);
+    await settle(page);
     assert.match(await config(page), /\nvariant = "light"\n/);
     assert.equal(await page.evaluate(() => document.documentElement.getAttribute('data-marxy-variant') ?? document.body.getAttribute('data-marxy-variant')), 'light');
     // Ink is the default: the choice that writes a line is another theme.
     assert.equal(await page.locator(`${row('theme')} select`).inputValue(), '');
     await page.locator(`${row('theme')} select`).selectOption('night-paper');
-    await settle(page, 400);
+    await settle(page);
     assert.match(await config(page), /\ntheme = "night-paper"\n/);
     assert.equal(await page.evaluate(async () => (await import('/src/theme/user-theme.ts')).currentThemeName()), 'night-paper');
   });
@@ -283,7 +286,7 @@ test('a hand edit to config.toml shows on the page at once, and an unknown key i
     // A change made now writes over the file as it is, so the unknown key survives.
     await category(page, 'source');
     await page.locator(`${row('show_whitespace')} [data-marxy-dot]`).click();
-    await settle(page, 200);
+    await settle(page);
     assert.equal(await config(page), 'colour = "teal"\n');
   });
 });
@@ -297,7 +300,7 @@ test('a config.toml that changed on disk since the page showed it is never overw
     await page.evaluate((t) => window.__marxyHandle.shell.plant('/config', new TextEncoder().encode(t)), theirs);
     // One click: `check()` would click again when the control springs back to what the file says.
     await page.locator(`${row('show_whitespace')} input[role="switch"]`).click();
-    await settle(page, 300);
+    await settle(page);
     assert.equal(await config(page), theirs, 'not a byte of their file was overwritten');
     assert.ok((await pillTexts(page)).some((t) => /changed on disk/.test(t) && /Show whitespace was not changed/.test(t)), (await pillTexts(page)).join(' | '));
     assert.equal(await page.locator(`${row('show_whitespace')} input[role="switch"]`).isChecked(), false, 'the control shows the file, not the refused change');
@@ -355,10 +358,10 @@ test('the versions row in Privacy: turning it off writes versions = false and it
     await openByKey(page);
     await category(page, 'privacy');
     await page.locator(`${row('versions')} input[role="switch"]`).uncheck();
-    await settle(page, 200);
+    await settle(page);
     assert.match(await config(page), /\nversions = false\n/);
     await page.click(`${row('versions')} [data-marxy-dot]`);
-    await settle(page, 200);
+    await settle(page);
     assert.equal(await config(page), CONFIG);
   });
 });
@@ -377,16 +380,16 @@ test('Advanced opens config.toml itself in Source', async () => {
 test('the panes come back as they were: the reading position survives the round trip, and the text under the page never moved', async () => {
   await withPage(async (page) => {
     await page.evaluate(() => window.__marxyHandle.frame().unfold());
-    await settle(page, 300);
+    await settle(page);
     await page.evaluate(() => window.scrollTo(0, 420));
-    await settle(page, 150);
+    await settle(page);
     const before = await page.evaluate(() => ({ y: window.scrollY, top: [...document.querySelectorAll('#doc p')].find((p) => p.getBoundingClientRect().top > 0)?.getBoundingClientRect().top }));
     await openByKey(page);
     await category(page, 'reading');
     // A docked drawer closes by its own chord (Esc closes only one over the page).
     await page.keyboard.press('ControlOrMeta+Comma');
     await page.waitForFunction(() => document.querySelector('[data-marxy-settings]') === null);
-    await settle(page, 150);
+    await settle(page);
     const after = await page.evaluate(() => ({ y: window.scrollY, top: [...document.querySelectorAll('#doc p')].find((p) => p.getBoundingClientRect().top > 0)?.getBoundingClientRect().top }));
     assert.deepEqual(after, before);
   });
@@ -400,7 +403,7 @@ test('with no config.toml the page shows the defaults and the first change creat
     assert.equal(await page.locator('[data-marxy-advanced="open-source"]').isDisabled(), true, 'there is no file to open yet');
     await category(page, 'source');
     await page.locator(`${row('show_whitespace')} input[role="switch"]`).check();
-    await settle(page, 200);
+    await settle(page);
     assert.equal(await config(page), 'show_whitespace = true\n');
     await category(page, 'advanced');
     assert.equal(await page.locator('[data-marxy-advanced="open-source"]').isDisabled(), false);
@@ -413,11 +416,11 @@ test('a hand-written multi-line value survives: resetting External editor takes 
     await openByKey(page);
     await search(page, 'external editor');
     await page.click(`${row('external_editor')} [data-marxy-dot]`);
-    await settle(page, 250);
+    await settle(page);
     assert.equal(await config(page), 'matrix = [\n  [1, 2],\n  [3, 4]\n]\nsize = 22\n', 'the whole string went, nothing else');
     await search(page, 'whitespace');
     await page.locator(`${row('show_whitespace')} input[role="switch"]`).click();
-    await settle(page, 250);
+    await settle(page);
     assert.equal(await config(page), 'matrix = [\n  [1, 2],\n  [3, 4]\n]\nsize = 22\nshow_whitespace = true\n', 'appended after the array, not inside it');
   }, { config: text });
 });
@@ -431,7 +434,7 @@ test('a config.toml that is not valid TOML is never written to, from any categor
       await category(page, cat);
       assert.match(await page.locator('.marxy-settings-warning').textContent(), /not valid TOML/, `the warning is under ${cat} too`);
       await page.locator(`${row(key)} ${selector}`).click();
-      await settle(page, 200);
+      await settle(page);
       assert.equal(await config(page), bad, `${key}: not a byte written`);
     }
     await search(page, 'whitespace');
@@ -448,7 +451,7 @@ test('a measure the reader wrote applies to every kind, over the kind\'s own; un
         const out = {};
         for (const kind of ['article', 'readme', 'report', 'transcript']) {
           for (const el of document.querySelectorAll('[data-marxy-kind]')) el.setAttribute('data-marxy-kind', kind);
-          await new Promise((r) => setTimeout(r, 60));
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
           out[kind] = document.querySelector('#doc > p').getBoundingClientRect().width;
         }
         return out;

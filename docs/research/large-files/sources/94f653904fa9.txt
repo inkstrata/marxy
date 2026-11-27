@@ -1,0 +1,285 @@
+Skip to content
+
+Home
+
+Documentation
+
+Download
+
+Plugins
+
+Buy
+
+Upgrade
+
+Contact Us
+
+Report a Bug
+
+Request a Feature
+
+Blog
+
+An Intuitive CSV File Editor/Viewer
+for Windows, Mac, and Linux
+
+Download
+
+brew install --cask modern-csv
+Copy
+
+Try it for free today. Available for Windows, Mac, and Linux.
+
+Email
+
+Send Download Link
+
+We will never share your information with anyone. Privacy Policy
+
+Used by data scientists, marketers, biomedical researchers, e-commerce operators, IT professionals, accountants, engineers, attorneys, and university professors.
+Used by
+data scientists.
+
+Modern CSV is a powerful CSV file editor/viewer application for Windows, Mac, and Linux. Professionals at all levels of technical proficiency use it to clean CSV files, analyze data, check files for uploading to databases, modify configuration files, maintain customer lists, and more. We designed it to compensate for the deficiencies of spreadsheet programs in handling CSV/TSV/DSV/etc. files. We strive to create a user experience our customers describe as “blissful”.
+
+Edit CSV Files Quickly and Easily
+
+Why should moving columns, duplicating rows, or splitting cells be difficult?
+
+Modern CSV makes everyday editing tasks effortless. Select entire rows or columns or multiple cells and perform operations on all of them at once.
+
+With intuitive controls and an extensive collection of commands, even complex editing tasks become simple.
+
+Find, Sort, and Filter Your CSV Data
+
+Find exactly what you're looking for, even in large datasets.
+
+Search with regular expressions, highlight matches as you type, and preview replacements before making changes.
+
+Sort columns with a double-click, create powerful filters, and hide rows or columns to focus on the data that matters.
+
+Open Large CSV Files With Ease
+
+Modern CSV is designed to handle files that overwhelm most spreadsheet applications. Its optimized file handling engine enables fast loading, responsive editing, and low memory usage.
+
+Testing shows Modern CSV can load a file 28 times faster than Excel. Furthermore, it handles files beyond Excel’s million-row limit.
+
+Privacy
+
+Your data stays on your computer.
+
+Multi-platform
+
+Available for Windows, macOS, and Linux.
+
+Import/Export
+
+Import and export JSON, XML, and Excel files.
+
+文
+
+한
+
+é
+
+Language support
+
+Available in 16 languages.
+
+An Easy and Customizable CSV Editor Interface
+
+Modern CSV was designed with you in mind. Its clean, intuitive interface makes it a breeze to use its powerful tools on your CSV files.
+
+Features like Auto-Suggest simplify data entry, Column Tools helps you quickly filter, sort, and analyze column data, and the Command Launcher lets you find and execute commands quickly.
+
+Make Modern CSV your own by setting your own keyboard shortcuts, picking from a wide variety of light and dark themes, and telling it how to open files according to file extension.
+
+Analyze Your CSV Files
+
+Modern CSV’s built-in analysis tools help you uncover insights about your CSV files.
+
+Statistics - Quickly calculate the mean, median, variance, and other statistics.
+
+Column Analysis - Examine data types, empty cells, and column characteristics.
+
+Unique Values - Identify unique entries across one or multiple columns and see their frequencies.
+
+Pivot Tables - Group and summarize your data to reveal patterns.
+
+Charts - Visualize your data with line, scatter, histogram, bar, and pie charts.
+
+Extend Modern CSV with Plugins
+
+Need more advanced capabilities? Modern CSV's plugin system lets you extend the application with tools for automation, scripting, and data processing.
+
+Install only the plugins you need to keep the program lightweight.
+
+The following plugins are currently available and more are in development.
+
+Formulas - Perform calculations on your data with Python.
+
+Scripts - Write your own commands with Python and record macros.
+
+Terminal Commands - Integrate external programs into your workflow and pass file data or metadata through command-line arguments.
+
+Additional Capabilities
+
+Delimiter, character encoding, and line ending auto-detection
+
+Handles poorly formatted files
+
+Freeze header rows/columns so they’re always visible
+
+Auto-refresh when files are edited externally (optional)
+
+RFC 4180 compliant (optional)
+
+Fuzzy search for all commands and files
+
+Drag and drop files or folders
+
+Drag and drop groups of cells, rows, or columns
+
+Save results of filtering, sorting, etc. into separate files
+
+Multi-line cell handling
+
+Split and merge files
+
+Compare and reconcile columns
+
+Column lookup
+
+Convert date/time formats with format auto-detection
+
+Transpose entire tables or segments of a table
+
+Text case conversion
+
+Duplicate, rename or delete files from within the program
+
+Print and export to PDF
+
+Join and split cells or entire columns
+
+Copy and paste Markdown and HTML tables
+
+What Our Users Say
+
+"The most consistent and wonderful experience."
+
+Having tried almost every CSV editor I could find, Modern CSV by far gives the most consistent and wonderful experience.
+
+If you’re a programmer (who uses keyboard more often), you will be happy to find out there is a quick access to the command list you can type in and the ability to customize every shortcut, which makes editing so blissful.
+
+- Umar A.
+
+"Easy interface, very logical and fast"
+
+I often have very large files which are impossible to manipulate using standard Office tools. This is such an easy interface, very logical and fast — it makes the task of extracting data less daunting. Kudos for great support, too. Now the rest of my team wants their own copies!
+
+- Wendy C.
+
+"Sheer power"
+
+It’s just a very, very powerful product. Well done.
+
+- Mark B.
+
+"The best!"
+
+I use Modern CSV everyday and it is the best! I recommend it to everyone I know who works with data files. Thanks for the great software!
+
+- Scott K.
+
+"Blows Excel out of the water"
+
+Very nice app you have here. I bought it within 10 seconds of finding it. Light weight, opens fast, isn’t bloated. So you’ve basically just blown excel out of the water.
+
+- Thomas K.
+
+"An outstanding product!"
+
+I have tried so many different csv viewing/editing software for so many years (I have been programming for about 25 years) and have never found anything that checks all the boxes for me when working on complex software projects…UNTIL I FOUND MODERN CSV!
+
+You have created an outstanding product!
+
+- David A.
+
+"I could not live without it."
+
+I have been using Modern CSV for more than a year now and, as a data scientist in Digital Humanities, I could not live without it.
+
+The ubiquitous open data exchange format is CSV. Excel and LibreOffice Calc are capable to read and save CSV data, but they reach their limits very fast — mostly when dealing with big amounts of data. This is precisely where Modern CSV has carved its niche: dealing with vast amounts of CSV data, transform them fast, and extract them to another data set.
+
+An indispensable tool, highly recommended.
+
+- Stephen S.
+
+"Took away a huge pain-point."
+
+I inherited an ETL system that used a set of CSV files to “program” the ETL process. The CSV files varied in size from a 10s to 100s of rows, each one needing to be lovingly entered by hand.
+
+I’m no stranger to CSV. I’ve been wrangling data for decades. I can slap together pipelines using xsv, perl, sed, csvkit, awk, grep, and countless other CLI utilities in my sleep. I can chew through 100s of GB of data without batting an eye.
+
+But hand-editing individual rows in CSV files has always been a headache. Excel and other spreadsheet programs just mangle CSV format. Plaintext editors are a nuisance and I end up playing “count the commas”. I found a terminal-based editor, but its keybindings were beyond my comprehension and I frequently destroyed my CSV files.
+
+I was loathing the idea of starting a project with this ETL system, and I googled “CSV editor” as I had a thousand times before expecting only disappointment. This time, though, SEO worked its magic and ModernCSV came up on the first page. With a great deal of skepticism, I downloaded the “free trial” and fired up the editor. Within seconds I felt at home, able to easily navigate around and edit individual cells.
+
+The interface for editing multiple cells, cutting/pasting, and filtering felt intuitive and, well, modern.
+
+ModernCSV took away a huge pain-point for me on this project. ModernCSV does its job well so that, rather than wrestling with tools that treat CSV manipulation as an afterthought, I can instead wrestle with the important parts of my project. Tools are supposed to act as an extension of ourselves to make a certain task easier. ModernCSV does just that for CSV editing, and I can’t think of higher praise than that.
+
+- Ryan D.
+
+"Superbly designed and highly functional."
+
+Over the years, I’ve often had to deal with tables of data, I’ve used many different programs to deal with them, including Microsoft “Excel”, Open Office “Calc” and even Libre Office “Calc”; they all work – sort of, anyway.
+
+They’re all large, “Swiss Army Knife” solutions. Kind of like using a handgun to kill a mosquito.
+
+Earlier this year, I was drafted into yet another project where I had to edit and organize a large amount of textual data, and those “big programs” kept corrupting the data by adding their own information.
+
+In frustration, I searched (again!) for a better solution for working with files of “comma separated values” and I stumbled on Modern CSV.
+
+There was a trial available, so I gave it a try, especially since they have a FREE version.
+
+It was amazing! It did pretty much exactly what I needed, although there were a few things that would have made my job easier, so I sent a note to the Evan– a feature request.
+
+If I remember right, he responded the very same day, and my request was added to the next version. It does what is needed better than anything else I’ve ever seen.
+
+While I had not reason to buy a license (the free version did what I needed), I strongly believe in acknowledging work that is above and beyond the expected. Modern CSV certainly did that, and the license wasn’t prohibitively expensive, so I bought one – my way of saying “Thank You” to Evan.
+
+If you deal with CSV files, try this program. It is superbly designed and highly functional, with a small system footprint.
+
+- Rob W.
+
+Use our free CSV editor/viewer as long as you wish.
+
+Email
+
+Send Download Link
+
+We will never share your information with anyone. Privacy Policy
+
+Download
+
+Ready to upgrade to Premium?
+
+Buy a License
+
+License Terms
+
+By downloading, installing, and using Modern CSV, you agree to the license terms.
+
+Privacy Policy
+
+Cookie Policy
+
+Terms and Conditions
+
+License Terms
+
+Refund Policy
+
+© COPYRIGHT 2026 GALLIUM DIGITAL. ALL RIGHTS RESERVED.

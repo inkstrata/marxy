@@ -1,0 +1,8 @@
+ 3:05  up 1 day,  6:23, 1 user, load averages: 38.09 38.84 45.25
+valid 1000000 one-byte splice cpu ms median 6
+valid 2000000 one-byte splice cpu ms median 12
+valid 4000000 one-byte splice cpu ms median 25
+stray 1000000 one-byte splice cpu ms median 49
+stray 2000000 one-byte splice cpu ms median 102
+stray 4000000 one-byte splice cpu ms median 198
+ 3:05  up 1 day,  6:23, 1 user, load averages: 36.43 38.40 44.94

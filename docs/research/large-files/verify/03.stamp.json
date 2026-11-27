@@ -1,0 +1,85 @@
+{
+ "chapter": "03-parsing.md",
+ "pass": 3,
+ "stamped": "2026-11-27",
+ "findings": {
+  "PRS-01": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "6fa9974de5f3"
+  },
+  "PRS-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "93a2f06105df"
+  },
+  "PRS-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "bdb8790683c6"
+  },
+  "PRS-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "4ed43ef3d04c"
+  },
+  "PRS-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "014dc8dc204c"
+  },
+  "PRS-06": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "4c8eceedad7f"
+  },
+  "PRS-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "dc54dc66e232"
+  },
+  "PRS-08": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "5f695e1a5c23"
+  },
+  "PRS-09": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "36338b4a2c36"
+  },
+  "PRS-10": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "6d0293d855c4"
+  },
+  "PRS-11": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "716d7010f674"
+  },
+  "PRS-12": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "c5cd602fdef0"
+  },
+  "PRS-13": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "ee751f9eee5c"
+  }
+ }
+}

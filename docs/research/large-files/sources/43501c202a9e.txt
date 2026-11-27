@@ -1,0 +1,193 @@
+Home
+
+Release notes
+
+About
+
+Features
+
+Newly available
+
+Widely available
+
+Limited availability
+
+Discouraged
+
+Opposed
+
+Most wanted
+
+All features
+
+Missing only in
+
+Chromium
+
+Firefox
+
+Safari
+
+Implemented only in
+
+Chromium
+
+Firefox
+
+Safari
+
+Features in latest releases
+
+Chrome
+
+158
+
+Chrome Android
+
+158
+
+Edge
+
+158
+
+Firefox
+
+161
+
+Firefox for Android
+
+161
+
+Safari
+
+27.2
+
+Safari on iOS
+
+27.2
+
+hidden="until-found"
+
+Limited availability
+
+Copy ID
+
+The hidden="until-found" attribute hides an element until it is found using the browser's find-in-page search or it is directly navigated to by following a URL fragment.
+
+Browser support
+
+Chrome
+
+102
+Released on 2022-05-24
+
+Chrome Android
+
+102
+Released on 2022-05-24
+
+Edge
+
+102
+Released on 2022-05-31
+
+Firefox
+
+148
+Released on 2026-02-24
+
+Firefox for Android
+
+148
+Released on 2026-02-24
+
+Safari
+
+Not supported
+
+Position: support
+
+Bugs:
+
+304174
+
+Safari on iOS
+
+Not supported
+
+Position: support
+
+Bugs:
+
+304174
+
+Baseline availability blocked since February 2026 by Safari (9 months)
+
+👍
+
+9
+
+Need this feature?
+
+Leave a 👍 on the feedback issue
+
+Don't forget to also leave a comment explaining your specific use case.
+
+MDN documentation
+
+hidden HTML global attribute
+
+Specifications
+
+HTML (#attr-hidden-until-found),
+from HTML Workstream (WHATWG).
+
+Usage (according to Chrome Platform Status)
+
+~0.196% of page loads. More data at chromestatus.com.
+
+Web Platform Tests (WPT)
+
+View the latest WPT test results for this feature
+
+Surveys
+
+State of HTML 2026
+>
+content
+>
+content features
+
+State of HTML 2026
+>
+all features
+>
+all features
+
+State of HTML 2025
+>
+features
+>
+all features
+
+State of HTML 2025
+>
+content
+>
+content features
+
+State of HTML 2025
+>
+all features
+>
+all features
+
+View as JSON
+|
+Edit this feature
+|
+Report an issue
+|
+Web-features entry:
+source,
+dist

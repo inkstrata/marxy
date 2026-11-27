@@ -1,0 +1,15 @@
+ 7:05  up 1 day, 10:23, 1 user, load averages: 29.89 90.18 110.44
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/late/open-cliff.verify.mjs --browser chromium --out /private/tmp/claude-501/shots
+{"kind":"md-tables","size":1000000,"first":2059,"resolved":3270,"cpuTask":6.38,"cpuScript":1.22,"cpuLayout":0.42,"cpuStyle":0.68,"nodes":338989,"maxLong":2021,"nLong":13}
+{"kind":"md-tables","size":2000000,"first":67,"resolved":7548,"cpuTask":10.59,"cpuScript":1.9,"cpuLayout":0.49,"cpuStyle":0.8,"nodes":673710,"maxLong":287,"nLong":25}
+{"kind":"md-headings","size":1000000,"first":1339,"resolved":2546,"cpuTask":5.68,"cpuScript":0.99,"cpuLayout":0.76,"cpuStyle":0.54,"nodes":90659,"maxLong":1289,"nLong":5}
+{"kind":"md-headings","size":2000000,"first":56,"resolved":20767,"cpuTask":23.89,"cpuScript":4.88,"cpuLayout":3.74,"cpuStyle":2.42,"nodes":185215,"maxLong":113,"nLong":44}
+0 pictures in /private/tmp/claude-501/shots
+ 7:06  up 1 day, 10:24, 1 user, load averages: 54.31 84.62 106.88
+ 7:06  up 1 day, 10:24, 1 user, load averages: 52.92 83.83 106.47
+--- run 2 (uptime above and below: load 30-50)
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/late/open-cliff.verify.mjs --browser chromium --out /private/tmp/claude-501/shots
+{"kind":"md-transcript","size":1000000,"first":1033,"resolved":2248,"cpuTask":5.41,"cpuScript":0.96,"cpuLayout":0.83,"cpuStyle":0.68,"nodes":87365,"maxLong":981,"nLong":3}
+{"kind":"md-transcript","size":2000000,"first":57,"resolved":25354,"cpuTask":28.53,"cpuScript":5.67,"cpuLayout":4.39,"cpuStyle":3.76,"nodes":235209,"maxLong":147,"nLong":63}
+{"kind":"md-headings","size":2000000,"first":40,"resolved":24278,"cpuTask":27.37,"cpuScript":5.62,"cpuLayout":4.35,"cpuStyle":3.26,"nodes":326239,"maxLong":194,"nLong":43}
+0 pictures in /private/tmp/claude-501/shots

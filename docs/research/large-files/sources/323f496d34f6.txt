@@ -1,0 +1,200 @@
+skip to content
+
+/
+Security Lab
+
+Research Blog
+Advisories
+CodeQL Wall of Fame
+
+Resources
+
+Events
+
+Get Involved
+
+Resources
+
+Open Source Community
+
+Enterprise
+
+/
+Security Lab
+
+Research
+Advisories
+CodeQL Wall of Fame
+
+Resources
+
+Open Source Community
+Enterprise
+
+Events
+Get Involved
+
+April 20, 2023
+
+GHSL-2023-031: Quadratic complexity algorithm in cmark - CVE-2023-24824
+
+Kevin Backhouse
+
+Coordinated Disclosure Timeline
+
+2023-02-22: Emailed report to John MacFarlane (@jgm).
+
+2023-02-22: Added to GHSA-66g8-4hjf-77xh because this also affects cmark-gfm.
+
+2023-04-03: Created a pull request to fix this in cmark: https://github.com/commonmark/cmark/pull/475
+
+2023-04-06: Fixed in cmark-gfm version 0.29.0.gfm.11.
+
+Summary
+
+A crafted markdown document can trigger a quadratic complexity algorithm in cmark.
+
+Product
+
+cmark
+
+Tested Version
+
+Latest master: 7195c67
+
+Details
+
+Issue 1: Quadratic behavior in check_open_blocks (GHSL-2023-031)
+
+A markdown document containing a very deeply nested list followed by a large number of empty lines can trigger quadratic behavior.
+
+Proof of concept:
+
+python3 -c 'n = 20000; print(" -" * n + "x" + "\n" * n)' | cmark
+
+Increasing the number 20000 in the above command causes the running time to increase quadratically.
+
+This is a sample stack trace from the quadratic algorithm:
+
+S_advance_offset (parser=0x5555555a92c0, input=0x7fffffffcd40, count=0, columns=false) at src/blocks.c:745
+
+0x0000555555566278 in parse_node_item_prefix (parser=0x5555555a92c0, input=0x7fffffffcd40, container=0x5555558297a0) at src/blocks.c:807
+
+0x000055555556658e in check_open_blocks (parser=0x5555555a92c0, input=0x7fffffffcd40, all_matched=0x7fffffffcd2f) at src/blocks.c:908
+
+0x00005555555674f0 in S_process_line (parser=0x5555555a92c0, buffer=0x7fffffffd188 '\n' <repeats 200 times>..., bytes=0) at src/blocks.c:1274
+
+0x0000555555565c29 in S_parser_feed (parser=0x5555555a92c0, buffer=0x7fffffffd188 '\n' <repeats 200 times>..., len=4096, eof=false) at src/blocks.c:616
+
+0x0000555555565a5d in cmark_parser_feed (parser=0x5555555a92c0, buffer=0x7fffffffce50 '\n' <repeats 200 times>..., len=4096) at src/blocks.c:568
+
+0x0000555555562eb8 in main (argc=2, argv=0x7fffffffdf78) at src/main.c:177
+
+The quadratic behavior is caused by the loop in check_open_blocks:
+
+while (S_last_child_is_open(container)) {
+container = container->last_child;
+cont_type = S_type(container);
+...
+
+cmark parses one line of text at a time. So this loop is run once for every newline character after the deeply nested list. If the line wasn’t empty the loop would break early due to code like this (src/blocks.c:908-909):
+
+if (!parse_node_item_prefix(parser, input, container))
+goto done;
+
+But because the line is empty, it iterates through the entire list. If the length of the list is the approximately same as the number of empty lines, this causes quadratic behavior.
+
+Impact
+
+This issue could be used in a denial-of-service attack on websites that use cmark to render markdown documents.
+
+CVE
+
+CVE-2023-24824
+
+Credit
+
+This issue was discovered and reported by GHSL team member @kevinbackhouse (Kevin Backhouse).
+
+Contact
+
+You can contact the GHSL team at securitylab@github.com, please include a reference to GHSL-2023-031 in any communication regarding this issue.
+
+Product
+
+Features
+
+Security
+
+Team
+
+Enterprise
+
+Customer stories
+
+The ReadME Project
+
+Pricing
+
+Resources
+
+Roadmap
+
+Compare GitHub
+
+Platform
+
+Developer API
+
+Partners
+
+Atom
+
+Electron
+
+GitHub Desktop
+
+Support
+
+Docs
+
+Community Forum
+
+Professional Services
+
+GitHub Skills
+
+Status
+
+Contact GitHub
+
+Company
+
+About
+
+Blog
+
+Careers
+
+Press
+
+Inclusion
+
+Social Impact
+
+Shop
+
+GitHub Inc. ©
+2024
+
+Terms
+
+Privacy
+
+Sitemap
+
+What is Git?
+
+Manage Cookies
+
+Do not share my personal information

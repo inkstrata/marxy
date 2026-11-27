@@ -1,0 +1,39 @@
+discuss.CodeMirror
+
+CM6 Performance Benchmarks
+
+Uncategorized
+
+samu
+
+June 15, 2020, 9:04am
+
+1
+
+The docs state
+
+By carefully doing only the work that needs to be done, the library manages to be fast even with gigantic documents and ridiculously long lines.
+
+After reading that i wondered how fast. Has the library been compared to other projects? It would be especially interesting to see how it compares to engines from Atom and VS Code, since those are based on native implementations as far as i know.
+
+Can CM6 keep up with those? Would it be worth to do some benchmarks?
+
+marijn
+
+June 15, 2020, 2:40pm
+
+2
+
+No benchmarks have been done, and baseline performance currently needs some work, but everything has been carefully written to avoid being linear to document size or even line length, so the main thing I can promise right now is the absence of performance cliffs.
+
+I’m frankly not that interested in having impressive key-to-screen update times—as long as those are reasonable, I don’t care much how the library compares to Atom or VS Code. Avoiding unresponsiveness is the main thing I’m striving for here.
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Powered by Discourse, best viewed with JavaScript enabled

@@ -117,7 +117,7 @@ pub fn command_cwd(
         .map_err(|_| RunError::Invalid(format!("the folder {asked} is not one that was opened")))
 }
 
-/// Keeps the working directory out of the search for the programs the child starts. cmd.exe and CreateProcess look
+/// Prepares the search for a program the child starts. Keeps the working directory out of it. cmd.exe and CreateProcess look
 /// in the current directory first, and that is the opened folder: an npm shim's bare `node` would otherwise run a
 /// `node.cmd` or `node.exe` planted in the document's folder. The directory itself stays, for relative paths and
 /// config discovery.
@@ -125,6 +125,9 @@ pub(crate) fn skip_cwd_in_exe_search(command: &mut Command) {
     if cfg!(windows) {
         command.env("NoDefaultCurrentDirectoryInExePath", "1");
     }
+    // Opened from Finder or the Dock, the app's PATH lacks Homebrew and mise: the reader's login-shell PATH is used.
+    #[cfg(target_os = "macos")]
+    crate::user_path::apply(command);
 }
 
 /// Starts `program` with the command `build` makes for it. std appends only `.exe` on Windows, so `prettier` and

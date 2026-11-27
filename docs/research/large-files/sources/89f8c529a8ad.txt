@@ -1,0 +1,856 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+micromark
+
+micromark
+
+Repository navigation
+
+Code
+
+Issues19 ( 19 )
+
+Pull requests28 ( 28 )
+
+Discussions
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+Refactor to improve postprocess performance - # 171
+# 171
+
+Merged
+
+wooorm merged 12 commits into
+micromark:mainmicromark/micromark:mainfrom
+robsimmons:splicebufferrobsimmons/micromark:splicebuffer Copy head branch name to clipboard
+
+Apr 15, 2024
+
+Conversation Commits12 ( 12 ) Checks Files changed
+
+Merged
+
+Refactor to improve postprocess performance# 171
+
+wooorm merged 12 commits into
+micromark:mainmicromark/micromark:mainfrom
+robsimmons:splicebufferrobsimmons/micromark:splicebuffer Copy head branch name to clipboard
+
+Conversation
+
+robsimmons
+
+commented
+
+Mar 28, 2024
+
+•
+
+edited
+
+Loading
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Copy link
+
+Copy Markdown
+
+Contributor
+
+Initial checklist
+
+I read the support docs
+
+I read the contributing guide
+
+I agree to follow the code of conduct
+
+I searched issues and couldn’t find anything (or linked relevant results below)
+
+If applicable, I’ve added docs and tests
+
+Description of changes
+
+This addresses #23 and more-or-less solves #169 by making the event-holding data structure a double-array structure, a SpliceBuffer (effectively just a gap buffer) that allows efficient repeated splices. On the benchmark from #169, the largest samples go from taking about 55 seconds to parse to taking less than 2 seconds, a better-than-25x speedup. (And an asymptotic speedup, as I believe that family of examples goes from being approximately quadratic to approximately linear.)
+
+Two things worth noting:
+
+I think this is taking a different direction than the edit map @wooorm pointed to here in the discussion of Refactor to improve performance w/ push, reverse #170.
+
+There are a lot of other array data structures in micromark that would benefit from using the SpliceBuffer - if a splicebuffer is just being used like a regular array, it has very little overhead, and using a SpliceBuffer instead of the array would have made pr Refactor to improve performance w/ push, reverse #170 unnecessary, and SpliceBuffer could be used to get rid of every place that the splice helper from micromark-util-chunked is being used. I kept the usage of SpliceBuffer here very narrow because any more pervasive change would have changed exposed types. But would a wider refactor be valuable?
+
+Assuming this seems like a reasonable edit, should the splicebuffer data structure live in a different util package? (pacakges/micromark-util-splice-buffer)?
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+👀
+1
+Murderlon reacted with eyes emoji
+
+All reactions
+
+👀
+1 reaction
+
+robsimmons
+
+added 3 commits
+March 26, 2024 18:41
+
+Performance: use push+reverse instead of unshift
+
+0620912
+
+Splice buffer experiment
+
+08870ab
+
+Merge
+
+a779e86
+
+github-actions
+Bot
+
+added
+
+👋 phase/new
+
+Post is being triaged automatically
+
+🤞 phase/open
+
+Post is being triaged manually
+
+and removed
+
+👋 phase/new
+
+Post is being triaged automatically
+
+labels
+
+Mar 28, 2024
+
+robsimmons
+
+added 8 commits
+March 28, 2024 16:52
+
+Fix a series of bugs
+
+affef86
+
+Add the copy-back splice, as that's necessary
+
+b710506
+
+Clarify prose
+
+ce43214
+
+Remove rogue typedef
+
+7318303
+
+Accidentally added dependencies, remove those!
+
+7285dd5
+
+Tweak diff
+
+aba6534
+
+Add some tests (still not back to total coverage
+
+64a6fb4
+
+Restore text coverage
+
+fe42e65
+
+robsimmons
+
+marked this pull request as ready for review
+
+March 28, 2024 21:47
+
+robsimmons
+
+commented
+
+Mar 28, 2024
+
+Copy link
+
+Copy Markdown
+
+Contributor
+
+Author
+
+A note: I initially used proxies so that the array accesses event[i] wouldn't need to be changed to event.get(i), but based on the markdown-it performance benchmarks I got a small performance improvement by not adding a proxy.
+
+All reactions
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Import SpliceBuffer as generic type
+
+4fea67e
+
+codecov-commenter
+
+commented
+
+Mar 29, 2024
+
+•
+
+edited by codecov
+Bot
+
+Loading
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Copy link
+
+Copy Markdown
+
+Codecov Report
+
+✅ All modified and coverable lines are covered by tests.
+
+✅ Project coverage is 100.00%. Comparing base (15a609e) to head (4fea67e).
+
+⚠️ Report is 46 commits behind head on main.
+
+Additional details and impacted files
+
+@@ Coverage Diff @@
+## main #171 +/- ##
+==========================================
+Coverage 100.00% 100.00%
+==========================================
+Files 57 58 +1
+Lines 11933 12129 +196
+==========================================
++ Hits 11933 12129 +196
+
+☔ View full report in Codecov by Sentry.
+
+📢 Have feedback on the report? Share it here.
+
+🚀 New features to boost your workflow:
+
+❄️ Test Analytics: Detect flaky tests, report on failures, and find test suite problems.
+
+📦 JS Bundle Analysis: Save yourself from yourself by tracking and limiting bundle sizes in JS merges.
+
+All reactions
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+wooorm
+
+commented
+
+Apr 2, 2024
+
+•
+
+edited
+
+Loading
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Copy link
+
+Copy Markdown
+
+Member
+
+Heya! Cool! I really appreciate you looking into performance
+
+Have you looked at the edit map idea?
+
+The reason I haven’t implemented it here yet, is the same as why you haven’t implemented your direction everywhere too: breaking changes across the system.
+
+I don’t particularly care more for one or the other. Just, the code needs to move towards alignment in both languages.
+
+All reactions
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+robsimmons
+
+commented
+
+Apr 2, 2024
+
+Copy link
+
+Copy Markdown
+
+Contributor
+
+Author
+
+I'm happy to look more into the edit map idea, but I've only written a bit of rust (and, fatally, have read less than I've written), so I didn't immediately understand what was going on with edit maps. I do think that this data structure has something of an advantage in clarity if you've found yourself reversing a lot in the Rust implementation - a gap buffer is gonna give you more "it's easier to understand what the code is doing without all these reverses" at the cost of "it's harder to see what the expensive operations are"
+
+Here's a few concrete-ish question to start:
+
+How, at a high level, is the edit map making the process more efficient?
+
+The edit map is a Vec<(usize, usize, Vec<Event>)> in edit_map.rs, which doesn't really give me much insight into how the edit map relates to a vector of events. What is the vector a vector of/what are the usizes/what's the child vector, and how does each one related to the underlying event vector being manipulated?
+
+All reactions
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+wooorm
+
+commented
+
+Apr 3, 2024
+
+Copy link
+
+Copy Markdown
+
+Member
+
+How, at a high level, is the edit map making the process more efficient?
+
+Together with code in subtokenize, it’s my 2nd iteration of the “subtokenize algorithm”.
+
+One thing that often happens in micromark/markdown-rs is that, say, it’s parsing flow (headings, thematic breaks, stuff like that). After all that is done, you can parse things inside that. The links/emphasis/etc inside headings/paragraphs. You cannot do it at the same time, it has to be after everything “above” is done.
+
+Some things remain in the original result: the heading markers remain in the list of events.
+
+Other things are removed/added: the links/emphasis/etc inside.
+
+The edit map is a collection of what to add/remove and where. It collects these changes for a while. And then, finally, applies all changes.
+
+Vec<(usize, usize, Vec<Event>)>
+
+You can read it as a js/ts Array<{at: number, remove: number, add: Array<Event>}>: It’s the changes. What to add/remove and where!
+
+All reactions
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+robsimmons
+
+commented
+
+Apr 3, 2024
+
+Copy link
+
+Copy Markdown
+
+Contributor
+
+Author
+
+Okay, I think I see it - at a high level, all the splices have quadratic behavior for the same reason that it's quadratic to get the concatenation of a lists of lists by appending in a loop. The edit map is kind of batching all those updates in the same way that doing a batch-append is.
+
+Things I'd like to do (or would like someone else to do but I don't think that's likely):
+
+Confirm that the rust implementation doesn't have the performance issues I described in Performance: larger MDX files are unmanagably slow to parse #169 (sanity check that using edit maps would actually fix the problems I encountered in the JS implementation)
+
+Write up some additional high-level documentation of this parsing algorithm to make sure I understand it, seems like that would be valuable and making explanatory things is kind of my jam
+
+Apply edit maps to the JS implementation
+
+That's... several steps! I'll have to think about whether I have capacity for that big of a project next week when I'm back from Eclipse Related Travel. (I'm assuming there's probably not budget for a bounty on this or anything via opencollective, would love to be told I'm wrong.)
+
+In the meantime I wonder where that leaves this PR - I'd argue this isn't really increasing divergence from the Rust implementation, and if splice buffers were treated as an external dependency this would only be something like a +86 -13 change. That said, it's not an external dependency and micromark doesn't have external dependencies, and I'm not gonna push hard for this particular change (that would be big Jia Tan energy). At the same time, it would dramatically improve my Astro build times, which would be nice - but I've decreased MDX file size enough that I'm not getting 60 minute build times (99% parsing MDX) anymore, so I don't have any fire alarms going off in my house, personally.
+
+All reactions
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Murderlon
+
+commented
+
+Apr 3, 2024
+
+Copy link
+
+Copy Markdown
+
+Member
+
+That's... several steps! I'll have to think about whether I have capacity for that big of a project next week when I'm back from Eclipse Related Travel. (I'm assuming there's probably not budget for a bounty on this or anything via opencollective, would love to be told I'm wrong.)
+
+Just chipping in to say that from my perspective this is very valuable work and it requires expertise that few contributors have. So in my book this would be an elegible case for funds. I don't know how much and it needs @wooorm's approval of course, but those are my thoughts.
+
+Taking one step back (without having deep knowledge on this myself) this PR seems to practically solve the problem, seems high quality, comes with tests. and well written code comments. Generally speaking it would take a very strong case to not merge this and thus prevent the ecosystem from enjoying this speedup.
+
+I don't have the expertise to push hard for this or the edit maps idea, but I'd just want to say that it seems like a shame to let this go unless the edit maps idea is crystal clear. Perhaps a middle ground is also possible, merge and release this and patiently explore other ideas.
+
+👍
+1
+remcohaszing reacted with thumbs up emoji
+
+All reactions
+
+👍
+1 reaction
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+wooorm
+
+commented
+
+Apr 4, 2024
+
+Copy link
+
+Copy Markdown
+
+Member
+
+So in my book this would be an elegible case for funds.
+
+I mostly agree, indeed.
+
+Though, there’s a lot of work to be done that is eligible to funds. There are few funds. There are 218+ open issues. Where do funds have the most use? As you correctly point out: this PR already solves a lot of the issue.
+
+I made the algorithm in JS, then improved it in Rust. I backported most but not all. It can be assumed that both a) the 2nd Rust version is better than the 1st JS version; b) there are more improvements to be made in the Rust version
+
+The best case scenario is for both to improve.
+
+The worst case scenario is for 2 forks to appear.
+
+Another bad case is work that will be discarded. So yeah, I don’t think this PR should be discarded, but it’s also why I very quickly linked the edit maps & rust version and want to focus on that.
+
+That's... several steps! I'll have to think about whether I have capacity for that big of a project next week
+
+IMO, what we should do, depends a lot on what you want Rob! Doesn’t have to be next week. We do indeed have some funds.
+
+Rust is fun. Having the same algorithm in Rust and in JS is also a good way to learn.
+
+Markdown is really messy but that’s also kinda fun and very practically useful to people: as you notice, your work directly impacts a ton of folks.
+
+Looks like you have a CS background; that’s I don’t have. But this is still parsers and tokenizers and ASTs and such. So I’m sure there’s a lot of CS ideas that you could apply to improve things.
+
+👍
+2
+Murderlon and remcohaszing reacted with thumbs up emoji
+
+All reactions
+
+👍
+2 reactions
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+remcohaszing
+
+commented
+
+Apr 8, 2024
+
+Copy link
+
+Copy Markdown
+
+Member
+
+Just adding that I fully agree with @Murderlon. Even if this diverges from the current Rust implementation, the JS ecosystem would really benefit from the speedups.
+
+All reactions
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+wooorm
+
+approved these changes
+
+Apr 15, 2024
+
+View reviewed changes
+
+wooorm
+
+changed the title
+Create a splice buffer data structure to make postprocess much more efficient
+
+Refactor to improve postprocess performance
+
+Apr 15, 2024
+
+wooorm
+
+merged commit ef86838
+into
+
+micromark:main
+
+Apr 15, 2024
+
+This comment has been minimized.
+
+Sign in to view
+
+wooorm
+
+added
+the
+💪 phase/solved
+
+Post is done
+label
+
+Apr 15, 2024
+
+github-actions
+Bot
+
+removed
+the
+🤞 phase/open
+
+Post is being triaged manually
+label
+
+Apr 15, 2024
+
+wooorm
+
+commented
+
+Apr 16, 2024
+
+Copy link
+
+Copy Markdown
+
+Member
+
+Thanks, released!
+
+All reactions
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+robsimmons
+
+mentioned this pull request
+
+Apr 17, 2024
+
+Performance: larger MDX files are unmanagably slow to parse
+wooorm/markdown-rs#113
+
+Open
+
+saberzero1
+
+added a commit
+to saberzero1/obsidian-linter
+that referenced
+this pull request
+
+Sep 13, 2026
+
+take the micromark fixes for its own quadratics
+
+…
+
+0f761bb
+
+The lock held micromark 4.0.0 and micromark-util-subtokenize 2.0.0, both of which predate two fixes
+for quadratic behaviour in the event array: micromark/micromark#171, which took the reporter's
+samples from 55 seconds to under 2 and is in subtokenize 2.0.1, and micromark/micromark#185, which
+took a repeated label pattern from 500ms to 3ms and is in micromark 4.0.1.
+
+That is what made parsing superlinear here. Per KB cost climbed from 570us at 262KB to 1195us at
+840KB; the parse of the 866KB document is now 10.4s across 17 of them rather than 17.1s.
+
+866KB lint: 26.8s to 20.1s, corpus byte identical, and the patch for the list quadratic in
+mdast-util-from-markdown still applies since that package is unchanged at 2.0.3.
+
+Sign up for free
+to join this conversation on GitHub.
+Already have an account?
+Sign in to comment
+
+Reviewers
+
+wooorm
+
+wooorm approved these changes
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Assignees
+
+No one assigned
+
+Labels
+
+💪 phase/solved
+
+Post is done
+
+Milestone
+
+No milestone
+
+Development
+
+Successfully merging this pull request may close these issues.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+5 participants
+
+Add this suggestion to a batch that can be applied as a single commit.This suggestion is invalid because no changes were made to the code.Suggestions cannot be applied while the pull request is closed.Suggestions cannot be applied while viewing a subset of changes.Only one suggestion per line can be applied in a batch.Add this suggestion to a batch that can be applied as a single commit.Applying suggestions on deleted lines is not supported.You must change the existing code in this line in order to create a valid suggestion.Outdated suggestions cannot be applied.This suggestion has been applied or marked resolved.Suggestions cannot be applied from pending reviews.Suggestions cannot be applied on multi-line comments.Suggestions cannot be applied while the pull request is queued to merge.Suggestion cannot be applied right now. Please check back later.
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.
