@@ -198,8 +198,9 @@ history. Writing is narrower than reading: roots and folders scoped for a docume
 
 A path is judged by spelling first, so a path outside never reaches the disk (no share lookup); then canonical, so a
 `..`, a symlink or a junction inside a root that leads out is refused. `read_file`, which follows links, refuses a
-handle open on any file but the one judged, or one the set no longer holds for reading (so it refuses the repository
-probe that `read_head` answers); `read_head` (and `detect_files` through it), `image_size` and `stat_file` refuse a handle open on
+handle open on any file but the one judged, or one the set no longer admits for reading (a repository probe is still
+admitted while a file or place below it is held, so the index finds a document's repository above its folder);
+`read_head` (and `detect_files` through it), `image_size` and `stat_file` refuse a handle open on
 any file but the one judged and read from that handle, so a folder swapped for a junction between the check and the
 open is refused; `read_dir` holds the judged folder open while it lists it (on Windows without delete sharing, so it
 cannot be swapped meanwhile; on Unix the handle is judged once, then the folder is listed by name); `real_path` answers

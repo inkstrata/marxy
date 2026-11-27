@@ -463,8 +463,13 @@ fn a_repository_probe_stops_at_the_nearest_repository() {
     open_file(&set, &t.s("inside/sub/b.md"));
     let sep = std::path::MAIN_SEPARATOR;
     assert!(read_head_in(&set, &t.s(&format!("inside{sep}.git{sep}HEAD")), 8).is_ok());
+    assert!(read_file_in(&set, &t.s(&format!("inside{sep}.git{sep}HEAD"))).is_ok());
     assert_eq!(
         code(read_head_in(&set, &t.s(&format!(".git{sep}HEAD")), 8)),
+        "outside"
+    );
+    assert_eq!(
+        code(read_file_in(&set, &t.s(&format!(".git{sep}HEAD")))),
         "outside"
     );
 }
@@ -792,18 +797,35 @@ fn a_handle_on_a_file_outside_scope_is_refused_by_every_judgement() {
 }
 
 #[test]
-fn read_file_refuses_a_repository_probe_that_read_head_answers() {
-    // `read_file` judges its handle against the set, which a probe is not in; `read_head` judges the handle only
-    // against the path `check` admitted, so it answers the probe the index makes.
+fn read_file_answers_the_repository_probe_that_read_head_answers() {
+    // The index looks for a document's repository with `read_file` on `<dir>/.git/HEAD` above the document's folder;
+    // `check` admits that probe, so the handle judgement must too, and nothing else up there.
     let t = Tree::new("probe-read");
     fs::create_dir_all(t.0.join(".git")).unwrap();
     fs::write(t.0.join(".git/HEAD"), b"ref: refs/heads/main\n").unwrap();
+    fs::write(t.0.join(".git/config"), b"[core]\n").unwrap();
     let set = RwLock::new(OpenedSet::default());
     open_file(&set, &t.s("inside/a.md"));
-    let head = t.s(&format!(".git{}HEAD", std::path::MAIN_SEPARATOR));
-    assert!(check(&set, &head, Need::Read).is_ok());
+    let sep = std::path::MAIN_SEPARATOR;
+    let head = t.s(&format!(".git{sep}HEAD"));
+    assert_eq!(
+        read_file_in(&set, &head).unwrap(),
+        b"ref: refs/heads/main\n"
+    );
     assert!(read_head_in(&set, &head, 64).is_ok());
-    assert_eq!(code(read_file_in(&set, &head)), "outside");
+    assert_eq!(
+        code(read_file_in(&set, &t.s(&format!(".git{sep}config")))),
+        "outside"
+    );
+    // A handle on another file than the probe judged is refused as any other.
+    let judged = check(&set, &head, Need::Read).unwrap();
+    let elsewhere = File::open(t.0.join("inside/a.md")).unwrap();
+    assert!(!handle_in(&set, &elsewhere, &judged, Need::Read));
+    // Once nothing below the repository is held, the probe is no longer answered.
+    let handle = File::open(&judged).unwrap();
+    assert!(handle_in(&set, &handle, &judged, Need::Read));
+    let empty = RwLock::new(OpenedSet::default());
+    assert!(!handle_in(&empty, &handle, &judged, Need::Read));
 }
 
 #[cfg(unix)]

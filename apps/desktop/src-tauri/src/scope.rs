@@ -407,11 +407,14 @@ pub(crate) fn handle_judged(
         .is_some_and(|on| same_place(&on, canonical) && held(set, |s| judge(s, &on)))
 }
 
-/// Whether `file`, opened from `canonical` (the path `check` judged), is open on that very file and the set still holds
+/// Whether `file`, opened from `canonical` (the path `check` judged), is open on that very file and the set still admits
 /// it for `need`: a link swapped in between the check and the open would have led the open elsewhere, and a place let go
-/// of meanwhile no longer answers. A repository probe is not held, so this refuses one; `handle_is` does not.
+/// of meanwhile no longer answers. A repository probe still admits it: the handle is on the very probe `check` walked to
+/// the nearest repository, and only the place it probes from must still be held.
 pub fn handle_in(set: &RwLock<OpenedSet>, file: &File, canonical: &Path, need: Need) -> bool {
-    handle_judged(set, file, canonical, |s, on| s.holds_canonical(on, need))
+    handle_judged(set, file, canonical, |s, on| {
+        s.judge_canonical(on, need) != Judged::Outside
+    })
 }
 
 /// Whether `file` is open on `canonical`, the path `check` judged: a link swapped in at the path, or onto a folder above
