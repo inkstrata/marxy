@@ -708,6 +708,7 @@ class FileColour {
       (box.bottom > 0 && box.top < h ? onScreen : rest).push(k);
     }
     const ranges: LineRange[] = [];
+    // scale: onScreen is the lines in one viewport, a few hundred at most
     if (onScreen.length > 0) ranges.push([this.firstLine[Math.min(...onScreen)]!, this.firstLine[Math.max(...onScreen) + 1]!]);
     for (const k of rest.sort((a, b) => a - b)) ranges.push([this.firstLine[k]!, this.firstLine[k + 1]!]);
     this.channel.view(ranges);

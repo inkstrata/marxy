@@ -6,7 +6,7 @@ import { logStamp } from '@marxy/core/src/log/head.ts';
 import { summariseLog, type LogSummary } from '@marxy/core/src/log/summary.ts';
 import { linesLogShape, logLinesOf } from '@marxy/core/src/reading/lines.ts';
 import { linesViewIn } from '../view/reading-lines.ts';
-import { minOf } from '@marxy/core/src/util/spread.ts';
+import { maxOf, minOf } from '@marxy/core/src/util/spread.ts';
 
 /** What `..` never climbs above: a drive `C:`, a share `//host/share`, `//?/C:` or `//?/UNC/host/share`; '' for POSIX. */
 export function pathRoot(path: string): string {
@@ -175,7 +175,7 @@ export function sectionRows(heads: readonly { readonly text: string; readonly le
   if (shown.length === 0) return [];
   const base = minOf(shown.map((h) => h.level));
   const two = shown.filter((h) => h.level === base + 1);
-  const max = Math.max(1, ...(two.length ? two : shown).map((h) => h.words));
+  const max = maxOf((two.length ? two : shown).map((h) => h.words), 1);
   const seen = new Map<string, number>();
   const rows: SectionRow[] = [];
   shown.forEach((h, i) => {

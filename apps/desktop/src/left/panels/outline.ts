@@ -34,7 +34,7 @@ import type { PanelContext, PanelDef, PaneView, RowEvent } from '../types.ts';
 import { empty, fld, h, hint, lab, mark, row, scrollWithin, sec, sg, tool } from '../ui.ts';
 import { describeRow } from '../aria.ts';
 import { WINDOW_FROM, windowOf, windowRows, type RowWindow } from '../row-window.ts';
-import { appendAll, minOf } from '@marxy/core/src/util/spread.ts';
+import { appendAll, maxOf, minOf } from '@marxy/core/src/util/spread.ts';
 
 export interface OutlineState {
   q: string;
@@ -439,7 +439,7 @@ function renderLog(ctx: Ctx, pane: PaneView, shape: LogShape | null, body: HTMLE
   // The strip of time: a bar per step, errors marked; a bar goes to its first entry.
   const strip = timeStrip(timed);
   if (strip && !qs.length) {
-    const max = Math.max(1, ...strip.buckets.map((b) => b.count));
+    const max = maxOf(strip.buckets.map((b) => b.count), 1);
     const hm = (t: string): string => logStamp(t).clock.slice(0, 5);
     const hist = h('div', 'marxy-l-hist');
     for (const b of strip.buckets) {
@@ -462,7 +462,7 @@ function renderLog(ctx: Ctx, pane: PaneView, shape: LogShape | null, body: HTMLE
     })));
   }
   body.append(sec('Levels', 'the view only'));
-  const max = Math.max(1, ...s.counts);
+  const max = maxOf(s.counts, 1);
   s.counts.forEach((n, rank) => {
     if (n === 0) return;
     const level = LEVELS[rank]!;
@@ -703,7 +703,7 @@ function renderViewerOutline(ctx: Ctx, pane: PaneView, contents: ViewerOutline, 
   }
   st.units.clear();
   st.tree = undefined;
-  const max = Math.max(1, ...rows.map((r) => r.words));
+  const max = maxOf(rows.map((r) => r.words), 1);
   const shutKey = (key: string): string => `${path}#v:${key}`;
   let hideBelow = Number.POSITIVE_INFINITY;
   let n = 0;

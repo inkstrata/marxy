@@ -7,19 +7,20 @@
 
 /** `target.push(...items)` without the argument limit; returns the new length. */
 export function pushAll<T>(target: T[], items: ArrayLike<T> | Iterable<T>): number {
+  if (items === target) items = target.slice();
   if ('length' in items) for (let i = 0; i < items.length; i++) target.push(items[i]!);
   else for (const item of items) target.push(item);
   return target.length;
 }
 
-/** `Math.max(floor, ...values)` without the argument limit. */
+/** `Math.max(floor, ...values)` without the argument limit. Unlike Math.max, a NaN in `values` is skipped, not passed on. */
 export function maxOf(values: Iterable<number>, floor = -Infinity): number {
   let best = floor;
   for (const v of values) if (v > best) best = v;
   return best;
 }
 
-/** `Math.min(ceiling, ...values)` without the argument limit. */
+/** `Math.min(ceiling, ...values)` without the argument limit. Unlike Math.min, a NaN in `values` is skipped, not passed on. */
 export function minOf(values: Iterable<number>, ceiling = Infinity): number {
   let best = ceiling;
   for (const v of values) if (v < best) best = v;

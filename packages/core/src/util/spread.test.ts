@@ -22,6 +22,14 @@ test('pushAll, maxOf and minOf take any length', () => {
   assert.equal(minOf([]), Infinity);
 });
 
+test('pushAll of an array onto itself doubles it once, and maxOf and minOf skip NaN', () => {
+  const a = [1, 2, 3];
+  pushAll(a, a);
+  assert.deepEqual(a, [1, 2, 3, 1, 2, 3]);
+  assert.equal(maxOf([1, NaN, 3]), 3);
+  assert.equal(minOf([4, NaN, 2]), 2);
+});
+
 test('appendAll moves every node, in order, from a live list', () => {
   const kids: unknown[] = [];
   const parent = { append: (...nodes: unknown[]) => { assert.ok(nodes.length <= 5000); kids.push(...nodes); } };
