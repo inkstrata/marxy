@@ -1,0 +1,15 @@
+pre-wrap+anywhere 100000 11ms h=21250
+pre-wrap+anywhere 200000 10ms h=42500
+pre-wrap+anywhere 400000 20ms h=85000
+normal 100000 3ms h=17
+normal 200000 6ms h=17
+normal 400000 10ms h=17
+pre-wrap only 100000 3ms h=17
+pre-wrap only 200000 5ms h=17
+pre-wrap only 400000 9ms h=17
+break-word 100000 3ms h=21250
+break-word 200000 6ms h=42500
+break-word 400000 12ms h=85000
+anywhere only 100000 3ms h=21250
+anywhere only 200000 5ms h=42500
+anywhere only 400000 13ms h=85000

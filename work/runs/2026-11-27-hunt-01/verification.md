@@ -131,3 +131,31 @@ Append-only. Write through .claude/skills/bug-catch/finding.mjs.
 - Severity: S1 (agrees)
 - Fix hint: fix EXP-02, then ask the owner which file and As choice they used
 - Checked by: verifier EXP-a, 2026-11-27
+
+### VWR-01 verdict
+- Verdict: CONFIRMED (code reading; not driven, the browser build has no SQLite engine)
+- Proof: sqlite.ts:640 `if (got.rows.length < EXPORT_PAGE || got.stopped) return;` ends the loop on a stopped page without recording it; table-cards.ts:109 builds the preview note from `cut` (the byte cap) only; the saved bytes get no note. Rust sets `page.stopped = "stopped after N s"` on interrupt at sqlite.rs:818 and returns the partial page, so the path is reachable. The page view does say it (sqlite.ts:341), so the export is the inconsistent surface. No doc or todo row says a silent cut is meant (searched docs/ and work/todo.md). The panel's sub-line promises "every row" (sqlite.ts:627).
+- Severity: S2 wrong output
+- Fix hint: have `build` report a stop (a flag or a second callback) so csvExport adds the note to the preview and warns the reader before save; the CSV itself cannot carry a note without breaking the format.
+- Checked by: verifier VWR-b, 2026-11-27
+
+### VWR-03 verdict
+- Verdict: CONFIRMED
+- Proof: my probe probes/VWR/b-docx-threshold.verify.mjs (output b-docx-threshold.verify.out), Chromium: a docx of 60,000 one-word paragraphs opens, 100,000 fails with "Maximum call stack size exceeded"; bisection puts the threshold between 61,640 (ok) and 62,656 (fails), about 62k paragraphs, not 120k. WebKit/WebView2 limits may be lower (not driven). Same spread at viewers/book.ts:304 (`article.append(...holder.childNodes)`, same pattern, not driven) and markdown.ts:234 and :256 (office-to-Markdown export only: a code block with 120k+ backtick runs, a table with 120k+ rows; not driven). A real long Markdown file is NOT affected: 300,000 paragraphs open (8.9 s, slow but no error); render/progressive.ts:237 spreads per slice, which is capped by characters, so it stays small. Also found: source/format-ops.ts:261 has the same `Math.max(0, ...)` on a selection with 120k+ backtick runs (not driven).
+- Severity: S2 wrong output
+- Fix hint: replace each spread with a loop or `append` in chunks (`for (const n of [...nodes])`, or a `reduce` for Math.max); the repair's test is the 100,000-paragraph docx.
+- Checked by: verifier VWR-b, 2026-11-27
+
+### VWR-02 verdict
+- Verdict: CONFIRMED (related to R13; not a duplicate of P11 or R13)
+- Proof: probes/VWR/a-sizes.verify.mjs (out a-sizes.verify.out), headless Chromium: eml of one unbroken line opens in 0.8 s at 50 KB, 1.4 s at 100 KB, 2.9 s at 200 KB, 7.8 s at 400 KB; CPU profile puts 99% in `draw` (mail.ts:332) with parse and textLines negligible, so the time is the browser's layout, not core. Cause is not the `pre-wrap; overflow-wrap:anywhere` the catcher blamed: probes/VWR/a-layout.verify.mjs shows that CSS alone lays out 400 KB in 20 ms. a-css.verify.mjs shows the cost comes from font kerning: a `.marxy-article` paragraph of 100 KB takes 1372 ms, and 3 ms with `font-kerning:none` or a monospace face. So any long unbreakable run set in the reading face pays it (the same article rule is why the catcher's 3 MB Markdown line took 23 s). P11 (core reading budgets, paste, JSONL, diff) and R13 (progressive mount per chunk, 1 MB many-line file) name different code paths; this is the layout of one unbroken run, so it is a new row, near R13 only in effect. Font-dependent: a real WebView with another face may differ; not driven there.
+- Severity: S1 freeze (at 5 MB, the page does not answer for over 15 s)
+- Fix hint: cap or split an over-long unbroken run (insert break opportunities or word-break past N characters, or set `font-kerning:none` on `.marxy-mail-line` and long runs) and note "shown in part"; also cap lines, since 800k short lines take 9.4 s (catcher).
+- Checked by: verifier VWR-a, 2026-11-27
+
+### VWR-04 verdict
+- Verdict: CONFIRMED (related to P11/R13; not a duplicate)
+- Proof: probes/VWR/a-sizes.verify.mjs (a-sizes.verify.out): rtf of one run of x opens in 2.9 s at 50 KB, 7.2 s at 100 KB, 14.8 s at 200 KB, 22.8 s at 400 KB, so 3 MB freezes. Profile: 98% of the time is inside `draw` (office.ts:280), core and markdown parse about 1% (readRtf is fast, as the catcher's fuzz1 shows). It is not `mapToFile` as suspected: the cost is the same browser layout as VWR-02, kerning of one long unbroken run in `.marxy-article p` (a-css.verify.mjs: 1372 ms at 100 KB, 3 ms with `font-kerning:none`). Slower than the mail (about 3.5x at the same size), likely from the article's narrower measure and extra passes; the docx 3 MB run being fast (catcher's hostile3) was not re-checked here. P11 and R13 name other paths (core reading budgets; progressive Markdown mount), so only related.
+- Severity: S1 freeze
+- Fix hint: same as VWR-02: break or cap a run longer than some thousands of characters before it reaches the article (in the reading or the viewer), or drop kerning for such paragraphs; one fix in the shared article path should cover Markdown, RTF and mail.
+- Checked by: verifier VWR-a, 2026-11-27

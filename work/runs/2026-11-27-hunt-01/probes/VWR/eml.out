@@ -1,0 +1,3 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/VWR/eml.mjs --browser chrome
+eml 5MB single line                TIMEOUT TIMEOUT 15103 ms
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0853

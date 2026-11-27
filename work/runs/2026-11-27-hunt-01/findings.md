@@ -243,3 +243,36 @@ Append-only. Write through .claude/skills/bug-catch/finding.mjs.
 - Evidence: probe probes/VWR/hostile4.mjs, output probes/VWR/hostile4.out (w2.docx line). Core reads the same bytes fine: probes/VWR/docx-stack.mjs reads 20k to 400k paragraphs without error (docx-stack.out). The throw is `article.append(...holder.childNodes)` (office.ts:348), an argument spread past the engine's argument limit; the same pattern is `Math.max(0, ...rows.map(...))` for a table of that many rows (markdown.ts:256) and `Math.max(0, ...matches)` for a code block with that many backtick runs (markdown.ts:234), which feed Export as Markdown. Exact threshold not measured (V8's is near 120k arguments; WebKit's is lower, so the real window may fail earlier: not driven).
 - Confidence: high
 - Found by: catcher VWR, 2026-11-27
+
+### VWR-04 · An RTF file with one long unbroken run of text takes 12 s to open at 300 KB and freezes the window at 3 MB
+- Severity: S1 freeze
+- Domain: viewers (office, rtf)
+- Where: apps/desktop/src/viewers/office.ts:192-209 (mapToFile), apps/desktop/src/viewers/office.ts:348; cause not isolated
+- Repro: plant /h/r1.rtf = "{\rtf1\ansi " + 3,000,000 x "x" + "}"; open it. Also /h/r2.rtf with 300,000 x (12 s, page answers afterwards), /h/r5.rtf with 300,000 `{\b x}` groups (14 s). Browser build, headless Chrome
+- Expected: opens in well under a second, as the same 3 MB run does in a .docx (1.6 s, probe hostile3) and 600,000 spaced words do in an RTF (3.8 s)
+- Actual: r1 never settles and the page stops answering (both waits expired, 25 s); r2 opens after about 12 s; r5 after 14 s
+- Evidence: probe probes/VWR/hostile5.mjs, output probes/VWR/hostile5.out. Same shape as VWR-02 (one huge unbroken run); in the docx the same text is fast, so something RTF-only (the `mapToFile` pass runs only when `rtf` is set, and `r5` makes 300,000 elements for it to walk) or the RTF reading's output is the multiplier. Core's `readRtf` on 1e6 control words takes 0.6 s in node (probes/VWR/fuzz1.out), so the time is in the page. Not bisected further; a verifier should time `readRtf` and `mapToFile` apart. The same 300k-paragraph file (r4) fails with the VWR-03 stack error.
+- Confidence: medium
+- Found by: catcher VWR, 2026-11-27
+
+### EDT-02 · After one save throws during "Save and close", the window's close box and Quit never ask or close again
+- Severity: S2 wrong output
+- Domain: EDT
+- Where: apps/desktop/src/close.ts:424-436 (the Save click's async body has no try/catch and `answered()` has already run), apps/desktop/src/close.ts:239-247 (the `walk` guard returns early while `walk` is set and no notice is up)
+- Repro: unsaved edit; Mod+Q or the close box; "Save and close"; the save rejects instead of returning `failed` (a Save As dialog that errors for a scratch document, `onSaveAs` or the fold throwing); then close or quit again
+- Expected: the walk ends (as for `failed` or `cancelled`) and the next close request asks again
+- Actual: the notice is gone, `walk` stays set for good, and every later close request returns at `if (!noticeIsUp() || ...) return` : no prompt, no close. The reader has to force-quit (the unsaved edit is then lost)
+- Evidence: probe probes/EDT/i.mjs (output probes/EDT/i.out) makes the pane store's `save` reject, then emits close requests three times: after "Save and close" notices are [], and the 2nd and 3rd requests show no prompt and no confirmClose call. The injected rejection stands in for the real throw sites (save.ts rethrows any error but "is closed"; `deps.shell.saveDialog` and `deps.onSaveAs` are unguarded); I did not make a real dialog fail. The same hole leaves `confirmClosePane`'s promise unsettled for a pane close
+- Confidence: medium
+- Found by: catcher EDT, 2026-11-27
+
+### EDT-03 · Pasting code copied from a web page into a code file in Source inserts Markdown fences
+- Severity: S2 wrong output
+- Domain: EDT
+- Where: apps/desktop/src/source/paste.ts:116-131 (`pasteExtension` takes every paste that carries `text/html`, whatever the file is), apps/desktop/src/source/paste.ts:73-92 (`pasteFromClipboard` inserts `converted.markdown`), apps/desktop/src/paste/read-clipboard.ts:16-24
+- Repro: open a `.py` file (probe plants /demo/x.py holding `x = 1`); Mod+E for Source; with the caret at the end, paste an item whose HTML is `<pre><code>def foo_bar(x): ...</code></pre>` and whose text is the same code (what a browser puts on the clipboard when code is copied from documentation). Native clipboard (macOS or Windows) only; the browser build drives it through `shell.setPasteboard`
+- Expected: code goes into a code file as the code, as the plain-text paste does (Mod+Alt+Shift+V); docs/using-marxy.md promises Markdown conversion for Source, but the file here is Python, not Markdown
+- Actual: the file gains ``` fence lines around the code (`x = 1\n```\ndef foo_bar...\n```\n`). Text, JSON, CSV, TOML, source files are all Source buffers and take the same conversion, and the notice says "Pasted as Markdown (converted from HTML)", so the reader may not connect it to a broken file. Nothing is lost (one undo step) but bytes the reader did not ask for are written, and saving ships them
+- Evidence: probe probes/EDT/l.mjs, output probes/EDT/l.out (first line: the pasted result). Only the `.py` case ran: the later cases in the probe failed on my own Mod+E toggle, so JSON, CSV and plain text are by reading, not driven
+- Confidence: high
+- Found by: catcher EDT, 2026-11-27
