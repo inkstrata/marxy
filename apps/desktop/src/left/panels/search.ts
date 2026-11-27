@@ -41,6 +41,8 @@ import {
   type SavedSearch,
   type ScopeId,
 } from '../search-model.ts';
+import { runBudgeted } from '../budgeted-worker.ts';
+import type { SearchDone, SearchJob } from '../search.worker.ts';
 import type { PanelContext, PanelDef, RowEvent, Verb } from '../types.ts';
 import { btns, ck, empty, fld, h, hint, hit, lab, row, sec, sg, stack, tool } from '../ui.ts';
 
@@ -56,6 +58,8 @@ interface Group {
 interface Result {
   readonly short?: boolean;
   readonly bad?: string;
+  /** The pattern did not finish in time: no matches are shown, and a replace is refused. */
+  readonly slow?: boolean;
   readonly re?: RegExp;
   /** The .* it was worked out with: a replace reads $1 by it, not by the toggle now. */
   readonly regex?: boolean;
@@ -96,6 +100,8 @@ export interface SearchState {
   qkey: string;
   run: number;
   pending: boolean;
+  /** Ends the regular-expression worker a search is waiting on. */
+  stop?: () => void;
   /** The open file when the search last changed: its group stays first while J opens the others. */
   first: string | null;
   offHeld?: () => void;
@@ -188,6 +194,31 @@ async function readTexts(handle: AppHandle, paths: readonly string[], big: Set<s
   return out;
 }
 
+/** How long a regular expression may search before it is called too slow and its worker ended. */
+const BUDGET_MS = 1500;
+const SLOW_NOTE = 'This pattern is too slow to search: simplify it.';
+
+type Hits = Map<string, LineHit[]>;
+
+/**
+ * The lines of `texts` that `re` matches. A pattern the reader typed runs in a worker (budgeted-worker.ts): 'slow' when the
+ * budget passes, null when the next search ended it. Plain text, which cannot backtrack, runs here, with no copy of the texts.
+ */
+async function matchAll(st: SearchState, texts: ReadonlyMap<string, string>, re: RegExp, user: boolean): Promise<Hits | 'slow' | null> {
+  if (user) {
+    const job: SearchJob = { source: re.source, flags: re.flags, texts: [...texts] };
+    const ran = await runBudgeted<SearchJob, SearchDone>(() => new Worker(new URL('../search.worker.ts', import.meta.url), { type: 'module' }), job, BUDGET_MS, st);
+    if (ran === 'slow' || ran === 'stopped') return ran === 'slow' ? 'slow' : null;
+    if (ran !== 'none') return new Map(ran.done.hits.map(([p, h]) => [p, h.slice()]));
+  }
+  const out: Hits = new Map();
+  for (const [p, t] of texts) {
+    const h = matchLines(t, re);
+    if (h.length > 0) out.set(p, h);
+  }
+  return out;
+}
+
 /** Works the search out for what the panel shows now, when that changed; draws again once it has. */
 function ensure(ctx: PanelContext<SearchState>, sc: Scope): void {
   const { handle, st } = ctx;
@@ -200,6 +231,7 @@ function ensure(ctx: PanelContext<SearchState>, sc: Scope): void {
   if (st.key === key) return;
   st.key = key;
   const run = ++st.run;
+  st.stop?.();
   const c = compileSearch(st);
   if (c === null) {
     st.res = { short: true, qkey, groups: [], total: 0, note: '' };
@@ -249,13 +281,20 @@ function ensure(ctx: PanelContext<SearchState>, sc: Scope): void {
     for (const [p, t] of await readTexts(handle, read, big, live)) texts.set(p, t);
     if (!live()) return;
     if (big.size > 0) note = [note, `${plural(big.size, 'file')} over 4 MB not searched`].filter(Boolean).join('; ');
+    const found = await matchAll(st, texts, c.re, regex);
+    if (!live() || found === null) return;
+    if (found === 'slow') {
+      st.res = { slow: true, qkey, groups: [], total: 0, note: '' };
+      st.pending = false;
+      ctx.redraw();
+      return;
+    }
     const groups: Group[] = [];
     let total = 0;
     for (const p of sc.paths) {
       const text = texts.get(p);
-      if (text === undefined) continue;
-      const hits = matchLines(text, c.re);
-      if (hits.length === 0) continue;
+      const hits = found.get(p);
+      if (text === undefined || hits === undefined) continue;
       const sp = splitLines(text);
       const starts: number[] = [];
       let at = 0;
@@ -278,6 +317,10 @@ const ticked = (st: SearchState, path: string): boolean => st.tick.get(path) ?? 
 /** The result, when it answers what the fields say now; while a new search reads, the old one is only looked at. */
 function current(st: SearchState): (Result & { readonly re: RegExp }) | null {
   const res = st.res;
+  if (res?.slow && res.qkey === st.qkey) {
+    notify({ kind: 'refused', text: SLOW_NOTE, fades: true });
+    return null;
+  }
   if (!res?.re) return null;
   if (res.qkey === st.qkey) return res as Result & { readonly re: RegExp };
   notify({ kind: 'info', text: 'Still searching for what Find says now: replace once its matches are shown.', fades: true });
@@ -604,7 +647,6 @@ const panel: PanelDef<SearchState> = {
           name: 'search-q',
           lb: 'Find',
           mono: true,
-          placeholder: 'Find',
           value: st.q,
           right: h('span', 'marxy-l-opt', opt('case', 'Aa', 'Match case', 'Match case'), opt('regex', '.*', 'A regular expression: $1 in Replace is its first group', 'Regular expression'), opt('word', 'word', 'Whole words only', 'Whole words')),
           oninput: (v) => {
@@ -616,7 +658,6 @@ const panel: PanelDef<SearchState> = {
           name: 'search-r',
           lb: 'Replace',
           mono: true,
-          placeholder: 'Replace',
           value: st.r,
           oninput: (v) => {
             st.r = v;
@@ -654,6 +695,10 @@ const panel: PanelDef<SearchState> = {
     }
     if (res.bad) {
       body.append(empty(`Not a regular expression yet: ${res.bad}`));
+      return;
+    }
+    if (res.slow) {
+      body.append(empty(SLOW_NOTE));
       return;
     }
     if (res.groups.length === 0) {

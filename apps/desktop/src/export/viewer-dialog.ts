@@ -96,6 +96,19 @@ export function openViewerExport(handle: AppHandle, path: string, offered: reado
   }
 
   go.addEventListener('click', async () => {
+    // One save at a time: a second press while the first is reading or in the save dialog does nothing.
+    if (go.disabled) return;
+    go.disabled = true;
+    go.textContent = 'Saving…';
+    try {
+      await save();
+    } finally {
+      go.disabled = false;
+      go.textContent = 'Save…';
+    }
+  });
+
+  async function save(): Promise<void> {
     let o: { bytes: Uint8Array };
     try {
       o = await out();
@@ -117,7 +130,7 @@ export function openViewerExport(handle: AppHandle, path: string, offered: reado
     } catch (e) {
       notify({ kind: 'error', text: `Could not write ${basename(target)} · ${e instanceof Error ? e.message : String(e)} · nothing was written` });
     }
-  });
+  }
   close.addEventListener('click', leave);
   scrim.addEventListener('pointerdown', (e) => {
     if (e.target === scrim) leave();

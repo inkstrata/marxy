@@ -19,7 +19,9 @@ import { TRANSFORMS } from '@marxy/core';
 import { focusedPane, landAt, landAtLine, paneText, walkToUnit, type LinePane } from './go.ts';
 import { lensesOf, lensOn, clearLens, setLens, type LensId } from '../depths/lens.ts';
 import { clearRowFilter, filterRows as keepRows, readingTable, rowFilterOf, rowsHolding } from '../view/reading-filter.ts';
-import { excerpt, findPattern, fuzzy, lineCount, lineHits, lineOfByte, lineQuery, linesOf } from './refs.ts';
+import { runBudgeted } from '../left/budgeted-worker.ts';
+import type { FindDone, FindJob } from './find.worker.ts';
+import { excerpt, findPattern, fuzzy, lineCount, lineHits, type LineHit, lineOfByte, lineQuery, linesOf } from './refs.ts';
 import { around, type LinePreview, type LineRow } from './rows.ts';
 import { SCOPES, type ScopeId } from './scopes.ts';
 
@@ -138,7 +140,30 @@ function gotoRows(q: string, pane: LinePane | null): ScopeResult {
 
 /* ---------- / ---------- */
 
-function findRows(q: string, pane: LinePane | null): ScopeResult {
+/** How long a typed regular expression may search a page before it is called too slow. */
+const FIND_BUDGET_MS = 1500;
+const SLOW_NOTE = 'This pattern is too slow to search: simplify it.';
+
+/** The `/re/` search now running or last done: one at a time, a new query or page ends the one before. */
+let finding: { bytes: Uint8Array; q: string; got: 'run' | 'slow' | readonly LineHit[]; stop?: () => void } | null = null;
+
+/** The hits of `re` over `lines`: at once for plain text; for a typed pattern from a worker, 'run' until it answers, 'slow' past the budget. */
+function findHits(q: string, re: RegExp, bytes: Uint8Array, lines: readonly string[], env: ScopeEnv): readonly LineHit[] | 'run' | 'slow' {
+  if (!/^\/.+\/[a-z]*$/.test(q) || typeof Worker === 'undefined') return lineHits(lines, re, 500);
+  if (finding && finding.bytes === bytes && finding.q === q) return finding.got;
+  finding?.stop?.();
+  const mine: NonNullable<typeof finding> = { bytes, q, got: 'run' };
+  finding = mine;
+  const job: FindJob = { source: re.source, flags: re.flags, lines, cap: 500 };
+  void runBudgeted<FindJob, FindDone>(() => new Worker(new URL('./find.worker.ts', import.meta.url), { type: 'module' }), job, FIND_BUDGET_MS, mine).then((ran) => {
+    if (ran === 'stopped' || finding !== mine) return;
+    mine.got = ran === 'slow' ? 'slow' : ran === 'none' ? lineHits(lines, re, 500) : ran.done;
+    env.refresh();
+  });
+  return 'run';
+}
+
+function findRows(q: string, pane: LinePane | null, env: ScopeEnv): ScopeResult {
   const { re, error } = findPattern(q);
   const seek = (how: { alt: boolean }): void => {
     if (!re) return;
@@ -156,7 +181,11 @@ function findRows(q: string, pane: LinePane | null): ScopeResult {
   // A page of the app's own (a PDF) finds in its own text: Enter opens in-page find on it.
   if (!text || pane.view.viewer() !== null) return { rows: [], note: 'Enter finds it on this page.', enter: seek };
   const lines = textLines(text.bytes);
-  const hits = re ? lineHits(lines, re, 500) : [];
+  const found = re ? findHits(q, re, text.bytes, lines, env) : [];
+  // No Enter until the worker answers: in-page find would run the same pattern here, where nothing can stop it.
+  if (found === 'run') return { rows: [], note: 'Searching…' };
+  if (found === 'slow') return { rows: [], note: SLOW_NOTE };
+  const hits = found;
   const rows: LineRow[] = hits.slice(0, 200).map((h, i) => ({
     key: `f${i}:${h.line}:${h.at}`,
     group: '',
@@ -468,7 +497,7 @@ export function scopeRows(scope: ScopeId, q: string, env: ScopeEnv): ScopeResult
     case 'goto':
       return gotoRows(q, pane);
     case 'find':
-      return findRows(q, pane);
+      return findRows(q, pane, env);
     case 'filter':
       return filterRows(q, pane, env);
     case 'tx':

@@ -110,7 +110,7 @@ export function fld(o: FieldOptions): HTMLElement {
   input.spellcheck = false;
   input.autocomplete = 'off';
   input.placeholder = o.placeholder ?? '';
-  input.setAttribute('aria-label', o.placeholder ?? o.name);
+  input.setAttribute('aria-label', o.placeholder || o.lb || o.name);
   input.dataset.marxyLeftField = o.name;
   input.value = o.value ?? '';
   if (o.oninput) input.addEventListener('input', () => o.oninput?.(input.value));
@@ -145,6 +145,8 @@ export interface ButtonSpec {
   readonly label: string;
   readonly pri?: boolean;
   readonly title?: string;
+  /** Drawn disabled: pressing it does nothing. */
+  readonly disabled?: boolean;
   run(e: MouseEvent): void;
 }
 
@@ -155,6 +157,10 @@ export function btns(...list: (ButtonSpec | null | false)[]): HTMLElement {
     ...list.filter((x): x is ButtonSpec => !!x).map((x) => {
       const b = button(x.label, { kind: x.pri ? 'primary' : undefined, size: 'compact', className: x.pri ? 'marxy-l-pri' : undefined });
       if (x.title) b.title = x.title;
+      if (x.disabled) {
+        b.disabled = true;
+        b.setAttribute('aria-disabled', 'true');
+      }
       b.addEventListener('click', (e) => x.run(e));
       return b;
     }),
