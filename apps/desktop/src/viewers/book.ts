@@ -27,6 +27,7 @@ import { pageFind } from './page-find.ts';
 import { nextViewerId, viewerChanged } from './signal.ts';
 import { tablesReadingCard } from './table-cards.ts';
 import type { HexPlace, PaneViewer, PartUnit, ViewerCrumb, ViewerExport, ViewerMemory, ViewerOutline, ViewerOutlineRow, ViewMode } from './types.ts';
+import { appendAll } from '@marxy/core/src/util/spread.ts';
 
 export type BookSetup = { readonly book: Book; readonly read: (name: string) => Promise<Uint8Array | null>; readonly entries: ReadonlyMap<string, ArchiveEntry> };
 
@@ -301,7 +302,7 @@ export function createBookViewer(o: BookOptions): PaneViewer {
     const holder = el('div');
     pictures(holder);
     const blocks = [...holder.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.hasAttribute('data-marxy-s'));
-    article.append(...holder.childNodes);
+    appendAll(article, holder.childNodes);
     article.addEventListener('click', (e) => {
       const a = (e.target as Element | null)?.closest?.('a[href]');
       if (!a || !article.contains(a) || a.closest('.marxy-account')) return;

@@ -9,6 +9,7 @@ import type { Operation, OperationInput, OperationResult } from '../contracts/op
 import { parseMarkdown } from '../parse/parse.ts';
 import { itemSpans } from './list-item-spans.ts';
 import { replaceSpans, textIndex } from './text-helpers.ts';
+import { pushAll } from '../util/spread.ts';
 
 export interface MarkerSpan {
   readonly item: ListItem;
@@ -172,7 +173,7 @@ function rewrite(input: OperationInput, plan: Plan): OperationResult {
       if (i > 0 && input.text.slice(lineStart, item.marker.start).trim() !== '') return refuse(`${plan.noun} would re-indent a nested item`);
       const moves = reindentEdits(input.text, item.marker.start, item.content.end, old.length, shift, margin);
       if (!moves) return refuse(`${plan.noun} would re-indent a nested item`);
-      edits.push(...moves);
+      pushAll(edits, moves);
       moved = true;
     }
   }

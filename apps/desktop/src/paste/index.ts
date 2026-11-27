@@ -3,8 +3,9 @@
 import { classifyClipboard } from '@marxy/core/src/paste/classify.ts';
 import { convertClipboard } from './read-clipboard.ts';
 import { htmlToMarkdown } from './html-to-markdown.ts';
+import { appendAll } from '@marxy/core/src/util/spread.ts';
 
 export type { Converted } from './read-clipboard.ts';
 export { classifyClipboard, convertClipboard, htmlToMarkdown };
 
-(window as unknown as { marxyPaste?: unknown }).marxyPaste = { classifyClipboard, htmlToMarkdown, convertClipboard };
+(window as unknown as { marxyPaste?: unknown }).marxyPaste = { classifyClipboard, htmlToMarkdown, convertClipboard, appendAll };

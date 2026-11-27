@@ -17,6 +17,7 @@ import { maxLineLengthForFile, tabSizeForFile } from './tab-width.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { formatsPath } from './format-ops.ts';
 import { sourceEditChords } from '../commands/source-edit.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 export interface SourceEditorOptions {
   readonly parent: HTMLElement;
@@ -268,7 +269,7 @@ export async function baseExtensions(
     // The island wraps as it always has; Source wraps Markdown with a hang and scrolls code.
     if (look === 'island' || wraps) exts.push(EditorView.lineWrapping);
     if (wraps && look === 'prose') exts.push(sourceHang());
-    exts.push(...(await foldingExtensions()));
+    pushAll(exts, (await foldingExtensions()));
   }
   // The language is attached after the mount (`attachLanguage`): the text never waits on a grammar (commitment 5). A large
   // file's holds only colour, and only when the reader asks for it anyway.

@@ -22,6 +22,7 @@ import type { DocumentStore } from '../../document/store.ts';
 import { notify } from '../../notices/index.ts';
 import { headingAt } from './outline-move.ts';
 import { countsAsMarkdown, createWordCounter } from './facts.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 // Both are in outline-move.ts, which the registry's commands read at start; the names stay exported from here.
 export { canMoveSection, focusedOutlineHeading } from './outline-move.ts';
@@ -159,7 +160,7 @@ export function outlineModelOf(ast: Document, buffer: Buffer): OutlineModel {
     }
     rows.push({ kind: 'table', depth: under === null ? 0 : under.depth + 1, label: tableLabel(table), start: table.src.start });
   }
-  rows.push(...headings.slice(h));
+  pushAll(rows, headings.slice(h));
   if (titled) rows.unshift({ kind: 'title', depth: 0, text: entries[0]!.text, start: entries[0]!.src.start });
   return { rows, headings: headings.length, capped };
 }

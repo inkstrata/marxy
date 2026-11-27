@@ -5,6 +5,7 @@
 // `<sub>`, `<sup>`), which, unlike `*`, cannot be undone by punctuation beside it. Asides and slide headings are recorded
 // by the bytes they span, for the page to set apart once rendered. Pure.
 import { inlineText, type Block, type Inline, type OfficeDoc, type Run } from './model.ts';
+import { maxOf } from '../util/spread.ts';
 
 export interface OfficeMarks {
   /** A comment or speaker notes: the Markdown bytes its blocks were written to. */
@@ -231,7 +232,7 @@ export function writeMarkdown(doc: Pick<OfficeDoc, 'blocks' | 'notes' | 'images'
         if (!hasText(b.kids)) return null;
         return () => lines(paraLines(b.kids, { alt, note }), first, rest);
       case 'code': {
-        const longest = Math.max(0, ...(b.text.match(/`+/g) ?? []).map((m) => m.length));
+        const longest = maxOf((b.text.match(/`+/g) ?? []).map((m) => m.length), 0);
         const fence = '`'.repeat(Math.max(3, longest + 1));
         return () => lines([fence, ...b.text.replace(/\r\n?/g, '\n').split('\n'), fence], first, rest);
       }
@@ -253,7 +254,7 @@ export function writeMarkdown(doc: Pick<OfficeDoc, 'blocks' | 'notes' | 'images'
         };
       }
       case 'table': {
-        const cols = Math.max(0, ...b.rows.map((r) => r.length));
+        const cols = maxOf(b.rows.map((r) => r.length), 0);
         if (cols === 0) return null;
         const cell = (c: Inline[] | undefined): string => (c ? inlines(c, { br: '<br>', alt, note }).replace(/\n/g, ' ').trim() : '');
         const row = (r: readonly Inline[][]): string => `| ${Array.from({ length: cols }, (_, i) => cell(r[i]) || ' ').join(' | ')} |`;
