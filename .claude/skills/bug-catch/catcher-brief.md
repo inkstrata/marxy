@@ -36,7 +36,8 @@ that says "Adds to todo row <id>".
 **How to see it.** Code reading finds candidates; a probe proves them. Ways to drive the app:
 - A `shots` scenario (copy `apps/desktop/scripts/shots/window.mjs`; it gets `boot`, `shot`, `open`,
   `plantText`, `plantBytes`): put it in `work/runs/<date>-hunt-<nn>/probes/<PREFIX>/` and run
-  `pnpm --filter @marxy/desktop shots <absolute path to scenario>` from the worktree. For a suspected
+  `pnpm --filter @marxy/desktop shots <absolute path to scenario>` from the worktree. On a Mac add `--browser chromium`
+  (it defaults to Edge, which a Mac usually lacks). For a suspected
   freeze, race every `page.evaluate` or key press against a 10 s timer and print which step stalled.
 - The existing tests for the area: `node scripts/browser-tests.mjs test/<file>.test.mjs` from the
   worktree root (browser), or `node --test --experimental-strip-types <file>` (unit). One browser run at

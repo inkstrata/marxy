@@ -20,7 +20,8 @@ probes it cites under `probes/<PREFIX>/`.
 2. Is it already known? Search `work/todo.md` and the other findings. If so: `DUPLICATE of <id>`.
 3. Does a doc in `docs/` say the behaviour is meant? If so: `BY-DESIGN`, citing the doc and line.
 4. Reproduce it with a probe of your own, not by re-running the catcher's probe alone: a `shots` scenario
-   (`pnpm --filter @marxy/desktop shots <absolute path>` from the worktree; copy
+   (`pnpm --filter @marxy/desktop shots <absolute path> --browser chromium` from the worktree; Edge, the
+   default, is usually missing on a Mac; copy
    `apps/desktop/scripts/shots/window.mjs`) or a test. Put it in `probes/<PREFIX>/` with a name ending in
    `.verify.mjs`, and its output beside it as `.verify.out`. Run it more than once if the bug is timing.
    For a freeze, race each step against a 10 s timer and print which stalled.
