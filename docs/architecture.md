@@ -165,7 +165,10 @@ read, and the card's `checked` row says the rest was not.
   (`packages/core/src/operations/`, `packages/core/src/transforms/`).
 - **Source** is a CodeMirror editor over the same bytes (`apps/desktop/src/source/`). Bytes that are not
   UTF-8 are held as single code units so they survive edits (`packages/core/src/buffer/source-text.ts`).
-  Leaving Source folds its text back into the store as one minimal splice (`foldText`).
+  Leaving Source folds its text back into the store as one minimal splice (`foldText`). While Source shows, the
+  Read page behind it is skipped (`content-visibility: hidden` on the hidden article, `packages/theme/src/base.css`),
+  not taken down: it keeps its style and layout, so leaving Source with nothing edited costs what changed, not a
+  layout of the whole page.
 - **Saving** (`apps/desktop/src/save.ts`, `document/store.ts`): the bytes are written through the shell's
   atomic write, handed the store's own `disk` (what it last loaded or wrote). The front end does not read the
   file again to save it: it sends the length and SHA-256 of those bytes with the write, and Rust
