@@ -41,6 +41,7 @@ import {
   type SavedSearch,
   type ScopeId,
 } from '../search-model.ts';
+import { runBudgeted } from '../budgeted-worker.ts';
 import type { SearchDone, SearchJob } from '../search.worker.ts';
 import type { PanelContext, PanelDef, RowEvent, Verb } from '../types.ts';
 import { btns, ck, empty, fld, h, hint, hit, lab, row, sec, sg, stack, tool } from '../ui.ts';
@@ -200,48 +201,22 @@ const SLOW_NOTE = 'This pattern is too slow to search: simplify it.';
 type Hits = Map<string, LineHit[]>;
 
 /**
- * The lines of `texts` that `re` matches. A pattern the reader typed runs in a worker, which is ended when the budget
- * passes ('slow') or `st.stop` is called by the next search (null): a backtracking pattern holds one `exec` for minutes and
- * only a worker can be stopped. Plain text, which cannot backtrack, runs here, with no copy of the texts.
+ * The lines of `texts` that `re` matches. A pattern the reader typed runs in a worker (budgeted-worker.ts): 'slow' when the
+ * budget passes, null when the next search ended it. Plain text, which cannot backtrack, runs here, with no copy of the texts.
  */
-function matchAll(st: SearchState, texts: ReadonlyMap<string, string>, re: RegExp, user: boolean): Promise<Hits | 'slow' | null> {
-  const here = (): Hits => {
-    const out: Hits = new Map();
-    for (const [p, t] of texts) {
-      const h = matchLines(t, re);
-      if (h.length > 0) out.set(p, h);
-    }
-    return out;
-  };
-  if (!user) return Promise.resolve(here());
-  if (typeof Worker === 'undefined') return Promise.resolve(here());
-  let w: Worker;
-  try {
-    w = new Worker(new URL('../search.worker.ts', import.meta.url), { type: 'module' });
-  } catch {
-    return Promise.resolve(here());
-  }
-  return new Promise((resolve) => {
-    const end = (v: Hits | 'slow' | null): void => {
-      clearTimeout(timer);
-      w.terminate();
-      if (st.stop === stop) st.stop = undefined;
-      resolve(v);
-    };
-    const stop = (): void => end(null);
-    const timer = setTimeout(() => end('slow'), BUDGET_MS);
-    st.stop = stop;
-    w.onmessage = (e: MessageEvent<SearchDone>) => end(new Map(e.data.hits.map(([p, h]) => [p, h.slice()])));
-    // A worker that cannot start or load (a CSP, an engine without module workers) searches here instead.
-    w.onerror = () => {
-      clearTimeout(timer);
-      w.terminate();
-      if (st.stop === stop) st.stop = undefined;
-      resolve(here());
-    };
+async function matchAll(st: SearchState, texts: ReadonlyMap<string, string>, re: RegExp, user: boolean): Promise<Hits | 'slow' | null> {
+  if (user) {
     const job: SearchJob = { source: re.source, flags: re.flags, texts: [...texts] };
-    w.postMessage(job);
-  });
+    const ran = await runBudgeted<SearchJob, SearchDone>(() => new Worker(new URL('../search.worker.ts', import.meta.url), { type: 'module' }), job, BUDGET_MS, st);
+    if (ran === 'slow' || ran === 'stopped') return ran === 'slow' ? 'slow' : null;
+    if (ran !== 'none') return new Map(ran.done.hits.map(([p, h]) => [p, h.slice()]));
+  }
+  const out: Hits = new Map();
+  for (const [p, t] of texts) {
+    const h = matchLines(t, re);
+    if (h.length > 0) out.set(p, h);
+  }
+  return out;
 }
 
 /** Works the search out for what the panel shows now, when that changed; draws again once it has. */

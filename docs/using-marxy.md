@@ -113,7 +113,7 @@ the scope:
 | `>` | every command, grouped | run it |
 | `@` | headings in this document | go there |
 | `:` | a line or range, `40` or `40-52` | put the cursor there |
-| `/` | find in this document; `/re/flags` for a regular expression, a capital letter for exact case | go there; Alt+Enter shows only what matches |
+| `/` | find in this document; `/re/flags` for a regular expression (searched off the main thread, and stopped as too slow after 1.5 seconds), a capital letter for exact case | go there; Alt+Enter shows only what matches |
 | `#` | search the text of every file in scope | open at the line |
 | `=` | filter rows: a log's levels, a table's rows, an archive's entries | keep the filter |
 | `!` | change the text with one of 50 transforms, with a preview | stage the change |
