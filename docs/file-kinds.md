@@ -249,7 +249,7 @@ carries its byte range. Sorting by a column, the row filter (the Line's `=`, the
 every row in slices with the loop given back between them, and a line at the end of the page's first line says how far
 a long pass has got; a sort or a filter asked for while the rows are still being read waits for them. Find counts
 matches in every row and steps to each, drawing its row; the Line's `/` lists matches by line over the whole file. Of a
-JSON Lines file, the keys of every line become columns once all are read; until then the first line says "so far". The first 10,000 distinct keys become columns; a file that names more (a new key in every record) says "more than 10,000 keys" in its first line and under the table.
+JSON Lines file, the keys of every line become columns once all are read; until then the first line says "so far". The first 10,000 distinct keys become columns; a file that names more (a new key in every record) says "more than 10,000 keys" in its first line and under the table. A record over 1 MB is not parsed: its row says its size and shows its head, and the first line counts it as "1 record cut".
 
 Inside a Markdown page, each fenced block gets a guess of its own (`partsOf`, `reading/parts.ts`): data,
 table, session, patch, log, diagram or written; the reader can change it, and the choice is kept in
@@ -467,7 +467,7 @@ draws an `.eml`, the HTML part through the same sanitiser, remote images held ba
 | Colour a whole file | 2 MB with no line over 10,000 characters; past that, plain text unless the reader chooses "colour anyway" |
 | Colour a block | 200,000 characters; lines up to 1,000 characters (400 for C and C++, 500 for Go and shell) |
 | Data tree | 1.5 MB (JSON is streamed past it), 5,000 values, depth 256; TOML looks up 250,000 table names (header keys and dotted keys), then is set as written |
-| Table and records | every row, to the open limit: up to 2,000 drawn whole, past that the rows near the screen, read again from the bytes as the table scrolls; JSON Lines read for 10,000 distinct keys; 100 columns drawn and each cell cut at 4,096 characters with an ellipsis, its bytes whole for Source, sort, filter and find (Table view has every column of a CSV or TSV) |
+| Table and records | every row, to the open limit: up to 2,000 drawn whole, past that the rows near the screen, read again from the bytes as the table scrolls; JSON Lines read for 10,000 distinct keys, each record to 1 MB (a longer one is a cut row); 100 columns drawn and each cell cut at 4,096 characters with an ellipsis, its bytes whole for Source, sort, filter and find (Table view has every column of a CSV or TSV) |
 | Notebook | 64 MB, 1,000 cells |
 | HTML page, a message's HTML part | elements nested 256 deep: a deeper element loses its tags and keeps its contents, and the line above the page says `nesting past 256 levels flattened` (the frame's layout grew about three times for each doubling of a page nested thousands deep) |
 | Mail | 64 MB, 500 parts (a multipart body is searched for no more delimiters than the parts still to read), 12 levels, 1,000 headers and 256 KB of headers a part, 1,000,000 lines beginning `--` indexed for delimiters (past them a part whose end is not found is left out, and said) |
