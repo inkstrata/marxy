@@ -18,6 +18,7 @@ import type { CardDef } from '../frame/cards/types.ts';
 import { el, factRow } from '../frame/dom.ts';
 import { notify } from '../notices/index.ts';
 import { treeParts } from '../parts/moves.ts';
+import { guardLongRuns } from '../render/long-runs.ts';
 import { fillOfficePage } from '../render/office-page.ts';
 import { LINK_MALFORMED, localLinkTarget } from '../selection/link-target.ts';
 import { byteCard, factsCard } from './cards.ts';
@@ -345,6 +346,8 @@ export function createOfficeViewer(o: OfficeOptions): PaneViewer {
     slideNumbers(holder);
     asides(holder);
     if (rtf) mapToFile(holder);
+    // A run with no space in it (a long URL, base64, an unspaced script) gets places to break, as a Markdown page's does.
+    guardLongRuns(holder);
     article.append(...holder.childNodes);
     article.addEventListener('click', (e) => {
       const a = (e.target as Element | null)?.closest?.('a[href]');
