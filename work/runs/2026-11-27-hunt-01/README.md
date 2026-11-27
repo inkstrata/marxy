@@ -13,6 +13,8 @@ verified ones into ready rows in `todo.md`.
 
 - Using the Export tab freezes the app (`EXP-01`, a lead for the export catcher).
 - Go does not work on the search page (`NAV-01`, a lead for the navigation catcher, whose brief adds the Line and palette).
+- The Find and Replace fields read "Find Find" and "Replace Replace" (`NAV-02`, sent to the navigation catcher after it started).
+- The app freezes in search mode (`NAV-03`, sent to the navigation catcher; may be the cause of NAV-01).
 
 ## Domains
 

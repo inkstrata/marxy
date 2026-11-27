@@ -1,0 +1,7 @@
+SHL-01 PATH=launchd default: rg: NotFound No such file or directory (os error 2)
+SHL-01 PATH=launchd default: git: ran, status exit status: 0
+SHL-01 PATH=launchd default: node: NotFound No such file or directory (os error 2)
+SHL-01 PATH=launchd default: brew: NotFound No such file or directory (os error 2)
+SHL-02 /private/tmp/shl02probe/notes/Images/a.png: disk opens: true; may_hold(spelling, root opened as notes): true
+SHL-02 /private/tmp/shl02probe/NOTES/images/a.png: disk opens: true; may_hold(spelling, root opened as notes): false
+SHL-02 /private/tmp/shl02probe/NOTES/Images/a.png: disk opens: true; may_hold(spelling, root opened as notes): false

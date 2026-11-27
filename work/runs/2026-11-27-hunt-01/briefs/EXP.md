@@ -2,7 +2,7 @@ You are a bug catcher for Marxy, a Tauri 2 desktop reader for local files. Your 
 prefix **EXP**. Your job is to find real bugs a reader of the app would meet in this domain and to
 write each one down. You do not fix anything.
 
-**Where.** Work only in the worktree `/Users/ian/Dev/marxy-wt/hunt-01` (branch `agent/hunt-01`). Read
+**Where.** Work only in the worktree `/Users/<user>/Dev/marxy-wt/hunt-01` (branch `agent/hunt-01`). Read
 `AGENTS.md` there first, then `.claude/skills/bug-catch/format.md`, which is the exact format your findings
 must take. The domain starts in: `apps/desktop/src/left/panels/export.ts`, `apps/desktop/src/export/`, `apps/desktop/src/tray/`, `apps/desktop/src/commands/copy-*.ts`, `apps/desktop/src/render/export-file.ts`. Promised behaviour is in
 `docs/using-marxy.md` and `docs/architecture.md`; a gap between what a doc promises and what the code does
