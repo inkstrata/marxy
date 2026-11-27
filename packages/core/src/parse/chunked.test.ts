@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { lineStartAt } from '../sourcemap/line-starts.ts';
-import { lastChunkedParse, parseMarkdownChunked } from './chunked.ts';
+import { lastChunkedParse, parseMarkdownChunked, parseMarkdownSteps, slicesWithin } from './chunked.ts';
 import { parseMarkdown } from './parse.ts';
 import { BLOCKS, generated, random } from './testing/structured.ts';
 import { holdsDefinitions } from './from-mdast.ts';
@@ -141,4 +141,25 @@ test('structured random documents with `]:` marks and definitions: slices equal 
     if (holdsDefinitions(parseMarkdown(bytes, { file: '/c.md' }))) assert.equal(holdsDefinitionMark(bytes), true, `marks seed ${seed}: a definition the scan missed`);
   }
   assert.ok(counts.slices > 0 && counts.whole > 0, `slices ${counts.slices}, whole ${counts.whole}`);
+});
+
+test('the parse as steps is the whole parse, given back a slice at a time', () => {
+  const bytes = encode(Array.from({ length: 400 }, (_, i) => `## Heading ${i}\n\nSome prose ${i}.\n\n- one\n- two\n`).join('\n'));
+  const steps = parseMarkdownSteps(bytes, { file: '/s.md', sliceBytes: 2048 });
+  let turns = 1;
+  let next = steps.next();
+  while (!next.done) {
+    turns++;
+    next = steps.next();
+  }
+  assert.ok(turns > 5, `${turns} turns`);
+  assert.deepEqual(JSON.parse(JSON.stringify(next.value)), JSON.parse(JSON.stringify(parseMarkdown(bytes, { file: '/s.md' }))));
+});
+
+test('a text with no blank line, or with a definition, is not one the slices can keep short', () => {
+  const lines = Array.from({ length: 20_000 }, (_, i) => `line ${i} of a text that has no blank line in it`);
+  assert.equal(slicesWithin(encode(lines.join('\n')), 256 * 1024), false);
+  assert.equal(slicesWithin(encode(lines.join('\n\n')), 256 * 1024), true);
+  assert.equal(slicesWithin(encode(`[a]: https://e.com\n\n${lines.join('\n\n')}`), 256 * 1024), false);
+  assert.equal(slicesWithin(encode(`${lines.slice(0, 5000).join('\n\n')}\n\n${lines.join('\n')}`), 256 * 1024), false, 'a long stretch after the cuts');
 });

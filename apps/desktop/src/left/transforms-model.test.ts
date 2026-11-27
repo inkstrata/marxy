@@ -139,3 +139,29 @@ test('on a large page every row comes in many short pieces, and the pieces add u
   }
   assert.equal(txItem('renumber-list')!.fx(text, null, parsed).c, 1200, 'each list’s second item renumbered');
 });
+
+test('core rows on a CRLF or CR file leave the bytes they leave on the same file with LF, and take the LF parse in many pieces', () => {
+  const body = sections(1200).replace(/\n\n/g, '\nwrapped on\nto two lines\n\n');
+  const lf = body + '```\n# not a heading\nkept\n```\n\n### last\n';
+  for (const id of ['unwrap', 'wrap-80', 'promote', 'demote', 'sort-lines', 'dedupe-lines']) {
+    const want = fx(id, lf).text;
+    if (id !== 'dedupe-lines') assert.notEqual(want, lf, `${id} changes something`);
+    for (const eol of ['\r\n', '\r']) {
+      const text = lf.replace(/\n/g, eol);
+      const steps = txItem(id)!.steps(text, null, null);
+      let pieces = 1;
+      let r = steps.next();
+      while (!r.done) {
+        pieces++;
+        r = steps.next();
+      }
+      assert.equal(r.value.text, want.replace(/\n/g, eol), `${id} with ${JSON.stringify(eol)}: the same edit, the file's own line ends`);
+      if (eol === '\r\n') assert.equal(r.value.c, fx(id, lf).c, `${id}: the same lines counted`);
+      // The first row makes the LF parse, in pieces; the rows after it, and the CR copy of the same text, take it as made.
+      if (id === 'unwrap' && eol === '\r\n') assert.ok(pieces > 5, `${pieces} pieces`);
+    }
+  }
+  // A byte-order mark, and a selection's lines, still read the same.
+  const bom = `﻿${lf.slice(0, 4000).replace(/\n/g, '\r\n')}`;
+  assert.equal(fx('promote', bom).text, `﻿${fx('promote', lf.slice(0, 4000)).text.replace(/\n/g, '\r\n')}`);
+});
