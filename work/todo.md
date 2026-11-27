@@ -25,11 +25,10 @@ checkout, and none is on GitHub yet (row M1).
 
 The first tag of the reader architecture: v0.2.0, a macOS pre-release. The plan, its order and gates, and the
 investigation behind these rows are in `reports/2026-11-26-release-readiness/`. M1, M2 and round 16 (P11, P12, F24)
-are part of it; R10 and R11 block the tag only if they turn out real.
+are part of it; R10 and R11 block the tag only if they turn out real. R1 (macOS CI) landed with #774.
 
 | # | What | Why | Size | Branch |
 | --- | --- | --- | --- | --- |
-| R1 | CI on `main` is red on macOS: the first test of `apps/desktop/src/source/frame.test.mjs` times out on every hosted run. A cold Vite cache found the highlight worker's grammars only when a page first coloured code and re-bundled mid-run; pages booting then never mounted Source | Nothing can be shown green, and every pull request is blocked | S | `mac-installer` |
 | R3 | A Dock Quit, a logout or an Apple-event quit on macOS exits at once, without the unsaved-changes prompt: the run closure in `src-tauri/src/main.rs` has no `ExitRequested` arm, so only the menu's Quit and the close box ask | A reader can lose an edit; `docs/using-marxy.md` promises otherwise | S | |
 | R4 | macOS file associations: the "Source and text" group claims Default rank for about 60 extensions (json, html, xml, css among them); Markdown has no UTI; PDFs, images, archives and documents are not offered in Open With at all | Marxy should be offered for what it reads, not take double-click from other apps | S | |
 | R5 | The version is still 0.1.0, which the earlier architecture shipped: set 0.2.0 in `tauri.conf.json`, `src-tauri/Cargo.toml`, `Cargo.lock` and `apps/desktop/package.json` | The tag, the DMG name and the About box must agree | S | |

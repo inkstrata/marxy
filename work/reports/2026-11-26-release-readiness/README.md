@@ -20,7 +20,8 @@ finished than "nobody has used it" suggests: native menu with Edit, Cmd-aware ke
 instance, an APFS-aware atomic save, a 23 MB arm64 bundle under its 30 MB budget. What stands between `main` and a tag
 is **evidence and release mechanics**, plus one real Mac bug:
 
-1. **CI on `main` is red on macOS**, every time. The cause is in the browser test harness, not the app; see "CI" below.
+1. **CI on `main` was red on macOS**, every time. The cause was in the browser test harness, not the app, and the fix
+   landed with #774 the same day; see "CI" below.
 2. **Work exists on one disk.** Round 16 (hostile-input budgets, reviewed, 16/17) and wave 5, `web-shell` and
    `open-with` are only on the Windows machine (M1).
 3. **Nobody has used the Mac build** (M2), and the release workflow has never run on this tree.
@@ -38,13 +39,13 @@ Recommended: tag **v0.2.0** as a **pre-release**, macOS Apple silicon only, afte
 | Area | State | Before the tag |
 | --- | --- | --- |
 | Release mechanics | `release.yml` should still work on this tree (every path it calls exists); it builds one ad-hoc signed aarch64 DMG and publishes a pre-release. Never run since v0.1.0; no `ci` gate; it publishes before its own checks | version bump, dry run by dispatch, release notes, a tag-matches-version check |
-| CI | `ci` red on `main` on 3 of 3 macOS runs: `frame.test.mjs`, first test. A zombie `nightly` workflow (deleted in #773) still fails daily | fix the harness stall; disable `nightly` |
+| CI | `ci` was red on `main` on 3 of 3 macOS runs (`frame.test.mjs`, first test); fixed by #774, whose macOS job passed. A zombie `nightly` workflow (deleted in #773) still fails daily | disable `nightly` |
 | macOS integration | sound in the code; ad-hoc signed, not notarised; quits outside the menu skip the dirty prompt; claims Default for ~60 text and source extensions | MAC-02, file-association ranks, honest first-run text |
 | Bugs | no open correctness bug recorded; two macOS test failures could hide a real defect (`leave-split` place loss, re-render mismatch after fold or paste) | settle those two |
 | Features | complete against the docs; README lacks Install and Status; file associations miss PDFs, images and the other kinds the reader opens | README, decide the association set |
 | Outstanding | 11 items missing from the tracker, now rows below; round 16 should land; wave 5 should not | M1, then round 16 |
 
-## CI: why `main` is red on macOS
+## CI: why `main` was red on macOS
 
 `apps/desktop/src/source/frame.test.mjs`, "the top bar says what the bytes are", timed out on every hosted macOS
 run (at 30 s, then at 90 s after the wait was raised). It boots eight fresh WebKit pages in a loop against one Vite
@@ -74,9 +75,9 @@ starts.
 - **M1** on the Windows machine: push `budgets-4`, `budgets-5`, `teardown-2`, the round 16 integration, `geometry-table`,
   `near-typeset`, `web-shell` and `open-with` as `agent/<name>`. Push them all, even the ones that wait: they exist
   on one disk.
-- **#774** (the macOS installer): its review asked for three fixes (a failed swap now restores the old bundle, a stop
-  when `/Applications` holds a copy this user cannot replace, no kill of a running Marxy). They are on the branch, with
-  the CI fix (R1), and it lands once `ci` is green.
+- **#774** (the macOS installer) landed on 2026-11-26 with the three fixes its review asked for (a failed swap restores
+  the old bundle, a stop when `/Applications` holds a copy this user cannot replace, no kill of a running Marxy) and
+  the CI fix.
 - **R2**, owner: disable the zombie `nightly` workflow.
 
 **Gate A:** `ci` green on `main`, twice in a row.
