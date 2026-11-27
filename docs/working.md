@@ -71,7 +71,7 @@ deletes a merged pull request's branch, so after `git fetch --prune` a squash-me
 | Review | someone who did not write it reads the pull request's diff; CI runs `pnpm verify` on macOS | the pull request |
 | Integrate | pieces built side by side are merged on one branch and checked whole | `pnpm verify --tier full` |
 | Try | what only the real window or a person shows | `check:tauri`, `pnpm work installer` |
-| Land | the owner merges the pull request; its rows leave the tracker in the same pull request, and a run's landing adds a row to `work/ledger.md` and rewrites `work/STATE.md` | GitHub, `pnpm work todo --check` |
+| Land | the orchestrator or agent merges the pull request once confidence is high and CI is green (the owner approves CODEOWNERS paths); its rows leave the tracker in the same pull request, and a run's landing adds a row to `work/ledger.md` and rewrites `work/STATE.md` | GitHub, `pnpm work todo --check` |
 | Clear | worktrees and branches that have landed are removed | `git fetch --prune`, `pnpm work clean --apply` |
 
 ### Start
@@ -164,7 +164,7 @@ programs) stays in the tracker under its own heading until someone has tried it.
 
 ### Land and clear
 
-`main` moves only through a pull request, merged by the owner once CI is green and the review is done. A
+`main` moves only through a pull request, merged by the orchestrator or agent once CI is green, the review is done and confidence is high (the owner approves CODEOWNERS paths). A
 run lands with `pnpm verify --tier full` behind it. The pull request carries the tracker change (its rows
 removed), and for a run the new `work/ledger.md` row and the rewritten `work/STATE.md`. Then:
 

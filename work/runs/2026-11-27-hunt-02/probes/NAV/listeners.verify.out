@@ -1,0 +1,30 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/NAV/listeners.verify.mjs --browser chromium --out /private/tmp/claude-501/shots
+{
+ "removes": 0,
+ "totals": {
+  "windowDocBody": 0,
+  "elementLive": 69,
+  "elementDetached": 6382
+ },
+ "longLived": [],
+ "live": [
+  [
+   "element-live scroll",
+   12
+  ],
+  [
+   "element-live click",
+   52
+  ],
+  [
+   "element-live input",
+   1
+  ],
+  [
+   "element-live mousedown",
+   4
+  ]
+ ],
+ "drawer": ""
+}
+0 pictures in /private/tmp/claude-501/shots

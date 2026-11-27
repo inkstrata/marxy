@@ -1,0 +1,18 @@
+== 1 MB
+after 4 4144
+after 1 10499
+wall 10658
+CHAINS
+1741ms getBoundingClientRect <- step@progressive.ts:85 < anon@idle-work.ts:12
+1615ms fromMarkdown <- parseMarkdown@parse.ts:23 < parseText@prose.ts:5 < protectedSpans@prose.ts:62 < gapsWithTail@prose.ts:72 < gapsOf@prose.ts:83 < proseLines@extract.ts:37 < pathMentions@extract.ts:45
+204ms getBoundingClientRect <- place@spine.ts:65 < placeThumb@spine.ts:82 < draw@spine.ts:97 < anon@spine.ts:183
+202ms getBoundingClientRect <- buildBlocks@post.ts:97 < blocksOf@rendered-view.ts:295 < snap@rendered-view.ts:815 < snapPending@rendered-view.ts:988 < anon@rendered-view.ts:1022
+== 20 MB
+after 4 40221
+after 1 80292
+wall 80358
+CHAINS
+1ms getBoundingClientRect <- geometry@spine.ts:44 < placeThumb@spine.ts:82 < track@spine.ts:205
+80097ms (idle) :0
+524ms (program) :0
+62ms pathMentionsIn transforms/extract.ts:48

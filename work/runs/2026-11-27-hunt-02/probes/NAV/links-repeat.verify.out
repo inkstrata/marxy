@@ -1,0 +1,37 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/NAV/links-repeat.verify.mjs --browser chromium
+  settled probe                  wall   260ms  longest    60ms  listeners add/rm 142/11
+  Alt+1 Places                   wall   735ms  longest   303ms  listeners add/rm 142/11
+  Alt+5 Search                   wall   809ms  longest   328ms  listeners add/rm 160/11
+  Alt+5 Search again             wall   403ms  longest    54ms  listeners add/rm 178/11
+  Alt+4 Links                    wall   394ms  longest   104ms  listeners add/rm 189/11
+  Alt+1 Places                   wall  7136ms  longest  6626ms  listeners add/rm 454/11
+  Alt+5 Search                   wall   423ms  longest    67ms  listeners add/rm 529/11
+  Alt+4 Links                    wall   679ms  longest   190ms  listeners add/rm 762/11
+  Alt+1 Places                   wall   461ms  longest   104ms  listeners add/rm 993/11
+  Alt+4 Links                    wall   533ms  longest    79ms  listeners add/rm 1274/11
+  Alt+5 Search                   wall   525ms  longest    97ms  listeners add/rm 1401/11
+  type x                         wall   387ms  longest    60ms  listeners add/rm 1410/11
+  after edit Alt+1 Places        wall   654ms  longest   118ms  listeners add/rm 1565/11
+  after edit Alt+5 Search        wall   439ms  longest    84ms  listeners add/rm 1640/11
+  after edit Alt+4 Links         wall   577ms  longest   160ms  listeners add/rm 1891/11
+  after edit Alt+1 Places        wall   431ms  longest   109ms  listeners add/rm 2122/11
+  after edit Alt+5 Search        wall   330ms  longest    95ms  listeners add/rm 2197/11
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0948
+run2 $ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/NAV/links-repeat.verify.mjs --browser chromium
+run2   settled probe                  wall   250ms  longest     0ms  listeners add/rm 142/11
+run2   Alt+1 Places                   wall   585ms  longest   281ms  listeners add/rm 142/11
+run2   Alt+5 Search                   wall   693ms  longest   292ms  listeners add/rm 160/11
+run2   Alt+5 Search again             wall   404ms  longest     0ms  listeners add/rm 178/11
+run2   Alt+4 Links                    wall   326ms  longest    79ms  listeners add/rm 189/11
+run2   Alt+1 Places                   wall  6388ms  longest  6036ms  listeners add/rm 454/11
+run2   Alt+5 Search                   wall   324ms  longest    83ms  listeners add/rm 529/11
+run2   Alt+4 Links                    wall   361ms  longest    57ms  listeners add/rm 762/11
+run2   Alt+1 Places                   wall   313ms  longest    68ms  listeners add/rm 993/11
+run2   Alt+4 Links                    wall   406ms  longest    63ms  listeners add/rm 1274/11
+run2   Alt+5 Search                   wall   357ms  longest    65ms  listeners add/rm 1401/11
+run2   type x                         wall   281ms  longest    53ms  listeners add/rm 1410/11
+run2   after edit Alt+1 Places        wall   376ms  longest    69ms  listeners add/rm 1565/11
+run2   after edit Alt+5 Search        wall   422ms  longest    69ms  listeners add/rm 1640/11
+run2   after edit Alt+4 Links         wall   479ms  longest    96ms  listeners add/rm 1891/11
+run2   after edit Alt+1 Places        wall   465ms  longest    65ms  listeners add/rm 2122/11
+run2   after edit Alt+5 Search        wall   367ms  longest    81ms  listeners add/rm 2197/11

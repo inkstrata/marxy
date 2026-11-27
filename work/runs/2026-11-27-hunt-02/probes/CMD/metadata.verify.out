@@ -1,0 +1,34 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/CMD/metadata.verify.mjs --browser chromium
+== 1 MB
+  Alt+2 (Metadata)                     wall 422 longest 81 
+  open small (Metadata) #0             wall 1359 longest 54 
+  open big (Metadata) #0               wall 1529 longest 276 
+  open small (Metadata) #1             wall 1410 longest  
+  open big (Metadata) #1               wall 1642 longest 216 
+  open small (Metadata) #2             wall 1337 longest 81 
+  open big (Metadata) #2               wall 1563 longest 293,102 
+== 2 MB
+  Alt+2 (Metadata)                     wall 427 longest 316 
+  open small (Metadata) #0             wall 1348 longest 75 
+  open big (Metadata) #0               wall 2817 longest 116,75 
+  open small (Metadata) #1             wall 1383 longest 124 
+  open big (Metadata) #1               wall 2968 longest 74,54 
+  open small (Metadata) #2             wall 1372 longest 130 
+  open big (Metadata) #2               wall 2671 longest 90,65,51 
+== 4.5 MB
+  Alt+2 (Metadata)                     wall 843 longest frozen 
+  open small (Metadata) #0             wall 1564 longest 156,140,59 
+  open big (Metadata) #0               wall 5009 longest 192,79,55 
+  open small (Metadata) #1             wall 1510 longest 255 
+  open big (Metadata) #1               wall 5267 longest 268,108,87 
+  open small (Metadata) #2             wall 1488 longest 157 
+  open big (Metadata) #2               wall 4270 longest 233 
+== 5.5 MB
+  Alt+2 (Metadata)                     wall 284 longest 239 
+  open small (Metadata) #0             wall 1244 longest  
+  open big (Metadata) #0               wall 1279 longest  
+  open small (Metadata) #1             wall 1311 longest  
+  open big (Metadata) #1               wall 1253 longest  
+  open small (Metadata) #2             wall 1254 longest  
+  open big (Metadata) #2               wall 1272 longest  
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0948

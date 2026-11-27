@@ -1,0 +1,70 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/CMD/panels.mjs --browser chromium
+== 1 MB, 3000 headings
+  open                               wall   4167 ms  longest task 2817 ms (>300ms: 1) 
+  background settled after 16009 ms
+  Metadata Alt+2                     wall   2297 ms  longest task 2524 ms (>300ms: 1) 
+  Metadata Tab into panel            wall    311 ms  longest task 100 ms (>300ms: 0) 
+  Metadata ArrowDown x6              wall   2014 ms  longest task 115 ms (>300ms: 0) 
+  Metadata Enter verb menu           wall    183 ms  longest task 53 ms (>300ms: 0) 
+  Metadata Escape                    wall    204 ms  longest task 68 ms (>300ms: 0) 
+  Metadata slash field               wall    372 ms  longest task 206 ms (>300ms: 0) 
+  Metadata type 'a'                  wall    334 ms  longest task 82 ms (>300ms: 0) 
+  Metadata Escape x2                 wall    508 ms  longest task 219 ms (>300ms: 0) 
+  Export Alt+7                       wall    232 ms  longest task 69 ms (>300ms: 0) 
+  Export Tab into panel              wall    372 ms  longest task 149 ms (>300ms: 0) 
+  Export ArrowDown x6                wall   1949 ms  longest task 80 ms (>300ms: 0) 
+  Export Enter verb menu             wall    213 ms  longest task 66 ms (>300ms: 0) 
+  Export Escape                      wall    573 ms  longest task 106 ms (>300ms: 0) 
+  Export slash field                 wall    530 ms  longest task 292 ms (>300ms: 0) 
+  Export type 'a'                    wall    371 ms  longest task 88 ms (>300ms: 0) 
+  Export Escape x2                   wall    732 ms  longest task 317 ms (>300ms: 1) 
+  Versions Alt+8                     wall    326 ms  longest task 101 ms (>300ms: 0) 
+  Versions Tab into panel            wall    315 ms  longest task 85 ms (>300ms: 0) 
+  Versions ArrowDown x6              wall   1878 ms  longest task 97 ms (>300ms: 0) 
+  Versions Enter verb menu           wall    227 ms  longest task 67 ms (>300ms: 0) 
+  Versions Escape                    wall    223 ms  longest task 65 ms (>300ms: 0) 
+  Versions slash field               wall    510 ms  longest task 281 ms (>300ms: 0) 
+  Versions type 'a'                  wall    210 ms  longest task 63 ms (>300ms: 0) 
+  Versions Escape x2                 wall    351 ms  longest task 184 ms (>300ms: 0) 
+  panel switch x12 ms: 117 113 93 49 446 585 116 298 499 362 156 76
+  small file open, Metadata shown    wall   1345 ms  longest task 65 ms (>300ms: 0) 
+  big file open, Metadata shown      wall   1589 ms  longest task 232 ms (>300ms: 0) 
+  small file open, Metadata shown    wall   1297 ms  longest task 0 ms (>300ms: 0) 
+  big file open, Metadata shown      wall   1517 ms  longest task 191 ms (>300ms: 0) 
+  small file open, Metadata shown    wall   1291 ms  longest task 0 ms (>300ms: 0) 
+  big file open, Metadata shown      wall   1529 ms  longest task 204 ms (>300ms: 0) 
+== 5 MB, 3000 headings
+  open                               wall   9774 ms  longest task 91 ms (>300ms: 0) STALL>10s open
+  background settled after 15643 ms
+  Metadata Alt+2                     wall    482 ms  longest task 289 ms (>300ms: 0) 
+  Metadata Tab into panel            wall    244 ms  longest task 54 ms (>300ms: 0) 
+  Metadata ArrowDown x6              wall   1742 ms  longest task 63 ms (>300ms: 0) 
+  Metadata Enter verb menu           wall    210 ms  longest task 70 ms (>300ms: 0) 
+  Metadata Escape                    wall    265 ms  longest task 56 ms (>300ms: 0) 
+  Metadata slash field               wall    431 ms  longest task 263 ms (>300ms: 0) 
+  Metadata type 'a'                  wall    234 ms  longest task 70 ms (>300ms: 0) 
+  Metadata Escape x2                 wall    423 ms  longest task 227 ms (>300ms: 0) 
+  Export Alt+7                       wall    243 ms  longest task 72 ms (>300ms: 0) 
+  Export Tab into panel              wall    226 ms  longest task 58 ms (>300ms: 0) 
+  Export ArrowDown x6                wall   1846 ms  longest task 79 ms (>300ms: 0) 
+  Export Enter verb menu             wall    204 ms  longest task 74 ms (>300ms: 0) 
+  Export Escape                      wall    192 ms  longest task 62 ms (>300ms: 0) 
+  Export slash field                 wall    553 ms  longest task 262 ms (>300ms: 0) 
+  Export type 'a'                    wall    405 ms  longest task 97 ms (>300ms: 0) 
+  Export Escape x2                   wall    586 ms  longest task 263 ms (>300ms: 0) 
+  Versions Alt+8                     wall    313 ms  longest task 84 ms (>300ms: 0) 
+  Versions Tab into panel            wall    282 ms  longest task 83 ms (>300ms: 0) 
+  Versions ArrowDown x6              wall   2366 ms  longest task 128 ms (>300ms: 0) 
+  Versions Enter verb menu           wall    302 ms  longest task 79 ms (>300ms: 0) 
+  Versions Escape                    wall    265 ms  longest task 76 ms (>300ms: 0) 
+  Versions slash field               wall    804 ms  longest task 408 ms (>300ms: 1) 
+  Versions type 'a'                  wall    254 ms  longest task 80 ms (>300ms: 0) 
+  Versions Escape x2                 wall    578 ms  longest task 294 ms (>300ms: 0) 
+  panel switch x12 ms: 179 172 243 126 836 723 444 308 889 1335 395 363
+  small file open, Metadata shown    wall   9581 ms  longest task 147 ms (>300ms: 0) STALL>10s small file open, Metadata shown
+  big file open, Metadata shown      wall   9554 ms  longest task 107 ms (>300ms: 0) STALL>10s big file open, Metadata shown
+  small file open, Metadata shown    wall   9615 ms  longest task 265 ms (>300ms: 0) STALL>10s small file open, Metadata shown
+  big file open, Metadata shown      wall   9684 ms  longest task 141 ms (>300ms: 0) STALL>10s big file open, Metadata shown
+  small file open, Metadata shown    wall   9670 ms  longest task 172 ms (>300ms: 0) STALL>10s small file open, Metadata shown
+  big file open, Metadata shown      wall   9519 ms  longest task 250 ms (>300ms: 0) STALL>10s big file open, Metadata shown
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0937

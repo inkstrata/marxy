@@ -1,0 +1,14 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EXP/scale.mjs --browser chromium
+600 open 1377
+600 idle evaluate 2
+600 raw 102 ms (wall 315 )
+600 text 101 ms (wall 305 )
+600 html 16712 ms (wall 16918 )
+600 pdf 101 ms (wall 308 )
+1500 open 1557
+1500 idle evaluate 7
+1500 raw 104 ms (wall 309 )
+1500 text 368 ms (wall 576 )
+/Users/<user>/Dev/marxy-wt/hunt-01/apps/desktop:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @marxy/desktop@0.2.0 shots: `node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EXP/scale.mjs --browser chromium`
+Exit status 143

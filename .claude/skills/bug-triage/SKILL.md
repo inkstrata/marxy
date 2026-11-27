@@ -54,7 +54,8 @@ was, so the next hunt can choose its domains.
 1. `pnpm verify --tier changed --base origin/main` in the hunt worktree (it touches only `work/`, so this is
    quick), and `pnpm work todo --check`.
 2. Commit on `agent/hunt-<nn>`: `docs(work): bug hunt <nn>: <n> findings, <m> rows`. Push.
-3. Open a pull request against `main`: the rows made with their severities (S1 first), the counts, and what
+3. Open a pull request against `main`, never stacked on another open branch: a stacked pull request
+   merges into its base, not into `main`, when the base lands first by squash. Open it: the rows made with their severities (S1 first), the counts, and what
    was not checked. Add a row to `work/ledger.md` in the same pull request.
-4. The owner merges (Marxy's rule). Do not merge it.
+4. Merge it once CI is green and you are confident in it (Marxy's rule), unless it needs the owner's approval.
 5. Tell the owner the S1 rows by name in the final message: they are what to build next.

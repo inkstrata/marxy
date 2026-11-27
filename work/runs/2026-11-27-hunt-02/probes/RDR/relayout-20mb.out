@@ -1,0 +1,18 @@
+$ node scripts/shots.mjs --browser chromium /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/RDR/relayout.mjs
+size 20MB heads 20000 tables 1000: open 1577ms
+drawer open (Ctrl+B): call 27ms longest 0ms tasks 0 sum 0ms
+drawer close: call 40ms longest 0ms tasks 0 sum 0ms
+rail hide (Ctrl+\): call 26ms longest 0ms tasks 0 sum 0ms
+rail show: call 5ms longest 0ms tasks 0 sum 0ms
+drawer open 2: call 35ms longest 0ms tasks 0 sum 0ms
+drawer close 2: call 15ms longest 0ms tasks 0 sum 0ms
+resize 1000: call 43ms longest 0ms tasks 0 sum 0ms
+resize 700: call 16ms longest 0ms tasks 0 sum 0ms
+resize 1400: call 8ms longest 0ms tasks 0 sum 0ms
+F11: call 25ms longest 0ms tasks 0 sum 0ms
+split (Ctrl+2): call 7ms longest 0ms tasks 0 sum 0ms
+read (Ctrl+1): call 9ms longest 0ms tasks 0 sum 0ms
+source (Ctrl+3): call 30ms longest 0ms tasks 0 sum 0ms
+read again: call 77ms longest 0ms tasks 0 sum 0ms
+{"rail":"","t":0,"p":2}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0927

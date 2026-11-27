@@ -1,0 +1,17 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/NAV/prof.mjs --browser chromium
+wall 234
+687ms (program) :0
+38ms getBoundingClientRect :0
+18ms querySelectorAll :0
+11ms draw left/frame.ts:295
+11ms buildBlocks render/post.ts:97
+8ms (garbage collector) :0
+5ms getComputedStyle :0
+5ms blocksOf view/rendered-view.ts:295
+5ms focus :0
+4ms (anon) render/post.ts:99
+4ms querySelector :0
+4ms driftedAbove src/grid.ts:99
+4ms getAttribute :0
+3ms compareDocumentPosition :0
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0933

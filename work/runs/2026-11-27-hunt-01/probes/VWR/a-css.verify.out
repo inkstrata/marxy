@@ -1,0 +1,6 @@
+default: 1372ms ls= tr= fk= fvl= ts= tw=
+text-rendering:auto: 1363ms ls= tr= fk= fvl= ts= tw=
+font-kerning:none: 3ms ls= tr= fk= fvl= ts= tw=
+ligatures none: 1413ms ls= tr= fk= fvl= ts= tw=
+kern+lig+tr off: 3ms ls= tr= fk= fvl= ts= tw=
+font-family monospace: 6ms ls= tr= fk= fvl= ts= tw=
