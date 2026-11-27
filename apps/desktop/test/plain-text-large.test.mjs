@@ -146,3 +146,45 @@ test('a 2 MB plain .txt shows its first text before any Markdown parse, and is p
     await browser.close();
   }
 });
+
+// A text with no blank line is one Markdown paragraph, which the slices cannot cut: its parse was one task of seconds (4.7 s
+// at 4.9 MB) made behind the page. It is not made behind the page now; the store makes it when something asks for it.
+test('a plain .txt of 2 MB with no blank line is shown, held no longer than the page needs, and not parsed behind it', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const base = await harnessBase();
+    await page.goto(`${base}app.html`);
+    await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+    const files = { '/n/small.md': b64('# Small\n\nShort.\n'), '/n/solid.txt': b64(plainProse(2 * 1024 * 1024).replace(/\n\n/g, '\n')) };
+    const seen = await page.evaluate(async (files) => {
+      const bytes = {};
+      for (const [path, b] of Object.entries(files)) bytes[path] = Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+      const { createMemoryShell } = await import('/src/shell/memory.ts');
+      const { startApp } = await import('/src/app.ts');
+      const h = await startApp(createMemoryShell(bytes), { argv: ['/n/small.md'] });
+      await h.ready;
+      const out = { longest: 0, parsedBehind: null, blocks: 0 };
+      let beat = performance.now();
+      const timer = setInterval(() => {
+        const now = performance.now();
+        out.longest = Math.max(out.longest, now - beat - 10);
+        beat = now;
+      }, 10);
+      await h.open('/n/solid.txt');
+      await h.contentComplete();
+      beat = performance.now();
+      await new Promise((r) => setTimeout(r, 6000));
+      out.parsedBehind = h.document().parsed();
+      clearInterval(timer);
+      out.blocks = h.document().snapshot().ast.children.length;
+      return out;
+    }, files);
+    console.log(`2 MB .txt with no blank line: longest hold ${Math.round(seen.longest)} ms from the open to 6 s after it is complete, parsed behind the page: ${seen.parsedBehind}`);
+    assert.equal(seen.parsedBehind, false, 'no parse of one uncuttable paragraph behind the page');
+    assert.ok(seen.longest < HELD_MS * 2, `held for ${Math.round(seen.longest)} ms`);
+    assert.equal(seen.blocks, 1, 'asked for, the parse is the file’s: one paragraph');
+  } finally {
+    await browser.close();
+  }
+});
