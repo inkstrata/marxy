@@ -287,3 +287,28 @@ fn the_frame_carries_the_head_the_table_and_the_text() {
     assert_eq!(t, 0);
     assert_eq!(&f[8 + n..], d.text.as_slice());
 }
+
+#[test]
+fn shift_jis_and_gbk_text_is_guessed_as_such_not_taken_for_damaged_utf8() {
+    let sjis_text = "吾輩は猫である。名前はまだ無い。どこで生れたかとんと見当がつかぬ。\n".repeat(20);
+    let gbk_text = "我是一只猫。名字还没有。出生在哪里全然不知道。\n".repeat(20);
+    for (text, enc, label) in [
+        (&sjis_text, encoding_rs::SHIFT_JIS, "shift_jis"),
+        (&gbk_text, encoding_rs::GBK, "gbk"),
+    ] {
+        let (bytes, _, _) = enc.encode(text);
+        assert!(!looks_like_utf8(&bytes), "{label}");
+        let d = decode(&bytes, None).unwrap();
+        assert_eq!(d.found.how, How::Guess, "{label}");
+        assert_eq!(d.found.label, label);
+        assert_eq!(d.text, text.as_bytes());
+    }
+    // Controls: UTF-8 and ASCII are not guessed at.
+    assert!(looks_like_utf8(sjis_text.as_bytes()));
+    assert!(!looks_like_utf8(b"plain ascii"));
+    assert_eq!(decode(b"plain ascii", None).unwrap().found.how, How::Utf8);
+    assert_eq!(
+        decode(gbk_text.as_bytes(), None).unwrap().found.how,
+        How::Utf8
+    );
+}

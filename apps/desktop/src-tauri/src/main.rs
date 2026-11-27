@@ -19,6 +19,8 @@ mod pasteboard;
 mod remote;
 mod scope;
 mod tables;
+#[cfg(target_os = "macos")]
+mod user_path;
 mod watch;
 #[path = "watch/spawn_notify.rs"]
 mod watch_notify;

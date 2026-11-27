@@ -175,25 +175,32 @@ pub fn first_not_utf8(bytes: &[u8]) -> Option<Deciding> {
 /// encoding.
 pub const MIN_GUESS_BYTES: usize = 4;
 
-/// Whether `bytes` read as damaged UTF-8: a character above ASCII that is well-formed UTF-8, or one cut short (a lead
-/// byte and at least one of its continuation bytes, the rest missing).
+/// Whether `bytes` read as UTF-8, perhaps damaged: the bytes above ASCII that sit in well-formed characters (or in one cut
+/// short, a lead byte and at least one of its continuation bytes) are at least as many as the bytes that are not. A single
+/// well-formed pair among stray bytes is not enough: Shift_JIS and GBK text is full of byte pairs that happen to be
+/// well-formed UTF-8, but a larger share of its bytes are not.
 pub fn looks_like_utf8(bytes: &[u8]) -> bool {
+    let (mut good, mut stray) = (0usize, 0usize);
     let mut rest = bytes;
     loop {
         match std::str::from_utf8(rest) {
-            Ok(s) => return !s.is_ascii(),
+            Ok(s) => {
+                good += s.bytes().filter(|&b| b >= 0x80).count();
+                break;
+            }
             Err(e) => {
-                let cut_short = e
-                    .error_len()
-                    .map_or(rest.len() - e.valid_up_to() > 1, |n| n > 1);
-                if cut_short || !rest[..e.valid_up_to()].is_ascii() {
-                    return true;
+                good += rest[..e.valid_up_to()].iter().filter(|&&b| b >= 0x80).count();
+                let bad = e.error_len().unwrap_or(rest.len() - e.valid_up_to());
+                if bad > 1 {
+                    good += bad;
+                } else {
+                    stray += bad;
                 }
-                rest = &rest
-                    [e.valid_up_to() + e.error_len().unwrap_or(rest.len() - e.valid_up_to())..];
+                rest = &rest[e.valid_up_to() + bad..];
             }
         }
     }
+    good > 0 && good >= stray
 }
 
 /// How `bytes` would be read with no choice: the label, how it was known, and (for a guess) why.
