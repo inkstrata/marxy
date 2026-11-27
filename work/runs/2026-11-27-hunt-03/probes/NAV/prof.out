@@ -1,0 +1,10 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/prof.mjs --browser chromium
+8075ms (idle) :-1
+1226ms go deps/mdast-util-from-markdown.js?v=0299fb70:1180
+871ms (program) :-1
+683ms consume deps/mdast-util-from-markdown.js?v=0299fb70:1188
+557ms (garbage collector) :-1
+357ms main deps/mdast-util-from-markdown.js?v=0299fb70:1163
+289ms subtokenize deps/chunk-22UTZQ6S.js?v=0299fb70:1227
+270ms markdownLineEnding deps/chunk-TMSDTAZJ.js?v=0299fb70:18
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1115

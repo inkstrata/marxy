@@ -1,0 +1,71 @@
+[
+ {
+  "kind": "json-pretty",
+  "bytes": 1000023,
+  "name": "big-json-pretty-1000k.json",
+  "steps": {
+   "open": {
+    "firstMs": 376,
+    "completeMs": 2986,
+    "openReturnMs": 2986,
+    "busyUntilIdleMs": 4257,
+    "taskMs": 3021,
+    "layouts": 511,
+    "longestMs": 2541,
+    "nodes": 52486
+   },
+   "key": {
+    "skipped": true
+   },
+   "scrollMid": {
+    "skipped": true
+   },
+   "scrollEnd": {
+    "skipped": true
+   },
+   "toSource": {
+    "wallMs": 3404,
+    "taskMs": 544,
+    "scriptMs": 206,
+    "layoutMs": 10,
+    "layouts": 15,
+    "recalcs": 40,
+    "longestMs": 236,
+    "nodes": 53012
+   },
+   "toRead": {
+    "wallMs": 3731,
+    "taskMs": 2625,
+    "scriptMs": 138,
+    "layoutMs": 272,
+    "layouts": 505,
+    "recalcs": 507,
+    "longestMs": 2456,
+    "nodes": 61015
+   },
+   "reload": {
+    "wallMs": 201036,
+    "taskMs": 200742,
+    "scriptMs": 39646,
+    "layoutMs": 7280,
+    "layouts": 1076,
+    "recalcs": 12398,
+    "longestMs": 1077,
+    "nodes": 491687,
+    "neverQuiet": true
+   },
+   "find": {
+    "wallMs": 214257,
+    "taskMs": 214345,
+    "scriptMs": 30915,
+    "layoutMs": 5132,
+    "layouts": 682,
+    "recalcs": 3579,
+    "longestMs": 7033,
+    "nodes": 624538,
+    "neverQuiet": true
+   }
+  },
+  "errors": []
+ }
+]

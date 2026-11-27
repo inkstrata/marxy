@@ -1,0 +1,33 @@
+p-flat-in-div 2000 html KB 16 {"ms":24,"len":5999}
+p-flat-in-div 4000 html KB 32 {"ms":17,"len":11999}
+p-flat-in-div 8000 html KB 64 {"ms":33,"len":23999}
+p-flat-in-div 32000 html KB 256 {"ms":133,"len":95999}
+p-flat-in-div 130000 html KB 1040 {"err":"RangeError: Maximum call stack size exceeded","ms":540}
+p-flat-body 2000 html KB 16 {"ms":6,"len":5999}
+p-flat-body 4000 html KB 32 {"ms":11,"len":11999}
+p-flat-body 8000 html KB 64 {"ms":30,"len":23999}
+p-flat-body 32000 html KB 256 {"ms":106,"len":95999}
+p-flat-body 130000 html KB 1040 {"ms":451,"len":389999}
+table-rows 2000 html KB 58 {"ms":18,"len":20014}
+table-rows 4000 html KB 116 {"ms":32,"len":40014}
+table-rows 8000 html KB 232 {"ms":74,"len":80014}
+table-rows 32000 html KB 928 {"ms":290,"len":320014}
+table-rows 130000 html KB 3770 {"err":"RangeError: Maximum call stack size exceeded","ms":1384}
+li-in-ul 2000 html KB 20 {"ms":11,"len":8000}
+li-in-ul 4000 html KB 40 {"ms":16,"len":16000}
+li-in-ul 8000 html KB 80 {"ms":38,"len":32000}
+li-in-ul 32000 html KB 320 {"ms":127,"len":128000}
+li-in-ul 130000 html KB 1300 {"ms":479,"len":520000}
+nested-div 2000 html KB 22 {"ms":22,"len":2}
+nested-div 4000 html KB 44 {"ms":81,"len":2}
+nested-div 8000 html KB 88 {"ms":313,"len":2}
+nested-div 32000 html KB 352 {"ms":5039,"len":2}
+nested-div 130000 STALL nested-div130000
+nested-ul 2000 STALL nested-ul2000
+nested-bq 2000 html KB 50 {"ms":23,"len":1024}
+nested-bq 4000 html KB 100 {"ms":84,"len":1024}
+nested-bq 8000 html KB 200 {"ms":445,"len":1024}
+nested-bq 32000 html KB 800 {"ms":5376,"len":1024}
+nested-bq 130000 STALL nested-bq130000
+inline-spans 2000 STALL inline-spans2000
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1036

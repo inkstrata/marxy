@@ -1,0 +1,14 @@
+ 3:05  up 1 day,  6:24, 1 user, load averages: 36.63 38.37 44.85
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/EDT/paste-html.verify.mjs --browser chromium
+p-in-div 32000 htmlBytes 256011 {"ms":153,"len":95999} taskCpuMs 178
+p-in-div 64000 htmlBytes 512011 {"ms":258,"len":191999} taskCpuMs 274
+p-in-div 130000 htmlBytes 1040011 {"err":"RangeError: Maximum call stack size exceeded","ms":482} taskCpuMs 498
+table-rows 32000 htmlBytes 928015 {"ms":282,"len":320014} taskCpuMs 296
+table-rows 64000 htmlBytes 1856015 {"ms":662,"len":640014} taskCpuMs 690
+table-rows 130000 htmlBytes 3770015 {"err":"RangeError: Maximum call stack size exceeded","ms":1120} taskCpuMs 1183
+nested-div 2000 htmlBytes 22001 {"ms":27,"len":2} taskCpuMs 42
+nested-div 4000 htmlBytes 44001 {"ms":97,"len":2} taskCpuMs 99
+nested-div 8000 htmlBytes 88001 {"ms":377,"len":2} taskCpuMs 379
+nested-div 16000 htmlBytes 176001 {"ms":1555,"len":2} taskCpuMs 1560
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1106
+ 3:06  up 1 day,  6:25, 1 user, load averages: 41.77 39.28 44.73

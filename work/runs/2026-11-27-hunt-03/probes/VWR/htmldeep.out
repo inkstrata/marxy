@@ -1,0 +1,10 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/VWR/htmldeep.mjs --browser chromium
+{"shape":"div","n":2500,"bytes":27542,"maxPing":343,"pings":[343],"task":0.3}
+{"shape":"div","n":5000,"bytes":55042,"maxPing":67,"pings":[],"task":0.55}
+{"shape":"div","n":10000,"bytes":110042,"maxPing":505,"pings":[415,505],"task":1.42}
+{"shape":"div","n":20000,"bytes":220042,"maxPing":549,"pings":[539,409,396,456,361,549,408,442,367],"task":5.83}
+{"shape":"flat","n":2500,"bytes":30041,"maxPing":100,"pings":[],"task":0.21}
+{"shape":"flat","n":5000,"bytes":60041,"maxPing":190,"pings":[],"task":0.2}
+{"shape":"flat","n":10000,"bytes":120041,"maxPing":126,"pings":[],"task":0.32}
+{"shape":"flat","n":20000,"bytes":240041,"maxPing":138,"pings":[],"task":0.41}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1053

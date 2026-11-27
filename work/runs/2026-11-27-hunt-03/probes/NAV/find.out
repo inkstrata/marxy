@@ -1,0 +1,56 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/find.mjs --browser chromium
+=== md-prose 1 MB
+open: wall 3180ms task 3117ms script 312ms layout 405ms(135) style#183 nodes 37078
+settle 8s: wall 8058ms task 7829ms script 1592ms layout 1517ms(441) style#928 nodes 46137
+ blocks 10259
+mount-ready: wall 146ms task 150ms script 46ms layout 27ms(8) style#14 nodes 46824
+Mod+F: wall 287ms task 300ms script 60ms layout 30ms(6) style#12 nodes 47117
+type t: wall 662ms task 711ms script 174ms layout 100ms(26) style#54 nodes 48702
+type h: wall 501ms task 509ms script 144ms layout 85ms(22) style#44 nodes 50557
+type e: wall 776ms task 725ms script 154ms layout 82ms(25) style#49 nodes 47574
+type  : wall 497ms task 539ms script 141ms layout 71ms(23) style#47 nodes 50325
+ count 1 of 16226 / input=the 
+count: wall 99ms task 116ms script 16ms layout 21ms(6) style#14 nodes 50423
+Enter: wall 289ms task 304ms script 56ms layout 39ms(13) style#28 nodes 51389
+Enter: wall 249ms task 240ms script 45ms layout 45ms(12) style#30 nodes 51512
+Enter: wall 214ms task 218ms script 20ms layout 42ms(10) style#25 nodes 52448
+Shift+Enter: wall 276ms task 293ms script 54ms layout 41ms(11) style#23 nodes 53380
+Backspace: wall 465ms task 697ms script 165ms layout 105ms(26) style#54 nodes 55295
+Esc: wall 171ms task 187ms script 14ms layout 12ms(6) style#25 nodes 56669
+=== md-prose 2 MB
+open: wall 4891ms task 4894ms script 448ms layout 455ms(152) style#186 nodes 68860
+settle 8s: wall 8088ms task 8086ms script 1658ms layout 1342ms(371) style#371 nodes 92391
+ blocks 13688
+mount-ready: wall 124ms task 147ms script 42ms layout 18ms(5) style#5 nodes 93347
+Mod+F: wall 380ms task 404ms script 70ms layout 52ms(12) style#13 nodes 94786
+type t: wall 528ms task 537ms script 194ms layout 56ms(16) style#17 nodes 97422
+type h: wall 494ms task 505ms script 166ms layout 54ms(15) style#16 nodes 100657
+type e: wall 544ms task 561ms script 151ms layout 52ms(16) style#17 nodes 104970
+type  : wall 525ms task 563ms script 179ms layout 41ms(16) style#17 nodes 109283
+ count 1 of 22010 / input=the 
+count: wall 88ms task 102ms script 11ms layout 17ms(4) style#4 nodes 110361
+Enter: wall 380ms task 444ms script 67ms layout 56ms(16) style#18 nodes 75506
+Enter: wall 346ms task 355ms script 68ms layout 44ms(11) style#13 nodes 77663
+Enter: wall 220ms task 267ms script 55ms layout 28ms(7) style#9 nodes 73545
+Shift+Enter: wall 242ms task 262ms script 59ms layout 36ms(8) style#10 nodes 75702
+Backspace: wall 494ms task 514ms script 177ms layout 52ms(13) style#14 nodes 80015
+Esc: wall 217ms task 299ms script 40ms layout 24ms(9) style#25 nodes 82661
+=== md-prose 4.9 MB
+open: wall 7773ms task 7747ms script 394ms layout 413ms(138) style#172 nodes 161357
+settle 8s: wall 8054ms task 8034ms script 1754ms layout 1273ms(334) style#334 nodes 229159
+ blocks 13918
+mount-ready: wall 73ms task 82ms script 11ms layout 13ms(2) style#2 nodes 229159
+Mod+F: wall 339ms task 368ms script 63ms layout 39ms(9) style#10 nodes 232671
+type t: wall 572ms task 572ms script 201ms layout 46ms(18) style#19 nodes 236780
+type h: wall 647ms task 664ms script 310ms layout 46ms(14) style#15 nodes 233602
+type e: wall 537ms task 559ms script 136ms layout 54ms(15) style#16 nodes 238910
+type  : wall 544ms task 574ms script 148ms layout 57ms(18) style#19 nodes 174202
+ count 1 of 22310 / input=the 
+count: wall 49ms task 56ms script 30ms layout 4ms(1) style#1 nodes 174202
+Enter: wall 301ms task 330ms script 53ms layout 34ms(8) style#10 nodes 179510
+Enter: wall 222ms task 422ms script 75ms layout 40ms(11) style#13 nodes 183049
+Enter: wall 365ms task 383ms script 94ms layout 39ms(11) style#13 nodes 188357
+Shift+Enter: wall 201ms task 230ms script 43ms layout 21ms(7) style#9 nodes 187398
+Backspace: wall 670ms task 685ms script 204ms layout 69ms(21) style#22 nodes 196244
+Esc: wall 289ms task 322ms script 36ms layout 26ms(8) style#24 nodes 200272
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1024

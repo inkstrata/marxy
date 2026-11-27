@@ -1,0 +1,6 @@
+md-prose 1000000 create 360.4 srcText 0.6 fold 28.9 splice 8.2 srcText2 0.1 20splices 1169.4 srcAfter 0.1
+md-prose 2000000 create 92.2 srcText 0.0 fold 383.5 splice 13.0 srcText2 0.0 20splices 2921.1 srcAfter 0.2
+md-prose 4900000 create 481.6 srcText 4.6 fold 547.6 splice 416.5 srcText2 0.0 20splices 8508.4 srcAfter 0.6
+txt 1000000 create 510.6 srcText 0.0 fold 92.2 splice 7.4 srcText2 0.2 20splices 1110.1 srcAfter 0.3
+txt 2000000 create 19.7 srcText 0.0 fold 417.2 splice 20.2 srcText2 2.2 20splices 2739.5 srcAfter 0.1
+txt 4900000 create 80.9 srcText 0.1 fold 475.2 splice 505.2 srcText2 0.1 20splices 8909.4 srcAfter 2.7

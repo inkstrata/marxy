@@ -1,0 +1,12 @@
+[
+ {
+  "kind": "json-pretty 1m",
+  "bytes": null,
+  "fatal": "unknown kind json-pretty 1m: md-prose, md-transcript, md-technical, md-dense, md-references, md-headings, md-tables, md-code-fences, txt, code-ts, json-pretty, json-minified, json-deep, csv, csv-quoted-newlines, jsonl, log, diff, html, yaml, one-line-md"
+ },
+ {
+  "kind": "2m",
+  "bytes": null,
+  "fatal": "unknown kind 2m: md-prose, md-transcript, md-technical, md-dense, md-references, md-headings, md-tables, md-code-fences, txt, code-ts, json-pretty, json-minified, json-deep, csv, csv-quoted-newlines, jsonl, log, diff, html, yaml, one-line-md"
+ }
+]

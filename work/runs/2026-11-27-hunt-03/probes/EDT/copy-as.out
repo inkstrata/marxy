@@ -1,0 +1,6 @@
+md-prose 1000000 input ms 11783 markdown:0ms/980K plain:47ms/908K rich:1720ms/1118K html:1854ms/1118K slack:11339ms/974K jira:164ms/978K json-string:1ms/986K quote:43ms/989K
+md-prose 2000000 input ms 18915 markdown:2ms/1960K plain:12ms/1815K rich:2502ms/2236K html:2813ms/2236K slack:35845ms/1948K jira:139ms/1955K json-string:11ms/1972K quote:8ms/1978K
+md-prose 4900000 input ms 77998 markdown:0ms/4803K plain:84ms/4448K rich:9244ms/5479K html:8013ms/5479K slack:44292ms/4775K jira:353ms/4791K json-string:129ms/4833K quote:42ms/4848K
+md-technical 1000000 input ms 14711 markdown:0ms/990K plain:48ms/788K rich:3180ms/1087K html:2724ms/1087K slack:12481ms/898K jira:421ms/817K json-string:103ms/1010K quote:319ms/1024K
+md-technical 2000000 input ms 12784 markdown:0ms/1960K plain:74ms/1560K rich:4164ms/2153K html:5157ms/2153K slack:18183ms/1779K jira:949ms/1618K json-string:12ms/2000K quote:193ms/2028K
+md-technical 4900000 input ms 25585 markdown:0ms/4773K plain:448ms/3799K rich:3839ms/5246K html:3320ms/5246K slack:14271ms/4331K jira:333ms/3940K json-string:37ms/4870K quote:170ms/4937K
