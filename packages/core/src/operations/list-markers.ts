@@ -10,6 +10,7 @@ import { parseMarkdown } from '../parse/parse.ts';
 import { itemSpans } from './list-item-spans.ts';
 import { replaceSpans, textIndex } from './text-helpers.ts';
 import { parentOf } from './parents.ts';
+import { lineStartBefore } from '../util/text.ts';
 
 export interface MarkerSpan {
   readonly item: ListItem;
@@ -159,7 +160,7 @@ function rewrite(input: OperationInput, plan: Plan): OperationResult {
       const item = lines?.[i];
       const shift = old.length - next.length;
       if (!item || shift <= 0) return refuse(`${plan.noun} would re-indent a nested item`);
-      const lineStart = Math.max(input.text.lastIndexOf('\n', item.marker.start - 1), input.text.lastIndexOf('\r', item.marker.start - 1)) + 1;
+      const lineStart = lineStartBefore(input.text, item.marker.start);
       const margin = i === 0 ? 0 : item.marker.start - lineStart;
       if (i > 0 && input.text.slice(lineStart, item.marker.start).trim() !== '') return refuse(`${plan.noun} would re-indent a nested item`);
       const moves = reindentEdits(input.text, item.marker.start, item.content.end, old.length, shift, margin);

@@ -56,9 +56,22 @@ const docOf = (ctx: PanelContext<TransformsState>): Doc | null => {
   const d = ctx.doc();
   if (!d || isArchiveEntry(d.path)) return null;
   const snap = d.store.snapshot();
-  const parsed = d.store.textParse();
-  return { path: d.path, store: d.store, text: parsed?.text ?? decoder.decode(snap.buffer.bytes), version: snap.version, parsed };
+  const pair = d.store.textParse();
+  const text = pair?.text ?? decoder.decode(snap.buffer.bytes);
+  return { path: d.path, store: d.store, text, version: snap.version, parsed: pair ?? crParse(d.path, d.store, text) };
 };
+
+/**
+ * The store's parse of a Markdown file with CRLF or CR line ends, which `textParse` does not lend (core's transforms read LF
+ * text): its offsets are the bytes of the text as it is, so the rows that read nodes take it with that text. Null when the
+ * store has not parsed (asking never forces it), or the text is not exactly its bytes (a byte-order mark, a byte the decode
+ * replaced).
+ */
+function crParse(path: string, store: DocumentStore, text: string): ParsedText | null {
+  if (familyOf(path) !== 'markdown' || !store.parsed() || !text.includes('\r') || text.startsWith('\uFEFF')) return null;
+  const snap = store.snapshot();
+  return snap.buffer.text === text ? { text, doc: snap.ast } : null;
+}
 
 /** The cursor's part as lines of the file, when the page has one. */
 function cursorLines(handle: AppHandle, store: DocumentStore): (LineSel & { readonly start: number }) | null {
@@ -106,6 +119,12 @@ function workOut(ctx: PanelContext<TransformsState>, doc: Doc, sel: LineSel | nu
   ctx.st.working = true;
   const key = ctx.st.fx.key;
   const step = (): void => {
+    // The panel shut: the rest is dropped, and worked out again when it shows.
+    if (ctx.handle.frame().left.shown() !== 'transforms') {
+      ctx.st.working = false;
+      ctx.st.fx.running = undefined;
+      return;
+    }
     if (ctx.st.fx.key !== key) {
       ctx.st.working = false;
       ctx.redraw();
@@ -116,7 +135,8 @@ function workOut(ctx: PanelContext<TransformsState>, doc: Doc, sel: LineSel | nu
     const fx = ctx.st.fx;
     for (const it of items) {
       if (fx.map.has(it.id)) continue;
-      fx.running ??= { id: it.id, steps: it.steps(doc.text, sel, doc.parsed) };
+      // A row left half done that is not this one (the filter took it away) is started again when it comes back.
+      if (fx.running?.id !== it.id) fx.running = { id: it.id, steps: it.steps(doc.text, sel, doc.parsed) };
       for (;;) {
         if (performance.now() > until) {
           left = true;

@@ -5,7 +5,7 @@
 import { parseMarkdown, unifiedDiff, type Document, type Node, type ParsedText } from '@marxy/core';
 import { alignTablePipes } from '@marxy/core/src/operations/align-table-pipes.ts';
 import { renumberList } from '@marxy/core/src/operations/list-markers.ts';
-import { parseFits, parseText } from '@marxy/core/src/transforms/prose.ts';
+import { parseText, utf8Length } from '@marxy/core/src/transforms/prose.ts';
 import { runTransform } from '@marxy/core/src/transforms/registry.ts';
 import { joinLines, splitLines } from './search-model.ts';
 
@@ -148,14 +148,19 @@ function* eachLine(text: string, sel: LineSel | null, run: (line: string, i: num
 const core = (id: string) => (text: string, sel: LineSel | null, parsed?: ParsedText | null): Steps =>
   onRegion(text, sel, (part) => runTransform(id, part, parsed ? { parsed } : undefined));
 
+/** The last parse made here of a text core's cache does not take (one with a CR or a byte-order mark). */
+let own: { readonly text: string; readonly doc: Document } | null = null;
+
 /**
- * The Markdown parse of `text`: the store's when it is of this very text, else one parse per text shared by every row
- * (core's transforms read the same cache, `parseText`), else, for text with a CR or a byte-order mark, a parse of its own.
+ * The Markdown parse of `text`: the store's when it is of this very text (CRLF or CR line ends included: its offsets are
+ * the bytes of `text`), else one parse per text shared by every row: core's cache (`parseText`) for LF text, which core's
+ * transforms read too, or the one kept here for the rest.
  */
 function parseOf(text: string, parsed: ParsedText | null | undefined): Document {
-  if (parseFits(text, parsed ?? undefined)) return parsed!.doc;
+  if (parsed && parsed.text === text && parsed.doc.src.end === utf8Length(text)) return parsed.doc;
   if (!text.includes('\r') && !text.startsWith('\uFEFF')) return parseText(text);
-  return parseMarkdown(encoder.encode(text));
+  if (own?.text !== text) own = { text, doc: parseMarkdown(encoder.encode(text)) };
+  return own.doc;
 }
 
 const encoder = new TextEncoder();

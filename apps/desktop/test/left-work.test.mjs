@@ -498,10 +498,11 @@ test('Transforms: End the file with a newline adds exactly one byte', async () =
   });
 });
 
-test('Transforms: Alt+6 on a half-megabyte Markdown file never stops the window for long, and every count fills in', async () => {
+for (const [ends, eol] of [['LF', '\n'], ['CRLF', '\r\n']]) {
+test(`Transforms: Alt+6 on a half-megabyte Markdown file with ${ends} line ends never stops the window for long, and every count fills in`, async () => {
   // The shape of a long page: per section a heading, a paragraph with a link, a numbered list, tasks and a table.
   let big = '';
-  for (let h = 0; h < 3000; h++) big += `## Heading ${h}\n\nSome plain prose for section ${h}, with a [link](https://e.com/${h}).\n\n1. one\n3. two\n\n- [ ] task\n- [x] done\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n`;
+  for (let h = 0; h < 3000; h++) big += `## Heading ${h}\n\nSome plain prose for section ${h}, with a [link](https://e.com/${h}).\n\n1. one\n3. two\n\n- [ ] task\n- [x] done\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n`.replace(/\n/g, eol);
   const BIG = '/w/notes/long-page.md';
   await withFrame({ files: { ...FILES, [BIG]: big }, open: [BIG] }, async (page) => {
     await page.waitForFunction(() => window.__marxyHandle.document()?.parsed());
@@ -531,6 +532,7 @@ test('Transforms: Alt+6 on a half-megabyte Markdown file never stops the window 
     assert.deepEqual(await asOf(page, 't:table-align'), { as: '9000 lines', dim: false });
   });
 });
+}
 
 test('Transforms: a JSON file shows the JSON group and not the Markdown group', async () => {
   await withFrame({ files: FILES, open: [JSONF] }, async (page) => {

@@ -86,10 +86,25 @@ test('a file opening elsewhere places the links again but does not read the text
   assert.equal(asks(), 2, 'a new version is read again');
 });
 
-test('a Markdown file with CRLF line ends has its written paths read from its parse, code left out', () => {
-  const text = 'See `docs/plan.md`.\r\n\r\n```\r\n`docs/code.md`\r\n```\r\n\r\nAnd `docs/later.md`.\r\n';
-  const store = openDocumentStore(io, '/r/c.md', enc.encode(text));
+/** A parse that holds the whole of `text` as one code block: read from it the file names no path; parsed again it would. */
+const allCode = (path: string, text: string): Document => {
+  const src = { file: path, start: 0, end: enc.encode(text).length };
+  return { type: 'document', src, children: [{ type: 'codeBlock', src, lang: null, meta: null, value: text }] } as unknown as Document;
+};
+
+test('a Markdown file with CRLF line ends has its written paths read from the store’s parse too', () => {
+  const text = 'See `docs/plan.md`.\r\n\r\nAnd `docs/later.md`.\r\n';
+  const store = openDocumentStore(io, '/r/c.md', enc.encode(text), { ast: allCode('/r/c.md', text), nodeMap: new Map() });
   assert.equal(store.textParse(), null, 'the store lends no LF pair for CRLF text');
-  const { handle, pane } = harness(['/r/c.md', '/r/docs/plan.md', '/r/docs/code.md', '/r/docs/later.md'], store);
-  assert.deepEqual(linksOfPane(handle, pane, '/r/c.md')?.all.map((l) => [l.w, l.line]), [['docs/plan.md', 1], ['docs/later.md', 7]]);
+  const { handle, pane } = harness(['/r/c.md', '/r/docs/plan.md', '/r/docs/later.md'], store);
+  assert.deepEqual(linksOfPane(handle, pane, '/r/c.md')?.all, []);
 });
+
+for (const [name, eol] of [['CRLF', '\r\n'], ['CR', '\r']] as const) {
+  test(`a Markdown file with ${name} line ends: the prose before a code block is read, the code is not`, () => {
+    const text = ['See `docs/plan.md`.', '', '```', '`docs/code.md`', '```', '', 'And `docs/later.md`.', ''].join(eol);
+    const store = openDocumentStore(io, '/r/c.md', enc.encode(text));
+    const { handle, pane } = harness(['/r/c.md', '/r/docs/plan.md', '/r/docs/code.md', '/r/docs/later.md'], store);
+    assert.deepEqual(linksOfPane(handle, pane, '/r/c.md')?.all.map((l) => [l.w, l.line]), [['docs/plan.md', 1], ['docs/later.md', 7]]);
+  });
+}

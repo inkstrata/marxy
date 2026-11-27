@@ -110,6 +110,19 @@ test('a Markdown row reads the parse it is given, and parses nothing itself', ()
   assert.equal(txItem('tick-all')!.fx(text, null, { text, doc }).c, 0);
 });
 
+test('a CRLF or CR Markdown file’s rows read the store’s parse of the text as it is', () => {
+  for (const eol of ['\r\n', '\r']) {
+    const text = `- [ ] one${eol}- [ ] two${eol}`;
+    const src = { file: 'x.md', start: 0, end: text.length };
+    const doc = { type: 'document', src, children: [{ type: 'codeBlock', src, lang: null, meta: null, value: text }] } as unknown as Document;
+    assert.equal(fx('tick-all', text).c, 2, JSON.stringify(eol));
+    assert.equal(txItem('tick-all')!.fx(text, null, { text, doc }).c, 0, JSON.stringify(eol));
+    // The store's real parse gives what a parse of its own gives.
+    const real = { text, doc: parseMarkdown(new TextEncoder().encode(text)) };
+    for (const id of ['renumber-list', 'table-align', 'tick-all', 'untick-all']) assert.deepEqual(txItem(id)!.fx(text, null, real), fx(id, text), id);
+  }
+});
+
 test('on a large page every row comes in many short pieces, and the pieces add up to the row', () => {
   const text = sections(1200);
   const parsed = { text, doc: parseMarkdown(new TextEncoder().encode(text)) };

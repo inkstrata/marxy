@@ -82,6 +82,18 @@ export function lineStartsOf(text: string): number[] {
   return starts;
 }
 
+/** Where the line holding `at` starts in `text`: just after the last CR, LF or CRLF before `at`, or 0. */
+export function lineStartBefore(text: string, at: number): number {
+  // A walk back to the nearest end, not two `lastIndexOf`s: in a text without CRs that one would scan to the start each call.
+  let i = Math.min(at, text.length);
+  while (i > 0) {
+    const c = text.charCodeAt(i - 1);
+    if (c === 10 || c === 13) break;
+    i--;
+  }
+  return i;
+}
+
 /** The 0-based line holding `offset`, by binary search over `starts` (from `lineStartsOf`). */
 export function lineOfOffset(starts: readonly number[], offset: number): number {
   let lo = 0;
