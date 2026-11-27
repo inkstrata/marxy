@@ -26,7 +26,7 @@ const fail = (msg) => {
 const read = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 
 const field = (block, name) => {
-  const m = block.match(new RegExp(`^- ${name}:\\s*(.*)$`, 'm'));
+  const m = block.match(new RegExp(`^- ${name}:[ \\t]*(.*)$`, 'm'));
   return m ? m[1].trim() : null;
 };
 
@@ -87,15 +87,16 @@ const blocks = (text) => text.split(/^(?=### )/m).filter((b) => b.startsWith('##
 const ID = /[A-Z]{2,4}-\d{2,}/;
 
 // Yield per axis. An axis is one catcher, so its prefix names it. A finding counts for its axis unless the
-// owner reported it or the verdict is a duplicate of the same axis's own later finding (a supersede). A
-// duplicate of another axis's finding is an overlap: both axes found it, so neither found it alone.
+// owner reported it or the verdict is a duplicate of the same axis's own finding (a supersede). A duplicate
+// of another axis's finding is an overlap: both axes found it, so neither found it alone. Chains of
+// duplicates are followed through supersedes to the finding that kept a verdict of its own.
 const yieldTable = (findingsFile, verificationFile) => {
   const verdicts = new Map();
   for (const b of blocks(read(verificationFile))) {
     const id = b.match(/^### (\S+) verdict/)?.[1];
     if (id) verdicts.set(id, field(b, 'Verdict') ?? ''); // the later verdict wins, as in triage
   }
-  const findings = blocks(read(findingsFile))
+  const all = blocks(read(findingsFile))
     .map((b) => ({ id: b.match(/^### (\S+) · /)?.[1], owner: /^owner\b/i.test(field(b, 'Found by') ?? '') }))
     .filter((f) => f.id && !f.owner)
     .map((f) => {
@@ -104,17 +105,28 @@ const yieldTable = (findingsFile, verificationFile) => {
       // Only the id right after "of" is the target; the rest of the line may name other findings.
       const target = kind === 'DUPLICATE' ? v.match(new RegExp(`^DUPLICATE of (${ID.source})\\b`))?.[1] ?? null : null;
       return { ...f, prefix: f.id.split('-')[0], kind, target };
-    })
-    .filter((f) => !(f.kind === 'DUPLICATE' && f.target?.split('-')[0] === f.prefix));
-  const byId = new Map(findings.map((f) => [f.id, f]));
-  // Overlap pairs: a finding that duplicates another axis's finding, followed to the finding it rests on.
+    });
+  const byId = new Map(all.map((f) => [f.id, f]));
+  const resolve = (f) => {
+    const seen = new Set([f.id]);
+    let t = byId.get(f.target);
+    while (t?.kind === 'DUPLICATE' && t.target) {
+      if (seen.has(t.id)) return { end: null, cycle: [...seen] };
+      seen.add(t.id);
+      t = byId.get(t.target);
+    }
+    if (t && seen.has(t.id)) return { end: null, cycle: [...seen] };
+    return { end: t ?? null, cycle: null };
+  };
+  const findings = all.filter((f) => !(f.kind === 'DUPLICATE' && f.target?.split('-')[0] === f.prefix));
   const overlaps = new Map(); // id of the kept finding -> prefixes of the axes that also found it
+  const cycles = new Set();
   for (const f of findings) {
     if (f.kind !== 'DUPLICATE' || !f.target) continue;
-    let t = byId.get(f.target);
-    for (let hops = 0; t?.kind === 'DUPLICATE' && t.target && hops < 10; hops++) t = byId.get(t.target);
-    if (!t) continue;
-    overlaps.set(t.id, [...(overlaps.get(t.id) ?? []), f.prefix]);
+    const { end, cycle } = resolve(f);
+    f.inHunt = Boolean(end || cycle);
+    if (cycle) cycles.add([...cycle].sort().join(' ↔ '));
+    if (end && end.prefix !== f.prefix) overlaps.set(end.id, [...(overlaps.get(end.id) ?? []), f.prefix]);
   }
   const axes = new Map(); // prefix -> { name, round }
   const axesFile = join(dirname(findingsFile), 'axes.md');
@@ -131,7 +143,7 @@ const yieldTable = (findingsFile, verificationFile) => {
       if (overlaps.has(f.id)) r.shared++;
       else r.alone++;
     } else if (f.kind === 'DUPLICATE') {
-      if (f.target && byId.has(f.target)) r.dupOther++;
+      if (f.inHunt) r.dupOther++;
       else r.dupKnown++;
     } else r.other++;
     rows.set(f.prefix, r);
@@ -159,11 +171,15 @@ const yieldTable = (findingsFile, verificationFile) => {
   }
   if (rounds.size) {
     out.push('', '| Round | Axes | Findings | Found by one axis alone (confirmed or plausible) |', '| --- | --- | --- | --- |');
-    for (const [round, t] of [...rounds].sort()) out.push(`| ${round} | ${t.axes} | ${t.found} | ${t.alone} |`);
+    for (const [round, t] of [...rounds].sort((x, y) => Number(x[0]) - Number(y[0]) || x[0].localeCompare(y[0]))) out.push(`| ${round} | ${t.axes} | ${t.found} | ${t.alone} |`);
   }
   if (overlaps.size) {
     out.push('', 'Overlaps (one finding, several axes):');
     for (const [id, ps] of overlaps) out.push(`- ${id}: also ${[...new Set(ps)].join(', ')}`);
+  }
+  if (cycles.size) {
+    out.push('', 'Duplicate cycles (credited to no axis; give one finding a verdict of its own):');
+    for (const c of cycles) out.push(`- ${c}`);
   }
   const missing = findings.filter((f) => f.kind === 'NONE').map((f) => f.id);
   if (missing.length) out.push('', `No verdict yet: ${missing.join(', ')}`);

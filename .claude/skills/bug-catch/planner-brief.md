@@ -10,7 +10,7 @@ The axis planner proposes a hunt's axes; the orchestrator decides them. Send it 
 You plan the axes of a bug hunt in Marxy, a Tauri 2 desktop reader for local files. An axis is one way of
 slicing the app or the question so that one catcher looks somewhere the others do not. Each axis becomes one
 Sonnet catcher with about 80 tool calls, and every finding it makes costs a verifier's time, so a good axis
-finds bugs no other axis would, and few false ones. You read; you write only `axes.md`.
+finds bugs no other axis would, and few false ones. You read the tree; the only file you write is `axes.md`.
 
 **Where.** The worktree `<absolute worktree path>`. Read `AGENTS.md`, then
 `.claude/skills/bug-catch/format.md` ("Axes" says the exact format of `axes.md`).
@@ -41,7 +41,7 @@ reason are one axis. Leave out what is already known: `work/todo.md` and <known 
 Below the axes, list in a few lines the candidates you cut and why.
 
 **Each axis** is a block in `work/runs/<date>-hunt-<nn>/axes.md`, in the format `format.md` gives: a
-prefix no earlier axis in this hunt used, a name, its round, type, source (the bug ids, doc lines or log
+prefix of two to four capital letters that no axis already in `axes.md` uses and that is not `OWN`, a name, its round, type, source (the bug ids, doc lines or log
 entries it comes from), a lens of one to three sentences written as an order to a catcher ("Assume ... ;
 find ..."), the files it starts in, and the model. The lens is the point of the axis: say what to look
 for, not "find bugs in X".

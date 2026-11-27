@@ -36,7 +36,9 @@ in that catcher's order; a freeze or data loss goes ahead of what the catcher wa
 
 **Owner reports, in order.** A bug the owner named ("the Export tab freezes the app") is written as a
 finding by the orchestrator before the fleet starts, `Confidence: low` until a probe shows it, `Found by:
-owner`. Give it to the catcher of the axis it belongs to as lead number one.
+owner`, under the prefix `OWN` (`OWN-01`, `OWN-02`...), so it needs no axis to exist yet; the yield leaves
+owner reports out. Once the axes are chosen (section 2), give each to the catcher of the axis it belongs to
+as lead number one; a report no axis covers becomes an axis of its own.
 
 ## 2. Plan the axes
 
@@ -46,12 +48,12 @@ note "long unbroken input is the richest seam" became hunt 03: 38 findings, 33 c
 catchers each had a lens for big files, not the generic list. Until now the next hunt's axes came from a few
 hand-written lines in the last README, and no one could tell which lens found what.
 
-1. Send the planner: one Opus agent at medium effort, from [planner-brief.md](planner-brief.md). It reads the
+1. Send the planner: one Opus agent at medium effort, which reads the tree and writes only `axes.md`, from [planner-brief.md](planner-brief.md). It reads the
    earlier hunts' findings, verdicts and yield, the rules in `AGENTS.md` and `docs/`, and what changed since
    the last hunt, and writes up to twelve ranked axes to `axes.md`. For a narrow hunt (one owner report, one
    area) skip it and write two to four axes yourself.
 2. Decide. The plan is a proposal: cut overlaps, put the owner's reports first, and keep the axes for this
-   round to what can run at once (six, less any verifiers already running). The rest wait in `axes.md` for
+   round to what can run at once: six, since the round starts after the last round's verifiers are done. The rest wait in `axes.md` for
    the next round, `Round:` left empty. Choosing the axes is judgement, so it stays with the orchestrator.
 3. Give each axis a prefix no axis in this hunt has used. A domain axis may reuse the table's prefix; any
    other takes a new one (`LNG`, `PAR`, `MOV`: two to four capital letters, no digits). Only that axis's catcher writes it,
@@ -75,7 +77,8 @@ Paths under `src/` are `apps/desktop/src/`. Add a row here when a hunt finds an 
 ## 3. Send the catchers
 
 One agent per axis, with the axis's model (`sonnet` unless `axes.md` says `haiku`), effort medium, in the
-background, all in one message. Six at most at once, verifiers included; the machine's ceiling is the
+background, all in one message. Six at most at once, counting any verifiers still running (a domain's batch may be verified while other
+catchers run, `bug-verify` section 1); the machine's ceiling is the
 browser probes, not the agents. Write each brief from [catcher-brief.md](catcher-brief.md) into
 `briefs/<PREFIX>.md`, the axis's lens in it, and send its text as the prompt.
 

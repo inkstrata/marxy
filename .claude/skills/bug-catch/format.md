@@ -58,7 +58,10 @@ hunt, so round 2's axes take new prefixes even when they extend round 1's.
 per axis: findings (owner reports and findings superseded by the same axis left out), the verdicts,
 **Alone** (confirmed or plausible, and no other axis's finding is a duplicate of it), **Shared** (confirmed or
 plausible, and another axis found it too), duplicates of something already known, duplicates of another
-axis's finding, the rest, and precision (confirmed or plausible over findings). A verifier who finds that two
+axis's finding, the rest, and precision (confirmed or plausible over findings). The counts are for the
+whole hunt so far: a round-2 finding that duplicates a round-1 finding moves the round-1 one from Alone to
+Shared. A duplicate cycle (two findings each marked a duplicate of the other) is listed and credited to no
+one until one of them gets a verdict of its own. Owner reports (`OWN-…`) are left out. A verifier who finds that two
 axes met one bug marks the later `DUPLICATE of <the other id>`; that is the only way the table learns of an
 overlap, so name the id.
 

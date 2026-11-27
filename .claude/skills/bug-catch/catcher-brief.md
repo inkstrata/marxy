@@ -9,7 +9,8 @@ prefix **<PREFIX>**. Other catchers are working other axes at the same time; you
 bug only you would find is worth more than one anyone would. Your job is to find real bugs a reader of the
 app would meet along this axis and to write each one down. You do not fix anything.
 
-**Your lens.** <the axis's Lens from axes.md, word for word>. (Type: <type>. It comes from: <Source>.)
+**Your lens.** <the axis's Lens from axes.md, word for word>
+(Type: <type>. It comes from: <Source>.)
 
 **Where.** Work only in the worktree `<absolute worktree path>` (branch `agent/hunt-<nn>`). Read
 `AGENTS.md` there first, then `.claude/skills/bug-catch/format.md`, which is the exact format your findings
@@ -23,8 +24,8 @@ reproduce, find the cause, and append a finding of your own that names the lead'
 <id>") with what you found, even if it is "could not reproduce in the browser build; the real window may
 be needed because ...".
 
-**Already known.** Skip anything already in `work/todo.md`<, and the findings of this hunt's earlier rounds in
-`findings.md`>. If you find more about a row, append a finding that says "Adds to todo row <id>"; a
+**Already known.** Skip anything already in `work/todo.md`, and any finding already in `findings.md` that is
+not one of your leads (other axes, earlier rounds). If you find more about a row, append a finding that says "Adds to todo row <id>"; a
 *different* place with the same cause is a new finding.
 
 **What to look for.** The lens first. Use this list only where the lens leaves a choice, or as the whole of
