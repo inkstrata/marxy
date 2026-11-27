@@ -44,21 +44,23 @@ export function snapToGrid(
 ): number {
   const unit = lineBox / 2;
   if (!(unit > 0)) return 0;
-  const heights = measured.get(article) ?? new Map<HTMLElement, number>();
-  measured.set(article, heights);
+  const heights = heightsOf(article);
   // `through` bounds the pass: the block before `from`, `from` and the blocks to `through` are undone, padded and read,
   // and the one block after `through` is read, and nothing below it.
   // The article itself is pushable when the window starts at the first block.
   const bounded = opts?.from !== undefined && opts.through !== undefined;
-  let tail = tailFrom(article, opts?.from, opts?.through);
-  const leading = bounded && tail !== null && tail[0] === firstBlock(article);
-  let after = tail === null ? null : childrenFrom(tail[0]!, bounded ? opts.through : undefined);
+  if (bounded) {
+    const span = windowOf(article, opts.from!, opts.through!);
+    if (span !== null) return pass(article, unit, [span], heights);
+  }
+  let tail = tailFrom(article, opts?.from);
+  let after = tail === null ? null : childrenFrom(tail[0]!);
   // An island above `from` can change height after the pass that measured it, with nothing in its
   // style changing: WebKitGTK lays a wide table out again a layout later, and a layout forced by the
   // next chunk can be that one. Nothing would ask for it again before this pass reads the blocks
   // below it, so this pass starts from the first island that is no longer the height it was measured at.
   // A bounded pass leaves that to the pass that is not bounded: it must not read, let alone restart from, every island.
-  if (after !== null && !bounded) {
+  if (after !== null) {
     const drifted = driftedAbove(article, after, heights);
     if (drifted !== null) {
       tail = drifted === article.firstElementChild ? null : tailFrom(article, drifted);
@@ -66,14 +68,60 @@ export function snapToGrid(
     }
   }
   if (tail === null) heights.clear();
+  return pass(article, unit, [{ tail, after, leading: false, children: tail ?? blockChildren(article) }], heights);
+}
+
+/**
+ * What one pass looks at: `tail`, the blocks it undoes and pads (null for the whole article); `after`, the article's
+ * children whose padding it undoes (null for every one); `leading`, whether the article itself is pushed (the window
+ * starts at its first block); and `children`, the blocks whose tops it reads, which may end with one it only reads.
+ */
+interface Span {
+  readonly tail: readonly HTMLElement[] | null;
+  readonly after: ReadonlySet<Element> | null;
+  readonly leading: boolean;
+  readonly children: readonly HTMLElement[];
+}
+
+/** The span of a bounded window from `from` to `through`; null when `from` is not a child of the article. */
+function windowOf(article: HTMLElement, from: HTMLElement, through: HTMLElement): Span | null {
+  const tail = tailFrom(article, from, through);
+  if (tail === null) return null;
+  const after1 = nextBlock(through);
+  return {
+    tail,
+    after: childrenFrom(tail[0]!, through),
+    leading: tail[0] === firstBlock(article),
+    children: after1 === null ? tail : [...tail, after1],
+  };
+}
+
+/** The article's block children, in order. */
+function blockChildren(article: HTMLElement): HTMLElement[] {
+  return [...article.children].filter((el): el is HTMLElement => el instanceof HTMLElement && isBlock(el));
+}
+
+/**
+ * The grid pass over `spans`, in the article's order and apart from one another: what a pass over each of them in turn
+ * makes, with each step made for all of them at once, so the whole costs the layouts of one span and not those of one
+ * span for each. Every write of a step comes before every read of the next. A span below is planned from where the
+ * pushes above will move it, not from where they landed, so a push can differ from that of a pass per span by less
+ * than SETTLED, the difference every pass already leaves unmade.
+ */
+function pass(article: HTMLElement, unit: number, spans: readonly Span[], heights: Map<HTMLElement, number>): number {
   // The pass writes padding and reads layout several times over; the engine's own scroll anchoring would
   // answer each intermediate layout by moving the page, and the reader would land off where they were.
   // Scroll position is the app's to keep (reading position), so the article opts out.
   article.style.setProperty('overflow-anchor', 'none');
   const mine = snapped.get(article) ?? new Set<HTMLElement>();
   snapped.set(article, mine);
+  const whole = spans.some((span) => span.after === null);
+  // The children whose padding is undone, all spans' in one set, so the undo is one walk of what earlier passes padded.
+  const after = new Set<Element>();
+  if (!whole) for (const span of spans) for (const el of span.after!) after.add(el);
+  const leading = spans.some((span) => span.leading);
   for (const el of mine) {
-    if (after !== null) {
+    if (!whole) {
       const block = blockOf(article, el);
       // Taken out of the article since: nothing to undo on the page, nothing to keep track of.
       if (block === null && el !== article) mine.delete(el);
@@ -84,10 +132,9 @@ export function snapToGrid(
   }
   const plans: Plan[] = [];
   // Step 1: read every island's height, then write every padding — one layout.
-  const islands = tail === null ? [...article.querySelectorAll<HTMLElement>(ISLANDS)] : tail.flatMap((el) => [
-    ...(el.matches(ISLANDS) ? [el] : []),
-    ...el.querySelectorAll<HTMLElement>(ISLANDS),
-  ]);
+  const islands = whole
+    ? [...article.querySelectorAll<HTMLElement>(ISLANDS)]
+    : spans.flatMap((span) => span.tail!.flatMap((el) => [...(el.matches(ISLANDS) ? [el] : []), ...el.querySelectorAll<HTMLElement>(ISLANDS)]));
   for (const el of islands) {
     if (!isBlock(el)) continue;
     const height = el.getBoundingClientRect().height;
@@ -111,31 +158,32 @@ export function snapToGrid(
   // first round's prediction missed, and a third finds nothing to change. The fourth is headroom; a
   // round that plans nothing ends the pass. Every push ends up what pushing and re-reading one block
   // at a time would have made it.
+  // Spans are read top to bottom and the pushes planned above a span count for it too: the blocks between two spans
+  // move by what was pushed above them, so a span below is planned as if those above were already done.
   // A bounded window also reads the block after `through`: the padding taken off `through` is put back only if that block's top
   // says so, and it is not undone, padded or pushed itself.
-  const after1 = bounded && tail !== null ? nextBlock(opts.through!) : null;
-  const children = tail
-    ? after1 === null ? tail : [...tail, after1]
-    : [...article.children].filter((el): el is HTMLElement => el instanceof HTMLElement && isBlock(el));
   const pushed = new Map<HTMLElement, number>();
-  let unpushed: readonly number[] | undefined;
+  const unpushed: (readonly number[])[] = [];
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const origin = article.getBoundingClientRect().top;
-    const tops = children.map((el) => el.getBoundingClientRect().top - origin);
-    const first = (unpushed ??= tops);
+    const tops = spans.map((span) => span.children.map((el) => el.getBoundingClientRect().top - origin));
     const changes: Plan[] = [];
     let planned = 0;
-    // From `from`, the first child read is its predecessor, which only `from` may push: it starts at 1
-    // (at 0 when the window starts at the first block, where the article is what `from` pushes).
-    for (let i = tail === null || leading ? 0 : 1; i < children.length; i++) {
-      const el = i === 0 ? article : children[i - 1]!;
-      const moved = i === 0 ? 0 : tops[i - 1]! - first[i - 1]! + planned;
-      const add = shortfall(first[i]! + moved, unit) - (pushed.get(el) ?? 0);
-      if (Math.abs(add) < SETTLED) continue;
-      pushed.set(el, (pushed.get(el) ?? 0) + add);
-      changes.push({ el, add });
-      planned += add;
-    }
+    spans.forEach((span, s) => {
+      const now = tops[s]!;
+      const first = (unpushed[s] ??= now);
+      // From `from`, the first child read is its predecessor, which only `from` may push: it starts at 1
+      // (at 0 when the window starts at the first block, where the article is what `from` pushes).
+      for (let i = span.tail === null || span.leading ? 0 : 1; i < span.children.length; i++) {
+        const el = i === 0 ? article : span.children[i - 1]!;
+        const moved = i === 0 ? 0 : now[i - 1]! - first[i - 1]! + planned;
+        const add = shortfall(first[i]! + moved, unit) - (pushed.get(el) ?? 0);
+        if (Math.abs(add) < SETTLED) continue;
+        pushed.set(el, (pushed.get(el) ?? 0) + add);
+        changes.push({ el, add });
+        planned += add;
+      }
+    });
     if (changes.length === 0) break;
     apply(changes, mine, article);
   }
@@ -240,18 +288,38 @@ function blockOf(article: HTMLElement, el: Element): Element | null {
  * changes height is padded back to a whole number of units by this pass, and a whole number of units is all it
  * moves what is below it by, so nothing below is read, let alone padded again. For a highlight batch on a page of
  * thousands of code pieces this is the difference between the layout of a few and the layout of every one.
+ * The windows are passed over together, each step for all of them at once: the padding a pass over each in turn
+ * would make (to within SETTLED), for the layouts of one window, where a pass per window laid the page out again for each (a highlight
+ * batch over hundreds of code blocks apart from one another held the page for seconds).
  * Returns how many elements it padded.
  */
 export function snapBlocks(article: HTMLElement, lineBox: number, changed: readonly Element[]): number {
+  const unit = lineBox / 2;
+  if (!(unit > 0)) return 0;
+  const spans = runsOf(article, changed).flatMap((window) => windowOf(article, window[0]!, window[window.length - 1]!) ?? []);
+  return spans.length === 0 ? 0 : pass(article, unit, spans, heightsOf(article));
+}
+
+/** The islands' heights the passes over `article` measured. */
+function heightsOf(article: HTMLElement): Map<HTMLElement, number> {
+  const heights = measured.get(article) ?? new Map<HTMLElement, number>();
+  measured.set(article, heights);
+  return heights;
+}
+
+/**
+ * The top-level blocks holding an element of `changed`, as runs of blocks that follow one another, in the article's
+ * order: one walk of its children (compareDocumentPosition is quadratic in a long article), so a sweep that changed six
+ * hundred in a row is one window, not six hundred.
+ */
+function runsOf(article: HTMLElement, changed: readonly Element[]): HTMLElement[][] {
   const blocks = new Set<Element>();
   for (const el of changed) {
     const block = blockOf(article, el);
     if (block !== null) blocks.add(block);
   }
-  if (blocks.size === 0) return 0;
-  // In the article's order, by one walk of its children (compareDocumentPosition is quadratic in a long article), with
-  // blocks that follow one another made one window: a sweep that changed six hundred in a row is one pass, not six hundred.
   const runs: HTMLElement[][] = [];
+  if (blocks.size === 0) return runs;
   let run: HTMLElement[] | null = null;
   let seen = 0;
   for (let el = article.firstElementChild; el !== null && seen < blocks.size; el = el.nextElementSibling) {
@@ -264,9 +332,7 @@ export function snapBlocks(article: HTMLElement, lineBox: number, changed: reado
     if (run === null) runs.push((run = []));
     run.push(el);
   }
-  let padded = 0;
-  for (const window of runs) padded += snapToGrid(article, lineBox, { from: window[0]!, through: window[window.length - 1]! });
-  return padded;
+  return runs;
 }
 
 /**
