@@ -12,6 +12,10 @@ squashed. A copy is in `briefs/known-rows-hunt-01.md`.
 
 | Prefix | Catcher | Aim |
 | --- | --- | --- |
-| NAV | panels | rail and drawer: Alt+1–8, rail clicks, each panel's build and repaint over a big file, folding, docking |
+| NAV | panels | the rail, and the panels Places, Outline, Links and Search: Alt+n, rail clicks, each panel's build and repaint over a big file, folding |
 | RDR | relayout | what a change in page width costs: the drawer docking or undocking, the rail hidden, split, resize, on big files |
-| CMD | menus | the "right menus": verb menu, right-click, tab menu, the Line and palette, Look/Studio and Settings at the rail's foot |
+| CMD | menus | first sent at the "right menus" (verb menu, right-click, tab menu, Line, Studio); retargeted once the owner explained: the last four drawer panels (Metadata, Versions, Transforms, Export) and the in-panel keys |
+
+**The owner's clarification (2026-11-27).** "Left and right menus" means the rail (left) and each rail item's
+panel view in the drawer to its right. NAV took the rail and the first four panels, CMD the last four, and RDR
+what the drawer opening, folding and docking costs the page.
