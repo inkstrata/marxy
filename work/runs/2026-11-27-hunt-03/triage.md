@@ -55,7 +55,7 @@ machine whose load average stood at 30 to 120, and the verifiers measured CPU or
 
 ## Fixed before the rows landed
 
-The same day, other branches fixed five rows while this pull request waited, so they never reached `todo.md`:
+The same day, other branches fixed six rows while this pull request waited, so they never reached `todo.md`:
 
 - **L1** by #804 (a typesetting batch writes its breaks and hangs without a layout read between) and #807 (the Chromium
   restyle of the whole page on each insertion, from one `:has()` rule with its siblings: md-technical at 500 KB from
@@ -65,9 +65,10 @@ The same day, other branches fixed five rows while this pull request waited, so 
   open. The "twice the nodes after a reload" above is garbage not yet collected: with a forced collection the count
   holds.
 - **L12** by #797 (nesting past 256 levels flattened, words kept).
+- **L13** by #805 (Shift_JIS and GBK guessed before UTF-8 is assumed).
 - **L14** by #798 (spreads into calls replaced by chunked helpers across `apps/desktop/src` and `packages/core/src`).
 
-In flight when this landed: L2 and L3 (#808), L13 (#805).
+In flight when this landed: L2 and L3 (#808).
 
 ## Not reached
 

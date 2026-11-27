@@ -70,9 +70,9 @@ Files of 1 to 5 MB fail or crawl (the owner, 2026-11-27). The account, the measu
 `docs/big-files.md` (both with the `agent/scale-guard` pull request). Rows L1 to L19 are hunt 03's verified findings
 (`runs/2026-11-27-hunt-03/`); L20 to L28 are the structural work the research recommends, which removes whole classes of
 them. Numbers are headless Chromium on a loaded Mac unless said; growth is per doubling of the file (2 is linear).
-Five were fixed before this section landed, so their ids are gaps: L1 by #804 (layout reads between a batch's writes) and
+Six were fixed before this section landed, so their ids are gaps: L1 by #804 (layout reads between a batch's writes) and
 #807 (the Chromium restyle), its remainder being the grid pass (L30, with #808) and R13; L4 and L6 by #806; L12 by #797;
-L14 by #798.
+L13 by #805; L14 by #798.
 
 | # | What | Why | Size | Branch |
 | --- | --- | --- | --- | --- |
@@ -84,7 +84,6 @@ L14 by #798.
 | L9 | Select all and copy grows faster than the page (0.25, 0.95, 2.1 s at 0.5, 1, 2 MB) and copies only the drawn part of a page still mounting | S2; `cloneRangeInert` tests `intersectsNode` for every child (`selection/copy-text.ts:17`); hunt-03 EDT-04. Copy by byte range (D-01 in the synthesis) makes both go | S | |
 | L10 | Source and back, a one-block edit, undo and a reload each cost 2-6 s of main-thread work on a 1 MB Markdown page, about 2x per doubling; every cursor key and scroll costs 0.1-0.3 s at 0.5-1 MB, about 3x per doubling | S2; a block commit and undo set the page again rather than splicing the block (`spliceStalePage` exists, `view/rendered-view.ts:2100`); keys and scrolls read positions across every block (E22); hunt-03 MEA-05, MEA-04 | M | |
 | L11 | A 4.9 MB diff opens with 17 s of main-thread work (1 MB: 0.5 s, 2 MB: 3.4 s) while its node count stays flat; a 4.9 MB HTML file reloads in 10.5 s and comes back from Source with about twice its nodes | S2; a parse or line-classification pass of the diff reading grows faster than the file; hunt-03 MEA-06 | S | |
-| L13 | Shift_JIS and GBK text is taken for UTF-8 and shown as mojibake, at any size | S2 wrong output (not about size); `looks_like_utf8` in `src-tauri`; hunt-03 SHL-02 | S | |
 | L15 | JSON or YAML over 100 KB costs about 2.3 s to open, flat to 4.9 MB: the capped tree draws about 19,500 nodes (3.9 per value) and style recalculation is half of it | S3; hunt-03 VWR-02 | S | |
 | L16 | Every edit re-decodes the whole file and rebuilds its offsets: 30-60 ms of CPU at 4.9 MB, 0.2 s at 4 MB when the file holds one byte that is not UTF-8 | S3; `buffer/buffer.ts` `splice` calls `makeBuffer`; hunt-03 EDT-01, EDT-02. L26 | M | |
 | L17 | Copy as of a whole Source selection parses the text again: 1.3 s at 1 MB, 2.7-7.0 s of CPU at 4.9 MB (the Slack form 2.9-6.2 s) | S3; reuse the store's parse when the selection is the file; hunt-03 EDT-07, EDT-08 | S | |
