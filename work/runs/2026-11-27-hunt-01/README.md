@@ -11,7 +11,8 @@ verified ones into ready rows in `todo.md`.
 
 ## The owner's reports
 
-- Using the Export tab freezes the app (written as `EXP-01`, a lead for the export catcher).
+- Using the Export tab freezes the app (`EXP-01`, a lead for the export catcher).
+- Go does not work on the search page (`NAV-01`, a lead for the navigation catcher, whose brief adds the Line and palette).
 
 ## Domains
 
