@@ -65,6 +65,12 @@ const ELEMENTS: Readonly<Record<string, ElementRule>> = {
   textarea: { attributes: { name: NAME, rows: SMALL, cols: SMALL, placeholder: TEXT }, forced: { disabled: true } },
 };
 
+/**
+ * How deep a page's elements may nest in the sandbox. The frame's layout costs about three times as much for each
+ * doubling of a deeper page; past this an element's tags are dropped and its contents kept, as flat text of the same words.
+ */
+export const PAGE_MAX_DEPTH = 256;
+
 export const PAGE_POLICY: Policy = {
   name: 'marxy-sandboxed-page',
   elements: ELEMENTS,
@@ -85,6 +91,7 @@ export const PAGE_POLICY: Policy = {
   // `cid:` is the message's own part, read from memory; `data:` is carried in the page. Nothing else is a subresource.
   urlSchemes: { link: ['http', 'https', 'mailto'], subresource: ['data', 'cid'] },
   reservedIdPrefix: 'marxy-',
+  maxOpen: PAGE_MAX_DEPTH,
 };
 
 /** An image the page would have fetched: where from, and the size the page gives it (0 when it gives none). */
@@ -120,6 +127,8 @@ export interface PageLeftOut {
   /** Frames, objects and embeds, by the URL each would have loaded ('' when it named none). */
   readonly frames: string[];
   forms: number;
+  /** Elements whose tags were dropped for nesting deeper than `PAGE_MAX_DEPTH`, their contents kept. */
+  flattened: number;
   /** Anything else taken out with its contents (an `<svg>`, a `<video>`), counted. */
   other: number;
 }
@@ -239,9 +248,10 @@ const FRAMES = new Set(['iframe', 'frame', 'object', 'embed', 'frameset', 'apple
 export function cleanPage(html: string, opts: CleanOptions = {}): CleanedPage {
   const title = stripTags(titleText(html));
   const { html: clean, removed } = sanitizeHtml(html, PAGE_POLICY);
-  const left: PageLeftOut = { scripts: 0, handlers: 0, scriptLinks: 0, stylesheets: [], images: [], frames: [], forms: 0, other: 0 };
+  const left: PageLeftOut = { scripts: 0, handlers: 0, scriptLinks: 0, stylesheets: [], images: [], frames: [], forms: 0, flattened: 0, other: 0 };
   for (const r of removed) {
-    if (r.what === 'element') {
+    if (r.what === 'structure' && r.reason.includes(' elements open;')) left.flattened++;
+    else if (r.what === 'element') {
       if (r.name === 'script') left.scripts++;
       else if (FRAMES.has(r.name)) left.frames.push('');
       else if (r.reason.includes('its contents were kept') || r.name === 'title' || r.name === 'meta' || r.name === 'base') continue;
@@ -350,6 +360,7 @@ export function leftOutLine(left: PageLeftOut): string {
   const hosts = hostsOf(left);
   const network = net.length ? `${net.join(', ')} from the network not loaded${hosts.length ? ` (${hosts.join(', ')})` : ''}` : 'nothing from the network';
   const forms = left.forms ? `; ${plural(left.forms, 'form')} shown, never sent` : '';
+  const deep = left.flattened ? `; nesting past ${PAGE_MAX_DEPTH} levels flattened` : '';
   const other = left.other ? `; ${plural(left.other, 'other part')} left out` : '';
-  return `${ran}; ${network}${forms}${other}`;
+  return `${ran}; ${network}${forms}${deep}${other}`;
 }

@@ -3,7 +3,8 @@
 //! (its ignore files, deny globs and extension allow-list already applied); this module re-checks
 //! the floors it can check without a matcher: each path lies under one of the collection's roots,
 //! no segment below the root is a built-in deny-listed directory, and nothing between the root and
-//! the file is a symlink. `packages/core/src/index-model/content-search.ts` is the same search for
+//! the file is a symlink. Roots and files are judged by the scope, as `read_file` judges them
+//! (src/scope.rs): a root it does not admit is not searched, and a file it does not hold is not opened. `packages/core/src/index-model/content-search.ts` is the same search for
 //! the memory shell; both pass `fixtures/content-search/cases.json`.
 
 use std::collections::{HashMap, HashSet};
@@ -13,13 +14,14 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, OnceLock, PoisonError};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
 use crate::error::ShellError;
+use crate::scope::{self, Need, OpenedSet};
 
 /// Same numbers as `CONTENT_SEARCH_LIMITS` in `content-search.ts`.
 pub const DEFAULT_LIMIT: usize = 200;
@@ -168,7 +170,8 @@ fn open_judged(path: &Path, expected: &[PathBuf]) -> Result<File, Refused> {
         Ok(m) if m.file_type().is_file() => {}
         _ => return Err(Refused::Skipped),
     }
-    let file = File::open(&canonical).map_err(gone_or_refused)?;
+    // Not a plain open: a FIFO swapped in since the check above would hold it until a writer came.
+    let file = scope::open_unblocked(&canonical).map_err(gone_or_refused)?;
     #[cfg(test)]
     OPENED
         .lock()
@@ -361,6 +364,8 @@ struct Plan<'a> {
     chunk: usize,
     deadline: Instant,
     cancelled: &'a AtomicBool,
+    /// What the reader opened and chose: every file is judged against it before it is opened.
+    set: &'a RwLock<OpenedSet>,
     /// Set once the search's outcome is settled, so a file still being read ahead stops at its next chunk.
     settled: &'a AtomicBool,
 }
@@ -537,8 +542,10 @@ fn scan_file(
     }
 }
 
-/// The search itself, shell-free so tests call it directly. `cancelled` is polled between chunks.
-pub fn search(
+/// The search itself, over `set` rather than the session's, so tests call it directly. Only the roots the scope admits
+/// for reading are searched. `cancelled` is polled between chunks.
+pub fn search_in(
+    set: &RwLock<OpenedSet>,
     paths: &[String],
     query: &str,
     roots: &[String],
@@ -546,10 +553,16 @@ pub fn search(
     per_file: Option<usize>,
     cancelled: &AtomicBool,
 ) -> SearchOutcome {
+    let roots: Vec<String> = roots
+        .iter()
+        .filter(|r| scope::check(set, r, Need::Read).is_ok())
+        .cloned()
+        .collect();
     search_chunked(
+        set,
         paths,
         query,
-        roots,
+        &roots,
         limit,
         per_file,
         cancelled,
@@ -597,9 +610,15 @@ fn examine(path: &str, roots: &[Root], plan: &Plan) -> Slot {
     if plan.cancelled.load(Ordering::Relaxed) {
         return Slot::Cancelled;
     }
-    let Some(expected) = expected_paths(path, roots) else {
+    let Some(mut expected) = expected_paths(path, roots) else {
         return Slot::Skip;
     };
+    // As `read_file` would judge it, by the path the open must land on, so a root admitted by more than its places (a
+    // repository probe) lends nothing below it. A lookup, not a disk access.
+    expected.retain(|c| scope::holds(plan.set, c, Need::Read));
+    if expected.is_empty() {
+        return Slot::Skip;
+    }
     if Instant::now() >= plan.deadline {
         return Slot::TimeUp;
     }
@@ -686,7 +705,9 @@ impl Merge {
 /// the threads interleave (apart from where a time budget or a cancel falls): see `Merge`. Budgets: the time budget
 /// is one deadline for the whole search, and a file in progress when it passes stops at its next chunk; the byte
 /// budget is spent in input order by the files `Merge` takes, not by what the threads happened to read.
+#[allow(clippy::too_many_arguments)]
 fn search_chunked(
+    set: &RwLock<OpenedSet>,
     paths: &[String],
     query: &str,
     roots: &[String],
@@ -715,6 +736,7 @@ fn search_chunked(
         chunk: tuning.chunk.max(needle.len() + 4),
         deadline: Instant::now() + tuning.budget,
         cancelled,
+        set,
         settled: &stop,
     };
     let roots = prepare_roots(roots);
@@ -791,12 +813,15 @@ pub async fn search_content(
         map.insert(token, flag.clone());
     }
     let result = tauri::async_runtime::spawn_blocking(move || {
-        // Only roots in scope are searched; a file under none of them is skipped, as one outside every root always was.
-        let roots: Vec<String> = roots
-            .into_iter()
-            .filter(|r| crate::scope::admit(r, crate::scope::Need::Read).is_ok())
-            .collect();
-        search(&paths, &query, &roots, limit, per_file, &flag)
+        search_in(
+            scope::opened(),
+            &paths,
+            &query,
+            &roots,
+            limit,
+            per_file,
+            &flag,
+        )
     })
     .await;
     if let Ok(mut map) = running().lock() {
@@ -821,6 +846,35 @@ mod tests {
     use serde_json::Value;
     use std::fs;
     use std::time::Instant;
+
+    /// A set holding each root as a folder the index chose, as the page records a collection's folders before searching.
+    fn holding(roots: &[String]) -> RwLock<OpenedSet> {
+        let set = RwLock::new(OpenedSet::default());
+        for root in roots {
+            let _ = scope::open_index_root(&set, root);
+        }
+        set
+    }
+
+    /// `search_in` over a set holding just `roots`.
+    fn search(
+        paths: &[String],
+        query: &str,
+        roots: &[String],
+        limit: Option<usize>,
+        per_file: Option<usize>,
+        cancelled: &AtomicBool,
+    ) -> SearchOutcome {
+        search_in(
+            &holding(roots),
+            paths,
+            query,
+            roots,
+            limit,
+            per_file,
+            cancelled,
+        )
+    }
 
     struct TempDir(PathBuf);
 
@@ -1078,6 +1132,7 @@ mod tests {
             let want = reference(&paths, query, &roots);
             for chunk in (1..=70).chain([128, 1000, CHUNK_BYTES]) {
                 let got = search_chunked(
+                    &holding(&roots),
                     &paths,
                     query,
                     &roots,
@@ -1173,6 +1228,7 @@ mod tests {
         let dir = TempDir::new("time");
         let p = dir.write("a.md", b"needle");
         let got = search_chunked(
+            &holding(&[dir.root()]),
             &[p],
             "needle",
             &[dir.root()],
@@ -1297,6 +1353,32 @@ mod tests {
         assert_eq!(got.scanned_files, 1);
         let paths: Vec<&str> = got.hits.iter().map(|h| h.path.as_str()).collect();
         assert_eq!(paths, vec![inside.as_str()]);
+    }
+
+    #[test]
+    fn a_root_admitted_only_as_a_repository_probe_lends_nothing_below_it() {
+        // The scope admits `<repo>/.git` for reading as the probe of a repository above a file the reader opened, so the
+        // root passes; the files under it are not held, and `read_file` would refuse each of them.
+        let dir = TempDir::new("probe-root");
+        let config = dir.write("repo/.git/config", b"secret");
+        dir.write("repo/.git/HEAD", b"ref: refs/heads/main\n");
+        let opened = dir.write("repo/docs/a.md", b"secret");
+        let root = format!("{}/repo/.git", dir.root());
+        let set = RwLock::new(OpenedSet::default());
+        scope::open_file(&set, &opened);
+        assert!(scope::check(&set, &root, Need::Read).is_ok());
+        assert_eq!(
+            crate::commands::fs::read_file_in(&set, &config).map_err(|e| e.code),
+            Err("outside".to_owned())
+        );
+        let flag = AtomicBool::new(false);
+        let got = search_in(&set, &[config], "secret", &[root], None, None, &flag);
+        assert!(got.hits.is_empty());
+        assert_eq!(got.scanned_files, 0);
+        assert_eq!(
+            got.skipped_files, 0,
+            "not opened at all, as a file under no root"
+        );
     }
 
     #[test]
@@ -1748,6 +1830,7 @@ mod tests {
             chunk: chunk.max(needle.len() + 4),
             deadline: Instant::now() + budget,
             cancelled,
+            set: &RwLock::new(OpenedSet::default()),
             settled: &AtomicBool::new(false),
         };
         let roots = prepare_roots(roots);
@@ -1848,6 +1931,7 @@ mod tests {
                         for workers in [1usize, 2, 3, 4, 8] {
                             for _ in 0..2 {
                                 let got = search_chunked(
+                                    &holding(roots),
                                     &paths,
                                     query,
                                     roots,
@@ -1905,6 +1989,7 @@ mod tests {
             chunk: 16,
             deadline: Instant::now() + Duration::from_secs(MAX_SECONDS),
             cancelled: &cancelled,
+            set: &RwLock::new(OpenedSet::default()),
             settled: &settled,
         };
         let mut out = SearchOutcome::default();
@@ -1924,6 +2009,7 @@ mod tests {
         let dotdot = format!("{}/root/../other/out.md", dir.root());
         let roots = [format!("{}/root", dir.root())];
         let got = search_chunked(
+            &holding(&roots),
             &[outside.clone(), denied.clone(), dotdot, inside.clone()],
             "secret",
             &roots,
@@ -2059,6 +2145,7 @@ mod tests {
         for workers in [1usize, 2, 4, 8] {
             let (ms, b) = median(&|| {
                 search_chunked(
+                    &holding(roots),
                     paths,
                     query,
                     roots,
