@@ -41,6 +41,7 @@ import {
   type SavedSearch,
   type ScopeId,
 } from '../search-model.ts';
+import type { SearchDone, SearchJob } from '../search.worker.ts';
 import type { PanelContext, PanelDef, RowEvent, Verb } from '../types.ts';
 import { btns, ck, empty, fld, h, hint, hit, lab, row, sec, sg, stack, tool } from '../ui.ts';
 
@@ -56,6 +57,8 @@ interface Group {
 interface Result {
   readonly short?: boolean;
   readonly bad?: string;
+  /** The pattern did not finish in time: no matches are shown, and a replace is refused. */
+  readonly slow?: boolean;
   readonly re?: RegExp;
   /** The .* it was worked out with: a replace reads $1 by it, not by the toggle now. */
   readonly regex?: boolean;
@@ -96,6 +99,8 @@ export interface SearchState {
   qkey: string;
   run: number;
   pending: boolean;
+  /** Ends the regular-expression worker a search is waiting on. */
+  stop?: () => void;
   /** The open file when the search last changed: its group stays first while J opens the others. */
   first: string | null;
   offHeld?: () => void;
@@ -188,6 +193,57 @@ async function readTexts(handle: AppHandle, paths: readonly string[], big: Set<s
   return out;
 }
 
+/** How long a regular expression may search before it is called too slow and its worker ended. */
+const BUDGET_MS = 1500;
+const SLOW_NOTE = 'This pattern is too slow to search: simplify it.';
+
+type Hits = Map<string, LineHit[]>;
+
+/**
+ * The lines of `texts` that `re` matches. A pattern the reader typed runs in a worker, which is ended when the budget
+ * passes ('slow') or `st.stop` is called by the next search (null): a backtracking pattern holds one `exec` for minutes and
+ * only a worker can be stopped. Plain text, which cannot backtrack, runs here, with no copy of the texts.
+ */
+function matchAll(st: SearchState, texts: ReadonlyMap<string, string>, re: RegExp, user: boolean): Promise<Hits | 'slow' | null> {
+  const here = (): Hits => {
+    const out: Hits = new Map();
+    for (const [p, t] of texts) {
+      const h = matchLines(t, re);
+      if (h.length > 0) out.set(p, h);
+    }
+    return out;
+  };
+  if (!user) return Promise.resolve(here());
+  if (typeof Worker === 'undefined') return Promise.resolve(here());
+  let w: Worker;
+  try {
+    w = new Worker(new URL('../search.worker.ts', import.meta.url), { type: 'module' });
+  } catch {
+    return Promise.resolve(here());
+  }
+  return new Promise((resolve) => {
+    const end = (v: Hits | 'slow' | null): void => {
+      clearTimeout(timer);
+      w.terminate();
+      if (st.stop === stop) st.stop = undefined;
+      resolve(v);
+    };
+    const stop = (): void => end(null);
+    const timer = setTimeout(() => end('slow'), BUDGET_MS);
+    st.stop = stop;
+    w.onmessage = (e: MessageEvent<SearchDone>) => end(new Map(e.data.hits.map(([p, h]) => [p, h.slice()])));
+    // A worker that cannot start or load (a CSP, an engine without module workers) searches here instead.
+    w.onerror = () => {
+      clearTimeout(timer);
+      w.terminate();
+      if (st.stop === stop) st.stop = undefined;
+      resolve(here());
+    };
+    const job: SearchJob = { source: re.source, flags: re.flags, texts: [...texts] };
+    w.postMessage(job);
+  });
+}
+
 /** Works the search out for what the panel shows now, when that changed; draws again once it has. */
 function ensure(ctx: PanelContext<SearchState>, sc: Scope): void {
   const { handle, st } = ctx;
@@ -200,6 +256,7 @@ function ensure(ctx: PanelContext<SearchState>, sc: Scope): void {
   if (st.key === key) return;
   st.key = key;
   const run = ++st.run;
+  st.stop?.();
   const c = compileSearch(st);
   if (c === null) {
     st.res = { short: true, qkey, groups: [], total: 0, note: '' };
@@ -249,13 +306,20 @@ function ensure(ctx: PanelContext<SearchState>, sc: Scope): void {
     for (const [p, t] of await readTexts(handle, read, big, live)) texts.set(p, t);
     if (!live()) return;
     if (big.size > 0) note = [note, `${plural(big.size, 'file')} over 4 MB not searched`].filter(Boolean).join('; ');
+    const found = await matchAll(st, texts, c.re, regex);
+    if (!live() || found === null) return;
+    if (found === 'slow') {
+      st.res = { slow: true, qkey, groups: [], total: 0, note: '' };
+      st.pending = false;
+      ctx.redraw();
+      return;
+    }
     const groups: Group[] = [];
     let total = 0;
     for (const p of sc.paths) {
       const text = texts.get(p);
-      if (text === undefined) continue;
-      const hits = matchLines(text, c.re);
-      if (hits.length === 0) continue;
+      const hits = found.get(p);
+      if (text === undefined || hits === undefined) continue;
       const sp = splitLines(text);
       const starts: number[] = [];
       let at = 0;
@@ -278,6 +342,10 @@ const ticked = (st: SearchState, path: string): boolean => st.tick.get(path) ?? 
 /** The result, when it answers what the fields say now; while a new search reads, the old one is only looked at. */
 function current(st: SearchState): (Result & { readonly re: RegExp }) | null {
   const res = st.res;
+  if (res?.slow && res.qkey === st.qkey) {
+    notify({ kind: 'refused', text: SLOW_NOTE, fades: true });
+    return null;
+  }
   if (!res?.re) return null;
   if (res.qkey === st.qkey) return res as Result & { readonly re: RegExp };
   notify({ kind: 'info', text: 'Still searching for what Find says now: replace once its matches are shown.', fades: true });
@@ -654,6 +722,10 @@ const panel: PanelDef<SearchState> = {
     }
     if (res.bad) {
       body.append(empty(`Not a regular expression yet: ${res.bad}`));
+      return;
+    }
+    if (res.slow) {
+      body.append(empty(SLOW_NOTE));
       return;
     }
     if (res.groups.length === 0) {

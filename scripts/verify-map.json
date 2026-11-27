@@ -20,7 +20,7 @@
     "apps/desktop/src/kind-icons": ["frame-tabs.test.mjs"],
     "apps/desktop/src/kinds": ["data-by-content.test.mjs","data-tree-budget.test.mjs","data-tree-cap.test.mjs","diff-file.test.mjs","elided-note.test.mjs","kind-at-open.test.mjs","kind-profiles.test.mjs","kinds-cursor.test.mjs","kinds-docs.test.mjs","kinds-media2.test.mjs","kinds-pack-media.test.mjs","kinds-rest.test.mjs","kinds-tables.test.mjs","log.test.mjs","table-lens.test.mjs","transcript-jsonl.test.mjs","transcript-lite.test.mjs","transcript.test.mjs"],
     "apps/desktop/src/layout": ["command-scope.test.mjs","keys-table.test.mjs","layout-restore.test.mjs","layout-shift-window.test.mjs"],
-    "apps/desktop/src/left": ["frame-book.test.mjs","left-doc.test.mjs","left-frame.test.mjs","left-out.test.mjs","left-search-big.test.mjs","left-work.test.mjs","open-in-folder.test.mjs","large-open-panel.test.mjs","outline-rows.test.mjs"],
+    "apps/desktop/src/left": ["frame-book.test.mjs","left-doc.test.mjs","left-frame.test.mjs","left-out.test.mjs","left-search-big.test.mjs","left-work.test.mjs","search-slow-pattern.test.mjs","open-in-folder.test.mjs","large-open-panel.test.mjs","outline-rows.test.mjs"],
     "apps/desktop/src/line": ["line.test.mjs"],
     "apps/desktop/src/look": ["close-joins.test.mjs","look.test.mjs","studio-code-adapts-file.test.mjs","studio-compare-sheet-fit.test.mjs","studio-themes.test.mjs","studio-tone-type-page.test.mjs"],
     "apps/desktop/src/menu": ["joins.test.mjs","menu-teardown.test.mjs","keys-table.test.mjs","no-displacement.test.mjs"],
