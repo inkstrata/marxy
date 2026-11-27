@@ -175,25 +175,45 @@ pub fn first_not_utf8(bytes: &[u8]) -> Option<Deciding> {
 /// encoding.
 pub const MIN_GUESS_BYTES: usize = 4;
 
-/// Whether `bytes` read as damaged UTF-8: a character above ASCII that is well-formed UTF-8, or one cut short (a lead
-/// byte and at least one of its continuation bytes, the rest missing).
+/// Whether `bytes` read as UTF-8, perhaps damaged: the bytes above ASCII that sit in complete well-formed characters (and
+/// in one cut short at the very end of the input) are at least four times the bytes that are not. A few well-formed
+/// pairs among stray bytes are not enough: Shift_JIS, GBK and EUC-JP text is full of byte pairs that happen to be
+/// well-formed UTF-8, but a larger share of its bytes are not. A UTF-8 file with a stray byte or two keeps its many
+/// complete characters.
 pub fn looks_like_utf8(bytes: &[u8]) -> bool {
+    let (mut good, mut stray) = (0usize, 0usize);
     let mut rest = bytes;
     loop {
         match std::str::from_utf8(rest) {
-            Ok(s) => return !s.is_ascii(),
+            Ok(s) => {
+                good += s.bytes().filter(|&b| b >= 0x80).count();
+                break;
+            }
             Err(e) => {
-                let cut_short = e
-                    .error_len()
-                    .map_or(rest.len() - e.valid_up_to() > 1, |n| n > 1);
-                if cut_short || !rest[..e.valid_up_to()].is_ascii() {
-                    return true;
+                good += rest[..e.valid_up_to()]
+                    .iter()
+                    .filter(|&&b| b >= 0x80)
+                    .count();
+                match e.error_len() {
+                    // A character cut short by the end of the input is damaged UTF-8, not another encoding.
+                    None => {
+                        let cut = rest.len() - e.valid_up_to();
+                        if cut > 1 {
+                            good += cut;
+                        } else {
+                            stray += cut;
+                        }
+                        break;
+                    }
+                    Some(n) => {
+                        stray += n;
+                        rest = &rest[e.valid_up_to() + n..];
+                    }
                 }
-                rest = &rest
-                    [e.valid_up_to() + e.error_len().unwrap_or(rest.len() - e.valid_up_to())..];
             }
         }
     }
+    good > 0 && good >= 4 * stray
 }
 
 /// How `bytes` would be read with no choice: the label, how it was known, and (for a guess) why.
