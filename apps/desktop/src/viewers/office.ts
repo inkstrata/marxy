@@ -7,7 +7,7 @@
 // the text views', and the page's elements name the file's own bytes. A Word 97-2003 document or deck (.doc, .ppt) is a
 // compound file the shell reads into the same blocks; Source is its bytes, as a .docx's.
 import { basename } from '@marxy/core/src/index-model/paths.ts';
-import { isDeck, isLegacy, officeAccount, officeFormatOf, officeHeadLine, OfficeError, readLegacyOffice, readOffice, readRtfOffice, sourceRangeOf, startsAsRtf, writeMarkdown, BLOCKS_CUT, FORMAT_WORDS, LEGACY_FILE_MAX, OFFICE_LIMITS, RTF_LIMITS, type OfficeReading } from '@marxy/core/src/office/index.ts';
+import { isDeck, isLegacy, officeAccount, officeFormatOf, officeHeadLine, OfficeError, readLegacyOffice, readOffice, readRtfOffice, sourceRangeOf, startsAsRtf, writeMarkdown, FORMAT_WORDS, LEGACY_FILE_MAX, OFFICE_LIMITS, RTF_LIMITS, type OfficeReading } from '@marxy/core/src/office/index.ts';
 import type { ArchiveEntry, ArchiveListing } from '@marxy/shell-api';
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import type { AppShell } from '../app-types.ts';
@@ -554,7 +554,7 @@ export function createOfficeViewer(o: OfficeOptions): PaneViewer {
         extension: 'md',
         build: async () => {
           // The whole document, past the page's block cap: written here, only when asked for.
-          const whole = reading.doc.cut?.some((c) => c.includes(BLOCKS_CUT)) ? writeMarkdown(reading.doc).markdown : reading.markdown;
+          const whole = reading.doc.blocks.length > OFFICE_LIMITS.blocks ? writeMarkdown(reading.doc).markdown : reading.markdown;
           return { bytes: enc.encode(whole), preview: whole.slice(0, 4000) };
         },
       },

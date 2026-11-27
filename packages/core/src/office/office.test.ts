@@ -212,3 +212,16 @@ test('a document of more paragraphs than the page draws is written to the cap, a
   const short = await readOffice('docx', partsReader(wordParts()));
   assert.equal(short.doc.cut, undefined, 'a document under the cap says nothing');
 });
+
+test('past the cap, only empty blocks and an unmarked note: no line is written, yet the capped page is not the whole document', () => {
+  const para = (t: string) => ({ t: 'para' as const, kids: [run(t)] });
+  const doc = {
+    blocks: [para('a'), { t: 'para' as const, kids: [] }, { t: 'para' as const, kids: [] }],
+    notes: [{ label: 'x', blocks: [para('an unreferenced note')] }],
+    images: [],
+  };
+  const capped = writeMarkdown(doc, { blocks: 1 });
+  assert.deepEqual(capped.cut, [], 'nothing with text was left out');
+  assert.doesNotMatch(capped.markdown, /unreferenced note/);
+  assert.match(writeMarkdown(doc).markdown, /unreferenced note/, 'the uncapped write keeps it, as an export must');
+});
