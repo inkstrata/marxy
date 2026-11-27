@@ -178,7 +178,7 @@ mod macos_flags {
 /// The destination's creation date, which `fs::copy` (`fcopyfile`) does not carry and a rename over a file replaces.
 #[cfg(target_os = "macos")]
 mod macos_dates {
-    use std::ffi::{c_char, c_int, c_uint, c_void};
+    use std::ffi::{c_char, c_int, c_ulong, c_void};
     use std::fs::Metadata;
     use std::os::macos::fs::MetadataExt;
     use std::os::unix::ffi::OsStrExt;
@@ -186,7 +186,7 @@ mod macos_dates {
 
     const ATTR_BIT_MAP_COUNT: u16 = 5;
     const ATTR_CMN_CRTIME: u32 = 0x0000_0200;
-    const FSOPT_NOFOLLOW: c_uint = 0x0000_0001;
+    const FSOPT_NOFOLLOW: c_ulong = 0x0000_0001;
 
     #[repr(C)]
     struct AttrList {
@@ -211,7 +211,7 @@ mod macos_dates {
             attr_list: *mut AttrList,
             attr_buf: *mut c_void,
             attr_buf_size: usize,
-            options: c_uint,
+            options: c_ulong,
         ) -> c_int;
     }
 
