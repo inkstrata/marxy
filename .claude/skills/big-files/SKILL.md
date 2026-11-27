@@ -41,7 +41,17 @@ Files of 1 to 5 MB are ordinary for Marxy, and most of its freezes have come fro
 
 ## Known hot spots
 
-The shapes and places that have frozen Marxy before, so a change near them gets extra care: export walking every
-block against the whole article; a backtracking pattern in Search; one long unbroken run laid out with kerning; a
-huge Word document's children spread into one `append`; panels re-parsing the whole file on the main thread; the
-typesetting queue covering the whole page. The current list is the "Big files" section of `work/todo.md`.
+The shapes and places that have frozen Marxy on big files, so a change near them gets extra care:
+
+- **Layout reads between writes in a loop.** The typesetter's hanging punctuation and overflow check read
+  `getClientRects` inside each batch after writing, and each read lays out the whole mounted article; the progressive
+  mount forces a read after every idle chunk and sizes the next chunk by it. Together they make a big page's busy time
+  grow with the square of the file. Read everything first, then write; contain blocks so a read lays out one.
+- **Lists that draw every item and redraw on each key** (the Line's `@` over tens of thousands of headings).
+- **Features that walk the DOM instead of the model** (find counting only what is mounted, End stopping at the last
+  mounted block, copy cloning node by node).
+- **Whole-file reparses for a small feature**, on the main thread (panels, Copy as, a definition change).
+- **Array spreads into calls** on input the reader controls (paste, Format as code, a huge Word document's children).
+- **One long unbroken run** laid out with kerning; **a backtracking pattern** typed in a search field.
+
+The current list, with causes and sizes, is the "Big files" section of `work/todo.md`.
