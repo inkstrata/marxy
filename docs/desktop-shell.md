@@ -22,6 +22,23 @@ which implements the `Shell` interface of `packages/shell-api`.
   style-src-attr 'unsafe-inline'`, images, fonts and media from `marxy-file:` (and images from
   `marxy-remote:`), `connect-src` limited to IPC and `marxy-file:`. No `http(s)` source.
 
+### File associations on macOS
+
+`bundle.fileAssociations` in `tauri.conf.json` becomes `CFBundleDocumentTypes` in `Info.plist`, in three tiers.
+
+- **Default** (a double-click opens Marxy): Markdown, which declares `net.daringfireball.markdown` (conforming to
+  `public.plain-text`) because macOS has no type for it; and "Logs, data and mail" (`log`, `jsonl`, `ndjson`, `diff`,
+  `patch`, `ipynb`, `eml`, `yaml`, `yml`, `toml`), which macOS opens in a plain editor or a mail client at best and Marxy
+  reads better.
+- **Alternate** (offered in Open With, never the default): "Source and text" (code, scripts, `json`, `html`, `xml`, `css`,
+  `csv`, `tsv` and the rest), because editors, browsers and spreadsheets own those; PDF and images, because Preview owns
+  them; and archives, Word, Excel, PowerPoint and OpenDocument files, audio and video, fonts and EPUB, so Marxy is
+  listed for everything it reads without claiming any of it.
+- **Not declared**: programs, installers and packages (`app`, `pkg`, `dmg`, `exe`, `apk`, `deb`, `rpm`, `iso`, `jar`),
+  which Marxy only describes, never opens as a document.
+
+Windows is separate and unchanged (below).
+
 ### File associations on Windows
 
 The installer is per-user (NSIS, `HKCU`). Tauri's own association writes the extension's default

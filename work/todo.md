@@ -29,7 +29,6 @@ are part of it; R10 and R11 block the tag only if they turn out real. R1 (macOS 
 
 | # | What | Why | Size | Branch |
 | --- | --- | --- | --- | --- |
-| R4 | macOS file associations: the "Source and text" group claims Default rank for about 60 extensions (json, html, xml, css among them); Markdown has no UTI; PDFs, images, archives and documents are not offered in Open With at all | Marxy should be offered for what it reads, not take double-click from other apps | S | |
 | R9 | Dry run of `release.yml` by `workflow_dispatch` on the version branch: size, seal and notices of the artifact, then install from a download on a clean account | The workflow has not run since v0.1.0 | S | |
 | R11 | A page that was open when Source was entered, edited and shown again keeps line breaks and hyphens that a fresh render does not give, and keeps them after the typesetter reports idle (`source-fold-stale`, about 1 run in 5 alone; pane open then Source before its first typesetting is done; it matches once the typesetting is done before Source, and a relayout also makes it match). Real but small: the lines are valid, only differently broken. `paste-source` was a test reading too early and is fixed | A stale page after a Source round trip | S | |
 | R12 | The macOS pasteboard test has never run: `cargo test -- --ignored pasteboard_live` | Copy as HTML, RTF and text to other apps is unproved on a Mac | S | |

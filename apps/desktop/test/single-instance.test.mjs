@@ -44,6 +44,24 @@ nodeTest('tauri.conf.json lets Finder offer Marxy for source and text files', ()
   assert.ok(exts.includes('py'));
 });
 
+nodeTest('tauri.conf.json ranks only Markdown and logs, data and mail Default; the rest are offered at Alternate', () => {
+  const conf = JSON.parse(readFileSync(join(desktopRoot, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  const rows = conf.bundle.fileAssociations;
+  const [markdown] = rows;
+  assert.equal(markdown.name, 'Markdown');
+  assert.equal(markdown.exportedType.identifier, 'net.daringfireball.markdown');
+  assert.deepEqual(markdown.exportedType.conformsTo, ['public.plain-text']);
+  const defaults = rows.filter((row) => row.rank === 'Default').map((row) => row.name);
+  assert.deepEqual(defaults, ['Markdown', 'Logs, data and mail']);
+  const logs = rows.find((row) => row.name === 'Logs, data and mail');
+  assert.deepEqual([...logs.ext].sort(), ['diff', 'eml', 'ipynb', 'jsonl', 'log', 'ndjson', 'patch', 'toml', 'yaml', 'yml']);
+  for (const row of rows) assert.ok(row.rank === 'Default' || row.rank === 'Alternate', row.name);
+  // Editors and browsers own these; Marxy is only offered.
+  const alternate = rows.filter((row) => row.rank === 'Alternate').flatMap((row) => row.ext);
+  for (const e of ['json', 'html', 'css', 'xml', 'csv', 'tsv', 'py', 'pdf', 'png', 'svg', 'zip', 'docx', 'xlsx', 'mp4', 'ttf', 'epub']) assert.ok(alternate.includes(e), e);
+  for (const e of ['dmg', 'pkg', 'app', 'exe', 'apk', 'deb', 'rpm', 'iso']) assert.equal(rows.flatMap((row) => row.ext).includes(e), false, e);
+});
+
 nodeTest('main.rs queues Finder opens until take_pending_opens', () => {
   const main = readFileSync(join(desktopRoot, 'src-tauri', 'src', 'main.rs'), 'utf8');
   assert.match(main, /take_pending_opens/);

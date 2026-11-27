@@ -54,7 +54,19 @@
         "ext": ["md", "markdown", "mdown", "mkd", "mdx"],
         "name": "Markdown",
         "mimeType": "text/markdown",
-        "role": "Viewer"
+        "role": "Viewer",
+        "rank": "Default",
+        "exportedType": {
+          "identifier": "net.daringfireball.markdown",
+          "conformsTo": ["public.plain-text"]
+        }
+      },
+      {
+        "name": "Logs, data and mail",
+        "contentTypes": ["public.log", "public.yaml", "public.patch-file", "com.apple.mail.email"],
+        "ext": ["log", "jsonl", "ndjson", "diff", "patch", "ipynb", "eml", "yaml", "yml", "toml"],
+        "role": "Viewer",
+        "rank": "Default"
       },
       {
         "name": "Source and text",
@@ -65,8 +77,53 @@
           "public.json",
           "public.xml"
         ],
-        "ext": ["txt", "text", "ts", "tsx", "js", "jsx", "mjs", "cjs", "mts", "cts", "rs", "py", "go", "java", "kt", "kts", "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "rb", "php", "swift", "sh", "bash", "zsh", "json", "toml", "yaml", "yml", "html", "htm", "xml", "sql", "graphql", "lua", "r", "ex", "exs", "hs", "vue", "svelte", "css", "scss", "log", "out", "diff", "patch", "term", "session", "csv", "tsv", "jsonl", "ndjson", "atom", "rss"],
-        "role": "Viewer"
+        "ext": ["txt", "text", "ts", "tsx", "js", "jsx", "mjs", "cjs", "mts", "cts", "rs", "py", "go", "java", "kt", "kts", "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "rb", "php", "swift", "sh", "bash", "zsh", "json", "html", "htm", "xml", "sql", "graphql", "lua", "r", "ex", "exs", "hs", "vue", "svelte", "css", "scss", "out", "term", "session", "csv", "tsv", "atom", "rss"],
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "name": "PDF document",
+        "contentTypes": ["com.adobe.pdf"],
+        "ext": ["pdf"],
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "name": "Image",
+        "contentTypes": ["public.png", "public.jpeg", "com.compuserve.gif", "org.webmproject.webp", "public.heic", "public.tiff", "com.microsoft.bmp", "public.svg-image"],
+        "ext": ["png", "jpg", "jpeg", "gif", "webp", "heic", "tif", "tiff", "bmp", "svg"],
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "name": "Archive",
+        "ext": ["zip", "tar", "tgz", "gz", "tbz", "tbz2", "bz2", "txz", "xz", "7z", "zst", "tzst", "rar", "whl", "nupkg"],
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "name": "Office document",
+        "ext": ["docx", "pptx", "odt", "odp", "doc", "ppt", "xlsx", "xlsm", "xls", "ods"],
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "name": "Audio and video",
+        "ext": ["mp3", "wav", "ogg", "oga", "flac", "m4a", "aac", "opus", "aiff", "aif", "mp4", "m4v", "mov", "mkv", "webm", "ogv", "avi", "mpg", "mpeg"],
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "name": "Font",
+        "ext": ["ttf", "otf", "woff", "woff2", "ttc", "otc"],
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "name": "Book",
+        "ext": ["epub"],
+        "role": "Viewer",
+        "rank": "Alternate"
       }
     ],
     "shortDescription": "A markdown reader",
