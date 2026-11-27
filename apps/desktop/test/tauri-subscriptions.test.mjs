@@ -68,7 +68,8 @@ test('an event emitted while the second boot is still subscribing reaches the se
     release();
   }
   await settle();
-  assert.deepEqual(heard, ['second /r/a.md', 'second file.open']);
+  // The menu command is heard at once; the open waits behind whatever was queued before it.
+  assert.deepEqual(heard, ['second file.open', 'second /r/a.md']);
 });
 
 test('opens queued before a reboot, drained after it, reach the new boot', async () => {
@@ -113,7 +114,8 @@ test('after a boot is destroyed no event reaches it, and the next boot still hea
   }
   emit('marxy:menu', 'file.open');
   emit('marxy:open-files', ['/r/b.md']);
-  assert.deepEqual(heard, ['next /r/queued.md', 'next file.open', 'next /r/b.md']);
+  // The open Rust emitted while no boot listened is held for this one, ahead of the queue taken after it.
+  assert.deepEqual(heard, ['next /r/a.md', 'next /r/queued.md', 'next file.open', 'next /r/b.md']);
 });
 
 test('a destroyed boot does not take the place of the boot that replaced it', async () => {
@@ -146,4 +148,76 @@ test('opens taken while no boot is subscribed wait for the next boot', async () 
   shell.onOpenFiles((paths) => heard.push(`third ${paths}`));
   await settle();
   assert.deepEqual(heard, ['next /r/queued.md'], 'held opens are handed over once');
+});
+
+test('an open emitted live while no boot is subscribed waits for the next boot, once, and never reaches a destroyed one', async () => {
+  const heard = [];
+  const off = shell.onOpenFiles((paths) => heard.push(`dead ${paths}`));
+  await settle();
+  off();
+  emit('marxy:open-files', ['/r/live.md']);
+  assert.deepEqual(heard, []);
+  shell.onOpenFiles((paths) => heard.push(`next ${paths}`));
+  await settle();
+  assert.deepEqual(heard, ['next /r/live.md']);
+  shell.onOpenFiles((paths) => heard.push(`third ${paths}`));
+  await settle();
+  assert.deepEqual(heard, ['next /r/live.md'], 'held opens are handed over once');
+});
+
+test('a live open that lands while the queue is being taken comes after the older ones', async () => {
+  const heard = [];
+  let answer;
+  hooks.pendingOpens = () => new Promise((resolve) => (answer = resolve));
+  try {
+    shell.onOpenFiles((paths) => heard.push(String(paths)));
+    await settle();
+    emit('marxy:open-files', ['/r/live.md']);
+    assert.deepEqual(heard, []);
+    answer([['/r/old.md']]);
+    await settle();
+  } finally {
+    hooks.pendingOpens = null;
+  }
+  assert.deepEqual(heard, ['/r/old.md', '/r/live.md']);
+});
+
+test('a boot whose open callback throws still gets the batches after it, and the throw is logged', async () => {
+  const heard = [];
+  const logged = [];
+  const real = console.error;
+  console.error = (...args) => logged.push(args);
+  hooks.pendingOpens = () => [['/r/a.md'], ['/r/b.md']];
+  try {
+    shell.onOpenFiles((paths) => {
+      heard.push(String(paths));
+      if (String(paths) === '/r/a.md') throw new Error('boom');
+    });
+    await settle();
+  } finally {
+    hooks.pendingOpens = null;
+    console.error = real;
+  }
+  assert.deepEqual(heard, ['/r/a.md', '/r/b.md']);
+  assert.equal(logged.length, 1);
+});
+
+test('a throwing menu or close callback is logged and does not escape the event', async () => {
+  const logged = [];
+  const real = console.error;
+  console.error = (...args) => logged.push(args);
+  try {
+    shell.onMenuCommand(() => {
+      throw new Error('menu');
+    });
+    shell.onCloseRequested(() => {
+      throw new Error('close');
+    });
+    await settle();
+    emit('marxy:menu', 'file.open');
+    emit('marxy:close-requested', undefined);
+  } finally {
+    console.error = real;
+  }
+  assert.equal(logged.length, 2);
 });
