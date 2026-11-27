@@ -106,7 +106,8 @@ record (`node scripts/gate-licences.mjs`).
   posts (`listenForFileDrops` in `shell/tauri.ts`), read by `drop_windows.rs`. Only regular files
   are kept.
 - Files are delivered as `marxy:open-files`; those that arrive before the page is listening are
-  queued and drained by `take_pending_opens`.
+  queued and drained by `take_pending_opens`. The page keeps what it has taken, and any open emitted while no boot is
+  subscribed, for the next boot, which gets each batch once and in order.
 - Every one of these routes (and `args`, `open_dialog`, `save_dialog`) records its paths as opened in the scope
   (below) before the page sees them.
 
@@ -277,7 +278,7 @@ request (`decode_text`).
   Windows, and refuses a destination that is not a regular file, is read-only, is locked in Finder (macOS `uchg`, refused in those words; a staged file that picked the flag up is cleared and removed) or has more than one
   hard link. It stages the bytes in a hidden temporary file in the same folder, carries over the old
   file's permissions (and on Windows its ACL, creation time and hidden/system attributes; on Unix its
-  owner and group, refusing a save that would change the owner), syncs, and renames over the
+  owner and group, refusing a save that would change the owner; on macOS its creation date, put back with `setattrlist` because the replace is a new inode, and its extended attributes, Finder tags and Finder info among them, which `fs::copy` carries), syncs, and renames over the
   destination. On Windows a locked file is retried for about a second.
 - `write_file_atomic` with an `x-marxy-expect` header (the length and SHA-256 of what the webview read, in
   hex) runs `write_atomic_unless_changed`: the file is opened and its length, then its SHA-256, compared

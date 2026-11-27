@@ -152,6 +152,7 @@ async function launch(appArgs) {
     // Set when the harness had to end a launch that reported its outcome but never exited.
     stalled: killedAfterMs !== null && !watchdogFired ? stalledExitMessage(lines, killedAfterMs) : null,
     ms,
+    startedAt,
     mark: (name) => lines.findIndex(l => l === `MARK ${name}` || l.startsWith(`MARK ${name} `)),
   };
 }
@@ -329,4 +330,17 @@ if (noPaint) {
   console.log(`smoke-cli-open skipped: ${message}`);
   process.exit(0);
 }
+// Time to first text, as a reader sees it: from spawning the binary to the epoch stamp on `MARK first_text`.
+// The first launch is this job's cold one; four more follow, and the median of the five is printed for the
+// release notes. A record, never a check: a launch that fails to report it is left out, not failed. CI
+// runners are slower than a laptop, so the number is an upper bound on what a person sees.
+const startupMs = (run) => {
+  const stamp = Number(/^MARK first_text (\d+)$/m.exec(run.lines.join('\n'))?.[1] ?? NaN);
+  return Number.isFinite(stamp) ? stamp - run.startedAt : null;
+};
+const samples = [startupMs(open)];
+for (let i = 1; i < 5; i++) samples.push(startupMs(await launch([doc])));
+const usable = samples.filter(v => v !== null).sort((a, b) => a - b);
+const median = usable.length ? usable[usable.length >> 1] : null;
+console.log(`smoke-cli-open startup: first text median ${median ?? 'n/a'} ms over ${usable.length} of 5 launches (in order: ${samples.join(', ')}; ${process.platform}, ${process.env.CI ? 'CI runner' : 'not CI'})`);
 console.log(`smoke-cli-open ok: ${blocks} blocks, ${chars} chars, first_text ${frames} frames / ${sinceRender} ms after render, signal=${signal}; no first_text with no document, no text, an unreadable file, or a hidden #doc`);
