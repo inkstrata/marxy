@@ -104,7 +104,7 @@ test('the same file opened already unreadable is the lines page too, and a short
   assert.equal(short.opened.reading, 'written');
 });
 
-test('a long broken data file that is not UTF-8 is the windowed lines page too, with its text decoded', async () => {
+test('a long broken data file that is not UTF-8 is windowed lines in the pane too (the pane hands the reading UTF-8)', async () => {
   // Latin-1 bytes: one byte a character, the \u00e9 a byte UTF-8 would not have.
   const text = `${pretty(5000).replaceAll('item', 'caf\u00e9')}\nstray words\n`;
   const bytes = Array.from(text, (c) => c.charCodeAt(0));

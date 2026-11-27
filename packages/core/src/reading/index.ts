@@ -12,7 +12,7 @@ import { lineOfByte, parseJsonFrom, scanJson, type Cut, type JsonStream } from '
 import { fileTypeFor, guessedFromBytes } from '../kind/registry.ts';
 import { NOTEBOOK_MAX_BYTES, notebookReading } from './notebook.ts';
 import { accountHtml } from './account.ts';
-import { indexLines, isUtf8, LINES_READ_ONLY_FROM, linesAccount, linesTier, renderedChosen, type LinesTier, type ReadingLines } from './lines.ts';
+import { indexLines, isUtf8, linesAccount, linesTier, renderedChosen, type LinesTier, type ReadingLines } from './lines.ts';
 import {
   drawnColumns,
   columnTotal,
@@ -197,41 +197,10 @@ export const WRITTEN_LINES_FROM = 256 * 1024;
 
 /** A data file that did not parse: its lines as written, drawn all at once when short and windowed when long. */
 function unreadable(t: Text, path: string, bytes: Uint8Array, format: string, failed: NonNullable<Reading['failed']>, note: string, account: readonly string[]): Reading {
-  if (bytes.length < WRITTEN_LINES_FROM || bytes.length >= 0xffffffff) return written(t, format, failed, note, account);
-  const made = isUtf8(bytes) ? linesReading(path, bytes, 'text') : decodedLinesReading(t, bytes);
+  if (bytes.length < WRITTEN_LINES_FROM || bytes.length >= 0xffffffff || !isUtf8(bytes)) return written(t, format, failed, note, account);
+  const made = linesReading(path, bytes, 'text');
   const html = `<div class="marxy-reading marxy-lines" data-marxy-reading="lines">${accountHtml(account, esc(note))}<div class="marxy-lines-body" data-marxy-lines></div></div>`;
   return { ...made, html, format, failed };
-}
-
-/**
- * The lines of a file that is not UTF-8 (Latin-1, UTF-16 ...), as `written` reads them: each line is the file's bytes from where
- * the decoded text's line begins to where it ends, and its text is the decoded text, so what a line says and the byte it stands
- * on are as the all-lines page has them. A last empty line is none.
- */
-function decodedLinesReading(t: Text, bytes: Uint8Array): Reading {
-  let n = t.starts.length;
-  if (n > 1 && t.starts[n - 1] === t.ends[n - 1]) n--;
-  const starts = new Uint32Array(n);
-  const ends = new Uint32Array(n);
-  for (let i = 0; i < n; i++) {
-    starts[i] = t.offsets.at(t.starts[i]!);
-    ends[i] = t.offsets.at(t.ends[i]!);
-  }
-  const lines: ReadingLines = {
-    bytes,
-    starts,
-    ends,
-    count: n,
-    log: false,
-    markdown: false,
-    readOnly: bytes.length >= LINES_READ_ONLY_FROM,
-    ranks: null,
-    seedRanks: null,
-    shape: null,
-    headings: null,
-    decoded: (i) => t.text.slice(t.starts[i], t.ends[i]),
-  };
-  return { id: 'lines', name: 'lines', format: 'text', html: '', contents: null, failed: null, lines };
 }
 
 /** The last lines indexed for each path, held weakly: a log that grew is indexed from where the last index ended. */

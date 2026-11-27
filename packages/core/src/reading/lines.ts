@@ -95,8 +95,6 @@ export interface ReadingLines {
   shape: LinesLogShape | null;
   /** A Markdown file's headings, once scanned (`scanHeadings`). */
   headings: ScannedHeadings | null;
-  /** Line `i`'s text when the bytes are not UTF-8 and cannot be read as it is: the file's lines, decoded as its reading decodes it. */
-  readonly decoded?: (i: number) => string;
 }
 
 /** Whether `bytes` begin with every byte of `old`. */
@@ -190,8 +188,7 @@ export function indexLines(bytes: Uint8Array, log: boolean, prev: ReadingLines |
 const utf8 = new TextDecoder('utf-8', { ignoreBOM: true });
 
 /** Line `i`'s text. */
-export const lineText = (lines: ReadingLines, i: number): string =>
-  lines.decoded ? lines.decoded(i) : utf8.decode(lines.bytes.subarray(lines.starts[i]!, lines.ends[i]!));
+export const lineText = (lines: ReadingLines, i: number): string => utf8.decode(lines.bytes.subarray(lines.starts[i]!, lines.ends[i]!));
 
 /** The line holding `byte`: the last line beginning at or before it. */
 export function lineOfByte(lines: ReadingLines, byte: number): number {
