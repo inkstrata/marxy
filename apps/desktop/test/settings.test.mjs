@@ -69,6 +69,8 @@ async function withPage(fn, { config = CONFIG, data = {}, width = 1280, height =
 
 const settle = (page) => idle(page);
 const config = (page) => page.evaluate(() => window.__config());
+/** Waits, on frames, until config.toml's text is `text`: the app writes it after the press, the test's timeout bounds the wait. */
+const configBecomes = (page, text) => page.evaluate(async (t) => { while ((await window.__config()) !== t) await new Promise((r) => requestAnimationFrame(r)); }, text);
 const isOpen = (page) => page.evaluate(() => document.querySelector('[data-marxy-settings]') !== null);
 const TITLES = { general: 'General', appearance: 'Appearance', reading: 'Reading', source: 'Source', types: 'Content types', accessibility: 'Accessibility', privacy: 'Privacy', proposals: 'Proposals', advanced: 'Advanced' };
 /** The group `rowKeys` reads: every group is drawn at once, so a category is a group to look in, not a page to go to. */
@@ -206,11 +208,12 @@ test('a changed value carries the dot already in the file: size = 22 is changed,
     assert.match(await page.locator(`${row('size')} .marxy-setting-meta`).textContent(), /Changed/);
     // Resetting it removes its line, comment and all, and nothing else; Undo puts it back.
     await page.click(`${row('size')} [data-marxy-dot]`);
-    await settle(page);
+    await configBecomes(page, CONFIG.replace('size = 22   # my eyes\n', ''));
+    await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => /Reset Text size/.test(n.textContent)));
     assert.equal(await config(page), CONFIG.replace('size = 22   # my eyes\n', ''));
     assert.ok((await pillTexts(page)).some((t) => /Reset Text size/.test(t)));
     await page.click('.marxy-notice .marxy-notice-action');
-    await settle(page);
+    await configBecomes(page, CONFIG);
     assert.equal(await config(page), CONFIG, 'Undo puts the line back exactly, its comment included');
   });
 });
