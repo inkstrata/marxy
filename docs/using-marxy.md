@@ -260,7 +260,8 @@ opens in the drawer. Clip (Mod+Alt+C) lists every Copy-as form for the selection
 
 **Copy and paste** (`commands/copy-write.ts`, `source/paste.ts`, `paste/`). A copy puts one clipboard
 item holding its plain text, and its HTML when the form has one: Copy as Rich text writes the selection's
-sanitised HTML beside its plain text (CF_HTML on Windows); no form writes RTF. A paste into Source that
+sanitised HTML beside its plain text (CF_HTML on Windows); no form writes RTF. Select all then Copy on a long
+page still being drawn copies the whole document, not only the part drawn so far. A paste into Source that
 carries HTML (from a browser, Word, Teams or a chat tool) is read through the shell and goes in as
 Markdown, with its links, lists, headings, tables and code; Mod+Alt+Shift+V pastes the plain text
 unconverted. This needs the native clipboard of macOS or Windows; on Linux the editor pastes the plain
@@ -349,7 +350,7 @@ earlier copy. The Line's `~`, the tab menu, Places and Versions start them. Noth
 
 - **Find in Read** (Mod+F): literal and case-insensitive, with typographic folding (straight quotes match
   curly ones, `--` matches a dash); skips hidden text, maths glyphs, notes and the page's caption key; "N of M"; the current match
-  opens folds. In a PDF it searches the text layer, page by page. Where find reads in passes (a PDF's pages, a big file's lines, a long table's rows), while a new query is still reading the count is that query's matches so far with "still counting" after it (or "counting…" before any), never the last query's. When the page is matched again (it changed, or was remade from disk) the match you were on is kept, and until the count reaches it the line reads "M so far · still counting", never a place past the total. While a count is still running, stepping does not guess at matches not yet counted: Next from the last match counted (or from a kept match past it) stays where you are rather than wrap to the first, and Previous from a kept match past the count goes to the last match counted. The field belongs to the document it was opened on:
+  opens folds. A long Markdown page still being drawn is found whole: the count is the file's from the first key, and a match not yet drawn is drawn when you step to it. On a long page the query is matched when you pause in typing, not on every key. In a PDF it searches the text layer, page by page. Where find reads in passes (a PDF's pages, a big file's lines, a long table's rows), while a new query is still reading the count is that query's matches so far with "still counting" after it (or "counting…" before any), never the last query's. When the page is matched again (it changed, or was remade from disk) the match you were on is kept, and until the count reaches it the line reads "M so far · still counting", never a place past the total. While a count is still running, stepping does not guess at matches not yet counted: Next from the last match counted (or from a kept match past it) stays where you are rather than wrap to the first, and Previous from a kept match past the count goes to the last match counted. The field belongs to the document it was opened on:
   another document in its pane puts it away, and it comes back, with its words, when that document is shown
   again, in either pane.
 - **Find and replace in Source** (Mod+Alt+F): case, regular expression and whole word; Enter replaces one;

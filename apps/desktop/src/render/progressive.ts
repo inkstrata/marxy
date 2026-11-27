@@ -68,6 +68,17 @@ export interface ProgressiveOptions {
   readonly hold?: () => boolean;
 }
 
+/** Each article's mount, so what reads the whole page (find, a copy of all of it) can read the blocks still waiting too. */
+const mounts = new WeakMap<HTMLElement, ProgressiveMount>();
+
+/**
+ * The blocks of `article`'s document not yet appended, in order (the inert container), or null when the whole document
+ * is in. Their text is the rest of the page's text: appending them only moves them.
+ */
+export function pendingBlocks(article: HTMLElement): HTMLElement | null {
+  return mounts.get(article)?.pending() ?? null;
+}
+
 export const DEFAULT_THRESHOLD = 65_536;
 const DEFAULT_SCREENS = 2;
 /** Nodes moved between height reads while the first screens fill: one layout per batch, not per node. */
@@ -82,7 +93,9 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
   if (html.length < threshold && opts.parsed === undefined) {
     article.innerHTML = html;
     opts.prepare?.(article);
-    return whole();
+    const made = whole();
+    mounts.set(article, made);
+    return made;
   }
   // An inert document: nothing in it loads, runs or is styled until it is moved into the page.
   let parsed = opts.parsed;
@@ -191,7 +204,7 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
   };
   if (!done) void Promise.resolve(opts.start).then(() => whenIdle(step), () => whenIdle(step));
 
-  return {
+  const made: ProgressiveMount = {
     complete,
     isComplete: () => done && !cancelled,
     ensureThrough(byte) {
@@ -208,6 +221,8 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
     },
     pending: () => (done ? null : from),
   };
+  mounts.set(article, made);
+  return made;
 }
 
 /**
