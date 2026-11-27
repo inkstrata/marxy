@@ -7,6 +7,7 @@ import {
   findInRows,
   indexSome,
   parseSome,
+  READING_MAX_RECORD,
   recordRows,
   recordsHeadText,
   rowAt,
@@ -206,4 +207,64 @@ test('a doubled quote is never split by the cap', () => {
   indexSome(rows);
   const cell = /<td[^>]*data-marxy-value="([^"]*)"/.exec(rowHtml(rows, 0))!;
   assert.match(cell[1]!.replaceAll('&quot;', '"'), /^"+…$/);
+});
+
+/** A JSON object line whose one string value is `size` bytes of `x`. */
+function bigRecord(size: number): Uint8Array {
+  const head = enc('{"k":"');
+  const tail = enc('"}');
+  const out = new Uint8Array(head.length + size + tail.length);
+  out.set(head);
+  out.fill(0x78, head.length, head.length + size);
+  out.set(tail, head.length + size);
+  return out;
+}
+
+const joinLines = (...lines: Uint8Array[]): Uint8Array => {
+  const out = new Uint8Array(lines.reduce((n, l) => n + l.length + 1, 0));
+  let at = 0;
+  for (const l of lines) {
+    out.set(l, at);
+    out[at + l.length] = 0x0a;
+    at += l.length + 1;
+  }
+  return out;
+};
+
+test('JSON Lines: a record past the bytes read is a cut row with its size and head, counted apart from lines that are not records', () => {
+  const bytes = joinLines(enc('{"a":1}'), bigRecord(READING_MAX_RECORD + 10), enc('not json'), enc('{"a":2}'));
+  const rows = recordRows(bytes);
+  indexSome(rows);
+  parseSome(rows);
+  assert.equal(rowCount(rows), 4);
+  assert.equal(rows.cutRows, 1);
+  assert.equal(rows.badRows, 2);
+  assert.deepEqual(rows.columns.map((c) => c.name), ['a']);
+  assert.equal(recordsHeadText(rows), 'JSON Lines · 2 records · 1 key · 1 line not a record · 1 record cut');
+  const html = rowHtml(rows, 1);
+  assert.match(html, /^<tr class="marxy-records-bad"[^>]*><td colspan="1">line 2: record of 1\.0 MB, over 1\.0 MB, not read · <code>\{&quot;k&quot;:&quot;xxx/);
+  assert.equal(rowCells(rows, 1).bad, true);
+  assert.equal(cellValue(rows, 1, 0), undefined);
+  const r = rowRange(rows, 1);
+  assert.equal(r.end - r.start, READING_MAX_RECORD + 10 + '{"k":""}'.length);
+  // A record exactly at the limit is read whole.
+  const edge = recordRows(joinLines(bigRecord(READING_MAX_RECORD - '{"k":""}'.length), enc('{"a":1}')));
+  indexSome(edge);
+  parseSome(edge);
+  assert.equal(edge.cutRows, 0);
+  assert.equal(edge.badRows, 0);
+});
+
+test('JSON Lines: a 50 MB single-line record is cut in a few milliseconds and held as bytes only', () => {
+  const rows = recordRows(joinLines(enc('{"a":1}'), enc('{"a":2}'), bigRecord(50 * 1024 * 1024)));
+  const t = cpuNow();
+  indexSome(rows);
+  parseSome(rows);
+  const html = rowHtml(rows, 2);
+  const text = recordsHeadText(rows);
+  const took = cpuNow() - t;
+  assert.ok(took < 500, `${Math.round(took)} ms`);
+  assert.match(text, /1 record cut$/);
+  assert.match(html, /record of 50\.0 MB/);
+  assert.ok(html.length < 2000);
 });

@@ -24,6 +24,12 @@ export const READING_MAX_CELL = 4096;
 /** Distinct keys JSON Lines are read for: a file can name a new key in every record, and each one kept is a column. */
 export const READING_MAX_KEYS = 10_000;
 
+/** The most bytes of one JSON Lines record that are parsed; a longer one is a cut row that says its size and shows its head. */
+export const READING_MAX_RECORD = 1024 * 1024;
+
+/** Bytes of a cut record that are decoded to show its head. */
+const CUT_HEAD_BYTES = 480;
+
 const HEADER_STEPS = 1 << 16;
 
 /** Rows the page is first set with when there are more than it draws whole: more than a screen. */
@@ -101,6 +107,8 @@ export interface ReadingRows {
   indexed: boolean;
   /** Rows that do not read, of those known. */
   badRows: number;
+  /** JSON Lines: rows past READING_MAX_RECORD, not parsed; they are in `badRows` too. */
+  cutRows: number;
   /** JSON Lines: rows parsed for their keys so far (a table's rows need no such pass). */
   parsed: number;
   /** The widest record's field count (a table). */
@@ -138,6 +146,7 @@ function emptyRows(bytes: Uint8Array, form: ReadingRows['form'], delimiter: ',' 
     pos,
     indexed: pos >= bytes.length,
     badRows: 0,
+    cutRows: 0,
     parsed: 0,
     widest: 0,
     keyAt: new Map(),
@@ -341,6 +350,7 @@ export function parseSome(rows: ReadingRows, budget: { readonly rows?: number; r
     } else {
       rows.bad.data[r] = 1;
       rows.badRows++;
+      if (record.cut > 0) rows.cutRows++;
     }
     rows.parsed++;
     made++;
@@ -364,14 +374,14 @@ export function rowAt(rows: ReadingRows, byte: number): number {
   return ans;
 }
 
-/** A JSON Lines row's line: its range (to its line break, a `\r` before it included) and its text (without the `\r`). */
-function lineOf(rows: ReadingRows, r: number): { readonly start: number; readonly end: number; readonly text: string } {
+/** A JSON Lines row's line: its range (to its line break, a `\r` before it included) and where its text ends (before the `\r`). */
+function lineOf(rows: ReadingRows, r: number): { readonly start: number; readonly end: number; readonly textEnd: number } {
   const { bytes } = rows;
   const start = rows.starts.data[r]!;
   let end = bytes.indexOf(LF, start);
   if (end < 0) end = bytes.length;
   const textEnd = end > start && bytes[end - 1] === CR ? end - 1 : end;
-  return { start, end, text: utf8.decode(bytes.subarray(start, textEnd)) };
+  return { start, end, textEnd };
 }
 
 /** Records one more blank line, joining the run it continues. */
@@ -405,17 +415,31 @@ interface Record {
   readonly text: string;
   readonly node: TreeNode | null;
   readonly why: string;
+  /** The record's bytes when it is past READING_MAX_RECORD and so not parsed; 0 otherwise. */
+  readonly cut: number;
 }
 
 function recordAt(rows: ReadingRows, r: number): Record {
-  const line = lineOf(rows, r);
-  try {
-    const node = parseJson(line.text);
-    if (node.kind !== 'map') throw new TreeError('a record (an object)', 0);
-    return { ...line, node, why: '' };
-  } catch (error) {
-    return { ...line, node: null, why: error instanceof TreeError ? error.message : 'not JSON' };
+  const { start, end, textEnd } = lineOf(rows, r);
+  const size = textEnd - start;
+  if (!budget(READING_MAX_RECORD).take(size)) {
+    // Only the head is decoded: the rest of the record is never read, whatever its size.
+    const text = utf8.decode(rows.bytes.subarray(start, start + CUT_HEAD_BYTES));
+    return { start, end, text, node: null, why: `record of ${byteSize(size)}, over ${byteSize(READING_MAX_RECORD)}, not read`, cut: size };
   }
+  const text = utf8.decode(rows.bytes.subarray(start, textEnd));
+  try {
+    const node = parseJson(text);
+    if (node.kind !== 'map') throw new TreeError('a record (an object)', 0);
+    return { start, end, text, node, why: '', cut: 0 };
+  } catch (error) {
+    return { start, end, text, node: null, why: error instanceof TreeError ? error.message : 'not JSON', cut: 0 };
+  }
+}
+
+/** A size as the page says it: `50.0 MB`, `1.0 MB`, `900 KB`. */
+function byteSize(n: number): string {
+  return n >= 1024 * 1024 ? `${(n / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 }
 
 /** A record's cell: a value as it reads, unquoted; a short list of values inline; anything deeper as its count. */
@@ -782,7 +806,8 @@ const keyCount = (rows: ReadingRows): string => (rows.keys.hit ? `more than ${fi
 export function recordsHeadText(rows: ReadingRows): string {
   const good = rows.parsed - rows.badRows;
   const settled = rowsSettled(rows);
-  return `JSON Lines · ${plural(good, 'record')}${settled ? '' : ' so far'} · ${keyCount(rows)}${rows.badRows > 0 ? ` · ${plural(rows.badRows, 'line')} not a record` : ''}`;
+  const notRecords = rows.badRows - rows.cutRows;
+  return `JSON Lines · ${plural(good, 'record')}${settled ? '' : ' so far'} · ${keyCount(rows)}${notRecords > 0 ? ` · ${plural(notRecords, 'line')} not a record` : ''}${rows.cutRows > 0 ? ` · ${plural(rows.cutRows, 'record')} cut` : ''}`;
 }
 
 /** The line under a table still being read: how far through the file it is. Empty once every row is known. */
