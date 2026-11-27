@@ -144,4 +144,7 @@ round trip for the tree too costly to beat the main-thread slices (not measured,
 
 ## Superseded
 
-Nothing yet. When a conclusion is overturned, it stays here with what replaced it and when.
+- **D-01**, 2026-11-27: tier 1 (`content-visibility: auto` on every block) is dropped. With this typesetter, WebKit leaves skipped paragraphs unset, and Chromium's open costs more with no gain. Windowed mounting from the geometry table, with a node budget of 10,000, replaces both tiers. See [windowed-pages](../windowed-pages/SYNTHESIS.md) D-01 and D-02.
+- **D-04**, 2026-11-27: under windowing, blocks are set as they mount, ranked by distance in grid units, with `typesetThrough(target)` for jumps; the paragraph cap stays. See [windowed-pages](../windowed-pages/SYNTHESIS.md) D-04 and D-07.
+
+The decisions above keep their text; this section says what replaced them.

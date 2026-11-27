@@ -1,0 +1,49 @@
+{
+ "chapter": "03-node-budget.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "NOD-01": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "753bdaa93e76"
+  },
+  "NOD-02": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "679774fce0f9"
+  },
+  "NOD-03": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "e0148012870d"
+  },
+  "NOD-04": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "3efab1088cbe"
+  },
+  "NOD-05": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "6869eec8316c"
+  },
+  "NOD-06": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "531a1a4ef2cc"
+  },
+  "NOD-07": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "6e20a9bb61dc"
+  }
+ }
+}

@@ -1,0 +1,888 @@
+HTML Standard
+
+HTML
+
+Living Standard — Last Updated 27 November 2026
+
+← 8.7 Timers — Table of Contents — 8.11 Images →
+
+8.10 System state and capabilities
+
+8.10.1 The Navigator object
+
+8.10.1.1 Client identification
+8.10.1.2 Language preferences
+8.10.1.3 Browser state
+8.10.1.4 Custom scheme handlers: the registerProtocolHandler() method
+
+8.10.1.4.1 Security and privacy
+8.10.1.4.2 User agent automation
+
+8.10.1.5 Cookies
+8.10.1.6 PDF viewing support
+
+8.10 System state and capabilities
+
+8.10.1 The Navigator object
+
+✔MDN
+
+Navigator
+Support in all current engines.
+Firefox1+Safari1+Chrome1+Opera3+Edge79+Edge (Legacy)12+Internet Explorer4+Firefox Android?Safari iOS?Chrome Android?WebView Android?Samsung Internet?Opera Android10.1+
+
+Instances of Navigator represent the identity and state of the user agent (the
+client). It has also been used as a generic global under which various APIs are located, but this
+is not precedent to build upon. Instead use the WindowOrWorkerGlobalScope mixin or
+equivalent.
+
+[Exposed=Window]
+interface Navigator {
+// objects implementing this interface also implement the interfaces given below
+};
+Navigator includes NavigatorID;
+Navigator includes NavigatorLanguage;
+Navigator includes NavigatorOnLine;
+Navigator includes NavigatorContentUtils;
+Navigator includes NavigatorCookies;
+Navigator includes NavigatorPlugins;
+Navigator includes NavigatorConcurrentHardware;
+
+These interface mixins are defined separately so that WorkerNavigator can reuse parts of
+the Navigator interface.
+
+Each Window has an associated Navigator, which is a Navigator
+object. Upon creation of the Window object, its associated Navigator must be
+set to a new Navigator object created in the Window object's relevant realm.
+
+✔MDN
+
+Window/navigator
+Support in all current engines.
+Firefox1+Safari1+Chrome1+Opera3+Edge79+Edge (Legacy)12+Internet Explorer4+Firefox Android?Safari iOS?Chrome Android?WebView Android?Samsung Internet?Opera Android10.1+
+
+The navigator and clientInformation getter steps are to return
+this's associated Navigator.
+
+8.10.1.1 Client identification
+
+interface mixin NavigatorID {
+readonly attribute DOMString appCodeName; // constant "Mozilla"
+readonly attribute DOMString appName; // constant "Netscape"
+readonly attribute DOMString appVersion;
+readonly attribute DOMString platform;
+readonly attribute DOMString product; // constant "Gecko"
+[Exposed=Window] readonly attribute DOMString productSub;
+readonly attribute DOMString userAgent;
+[Exposed=Window] readonly attribute DOMString vendor;
+[Exposed=Window] readonly attribute DOMString vendorSub; // constant ""
+};
+
+In certain cases, despite the best efforts of the entire industry, web browsers have bugs and
+limitations that web authors are forced to work around.
+
+This section defines a collection of attributes that can be used to determine, from script, the
+kind of user agent in use, in order to work around these issues.
+
+The user agent has a navigator compatibility
+mode, which is either Chrome, Gecko, or WebKit.
+
+The navigator compatibility
+mode constrains the NavigatorID mixin to the combinations of attribute
+values and presence of taintEnabled() and oscpu that are known to be compatible with existing web
+content.
+
+Client detection should always be limited to detecting known current versions; future versions
+and unknown versions should always be assumed to be fully compliant.
+
+self.navigator.appCodeName
+
+Returns the string "Mozilla".
+self.navigator.appName
+
+Returns the string "Netscape".
+self.navigator.appVersion
+
+Returns the version of the browser.
+self.navigator.platform
+
+Returns the name of the platform.
+self.navigator.product
+
+Returns the string "Gecko".
+window.navigator.productSub
+
+Returns either the string "20030107", or the string "20100101".
+self.navigator.userAgent
+✔MDN
+
+Navigator/userAgent
+Support in all current engines.
+Firefox1+Safari1+Chrome1+Opera12.1+Edge79+Edge (Legacy)12+Internet Explorer4+Firefox Android?Safari iOS?Chrome Android?WebView Android?Samsung Internet?Opera Android12.1+
+
+WorkerNavigator/userAgent
+Support in all current engines.
+Firefox3.5+Safari4+Chrome4+Opera12.1+Edge79+Edge (Legacy)12+Internet Explorer10+Firefox Android?Safari iOS5+Chrome Android?WebView Android?Samsung Internet?Opera Android12.1+
+
+Returns the complete `User-Agent` header.
+window.navigator.vendor
+
+Returns either the empty string, the string "Apple Computer, Inc.",
+or the string "Google Inc.".
+window.navigator.vendorSub
+
+Returns the empty string.
+
+The appCodeName getter steps are to return
+"Mozilla".
+
+The appName
+getter steps are to return "Netscape".
+
+The appVersion getter steps are:
+
+Let userAgent be this's relevant settings object's
+environment default `User-Agent`
+value.
+
+If userAgent does not start with `Mozilla/5.0 (`, then
+return the empty string.
+
+Let trail be the substring of userAgent, isomorphic decoded, that follows the "Mozilla/" prefix.
+
+If the navigator compatibility
+mode is Chrome or WebKit
+
+Return trail.
+If the navigator compatibility
+mode is Gecko
+
+If trail starts with "5.0 (Windows", then return "5.0 (Windows)".
+
+Otherwise, return the prefix of trail up to but not including the first U+003B
+(;), concatenated with the character U+0029 RIGHT PARENTHESIS. For example, "5.0 (Macintosh)", "5.0 (Android 10)", or "5.0 (X11)".
+
+The platform
+getter steps are to return a string representing the platform on which the
+browser is executing (e.g. "MacIntel", "Win32",
+"Linux x86_64", "Linux armv81") or, for privacy and
+compatibility, a string that is commonly returned on another platform.
+
+The product
+getter steps are to return "Gecko".
+
+The productSub
+getter steps are to return the appropriate string from the following list:
+
+If the navigator compatibility
+mode is Chrome or WebKit
+
+The string "20030107".
+If the navigator compatibility
+mode is Gecko
+
+The string "20100101".
+
+The userAgent
+getter steps are to return this's relevant settings object's environment default `User-Agent` value.
+
+The vendor
+getter steps are to return the appropriate string from the following list:
+
+If the navigator compatibility
+mode is Chrome
+
+The string "Google Inc.".
+If the navigator compatibility
+mode is Gecko
+
+The empty string.
+If the navigator compatibility
+mode is WebKit
+
+The string "Apple Computer, Inc.".
+
+The vendorSub
+getter steps are to return the empty string.
+
+If the navigator compatibility mode
+is Gecko, then the user agent must also support the following partial interface:
+
+partial interface mixin NavigatorID {
+[Exposed=Window] boolean taintEnabled(); // constant false
+[Exposed=Window] readonly attribute DOMString oscpu;
+};
+
+The taintEnabled() method must return false.
+
+The oscpu attribute's getter must return
+either the empty string or a string representing the platform on which the browser is executing,
+e.g. "Windows NT 10.0; Win64; x64", "Linux
+x86_64".
+
+Any information in this API that varies from user to user can be used to profile the user. In
+fact, if enough such information is available, a user can actually be uniquely identified. For
+this reason, user agent implementers are strongly urged to include as little information in this
+API as possible.
+
+8.10.1.2 Language preferences
+
+interface mixin NavigatorLanguage {
+readonly attribute DOMString language;
+readonly attribute FrozenArray<DOMString> languages;
+};
+
+self.navigator.language
+✔MDN
+
+Navigator/language
+Support in all current engines.
+Firefox1+Safari1+Chrome1+Opera4+Edge79+Edge (Legacy)12+Internet Explorer11Firefox Android4+Safari iOS?Chrome Android?WebView Android?Samsung Internet?Opera Android10.1+
+
+WorkerNavigator/language
+Support in all current engines.
+Firefox3.5+Safari10+Chrome4+Opera4+Edge79+Edge (Legacy)12+Internet Explorer11Firefox Android4+Safari iOS?Chrome Android?WebView Android?Samsung Internet?Opera Android10.1+
+
+Returns a language tag representing the user's preferred language.
+self.navigator.languages
+✔MDN
+
+Navigator/languages
+Support in all current engines.
+Firefox32+Safari10.1+Chrome37+Opera24+Edge79+Edge (Legacy)16+Internet ExplorerNoFirefox Android?Safari iOS?Chrome Android?WebView Android37+Samsung Internet3.0+Opera Android24+
+
+WorkerNavigator/languages
+Support in all current engines.
+Firefox32+Safari10.1+Chrome37+Opera24+Edge79+Edge (Legacy)16+Internet ExplorerNoFirefox Android?Safari iOS?Chrome Android?WebView Android37+Samsung Internet3.0+Opera Android24+
+
+Returns an array of language tags representing the user's preferred languages, with the most
+preferred language first.
+
+The most preferred language is the one returned by navigator.language.
+
+A languagechange event is fired at the
+Window or WorkerGlobalScope object when the user agent's understanding
+of what the user's preferred languages are changes.
+
+The language getter steps are:
+
+Let emulatedLanguage be the WebDriver BiDi emulated language for
+this's relevant settings object.
+If emulatedLanguage is not null, return emulatedLanguage.
+Return a valid BCP 47 language tag representing either a plausible language or
+the user's most preferred language. [BCP47]
+
+The languages getter steps are:
+
+Let emulatedLanguage be the WebDriver BiDi emulated language for
+this's relevant settings object.
+If emulatedLanguage is not null, return a frozen array containing
+emulatedLanguage.
+Return a frozen array of valid BCP 47 language tags representing either one or
+more plausible languages, or the user's preferred
+languages, ordered by preference with the most preferred language first. [BCP47]
+
+The same object must be returned until the user agent needs to return different values, or
+values in a different order, or emulatedLanguage is updated.
+
+Whenever the user agent needs to make the navigator.languages attribute of a Window
+or WorkerGlobalScope object global return a new set of language tags,
+the user agent must queue a global task on the DOM manipulation task
+source given global to fire an event
+named languagechange at global, and wait
+until that task begins to be executed before actually returning a new value.
+
+To determine a plausible language, the user agent should bear in mind the following:
+
+Any information in this API that varies from user to user can be used to profile or identify the
+user.
+If the user is not using a service that obfuscates the user's point of origin (e.g. the Tor
+anonymity network), then the value that is least likely to distinguish the user from other users
+with similar origins (e.g. from the same IP address block) is the language used by the majority
+of such users. [TOR]
+If the user is using an anonymizing service, then the value "en-US" is
+suggested; if all users of the service use that same value, that reduces the possibility of
+distinguishing the users from each other.
+
+To avoid introducing any more fingerprinting vectors, user agents should use the same list for the
+APIs defined in this function as for the HTTP `Accept-Language` header.
+
+8.10.1.3 Browser state
+
+interface mixin NavigatorOnLine {
+readonly attribute boolean onLine;
+};
+
+self.navigator.onLine
+✔MDN
+
+Navigator/onLine
+Support in all current engines.
+Firefox1.5+Safari4+Chrome2+Opera3+Edge79+Edge (Legacy)12+Internet Explorer4+Firefox Android4+Safari iOS?Chrome Android18+WebView Android🔰 37+Samsung Internet?Opera Android10.1+
+
+WorkerNavigator/onLine
+Support in all current engines.
+Firefox3.5+Safari4+Chrome4+Opera10.6+Edge79+Edge (Legacy)12+Internet Explorer10+Firefox Android4+Safari iOS5+Chrome Android?WebView Android🔰 4.4+Samsung Internet?Opera Android11+
+
+Returns false if the user agent is definitely offline (disconnected from the network).
+Returns true if the user agent might be online.
+
+The events online and offline are fired when the value of this attribute changes.
+
+The onLine getter steps are to return true if
+this's relevant settings object is offline is false;
+otherwise false.
+
+When the value that would be returned by the navigator.onLine attribute of a Window or
+WorkerGlobalScope global changes from true to false, the user agent must
+queue a global task on the networking task source given
+global to fire an event named offline at global.
+
+On the other hand, when the value that would be returned by the navigator.onLine attribute of a Window or
+WorkerGlobalScope global changes from false to true, the user agent must
+queue a global task on the networking task source given
+global to fire an event named online at the Window or WorkerGlobalScope
+object.
+
+This attribute is inherently unreliable. A computer can be connected to a network
+without having Internet access.
+
+In this example, an indicator is updated as the browser goes online and offline.
+
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Online status</title>
+<script>
+function updateIndicator() {
+document.getElementById('indicator').textContent = navigator.onLine ? 'online' : 'offline';
+}
+</script>
+</head>
+<body onload="updateIndicator()" ononline="updateIndicator()" onoffline="updateIndicator()">
+<p>The network is: <span id="indicator">(state unknown)</span>
+</body>
+</html>
+
+8.10.1.4 Custom scheme handlers: the registerProtocolHandler() method
+
+MDN
+
+Navigator/registerProtocolHandler
+Firefox2+SafariNoChrome13+Opera11.6+Edge79+Edge (Legacy)NoInternet ExplorerNoFirefox Android?Safari iOS?Chrome AndroidNoWebView Android?Samsung Internet?Opera Android?
+
+interface mixin NavigatorContentUtils {
+[SecureContext] undefined registerProtocolHandler(DOMString scheme, USVString url);
+[SecureContext] undefined unregisterProtocolHandler(DOMString scheme, USVString url);
+};
+
+window.navigator.registerProtocolHandler(scheme, url)
+
+Registers a handler for scheme at url. For example, an online telephone
+messaging service could register itself as a handler of the sms: scheme, so that if the user clicks on such a link, they are given the
+opportunity to use that web site. [SMS]
+
+The string "%s" in url is used as a placeholder for where
+to put the URL of the content to be handled.
+
+Throws a "SecurityError" DOMException if the user
+agent blocks the registration (this might happen if trying to register as a handler for "http", for instance).
+
+Throws a "SyntaxError" DOMException if the "%s" string is missing in url.
+
+window.navigator.unregisterProtocolHandler(scheme, url)
+⚠MDN
+
+Navigator/unregisterProtocolHandler
+Support in one engine only.
+FirefoxNoSafariNoChrome38+Opera25+Edge79+Edge (Legacy)?Internet ExplorerNoFirefox Android?Safari iOS?Chrome AndroidNoWebView Android?Samsung Internet?Opera Android?
+
+Unregisters the handler given by the arguments.
+
+Throws a "SecurityError" DOMException if the user
+agent blocks the deregistration (this might happen if with invalid schemes, for instance).
+
+Throws a "SyntaxError" DOMException if the "%s" string is missing in url.
+
+The registerProtocolHandler(scheme,
+url) method steps are:
+
+Let (normalizedScheme, normalizedURLString) be the result of running
+normalize protocol handler parameters with scheme, url, and
+this's relevant settings object.
+
+In parallel: register a
+protocol handler for normalizedScheme and normalizedURLString. User
+agents may, within the constraints described, do whatever they like. A user agent could, for
+instance, prompt the user and offer the user the opportunity to add the site to a shortlist of
+handlers, or make the handlers their default, or cancel the request. User agents could also
+silently collect the information, providing it only when relevant to the user.
+
+User agents should keep track of which sites have registered handlers (even if the user has
+declined such registrations) so that the user is not repeatedly prompted with the same
+request.
+
+If the registerProtocolHandler() automation
+mode of this's relevant global object's associated Document is not "none", the user agent should first verify that it
+is in an automation context (see WebDriver's security considerations). The user
+agent should then bypass the above communication of information and gathering of user consent,
+and instead do the following based on the value of the registerProtocolHandler() automation
+mode:
+
+"autoAccept"
+
+Act as if the user has seen the registration details and accepted the request.
+"autoReject"
+
+Act as if the user has seen the registration details and rejected the request.
+
+When the user agent uses this handler for a URL inputURL:
+
+Assert: inputURL's scheme is normalizedScheme.
+
+Set the username given inputURL and
+the empty string.
+
+Set the password given inputURL and
+the empty string.
+
+Let inputURLString be the serialization of inputURL.
+
+Let encodedURL be the result of running UTF-8 percent-encode on
+inputURLString using the component percent-encode set.
+
+Let handlerURLString be normalizedURLString.
+
+Replace the first instance of "%s" in handlerURLString
+with encodedURL.
+
+Let resultURL be the result of parsing
+handlerURLString.
+
+Navigate an appropriate navigable to
+resultURL.
+
+If the user had visited a site at https://example.com/ that made the
+following call:
+
+navigator.registerProtocolHandler('web+soup', 'soup?url=%s')
+
+...and then, much later, while visiting https://www.example.net/,
+clicked on a link such as:
+
+<a href="web+soup:chicken-kïwi">Download our Chicken Kïwi soup!</a>
+
+...then the UA might navigate to the following URL:
+
+https://example.com/soup?url=web+soup:chicken-k%C3%AFwi
+
+This site could then do whatever it is that it does with soup (synthesize it and ship it to
+the user, or whatever).
+
+This does not define when the handler is used. To some extent, the processing model for navigating across documents defines some cases
+where it is relevant, but in general user agents may use this information wherever they would
+otherwise consider handing schemes to native plugins or helper applications.
+
+The unregisterProtocolHandler(scheme,
+url) method steps are:
+
+Let (normalizedScheme, normalizedURLString) be the result of running
+normalize protocol handler parameters with scheme, url, and
+this's relevant settings object.
+
+In parallel: unregister the handler described by normalizedScheme
+and normalizedURLString.
+
+To normalize protocol handler parameters, given a string scheme, a
+string url, and an environment settings object environment, run
+these steps:
+
+Set scheme to scheme, converted to ASCII
+lowercase.
+
+If scheme is neither a safelisted scheme nor a string starting with
+"web+" followed by one or more ASCII
+lower alphas, then throw a "SecurityError"
+DOMException.
+
+This means that including a colon in scheme (as in "mailto:") will throw.
+
+The following schemes are the safelisted
+schemes:
+
+bitcoin
+ftp
+ftps
+geo
+im
+irc
+ircs
+magnet
+mailto
+matrix
+mms
+news
+nntp
+openpgp4fpr
+sftp
+sip
+sms
+smsto
+ssh
+tel
+urn
+webcal
+wtai
+xmpp
+
+This list can be changed. If there are schemes that ought to be added, please
+send feedback.
+
+If url does not contain "%s", then throw a
+"SyntaxError" DOMException.
+
+Let urlRecord be the result of encoding-parsing a URL given
+url, relative to environment.
+
+If urlRecord is failure, then throw a "SyntaxError"
+DOMException.
+
+This is forcibly the case if the %s placeholder is in the
+host or port of the URL.
+
+If urlRecord's scheme is not an
+HTTP(S) scheme or urlRecord's origin is not same origin with
+environment's origin, then throw
+a "SecurityError" DOMException.
+
+Assert: the result of Is url potentially trustworthy? given
+urlRecord is "Potentially Trustworthy".
+
+Because normalize protocol handler parameters is run within a
+secure context, this is implied by the same origin condition.
+
+Return (scheme, urlRecord).
+
+The serialization of
+urlRecord will by definition not be a valid URL string as it includes
+the string "%s" which is not a valid component in a URL.
+
+8.10.1.4.1 Security and privacy
+
+Custom scheme handlers can introduce a number of concerns, in particular privacy concerns.
+
+Hijacking all web usage. User agents should not allow schemes that are key to
+its normal operation, such as an HTTP(S) scheme, to be rerouted through third-party
+sites. This would allow a user's activities to be trivially tracked, and would allow user
+information, even in secure connections, to be collected.
+
+Hijacking defaults. User agents are strongly urged to not automatically change
+any defaults, as this could lead the user to send data to remote hosts that the user is not
+expecting. New handlers registering themselves should never automatically cause those sites to be
+used.
+
+Registration spamming. User agents should consider the possibility that a site
+will attempt to register a large number of handlers, possibly from multiple domains (e.g., by
+redirecting through a series of pages each on a different domain, and each registering a handler
+for web+spam: — analogous practices abusing other web browser
+features have been used by pornography web sites for many years). User agents should gracefully
+handle such hostile attempts, protecting the user.
+
+Hostile handler metadata. User agents should protect against typical attacks
+against strings embedded in their interface, for example ensuring that markup or escape characters
+in such strings are not executed, that null bytes are properly handled, that over-long strings do
+not cause crashes or buffer overruns, and so forth.
+
+Leaking private data. Web page authors may reference a custom scheme
+handler using URL data considered private. They might do so with the expectation that the user's
+choice of handler points to a page inside the organization, ensuring that sensitive data will not
+be exposed to third parties. However, a user may have registered a handler pointing to an
+external site, resulting in a data leak to that third party. Implementers might wish to consider
+allowing administrators to disable custom handlers on certain subdomains, content types, or
+schemes.
+
+Interface interference. User agents should be prepared to handle intentionally
+long arguments to the methods. For example, if the user interface exposed consists of an "accept"
+button and a "deny" button, with the "accept" binding containing the name of the handler, it's
+important that a long name not cause the "deny" button to be pushed off the screen.
+
+8.10.1.4.2 User agent automation
+
+Each Document has a registerProtocolHandler() automation
+mode. It defaults to "none", but it also can
+be either "autoAccept" or "autoReject".
+
+For the purposes of user agent automation and website testing, this standard defines Set RPH Registration Mode WebDriver extension
+command. It instructs the user agent to place a Document into a mode where it
+will automatically simulate a user either accepting or rejecting and registration confirmation
+prompt dialog.
+
+HTTP Method
+URI Template
+
+`POST`
+/session/{session id}/custom-handlers/set-mode
+
+The remote end steps are:
+
+If parameters is not a JSON Object, return a WebDriver error with
+WebDriver error code invalid argument.
+
+Let mode be the result of getting a property named "mode" from parameters.
+
+If mode is not "autoAccept", "autoReject", or "none", return a WebDriver error with
+WebDriver error code invalid argument.
+
+Let document be the current
+browsing context's active document.
+
+Set document's registerProtocolHandler() automation
+mode to mode.
+
+Return success with data null.
+
+8.10.1.5 Cookies
+
+interface mixin NavigatorCookies {
+readonly attribute boolean cookieEnabled;
+};
+
+window.navigator.cookieEnabled
+✔MDN
+
+Navigator/cookieEnabled
+Support in all current engines.
+Firefox1+Safari1+Chrome1+Opera12.1+Edge79+Edge (Legacy)12+Internet Explorer4+Firefox Android?Safari iOS?Chrome Android?WebView Android?Samsung Internet?Opera Android12.1+
+
+Returns false if setting a cookie will be ignored, and true otherwise.
+
+The cookieEnabled attribute must return true if the
+user agent attempts to handle cookies according to HTTP State Management Mechanism,
+and false if it ignores cookie change requests. [COOKIES]
+
+8.10.1.6 PDF viewing support
+
+window.navigator.pdfViewerEnabled
+
+Returns true if the user agent supports inline viewing of PDF files when navigating to them, or false otherwise. In the latter case, PDF files
+will be handled by external
+software.
+
+interface mixin NavigatorPlugins {
+[SameObject] readonly attribute PluginArray plugins;
+[SameObject] readonly attribute MimeTypeArray mimeTypes;
+boolean javaEnabled();
+readonly attribute boolean pdfViewerEnabled;
+};
+
+[Exposed=Window,
+LegacyUnenumerableNamedProperties]
+interface PluginArray {
+undefined refresh();
+readonly attribute unsigned long length;
+getter Plugin? item(unsigned long index);
+getter Plugin? namedItem(DOMString name);
+};
+
+[Exposed=Window,
+LegacyUnenumerableNamedProperties]
+interface MimeTypeArray {
+readonly attribute unsigned long length;
+getter MimeType? item(unsigned long index);
+getter MimeType? namedItem(DOMString name);
+};
+
+[Exposed=Window,
+LegacyUnenumerableNamedProperties]
+interface Plugin {
+readonly attribute DOMString name;
+readonly attribute DOMString description;
+readonly attribute DOMString filename;
+readonly attribute unsigned long length;
+getter MimeType? item(unsigned long index);
+getter MimeType? namedItem(DOMString name);
+};
+
+[Exposed=Window]
+interface MimeType {
+readonly attribute DOMString type;
+readonly attribute DOMString description;
+readonly attribute DOMString suffixes;
+readonly attribute Plugin enabledPlugin;
+};
+
+Although these days detecting PDF viewer support can be done via navigator.pdfViewerEnabled, for historical reasons,
+there are a number of complex and intertwined interfaces that provide the same capability, which
+legacy code relies on. This section specifies both the simple modern variant and the complicated
+historical one.
+
+Each user agent has a PDF viewer supported boolean, whose value is
+implementation-defined (and might vary according to user preferences).
+
+This value also impacts the navigation processing
+model.
+
+Each Window object has a PDF viewer plugin objects list. If the user
+agent's PDF viewer supported is false, then it is the empty list. Otherwise, it is a
+list containing five Plugin objects, whose names are, respectively:
+
+"PDF Viewer"
+"Chrome PDF Viewer"
+"Chromium PDF Viewer"
+"Microsoft Edge PDF Viewer"
+"WebKit built-in PDF"
+
+The values of the above list form the PDF viewer plugin names list.
+
+These names were chosen based on evidence of what websites historically search
+for, and thus what is necessary for user agents to expose in order to maintain compatibility with
+existing content. They are ordered alphabetically. The "PDF Viewer" name
+was then inserted in the 0th position so that the enabledPlugin getter could point to a generic plugin
+name.
+
+Each Window object has a PDF viewer mime type objects list. If the user
+agent's PDF viewer supported is false, then it is the empty list. Otherwise, it is a
+list containing two MimeType objects, whose types are, respectively:
+
+"application/pdf"
+"text/pdf"
+
+The values of the above list form the PDF viewer mime types list.
+
+Each NavigatorPlugins object has a plugins array, which is a new
+PluginArray, and a mime types array, which is a new
+MimeTypeArray.
+
+The NavigatorPlugins mixin's plugins getter steps are to return this's
+plugins array.
+
+The NavigatorPlugins mixin's mimeTypes getter steps are to return
+this's mime types array.
+
+The NavigatorPlugins mixin's javaEnabled() method steps are to return false.
+
+✔MDN
+
+Navigator/pdfViewerEnabled
+Support in all current engines.
+Firefox99+Safari16.4+Chrome94+Opera?Edge94+Edge (Legacy)?Internet ExplorerNoFirefox Android?Safari iOS?Chrome Android?WebView Android?Samsung Internet?Opera Android?
+
+The NavigatorPlugins mixin's pdfViewerEnabled getter steps are to return
+the user agent's PDF viewer supported.
+
+The PluginArray interface supports named
+properties. If the user agent's PDF viewer supported is true, then they are
+the PDF viewer plugin names. Otherwise, they are the empty list.
+
+The PluginArray interface's namedItem(name) method steps are:
+
+For each Plugin
+plugin of this's relevant global object's PDF viewer
+plugin objects: if plugin's name is
+name, then return plugin.
+
+Return null.
+
+The PluginArray interface supports indexed properties. The
+supported property indices are the indices of this's
+relevant global object's PDF viewer plugin objects.
+
+The PluginArray interface's item(index) method steps are:
+
+Let plugins be this's relevant global object's
+PDF viewer plugin objects.
+
+If index < plugins's size, then
+return plugins[index].
+
+Return null.
+
+The PluginArray interface's length getter steps are to return this's
+relevant global object's PDF viewer plugin objects's size.
+
+The PluginArray interface's refresh() method steps are to do nothing.
+
+The MimeTypeArray interface supports named
+properties. If the user agent's PDF viewer supported is true, then they are
+the PDF viewer mime types. Otherwise, they are the empty list.
+
+The MimeTypeArray interface's namedItem(name) method steps are:
+
+For each MimeType mimeType of
+this's relevant global object's PDF viewer mime type
+objects: if mimeType's type is
+name, then return mimeType.
+
+Return null.
+
+The MimeTypeArray interface supports indexed properties. The
+supported property indices are the indices of this's
+relevant global object's PDF viewer mime type objects.
+
+The MimeTypeArray interface's item(index) method steps are:
+
+Let mimeTypes be this's relevant global object's
+PDF viewer mime type objects.
+
+If index < mimeTypes's size, then
+return mimeTypes[index].
+
+Return null.
+
+The MimeTypeArray interface's length getter steps are to return
+this's relevant global object's PDF viewer mime type
+objects's size.
+
+Each Plugin object has a name, which is set when the object is created.
+
+The Plugin interface's name getter steps are to return this's name.
+
+The Plugin interface's description getter steps are to return "Portable Document Format".
+
+The Plugin interface's filename getter steps are to return "internal-pdf-viewer".
+
+The Plugin interface supports named properties. If the user agent's PDF viewer
+supported is true, then they are the PDF viewer mime types. Otherwise, they
+are the empty list.
+
+The Plugin interface's namedItem(name) method steps are:
+
+For each MimeType mimeType of
+this's relevant global object's PDF viewer mime type
+objects: if mimeType's type is
+name, then return mimeType.
+
+Return null.
+
+The Plugin interface supports indexed properties.
+The supported property indices are the indices of this's
+relevant global object's PDF viewer mime type objects.
+
+The Plugin interface's item(index) method steps are:
+
+Let mimeTypes be this's relevant global object's
+PDF viewer mime type objects.
+
+If index < mimeTypes's size, then
+return mimeTypes[index].
+
+Return null.
+
+The Plugin interface's length getter steps are to return
+this's relevant global object's PDF viewer mime type
+objects's size.
+
+Each MimeType object has a type, which
+is set when the object is created.
+
+The MimeType interface's type getter steps are to return this's type.
+
+The MimeType interface's description getter steps are to return "Portable Document Format".
+
+The MimeType interface's suffixes getter steps are to return "pdf".
+
+The MimeType interface's enabledPlugin getter steps are to return
+this's relevant global object's PDF viewer plugin
+objects[0] (i.e., the generic "PDF Viewer" one).
+
+← 8.7 Timers — Table of Contents — 8.11 Images →

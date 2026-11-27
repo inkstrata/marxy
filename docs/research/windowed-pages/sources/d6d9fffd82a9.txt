@@ -1,0 +1,184 @@
+WebKit Bugzilla
+
+New
+
+Browse
+
+Search+
+
+Log In
+
+&times;
+
+Sign in with GitHub
+
+or
+
+Remember my login
+
+Create Account
+
+·
+
+Forgot Password
+
+Forgotten password account recovery
+
+NEW236865
+
+AX: VoiceOver table navigation breaks when a virtualized data grid scrolls
+https://bugs.webkit.org/show_bug.cgi?id=236865
+
+Summary
+
+AX: VoiceOver table navigation breaks when a virtualized data grid scrolls
+
+Michael Jordan
+
+Reported
+2022-02-18 15:34:03 PST
+
+Navigating a data grid that uses virtualization to speed rendering performance of large data sets breaks when the browser scrolls the data grid to bring the cell focused using the VoiceOver cursor into view.
+
+This seems to be because the browser or VoiceOver does not update the Accessibility Tree/Object Model after virtualized rows/cells are recycled to render new rows that come into view.
+
+Steps to reproduce:
+1. Open https://gnqhc0.csb.app/, which provides an example of a virtualized data grid showing details about Star Wars characters. The source application can be found here: https://codesandbox.io/s/virtually-scrolling-table-with-async-loading-gnqhc0?file=/src/AsyncTable.js.
+2. With VoiceOver running, navigate to the data grid using the VoiceOver cursor.
+3. VoiceOver should announce the the table as "Star Wars Characters table, 4 columns, 21 rows."
+4. Drill down into the grid using Control+Option+Shift+ArrowDown keys.
+5. The first cell in the table header row will read as "NAME".
+6. Use Control+Option+ArrowDown to navigate cells in the first column using VoiceOver table navigation.
+7. Cells in first column will announce with the row number and cell content:
+- "row 2 of 21, Luke Skywalker",
+- "row 3 of 21, C-3PO",
+- "row 4 of 21, R2-D2",
+- "row 5 of 21, Darth Vader",
+- "row 6 of 21, Leia Organa"
+
+There are six rows visible in the scrolling body of the data grid, at any time. The row index for each row is specified using aria-rowindex and the total number of rows in the data set is specified on the grid using aria-rowcount. Note that in this table, more rows will load asynchronously until a total of 88 rows are included the data set.
+
+8. After row 6, Leia Organa, the next row will be outside of the visible viewport for the scrolling body of the data grid, and VoiceOver will force the browser to scroll the next row into view.
+9. The next row, "row 7 of 21, Owen Lars," scrolls to be vertically centered in the visible viewport for the scrolling body of the data grid.
+10. The VoiceOver cursor follows the scroll and focuses "Owen Lars" in the cell.
+11. This is where navigation becomes wrong, because the browser does not seem to update the Accessibility Tree/Object Model after the scroll.
+12. Pressing Control+Option+ArrowDown moves the VoiceOver cursor to "row 9 of 21, R5-D4", the last visible row in the list, rather than to the next row "row 8 of 21, Beru Whitesun Lars."
+13. After this point navigating down through the cells in the column using Control+Option+ArrowDown is unpredictable, skipping rows rather than advancing one row at a time.
+
+An additional problem that occurs intermittently when navigating past the last visible row in the list is that VoiceOver will shift the focus to the first row of the next column, the column header. This seems to be an effect of a VoiceOver feature that allows the user to navigate through the entire contents of a table linearly using table navigation. The feature works well for static tables, yet in virtualized tables it becomes very problematic what VoiceOver perceives as the last cell in the column is not the last cell in the dataset.
+
+Attachments
+
+Add attachment
+proposed patch, testcase, etc.
+
+Radar WebKit Bug Importer
+
+Comment 1
+2022-02-18 15:34:28 PST
+
+<rdar://problem/89168897>
+
+Note
+You need to
+log in
+before you can comment on or make changes to this bug.
+
+Status
+
+NEW
+
+Resolution
+
+Priority
+
+P2
+
+Severity
+
+Normal
+
+Classification
+
+Unclassified
+
+Version
+
+Safari Technology Preview
+
+Hardware
+
+All
+
+OS
+
+All
+
+Product
+
+WebKit
+
+Component
+
+Accessibility
+
+Assignee
+
+Nobody
+
+Reported
+
+2022-02-18 15:34 PST
+
+Modified
+
+2022-02-18 15:34 PST
+History
+
+CC List
+
+2
+users
+
+Show
+
+andresg_22
+webkit-bug-importer
+
+URL
+
+https://gnqhc0.csb.app/
+
+Keywords
+
+InRadar
+
+Depends on
+
+Blocks
+
+See Also
+
+236790
+
+Alias
+
+None
+
+Top of Page
+
+Format For Printing
+
+XML
+
+Clone This Bug
+
+New
+
+Browse
+
+Search+
+
+Reports
+
+Requests

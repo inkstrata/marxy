@@ -43,6 +43,7 @@ it is; file paths are relative to the repository root.
 | [research/reader-typography](research/reader-typography/) | the Reader Typography Handbook: how a reading page is set, with sources and lab pages |
 | [research/reader-artifacts](research/reader-artifacts/) | the Reader Artifacts Handbook: reading tasks and the artifacts agents produce (transcripts, structured output, code, diffs): how a reader should present them |
 | [research/large-files](research/large-files/) | big files in a desktop reader: best practice for 1 to 50 MB in a webview, how editors, Markdown apps, e-book readers and data viewers handle them, and how projects keep scale from regressing; the research behind [Big files](big-files.md) |
+| [research/windowed-pages](research/windowed-pages/) | windowed Markdown pages: one geometry table for every page, the node budget measured in WebKit and Chromium, why `content-visibility` alone fails with the typesetter, and the build order; a delta on research/large-files |
 | [research/audit-2026-10](research/audit-2026-10/) | an audit of the earlier architecture (October 2026); kept as history, not a description of this code |
 
 The tracker and the records of how the work was carried out are in [work/](../work/README.md), not here.

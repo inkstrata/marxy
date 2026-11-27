@@ -1,0 +1,1162 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+microsoft
+
+vscode
+
+Repository navigation
+
+Code
+
+Issues5k+ ( 5k+ )
+
+Pull requests3.2k ( 3.2k )
+
+Actions
+
+Projects
+
+Wiki
+
+Security and quality81 ( 81 )
+
+Insights
+
+More items
+
+[WIP] Code Editor Design Doc
+
+Jump to bottom
+
+Copilot edited this page Sep 5, 2025
+·
+6 revisions
+
+Overview
+
+Model-View-ViewModel in Monaco
+
+User Interactions
+
+Key Handler
+
+Mouse or Touch
+
+Commands
+
+Life Cycle
+
+Render Performance
+
+Deep into the text
+
+Indentation
+
+Markers
+
+Decorations
+
+Tokens and Themes
+
+Extensibility
+
+Patterns and Principles
+
+Overview
+
+Code structure
+
+Like other parts of VS Code, the code is organized by the target runtime environment in Monaco. We distinguish between the following target environments
+
+|-- editor
+| |-- browser // source code that requires the browser APIs like access to the DOM
+| |-- common // the core part of the editor, source code that only requires basic JavaScript APIs and runs in all the other target environments
+| |-- contrib // first class *extensions* of the editor
+| |-- electron-browser // source code that requires the Electron renderer-process APIs
+| |-- node // source code that requires nodejs APIs
+| |-- test
+
+Model-View-ViewModel in Monaco
+
+Although we don't adopt any framework during the development, Monaco's design finally turns out to be MVVM (Model-View-ViewModel). With this design pattern in mind, we can simply separate components in the core into three layers:
+
+View: User interface. It displays information to users (Text, Cursor, Selection, etc) and handles user interactions. The View elements here are actually HTML DOM nodes.
+
+Model: Provides a view-independent representation of business entities. In Monaco, it usually represents the file you are editing.
+
+ViewModel: The bridge between the View and the Model. It retrieves data from the Model and manipulates it into the format required by the View. A good example to help understand ViewModel is that \t is always a single character in Model while it takes several columns in ViewModel and it's determined by option tabSize.
+
+Here we'd like to take the outside-in approach to describe the architecture of Monaco, the relationship and dependencies of different components and even the source code structure, from View to ViewModel then finally Model.
+
+View
+
+Above is what users usually see while working on source code files. This particular view is a CodeEditorWidget and it consists of multiple view parts, including but not limited to:
+
+Line Numbers
+
+Overlay Widget: The Find widget is an Overlay Widget, which renders on top of the text.
+
+ViewLine. Each line of text is a ViewLine.
+
+Decorations: Word highlights are Decorations
+
+Content Widget: The Suggestion Widget is a Content Widget which renders inline with the text and can be easily placed near an editor position.
+
+View Zone: The Find All Reference is a View Zone which is a full horizontal rectangle that pushes text down. The editor reserves space for view zones when rendering, that's why the line before the widget is no.88 and the one after is no.89.
+
+...
+
+For the sake of performance and memory, our rendering process will only render the view elements (which are DOM elements) whenever necessary ideally. Besides, all these view elements will listen to related events occur in the ViewModel and rerender when there is real view change.
+
+For instance, the suggestion list will change constantly when users type but we just make changes to the DOM node generate by Cursors and the Suggestion Widget. Word Highlight Decorations might have some updates as well but we will do some dirty check to see if it's necessary. For other parts like the Find All References Widget, Find Widget, etc, they just stay where they were so no View redraw is happening.
+
+Since these components are general and browser related, we put them in /vs/editor/browser and right now we have around 20 basic view parts in the core.
+
+editor
+|-- browser
+| |-- ...
+| |-- viewParts
+| | |-- contentWidgets
+| | |-- currentLineHighlight
+| | |-- ...
+| | |-- decorations
+| | |-- ...
+| | |-- overlayWidgets
+| | |-- ...
+
+One thing to note is that all these basic view parts are not bound to any particular feature. When we want to create a view component which may be composed of several different view parts and has its special business logic and view updating mechanism, we can extend from basic view parts and put it under /vs/editor/contrib/ (aka first class extensions to the editor). For example, the Find Widget listens to the content change in the search box and the editor and consists of a Content Widget and multiple decorations.
+
+ViewModel
+
+If we are developing a simple application, it's natural to bind Model directly to the View if the mapping is clear and easy to handle, like a boolean in the model can be data bound to a CheckBox in the View or an array can be bound to a dropdown list. You can even choose to make it two-way data binding or just simply one-way.
+
+However real world applications are usually more complex than that. The Model is very likely to have types that can't be directly mapped to visual elements (can you imagine that you have to take HTML Elements into account while designing the data structure?) and the View may perform complex operations that don't necessarily modify the model. That's basically why we need ViewModel here.
+
+In Monaco, the View has no direct way of talking to the Model. Instead it asks ViewModel for data or events, and informs the ViewModel about user actions. So the ViewModel contains the reference to the Model, the state of the View, event handlers and distributors, and transformers that can convert Model data to View info and vice versa.
+
+We can take a look at the interface of ViewModel in Monaco to grasp a better idea
+
+export interface IViewModel extends IEventEmitter {
+getTabSize(): number;
+getLineCount(): number;
+mightContainRTL(): boolean;
+mightContainNonBasicASCII(): boolean;
+getLineContent(lineNumber: number): string;
+getLineIndentGuide(lineNumber: number): number;
+...
+getSelections(): Selection[];
+
+// View -> Model conversion and related methods
+convertViewPositionToModelPosition(viewLineNumber: number, viewColumn: number): Position;
+convertViewRangeToModelRange(viewRange: Range): Range;
+
+// Model -> View conversion and related methods
+getModelLineContent(lineNumber: number): string;
+getModelLineMaxColumn(modelLineNumber: number): number;
+validateModelPosition(position: IPosition): Position;
+convertModelPositionToViewPosition(modelLineNumber: number, modelColumn: number): Position;
+convertModelSelectionToViewSelection(modelSelection: Selection): Selection;
+modelPositionIsVisible(position: Position): boolean;
+}
+
+The first half methods are wrappers of Model, Editor configuration, and View state. The second half are converters of View and Model info. Remember the first example of tab and column width we mentioned at the beginning of this topic? convertModelPositionToViewPosition and its counterpart convertViewRangeToModelRange are the right methods to call and they sit in the ViewModel but not other layers.
+
+Besides, both Model and ViewModel are implemented as EventEmitter, which allows us to handle events with ease.
+
+Model
+
+Model is the data and business logic, which is completely UI independent. To some extent, it's the core part of Monaco editor. It holds content and metadata of files, tokens, and markers which provide a language-specific, structured representation of plain text, decorations for customized visual effect metadata, etc.
+
+Monaco has a rich extensibility model and you can extend it in many ways. However, we do not provide direct access to the View or ViewModel to extensions. We are continually trying to optimize the use of the underlying web technologies to deliver an always available, highly responsive editor and we will continue to tune our use of the DOM as these technologies and our product evolve. To maintain performance and compatibility, we run extensions in their own host process and prevent direct access to the View related information. Instead, we feed extensions with Model which is more stable and very unlikely to change vastly and break external extensions.
+
+Monaco already includes a built-in set of UI components for common scenarios such as IntelliSense, so that these experiences are consistent across programming languages and extensions and extension developers do not need to build their own. These UI components are mostly put in /vs/editor/contrib/ and that's the place we should go if we want to add new UI components which are good to have in the editor but not fundamental to the core.
+
+Want to contribute to this Wiki?
+
+Fork it and send a pull request.
+
+Wiki pages
+
+Pages 88
+
+Loading
+
+Home
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+[dev perf] PerformanceError and unresponsive renderer telemetry
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+[DEV] Perf Tools for VS Code Development
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+[DEV] Programming advice and tips & tricks
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+[WIP] Code Editor Design Doc
+
+Overview
+
+Code structure
+
+Model-View-ViewModel in Monaco
+
+View
+
+ViewModel
+
+Model
+
+Loading
+
+[WIP] Design Checklist
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+[WIP] Design Principles
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Accessibility Guidelines
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Adopting Multi Root Workspace APIs
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Automated Issue Triaging
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Build and run 32bit Code OSS on Windows
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Build Champion
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Code Editor Roadmap
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Coding Guidelines
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Color customization color id changes
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Commit Signing
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Community Issue Tracking
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Contributor License Agreement
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Copilot Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Cross Compiling for Debian Based Linux
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Custom eslint rules
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Dealing with Test Flakiness
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+December Pre Release
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+December Test Plan
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Design Goals
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Development Process
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Differences between the repository and Visual Studio Code
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Editor decorations & colors
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Endgame testing and verification
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Explain extension causes high cpu load
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Extension API guidelines
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Extension API process
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Feature Areas
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Feedback Channels
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+File Watcher Internals
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+File Watcher Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Git & SCM Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+How to Contribute
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+IME Test
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Insiders Release Notes
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Interactive Window Documentation
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Inventory of performance marks
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Issue Grooming
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Issue Tracking
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Issues Triaging
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Iteration Plans
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Keybinding Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Known issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Lists And Trees
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Multi‐root Workspace support in Chat
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Native Crash Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Notebook documentation
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Notebook layout
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Notebook Smoke Test
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+November Plan
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Performance Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Performance Issues (old)
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Pointer Device & Touch support
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Publish vscode types
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Related Projects
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Release Process
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Removing Insiders
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap 2017
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap 2018
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap 2019
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap 2020
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap‐2021‐2022
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Running the Endgame
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Runtime debugging
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Sanity Check
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Screen Reader Test
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Search Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Selfhosting on Windows WSL
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Semantic Highlighting Overview
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Setting Descriptions
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Smoke Test
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Source Code Organization
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Submitting Bugs and Suggestions
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Terminal Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+TypeScript Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+UX
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Virtual Workspaces
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+VS Code Speech
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Working Copies
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Working with xterm.js
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Writing Test Plan Items
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Writing Tests
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Show 73 more pages…
+
+Project Management
+
+Roadmap
+
+Iteration Plans
+
+Development Process
+
+Issue Tracking
+
+Issues Triaging
+
+Community Issue Tracking
+
+Automated Issue Triaging
+
+Issue Grooming
+
+Build Champion
+
+Release Process
+
+Running the Endgame
+
+Writing Test Plan Items
+
+Endgame testing and verification
+
+Sanity Check
+
+Related Projects
+
+Contributing
+
+How to Contribute
+
+Submitting Bugs and Suggestions
+
+Performance Issues
+
+Keybinding Issues
+
+Native Crash Issues
+
+Search Issues
+
+Terminal Issues
+
+File Watcher Issues
+
+TypeScript Issues
+
+Copilot Issues
+
+Feedback Channels
+
+Source Code Organization
+
+Coding Guidelines
+
+Testing
+
+Writing Tests
+
+Smoke Test
+
+Dealing with Test Flakiness
+
+Contributor License Agreement
+
+Extension API Guidelines
+
+Accessibility Guidelines
+
+Custom ESLint rules
+
+Documentation
+
+Extensions
+
+API
+
+Visual Studio Code
+
+Document Repository
+
+Multi Root Workspace API
+
+Clone this wiki locally
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

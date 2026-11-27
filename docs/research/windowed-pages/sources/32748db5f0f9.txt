@@ -1,0 +1,283 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+microsoft
+
+monaco-editor
+
+Repository navigation
+
+Code
+
+Issues796 ( 796 )
+
+Pull requests108 ( 108 )
+
+Discussions
+
+Actions
+
+Wiki
+
+Security and quality
+
+Insights
+
+More items
+
+Monaco Editor Accessibility Guide
+
+Jump to bottom
+
+Megan Rogge edited this page Aug 4, 2026
+·
+13 revisions
+
+This page describes the features the Monaco Editor has to help make the editor accessible to all users. The Monaco Editor is a source code editor, distributed as a library that can be embedded in web applications.
+
+This page documents the default Monaco Editor settings and behaviour. Various editor integrators might choose to change or tweak certain editor behaviours, in which case it is best to consult their documentation.
+
+Keyboard Navigation
+
+The Monaco Editor will provide an exhaustive list of commands in the Command Palette (F1 or Alt+F1 on Internet Explorer), so you can use the editor without using the mouse. The Command Palette can also be invoked from the editor's context menu.
+
+High Contrast
+
+On Edge, the Monaco Editor will automatically adjust to respect the High Contrast Theme and colors chosen in Windows:
+
+The command "Toggle High Contrast Theme" (in the Command Palette) will toggle the use of the high contrast theme for the editor, and works in any browser and Operating System:
+
+Tab Trapping
+
+By default, pressing Tab in an editable editor inserts the Tab character (or spaces depending on the indentation setting) and does not navigate to the next focusable element on the page. You can toggle the trapping of Tab with Ctrl+M on Windows and Linux and with Ctrl+Shift+M on OSX, and subsequent Tab keys will move focus out of the editor.
+
+You can also toggle Tab trapping from the Command Palette with the "Toggle Tab Key Moves Focus" action.
+
+UI optimized for Screen Readers
+
+The Monaco Editor supports screen readers in the editor using a strategy based on paging the text.
+
+When using NVDA on Windows, we recommend to update to NVDA 2017.3 or higher. NVDA 2017.3 increases NVDA's timeout for receiving a caret move event from 30ms to 100ms. This version is the first one where the built-in timeout is increased from 30ms to 100ms.
+
+The "Go to Next/Previous Error or Warning" actions (F8 and Shift+F8) allow screen readers to announce the error or warning messages. Use Escape or Shift+Escape to return focus to the editor at the position of the error or warning:
+
+The "Go to Next/Previous Difference" actions (F7 and Shift+F7), when in a diff editor pane, will bring up the Diff Review Pane, which allows the navigation of the diffs, presented in a unified patch format. Arrow Up and Arrow Down can be used to navigate through the unchanged, inserted or deleted lines. Pressing Enter will return focus to the modified pane of the diff editor at the selected line number (or closest still existing line number in case a deleted line is selected). Use Escape or Shift+Escape to dismiss the Diff Review Pane.
+
+When in an editable editor, and when the suggestions pop up, they will get announced to screen readers. It is possible to navigate the suggestions using Ctrl+Up and Ctrl+Down (as well as Arrow Up and Arrow Down), you can dismiss the suggestions with Escape or Shift+Escape. These alternative keybindings allow various Screen Reader software to remain in focus mode. If a suggestion has additional details, this will be read out and it is possible to read the additional details by pressing Ctrl+Space.
+
+Find
+
+When the Find widget is open, you can toggle its matching options with these keyboard shortcuts:
+
+Match Case: Alt+C on Windows and Linux; Command+Option+C on macOS.
+
+Match Whole Word: Alt+W on Windows and Linux; Command+Option+W on macOS.
+
+Use Regular Expression: Alt+R on Windows and Linux; Command+Option+R on macOS.
+
+Wiki pages
+
+Pages 3
+
+Loading
+
+Home
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Accessibility Guide for Integrators
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Monaco Editor Accessibility Guide
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Clone this wiki locally
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

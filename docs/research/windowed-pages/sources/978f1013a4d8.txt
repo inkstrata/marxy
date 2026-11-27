@@ -1,0 +1,775 @@
+Skip to main content
+
+Skip to search
+
+HTML
+
+HTML: Markup language
+
+HTML reference
+
+Elements
+
+Global attributes
+
+Attributes
+
+See all…
+
+HTML guides
+
+Responsive images
+
+HTML cheatsheet
+
+Date & time formats
+
+See all…
+
+Markup languages
+
+SVG
+
+MathML
+
+XML
+
+CSS
+
+CSS: Styling language
+
+CSS reference
+
+Properties
+
+Selectors
+
+At-rules
+
+Values
+
+See all…
+
+CSS guides
+
+Box model
+
+Animations
+
+Flexbox
+
+Colors
+
+See all…
+
+Layout cookbook
+
+Column layouts
+
+Centering an element
+
+Card component
+
+See all…
+
+JavaScriptJS
+
+JavaScript: Scripting language
+
+JS reference
+
+Standard built-in objects
+
+Expressions & operators
+
+Statements & declarations
+
+Functions
+
+See all…
+
+JS guides
+
+Control flow & error handling
+
+Loops and iteration
+
+Working with objects
+
+Using classes
+
+See all…
+
+Web APIs
+
+Web APIs: Programming interfaces
+
+Web API reference
+
+File system API
+
+Fetch API
+
+Geolocation API
+
+HTML DOM API
+
+Push API
+
+Service worker API
+
+See all…
+
+Web API guides
+
+Using the Web animation API
+
+Using the Fetch API
+
+Working with the History API
+
+Using the Web speech API
+
+Using web workers
+
+All
+
+All web technology
+
+Technologies
+
+Accessibility
+
+HTTP
+
+URI
+
+Web extensions
+
+WebAssembly
+
+WebDriver
+
+See all…
+
+Topics
+
+Media
+
+Performance
+
+Privacy
+
+Security
+
+Progressive web apps
+
+Learn
+
+Learn web development
+
+Frontend developer course
+
+Getting started modules
+
+Core modules
+
+MDN Curriculum
+
+Check out the video course from Scrimba, our partner
+
+Learn HTML
+
+Structuring content with HTML module
+
+Learn CSS
+
+CSS styling basics module
+
+CSS layout module
+
+Learn JavaScript
+
+Dynamic scripting with JavaScript module
+
+Tools
+
+Discover our tools
+
+Playground
+
+HTTP Observatory
+
+Border-image generator
+
+Border-radius generator
+
+Box-shadow generator
+
+Color format converter
+
+Color mixer
+
+Shape generator
+
+About
+
+Get to know MDN better
+
+About MDN
+
+Advertise with us
+
+Community
+
+MDN on GitHub
+
+Blog
+
+Toggle sidebar
+
+Web
+
+Accessibility
+
+ARIA
+
+ARIA reference
+
+Roles
+
+feed
+
+Theme
+
+OS default
+
+Light
+
+Dark
+
+English (US)
+
+Remember language
+Learn more
+
+Deutsch
+
+English (US)
+
+Français
+
+日本語
+
+ARIA: feed role
+
+A feed is a dynamic scrollable list of articles in which articles are added to or removed from either end of the list as the user scrolls. A feed enables screen readers to use the browse mode reading cursor to both read and scroll through a stream of rich content that may continue scrolling infinitely by loading more content as the user reads.
+
+html
+
+<section role="feed" aria-busy="false">
+…
+<article aria-posinset="427" aria-setsize="-1">…</article>
+<article aria-posinset="428" aria-setsize="-1">…</article>
+<article aria-posinset="429" aria-setsize="-1">…</article>
+…
+</section>
+
+In this article
+
+Description
+
+Best practices
+
+Examples
+
+Specifications
+
+See also
+
+Description
+
+A feed is a type of list, the containing role for scrollable articles where scrolling may cause articles to be added to the top or end of the list. The role enables assistive technology to use the browse mode reading cursor to both read and scroll through a stream of rich content that may continue scrolling infinitely by loading more content as the user reads. Examples include an RSS feed, news feeds, social media feeds like Facebook, Instagram or Mastodon, or even a list of related products on an e-commerce page. These streams can be limited or infinite, loading more content as the user scrolls. Implementing the feed pattern allows a screen reader to reliably read and trigger the loading of feed content while in reading mode.
+
+Unlike the document structure elements that represent static HTML elements, the feed role requires specific interactions and implementation of keyboard navigation. The feed is a container element whose children are <article>s or have role article. Each article within a feed should be focusable, with tabindex of 0 or -1. An article should be scrolled into view when it, or a descendant element, receives focus. If the addition of articles occupies the main browser thread, make sure to set aria-busy="true" on the feed itself, and make sure to set it back to false when processing ends, or the user may not see the updates.
+
+If the number of articles is known, set aria-setsize on the articles themselves. However, if the total number is extremely large, indefinite, or changes often, set aria-setsize="-1" to indicate that the size of the feed is not known.
+
+Another feature of the feed pattern is skim reading: Articles within a feed can contain both an accessible name with the aria-label and a description with an aria-describedby, suggesting to screen readers which elements to speak after the label when navigating by article. By identifying the elements inside an article that provide the title and the primary content, assistive technologies can provide functions that enable users to jump from article to article and efficiently discern which articles they want to read.
+
+The feed pattern enables reliable assistive technology reading mode interaction by establishing the following interoperability agreement between the web page and assistive technologies:
+
+In the context of a feed, the web page code is responsible for:
+
+Appropriate visual scrolling of the content based on which article contains DOM focus.
+
+Loading or removing feed articles based on which article contains DOM focus.
+
+Keyboard interactions
+
+Supporting the following, or a similar, interface is recommended when focus is inside the feed:
+
+Page Down: Move focus to next article.
+
+Page Up: Move focus to previous article.
+
+Control + End: Move focus to the first focusable element after the feed.
+
+Control + Home: Move focus to the first focusable element before the feed.
+
+If a feed is nested within a feed, such as a comments feed within a feed of blog posts, the convention is to tab into the nested feed with the Tab key and to provide another key, such as Alt + Page Down, to navigate from an 'outer' article to the first item in that article's nested feed. Navigate between the nested feed and main feed with Control + End, moving focus from the inner feed to the next article in the outer feed.
+
+WAI-ARIA roles, states, and properties
+
+aria-label
+
+If the feed has no visible title, the feed element has a label specified with aria-label. If it does, see aria-labelledby.
+
+aria-labelledby
+
+If the feed has a visible title, the feed element has aria-labelledby referring to the element containing the title. If not, add an aria-label.
+
+aria-busy
+
+When busy, such as when articles are being added or removed from the feed, set aria-busy="true" during the update operation. Make sure it's reset to false when the operation is complete or the changes may not become visible.
+
+article
+
+Each section of content in a feed should be contained in an <article> or element with role article. Each article should have an aria-labelledby referring to the article title or other child that can serve as a distinguishing label. Each article should preferably have aria-describedby referring to one or more elements inside the article that serve as the primary content of the article. Each article element has aria-posinset set to a value that represents its position in the feed and an aria-setsize set to a value that represents either the total number of articles that have been loaded or the total number in the feed, depending on which value is more helpful to users. If the total number in the feed is not known, set aria-setsize="-1".
+
+Required JavaScript features
+
+None, except as required by any attributes. For example, setting aria-busy to true during the update operation if needed, and then to false upon completion.
+
+Note: It is the author's responsibility to apply the "above" keyboard behavior.
+
+Best practices
+
+To ensure good user experience, avoid inserting or removing articles in the middle of a feed, load new articles before the user has reached the end of the feed, and provide keyboard commands for moving focus among articles so that keyboard users can navigate through your feed. See Keyboard interactions.
+
+Examples
+
+Example Implementation of Feed Pattern
+
+Specifications
+
+Specification
+
+Accessible Rich Internet Applications (WAI-ARIA)
+# feed
+
+See also
+
+The HTML <article> element
+
+The <ul> unordered list element
+
+ARIA: article role
+
+ARIA: list role
+
+Help improve MDN
+
+Yes
+
+No
+
+Learn how to contribute
+
+This page was last modified on Nov 20, 2026 by MDN contributors.
+
+View this page on GitHub • Report a problem with this content
+
+Clear filter input
+
+Accessibility
+
+Guides
+
+Information for web authors
+
+Personalization to help browse safely
+
+Accessible web applications and widgets
+
+Keyboard-navigable JavaScript widgets
+
+Mobile accessibility checklist
+
+Cognitive accessibility
+
+Spatial patterns
+
+Colors and Luminance
+
+Preventing seizures and physical reactions
+
+Understanding WCAG
+
+Keyboard accessible
+
+Operable
+
+Perceivable
+
+Robust
+
+Text labels and names
+
+Understandable
+
+ARIA
+
+ARIA guides
+
+ARIA live regions
+
+Screen reader implementors guide
+
+Using ARIA: Roles, states, and properties
+
+Using ARIA for labels with embedded fields
+
+ARIA reference
+
+Attributes
+
+aria-activedescendant
+
+aria-atomic
+
+aria-autocomplete
+
+aria-braillelabel
+
+aria-brailleroledescription
+
+aria-busy
+
+aria-checked
+
+aria-colcount
+
+aria-colindex
+
+aria-colindextext
+
+aria-colspan
+
+aria-controls
+
+aria-current
+
+aria-describedby
+
+aria-description
+
+aria-details
+
+aria-disabled
+
+aria-dropeffect
+
+aria-errormessage
+
+aria-expanded
+
+aria-flowto
+
+aria-grabbed
+
+aria-haspopup
+
+aria-hidden
+
+aria-invalid
+
+aria-keyshortcuts
+
+aria-label
+
+aria-labelledby
+
+aria-level
+
+aria-live
+
+aria-modal
+
+aria-multiline
+
+aria-multiselectable
+
+aria-orientation
+
+aria-owns
+
+aria-placeholder
+
+aria-posinset
+
+aria-pressed
+
+aria-readonly
+
+aria-relevant
+
+aria-required
+
+aria-roledescription
+
+aria-rowcount
+
+aria-rowindex
+
+aria-rowindextext
+
+aria-rowspan
+
+aria-selected
+
+aria-setsize
+
+aria-sort
+
+aria-valuemax
+
+aria-valuemin
+
+aria-valuenow
+
+aria-valuetext
+
+Roles
+
+alert
+
+alertdialog
+
+application
+
+article
+
+banner
+
+button
+
+cell
+
+checkbox
+
+columnheader
+
+combobox
+
+command
+
+comment
+
+complementary
+
+composite
+
+contentinfo
+
+definition
+
+dialog
+
+directory
+
+document
+
+feed
+
+figure
+
+form
+
+generic
+
+graphics-document
+
+graphics-object
+
+graphics-symbol
+
+grid
+
+gridcell
+
+group
+
+heading
+
+img
+
+input
+
+landmark
+
+link
+
+list
+
+listbox
+
+listitem
+
+log
+
+main
+
+mark
+
+marquee
+
+math
+
+menu
+
+menubar
+
+menuitem
+
+menuitemcheckbox
+
+menuitemradio
+
+meter
+
+navigation
+
+none
+
+note
+
+option
+
+presentation
+
+progressbar
+
+radio
+
+radiogroup
+
+range
+
+region
+
+roletype
+
+row
+
+rowgroup
+
+rowheader
+
+scrollbar
+
+search
+
+searchbox
+
+section
+
+sectionhead
+
+select
+
+separator
+
+slider
+
+spinbutton
+
+status
+
+Structural
+
+structure
+
+suggestion
+
+switch
+
+tab
+
+table
+
+tablist
+
+tabpanel
+
+term
+
+textbox
+
+timer
+
+toolbar
+
+tooltip
+
+tree
+
+treegrid
+
+treeitem
+
+widget
+
+window
+
+Your blueprint for a better internet.
+
+MDN
+
+About
+
+Blog
+
+Mozilla careers
+
+Advertise with us
+
+MDN Plus
+
+Product help
+
+Contribute
+
+MDN Community
+
+Community resources
+
+Writing guidelines
+
+MDN Discord
+
+MDN on GitHub
+
+Developers
+
+Web technologies
+
+Learn web development
+
+Guides
+
+Tutorials
+
+Glossary
+
+Hacks blog
+
+Website Privacy Notice
+
+Telemetry Settings
+
+Legal
+
+Community Participation Guidelines
+
+Portions of this content are ©1998–2026 by individual mozilla.org contributors. Content available under a Creative Commons license.

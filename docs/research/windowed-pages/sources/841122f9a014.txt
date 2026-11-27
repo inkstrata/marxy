@@ -1,0 +1,413 @@
+Apple
+
+Store
+
+Mac
+
+iPad
+
+iPhone
+
+Watch
+
+Vision
+
+AirPods
+
+Home
+
+Entertainment
+
+Accessories
+
+Support
+
+0+
+
+VoiceOver User Guide
+
+Select version:
+
+macOS 27 Golden Gate
+
+macOS Tahoe 26
+
+macOS Sequoia 15
+
+macOS Sonoma 14
+
+macOS Ventura 13
+
+macOS Monterey 12
+
+macOS Big Sur 11.0
+
+macOS Catalina 10.15
+
+macOS Mojave 10.14
+
+macOS High Sierra
+
+Modifying this control will update this page automatically
+
+Search this guide
+
+Clear Search
+
+Table of Contents
+
+VoiceOver User Guide
+
+Welcome
+
+What’s new in VoiceOver
+
+Set up and get started
+
+Get started with VoiceOver
+
+Learn and practice VoiceOver
+
+Turn VoiceOver on or off
+
+Control your Mac with keyboard commands
+
+Navigate your Mac
+
+Login window
+
+Desktop and Dock
+
+Menu bar and Control Center
+
+Finder and Spotlight
+
+Work with notifications
+
+Screen Sharing
+
+Apps and windows
+
+Navigate apps and windows
+
+Make VoiceOver ignore the next keypress
+
+Move and resize items
+
+Use VoiceOver with a full-screen app
+
+Advanced navigation
+
+Intro to advanced navigation
+
+VoiceOver rotor
+
+Item Chooser
+
+Quick Nav
+
+Tab key
+
+Cursor tracking and wrapping
+
+Tables, graphs, and charts
+
+Use hot spots
+
+Use positional audio
+
+Drag and drop items
+
+Search with Find, attributes, or letters
+
+Perform an item’s alternate action
+
+Navigate webpages
+
+By DOM or group mode
+
+By images or frames
+
+By live regions
+
+By landmarks
+
+By webpage summary
+
+Webpage tables
+
+Work with text
+
+Intro to working with text
+
+Read text
+
+Select text
+
+Scroll to content
+
+Hear what you type
+
+Explore the current selection
+
+Adjust the verbosity
+
+Repeat, copy, or save the last spoken phrase
+
+Find spelling and text formatting issues
+
+Use a braille display
+
+Get started using a braille display
+
+Use braille displays with VoiceOver
+
+Connect a Bluetooth display
+
+Use the router keys
+
+Supported displays
+
+Use Braille Access
+
+Use Live Captions
+
+Mirror a display
+
+Braille Keyboard Input
+
+Show status information
+
+Review announcements
+
+Assign commands to braille display keys
+
+VoiceOver commands and gestures
+
+Intro to VoiceOver commands and gestures
+
+VoiceOver Commands
+
+General commands
+
+Interaction commands
+
+Navigation commands
+
+Orientation commands
+
+Search commands
+
+Text commands
+
+Web commands
+
+VoiceOver Gestures
+
+Use trackpad gestures to control VoiceOver
+
+Standard trackpad gestures
+
+Use the trackpad gestures rotor
+
+Customize VoiceOver
+
+Customize key commands and trackpad gestures
+
+Change what the VoiceOver rotor shows
+
+Change the VoiceOver voice
+
+Change how VoiceOver pronounces text and symbols
+
+Customize verbosity
+
+Use VoiceOver activities
+
+Change function key behavior
+
+Customize punctuation
+
+Create custom labels for UI elements
+
+Export, import, and reset VoiceOver preferences
+
+Use VoiceOver portable preferences
+
+Use the braille and caption panel
+
+Use the screen curtain
+
+Use tile visuals
+
+Learn about progress or status changes
+
+VoiceOver Utility categories
+
+Intro to VoiceOver Utility
+
+General category
+
+Verbosity category
+
+Speech tab
+
+Braille tab
+
+Text tab
+
+Announcements tab
+
+Hints tab
+
+Speech category
+
+Voices tab
+
+Pronunciation tab
+
+Navigation category
+
+Web category
+
+Navigation tab
+
+General tab
+
+Web Rotor tab
+
+Sound category
+
+Visuals category
+
+Cursor tab
+
+Panels and Menus tab
+
+Touch tab
+
+Commands category
+
+Braille category
+
+Translation tab
+
+Layout tab
+
+Status tab
+
+Displays tab
+
+Braille Access tab
+
+Activities category
+
+VoiceOver Recognition category
+
+Screen Sharing category
+
+Copyright and trademarks
+
+Use VoiceOver cursor tracking and cursor wrapping on Mac
+
+By default, the VoiceOver cursor and keyboard focus are synchronized—set to follow (or track) each other. This is called cursor tracking. You can also set the VoiceOver cursor and the mouse pointer to track each other.
+
+It can be useful to turn off cursor tracking, and use the keyboard, mouse pointer, and insertion point independently. For example, in Messages you can move the VoiceOver cursor to the message portion to hear incoming messages, while the keyboard focus remains in the text field to type outgoing messages.
+
+When you use cursor wrapping, VoiceOver treats the items in a window or column as a continuous loop to make them easier to navigate.
+
+Note: VO represents the VoiceOver modifier that you press with additional keys to enter VoiceOver commands. By default, you can press Control and Option together or just press Caps Lock.
+
+Turn on cursor tracking for the mouse
+
+Go to VoiceOver Utility (press VO-Fn-F8 when VoiceOver is on).
+
+Click the Navigation category, click the “Mouse pointer” pop-up menu, then choose a behavior for the mouse pointer:
+
+Follows VoiceOver cursor
+
+Moves VoiceOver cursor
+
+Turn off cursor tracking
+
+Go to VoiceOver Utility (press VO-Fn-F8 when VoiceOver is on).
+
+Click the Navigation category, then deselect “Synchronize keyboard focus and VoiceOver cursor.”
+
+Click the “Mouse pointer” pop-up menu, then choose “Ignores VoiceOver cursor.”
+
+To temporarily turn cursor tracking on or off while you’re working, press VO-Shift-F3. This command doesn’t change the settings in VoiceOver Utility; it just switches them on or off until you press the command again.
+
+Work with cursor tracking turned off
+
+Move the VoiceOver cursor to the keyboard focus: Press VO-Shift-F4.
+
+Move the keyboard focus to the VoiceOver cursor: Press VO-Command-F4.
+
+Move the VoiceOver cursor to where the mouse pointer is focused: Press VO-Shift-F5.
+
+Move the mouse pointer to where the VoiceOver cursor is focused: Press VO-Command-F5.
+
+Turn on and use cursor wrapping
+
+Go to VoiceOver Utility (press VO-Fn-F8 when VoiceOver is on).
+
+Open VoiceOver Utility for me
+
+Click Navigation, then select “Allow cursor wrapping.”
+
+To use wrapping, do any of the following:
+
+Wrap from the last item in a window to the top of the window: Press VO-Right Arrow.
+
+Wrap from the first item in a window to the bottom of the window: Press VO-Left Arrow.
+
+Wrap from an item at the bottom of a column (such as a list) to the first item in the next column: Press VO-Down Arrow.
+
+Wrap from an item at the top of a column (such as a list) to the last item in the previous column: Press VO-Up Arrow.
+
+See alsoTile visuals to focus on the VoiceOver cursor on MacChange VoiceOver Navigation settings in VoiceOver Utility on Mac
+
+Download this guide in Braille Ready Format: BRF (English)
+
+Previous
+Tab key
+
+Next
+Tables, graphs, and charts
+
+Helpful?
+
+Yes
+
+No
+
+Character limit:
+250
+
+Please don’t include any personal information in your comment.
+
+Maximum character limit is 250.
+
+Submit
+
+Thanks for your feedback.
+
+Apple Footer
+
+
+Apple
+
+Support
+
+VoiceOver User Guide
+
+Use VoiceOver cursor tracking and cursor wrapping on Mac
+
+United Arab Emirates
+
+Copyright © 2026 Apple Inc. All rights reserved.
+
+Privacy Policy
+Sales and Refunds
+Site Map

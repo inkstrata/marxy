@@ -1,0 +1,100 @@
+{
+ "chapter": "01-code-map.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "CMP-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "387d4c0825f1"
+  },
+  "CMP-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "27e08311e470"
+  },
+  "CMP-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "637b85dcef6e"
+  },
+  "CMP-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "02b7e160d56f"
+  },
+  "CMP-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "47ae9a418b7d"
+  },
+  "CMP-06": {
+   "tags": [
+    "confirmed",
+    "likely"
+   ],
+   "hash": "6dfb9b25252d"
+  },
+  "CMP-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "02dc3deaffc0"
+  },
+  "CMP-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "5f0f19355ace"
+  },
+  "CMP-09": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "538fcd1d6b50"
+  },
+  "CMP-10": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "cd74686a893c"
+  },
+  "CMP-11": {
+   "tags": [
+    "confirmed",
+    "likely"
+   ],
+   "hash": "3a4bd39caf48"
+  },
+  "CMP-12": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "bf4fd7106842"
+  },
+  "CMP-13": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "34fe7b769a5d"
+  },
+  "CMP-14": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "9cb616eac8c9"
+  },
+  "CMP-15": {
+   "tags": [
+    "confirmed",
+    "likely"
+   ],
+   "hash": "df523c2a243c"
+  }
+ }
+}

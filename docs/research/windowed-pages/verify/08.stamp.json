@@ -1,0 +1,103 @@
+{
+ "chapter": "08-find-select-copy.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "FSC-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "2037d73f024b"
+  },
+  "FSC-02": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "22edaec168c4"
+  },
+  "FSC-03": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "9eeac125247d"
+  },
+  "FSC-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "8725acef44f3"
+  },
+  "FSC-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "363181cbe691"
+  },
+  "FSC-06": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "2a1552569646"
+  },
+  "FSC-07": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "a276ff44a534"
+  },
+  "FSC-08": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "953fa044a944"
+  },
+  "FSC-09": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "6f6c8dedcb2d"
+  },
+  "FSC-10": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "183f3024d719"
+  },
+  "FSC-11": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "f751558e9460"
+  },
+  "FSC-12": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "82143b372e5d"
+  },
+  "FSC-13": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "672df86694ef"
+  },
+  "FSC-14": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "3fce89e4c657"
+  },
+  "FSC-15": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "0587798c6b24"
+  },
+  "FSC-16": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "f6fc4d292f96"
+  }
+ }
+}
