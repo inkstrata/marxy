@@ -21,7 +21,7 @@ and see the code build and pass its checks on macOS for the first time.
     It is not committed and nothing is lost.
 - **`work/`.** The tracker and the records of rounds 9 to 16 and waves 1 to 5, laid out as `README.md`
   describes:
-  - 460 files, 8.2 MB, text only. Build copies and HTML renders are in the archive zip.
+  - 474 files, 9 MB, text only, the runs' logs included. Build copies and HTML renders are in the archive zip.
   - The Windows account name in temp paths is replaced with `<user>`.
 - **Tooling for GitHub.**
   - `pnpm work` and `pnpm verify` default to `main`.
