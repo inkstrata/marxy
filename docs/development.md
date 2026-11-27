@@ -18,7 +18,9 @@ change is tracked and carried to `main` is in [working.md](working.md).
 
 `mise.toml` pins the same versions for machines that use mise. On Linux the Tauri build also needs the
 WebKitGTK development packages (`libwebkit2gtk-4.1-dev`, `libgtk-3-dev`,
-`libayatana-appindicator3-dev`, `librsvg2-dev`). macOS bundles are signed ad hoc only, so a downloaded
+`libayatana-appindicator3-dev`, `librsvg2-dev`, `libsoup-3.0-dev`, `libjavascriptcoregtk-4.1-dev`, `libssl-dev`,
+`libxdo-dev`, `patchelf`, a C toolchain). CI's `linux` job installs exactly that list on `ubuntu-latest`, and `xvfb` and
+`dbus` for the smoke launch, which runs on a virtual display. macOS bundles are signed ad hoc only, so a downloaded
 build needs its quarantine flag cleared (`xattr -dr com.apple.quarantine /Applications/Marxy.app`).
 
 ```bash
