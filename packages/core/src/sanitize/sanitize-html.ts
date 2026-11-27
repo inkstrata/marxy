@@ -240,7 +240,7 @@ interface Writer {
  */
 function writer(removed: RemovalSink, maxOpen: number): Writer {
   const open: string[] = [];
-  // Opens refused past `SANITIZE_MAX_OPEN`, by name: their close tags go with them rather than close something written.
+  // Opens refused past `maxOpen`, by name: their close tags go with them rather than close something written.
   const dropped = new Map<string, number>();
   // How many of each name are open, so a close tag with no open element is O(1), not a scan.
   const counts = new Map<string, number>();
@@ -249,7 +249,7 @@ function writer(removed: RemovalSink, maxOpen: number): Writer {
     const name = open.pop();
     if (name === undefined) return;
     // Opens dropped at the cap sat inside the element at its top, so closing that one ends them too.
-    if (open.length < SANITIZE_MAX_OPEN && dropped.size > 0) dropped.clear();
+    if (open.length < maxOpen && dropped.size > 0) dropped.clear();
     counts.set(name, (counts.get(name) ?? 1) - 1);
     parts.push(`</${name}>`);
   };

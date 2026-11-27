@@ -153,18 +153,21 @@ export function createSandboxFrame(o: SandboxOptions): SandboxFrame {
     adopt(d);
     deaf = !hears();
     if (!deaf) hits?.replaceChildren();
-    d.addEventListener('click', (e) => {
-      const a = (e.target as Element | null)?.closest?.('a[data-marxy-href]');
-      e.preventDefault();
-      if (a) o.onLink(a.getAttribute('data-marxy-href') ?? '');
-    });
-    d.addEventListener('submit', (e) => e.preventDefault(), true);
-    // The app's chords still reach it while the reader's focus is in the page.
-    d.addEventListener('keydown', (e) => {
-      if (!(e.ctrlKey || e.metaKey || e.altKey || e.key === 'Escape' || e.key === 'F1')) return;
-      const again = new KeyboardEvent('keydown', { key: e.key, code: e.code, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, shiftKey: e.shiftKey, bubbles: true, cancelable: true });
-      if (!frame.dispatchEvent(again)) e.preventDefault();
-    });
+    // Where the engine runs none of them, adding them only has it log a blocked script (`hits` hears the press instead).
+    if (!deaf) {
+      d.addEventListener('click', (e) => {
+        const a = (e.target as Element | null)?.closest?.('a[data-marxy-href]');
+        e.preventDefault();
+        if (a) o.onLink(a.getAttribute('data-marxy-href') ?? '');
+      });
+      d.addEventListener('submit', (e) => e.preventDefault(), true);
+      // The app's chords still reach it while the reader's focus is in the page.
+      d.addEventListener('keydown', (e) => {
+        if (!(e.ctrlKey || e.metaKey || e.altKey || e.key === 'Escape' || e.key === 'F1')) return;
+        const again = new KeyboardEvent('keydown', { key: e.key, code: e.code, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, shiftKey: e.shiftKey, bubbles: true, cancelable: true });
+        if (!frame.dispatchEvent(again)) e.preventDefault();
+      });
+    }
     for (const img of d.images) img.addEventListener('load', fit);
     resize?.disconnect();
     resize = new ResizeObserver(fit);

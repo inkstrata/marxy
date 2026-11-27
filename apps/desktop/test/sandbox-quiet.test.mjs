@@ -29,6 +29,16 @@ for (const [name, path, viewer] of [['a mail message', MAIL, 'mail'], ['an HTML 
       await page.waitForSelector(`[data-marxy-viewer="${viewer}"] iframe.marxy-sandbox`);
       await page.waitForFunction(() => (document.querySelector('iframe.marxy-sandbox')?.contentDocument?.body?.children.length ?? 0) > 0);
       await page.waitForTimeout(500);
+      // A press on a link (heard by the app's own box over it) and a chord are quiet too. A press on the frame's bare body is
+      // the engine's own and is logged whatever the app does, so it is not asserted.
+      const link = page.frameLocator('iframe.marxy-sandbox').locator('a').first();
+      if (await link.count()) {
+        await link.scrollIntoViewIfNeeded();
+        const box = await link.boundingBox();
+        if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      }
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
       const refused = logged.filter((l) => /blocked script|sandboxed/i.test(l));
       assert.deepEqual(refused, [], `console said: ${logged.join(' | ')}`);
     });
