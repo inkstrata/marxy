@@ -221,7 +221,7 @@ const framesOnly = !noPaint && signal === FRAMES_ONLY_SIGNAL;
 if (framesOnly) {
   check(open.code === 0, `a frames-only boot must still open the document and exit 0, got ${open.code}`);
   check(firstTextIndex >= 0, 'a frames-only boot that showed text printed no first_text');
-  check(/source=frame/.test(painted), `a frames-only boot must say source=frame on MARK painted, got "${painted}"`);
+  check(/source=frame\b/.test(painted), `a frames-only boot must say source=frame on MARK painted, got "${painted}"`);
   check(paintedFramesOk(frames), `a frames-only boot still needs at least 2 animation frames, got frames=${frames}`);
 } else if (noPaint) {
   // What the app owes even here is checkable, and none of it depends on a frame arriving.

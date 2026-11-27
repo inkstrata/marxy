@@ -617,7 +617,7 @@ fn an_aiff_takes_its_first_comm_and_reads_an_id3_chunk() {
     b.extend_from_slice(&(id3.len() as u32).to_be_bytes());
     b.extend_from_slice(&id3);
     // A NAME after the ID3 chunk adds no second title.
-    b.extend_from_slice(b"NAME   Late");
+    b.extend_from_slice(b"NAME\0\0\0\x04Late");
     let f = read(&mut Cursor::new(b)).unwrap().unwrap();
     assert_eq!(f.tracks.len(), 1);
     assert_eq!(f.tracks[0].channels, Some(2));

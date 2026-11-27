@@ -25,7 +25,7 @@ const where = (page) =>
     return b && !b.hidden ? b.querySelector('.marxy-verb-bar-where').textContent : null;
   });
 const pickedCells = (page) => page.$$eval('.marxy-tbl-grid td[aria-selected="true"]', (els) => els.length);
-/** Counts the keys the shown viewer is asked to handle; the count is read back with sked. */
+/** Counts the keys the shown viewer is asked to handle; the count is read back with `asked`. */
 const spyOnViewer = (page) =>
   page.evaluate(() => {
     const viewer = window.__marxyHandle.panes().focused.content.viewer();

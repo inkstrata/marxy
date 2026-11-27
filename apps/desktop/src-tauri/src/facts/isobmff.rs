@@ -714,7 +714,7 @@ pub mod tests {
     fn an_iloc_of_empty_extents_by_the_thousand_is_read_in_bounded_time() {
         let mut infe = 1u16.to_be_bytes().to_vec();
         infe.extend_from_slice(&[0, 0]);
-        infe.extend_from_slice(b"Exif ");
+        infe.extend_from_slice(b"Exif\0");
         let mut iinf = 1u16.to_be_bytes().to_vec();
         iinf.extend(full(b"infe", 2, 0, &infe));
         let mut iloc = vec![0x00, 0x00];
@@ -734,7 +734,7 @@ pub mod tests {
             ]
             .concat(),
         );
-        let file = [bx(b"ftyp", b"heic    mif1heic"), meta].concat();
+        let file = [bx(b"ftyp", b"heic\0\0\0\0mif1heic"), meta].concat();
         let started = std::time::Instant::now();
         let _ = read(&mut std::io::Cursor::new(file));
         assert!(started.elapsed().as_secs() < 2, "{:?}", started.elapsed());

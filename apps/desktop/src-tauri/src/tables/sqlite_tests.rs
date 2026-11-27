@@ -336,7 +336,7 @@ fn a_log_that_claims_more_than_a_copy_may_hold_is_refused() {
     let dir = copied("forged-log", &[]);
     let db = dir.join("x.db");
     let mut head = vec![0u8; 512];
-    head[..16].copy_from_slice(b"SQLite format 3 ");
+    head[..16].copy_from_slice(b"SQLite format 3\0");
     head[16..18].copy_from_slice(&512u16.to_be_bytes());
     head[18] = 2;
     head[19] = 2;

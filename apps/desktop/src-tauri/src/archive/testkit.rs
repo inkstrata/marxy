@@ -277,7 +277,7 @@ pub fn tar(entries: &[(&[u8], T, &[u8])]) -> Vec<u8> {
             T::Sparse => {
                 h.set_entry_type(::tar::EntryType::GNUSparse);
                 // The GNU header's real-size field, which the reader insists on.
-                h.as_mut_bytes()[483..495].copy_from_slice(b"00000000000 ");
+                h.as_mut_bytes()[483..495].copy_from_slice(b"00000000000\0");
             }
         }
         h.set_cksum();

@@ -264,7 +264,7 @@ function paraInlines(ctx: Ctx, p: XmlElement, paraCode: boolean, comments: strin
           // Labelled by the order they are marked, never by the id the file gives them, which could say anything.
           const kind = k.name === 'footnoteReference' ? 'fn' : 'en';
           const id = k.attrs.id ?? '';
-          const key = `${kind} ${id}`;
+          const key = `${kind}\0${id}`;
           let mark = ctx.marked.get(key);
           if (!mark) {
             mark = { kind, id, label: `n${ctx.marked.size + 1}` };
